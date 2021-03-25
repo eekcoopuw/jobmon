@@ -103,7 +103,7 @@ class WorkflowRun(DB.Model):
         """Statuses where Workflow Run is active (bound or running)."""
         return self.status in [WorkflowRunStatus.BOUND, WorkflowRunStatus.RUNNING]
 
-    def heartbeat(self, next_report_increment: int,
+    def heartbeat(self, next_report_increment: float,
                   transition_status: str = WorkflowRunStatus.RUNNING):
         """Register a heartbeat for the Workflow Run to show it is still alive."""
         self.transition(transition_status)

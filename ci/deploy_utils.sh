@@ -103,24 +103,41 @@ deploy_jobmon_to_k8s () {
     KUBECONFIG=${12}
     USE_LOGSTASH=${13}
 
-    # Deploy the ELK stack to K8S
+    #### Deploy the ELK stack to K8S
     docker pull alpine/helm  # Pull prebuilt helm container
 
-    # Remove ELK instance if already present
+    # Check if it's already been installed
     docker run -t \
         --rm \
-        -v "$WORKSPACE/deployment/elk:/apps" \
         -v $KUBECONFIG:/root/.kube/config \
-        alpine/helm uninstall jobmon-elk || true
+        alpine/helm status -n "$K8S_NAMESPACE" jobmon-elk
 
-    # Deploy ELK
-    docker run -t \
+    # If exists, exit status = 0 and a message appears
+    # If it doesn't exist, exit status = 1 and we see Error: release: not found
+    elk_exist=$?
+
+    if [[ $elk_exist -eq 0 ]]
+    then
+        # Stack already exists, so upgrade it
+        docker run -t \
         --rm \
-        -v "$WORKSPACE/deployment/elk:/apps" \
+        -v "$WORKSPACE/deployment/k8s/elk:/apps" \
         -v $KUBECONFIG:/root/.kube/config \
         alpine/helm \
-            install jobmon-elk /apps/. \
+            upgrade jobmon-elk /apps/. \
+            -n "$K8S_NAMESPACE" \
             --set global.namespace="$K8S_NAMESPACE"
+    else
+        # Stack doesn't exist, so install it
+        docker run -t \
+            --rm \
+            -v "$WORKSPACE/deployment/k8s/elk:/apps" \
+            -v $KUBECONFIG:/root/.kube/config \
+            alpine/helm \
+                install jobmon-elk /apps/. \
+                -n "$K8S_NAMESPACE" \
+                --set global.namespace="$K8S_NAMESPACE"
+    fi
 
     # Render each .yaml.j2 template in the k8s dir (return only the basename)
     docker pull $YASHA_CONTAINER

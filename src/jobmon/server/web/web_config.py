@@ -30,17 +30,26 @@ class WebConfig(object):
         ParserDefaults.logstash_host(cli.parser)
         ParserDefaults.logstash_port(cli.parser)
         ParserDefaults.logstash_protocol(cli.parser)
+        ParserDefaults.use_apm(cli.parser)
+        ParserDefaults.apm_server_url(cli.parser)
+        ParserDefaults.apm_server_name(cli.parser)
+        ParserDefaults.apm_port(cli.parser)
+        ParserDefaults.log_level(cli.parser)
 
         # passing an empty string forces this method to ignore sys.argv
         args = cli.parse_args("")
         return cls(db_host=args.db_host, db_port=args.db_port, db_user=args.db_user,
                    db_pass=args.db_pass, db_name=args.db_name, use_logstash=args.use_logstash,
                    logstash_host=args.logstash_host, logstash_port=args.logstash_port,
-                   logstash_protocol=args.logstash_protocol)
+                   logstash_protocol=args.logstash_protocol, use_apm=args.use_apm,
+                   apm_server_url=args.apm_server_url, apm_server_name=args.apm_server_name,
+                   apm_port=args.apm_port, log_level=args.log_level)
 
     def __init__(self, db_host: str, db_port: str, db_user: str, db_pass: str,
                  db_name: str, use_logstash: bool = False, logstash_host: str = "",
-                 logstash_port: str = "", logstash_protocol: str = ""):
+                 logstash_port: int = None, logstash_protocol: str = "", use_apm: bool = False,
+                 apm_server_url: str = "", apm_server_name: str = "", apm_port: int = None,
+                 log_level: str = "INFO"):
         """Initialize config for server."""
         self.db_host = db_host
         self.db_port = db_port
@@ -51,6 +60,11 @@ class WebConfig(object):
         self.logstash_host = logstash_host
         self.logstash_port = logstash_port
         self.logstash_protocol = logstash_protocol
+        self.use_apm = use_apm
+        self.apm_server_url = apm_server_url
+        self.apm_server_name = apm_server_name
+        self.apm_port = apm_port
+        self.log_level = log_level
 
     @property
     def conn_str(self) -> str:

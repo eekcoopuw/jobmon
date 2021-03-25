@@ -1,61 +1,95 @@
-import getpass
+from argparse import ArgumentParser, Namespace
 import os
-import stat
+import shlex
 import sys
-import uuid
+from typing import List, Optional
+from yaml import load, SafeLoader
 
-from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-from jobmon.client.templates.python_task import PythonTask
 
+from jobmon.client.api import Tool, ExecutorParameters
+from jobmon.client.swarm.workflow_run import WorkflowRun
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
 
-def multi_workflow_test(n_workflows: int, n_tasks: int) -> None:
+def multi_workflow_test(yaml_path: str, scratch_dir: str) -> WorkflowRun:
+    """Run a load test with a hypervisor workflow that manages n sub workflows
+
+    Args:
+        file_path: the path to a yaml config which specifies each sub workflow
+        scratch_dir: location where data artifacts will end up
     """
-    Creates and runs a workflow that creates and runs n workflows that each
-    run 3 sleeping jobs. This will test the capacity for jobmon services to
-    handle the requests that come from a large number of reconciler and job
-    instance factory instances
+    yaml_path = os.path.realpath(os.path.expanduser(yaml_path))
+    scratch_dir = os.path.realpath(os.path.expanduser(scratch_dir))
 
-    ex command to replicate codem behavior: python multi_workflow_test.py 700
+    with open(yaml_path) as file:
+        params = load(file, Loader=SafeLoader)
+
+    tool = Tool.create_tool("load_tester")
+    command_template = (
+        "{python} {script} --yaml_path {yaml_path} --scratch_dir {scratch_dir} --wfid {wfid}"
+    )
+    task_template = tool.get_task_template(
+        template_name="workflow_task",
+        command_template=command_template,
+        node_args=["wfid"],
+        task_args=["yaml_path", "scratch_dir"],
+        op_args=["python", "script"]
+    )
+
+    controller_wf = tool.create_workflow(name="controller_wf")
+    controller_wf.set_executor(
+        stderr=f"{scratch_dir}/controller_wf",
+        stdout=f"{scratch_dir}/controller_wf",
+        project="proj_scicomp"
+    )
+    for wfid in params["load_test_parameters"].keys():
+        executor_parameters = ExecutorParameters(
+            num_cores=3,
+            m_mem_free="5G",
+            queue='all.q',
+        )
+        task = task_template.create_task(
+            python=sys.executable,
+            script=os.path.join(thisdir, "load_test_generator.py"),
+            yaml_path=yaml_path,
+            scratch_dir=scratch_dir,
+            wfid=wfid,
+            executor_parameters=executor_parameters
+        )
+        controller_wf.add_task(task)
+    wfr = controller_wf.run()
+
+    return wfr
+
+
+def parse_arguments(argstr: Optional[str] = None) -> Namespace:
+    """Construct a parser, parse either sys.argv (default) or the provided argstr, returns
+    a Namespace. The Namespace should have a 'func' attribute which can be used to dispatch
+     to the appropriate downstream function.
     """
+    parser = ArgumentParser()
+    parser.add_argument("--yaml_path", required=True, type=str, action='store',
+                        help=("path to a yaml file such as the one found in "
+                              "jobmon/deployment/tests/sample.yaml"))
+    parser.add_argument("--scratch_dir", required=False, default="", type=str, action='store',
+                        help="location where logs and other artifacts will be written")
 
-    wfid = uuid.uuid4()
-    # wfid = "49ac544c-38a4-4c9c-aad6-d6e574c8fceb"
-    user = getpass.getuser()
-    command = os.path.join(thisdir, "sleep_and_echo.sh")
-    st = os.stat(command)
-    os.chmod(command, st.st_mode | stat.S_IXUSR)
+    arglist: Optional[List[str]] = None
+    if argstr is not None:
+        arglist = shlex.split(argstr)
 
-    script = os.path.join(thisdir, "create_worker_workflow.py")
-    st = os.stat(script)
-    os.chmod(script, st.st_mode | stat.S_IXUSR)
+    args = parser.parse_args(arglist)
 
-    master_wf = Workflow(f"master_workflow_{wfid}",
-                         name="master_workflow",
-                         stderr=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
-                         stdout=f"/ihme/scratch/users/{user}/tests/load_test/{wfid}",
-                         project="proj_scicomp")
-    for i in range(n_workflows):
-        tmp_hash = uuid.uuid4()
-        task = PythonTask(script=f"{script}", args=[i, tmp_hash, n_tasks],
-                          name=f"worker_{i}", num_cores=2, m_mem_free='1G')
-        master_wf.add_task(task)
-    status = master_wf.run()
+    if not args.scratch_dir:
+        args.scratch_dir = os.path.dirname(os.path.realpath(args.yaml_path))
 
-    return status
+    return args
 
 
 if __name__ == "__main__":
 
-    try:
-        n_wfs = int(sys.argv[1])
-        n_tasks = int(sys.argv[2])
-    except IndexError:
-        n_wfs = 500
-        n_tasks = 100
-
-    result = multi_workflow_test(n_wfs, n_tasks)
+    args = parse_arguments()
+    result = multi_workflow_test(args.yaml_path, args.scratch_dir)
     if result.status != 'D':
         raise RuntimeError("Workflow failed")

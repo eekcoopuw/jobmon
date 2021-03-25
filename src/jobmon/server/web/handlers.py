@@ -72,11 +72,9 @@ def add_hooks_and_handlers(app, add_handlers: Optional[Dict] = None):
         data = request.get_json() or {}
         if request.method == "GET":
             server_structlog_context = data
-            app.logger = app.logger.bind(path=request.path, data=request.args)
         if request.method in ["POST", "PUT"]:
             server_structlog_context = data.pop("server_structlog_context", {})
-            app.logger = app.logger.bind(path=request.path, data=data)
         if server_structlog_context:
-            app.logger = app.logger.bind(**server_structlog_context)
+            app.logger = app.logger.bind(path=request.path, **server_structlog_context)
 
     return app

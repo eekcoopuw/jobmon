@@ -43,6 +43,12 @@ def add_workflow_run():
 @jobmon_client.route('/workflow_run/<workflow_run_id>/link', methods=['POST'])
 def link_workflow_run(workflow_run_id: int):
     """Link this workflow run to a workflow."""
+    try:
+        data = request.get_json()
+        next_report_increment = float(data["next_report_increment"])
+    except Exception as e:
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+
     query = """
         SELECT
             workflow_run.*
@@ -61,7 +67,7 @@ def link_workflow_run(workflow_run_id: int):
 
     # check if any workflow run is in linked state.
     # if not any linked, proceed.
-    current_wfr = workflow.link_workflow_run(workflow_run)
+    current_wfr = workflow.link_workflow_run(workflow_run, next_report_increment)
     DB.session.commit()  # release lock
     resp = jsonify(current_wfr=current_wfr)
     resp.status_code = StatusCodes.OK
@@ -296,6 +302,8 @@ def scheduler_log_workflow_run_heartbeat(workflow_run_id: int):
 @jobmon_client.route('/lost_workflow_run', methods=['GET'])
 def get_lost_workflow_runs():
     """Return all workflow runs that are currently in the specified state."""
+    statuses = request.args.getlist('status')
+    version = request.args.get('version')
     query = """
         SELECT
             workflow_run.*
@@ -306,7 +314,7 @@ def get_lost_workflow_runs():
             and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
     """
     workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-        workflow_run_status=request.args.getlist('status')
+        workflow_run_status=statuses, version=version
     ).all()
     DB.session.commit()
     workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]

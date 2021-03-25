@@ -15,6 +15,8 @@ logger = logging.getLogger(__file__)
 class WorkflowReaper(object):
     """Monitoring and reaping dead workflows."""
 
+    _version = __version__
+
     _reaper_message = {
         WorkflowRunStatus.ERROR: (
             "{__version__} Workflow Reaper transitioned Workflow #{workflow_id} to FAILED "
@@ -53,7 +55,7 @@ class WorkflowReaper(object):
             self._wf_notification_sink(msg=f"Workflow Reaper v{__version__} is alive")
         try:
             while True:
-                self._terminated_state()
+                self._halted_state()
                 self._aborted_state()
                 self._error_state()
                 sleep(self._poll_interval_minutes * 60)
@@ -67,7 +69,7 @@ class WorkflowReaper(object):
         app_route = "/client/lost_workflow_run"
         return_code, result = self._requester.send_request(
             app_route=app_route,
-            message={'status': status},
+            message={'status': status, 'version': self._version},
             request_type='get',
             logger=logger
         )
@@ -94,7 +96,7 @@ class WorkflowReaper(object):
             status = wfr.reap(target_status)
             if status == target_status and self._wf_notification_sink is not None:
                 message = self._reaper_message[status].format(
-                    __version__=__version__, workflow_id=wfr.workflow_id,
+                    __version__=self._version, workflow_id=wfr.workflow_id,
                     workflow_run_id=wfr.workflow_run_id
                 )
                 self._wf_notification_sink(msg=message)
@@ -109,7 +111,7 @@ class WorkflowReaper(object):
             status = wfr.reap(target_status)
             if status == target_status and self._wf_notification_sink is not None:
                 message = self._reaper_message[status].format(
-                    __version__=__version__, workflow_id=wfr.workflow_id,
+                    __version__=self._version, workflow_id=wfr.workflow_id,
                     workflow_run_id=wfr.workflow_run_id
                 )
                 self._wf_notification_sink(msg=message)
@@ -127,7 +129,7 @@ class WorkflowReaper(object):
             status = wfr.reap(target_status)
             if status == target_status and self._wf_notification_sink is not None:
                 message = self._reaper_message[status].format(
-                    __version__=__version__, workflow_id=wfr.workflow_id,
+                    __version__=self._version, workflow_id=wfr.workflow_id,
                     workflow_run_id=wfr.workflow_run_id
                 )
                 self._wf_notification_sink(msg=message)

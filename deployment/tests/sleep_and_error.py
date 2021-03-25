@@ -66,7 +66,7 @@ def main():
             fp.write("{}\n".format(count_so_far))
             fp.close()
             if args.sleep_timeout:
-                time.sleep(45)  # set to sleep longer than the max runtime
+                time.sleep(300)  # set to sleep longer than the max runtime
             else:
                 raise ValueError(f"Programmed intermittent failures, total "
                                  f"failures so far: {count_so_far}")

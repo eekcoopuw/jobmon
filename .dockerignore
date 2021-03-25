@@ -1,2 +1,3 @@
 .git/
+.nox/
 __pycache__/

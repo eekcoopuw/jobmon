@@ -88,11 +88,11 @@ class Workflow(DB.Model):
         else:
             return True
 
-    def link_workflow_run(self, workflow_run: WorkflowRun):
+    def link_workflow_run(self, workflow_run: WorkflowRun, next_report_increment: float):
         """Link a workflow run to this workflow."""
         linked_wfr = [wfr.status == WorkflowRunStatus.LINKING for wfr in self.workflow_runs]
         if not any(linked_wfr) and self.ready_to_link:
-            workflow_run.transition(WorkflowRunStatus.LINKING)
+            workflow_run.heartbeat(next_report_increment, WorkflowRunStatus.LINKING)
             current_wfr = [(workflow_run.id, workflow_run.status)]
         # active workflow run, don't bind.
         elif not any(linked_wfr) and not self.ready_to_link:

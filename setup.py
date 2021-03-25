@@ -10,6 +10,7 @@ INSTALL_REQUIRES = [
     'flask',
     'flask_cors',
     'Flask-SQLAlchemy',
+    'elastic-apm[flask]',
     'numpy',
     'pandas',
     'psutil',
@@ -21,7 +22,7 @@ INSTALL_REQUIRES = [
     'structlog',
     'tabulate',
     'tenacity',
-    'tblib',
+    'tblib'
 ]
 
 # pip install -e .[test]

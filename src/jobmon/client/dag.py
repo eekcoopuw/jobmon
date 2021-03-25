@@ -123,7 +123,7 @@ class Dag(object):
             for i in range(chunk_boarder[0], chunk_boarder[1] + 1):
                 node = nodes_in_dag[i]
                 n = {"task_template_version_id": node.task_template_version_id,
-                     "node_args_hash": node.node_args_hash,
+                     "node_args_hash": str(node.node_args_hash),
                      "node_args": node.node_args}
                 nodes_to_send.append(n)
             rc, response = self.requester.send_request(
