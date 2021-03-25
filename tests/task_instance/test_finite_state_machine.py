@@ -1,18 +1,18 @@
 import time
 from datetime import datetime, timedelta
-
-import pytest
 from unittest.mock import patch
 
+from jobmon.requester import Requester
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_run import WorkflowRun
-from jobmon.server.web.models.workflow_status import WorkflowStatus
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
-from jobmon.requester import Requester
+from jobmon.server.web.models.workflow_status import WorkflowStatus
+
+import pytest
 
 
 @pytest.mark.parametrize("ti_state", [TaskInstanceStatus.UNKNOWN_ERROR,
@@ -35,7 +35,7 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
     workflow.add_task(task_a)
 
     # bind workflow to db
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
 
     # queue task
@@ -59,7 +59,8 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
     # set task to kill self state. next heartbeat will fail and cause death
     scheduler_config = SchedulerConfig.from_defaults()
     max_heartbeat = datetime.utcnow() + timedelta(
-        seconds=(scheduler_config.task_heartbeat_interval * scheduler_config.report_by_buffer))
+        seconds=(scheduler_config.task_heartbeat_interval *
+                 scheduler_config.heartbeat_report_by_buffer))
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
@@ -71,13 +72,15 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
         DB.session.commit()
 
     # wait till it dies
-    actual, _ = scheduler.executor.get_actual_submitted_or_running(
-        scheduler.executor_ids, scheduler._report_by_buffer)
+    actual = scheduler.executor.get_actual_submitted_or_running(
+        list(scheduler._submitted_or_running.keys())
+    )
     while actual:
         time.sleep(1)
-        actual, _ = scheduler.executor.get_actual_submitted_or_running(
-            scheduler.executor_ids, scheduler._report_by_buffer)
-    scheduler.executor.stop(scheduler.executor_ids, scheduler._report_by_buffer)
+        actual = scheduler.executor.get_actual_submitted_or_running(
+            list(scheduler._submitted_or_running.keys())
+        )
+    scheduler.executor.stop(list(scheduler._submitted_or_running.keys()))
 
     # make sure no more heartbeats were registered
     with app.app_context():
@@ -116,9 +119,9 @@ def test_ti_error_state(db_cfg, client_env):
         assert ti.status == TaskInstanceStatus.ERROR
 
 
-def mock_execute(command, name, executor_parameters, executor_ids):
+def mock_execute(command, name, executor_parameters):
     # redirecting the normal route of going to B state with W state
-    return -33333, executor_ids
+    return -33333
 
 
 def test_ti_w_state(db_cfg, client_env):
@@ -140,7 +143,7 @@ def test_ti_w_state(db_cfg, client_env):
     workflow.add_task(task_a)
 
     # bind workflow to db
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
 
     # queue task
@@ -187,8 +190,9 @@ def test_reset_attempts_on_resume(db_cfg, client_env):
     workflow1.add_task(task_a)
 
     # add workflow to database
-    workflow1._bind()
+    workflow1.bind()
     wfr_1 = workflow1._create_workflow_run()
+    wfr_1.update_status(WorkflowRunStatus.ERROR)
 
     # now set everything to error fail
     app = db_cfg["app"]
@@ -199,12 +203,6 @@ def test_reset_attempts_on_resume(db_cfg, client_env):
             SET status='{s}', num_attempts=3, max_attempts=3
             WHERE task.id={task_id}""".format(s=TaskStatus.ERROR_FATAL,
                                               task_id=task_a.task_id))
-        DB.session.execute("""
-            UPDATE workflow
-            SET status='{s}'
-            WHERE workflow.id={workflow_id}""".format(
-                s=WorkflowStatus.SUSPENDED,
-                workflow_id=workflow1.workflow_id))
         DB.session.commit()
 
     # create a second workflow and actually run it
@@ -257,7 +255,7 @@ def test_task_instance_error_fatal(db_cfg, client_env):
     workflow1.add_task(task_a)
 
     # add workflow to database
-    workflow1._bind()
+    workflow1.bind()
     wfr_1 = workflow1._create_workflow_run()
 
     # now set everything to error fail

@@ -1,10 +1,12 @@
+"""Executor Parameter Set Type Database Table."""
 from jobmon.constants import ExecutorParameterSetType as Types
 from jobmon.server.web.models import DB
 
 
 class ExecutorParameterSetType(DB.Model):
     """The table in the database that holds the possible statuses for the
-    ExecutorParameterSet """
+    ExecutorParameterSet.
+    """
 
     __tablename__ = 'executor_parameter_set_type'
     ORIGINAL = Types.ORIGINAL

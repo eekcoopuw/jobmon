@@ -1,7 +1,8 @@
 import os
-import pytest
-from time import sleep
 from subprocess import check_output
+from time import sleep
+
+import pytest
 
 
 def match_name_to_sge_name(jid):
@@ -45,8 +46,10 @@ def test_exceed_runtime_task(db_cfg, client_env):
                                executor_class="SGEExecutor")
     executor_parameters = ExecutorParameters(m_mem_free='1G', max_runtime_seconds=5,
                                              num_cores=1, queue='all.q',
-                                             executor_class="SGEExecutor")
-    task = BashTask(command="sleep 10", name=name, executor_parameters=executor_parameters,
+                                             executor_class="SGEExecutor",
+                                             resource_scales={'max_runtime_seconds': 1.0,
+                                                              'm_mem_free': 1.0})
+    task = BashTask(command="sleep 8", name=name, executor_parameters=executor_parameters,
                     executor_class="SGEExecutor", max_attempts=1)
     workflow.add_tasks([task])
     workflow.run()
@@ -65,8 +68,26 @@ def test_exceed_runtime_task(db_cfg, client_env):
     sge_jobname = match_name_to_sge_name(tid)
     assert sge_jobname == name
 
+    # Resume and check that only runtime was scaled up
+    workflow2 = UnknownWorkflow(workflow_args='over_runtime_rescaling',
+                                executor_class="SGEExecutor")
+    rerun_task = BashTask(command='sleep 10', name=name,
+                          executor_parameters=executor_parameters,
+                          executor_class="SGEExecutor", max_attempts=2)
+
+    workflow2.add_task(rerun_task)
+    wfr2 = workflow2.run()
+
+    # Check resources
+    swarm_task = wfr2.swarm_tasks[rerun_task.task_id]
+    adjusted_params = swarm_task.get_executor_parameters()
+
+    assert adjusted_params.m_mem_free == 1.0  # Memory was not scaled up
+    assert adjusted_params.max_runtime_seconds > 5  # Runtime increased
+
 
 @pytest.mark.integration_sge
+@pytest.mark.skip()
 def test_exceed_mem_task(db_cfg, client_env):
     """Tests that when a task exceeds the requested amount of memory on SGE, it
     successfully gets killed"""
@@ -110,6 +131,7 @@ def test_exceed_mem_task(db_cfg, client_env):
 
 
 @pytest.mark.integration_sge
+@pytest.mark.skip()
 def test_under_request_memory_then_scale(db_cfg, client_env):
     """test that when a task gets killed due to under requested memory, it
     tries again with additional memory added"""

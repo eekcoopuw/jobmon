@@ -8,15 +8,18 @@ import re
 import shutil
 import socket
 import sys
-from time import sleep
 import uuid
+from time import sleep
+
+from cluster_utils.ephemerdb import MARIADB, create_ephemerdb
 
 from filelock import FileLock
-import pytest
-import requests
-from sqlalchemy import create_engine
 
-from cluster_utils.ephemerdb import create_ephemerdb, MARIADB
+import pytest
+
+import requests
+
+from sqlalchemy import create_engine
 
 
 logger = logging.getLogger(__name__)
@@ -208,7 +211,8 @@ def client_env(web_server_process, monkeypatch):
     monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
     monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
 
-    cc = ClientConfig(web_server_process["JOBMON_HOST"],  web_server_process["JOBMON_PORT"])
+    cc = ClientConfig(web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"],
+                      30, 3.1)
     yield cc.url
 
 

@@ -1,11 +1,12 @@
 import getpass
 import os
 import os.path as path
-import pytest
 from unittest.mock import patch
 
 from jobmon.client.execution.strategies.sge.sge_utils import (
-    true_path, convert_wallclock_to_seconds, qacct_exit_status)
+    convert_wallclock_to_seconds, qacct_exit_status, true_path)
+
+import pytest
 
 
 def qacct_returns_h_rt(command, shell, universal_newlines):

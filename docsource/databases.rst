@@ -22,7 +22,7 @@ Check these manually after a new database is created, or after a database reboot
   +-------------------------+----------------------------+
   + Setting                 +  Value                     +
   +=========================+============================+
-  + INNODB_BUFFER_POOL_SIZE +  80% of RA                 +
+  + INNODB_BUFFER_POOL_SIZE +  80% of RAM                 +
   +-------------------------+----------------------------+
   + WAIT_TIMEOUT            +  600                       +
   +-------------------------+----------------------------+

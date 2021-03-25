@@ -1,27 +1,37 @@
+"""Tool represents a project or model that will be run many times over, but may evolve over
+time.
+"""
 from __future__ import annotations
 
-from typing import List, Union, Optional, Dict
-
-import structlog as logging
+from typing import Dict, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
-from jobmon.requester import Requester
 from jobmon.client.workflow import Workflow
+from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientTool, SerializeClientToolVersion
+
+import structlog as logging
 
 logger = logging.getLogger(__name__)
 
 
 class InvalidToolError(Exception):
+    """Exception for Tools that do not exist in the DB."""
+
     pass
 
 
 class InvalidToolVersionError(Exception):
+    """Exception for Tool version that is not valid."""
+
     pass
 
 
 class Tool:
+    """Tool represents a project or model that will be run many times over, but may evolve over
+    time.
+    """
 
     def __init__(self, name: str = "unknown",
                  active_tool_version_id: Union[str, int] = "latest",
@@ -51,7 +61,7 @@ class Tool:
 
     @classmethod
     def create_tool(cls, name: str, requester: Optional[Requester] = None) -> Tool:
-        """create a new tool in the jobmon database
+        """Create a new tool in the jobmon database.
 
         Args:
             name: the name of the tool
@@ -81,7 +91,7 @@ class Tool:
         return cls(name)
 
     def create_new_tool_version(self) -> int:
-        """create a new tool version for the current tool and activate it
+        """Create a new tool version for the current tool and activate it.
 
         Returns: the version id for the new tool
         """
@@ -93,11 +103,12 @@ class Tool:
 
     @property
     def active_tool_version_id(self) -> int:
-        """tool version id to use when spawning task templates"""
+        """Tool version id to use when spawning task templates."""
         return self._active_tool_version_id
 
     @active_tool_version_id.setter
     def active_tool_version_id(self, val: Union[str, int]):
+        """Tool version that is set as the active one (latest is default)."""
         if val == "latest":
             self._active_tool_version_id = self.tool_version_ids[-1]
         else:
@@ -110,7 +121,7 @@ class Tool:
     def get_task_template(self, template_name: str, command_template: str,
                           node_args: List[str] = [], task_args: List[str] = [],
                           op_args: List[str] = []) -> TaskTemplate:
-        """create or get task a task template
+        """Create or get task a task template
 
         Args:
             template_name: the name of this task template.
@@ -145,6 +156,7 @@ class Tool:
                         max_concurrently_running: int = 10_000,
                         requester_url: Optional[str] = None, chunk_size: int = 500) \
             -> Workflow:
+        """Create a workflow object associated with the tool."""
         if requester_url is None:
             requester_url = self.requester.url
         wf = Workflow(self.active_tool_version_id, workflow_args, name, description,

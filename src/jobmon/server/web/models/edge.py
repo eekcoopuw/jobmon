@@ -1,7 +1,9 @@
+"""Edge Database table."""
 from jobmon.server.web.models import DB
 
 
 class Edge(DB.Model):
+    """Database Table to record edges."""
 
     __tablename__ = 'edge'
 

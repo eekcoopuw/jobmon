@@ -101,6 +101,43 @@ deploy_jobmon_to_k8s () {
     RANCHER_QPID_SECRET=${10}
     KUBECTL_CONTAINER=${11}
     KUBECONFIG=${12}
+    USE_LOGSTASH=${13}
+
+    #### Deploy the ELK stack to K8S
+    docker pull alpine/helm  # Pull prebuilt helm container
+
+    # Check if it's already been installed
+    docker run -t \
+        --rm \
+        -v $KUBECONFIG:/root/.kube/config \
+        alpine/helm status -n "$K8S_NAMESPACE" jobmon-elk
+
+    # If exists, exit status = 0 and a message appears
+    # If it doesn't exist, exit status = 1 and we see Error: release: not found
+    elk_exist=$?
+
+    if [[ $elk_exist -eq 0 ]]
+    then
+        # Stack already exists, so upgrade it
+        docker run -t \
+        --rm \
+        -v "$WORKSPACE/deployment/k8s/elk:/apps" \
+        -v $KUBECONFIG:/root/.kube/config \
+        alpine/helm \
+            upgrade jobmon-elk /apps/. \
+            -n "$K8S_NAMESPACE" \
+            --set global.namespace="$K8S_NAMESPACE"
+    else
+        # Stack doesn't exist, so install it
+        docker run -t \
+            --rm \
+            -v "$WORKSPACE/deployment/k8s/elk:/apps" \
+            -v $KUBECONFIG:/root/.kube/config \
+            alpine/helm \
+                install jobmon-elk /apps/. \
+                -n "$K8S_NAMESPACE" \
+                --set global.namespace="$K8S_NAMESPACE"
+    fi
 
     # Render each .yaml.j2 template in the k8s dir (return only the basename)
     docker pull $YASHA_CONTAINER
@@ -118,6 +155,7 @@ deploy_jobmon_to_k8s () {
                 --rancher_db_secret="$RANCHER_DB_SECRET" \
                 --rancher_slack_secret="$RANCHER_SLACK_SECRET" \
                 --rancher_qpid_secret="$RANCHER_QPID_SECRET" \
+                --use_logstash="$USE_LOGSTASH" \
                 /data/${TEMPLATE}
     done
 
@@ -139,7 +177,7 @@ deploy_jobmon_to_k8s () {
     # Remove the rendered namespace setup yaml before proceeding
     rm -f ./deployment/k8s/01_namespace.yaml
 
-    log_info Deploying deployment and service configurations to k8s
+    # Deploying deployment and service configurations to k8s
     for TEMPLATE in $(find "$WORKSPACE/deployment/k8s/" -maxdepth 1 -type f -name '*.yaml' -printf "%f\n" |sort -n)
     do
         docker run -t \

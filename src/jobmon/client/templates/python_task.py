@@ -1,12 +1,18 @@
+"""Python Task for backward compatibility with Jobmon 1.* series. Used for Tasks that execute
+a python script.
+"""
 import sys
-from typing import Optional, List, Dict, Callable, Union, Any
+from typing import Any, Callable, Dict, List, Optional, Union
 
+from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool
-from jobmon.client.execution.strategies.base import ExecutorParameters
 
 
 class PythonTask(Task):
+    """Python Task for backward compatibility with Jobmon 1.* series. Used for Tasks that
+    execute a python script.
+    """
 
     _python_task_template_registry: Dict = {}
     current_python = sys.executable
@@ -82,7 +88,7 @@ class PythonTask(Task):
                 make this task unique within a set of task with identical command patterns
             op_args: if the user wants to supply arguments to describe the operational
                 arguments for this task
-            """
+        """
         if task_args is None:
             task_args = {}
         if node_args is None:

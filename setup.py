@@ -10,17 +10,19 @@ INSTALL_REQUIRES = [
     'flask',
     'flask_cors',
     'Flask-SQLAlchemy',
+    'elastic-apm[flask]',
     'numpy',
     'pandas',
     'psutil',
     'pymysql',  # install MySQLdb/mysqlclient for more performance
     'python_json_logger',
+    'python-logstash-async',
     'requests',
-    'sqlalchemy',
+    'sqlalchemy==1.3',
     'structlog',
     'tabulate',
     'tenacity',
-    'tblib',
+    'tblib'
 ]
 
 # pip install -e .[test]

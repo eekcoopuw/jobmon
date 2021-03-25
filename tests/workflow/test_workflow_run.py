@@ -1,10 +1,11 @@
-import pytest
 import logging
 import time
 
-from jobmon.server.web.models.task_status import TaskStatus
-from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.requester import Requester
+from jobmon.server.web.models.task_instance import TaskInstance
+from jobmon.server.web.models.task_status import TaskStatus
+
+import pytest
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ def test_blocking_update_timeout(client_env):
     workflow = UnknownWorkflow("my_simple_dag",
                                executor_class="SequentialExecutor")
     workflow.add_tasks([task])
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
 
     with pytest.raises(RuntimeError) as error:
@@ -54,7 +55,7 @@ def test_sync(client_env):
     workflow = UnknownWorkflow("my_simple_dag",
                                executor_class="SequentialExecutor")
     workflow.add_tasks([task])
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     now = wfr.last_sync
     assert now is not None

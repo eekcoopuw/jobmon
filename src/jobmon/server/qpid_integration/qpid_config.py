@@ -1,12 +1,15 @@
+"""QPID configuration for qpid specifics only."""
 from __future__ import annotations
 
 from jobmon.config import CLI, ParserDefaults
 
 
 class QPIDConfig:
+    """QPID specific configuration."""
 
     @classmethod
     def from_defaults(cls) -> QPIDConfig:
+        """Set up config from defaults if no alternates specified."""
         cli = CLI()
         ParserDefaults.db_host(cli.parser)
         ParserDefaults.db_port(cli.parser)
@@ -42,6 +45,7 @@ class QPIDConfig:
 
     @property
     def conn_str(self) -> str:
+        """Connection string to connect to the database."""
         conn_str = "mysql://{user}:{pw}@{host}:{port}/{db}".format(
             user=self.db_user, pw=self.db_pass, host=self.db_host,
             port=self.db_port, db=self.db_name

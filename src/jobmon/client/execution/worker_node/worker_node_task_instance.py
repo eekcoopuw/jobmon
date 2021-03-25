@@ -1,27 +1,27 @@
+"""The Task Instance Object once it has been submitted to run on a worker node."""
 import os
 import socket
 import traceback
-from typing import Optional, Union, Tuple, Dict
-
-import structlog as logging
+from typing import Dict, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import TaskInstanceExecutorInfo
 from jobmon.requester import Requester
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)
 
 
 class WorkerNodeTaskInstance:
+    """The Task Instance object once it has been submitted to run on a worker node."""
 
     def __init__(self, task_instance_id: int,
                  task_instance_executor_info: TaskInstanceExecutorInfo,
                  requester_url: Optional[str] = None):
-        """
-        The WorkerNodeTaskInstance is a mechanism whereby a running
-        task_instance can communicate back to the JobStateManager to log its
-        status, errors, usage details, etc.
+        """The WorkerNodeTaskInstance is a mechanism whereby a running task_instance can
+        communicate back to the JobStateManager to log its status, errors, usage details, etc.
 
         Args:
             task_instance_id (int): the id of the job_instance_id that is
@@ -45,6 +45,7 @@ class WorkerNodeTaskInstance:
 
     @property
     def executor_id(self) -> Optional[int]:
+        """Executor id given from the executor it is being run on."""
         if self._executor_id is None and self.executor.executor_id is not None:
             self._executor_id = self.executor.executor_id
         logger.debug("executor_id: " + str(self._executor_id))
@@ -52,20 +53,21 @@ class WorkerNodeTaskInstance:
 
     @property
     def nodename(self) -> Optional[str]:
+        """Node it is being run on."""
         if self._nodename is None:
             self._nodename = socket.getfqdn()
         return self._nodename
 
     @property
     def process_group_id(self) -> Optional[int]:
+        """Process group to track parent and child processes."""
         if self._process_group_id is None:
             self._process_group_id = os.getpid()
         return self._process_group_id
 
     def log_done(self) -> int:
-        """Tell the JobStateManager that this task_instance is done"""
+        """Tell the JobStateManager that this task_instance is done."""
         logger.info(f"Logging done for task_instance {self.task_instance_id}")
-
         message = {'nodename': self.nodename}
         if self.executor_id is not None:
             message['executor_id'] = str(self.executor_id)
@@ -80,7 +82,7 @@ class WorkerNodeTaskInstance:
         return rc
 
     def log_error(self, error_message: str, exit_status: int) -> int:
-        """Tell the JobStateManager that this task_instance has errored"""
+        """Tell the JobStateManager that this task_instance has errored."""
         logger.info(f"Logging error for task_instance {self.task_instance_id}")
 
         # clip at 10k to avoid mysql has gone away errors when posting long
@@ -111,11 +113,8 @@ class WorkerNodeTaskInstance:
         return rc
 
     def log_task_stats(self) -> None:
-        """Tell the JobStateManager all the applicable task_stats for this
-        task_instance
-        """
+        """Tell the JobStateManager all the applicable task_stats for this task_instance."""
         logger.info(f"Logging usage for task_instance {self.task_instance_id}")
-
         try:
             usage = self.executor.get_usage_stats()
             dbukeys = ['usage_str', 'wallclock', 'maxrss', 'maxpss', 'cpu',
@@ -137,11 +136,10 @@ class WorkerNodeTaskInstance:
             logger.error(f"Traceback {traceback.format_exc()}")
 
     def log_running(self, next_report_increment: Union[int, float]) -> Tuple[int, str]:
-        """Tell the JobStateManager that this task_instance is running, and
-        update the report_by_date to be further in the future in case it gets
-        reconciled immediately"""
+        """Tell the JobStateManager that this task_instance is running, and update the
+        report_by_date to be further in the future in case it gets reconciled immediately.
+        """
         logger.info(f'Log running for task_instance {self.task_instance_id}')
-
         message = {'nodename': self.nodename,
                    'process_group_id': str(self.process_group_id),
                    'next_report_increment': next_report_increment}
@@ -159,7 +157,7 @@ class WorkerNodeTaskInstance:
         return rc, resp
 
     def log_report_by(self, next_report_increment: Union[int, float]) -> int:
-        """Log the heartbeat to show that the task instance is still alive"""
+        """Log the heartbeat to show that the task instance is still alive."""
         logger.debug(f"Logging heartbeat for task_instance {self.task_instance_id}")
         message: Dict = {"next_report_increment": next_report_increment}
         if self.executor_id is not None:
@@ -175,6 +173,9 @@ class WorkerNodeTaskInstance:
         return rc
 
     def in_kill_self_state(self) -> bool:
+        """Check if the task instance has been set to kill itself (upon resume or other error
+        from miscommunication).
+        """
         logger.debug(f"checking kill_self for task_instance {self.task_instance_id}")
         rc, resp = self.requester.send_request(
             app_route=f'/worker/task_instance/{self.task_instance_id}/kill_self',

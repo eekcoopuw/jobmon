@@ -1,10 +1,9 @@
+import time
 from unittest import mock
 
 import pytest
 from tenacity import stop_after_attempt
 from requests import ConnectionError
-
-import time
 
 from jobmon.requester import Requester
 

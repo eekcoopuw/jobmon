@@ -1,23 +1,31 @@
+"""Task object defines a single executable object that will be added to a Workflow. Task
+Instances will be created from it for every execution.
+"""
 from __future__ import annotations
 
-from functools import partial
 import hashlib
+from functools import partial
 from http import HTTPStatus as StatusCodes
-from typing import Optional, List, Callable, Union, Tuple, Dict
-
-import structlog as logging
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.node import Node
-from jobmon.requester import Requester
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
+from jobmon.requester import Requester
+
+import structlog as logging
+
 
 logger = logging.getLogger(__name__)
 
 
 class Task:
+    """Task object defines a single executable object that will be added to a Workflow. Task
+    Instances will be created from it for every execution.
+    """
+
     ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""
 
     @classmethod
@@ -167,7 +175,7 @@ class Task:
 
     @property
     def workflow_id(self) -> int:
-        """Get the workflow id if it has been bound to the db"""
+        """Get the workflow id if it has been bound to the db."""
         if not hasattr(self, "_workflow_id"):
             raise AttributeError("workflow_id cannot be accessed via task before a workflow "
                                  "is bound")
@@ -180,7 +188,8 @@ class Task:
 
     def bind(self, reset_if_running: bool = True) -> int:
         """Bind tasks to the db if they have not been bound already, otherwise make sure their
-        ExecutorParameters are up to date."""
+        ExecutorParameters are up to date.
+        """
         task_id, status = self._get_task_id_and_status()
         if task_id is None:
             task_id = self._add_task()
@@ -215,7 +224,8 @@ class Task:
 
     def _hash_task_args(self) -> int:
         """A task_arg_hash is a hash of the encoded result of the args and values concatenated
-        together."""
+        together.
+        """
         arg_ids = list(self.task_args.keys())
         arg_ids.sort()
 
@@ -268,10 +278,9 @@ class Task:
         return response["task_status"]
 
     def _add_task(self) -> int:
-        """Bind a task to the db with the node, and workflow ids that have been established"""
+        """Bind a task to the db with the node, and workflow ids that have been established."""
         tasks = []
-        task = {
-                'workflow_id': self.workflow_id,
+        task = {'workflow_id': self.workflow_id,
                 'node_id': self.node.node_id,
                 'task_args_hash': self.task_args_hash,
                 'name': self.name,
@@ -279,7 +288,7 @@ class Task:
                 'max_attempts': self.max_attempts,
                 'task_args': self.task_args,
                 'task_attributes': self.task_attributes
-            }
+                }
         tasks.append(task)
         app_route = '/client/task'
         return_code, response = self.requester.send_request(
@@ -296,7 +305,8 @@ class Task:
 
     def add_attributes(self, task_attributes: dict) -> None:
         """Function that users can call either to update values of existing attributes or add
-        new attributes."""
+        new attributes.
+        """
         app_route = f'/client/task/{self.task_id}/task_attributes'
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -310,19 +320,22 @@ class Task:
                              f'{response}')
 
     def add_attribute(self, attribute: str, value: str):
-        """Function that users can call to add a single attribute for a task"""
+        """Function that users can call to add a single attribute for a task."""
         self.task_attributes[str(attribute)] = str(value)
         # if the task has already been bound, bind the attributes
         if self._task_id:
             self.add_attributes({str(attribute): str(value)})
 
     def __eq__(self, other: 'Task') -> bool:
+        """Check if the hashes of two tasks are equivalent."""
         return hash(self) == hash(other)
 
     def __lt__(self, other: 'Task') -> bool:
+        """Check if one hash is less than the has of another Task."""
         return hash(self) < hash(other)
 
     def __hash__(self) -> int:
+        """Create the hash for a task to determine if it is unique within a dag."""
         hash_value = hashlib.sha1()
         hash_value.update(bytes(str(hash(self.node)).encode('utf-8')))
         hash_value.update(bytes(str(self.task_args_hash).encode('utf-8')))
@@ -333,7 +346,8 @@ class Task:
         """This will attempt to parse out the different types of args from a bash task or
         python task for backwards compatibility. It will look for flags that match the arg
         key (ex. node_arg = blah, flag = --blah) otherwise it will look for a matching value
-        and mark it with the arg in the template (ex. """
+        and mark it with the arg in the template (ex.
+        """
         cmd_list = full_command.split()
         if command_line_args != "":
             cmd_list.append(command_line_args)  # may have spaces so can't be split

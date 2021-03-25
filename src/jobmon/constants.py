@@ -1,10 +1,17 @@
+"""Constants declared for different statuses, types and codes throughout Jobmon."""
+
+
 class ExecutorParameterSetType:
+    """Constant Types for Executor Parameter Sets."""
+
     ORIGINAL = 'O'
     VALIDATED = 'V'
     ADJUSTED = 'A'
 
 
 class TaskInstanceStatus:
+    """Statuses used for Task Instances."""
+
     INSTANTIATED = 'I'
     NO_EXECUTOR_ID = 'W'
     SUBMITTED_TO_BATCH_EXECUTOR = 'B'
@@ -18,6 +25,8 @@ class TaskInstanceStatus:
 
 
 class TaskStatus:
+    """Statuses used for Tasks."""
+
     REGISTERED = 'G'
     QUEUED_FOR_INSTANTIATION = 'Q'
     INSTANTIATED = 'I'
@@ -29,11 +38,14 @@ class TaskStatus:
 
 
 class WorkflowRunStatus:
+    """Statuses used for Workflow Runs."""
+
     REGISTERED = 'G'
+    LINKING = 'L'
     BOUND = 'B'
+    ABORTED = 'A'
     RUNNING = 'R'
     DONE = 'D'
-    ABORTED = 'A'
     STOPPED = 'S'
     ERROR = 'E'
     COLD_RESUME = 'C'
@@ -42,17 +54,20 @@ class WorkflowRunStatus:
 
 
 class WorkflowStatus:
-    REGISTERED = 'G'
-    BOUND = 'B'
+    """Statuses used for Workflows."""
+
+    REGISTERING = 'G'
+    QUEUED = 'Q'
     ABORTED = 'A'
-    CREATED = 'C'
     RUNNING = 'R'
-    SUSPENDED = 'S'
+    HALTED = 'H'
     FAILED = 'F'
     DONE = 'D'
 
 
 class QsubAttribute:
+    """SGE exit codes that Jobmon will detect and handle in a special way."""
+
     NO_EXEC_ID = -99999
     UNPARSABLE = -33333
     ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)

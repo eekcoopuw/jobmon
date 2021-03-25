@@ -25,4 +25,12 @@ spec:
     port: 3000
     name: grafana
     nodePort:
+  - protocol: TCP
+    port: 5601
+    name: kibana
+    nodePort:
+  - protocol: TCP
+    port: 9200
+    name: elasticsearch
+    nodePort:
   type: LoadBalancer
