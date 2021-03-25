@@ -29,7 +29,7 @@ def get_scheduler(workflow_id: int, workflow_run_id: int,
         requester=requester,
         workflow_run_heartbeat_interval=scheduler_config.workflow_run_heartbeat_interval,
         task_heartbeat_interval=scheduler_config.task_heartbeat_interval,
-        report_by_buffer=scheduler_config.report_by_buffer,
+        heartbeat_report_by_buffer=scheduler_config.heartbeat_report_by_buffer,
         n_queued=scheduler_config.n_queued,
         scheduler_poll_interval=scheduler_config.scheduler_poll_interval,
         jobmon_command=scheduler_config.jobmon_command

@@ -59,7 +59,8 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
     # set task to kill self state. next heartbeat will fail and cause death
     scheduler_config = SchedulerConfig.from_defaults()
     max_heartbeat = datetime.utcnow() + timedelta(
-        seconds=(scheduler_config.task_heartbeat_interval * scheduler_config.report_by_buffer))
+        seconds=(scheduler_config.task_heartbeat_interval *
+                 scheduler_config.heartbeat_report_by_buffer))
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():

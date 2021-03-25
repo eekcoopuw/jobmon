@@ -211,7 +211,8 @@ def client_env(web_server_process, monkeypatch):
     monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
     monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
 
-    cc = ClientConfig(web_server_process["JOBMON_HOST"],  web_server_process["JOBMON_PORT"])
+    cc = ClientConfig(web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"],
+                      30, 3.1)
     yield cc.url
 
 

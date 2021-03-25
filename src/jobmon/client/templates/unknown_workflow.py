@@ -118,7 +118,7 @@ class UnknownWorkflow(Workflow):
         if heartbeat_interval is not None:
             cfg.heartbeat_interval = heartbeat_interval
         if report_by_buffer is not None:
-            cfg.report_by_buffer = report_by_buffer
+            cfg.heartbeat_report_by_buffer = report_by_buffer
         self._execution_config = cfg
 
         # run params

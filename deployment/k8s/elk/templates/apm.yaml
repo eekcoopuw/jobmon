@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: apm-server-apm-server-config
+  labels:
+    app: "jobmon-apm"
+  namespace: {{ .Values.global.namespace }}
+data:
+  apm-server.yml: |
+    apm-server:
+      host: "0.0.0.0:{{ .Values.ports.apm }}"
+
+    setup.kibana:
+      hosts: ["kibana:{{ .Values.ports.kibana }}"]
+
+    kibana:
+      enabled: true
+      host: "kibana:{{ .Values.ports.kibana }}"
+
+    output.elasticsearch:
+      hosts: ["elasticsearch:{{ .Values.ports.elasticsearch }}"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: jobmon-apm
+  labels:
+    app: jobmon-apm
+  namespace: {{ .Values.global.namespace }}
+spec:
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app: jobmon-apm
+  template:
+    metadata:
+      labels:
+        app: jobmon-apm
+    spec:
+      volumes:
+        - name: apm-server-config
+          configMap:
+            name: apm-server-apm-server-config
+            defaultMode: 0600
+      containers:
+      - name: apm-server
+        image: "docker.elastic.co/apm/apm-server:7.11.0"
+        imagePullPolicy: "IfNotPresent"
+        securityContext:
+          privileged: false
+          runAsUser: 0
+        ports:
+          - containerPort: 8200
+            name: http
+        resources:
+          limits:
+            cpu: 1000m
+            memory: 512Mi
+          requests:
+            cpu: 100m
+            memory: 100Mi
+        volumeMounts:
+          - name: apm-server-config
+            mountPath: /usr/share/apm-server/apm-server.yml
+            subPath: apm-server.yml
+            readOnly: true

@@ -163,3 +163,19 @@ spec:
       port: 5601
   selector:
     app: kibana
+
+# APM cluster IP
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: jobmon-apm
+spec:
+  type: ClusterIP
+  ports:
+    - protocol: TCP
+      name: jobmon-apm
+      port: 8200
+  selector:
+    app: jobmon-apm
+>>>>>>> release/hyrax

@@ -32,6 +32,18 @@ class ParserDefaults:
     """Default config setup if not set by user."""
 
     @staticmethod
+    def log_level(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Set the logging level."""
+        parser.add_argument(
+            '--log_level',
+            type=str,
+            help='what level of logging is desired',
+            default='INFO',
+            env_var='LOG_LEVEL'
+        )
+        return parser
+
+    @staticmethod
     def logstash_host(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
         """Set the logstash host to use if using it."""
         parser.add_argument(
@@ -75,10 +87,61 @@ class ParserDefaults:
         """Boolean to use logstash or not."""
         parser.add_argument(
             '--use_logstash',
-            type=bool,
-            help='whether to use logstash',
+            help='whether to forward logs to logstash',
             default=False,
-            env_var='USE_LOGSTASH'
+            env_var='USE_LOGSTASH',
+            action='store_true'
+        )
+        return parser
+
+    @staticmethod
+    def use_apm(
+            parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Boolean to use logstash or not."""
+        parser.add_argument(
+            '--use_apm',
+            help='whether to use APM',
+            default=False,
+            env_var='USE_APM',
+            action='store_true'
+        )
+        return parser
+
+    @staticmethod
+    def apm_server_name(
+            parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Server name of APM"""
+        parser.add_argument(
+            '--apm_server_name',
+            type=str,
+            help='Server name of APM',
+            default='jobmon-apm',
+            env_var='APM_SERVER_NAME'
+        )
+        return parser
+
+    @staticmethod
+    def apm_server_url(
+            parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Server URL of APM"""
+        parser.add_argument(
+            '--apm_server_url',
+            type=str,
+            help='Server URL of APM',
+            default='jobmon-apm',
+            env_var='APM_SERVER_URL'
+        )
+        return parser
+
+    @staticmethod
+    def apm_port(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Set the APM port to use if using APM."""
+        parser.add_argument(
+            '--apm_port',
+            type=int,
+            help='APM port to use',
+            default=8200,
+            env_var='APM_PORT'
         )
         return parser
 
@@ -321,15 +384,15 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def task_instance_report_by_buffer(parser: configargparse.ArgumentParser
-                                       ) -> configargparse.ArgumentParser:
+    def heartbeat_report_by_buffer(parser: configargparse.ArgumentParser
+                                   ) -> configargparse.ArgumentParser:
         """Multiplier for heartbeat interval that can be missed before job is lost."""
         parser.add_argument(
-            '--task_instance_report_by_buffer',
+            '--heartbeat_report_by_buffer',
             type=float,
             help='Multiplier for heartbeat interval that can be missed before job is lost',
             default=3.1,
-            env_var='TASK_INSTANCE_REPORT_BY_BUFFER'
+            env_var='HEARTBEAT_REPORT_BY_BUFFER'
         )
         return parser
 

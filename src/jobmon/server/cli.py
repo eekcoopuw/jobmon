@@ -32,14 +32,16 @@ class ServerCLI(CLI):
             db_host=args.db_host, db_port=args.db_port, db_user=args.db_user,
             db_pass=args.db_pass, db_name=args.db_name, logstash_host=args.logstash_host,
             logstash_port=args.logstash_port, logstash_protocol=args.logstash_protocol,
-            use_logstash=args.use_logstash)
+            use_logstash=args.use_logstash, use_apm=args.use_apm,
+            apm_server_url=args.apm_server_url, apm_server_name=args.apm_server_name,
+            apm_port=args.apm_port)
+
         app = create_app(web_config)
 
         if args.command == 'start':
             raise ValueError('Web service cannot be started via command line.')
         elif args.command == 'test':
-            app.run(host='0.0.0.0', port=args.web_service_port, debug=True,
-                    use_reloader=False, use_evalex=False, threaded=False)
+            app.run(host='0.0.0.0', port=args.web_service_port)
         elif args.command == 'start_uwsgi':
             import subprocess
             subprocess.run("/entrypoint.sh")
@@ -61,7 +63,7 @@ class ServerCLI(CLI):
             slack_token=args.slack_token,
             slack_channel_default=args.slack_channel_default,
             workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
-            task_instance_report_by_buffer=args.task_instance_report_by_buffer
+            heartbeat_report_by_buffer=args.heartbeat_report_by_buffer
         )
         if args.command == 'start':
             start_workflow_reaper(reaper_config)
@@ -100,6 +102,10 @@ class ServerCLI(CLI):
         ParserDefaults.logstash_port(web_service_parser)
         ParserDefaults.logstash_protocol(web_service_parser)
         ParserDefaults.use_logstash(web_service_parser)
+        ParserDefaults.use_apm(web_service_parser)
+        ParserDefaults.apm_server_url(web_service_parser)
+        ParserDefaults.apm_server_name(web_service_parser)
+        ParserDefaults.apm_port(web_service_parser)
 
     def _add_workflow_reaper_subparser(self) -> None:
         reaper_parser = self._subparsers.add_parser('workflow_reaper', **PARSER_KWARGS)
@@ -119,7 +125,7 @@ class ServerCLI(CLI):
         ParserDefaults.slack_token(reaper_parser)
         ParserDefaults.slack_channel_default(reaper_parser)
         ParserDefaults.workflow_run_heartbeat_interval(reaper_parser)
-        ParserDefaults.task_instance_report_by_buffer(reaper_parser)
+        ParserDefaults.heartbeat_report_by_buffer(reaper_parser)
 
     def _add_qpid_integration_subparser(self) -> None:
         qpid_parser = self._subparsers.add_parser('qpid_integration', **PARSER_KWARGS)

@@ -25,7 +25,7 @@ class ExecutorCLI(CLI):
             jobmon_command=args.worker_node_entry_point,
             workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
             task_heartbeat_interval=args.task_instance_heartbeat_interval,
-            report_by_buffer=args.task_instance_report_by_buffer,
+            heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
             n_queued=args.scheduler_n_queued,
             scheduler_poll_interval=args.scheduler_poll_interval,
             web_service_fqdn=args.web_service_fqdn,
@@ -63,7 +63,7 @@ class ExecutorCLI(CLI):
         ParserDefaults.worker_node_entry_point(scheduler_parser)
         ParserDefaults.workflow_run_heartbeat_interval(scheduler_parser)
         ParserDefaults.task_instance_heartbeat_interval(scheduler_parser)
-        ParserDefaults.task_instance_report_by_buffer(scheduler_parser)
+        ParserDefaults.heartbeat_report_by_buffer(scheduler_parser)
         ParserDefaults.scheduler_n_queued(scheduler_parser)
         ParserDefaults.scheduler_poll_interval(scheduler_parser)
         ParserDefaults.web_service_fqdn(scheduler_parser)

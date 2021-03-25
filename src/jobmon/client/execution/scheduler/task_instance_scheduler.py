@@ -41,7 +41,7 @@ class TaskInstanceScheduler:
 
     def __init__(self, workflow_id: int, workflow_run_id: int, executor: Executor,
                  requester: Requester, workflow_run_heartbeat_interval: int = 30,
-                 task_heartbeat_interval: int = 90, report_by_buffer: float = 3.1,
+                 task_heartbeat_interval: int = 90, heartbeat_report_by_buffer: float = 3.1,
                  n_queued: int = 100, scheduler_poll_interval: int = 10,
                  jobmon_command: Optional[str] = None):
         # which workflow to schedule for
@@ -55,7 +55,7 @@ class TaskInstanceScheduler:
         self._jobmon_command = jobmon_command
         self._workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
         self._task_heartbeat_interval = task_heartbeat_interval
-        self._report_by_buffer = report_by_buffer
+        self._report_by_buffer = heartbeat_report_by_buffer
         self._n_queued = n_queued
         self._scheduler_poll_interval = scheduler_poll_interval
 

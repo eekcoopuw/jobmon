@@ -30,15 +30,29 @@ class WorkflowRun(object):
     """
 
     def __init__(self, workflow_id: int, executor_class: str,
-                 slack_channel: str = 'jobmon-alerts', requester: Optional[Requester] = None):
+                 slack_channel: str = 'jobmon-alerts', requester: Optional[Requester] = None,
+                 workflow_run_heartbeat_interval: Optional[int] = None,
+                 heartbeat_report_by_buffer: Optional[float] = None):
+        # set attrs
         self.workflow_id = workflow_id
         self.executor_class = executor_class
         self.user = getpass.getuser()
 
+        # set attrs from config
+        need_client_config = (workflow_run_heartbeat_interval is None or
+                              heartbeat_report_by_buffer is None or
+                              requester is None)
+        if need_client_config:
+            client_config = ClientConfig.from_defaults()
         if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
+            requester = Requester(client_config.url)
         self.requester = requester
+        if workflow_run_heartbeat_interval is None:
+            workflow_run_heartbeat_interval = client_config.workflow_run_heartbeat_interval
+        self.heartbeat_interval = workflow_run_heartbeat_interval
+        if heartbeat_report_by_buffer is None:
+            heartbeat_report_by_buffer = client_config.heartbeat_report_by_buffer
+        self.heartbeat_report_by_buffer = heartbeat_report_by_buffer
 
         # get an id for this workflow run
         self.workflow_run_id = self._register_workflow_run()
@@ -49,7 +63,8 @@ class WorkflowRun(object):
     def bind(self, tasks: Dict[int, Task], reset_if_running: bool = True,
              chunk_size: int = 500) -> Dict[int, Task]:
         """Link this workflow run with the workflow and add all tasks."""
-        current_wfr_id, current_wfr_status = self._link_to_workflow()
+        next_report_increment = self.heartbeat_interval * self.heartbeat_report_by_buffer
+        current_wfr_id, current_wfr_status = self._link_to_workflow(next_report_increment)
         # we did not successfully link. returned workflow_run_id is not the same as this ID
         if self.workflow_run_id != current_wfr_id:
 
@@ -105,11 +120,11 @@ class WorkflowRun(object):
             raise InvalidResponse(f"Invalid Response to {app_route}: {rc}")
         return response['workflow_run_id']
 
-    def _link_to_workflow(self) -> Tuple[int, int]:
+    def _link_to_workflow(self, next_report_increment: float) -> Tuple[int, int]:
         app_route = f"/client/workflow_run/{self.workflow_run_id}/link"
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={},
+            message={"next_report_increment": next_report_increment},
             request_type='post',
             logger=logger
         )
@@ -120,11 +135,11 @@ class WorkflowRun(object):
             )
         return response['current_wfr']
 
-    def _log_heartbeat(self, heartbeat_interval: int = 90):
+    def _log_heartbeat(self, next_report_increment: float):
         app_route = f"/client/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={"next_report_increment": heartbeat_interval},
+            message={"next_report_increment": next_report_increment},
             request_type='post',
             logger=logger
         )
@@ -133,17 +148,18 @@ class WorkflowRun(object):
                 f'Unexpected status code {return_code} from POST  request through route '
                 f'{app_route}. Expected code 200. Response content: {response}'
             )
+        self._last_heartbeat = time.time()
 
     def _bind_tasks(self, tasks: Dict[int, Task], reset_if_running: bool = True,
-                    chunk_size: int = 500, heartbeat_interval: int = 90) -> Dict[int, Task]:
+                    chunk_size: int = 500) -> Dict[int, Task]:
         app_route = '/client/task/bind_tasks'
         parameters = {}
         remaining_task_hashes = list(tasks.keys())
 
         while remaining_task_hashes:
 
-            if (self._last_heartbeat - time.time()) > heartbeat_interval:
-                self._log_heartbeat(heartbeat_interval)
+            if (time.time() - self._last_heartbeat) > self.heartbeat_interval:
+                self._log_heartbeat(self.heartbeat_interval * self.heartbeat_report_by_buffer)
 
             # split off first chunk elements from queue.
             task_hashes_chunk = remaining_task_hashes[:chunk_size]
@@ -157,7 +173,7 @@ class WorkflowRun(object):
             task_metadata: Dict[int, List] = {}
             for task_hash in task_hashes_chunk:
                 task_metadata[task_hash] = [
-                    tasks[task_hash].node.node_id, tasks[task_hash].task_args_hash,
+                    tasks[task_hash].node.node_id, str(tasks[task_hash].task_args_hash),
                     tasks[task_hash].name, tasks[task_hash].command,
                     tasks[task_hash].max_attempts, reset_if_running,
                     tasks[task_hash].task_args, tasks[task_hash].task_attributes
