@@ -56,7 +56,6 @@ class ServerCLI(CLI):
                                                        start_workflow_reaper)
         reaper_config = WorkflowReaperConfig(
             poll_interval_minutes=args.reaper_poll_interval_minutes,
-            loss_threshold=args.reaper_loss_threshold,
             host=args.web_service_fqdn,
             port=args.web_service_port,
             slack_api_url=args.slack_api_url,
@@ -118,7 +117,6 @@ class ServerCLI(CLI):
                   'workflow_reaper.monitor_forever() method.')
         )
         ParserDefaults.reaper_poll_interval_minutes(reaper_parser)
-        ParserDefaults.reaper_loss_threshold(reaper_parser)
         ParserDefaults.web_service_fqdn(reaper_parser)
         ParserDefaults.web_service_port(reaper_parser)
         ParserDefaults.slack_api_url(reaper_parser)

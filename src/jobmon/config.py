@@ -245,19 +245,6 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def reaper_loss_threshold(parser: configargparse.ArgumentParser) -> \
-            configargparse.ArgumentParser:
-        """Time to wait before reaping a workflow."""
-        parser.add_argument(
-            '--reaper_loss_threshold',
-            type=int,
-            help='Time to wait before reaping a workflow',
-            default=5,
-            env_var='REAPER_LOSS_THRESHOLD'
-        )
-        return parser
-
-    @staticmethod
     def slack_api_url(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
         """URL to post notifications to if using Slack."""
         parser.add_argument(
