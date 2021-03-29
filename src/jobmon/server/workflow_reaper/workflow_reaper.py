@@ -40,7 +40,6 @@ class WorkflowReaper(object):
             f"requester_url={requester.url}"
         )
 
-        # Set poll interval and loss threshold to config ones if nothing passed in
         self._poll_interval_minutes = poll_interval_minutes
         self._requester = requester
         self._wf_notification_sink = wf_notification_sink
