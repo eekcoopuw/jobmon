@@ -238,14 +238,14 @@ def test_sub_dag(db_cfg, client_env):
     """
     Dag:
                 t1             t2             t3
-            /    |     \                     /
-           /     |      \                   /
-          /      |       \                 /
-         /       |        \               /
+            /    |     \\                     /
+           /     |      \\                   /
+          /      |       \\                 /
+         /       |        \\               /
         t1_1   t1_2            t13_1
-         \       |              /
-          \      |             /
-           \     |            /
+         \\       |              /
+          \\      |             /
+           \\     |            /
               t1_11_213_1_1
     """ # noqa W605
     workflow = UnknownWorkflow(executor_class="SequentialExecutor")
