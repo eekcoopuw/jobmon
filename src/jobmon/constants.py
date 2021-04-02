@@ -51,6 +51,8 @@ class WorkflowRunStatus:
     COLD_RESUME = 'C'
     HOT_RESUME = 'H'
     TERMINATED = 'T'
+    INSTANTIATING = 'I'
+    LAUNCHED = 'O'
 
 
 class WorkflowStatus:
@@ -63,6 +65,8 @@ class WorkflowStatus:
     HALTED = 'H'
     FAILED = 'F'
     DONE = 'D'
+    INSTANTIATING = 'I'
+    LAUNCHED = 'O'
 
 
 class QsubAttribute:

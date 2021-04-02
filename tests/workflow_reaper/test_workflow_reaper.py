@@ -4,6 +4,7 @@ from typing import Dict
 import pytest
 from mock import patch, PropertyMock
 from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
+from jobmon.constants import WorkflowRunStatus
 
 
 def get_workflow_status(db_cfg, workflow_id):
@@ -60,8 +61,10 @@ def test_error_state(db_cfg, requester_no_retry):
         requester=workflow2.requester
     )
     wfr2._link_to_workflow(0)
-    wfr2._update_status("B")
-    wfr2._update_status("R")
+    wfr2._update_status(WorkflowRunStatus.BOUND)
+    wfr2._update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr2._update_status(WorkflowRunStatus.LAUNCHED)
+    wfr2._update_status(WorkflowRunStatus.RUNNING)
 
     # Instantiate reaper, have it check for workflow runs in error state
     reaper = WorkflowReaper(poll_interval_minutes=1, requester=requester_no_retry)
@@ -117,9 +120,11 @@ def test_halted_state(db_cfg, requester_no_retry):
         requester=workflow2.requester
     )
     wfr2._link_to_workflow(0)
-    wfr2._update_status("B")
-    wfr2._update_status("R")
-    wfr2._update_status("C")
+    wfr2._update_status(WorkflowRunStatus.BOUND)
+    wfr2._update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr2._update_status(WorkflowRunStatus.LAUNCHED)
+    wfr2._update_status(WorkflowRunStatus.RUNNING)
+    wfr2._update_status(WorkflowRunStatus.COLD_RESUME)
 
     # Create third WorkflowRun and transition to H status
     task3 = BashTask("sleep 12")
@@ -133,9 +138,11 @@ def test_halted_state(db_cfg, requester_no_retry):
         requester=workflow3.requester
     )
     wfr3._link_to_workflow(0)
-    wfr3._update_status("B")
-    wfr3._update_status("R")
-    wfr3._update_status("H")
+    wfr3._update_status(WorkflowRunStatus.BOUND)
+    wfr3._update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr3._update_status(WorkflowRunStatus.LAUNCHED)
+    wfr3._update_status(WorkflowRunStatus.RUNNING)
+    wfr3._update_status(WorkflowRunStatus.HOT_RESUME)
 
     # Call workflow reaper suspended state
     reaper = WorkflowReaper(5, requester=requester_no_retry)
