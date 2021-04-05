@@ -312,7 +312,6 @@ def get_lost_workflow_runs():
         WHERE
             workflow_run.status in :workflow_run_status
             and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
-            and workflow_run.jobmon_version = :version
     """
     workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query)).params(
         workflow_run_status=statuses, version=version
