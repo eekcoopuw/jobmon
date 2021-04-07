@@ -9,6 +9,35 @@ def tool(client_env):
     return Tool.create_tool(name=str(uuid.uuid4()))
 
 
+def test_task_template(db_cfg, client_env, tool):
+    from jobmon.client.task_template import TaskTemplate
+    from jobmon.client.task_template_version import TaskTemplateVersion
+    tt = TaskTemplate("my_template")
+    tt.get_task_template_version(
+        command_template="{op1} {node1} --foo {task1}",
+        node_args=["node1"],
+        task_args=["task1"],
+        op_args=["op1"]
+    )
+    assert tt.active_task_template_version
+
+    # make sure both methods get same result
+    ttv = TaskTemplateVersion(
+        command_template="{op1} {node1} --foo {task1}",
+        node_args=["node1"],
+        task_args=["task1"],
+        op_args=["op1"]
+    )
+    tt.set_active_task_template_version(ttv)
+    assert len(tt.task_template_versions) == 1
+
+    tool.create_new_tool_version()
+    tt.bind(tool.tool_version_id)
+    tt.active_task_template_version.bind(tt.id)
+    ttv.bind(tt.id)
+    assert tt.active_task_template_version.id == ttv.id
+
+
 def test_create_and_get_task_template(db_cfg, client_env, tool):
     """test that a task template gets added to the db appropriately. test that
     if a new one gets created with the same params it has the same id"""

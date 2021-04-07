@@ -342,15 +342,13 @@ class Task:
         return int(hash_value.hexdigest(), 16)
 
     def _parse_command_to_args(self, full_command: str, node_args: Dict, task_args: Dict,
-                               op_args: Dict, command_line_args: str = "") -> str:
+                               op_args: Dict) -> str:
         """This will attempt to parse out the different types of args from a bash task or
         python task for backwards compatibility. It will look for flags that match the arg
         key (ex. node_arg = blah, flag = --blah) otherwise it will look for a matching value
         and mark it with the arg in the template (ex.
         """
         cmd_list = full_command.split()
-        if command_line_args != "":
-            cmd_list.append(command_line_args)  # may have spaces so can't be split
         args = {**node_args, **task_args, **op_args}  # join all args
         for arg in args.keys():
             if f'--{arg}' in cmd_list:  # if cmd uses flags

@@ -147,10 +147,12 @@ def test_bash_task_command_parsing(db_cfg, client_env):
 def test_python_task_command_parsing(db_cfg, client_env):
     from jobmon.client.api import PythonTask, UnknownWorkflow
     wf = UnknownWorkflow(name="test_python_task_parsing", executor_class="DummyExecutor")
-    py_a = PythonTask(name="task_a", script='~/runme.py --blah 3 --bop 2 --hop 5',
-                      node_args={'blah': 3}, task_args={'bop': 2}, args=['baz', '4'])
-    py_b = PythonTask(name="task_a", script='~/runme.py --blah 4 --bop 6 --hop 5',
-                      node_args={'blah': 4}, task_args={'bop': 6}, args=['baz', '4'])
+    py_a = PythonTask(name="task_a", script='~/runme.py',
+                      args=['--blah', 3, '--bop', 2, '--hop', 5, '--baz', '4'],
+                      node_args={'blah': 3}, task_args={'bop': 2})
+    py_b = PythonTask(name="task_a", script='~/runme.py',
+                      args=['--blah', 4, '--bop', 6, '--hop', 5, '--baz', '4'],
+                      node_args={'blah': 4}, task_args={'bop': 6})
     wf.add_tasks([py_a, py_b])
     wf.bind()
     wf._create_workflow_run()
