@@ -76,7 +76,7 @@ upload_jobmon_image () {
 
 
     # build jobmon container
-    echo "jobmon==$JOBMON_VERSION" > $WORKSPACE/requirements.txt
+    echo "jobmon[server]==$JOBMON_VERSION" > $WORKSPACE/requirements.txt
     docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://$SCICOMP_DOCKER_REG_URL"
     docker build --no-cache -t "$JOBMON_CONTAINER_URI" -f ./deployment/k8s/Dockerfile .
     docker push "$JOBMON_CONTAINER_URI"
@@ -188,6 +188,23 @@ deploy_jobmon_to_k8s () {
                 --namespace="$K8S_NAMESPACE" \
                 apply -f /data/${TEMPLATE}
     done
+
+    # Render and deploy the reaper to k8s
+    docker run -t \
+    --rm \
+    -v "$WORKSPACE/deployment/k8s/reaper:/data" \
+    $YASHA_CONTAINER \
+        --jobmon_container_uri="$JOBMON_CONTAINER_URI" \
+        --namespace="$K8S_NAMESPACE" \
+        --rancher_slack_secret="$RANCHER_SLACK_SECRET" \
+        /data/workflow_reaper.yaml.j2
+
+    docker run -t \
+    --rm \
+    -v $KUBECONFIG:/root/.kube/config \
+    -v "$WORKSPACE/deployment/k8s/reaper:/data" \
+    $KUBECTL_CONTAINER \
+        apply -f /data/workflow_reaper.yaml
 }
 
 

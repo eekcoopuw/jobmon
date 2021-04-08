@@ -50,3 +50,10 @@ spec:
             secretKeyRef:
               key: QPID_URI
               name: {{rancher_qpid_secret}}
+        resources:
+          limits:
+            memory: 400Mi
+            cpu: 300m
+          requests:
+            cpu: 100m # m = mhz
+            memory: 200Mi

@@ -7,22 +7,25 @@ from setuptools import find_packages
 
 INSTALL_REQUIRES = [
     'configargparse',
-    'flask',
-    'flask_cors',
-    'Flask-SQLAlchemy',
-    'elastic-apm[flask]',
     'numpy',
     'pandas',
     'psutil',
-    'pymysql',  # install MySQLdb/mysqlclient for more performance
     'python_json_logger',
-    'python-logstash-async',
     'requests',
-    'sqlalchemy==1.3',
     'structlog',
     'tabulate',
     'tenacity',
     'tblib'
+]
+
+SERVER_REQUIRES = [
+    'flask',
+    'flask_cors',
+    'Flask-SQLAlchemy',
+    'elastic-apm[flask]',
+    'pymysql',  # install MySQLdb/mysqlclient for more performance
+    'python-logstash-async',
+    'sqlalchemy==1.3',
 ]
 
 # pip install -e .[test]
@@ -71,6 +74,7 @@ setup(
     extras_require={
         'test': TEST_REQUIRES,
         'docs': DOCS_REQUIRES,
+        'server': SERVER_REQUIRES
     },
 
     packages=find_packages('src'),
@@ -88,7 +92,7 @@ setup(
         'console_scripts': [
             'jobmon=jobmon.client.cli:main',
             'jobmon_scheduler=jobmon.client.execution.cli:main',
-            'jobmon_server=jobmon.server.cli:main',
+            'jobmon_server=jobmon.server.cli:main [server]',
             'jobmon_command=jobmon.client.execution.worker_node.execution_wrapper:main'
         ]
     }

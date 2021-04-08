@@ -1,8 +1,0 @@
-global:
-  # Can be overwritten during CI process
-  namespace: "jobmon-dev"
-
-ports:
-  elasticsearch: 9200
-  kibana: 5601
-  logstash: 5000

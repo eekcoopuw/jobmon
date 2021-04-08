@@ -424,9 +424,19 @@ def get_workflow_status():
         where_clause = "WHERE workflow.id in :workflow_id "
     else:  # if we don't specify workflow then we use the users
         # convert user request into sql filter
+        # directly producing workflow_ids, and thus where_clause
         if user_request:
             params["user"] = user_request
-            where_clause = "WHERE workflow_run.user in :user "
+            where_clause_user = "WHERE workflow_run.user in :user "
+            q_user = """
+                SELECT DISTINCT workflow_id
+                FROM workflow_run
+                {where_clause}
+            """.format(where_clause=where_clause_user)
+            res_user = DB.session.execute(q_user, params).fetchall()
+            workflow_ids = [int(row.workflow_id) for row in res_user]
+            params["workflow_id"] = workflow_ids
+            where_clause = "WHERE workflow.id in :workflow_id "
 
     # execute query
     q = """
@@ -443,8 +453,6 @@ def get_workflow_status():
                 END
             ) as RETRIES
         FROM workflow
-        JOIN workflow_run
-            ON workflow.id = workflow_run.workflow_id
         JOIN task
             ON workflow.id = task.workflow_id
         JOIN workflow_status
