@@ -15,6 +15,8 @@ class WorkflowStatus(DB.Model):
     HALTED = Statuses.HALTED
     FAILED = Statuses.FAILED
     DONE = Statuses.DONE
+    INSTANTIATING = Statuses.INSTANTIATING
+    LAUNCHED = Statuses.LAUNCHED
 
     id = DB.Column(DB.String(1), primary_key=True)
     label = DB.Column(DB.String(150), nullable=False)

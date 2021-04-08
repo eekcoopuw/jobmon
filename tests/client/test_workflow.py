@@ -61,6 +61,8 @@ def test_attempt_resume_on_complete_workflow(client_env, db_cfg):
     # bind workflow to db and move to done state
     workflow1.bind()
     wfr = workflow1._create_workflow_run()
+    wfr.update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr.update_status(WorkflowRunStatus.LAUNCHED)
     wfr.update_status(WorkflowRunStatus.RUNNING)
     wfr.update_status(WorkflowRunStatus.DONE)
 

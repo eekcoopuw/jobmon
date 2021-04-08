@@ -64,13 +64,51 @@ class TaskInstanceScheduler:
         logger.info(f"scheduler communicating at {self.requester.url}")
 
         # state tracking
+        # Move workflow and workflow run to Instantiating
+        self._instantiate_workflows()
+
         self._submitted_or_running: Dict[int, ExecutorTaskInstance] = {}
         self._to_instantiate: List[ExecutorTask] = []
         self._to_reconcile: List[ExecutorTaskInstance] = []
         self._to_log_error: List[ExecutorTaskInstance] = []
 
+        # Move workflow and workflow run to launched
+        self._launch_workflows()
+
         # log heartbeat on startup so workflow run FSM doesn't have any races
         self.heartbeat()
+
+    def _instantiate_workflows(self):
+        """Move the workflow and workflow run to instantiating"""
+        # Update workflow run
+        wfr_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
+        rc, resp = self.requester.send_request(
+            app_route=wfr_route,
+            message={'status': WorkflowRunStatus.INSTANTIATING},
+            request_type='put',
+            logger=logger)
+
+        if http_request_ok(rc) is False:
+            raise InvalidResponse(
+                f'Unexpected status code {rc} from PUT '
+                f'request through route {wfr_route}. Expected '
+                f'code 200. Response content: {resp}')
+
+    def _launch_workflows(self):
+        """Move the workflow and workflow run to launched"""
+        # Update workflow run
+        wfr_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
+        rc, resp = self.requester.send_request(
+            app_route=wfr_route,
+            message={'status': WorkflowRunStatus.LAUNCHED},
+            request_type='put',
+            logger=logger)
+
+        if http_request_ok(rc) is False:
+            raise InvalidResponse(
+                f'Unexpected status code {rc} from PUT '
+                f'request through route {wfr_route}. Expected '
+                f'code 200. Response content: {resp}')
 
     def run_scheduler(self, stop_event: Optional[mp.synchronize.Event] = None,
                       status_queue: Optional[mp.Queue] = None):
@@ -298,6 +336,7 @@ class TaskInstanceScheduler:
             request_type='post',
             logger=logger
         )
+
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
@@ -308,12 +347,12 @@ class TaskInstanceScheduler:
         if status in [WorkflowRunStatus.COLD_RESUME,
                       WorkflowRunStatus.HOT_RESUME]:
             raise ResumeSet(f"Resume status ({status}) set by other agent.")
-        elif status not in [WorkflowRunStatus.BOUND,
+        elif status not in [WorkflowRunStatus.LAUNCHED,
                             WorkflowRunStatus.RUNNING]:
             raise WorkflowRunStateError(
                 f"Workflow run {self.workflow_run_id} tried to log a heartbeat"
                 f" but was in state {status}. Workflow run must be in either "
-                f"{WorkflowRunStatus.BOUND} or {WorkflowRunStatus.RUNNING}. "
+                f"{WorkflowRunStatus.LAUNCHED} or {WorkflowRunStatus.RUNNING}. "
                 "Aborting execution.")
 
     def _get_tasks_queued_for_instantiation(self) -> List[ExecutorTask]:

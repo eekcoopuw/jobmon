@@ -4,6 +4,7 @@ import time
 from jobmon.requester import Requester
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_status import TaskStatus
+from jobmon.constants import WorkflowRunStatus
 
 import pytest
 
@@ -31,6 +32,10 @@ def test_blocking_update_timeout(client_env):
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
+    # Move workflow and wfr through Instantiating -> Launched
+    wfr.update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr.update_status(WorkflowRunStatus.LAUNCHED)
+
     with pytest.raises(RuntimeError) as error:
         wfr.execute_interruptible(MockSchedulerProc(),
                                   seconds_until_timeout=2)
@@ -57,6 +62,7 @@ def test_sync(client_env):
     workflow.add_tasks([task])
     workflow.bind()
     wfr = workflow._create_workflow_run()
+
     now = wfr.last_sync
     assert now is not None
 
@@ -163,6 +169,10 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
     # bind workflow to db
     workflow._bind()
     wfr = workflow._create_workflow_run()
+
+    # Move workflow and wfr through Instantiating -> Launched
+    wfr.update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr.update_status(WorkflowRunStatus.LAUNCHED)
 
     # queue task 1
     for task in [t1, t2]:
@@ -271,3 +281,95 @@ def test_propagate_result(client_env):
     assert wfr.swarm_tasks[keys[3]].num_upstreams_done >= 3
     assert wfr.swarm_tasks[keys[4]].num_upstreams_done >= 3
     assert wfr.swarm_tasks[keys[5]].num_upstreams_done >= 3
+
+
+def test_instantiating_launched(db_cfg, client_env):
+    """Check that the workflow and WFR are moving through appropriate states"""
+    from jobmon.client.api import Tool, BashTask
+    from jobmon.requester import Requester
+    from jobmon.client.client_config import ClientConfig
+    from jobmon.client.execution.strategies.sequential import \
+        SequentialExecutor
+    from jobmon.constants import WorkflowRunStatus, WorkflowStatus
+
+    unknown_tool = Tool()
+    workflow = unknown_tool.create_workflow(name="test_instantiated_launched")
+
+    t1 = BashTask("echo 1", executor_class="SequentialExecutor")
+    workflow.add_task(t1)
+    workflow.set_executor(SequentialExecutor())
+
+    # Bind, and check state
+    workflow.bind()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+        SELECT status
+        FROM workflow
+        WHERE id = :workflow_id"""
+        res = DB.session.execute(sql, {"workflow_id": workflow.workflow_id}).fetchone()
+        DB.session.commit()
+    assert res[0] == WorkflowStatus.REGISTERING
+
+    # Create workflow run
+    wfr = workflow._create_workflow_run()
+
+    # Workflow should be queued, wfr should be bound
+    workflow_status_sql = """
+        SELECT w.status, wr.status
+        FROM workflow_run wr
+        JOIN workflow w on w.id = wr.workflow_id
+        WHERE wr.id = :workflow_run_id"""
+    with app.app_context():
+        res = DB.session.execute(
+            workflow_status_sql,
+            {"workflow_run_id": wfr.workflow_run_id}).fetchone()
+        DB.session.commit()
+    assert res == (WorkflowStatus.QUEUED, WorkflowRunStatus.BOUND)
+
+    # Force some invalid state transitions
+    # Don't waste time on retries, redefine requester
+    requester_url = ClientConfig.from_defaults().url
+    req = Requester(requester_url, 1, 5)
+    wfr.requester = req
+
+    with pytest.raises(RuntimeError):
+        # Needs to be instantiating first
+        wfr.update_status(WorkflowRunStatus.LAUNCHED)
+
+    with pytest.raises(RuntimeError):
+        # Needs to be launched first
+        wfr.update_status(WorkflowRunStatus.RUNNING)
+
+    # Something failed and the wfr errors out.
+    wfr.update_status(WorkflowRunStatus.ERROR)
+
+    with app.app_context():
+        res = DB.session.execute(
+            workflow_status_sql,
+            {"workflow_run_id": wfr.workflow_run_id}).fetchone()
+        DB.session.commit()
+    assert res == (WorkflowStatus.FAILED, WorkflowRunStatus.ERROR)
+
+    # Create a new workflow run, and resume
+    wfr2 = workflow._create_workflow_run(resume=True)
+
+    with app.app_context():
+        res = DB.session.execute(
+            workflow_status_sql,
+            {"workflow_run_id": wfr2.workflow_run_id}).fetchone()
+        DB.session.commit()
+    assert res == (WorkflowStatus.QUEUED, WorkflowRunStatus.BOUND)
+
+    # Start the scheduler
+    workflow._start_task_instance_scheduler(
+        wfr2.workflow_run_id, 180)
+
+    with app.app_context():
+        res = DB.session.execute(
+            workflow_status_sql,
+            {"workflow_run_id": wfr2.workflow_run_id}).fetchone()
+        DB.session.commit()
+    assert res == (WorkflowStatus.RUNNING, WorkflowRunStatus.RUNNING)

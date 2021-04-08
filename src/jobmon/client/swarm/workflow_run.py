@@ -21,7 +21,7 @@ logger = logging.getLogger(__name__)
 ValueError = ValueError
 
 
-class WorkflowRunExecutionStatus(object):
+class WorkflowRunExecutionStatus:
     """Enumerate possible exit statuses for WorkflowRun._execute()"""
 
     SUCCEEDED = 0
@@ -29,7 +29,7 @@ class WorkflowRunExecutionStatus(object):
     STOPPED_BY_USER = 2
 
 
-class WorkflowRun(object):
+class WorkflowRun:
     """
     WorkflowRun enables tracking for multiple runs of a single Workflow. A
     Workflow may be started/paused/ and resumed multiple times. Each start or

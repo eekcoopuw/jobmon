@@ -2,25 +2,26 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: jobmon-worker
+  name: jobmon-server
   namespace: {{namespace}}
   labels:
-    app: jobmon-worker
+    app: jobmon-server
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: jobmon-worker
+      app: jobmon-server
   template:
     metadata:
       labels:
-        app: jobmon-worker
-        name: jobmon-worker
+        app: jobmon-server
+        name: jobmon-server
     spec:
       terminationGracePeriodSeconds: 60
       containers:
       - image: {{jobmon_container_uri}}
-        name: jobmon-worker
+        imagePullPolicy: Always
+        name: jobmon-server
         env:
         - name: DB_HOST
           valueFrom:
@@ -50,11 +51,11 @@ spec:
           containerPort: 80
         resources:
           limits:
-            memory: 600Mi
-            cpu: 1
+            memory: 1000Mi # 1000Mi = 1G
+            cpu: 1000m # 1000m = 1000 milli cores = 1 CPU
           requests:
-            cpu: 300m # m = mhz
-            memory: 400Mi
+            cpu: 200m
+            memory: 500Mi
         lifecycle:
           preStop:
             exec:
@@ -64,15 +65,15 @@ spec:
 apiVersion: autoscaling/v2beta2
 kind: HorizontalPodAutoscaler
 metadata:
-  name: jobmon-worker
+  name: jobmon-server
   namespace: {{namespace}}
 spec:
   scaleTargetRef:
     apiVersion: apps/v1
     kind: Deployment
-    name: jobmon-worker
-  maxReplicas: 10
-  minReplicas: 3
+    name: jobmon-server
+  maxReplicas: 20
+  minReplicas: 5
   metrics:
   - type: Resource
     resource:
@@ -86,3 +87,11 @@ spec:
       target:
         type: Utilization
         averageUtilization: 80
+
+
+###-----------------How the maxReplicas calculated----------------------------------------------------------------------
+###We have 52 cores, and we should leave about 40% to 50% to the hypervisor for stability,
+###so that makes it 26 -30. We have 3 applications: jobmon, qpid, and rules,
+###and each has services like logstash, grafana...
+###The workload metrics shows their are pretty light though, so I assume they take 1 cpu per application.
+###That leave jobmon-server about 20 cores. I set the cpu limits to 1000m, which is 1 core/pod max, so the replica is 20.

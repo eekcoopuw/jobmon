@@ -1,6 +1,7 @@
 import time
 
 from jobmon.constants import QsubAttribute
+from jobmon.constants import WorkflowRunStatus
 
 import pytest
 
@@ -26,6 +27,7 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
     workflow.add_tasks([t1])
     workflow.bind()
     wfr = workflow._create_workflow_run()
+
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
@@ -70,6 +72,7 @@ def test_n_queued(db_cfg, client_env):
     workflow.add_tasks(tasks)
     workflow.bind()
     wfr = workflow._create_workflow_run()
+
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester,
@@ -112,6 +115,7 @@ def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
     workflow.add_task(t1)
     workflow.bind()
     wfr = workflow._create_workflow_run()
+
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
@@ -160,6 +164,7 @@ def test_concurrency_limiting(db_cfg, client_env):
 
     workflow.bind()
     wfr = workflow._create_workflow_run()
+
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
@@ -195,7 +200,6 @@ def test_dynamic_concurrency_limiting(db_cfg, client_env):
     from jobmon.client.api import Tool, BashTask
     from jobmon.client.execution.strategies.multiprocess import MultiprocessExecutor
     from jobmon.client.status_commands import concurrency_limit
-    from jobmon.constants import WorkflowRunStatus
     from jobmon.requester import Requester
 
     tasks = []
@@ -211,15 +215,20 @@ def test_dynamic_concurrency_limiting(db_cfg, client_env):
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
+    # Move workflow and wfr through Instantiating -> Launched
+    wfr.update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr.update_status(WorkflowRunStatus.LAUNCHED)
+
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
 
     wfr.update_status(WorkflowRunStatus.ERROR)
 
     # Started with a default of 2. Adjust up to 5 and try again
-    _ = concurrency_limit(workflow.workflow_id, 5)
+    concurrency_limit(workflow.workflow_id, 5)
 
     wfr2 = workflow._create_workflow_run(resume=True)
+
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr2.workflow_run_id,
                                       workflow._executor, requester=requester)

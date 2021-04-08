@@ -4,6 +4,7 @@ from typing import Dict
 import pytest
 from mock import patch, PropertyMock
 from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
+from jobmon.constants import WorkflowRunStatus
 
 
 def get_workflow_status(db_cfg, workflow_id):
@@ -49,7 +50,7 @@ def test_error_state(db_cfg, requester_no_retry):
                                        workflow1._executor, requester=requester_no_retry)
     scheduler1.heartbeat()
 
-    # Create a second workflow with one task. don't log a heartbeat so that it can die
+    # Create a second workflow with one task. Don't log a heartbeat so that it can die
     task2 = BashTask("sleep 11")
     workflow2 = UnknownWorkflow("error_workflow_2", executor_class="SequentialExecutor")
     workflow2.add_tasks([task2])
@@ -60,23 +61,23 @@ def test_error_state(db_cfg, requester_no_retry):
         requester=workflow2.requester
     )
     wfr2._link_to_workflow(0)
-    wfr2._update_status("B")
-    wfr2._update_status("R")
+    wfr2._update_status(WorkflowRunStatus.BOUND)
+    wfr2._update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr2._update_status(WorkflowRunStatus.LAUNCHED)
+    wfr2._update_status(WorkflowRunStatus.RUNNING)
 
-    # Call the reaper, with a short loss_threshold, to trigger the reaper to
-    # move the workflow run in to error state
+    # Instantiate reaper, have it check for workflow runs in error state
     reaper = WorkflowReaper(poll_interval_minutes=1, requester=requester_no_retry)
     reaper._error_state()
 
-    # Check that the workflow that exceeded the loss threshold now has an F
-    # status, make sure the other workflow is untouched
+    # Check that one workflow is running and the other failed
     workflow1_status = get_workflow_status(db_cfg, workflow1.workflow_id)
     workflow2_status = get_workflow_status(db_cfg, workflow2.workflow_id)
 
     assert workflow1_status == "R"
     assert workflow2_status == "F"
 
-    # # Check that the  workflow run was also moved to the E state
+    # Check that the  workflow run was also moved to the E state
     wfr_status = get_workflow_run_status(db_cfg, wfr2.workflow_run_id)
     assert wfr_status == "E"
 
@@ -119,9 +120,11 @@ def test_halted_state(db_cfg, requester_no_retry):
         requester=workflow2.requester
     )
     wfr2._link_to_workflow(0)
-    wfr2._update_status("B")
-    wfr2._update_status("R")
-    wfr2._update_status("C")
+    wfr2._update_status(WorkflowRunStatus.BOUND)
+    wfr2._update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr2._update_status(WorkflowRunStatus.LAUNCHED)
+    wfr2._update_status(WorkflowRunStatus.RUNNING)
+    wfr2._update_status(WorkflowRunStatus.COLD_RESUME)
 
     # Create third WorkflowRun and transition to H status
     task3 = BashTask("sleep 12")
@@ -135,9 +138,11 @@ def test_halted_state(db_cfg, requester_no_retry):
         requester=workflow3.requester
     )
     wfr3._link_to_workflow(0)
-    wfr3._update_status("B")
-    wfr3._update_status("R")
-    wfr3._update_status("H")
+    wfr3._update_status(WorkflowRunStatus.BOUND)
+    wfr3._update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr3._update_status(WorkflowRunStatus.LAUNCHED)
+    wfr3._update_status(WorkflowRunStatus.RUNNING)
+    wfr3._update_status(WorkflowRunStatus.HOT_RESUME)
 
     # Call workflow reaper suspended state
     reaper = WorkflowReaper(5, requester=requester_no_retry)

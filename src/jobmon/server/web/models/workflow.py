@@ -48,12 +48,21 @@ class Workflow(DB.Model):
         # new workflow run created that resumes old suspended workflow run
         (WorkflowStatus.HALTED, WorkflowStatus.REGISTERING),
 
-        # Workflow was bound but didn't start running. eventually moved
-        # to failed.
+        # Workflow is instantiating
+        (WorkflowStatus.QUEUED, WorkflowStatus.INSTANTIATING),
+
+        # Workflow fails before it's instantiated
         (WorkflowStatus.QUEUED, WorkflowStatus.FAILED),
 
-        # workflow run was bound then started running. normal happy path
-        (WorkflowStatus.QUEUED, WorkflowStatus.RUNNING),
+        # workflow is launched. normal happy path
+        (WorkflowStatus.INSTANTIATING, WorkflowStatus.LAUNCHED),
+
+        # workflow can't launch for some reason. TODO: Implement triaging
+        (WorkflowStatus.INSTANTIATING, WorkflowStatus.FAILED),
+        (WorkflowStatus.LAUNCHED, WorkflowStatus.FAILED),
+
+        # workflow runs. normal happy path
+        (WorkflowStatus.LAUNCHED, WorkflowStatus.RUNNING),
 
         # workflow run was running and then got moved to a resume state
         (WorkflowStatus.RUNNING, WorkflowStatus.HALTED),

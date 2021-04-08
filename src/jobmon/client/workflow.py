@@ -388,7 +388,7 @@ class Workflow(object):
 
         if not self._newly_created and not resume:
             raise WorkflowAlreadyExists(
-                "This workflow already exist. If you are trying to resume a workflow, "
+                "This workflow already exists. If you are trying to resume a workflow, "
                 "please set the resume flag. If you are not trying to resume a workflow, make "
                 "sure the workflow args are unique or the tasks are unique"
             )
@@ -513,6 +513,7 @@ class Workflow(object):
             scheduler_config = SchedulerConfig.from_defaults()
 
         logger.info("Instantiating Scheduler Process")
+
         # instantiate scheduler and launch in separate proc. use event to
         # signal back when scheduler is started
         scheduler = TaskInstanceScheduler(
@@ -527,12 +528,16 @@ class Workflow(object):
             jobmon_command=scheduler_config.jobmon_command,
             requester=self.requester
         )
+        self._status = WorkflowStatus.INSTANTIATING
+
+        scheduler_proc = Process(
+            target=scheduler.run_scheduler,
+            args=(self._scheduler_stop_event, self._scheduler_com_queue)
+        )
 
         try:
-            scheduler_proc = Process(
-                target=scheduler.run_scheduler,
-                args=(self._scheduler_stop_event, self._scheduler_com_queue)
-            )
+
+            # Start the scheduler
             scheduler_proc.start()
 
             # wait for response from scheduler

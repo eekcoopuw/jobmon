@@ -179,9 +179,9 @@ def client_log_workflow_run_heartbeat(workflow_run_id: int):
         workflow_run.heartbeat(data["next_report_increment"], WorkflowRunStatus.LINKING)
         DB.session.commit()
         app.logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
-    except InvalidStateTransition:
+    except InvalidStateTransition as e:
         DB.session.rollback()
-        app.logger.debug(f"wfr {workflow_run_id} heartbeat rolled back")
+        app.logger.debug(f"wfr {workflow_run_id} heartbeat rolled back, reason: {e}")
 
     resp = jsonify(message=str(workflow_run.status))
     resp.status_code = StatusCodes.OK
@@ -197,8 +197,12 @@ def log_workflow_run_status_update(workflow_run_id: int):
                      f"Data: {data}")
 
     workflow_run = DB.session.query(WorkflowRun).filter_by(id=workflow_run_id).one()
-    workflow_run.transition(data["status"])
-    DB.session.commit()
+    try:
+        workflow_run.transition(data["status"])
+        DB.session.commit()
+    except InvalidStateTransition:
+        DB.session.rollback()
+        raise
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -312,6 +316,7 @@ def get_lost_workflow_runs():
         WHERE
             workflow_run.status in :workflow_run_status
             and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
+            and workflow_run.jobmon_version = :version
     """
     workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query)).params(
         workflow_run_status=statuses, version=version

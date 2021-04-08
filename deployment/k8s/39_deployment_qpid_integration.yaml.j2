@@ -20,6 +20,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
       - image: {{jobmon_container_uri}}
+        imagePullPolicy: Always
         name: jobmon-qpid-integration
         command: ["jobmon_server"]
         args: ["qpid_integration", "start"]
@@ -49,3 +50,10 @@ spec:
             secretKeyRef:
               key: QPID_URI
               name: {{rancher_qpid_secret}}
+        resources:
+          limits:
+            memory: 400Mi
+            cpu: 300m
+          requests:
+            cpu: 100m # m = mhz
+            memory: 200Mi

@@ -145,9 +145,9 @@ def test_cold_resume(db_cfg, client_env):
     # prepare first workflow
     tasks = []
     for i in range(6):
-        t = tt.create_task(executor_parameters=ExecutorParameters(
-                               executor_class="MultiprocessExecutor"),
-                           time=5 + i)
+        t = tt.create_task(
+            executor_parameters=ExecutorParameters(executor_class="MultiprocessExecutor"),
+            time=5 + i)
         tasks.append(t)
     workflow1 = unknown_tool.create_workflow(name="cold_resume")
     workflow1.set_executor(MultiprocessExecutor(parallelism=3))
