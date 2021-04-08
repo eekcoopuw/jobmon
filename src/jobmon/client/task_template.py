@@ -172,11 +172,11 @@ class TaskTemplate:
         try:
             version_index = hash_index_lookup[lookup_hash]
         except KeyError:
+            self.task_template_versions.append(task_template_version)
             version_index = len(self.task_template_versions) - 1
             if version_index < 0:
                 version_index = 0
             hash_index_lookup[lookup_hash] = version_index
-            self.task_template_versions.append(task_template_version)
 
         self._active_task_template_version = self.task_template_versions[version_index]
 

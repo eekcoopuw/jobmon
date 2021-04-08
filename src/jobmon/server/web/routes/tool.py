@@ -18,7 +18,10 @@ from . import jobmon_client
 def add_tool():
     """Add a tool to the database"""
     data = request.get_json()
-    tool_name = data["name"]
+    try:
+        tool_name = data["name"]
+    except Exception as e:
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     # add tool to db
     try:
         tool = Tool(name=tool_name)

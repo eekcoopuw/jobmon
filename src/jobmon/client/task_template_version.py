@@ -170,7 +170,7 @@ class TaskTemplateVersion:
                              "superset of the keys declared in task_args. Values recieved "
                              f"were --- \ncommand_template is: {self.command_template}. "
                              f"\ncommand_template format keys are {self.template_args}. "
-                             f"\nnode_args is: {val}. \nmissing format keys in "
+                             f"\ntask_args is: {val}. \nmissing format keys in "
                              f"command_template are {set(val) - self.template_args}.")
         self._task_args = val
 
@@ -193,7 +193,7 @@ class TaskTemplateVersion:
                              "superset of the keys declared in op_args. Values received "
                              f"were --- \ncommand_template is: {self.command_template}. "
                              f"\ncommand_template format keys are {self.template_args}. "
-                             f"\nnode_args is: {val}. \nmissing format keys in "
+                             f"\nop_args is: {val}. \nmissing format keys in "
                              f"command_template are {set(val) - self.template_args}.")
         self._op_args = val
 

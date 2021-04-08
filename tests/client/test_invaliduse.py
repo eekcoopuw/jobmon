@@ -43,16 +43,6 @@ def test_add_tool_version(db_cfg, client_env):
     assert rc == 400
 
 
-def test_get_task_template(db_cfg, client_env):
-    # @jobmon_client.route('/task_template', methods=['GET'])
-    requester = Requester(client_env, logger)
-    rc, response = requester.send_request(
-        app_route='/task_template',
-        message={'paramter_does_not_exist': 'abc'},
-        request_type='get')
-    assert rc == 400
-
-
 def test_add_task_template(db_cfg, client_env):
     # @jobmon_client.route('/task_template', methods=['POST'])
     requester = Requester(client_env, logger)
