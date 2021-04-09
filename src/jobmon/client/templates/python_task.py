@@ -14,6 +14,7 @@ class PythonTask(Task):
     """Python Task for backward compatibility with Jobmon 1.* series. Used for Tasks that
     execute a python script.
     """
+
     _tool_registry: Dict[str, Tool] = {}
 
     current_python = sys.executable

@@ -1,7 +1,10 @@
+"""Tool Version represents a logical instance of a project or model that will be run many times
+over.
+"""
 from __future__ import annotations
 
 from http import HTTPStatus as StatusCodes
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional, Tuple
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
@@ -17,8 +20,17 @@ logger = logging.getLogger(__name__)
 
 
 class ToolVersion:
+    """Tool Version represents a logical instance of a project or model that will be run many times
+    over.
+    """
 
     def __init__(self, tool_version_id: int, requester: Optional[Requester] = None) -> None:
+        """Instantiate a tool version.
+
+        Args:
+            tool_version_id: an integer id associated with a Tool
+            requester: communicate with the flask services.
+        """
         self.id = tool_version_id
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
@@ -28,7 +40,14 @@ class ToolVersion:
         self.task_templates: Dict[str, TaskTemplate] = {}
 
     @classmethod
-    def get_tool_version(cls, tool_id, requester: Optional[Requester] = None) -> ToolVersion:
+    def get_tool_version(cls, tool_version_id, requester: Optional[Requester] = None
+                         ) -> ToolVersion:
+        """Get an instance of ToolVersion from the database.
+
+        Args:
+            tool_version_id: an integer id associated with a Tool
+            requester: communicate with the flask services.
+        """
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
             requester = Requester(requester_url)
@@ -36,7 +55,7 @@ class ToolVersion:
         app_route = "/client/tool_version"
         return_code, response = requester.send_request(
             app_route=app_route,
-            message={"tool_id": tool_id},
+            message={"tool_version_id": tool_version_id},
             request_type='post',
             logger=logger
         )
@@ -52,11 +71,18 @@ class ToolVersion:
     @classmethod
     def from_wire(cls, wire_tuple: Tuple, requester: Optional[Requester] = None
                   ) -> ToolVersion:
+        """Convert from the wire format of ToolVersion to an instance
+
+        Args:
+            wire_tuple: Wire format for ToolVersion defined in jobmon.serializers.
+            requester: communicate with the flask services.
+        """
         tool_version_kwargs = SerializeClientToolVersion.kwargs_from_wire(wire_tuple)
         tool_version = cls(tool_version_kwargs["id"], requester=requester)
         return tool_version
 
     def load_task_templates(self):
+        """Get all task_templates associated with this tool version from the database."""
         app_route = f'/tool_version/{self.id}/task_templates'
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -77,6 +103,7 @@ class ToolVersion:
             task_template.load_task_template_versions()
 
     def get_task_template(self, template_name: str) -> TaskTemplate:
+        """Get a single task_template associated with this tool version from the database."""
         task_template = self.task_templates.get(template_name)
         if task_template is None:
             task_template = TaskTemplate.get_task_template(self.id, template_name,

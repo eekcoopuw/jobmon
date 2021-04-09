@@ -3,10 +3,10 @@ time.
 """
 from __future__ import annotations
 
-from http import HTTPStatus as StatusCodes
-from typing import Dict, List, Optional, Union
 import getpass
 import warnings
+from http import HTTPStatus as StatusCodes
+from typing import Dict, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
@@ -49,7 +49,7 @@ class Tool:
             name: the name of the tool
             active_tool_version_id: which version of the tool to attach task templates and
                 workflows to.
-            requester_url (str): url to communicate with the flask services.
+            requester: communicate with the flask services.
         """
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
@@ -117,7 +117,6 @@ class Tool:
         Args:
             tool_version_id: which tool version to set as active on this object.
         """
-
         version_index_lookup = {self.tool_versions[index].id: index
                                 for index in range(len(self.tool_versions))}
 

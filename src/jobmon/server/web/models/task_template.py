@@ -1,6 +1,6 @@
 """Task Template database table."""
-from jobmon.server.web.models import DB
 from jobmon.serializers import SerializeClientTaskTemplate
+from jobmon.server.web.models import DB
 
 
 class TaskTemplate(DB.Model):

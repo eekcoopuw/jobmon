@@ -1,4 +1,4 @@
-from jobmon.client.tool import InvalidToolVersionError, Tool
+from jobmon.client.tool import Tool
 
 import pytest
 

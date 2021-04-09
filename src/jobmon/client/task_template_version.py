@@ -48,13 +48,36 @@ class TaskTemplateVersion:
     def get_task_template_version(cls, task_template_id: int, command_template: str,
                                   node_args: List[str] = [], task_args: List[str] = [],
                                   op_args: List[str] = [],
-                                  requester: Optional[Requester] = None):
+                                  requester: Optional[Requester] = None
+                                  ) -> TaskTemplateVersion:
+        """Get a bound TaskTemplateVersion object from parameters.
+
+        task_template_id: task template id this should be associated with.
+        command_template: an abstract command representing a task, where the arguments to
+            the command have defined names but the values are not assigned. eg: '{python}
+            {script} --data {data} --para {para} {verbose}'
+        node_args: any named arguments in command_template that make the command unique
+            within this template for a given workflow run. Generally these are arguments
+            that can be parallelized over.
+        task_args: any named arguments in command_template that make the command unique
+            across workflows if the node args are the same as a previous workflow.
+            Generally these are arguments about data moving though the task.
+        op_args: any named arguments in command_template that can change without changing
+            the identity of the task. Generally these are things like the task executable
+            location or the verbosity of the script.
+        """
         task_template_version = cls(command_template, node_args, task_args, op_args, requester)
         task_template_version.bind(task_template_id)
         return task_template_version
 
     @classmethod
     def from_wire(cls, wire_tuple: Tuple) -> TaskTemplateVersion:
+        """Get a bound TaskTemplateVersion object from the http wire format.
+
+        Args:
+            wire_tuple: Wire format for ToolVersion defined in jobmon.serializers.
+            requester: communicate with the flask services.
+        """
         kwargs = SerializeClientTaskTemplateVersion.kwargs_from_wire(wire_tuple)
 
         # post bind args should be popped off and added as attrs
@@ -205,6 +228,7 @@ class TaskTemplateVersion:
         return int(hashlib.sha1(hashable.encode('utf-8')).hexdigest(), 16)
 
     def __hash__(self):
+        """Unique identifier for this object"""
         hash_value = hashlib.sha1()
         hash_value.update(bytes(str(self.arg_mapping_hash).encode('utf-8')))
         hash_value.update(bytes(str(self.command_template).encode('utf-8')))

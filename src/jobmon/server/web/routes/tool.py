@@ -6,7 +6,7 @@ from flask import current_app as app, jsonify, request
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.tool import Tool
 from jobmon.server.web.models.tool_version import ToolVersion
-from jobmon.server.web.server_side_exception import (InvalidUsage, ServerError)
+from jobmon.server.web.server_side_exception import InvalidUsage
 
 import sqlalchemy
 from sqlalchemy.sql import text

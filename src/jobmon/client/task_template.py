@@ -32,7 +32,7 @@ class TaskTemplate:
 
         Args:
             template_name: the name of this task template.
-            requester_url (str): url to communicate with the flask services.
+            requester: object to communicate with the flask services.
         """
         self.template_name = template_name
 
@@ -48,6 +48,13 @@ class TaskTemplate:
     @classmethod
     def get_task_template(cls, tool_version_id: int, template_name: str,
                           requester: Optional[Requester] = None) -> TaskTemplate:
+        """Get a bound instance of TaskTemplate.
+
+        Args:
+            tool_version_id: tool version to associate this task template with
+            template_name: name of this specific task template
+            requester: object to communicate with the flask services.
+        """
         task_template = cls(template_name, requester)
         task_template.bind(tool_version_id)
         return task_template
@@ -55,6 +62,12 @@ class TaskTemplate:
     @classmethod
     def from_wire(cls, wire_tuple: Tuple, requester: Optional[Requester] = None
                   ) -> TaskTemplate:
+        """Get a bound instance of TaskTemplate from the http wire format
+
+        Args:
+            wire_tuple: Wire format for ToolVersion defined in jobmon.serializers.
+            requester: communicate with the flask services.
+        """
         task_template_kwargs = SerializeClientTaskTemplate.kwargs_from_wire(wire_tuple)
         task_template = cls(template_name=task_template_kwargs["template_name"],
                             requester=requester)
@@ -110,7 +123,7 @@ class TaskTemplate:
 
     @property
     def active_task_template_version(self) -> TaskTemplateVersion:
-        """TaskTemplateVersion to use when spawning tasks."""
+        """The TaskTemplateVersion to use when spawning tasks."""
         if not self.task_template_versions:
             raise AttributeError(
                 "Cannot access attribute active_task_template_version because there are no "
@@ -122,7 +135,7 @@ class TaskTemplate:
 
     def set_active_task_template_version_id(self, task_template_version_id: Union[str, int]
                                             = "latest"):
-        """TaskTemplateVersion that is set as the active one (latest is default).
+        """The TaskTemplateVersion that is set as the active one (latest is default).
 
         Args:
             task_template_version_id: which version to set as active on this object.
@@ -156,7 +169,7 @@ class TaskTemplate:
         self._active_task_template_version = self.task_template_versions[version_index]
 
     def set_active_task_template_version(self, task_template_version: TaskTemplateVersion):
-        """TaskTemplateVersion that is set as the active one.
+        """The TaskTemplateVersion that is set as the active one.
 
         Args:
             task_template_version: which version to set as active on this object.
@@ -181,8 +194,7 @@ class TaskTemplate:
         self._active_task_template_version = self.task_template_versions[version_index]
 
     def load_task_template_versions(self) -> None:
-        """Load task template versions associated with this task template from the database.
-        """
+        """Load task template versions associated with this task template from the database."""
         app_route = f"/client/task_template/{self.id}/versions"
         return_code, response = self.requester.send_request(
             app_route=app_route,
