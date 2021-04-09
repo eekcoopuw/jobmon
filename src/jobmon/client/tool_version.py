@@ -40,22 +40,34 @@ class ToolVersion:
         self.task_templates: Dict[str, TaskTemplate] = {}
 
     @classmethod
-    def get_tool_version(cls, tool_version_id, requester: Optional[Requester] = None
-                         ) -> ToolVersion:
+    def get_tool_version(cls, tool_id: Optional[int] = None,
+                         tool_version_id: Optional[int] = None,
+                         requester: Optional[Requester] = None) -> ToolVersion:
         """Get an instance of ToolVersion from the database.
 
         Args:
-            tool_version_id: an integer id associated with a Tool
+            tool_id: an integer id associated with a Tool
+            tool_version_id: tool_version_id to get from the database.
             requester: communicate with the flask services.
         """
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
             requester = Requester(requester_url)
 
+        message = {}
+        if tool_id is not None:
+            message["tool_id"] = tool_id
+        if tool_version_id is not None:
+            message["tool_version_id"] = tool_version_id
+        if not message:
+            raise ValueError(
+                "get_tool_version must specify either a tool_id or a tool_version_id"
+            )
+
         app_route = "/client/tool_version"
         return_code, response = requester.send_request(
             app_route=app_route,
-            message={"tool_version_id": tool_version_id},
+            message=message,
             request_type='post',
             logger=logger
         )

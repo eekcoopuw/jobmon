@@ -95,7 +95,7 @@ class Tool:
         """
         # call route to create tool version
 
-        tool_version = ToolVersion.get_tool_version(self.id, self.requester)
+        tool_version = ToolVersion.get_tool_version(tool_id=self.id, requester=self.requester)
         tool_version_id = tool_version.id
         self.tool_versions.append(tool_version)
         self.set_active_tool_version_id(tool_version_id)
