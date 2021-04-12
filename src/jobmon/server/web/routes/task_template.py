@@ -17,41 +17,8 @@ from sqlalchemy.sql import text
 from . import jobmon_client
 
 
-@jobmon_client.route('/task_template', methods=['GET'])
-def get_task_template():
-    """Get a task template from the database."""
-    # parse args
-    try:
-        tool_version_id = int(request.args.get("tool_version_id"))
-        name = request.args.get("task_template_name")
-        app.logger = app.logger.bind(tool_version_id=tool_version_id, task_template_name=name)
-    except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    # get data from db
-    query = """
-        SELECT
-            task_template.*
-        FROM task_template
-        WHERE
-            tool_version_id = :tool_version_id
-            AND name = :name
-    """
-    tt = DB.session.query(TaskTemplate).from_statement(text(query)).params(
-        tool_version_id=tool_version_id,
-        name=name
-    ).one_or_none()
-    if tt is not None:
-        task_template_id = tt.id
-    else:
-        task_template_id = None
-
-    resp = jsonify(task_template_id=task_template_id)
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
 @jobmon_client.route('/task_template', methods=['POST'])
-def add_task_template():
+def get_task_template():
     """Add a task template for a given tool to the database."""
     # check input variable
     data = request.get_json()
@@ -86,36 +53,27 @@ def add_task_template():
     return resp
 
 
-@jobmon_client.route('/task_template/<task_template_id>/version', methods=['GET'])
-def get_task_template_version(task_template_id: int):
+@jobmon_client.route('/task_template/<task_template_id>/versions', methods=['GET'])
+def get_task_template_versions(task_template_id: int):
     """Get the task_template_version."""
     # get task template version object
     app.logger = app.logger.bind(task_template_id=task_template_id)
     app.logger.info(f"Getting task template version for task template: {task_template_id}")
-    # parse args
-    command_template = request.args.get("command_template")
-    arg_mapping_hash = request.args.get("arg_mapping_hash")
+
     query = """
         SELECT
             task_template_version.*
         FROM task_template_version
         WHERE
             task_template_id = :task_template_id
-            AND arg_mapping_hash = :arg_mapping_hash
-            AND command_template = :command_template
     """
-    ttv = DB.session.query(TaskTemplateVersion).from_statement(text(query)).params(
-        task_template_id=task_template_id,
-        command_template=command_template,
-        arg_mapping_hash=arg_mapping_hash
-    ).one_or_none()
+    ttvs = DB.session.query(TaskTemplateVersion).from_statement(text(query)).params(
+        task_template_id=task_template_id
+    ).all()
 
-    if ttv is not None:
-        wire_obj = ttv.to_wire_as_client_task_template_version()
-    else:
-        wire_obj = None
+    wire_obj = [ttv.to_wire_as_client_task_template_version() for ttv in ttvs]
 
-    resp = jsonify(task_template_version=wire_obj)
+    resp = jsonify(task_template_versions=wire_obj)
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -179,9 +137,7 @@ def add_task_template_version(task_template_id: int):
                     arg_type_id=arg_type_id)
                 DB.session.add(ctatm)
         DB.session.commit()
-        resp = jsonify(
-            task_template_version=ttv.to_wire_as_client_task_template_version()
-        )
+        resp = jsonify(task_template_version=ttv.to_wire_as_client_task_template_version())
         resp.status_code = StatusCodes.OK
         return resp
     except sqlalchemy.exc.IntegrityError:

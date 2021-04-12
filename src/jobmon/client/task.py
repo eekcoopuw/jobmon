@@ -6,7 +6,7 @@ from __future__ import annotations
 import hashlib
 from functools import partial
 from http import HTTPStatus as StatusCodes
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Callable, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import ExecutorParameters
@@ -340,56 +340,3 @@ class Task:
         hash_value.update(bytes(str(hash(self.node)).encode('utf-8')))
         hash_value.update(bytes(str(self.task_args_hash).encode('utf-8')))
         return int(hash_value.hexdigest(), 16)
-
-    def _parse_command_to_args(self, full_command: str, node_args: Dict, task_args: Dict,
-                               op_args: Dict, command_line_args: str = "") -> str:
-        """This will attempt to parse out the different types of args from a bash task or
-        python task for backwards compatibility. It will look for flags that match the arg
-        key (ex. node_arg = blah, flag = --blah) otherwise it will look for a matching value
-        and mark it with the arg in the template (ex.
-        """
-        cmd_list = full_command.split()
-        if command_line_args != "":
-            cmd_list.append(command_line_args)  # may have spaces so can't be split
-        args = {**node_args, **task_args, **op_args}  # join all args
-        for arg in args.keys():
-            if f'--{arg}' in cmd_list:  # if cmd uses flags
-                try:
-                    val = cmd_list[cmd_list.index(f'--{arg}') + 1]
-                except IndexError:
-                    if args[arg] is True or args[arg] is False:
-                        args[arg] = f'--{arg}'
-                        cmd_list[cmd_list.index(f'--{arg}')] = f'{{{arg}}}'
-                    else:
-                        raise IndexError(f"You have not supplied a value for the key {arg}, it"
-                                         f" was expecting {args[arg]}")
-                if val != str(args[arg]):
-                    if '--' in val or args[arg] is True or args[arg] is False:
-                        args[arg] = f'--{arg}'
-                        cmd_list[cmd_list.index(f'--{arg}')] = f'{{{arg}}}'
-                    else:
-                        raise ValueError(f"Your node_arg: {arg} expected a value of: "
-                                         f"{args[arg]}, but found {val}")
-                else:  # the arg value provided is the expected one
-                    cmd_list[cmd_list.index(f'--{arg}') + 1] = f'{{{arg}}}'
-            # if an arg is not denoted by a flag, then look for the value itself to replace
-            elif str(args[arg]) in cmd_list:
-                cmd_list[cmd_list.index(str(args[arg]))] = f'{{{arg}}}'
-            else:
-                raise ValueError(f'{arg} or {args[arg]} cannot be found in the list: '
-                                 f'{cmd_list}. If you have multiple args with the same value, '
-                                 f'or if you have the same arg name in multiple types (node, '
-                                 f'task, op) this may cause problems')
-        cmd_template = ' '.join(cmd_list)
-        node_args, task_args, op_args = self._update_args(node_args, task_args, op_args, args)
-        return cmd_template, node_args, task_args, op_args
-
-    def _update_args(self, node_args, task_args, op_args, args) -> Tuple:
-        for arg in args.keys():
-            if arg in node_args:
-                node_args[arg] = str(args[arg])
-            if arg in task_args:
-                task_args[arg] = str(args[arg])
-            if arg in op_args:
-                op_args[arg] = str(args[arg])
-        return node_args, task_args, op_args

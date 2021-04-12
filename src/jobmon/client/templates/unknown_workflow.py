@@ -133,10 +133,10 @@ class UnknownWorkflow(Workflow):
         self.requester = requester
 
         if self._tool is None:
-            unknown_tool = Tool("unknown")
+            unknown_tool = Tool()
             self._set_tool(unknown_tool)
         super().__init__(
-            tool_version_id=self._tool.active_tool_version_id,
+            tool_version_id=self._tool.active_tool_version.id,
             workflow_args=workflow_args,
             name=name,
             description=description,

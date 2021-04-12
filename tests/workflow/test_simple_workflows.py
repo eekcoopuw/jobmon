@@ -106,7 +106,7 @@ def test_fork_and_join_tasks(db_cfg, client_env):
         MultiprocessExecutor
 
     tool = Tool()
-    workflow = Workflow(tool_version_id=tool.active_tool_version_id,
+    workflow = Workflow(tool_version_id=tool.active_tool_version.id,
                         name="test_fork_and_join_tasks")
     executor = MultiprocessExecutor(parallelism=3)
     workflow.set_executor(executor)
@@ -170,7 +170,7 @@ def test_fork_and_join_tasks_with_fatal_error(db_cfg, client_env, tmpdir):
         MultiprocessExecutor
 
     tool = Tool()
-    workflow = Workflow(tool_version_id=tool.active_tool_version_id,
+    workflow = Workflow(tool_version_id=tool.active_tool_version.id,
                         name="test_fork_and_join_tasks_with_fatal_error")
     executor = MultiprocessExecutor(parallelism=3)
     workflow.set_executor(executor)
@@ -259,7 +259,7 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, client_env, tmpdir):
         MultiprocessExecutor
 
     tool = Tool()
-    workflow = Workflow(tool_version_id=tool.active_tool_version_id,
+    workflow = Workflow(tool_version_id=tool.active_tool_version.id,
                         name="test_fork_and_join_tasks_with_retryable_error")
     executor = MultiprocessExecutor(parallelism=3)
     workflow.set_executor(executor)
@@ -351,7 +351,7 @@ def test_bushy_real_dag(db_cfg, client_env, tmpdir):
         MultiprocessExecutor
 
     tool = Tool()
-    workflow = Workflow(tool_version_id=tool.active_tool_version_id,
+    workflow = Workflow(tool_version_id=tool.active_tool_version.id,
                         name="test_fork_and_join_tasks_with_fatal_error")
     executor = MultiprocessExecutor(parallelism=3)
     workflow.set_executor(executor)

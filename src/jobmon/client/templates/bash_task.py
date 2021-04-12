@@ -1,5 +1,6 @@
 """Bash Task object for backward compatibility with jobmon 1.* series."""
-from typing import Callable, Dict, List, Optional, Union
+import getpass
+from typing import Callable, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.task import Task
@@ -9,7 +10,7 @@ from jobmon.client.tool import Tool
 class BashTask(Task):
     """Task to execute a Bash command (for backward compatibility with Jobmon 1.* series)."""
 
-    _bash_task_template_registry: Dict = {}
+    _tool_registry: Dict[str, Tool] = {}
 
     def __init__(self,
                  command: str,
@@ -105,21 +106,28 @@ class BashTask(Task):
             node_args['command'] = full_command
         else:
             command_template, node_args, task_args, op_args = self._parse_command_to_args(
-                full_command, node_args, task_args, op_args)
+                full_command, node_args, task_args, op_args
+            )
 
+        # tool is now a task template registry
+        if tool is None:
+            tool_name = f"unknown-{getpass.getuser()}"
+        else:
+            tool_name = tool.name
         try:
-            task_template = self._bash_task_template_registry[command]
+            tool = self._tool_registry[tool_name]
         except KeyError:
             if tool is None:
-                tool = Tool("unknown")
-            task_template = tool.get_task_template(
-                template_name='bash_task',
-                command_template=command_template,
-                node_args=list(node_args.keys()),
-                task_args=list(task_args.keys()),
-                op_args=list(op_args.keys())
-            )
-            self._add_task_template_to_registry(command, task_template)
+                tool = Tool()
+            self._add_tool_to_registry(tool)
+
+        task_template = tool.get_task_template(
+            template_name=command_template,
+            command_template=command_template,
+            node_args=list(node_args.keys()),
+            task_args=list(task_args.keys()),
+            op_args=list(op_args.keys())
+        )
 
         # construct deprecated API for executor_parameters
         if executor_parameters is None:
@@ -132,25 +140,79 @@ class BashTask(Task):
                 context_args=context_args,
                 resource_scales=resource_scales,
                 hard_limits=hard_limits,
-                executor_class=executor_class)
+                executor_class=executor_class
+            )
 
-        node_args = {task_template.task_template_version.id_name_map[k]: v for k, v in
-                     node_args.items() if k in task_template.task_template_version.node_args}
-        task_args = {task_template.task_template_version.id_name_map[k]: v for k, v in
-                     task_args.items() if k in task_template.task_template_version.task_args}
+        node_args = {task_template.active_task_template_version.id_name_map[k]: v
+                     for k, v in node_args.items()
+                     if k in task_template.active_task_template_version.node_args}
+        task_args = {task_template.active_task_template_version.id_name_map[k]: v
+                     for k, v in task_args.items()
+                     if k in task_template.active_task_template_version.task_args}
 
         super().__init__(
             command=full_command,
-            task_template_version_id=(
-                task_template.task_template_version.id),
+            task_template_version_id=task_template.active_task_template_version.id,
             node_args=node_args,
             task_args=task_args,
             executor_parameters=executor_parameters,
             name=name,
             max_attempts=max_attempts,
             upstream_tasks=upstream_tasks,
-            task_attributes=task_attributes)
+            task_attributes=task_attributes
+        )
 
     @classmethod
-    def _add_task_template_to_registry(cls, command, task_template):
-        cls._bash_task_template_registry[command] = task_template
+    def _add_tool_to_registry(cls, tool: Tool):
+        cls._tool_registry[tool.name] = tool
+
+    def _parse_command_to_args(self, full_command: str, node_args: Dict, task_args: Dict,
+                               op_args: Dict) -> Tuple[str, Dict, Dict, Dict]:
+        """This will attempt to parse out the different types of args from a bash task or
+        python task for backwards compatibility. It will look for flags that match the arg
+        key (ex. node_arg = blah, flag = --blah) otherwise it will look for a matching value
+        and mark it with the arg in the template (ex.
+        """
+        cmd_list = full_command.split()
+        args = {**node_args, **task_args, **op_args}  # join all args
+        for arg in args.keys():
+            if f'--{arg}' in cmd_list:  # if cmd uses flags
+                try:
+                    val = cmd_list[cmd_list.index(f'--{arg}') + 1]
+                except IndexError:
+                    if args[arg] is True or args[arg] is False:
+                        args[arg] = f'--{arg}'
+                        cmd_list[cmd_list.index(f'--{arg}')] = f'{{{arg}}}'
+                    else:
+                        raise IndexError(f"You have not supplied a value for the key {arg}, it"
+                                         f" was expecting {args[arg]}")
+                if val != str(args[arg]):
+                    if '--' in val or args[arg] is True or args[arg] is False:
+                        args[arg] = f'--{arg}'
+                        cmd_list[cmd_list.index(f'--{arg}')] = f'{{{arg}}}'
+                    else:
+                        raise ValueError(f"Your node_arg: {arg} expected a value of: "
+                                         f"{args[arg]}, but found {val}")
+                else:  # the arg value provided is the expected one
+                    cmd_list[cmd_list.index(f'--{arg}') + 1] = f'{{{arg}}}'
+            # if an arg is not denoted by a flag, then look for the value itself to replace
+            elif str(args[arg]) in cmd_list:
+                cmd_list[cmd_list.index(str(args[arg]))] = f'{{{arg}}}'
+            else:
+                raise ValueError(f'{arg} or {args[arg]} cannot be found in the list: '
+                                 f'{cmd_list}. If you have multiple args with the same value, '
+                                 f'or if you have the same arg name in multiple types (node, '
+                                 f'task, op) this may cause problems')
+        cmd_template = ' '.join(cmd_list)
+        node_args, task_args, op_args = self._update_args(node_args, task_args, op_args, args)
+        return cmd_template, node_args, task_args, op_args
+
+    def _update_args(self, node_args, task_args, op_args, args) -> Tuple:
+        for arg in args.keys():
+            if arg in node_args:
+                node_args[arg] = str(args[arg])
+            if arg in task_args:
+                task_args[arg] = str(args[arg])
+            if arg in op_args:
+                op_args[arg] = str(args[arg])
+        return node_args, task_args, op_args

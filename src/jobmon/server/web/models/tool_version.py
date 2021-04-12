@@ -10,9 +10,7 @@ class ToolVersion(DB.Model):
 
     def to_wire_as_client_tool_version(self) -> tuple:
         """Serialize tool version object."""
-        serialized = SerializeClientToolVersion.to_wire(
-            id=self.id,
-            tool_id=self.tool_id)
+        serialized = SerializeClientToolVersion.to_wire(id=self.id, tool_id=self.tool_id)
         return serialized
 
     id = DB.Column(DB.Integer, primary_key=True)

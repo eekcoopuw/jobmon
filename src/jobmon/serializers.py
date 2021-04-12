@@ -1,6 +1,6 @@
 """Serializing data when going to and from the database."""
 import ast
-from typing import Union
+from typing import Dict, List, Tuple, Union
 
 
 class SerializeExecutorTask:
@@ -109,19 +109,41 @@ class SerializeClientToolVersion:
         return {"id": int(wire_tuple[0]), "tool_id": int(wire_tuple[1])}
 
 
+class SerializeClientTaskTemplate:
+    """Serialize the data to and from the database for a TaskTemplate."""
+
+    @staticmethod
+    def to_wire(id: int, tool_version_id: int, template_name: str):
+        """Submit the TaskTemplate information for transfer over http."""
+        return (id, tool_version_id, template_name)
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        """Convert packed wire format to kwargs for use in services."""
+        return {"id": int(wire_tuple[0]), "tool_version_id": int(wire_tuple[1]),
+                "template_name": wire_tuple[2]}
+
+
 class SerializeClientTaskTemplateVersion:
     """Serialize the data to and from the database for a TaskTemplateVersion."""
 
     @staticmethod
-    def to_wire(task_template_version_id: int, id_name_map: dict) -> tuple:
+    def to_wire(task_template_version_id: int, command_template: str, node_args: List[str],
+                task_args: List[str], op_args: List[str], id_name_map: dict
+                ) -> Tuple[int, str, List[str], List[str], List[str], dict]:
         """Submit the TaskTemplateVersion information to the database."""
-        return (task_template_version_id, id_name_map)
+        return (task_template_version_id, command_template, node_args, task_args, op_args,
+                id_name_map)
 
     @staticmethod
-    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+    def kwargs_from_wire(wire_tuple: tuple) -> Dict:
         """Get the TaskTemplateVersion info from the database."""
         return {"task_template_version_id": int(wire_tuple[0]),
-                "id_name_map": wire_tuple[1]}
+                "command_template": wire_tuple[1],
+                "node_args": wire_tuple[2],
+                "task_args": wire_tuple[3],
+                "op_args": wire_tuple[4],
+                "id_name_map": wire_tuple[5]}
 
 
 class SerializeWorkflowRun:

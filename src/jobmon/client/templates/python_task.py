@@ -1,6 +1,7 @@
 """Python Task for backward compatibility with Jobmon 1.* series. Used for Tasks that execute
 a python script.
 """
+import getpass
 import sys
 from typing import Any, Callable, Dict, List, Optional, Union
 
@@ -14,7 +15,8 @@ class PythonTask(Task):
     execute a python script.
     """
 
-    _python_task_template_registry: Dict = {}
+    _tool_registry: Dict[str, Tool] = {}
+
     current_python = sys.executable
 
     def __init__(self, path_to_python_binary: str = current_python,
@@ -35,10 +37,7 @@ class PythonTask(Task):
                  hard_limits: bool = False,
                  executor_class: str = 'DummyExecutor',
                  executor_parameters: Optional[Union[ExecutorParameters, Callable]] = None,
-                 tool: Optional[Tool] = None,
-                 task_args: Dict = None,
-                 node_args: Dict = None,
-                 op_args: Dict = None):
+                 tool: Optional[Tool] = None):
         """
         Python Task object can be used by users upgrading from older versions of
         Jobmon (version < 2.0). It sets a default of unknown tool and a task
@@ -82,59 +81,49 @@ class PythonTask(Task):
             executor_parameters: an instance of executor
                 parameters class
             tool: tool to associate python task with
-            task_args: if the user wants to supply arguments to describe the data arguments for
-                this task
-            node_args: if the user wants to supply arguments to describe the arguments that
-                make this task unique within a set of task with identical command patterns
-            op_args: if the user wants to supply arguments to describe the operational
-                arguments for this task
         """
-        if task_args is None:
-            task_args = {}
-        if node_args is None:
-            node_args = {}
-        if op_args is None:
-            op_args = {}
-
         # script cannot be None at this point
         if script is None:
             raise ValueError("script cannot be None")
 
+        command_template = "{path_to_python_binary} " + script
+
+        # define node args
+        node_args: Dict[str, str] = {}
+        if args:
+            for i in range(len(args)):
+                arg_name = f'arg_{i}'
+                command_template += " {{{arg}}}".format(arg=arg_name)
+                node_args[arg_name] = args[i]
+
+        # define op args
+        op_args = {"path_to_python_binary": path_to_python_binary}
         if env_variables is not None:
             env_str = ' '.join(
-                '{}={}'.format(key, val) for key, val in env_variables.items())
-        else:
-            env_str = ""
-        if args is not None:
-            command_line_args = ' '.join([str(x) for x in args])
-            if node_args or task_args or op_args:
-                node_args['command_line_args'] = command_line_args
-        else:
-            command_line_args = ""
-        if not node_args and not task_args and not op_args:
-            command_template = '{command}'
-            node_args['command'] = f'{env_str} {path_to_python_binary} {script} ' \
-                                   f'{command_line_args}'
-        else:
-            if env_str != "":
-                op_args["env_variables"] = env_str
-            op_args["path_to_python_binary"] = path_to_python_binary
-            split_command = f'{env_str} {path_to_python_binary} {script}'.strip()
-            command_template, node_args, task_args, op_args = self._parse_command_to_args(
-                split_command, node_args, task_args, op_args, command_line_args)
+                '{}={}'.format(key, val) for key, val in env_variables.items()
+            )
+            op_args["env_str"] = env_str
+            command_template = "{env_str} " + command_template
 
+        # tool is a task template registry
+        if tool is None:
+            tool_name = f"unknown-{getpass.getuser()}"
+        else:
+            tool_name = tool.name
         try:
-            task_template = self._python_task_template_registry[script]
+            tool = self._tool_registry[tool_name]
         except KeyError:
             if tool is None:
-                tool = Tool("unknown")
-            task_template = tool.get_task_template(
-                template_name='python_task',
-                command_template=command_template,
-                node_args=list(node_args.keys()),
-                task_args=list(task_args.keys()),
-                op_args=list(op_args.keys()))
-            self._add_task_template_to_registry(script, task_template)
+                tool = Tool()
+            self._add_tool_to_registry(tool)
+
+        task_template = tool.get_task_template(
+            template_name=script,
+            command_template=command_template,
+            node_args=list(node_args.keys()),
+            task_args=list(),
+            op_args=list(op_args.keys())
+        )
 
         # construct deprecated API for executor_parameters
         if executor_parameters is None:
@@ -147,18 +136,18 @@ class PythonTask(Task):
                 context_args=context_args,
                 resource_scales=resource_scales,
                 hard_limits=hard_limits,
-                executor_class=executor_class)
+                executor_class=executor_class
+            )
 
-        node_args = {task_template.task_template_version.id_name_map[k]: v for k, v in
-                     node_args.items() if k in task_template.task_template_version.node_args}
-        task_args = {task_template.task_template_version.id_name_map[k]: v for k, v in
-                     task_args.items() if k in task_template.task_template_version.task_args}
-
+        command = command_template.format(**op_args, **node_args)
+        id_node_args = {task_template.active_task_template_version.id_name_map[k]: v
+                        for k, v in node_args.items()
+                        if k in task_template.active_task_template_version.node_args}
         super().__init__(
-            command=f'{env_str} {path_to_python_binary} {script} {command_line_args}'.strip(),
-            task_template_version_id=task_template.task_template_version.id,
-            node_args=node_args,
-            task_args=task_args,
+            command=command.strip(),
+            task_template_version_id=task_template.active_task_template_version.id,
+            node_args=id_node_args,
+            task_args={},
             executor_parameters=executor_parameters,
             name=name,
             max_attempts=max_attempts,
@@ -166,5 +155,5 @@ class PythonTask(Task):
             task_attributes=task_attributes)
 
     @classmethod
-    def _add_task_template_to_registry(cls, script, task_template):
-        cls._python_task_template_registry[script] = task_template
+    def _add_tool_to_registry(cls, tool: Tool):
+        cls._tool_registry[tool.name] = tool

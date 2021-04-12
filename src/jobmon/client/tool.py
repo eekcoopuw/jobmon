@@ -3,13 +3,18 @@ time.
 """
 from __future__ import annotations
 
+import getpass
+import warnings
+from http import HTTPStatus as StatusCodes
 from typing import Dict, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
+from jobmon.client.tool_version import ToolVersion
 from jobmon.client.workflow import Workflow
+from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
-from jobmon.serializers import SerializeClientTool, SerializeClientToolVersion
+from jobmon.serializers import SerializeClientTool
 
 import structlog as logging
 
@@ -33,7 +38,7 @@ class Tool:
     time.
     """
 
-    def __init__(self, name: str = "unknown",
+    def __init__(self, name: str = f"unknown-{getpass.getuser()}",
                  active_tool_version_id: Union[str, int] = "latest",
                  requester: Optional[Requester] = None) -> None:
         """A tool is an application which is expected to run many times on variable inputs but
@@ -44,20 +49,23 @@ class Tool:
             name: the name of the tool
             active_tool_version_id: which version of the tool to attach task templates and
                 workflows to.
-            requester_url (str): url to communicate with the flask services.
+            requester: communicate with the flask services.
         """
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
             requester = Requester(requester_url)
         self.requester = requester
 
+        # set tool defining attributes
         self.name = name
-        self.id = self._get_tool_id(self.name, self.requester)
-        self.task_templates: Dict[int, TaskTemplate] = {}
+        self._bind()
 
-        # which tool version are they using for a run
-        self.tool_version_ids = sorted(self._get_tool_version_ids())
-        self.active_tool_version_id = active_tool_version_id
+        # import tool versions
+        self._load_tool_versions()
+        if not self.tool_versions:
+            self.get_new_tool_version()
+        else:
+            self.set_active_tool_version_id(active_tool_version_id)
 
     @classmethod
     def create_tool(cls, name: str, requester: Optional[Requester] = None) -> Tool:
@@ -70,58 +78,72 @@ class Tool:
         Returns:
             An instance of of Tool of with the provided name
         """
-        if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
-
-        # call route to create tool
-        _, res = requester.send_request(
-            app_route="/client/tool",
-            message={"name": name},
-            request_type='post',
-            logger=logger
+        warnings.warn(
+            "The create_tool method is deprecated. You can create a new tool by instantiating "
+            "the Tool class", DeprecationWarning
         )
 
-        if res["tool"] is not None:
-            tool_id = SerializeClientTool.kwargs_from_wire(res["tool"])["id"]
-            # also create a new version
-            cls._create_new_tool_version(tool_id, requester)
-
         # return instance of new tool
-        return cls(name)
+        tool = cls(name, requester=requester)
 
-    def create_new_tool_version(self) -> int:
+        return tool
+
+    def get_new_tool_version(self) -> int:
         """Create a new tool version for the current tool and activate it.
 
         Returns: the version id for the new tool
         """
         # call route to create tool version
-        tool_version_id = self._create_new_tool_version(self.id, self.requester)
-        self.tool_version_ids.append(tool_version_id)
-        self.active_tool_version_id = tool_version_id
+
+        tool_version = ToolVersion.get_tool_version(tool_id=self.id, requester=self.requester)
+        tool_version_id = tool_version.id
+        self.tool_versions.append(tool_version)
+        self.set_active_tool_version_id(tool_version_id)
         return tool_version_id
 
     @property
-    def active_tool_version_id(self) -> int:
+    def active_task_templates(self) -> Dict[str, TaskTemplate]:
+        """Mapping of template_name to TaskTemplate for the active tool version."""
+        return self.active_tool_version.task_templates
+
+    @property
+    def active_tool_version(self) -> ToolVersion:
         """Tool version id to use when spawning task templates."""
-        return self._active_tool_version_id
+        return self._active_tool_version
 
-    @active_tool_version_id.setter
-    def active_tool_version_id(self, val: Union[str, int]):
-        """Tool version that is set as the active one (latest is default)."""
-        if val == "latest":
-            self._active_tool_version_id = self.tool_version_ids[-1]
+    def set_active_tool_version_id(self, tool_version_id: Union[str, int]):
+        """Tool version that is set as the active one (latest is default during instantiation).
+
+        Args:
+            tool_version_id: which tool version to set as active on this object.
+        """
+        version_index_lookup = {self.tool_versions[index].id: index
+                                for index in range(len(self.tool_versions))}
+
+        # get the lookup value
+        if tool_version_id == "latest":
+            lookup_version: int = int(max(version_index_lookup.keys()))
         else:
-            if val not in self.tool_version_ids:
-                raise InvalidToolVersionError(
-                    f"tool_version_id {val} is not a valid tool version for {self.name}. Valid"
-                    f" tool versions are {self.tool_version_ids}")
-            self._active_tool_version_id = int(val)
+            lookup_version = int(tool_version_id)
 
-    def get_task_template(self, template_name: str, command_template: str,
-                          node_args: List[str] = [], task_args: List[str] = [],
-                          op_args: List[str] = []) -> TaskTemplate:
-        """Create or get task a task template
+        # check that the version exists
+        try:
+            version_index = version_index_lookup[lookup_version]
+        except KeyError:
+            raise ValueError(
+                f"{tool_version_id} is not a valid version for tool.name={self.name} Valid "
+                f"versions={version_index_lookup.keys()}"
+            )
+
+        # set it as active and load task templates
+        tool_version = self.tool_versions[version_index]
+        tool_version.load_task_templates()
+        self._active_tool_version: ToolVersion = tool_version
+
+    def create_task_template(self, template_name: str, command_template: str,
+                             node_args: List[str] = [], task_args: List[str] = [],
+                             op_args: List[str] = []) -> TaskTemplate:
+        """Create or get task a task template.
 
         Args:
             template_name: the name of this task template.
@@ -138,70 +160,79 @@ class Tool:
                 the identity of the task. Generally these are things like the task executable
                 location or the verbosity of the script.
         """
-        tt = TaskTemplate(self.active_tool_version_id, template_name, self.requester)
-        if hash(tt) in self.task_templates.keys():
-            task_template_id = self.task_templates[hash(tt)].task_template_id
-            tt.bind(task_template_id)
-        else:
-            self.task_templates[hash(tt)] = tt
-            tt.bind()
-        tt.bind_task_template_version(command_template=command_template,
-                                      node_args=node_args,
-                                      task_args=task_args,
-                                      op_args=op_args)
+        warnings.warn(
+            "The create_task_template method is deprecated. Please use get_task_template.",
+            DeprecationWarning
+        )
+        return self.get_task_template(template_name, command_template, node_args, task_args,
+                                      op_args)
+
+    def get_task_template(self, template_name: str, command_template: str,
+                          node_args: List[str] = [], task_args: List[str] = [],
+                          op_args: List[str] = []) -> TaskTemplate:
+        """Create or get task a task template.
+
+        Args:
+            template_name: the name of this task template.
+            command_template: an abstract command representing a task, where the arguments to
+                the command have defined names but the values are not assigned. eg: '{python}
+                {script} --data {data} --para {para} {verbose}'
+            node_args: any named arguments in command_template that make the command unique
+                within this template for a given workflow run. Generally these are arguments
+                that can be parallelized over.
+            task_args: any named arguments in command_template that make the command unique
+                across workflows if the node args are the same as a previous workflow.
+                Generally these are arguments about data moving though the task.
+            op_args: any named arguments in command_template that can change without changing
+                the identity of the task. Generally these are things like the task executable
+                location or the verbosity of the script.
+        """
+        tt = self.active_tool_version.get_task_template(template_name)
+        tt.get_task_template_version(command_template, node_args, task_args, op_args)
         return tt
 
     def create_workflow(self, workflow_args: str = "", name: str = "", description: str = "",
                         workflow_attributes: Optional[Union[List, dict]] = None,
-                        max_concurrently_running: int = 10_000,
-                        requester_url: Optional[str] = None, chunk_size: int = 500) \
+                        max_concurrently_running: int = 10_000, chunk_size: int = 500) \
             -> Workflow:
         """Create a workflow object associated with the tool."""
-        if requester_url is None:
-            requester_url = self.requester.url
-        wf = Workflow(self.active_tool_version_id, workflow_args, name, description,
+        wf = Workflow(self.active_tool_version.id, workflow_args, name, description,
                       workflow_attributes, max_concurrently_running, requester=self.requester,
                       chunk_size=chunk_size)
         return wf
 
-    def _get_tool_version_ids(self) -> List[int]:
+    def _load_tool_versions(self):
         app_route = f"/client/tool/{self.id}/tool_versions"
-        _, res = self.requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
             request_type='get',
             logger=logger
         )
-        tool_versions = [
-            SerializeClientToolVersion.kwargs_from_wire(wire_tuple)["id"]
-            for wire_tuple in res["tool_versions"]
-        ]
-        return tool_versions
 
-    @staticmethod
-    def _get_tool_id(name: str, requester: Requester) -> int:
-        app_route = f"/client/tool/{name}"
-        _, res = requester.send_request(
-            app_route=app_route,
-            message={},
-            request_type='get',
-            logger=logger
-        )
-        if res["tool"] is None:
-            raise InvalidToolError(
-                f"no tool found in database for name: {name}. Use create_tool to make a new "
-                f"tool.")
-        else:
-            return SerializeClientTool.kwargs_from_wire(res["tool"])["id"]
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST request through route '
+                f'{app_route}. Expected code 200. Response content: {response}'
+            )
 
-    @staticmethod
-    def _create_new_tool_version(tool_id: int, requester: Requester) -> int:
-        app_route = "/client/tool_version"
-        _, res = requester.send_request(
+        tool_versions = [ToolVersion.from_wire(wire_tuple)
+                         for wire_tuple in response["tool_versions"]]
+        self.tool_versions = tool_versions
+
+    def _bind(self):
+        # call route to create tool
+        app_route = "/client/tool"
+        return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={"tool_id": tool_id},
+            message={"name": self.name},
             request_type='post',
             logger=logger
         )
-        tool_version = SerializeClientToolVersion.kwargs_from_wire(res["tool_version"])
-        return tool_version["id"]
+
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST request through route '
+                f'{app_route}. Expected code 200. Response content: {response}'
+            )
+        self.id = SerializeClientTool.kwargs_from_wire(response["tool"])["id"]
