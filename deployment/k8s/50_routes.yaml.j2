@@ -1,9 +1,9 @@
-# route for jobmon-client
+# route for jobmon-server
 ---
 apiVersion: traefik.containo.us/v1alpha1
 kind: IngressRoute
 metadata:
-  name: jobmon-client
+  name: jobmon-server
   namespace: {{ namespace }}
 spec:
   entryPoints:
@@ -13,84 +13,7 @@ spec:
   - match: PathPrefix(`/`)
     kind: Rule
     services:
-    - name: jobmon-client
-      port: 80
-  - match: PathPrefix(`/client`)
-    kind: Rule
-    services:
-    - name: jobmon-client
-      port: 80
-
-# route for jobmon-scheduler
----
-apiVersion: traefik.containo.us/v1alpha1
-kind: IngressRoute
-metadata:
-  name: jobmon-scheduler
-  namespace: {{namespace}}
-spec:
-  entryPoints:
-    # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
-    - web
-  routes:
-  - match: PathPrefix(`/scheduler`)
-    kind: Rule
-    services:
-    - name: jobmon-scheduler
-      port: 80
-
-# route for jobmon-swarm
----
-apiVersion: traefik.containo.us/v1alpha1
-kind: IngressRoute
-metadata:
-  name: jobmon-swarm
-  namespace: {{namespace}}
-spec:
-  entryPoints:
-    # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
-    - web
-  routes:
-  - match: PathPrefix(`/swarm`)
-    kind: Rule
-    services:
-    - name: jobmon-swarm
-      port: 80
-
-# route for jobmon-worker
----
-apiVersion: traefik.containo.us/v1alpha1
-kind: IngressRoute
-metadata:
-  name: jobmon-worker
-  namespace: {{namespace}}
-spec:
-  entryPoints:
-    # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
-    - web
-  routes:
-  - match: PathPrefix(`/worker`)
-    kind: Rule
-    services:
-    - name: jobmon-worker
-      port: 80
-
-# Send viz routes to viz containers
----
-apiVersion: traefik.containo.us/v1alpha1
-kind: IngressRoute
-metadata:
-  name: jobmon-cli-routes
-  namespace: {{namespace}}
-spec:
-  entryPoints:
-    # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
-    - web
-  routes:
-  - match: PathPrefix(`/viz`)
-    kind: Rule
-    services:
-    - name: jobmon-cli
+    - name: jobmon-server
       port: 80
 
 # Grafana routes

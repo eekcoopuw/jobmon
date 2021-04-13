@@ -759,10 +759,10 @@ Jobmon Database
 If the command line status commands do not provide the information you need,
 you can look in the jobmon database.
 By default, your Workflow talks to our centrally-hosted Jobmon server
-(scicomp-maria-db-p01.db.ihme.washington.edu). You can access the
+(scicomp-maria-db-p02.db.ihme.washington.edu). You can access the
 Jobmon database from your favorite DB browser (e.g. Sequel Pro) using the credentials::
 
-    host: scicomp-maria-db-p01.db.ihme.washington.edu
+    host: scicomp-maria-db-p02.db.ihme.washington.edu
     port: 3306
     user: read_only
     pass: docker
