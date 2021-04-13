@@ -5,17 +5,17 @@ metadata:
   name: jobmon-workflow-reaper
   namespace: {{ .Values.global.namespace }}
   labels:
-    app: jobmon-workflow-reaper
+    app: jobmon-reaper-{{jobmon_version}}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: jobmon-workflow-reaper
+      app: jobmon-reaper-{{jobmon_version}}
   template:
     metadata:
       labels:
-        app: jobmon-workflow-reaper
-        name: jobmon-workflow-reaper
+        app: jobmon-reaper-{{jobmon_version}}
+        name: jobmon-reaper-{{jobmon_version}}
     spec:
       terminationGracePeriodSeconds: 60
       containers:
@@ -41,7 +41,7 @@ spec:
               key: SLACK_TOKEN
               name: {{ .Values.global.rancher_slack_secret }}
         - name: WEB_SERVICE_FQDN
-          value: "traefik"
+          value: "traefik-{{namespace}}"
         - name: WEB_SERVICE_PORT
           value: "80"
         resources:
@@ -51,3 +51,16 @@ spec:
           requests:
             cpu: 100m # m = mhz
             memory: 200Mi
+---
+# Connect to the traefik controller in the target namespace
+kind: Service
+apiVersion: v1
+metadata:
+  name: traefik-{{namespace}}
+  namespace: jobmon-reapers
+spec:
+  type: ExternalName
+  externalName: traefik.{{namespace}}.svc.cluster.local
+  ports:
+  - port: 80
+
