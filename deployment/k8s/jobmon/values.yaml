@@ -1,0 +1,12 @@
+global:
+  # Will be overwritten by the Jenkins deploy pipeline, values will then be injected in to yaml
+  # files in k8s/jobmon/templates
+  namespace: ""
+  rancher_project: ""
+  use_logstash: ""
+  metallb_ip_pool: ""
+  jobmon_container_uri: ""
+  rancher_db_secret: ""
+  rancher_qpid_secret: ""
+  rancher_slack_secret: ""
+  grafana_image: ""

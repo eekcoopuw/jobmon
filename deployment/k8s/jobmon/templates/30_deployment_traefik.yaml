@@ -3,14 +3,14 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  namespace: {{namespace}}
+  namespace: {{ .Values.global.namespace }}
   name: traefik-ingress-controller
 
 ---
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  namespace: {{namespace}}
+  namespace: {{ .Values.global.namespace }}
   name: traefik
   labels:
     app: traefik
@@ -38,7 +38,7 @@ spec:
             - --entrypoints.elasticsearch.Address=:9200
             - --providers.kubernetescrd
             # Limit CRD to only the namespace we are running in. Fixes permissions issues
-            - --providers.kubernetescrd.namespaces={{namespace}}
+            - --providers.kubernetescrd.namespaces={{ .Values.global.namespace }}
             # Config to connect metrics to MetalLB
             - --metrics.influxdb.protocol=http
             - --metrics.influxdb.database=jobmon

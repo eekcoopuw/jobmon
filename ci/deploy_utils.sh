@@ -102,11 +102,34 @@ deploy_jobmon_to_k8s () {
     KUBECTL_CONTAINER=${11}
     KUBECONFIG=${12}
     USE_LOGSTASH=${13}
+    JOBMON_VERSION=${14}
 
-    #### Deploy the ELK stack to K8S
     docker pull alpine/helm  # Pull prebuilt helm container
+    docker pull $KUBECTL_CONTAINER
 
-    # Check if it's already been installed
+    # Check if namespace exists, if not create it: render 01_namespace.yaml and apply it
+    docker run -t \
+    --rm \
+    -v $KUBECONFIG:/root/.kube/config \
+    -v "$WORKSPACE/deployment/k8s:/data" \
+    $KUBECTL_CONTAINER \
+        get namespace "$K8S_NAMESPACE" ||
+    ( docker run -t \
+        --rm \
+        -v "$WORKSPACE/deployment/k8s/jobmon:/apps" \
+        -v $KUBECONFIG:/root/.kube/config \
+        alpine/helm \
+          template . -s templates/01_namespace.yaml \
+          --set global.namespace="$K8S_NAMESPACE" \
+          --set global.rancher_project="$RANCHER_PROJECT_ID" >> namespace.yaml &&
+    docker run -t \
+        --rm \
+        -v $KUBECONFIG:/root/.kube/config \
+        ${KUBECTL_CONTAINER} apply -f namespace.yaml )
+
+    rm -f ./deployment/k8s/jobmon/templates/01_namespace.yaml
+
+    # Check if Jobmon-ELK has already been installed
     docker run -t \
         --rm \
         -v $KUBECONFIG:/root/.kube/config \
@@ -118,7 +141,7 @@ deploy_jobmon_to_k8s () {
 
     if [[ $elk_exist -eq 0 ]]
     then
-        # Stack already exists, so upgrade it
+        # Jobmon-ELK stack already exists, so upgrade it
         docker run -t \
         --rm \
         -v "$WORKSPACE/deployment/k8s/elk:/apps" \
@@ -128,7 +151,7 @@ deploy_jobmon_to_k8s () {
             -n "$K8S_NAMESPACE" \
             --set global.namespace="$K8S_NAMESPACE"
     else
-        # Stack doesn't exist, so install it
+        # Jobmon-ELK stack doesn't exist, so install it
         docker run -t \
             --rm \
             -v "$WORKSPACE/deployment/k8s/elk:/apps" \
@@ -139,72 +162,54 @@ deploy_jobmon_to_k8s () {
                 --set global.namespace="$K8S_NAMESPACE"
     fi
 
-    # Render each .yaml.j2 template in the k8s dir (return only the basename)
-    docker pull $YASHA_CONTAINER
-    for TEMPLATE in $(find "$WORKSPACE/deployment/k8s/" -maxdepth 1 -type f -name '*.yaml.j2' -printf "%f\n"|sort -n)
-    do
-        docker run -t \
-            --rm \
-            -v "$WORKSPACE/deployment/k8s:/data" \
-            $YASHA_CONTAINER \
-                --jobmon_container_uri="$JOBMON_CONTAINER_URI" \
-                --ip_pool="$METALLB_IP_POOL" \
-                --namespace="$K8S_NAMESPACE" \
-                --rancherproject="$RANCHER_PROJECT_ID" \
-                --grafana_image="$GRAFANA_CONTAINER_URI" \
-                --rancher_db_secret="$RANCHER_DB_SECRET" \
-                --rancher_slack_secret="$RANCHER_SLACK_SECRET" \
-                --rancher_qpid_secret="$RANCHER_QPID_SECRET" \
-                --use_logstash="$USE_LOGSTASH" \
-                /data/${TEMPLATE}
-    done
-
-    chown -R "$(id -u):$(id -g)" .
-
-    docker pull $KUBECTL_CONTAINER
+    # Check if Jobmon has already been installed
     docker run -t \
         --rm \
         -v $KUBECONFIG:/root/.kube/config \
-        -v "$WORKSPACE/deployment/k8s:/data" \
-        $KUBECTL_CONTAINER \
-            get namespace "$K8S_NAMESPACE" ||
-    docker run -t \
-        --rm \
-        -v $KUBECONFIG:/root/.kube/config \
-        -v "$WORKSPACE/deployment/k8s:/data" \
-        $KUBECTL_CONTAINER \
-            apply -f /data/01_namespace.yaml
-    # Remove the rendered namespace setup yaml before proceeding
-    rm -f ./deployment/k8s/01_namespace.yaml
+        alpine/helm status -n "$K8S_NAMESPACE" jobmon
 
-    # Deploying deployment and service configurations to k8s
-    for TEMPLATE in $(find "$WORKSPACE/deployment/k8s/" -maxdepth 1 -type f -name '*.yaml' -printf "%f\n" |sort -n)
-    do
+    # If exists, exit status = 0 and a message appears
+    # If it doesn't exist, exit status = 1 and we see Error: release: not found
+    jobmon_exists=$?
+
+    if [[ $jobmon_exists -eq 0 ]]
+    then
+        # Jobmon stack already exists, so upgrade it
+        docker run -t \
+        --rm \
+        -v "$WORKSPACE/deployment/k8s/jobmon:/apps" \
+        -v $KUBECONFIG:/root/.kube/config \
+        alpine/helm \
+            upgrade jobmon /apps/. \
+            -n "$K8S_NAMESPACE" \
+            --set global.namespace="$K8S_NAMESPACE" \
+            --set global.rancher_project="$RANCHER_PROJECT_ID" \
+            --set global.use_logstash="$USE_LOGSTASH" \
+            --set global.metallb_ip_pool="$METALLB_IP_POOL" \
+            --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI" \
+            --set global.rancher_db_secret="$RANCHER_DB_SECRET" \
+            --set global.rancher_qpid_secret="$RANCHER_QPID_SECRET" \
+            --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
+            --set global.grafana_image="$GRAFANA_CONTAINER_URI"
+    else
+        # Jobmon stack doesn't exist, so install it
         docker run -t \
             --rm \
+            -v "$WORKSPACE/deployment/k8s/jobmon:/apps" \
             -v $KUBECONFIG:/root/.kube/config \
-            -v "$WORKSPACE/deployment/k8s:/data" \
-            ${KUBECTL_CONTAINER} \
-                --namespace="$K8S_NAMESPACE" \
-                apply -f /data/${TEMPLATE}
-    done
-
-    # Render and deploy the reaper to k8s
-    docker run -t \
-    --rm \
-    -v "$WORKSPACE/deployment/k8s/reaper:/data" \
-    $YASHA_CONTAINER \
-        --jobmon_container_uri="$JOBMON_CONTAINER_URI" \
-        --namespace="$K8S_NAMESPACE" \
-        --rancher_slack_secret="$RANCHER_SLACK_SECRET" \
-        /data/workflow_reaper.yaml.j2
-
-    docker run -t \
-    --rm \
-    -v $KUBECONFIG:/root/.kube/config \
-    -v "$WORKSPACE/deployment/k8s/reaper:/data" \
-    $KUBECTL_CONTAINER \
-        apply -f /data/workflow_reaper.yaml
+            alpine/helm \
+                install jobmon /apps/. \
+                -n "$K8S_NAMESPACE" \
+                --set global.namespace="$K8S_NAMESPACE" \
+                --set global.rancher_project="$RANCHER_PROJECT_ID" \
+                --set global.use_logstash="$USE_LOGSTASH" \
+                --set global.metallb_ip_pool="$METALLB_IP_POOL" \
+                --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI" \
+                --set global.rancher_db_secret="$RANCHER_DB_SECRET" \
+                --set global.rancher_qpid_secret="$RANCHER_QPID_SECRET" \
+                --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
+                --set global.grafana_image="$GRAFANA_CONTAINER_URI"
+    fi
 }
 
 

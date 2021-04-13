@@ -4,7 +4,7 @@ apiVersion: traefik.containo.us/v1alpha1
 kind: IngressRoute
 metadata:
   name: jobmon-server
-  namespace: {{ namespace }}
+  namespace: {{ .Values.global.namespace }}
 spec:
   entryPoints:
     # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
@@ -22,7 +22,7 @@ apiVersion: traefik.containo.us/v1alpha1
 kind: IngressRoute
 metadata:
   name: grafana-routes
-  namespace: {{namespace}}
+  namespace: {{ .Values.global.namespace }}
 spec:
   entryPoints:
     # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
@@ -40,7 +40,7 @@ apiVersion: traefik.containo.us/v1alpha1
 kind: IngressRoute
 metadata:
   name: kibana-routes
-  namespace: {{namespace}}
+  namespace: {{ .Values.global.namespace }}
 spec:
   entryPoints:
     # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
@@ -58,7 +58,7 @@ apiVersion: traefik.containo.us/v1alpha1
 kind: IngressRoute
 metadata:
   name: elasticsearch-routes
-  namespace: {{namespace}}
+  namespace: {{ .Values.global.namespace }}
 spec:
   entryPoints:
     # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
