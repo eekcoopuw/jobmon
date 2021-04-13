@@ -32,7 +32,14 @@ spec:
             requests:
               cpu: 300m
               memory: 600Mi
+          volumeMounts:
+          - name: elasticsearch-data
+            mountPath: /usr/share/elasticsearch/data
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "15"]
       volumes:
-        - name: elasticsearch-storage
+        - name: elasticsearch-data
           persistentVolumeClaim:
             claimName: elasticsearch-storage
