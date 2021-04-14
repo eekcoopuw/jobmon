@@ -9,7 +9,7 @@ from typing import Dict, List, Tuple
 
 import numpy as np
 
-import structlog as logging
+import logging
 
 
 this_path = os.path.dirname(os.path.abspath(__file__))

@@ -3,7 +3,7 @@ import random
 
 from jobmon.client.execution.strategies.base import Executor, ExecutorParameters
 
-import structlog as logging
+import logging
 
 logger = logging.getLogger(__name__)
 

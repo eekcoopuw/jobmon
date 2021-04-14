@@ -11,7 +11,7 @@ from jobmon.constants import TaskInstanceStatus
 
 import psutil
 
-import structlog as logging
+import logging
 
 logger = logging.getLogger(__name__)
 

@@ -7,7 +7,7 @@ from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 import pkg_resources
 
-import structlog as logging
+import logging
 
 
 logger = logging.getLogger(__name__)

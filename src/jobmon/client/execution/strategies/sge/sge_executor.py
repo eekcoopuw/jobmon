@@ -10,7 +10,7 @@ from jobmon.client.execution.strategies.sge import sge_utils
 from jobmon.constants import QsubAttribute, TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 
-import structlog as logging
+import logging
 
 
 logger = logging.getLogger(__name__)

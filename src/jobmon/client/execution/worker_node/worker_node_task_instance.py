@@ -8,7 +8,7 @@ from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import TaskInstanceExecutorInfo
 from jobmon.requester import Requester
 
-import structlog as logging
+import logging
 
 
 logger = logging.getLogger(__name__)

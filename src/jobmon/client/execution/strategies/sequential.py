@@ -10,7 +10,7 @@ from jobmon.client.execution.worker_node.execution_wrapper import (
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 
-import structlog as logging
+import logging
 
 
 logger = logging.getLogger(__name__)
