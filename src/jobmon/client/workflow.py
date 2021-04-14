@@ -25,7 +25,7 @@ from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse, ResumeSe
                                WorkflowNotResumable)
 from jobmon.requester import Requester, http_request_ok
 
-import structlog as logging
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +192,7 @@ class Workflow(object):
         Args:
             task: single task to add
         """
-        logger.debug(f"Adding Task {task}")
+        logger.info(f"Adding Task {task}")
         if hash(task) in self.tasks.keys():
             raise ValueError(f"A task with hash {hash(task)} already exists. "
                              f"All tasks in a workflow must have unique "
