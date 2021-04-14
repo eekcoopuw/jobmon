@@ -11,7 +11,7 @@ from jobmon.exceptions import CallableReturnedInvalidObject, InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeSwarmTask
 
-import structlog as logging
+import logging
 
 
 logger = logging.getLogger(__name__)

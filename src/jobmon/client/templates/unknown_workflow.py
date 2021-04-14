@@ -8,7 +8,7 @@ from jobmon.client.tool import Tool
 from jobmon.client.workflow import Workflow
 from jobmon.requester import Requester
 
-import structlog as logging
+import logging
 
 
 logger = logging.getLogger(__name__)

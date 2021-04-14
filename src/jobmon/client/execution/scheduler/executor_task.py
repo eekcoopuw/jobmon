@@ -5,7 +5,7 @@ from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeExecutorTask
 
-import structlog as logging
+import logging
 
 logger = logging.getLogger(__name__)
 

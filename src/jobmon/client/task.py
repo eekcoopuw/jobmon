@@ -15,7 +15,7 @@ from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 
-import structlog as logging
+import logging
 
 
 logger = logging.getLogger(__name__)

@@ -10,7 +10,7 @@ from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import Requester, http_request_ok
 
-import structlog as logging
+import logging
 
 
 logger = logging.getLogger(__name__)

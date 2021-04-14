@@ -8,7 +8,7 @@ from jobmon.requester import Requester
 
 import pandas as pd
 
-import structlog as logging
+import logging
 
 
 logger = logging.getLogger(__name__)

@@ -93,6 +93,8 @@ def test_tiny_structured_logger(client_env, capsys):
     wf.add_task(task)
     captured = capsys.readouterr()
     logs = captured.err.split('\n')
+    import pdb
+    pdb.set_trace()
     for log in logs:
         if log:
             assert 'KeyError' not in log

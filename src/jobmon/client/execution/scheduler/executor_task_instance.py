@@ -11,7 +11,7 @@ from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeExecutorTaskInstance
 
-import structlog as logging
+import logging
 
 
 logger = logging.getLogger(__name__)

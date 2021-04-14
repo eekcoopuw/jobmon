@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Set
 from jobmon.client.client_config import ClientConfig
 from jobmon.requester import Requester
 
-import structlog as logging
+import logging
 
 
 logger = logging.getLogger(__name__)

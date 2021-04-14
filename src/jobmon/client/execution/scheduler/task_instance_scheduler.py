@@ -14,7 +14,7 @@ from jobmon.constants import QsubAttribute, TaskInstanceStatus, WorkflowRunStatu
 from jobmon.exceptions import InvalidResponse, ResumeSet, WorkflowRunStateError
 from jobmon.requester import Requester, http_request_ok
 
-import structlog as logging
+import logging
 
 import tblib.pickling_support
 
