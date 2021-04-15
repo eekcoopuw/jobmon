@@ -2,20 +2,23 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: jobmon-workflow-reaper
-  namespace: {{ .Values.global.namespace }}
+  # Resource policy keeps old reapers in the namespace when deploying new ones
+  annotations:
+    "helm.sh/resource-policy": keep
+  name: jobmon-reaper-{{ .Values.global.jobmon_version }}
+  namespace: jobmon-reapers
   labels:
-    app: jobmon-reaper-{{jobmon_version}}
+    app: jobmon-reaper-{{ .Values.global.jobmon_version }}
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: jobmon-reaper-{{jobmon_version}}
+      app: jobmon-reaper-{{ .Values.global.jobmon_version }}
   template:
     metadata:
       labels:
-        app: jobmon-reaper-{{jobmon_version}}
-        name: jobmon-reaper-{{jobmon_version}}
+        app: jobmon-reaper-{{ .Values.global.jobmon_version }}
+        name: jobmon-reaper-{{ .Values.global.jobmon_version }}
     spec:
       terminationGracePeriodSeconds: 60
       containers:
@@ -41,7 +44,7 @@ spec:
               key: SLACK_TOKEN
               name: {{ .Values.global.rancher_slack_secret }}
         - name: WEB_SERVICE_FQDN
-          value: "traefik-{{namespace}}"
+          value: "traefik-{{ .Values.global.namespace }}"
         - name: WEB_SERVICE_PORT
           value: "80"
         resources:
@@ -56,11 +59,10 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: traefik-{{namespace}}
+  name: traefik-{{ .Values.global.namespace }}
   namespace: jobmon-reapers
 spec:
   type: ExternalName
-  externalName: traefik.{{namespace}}.svc.cluster.local
+  externalName: traefik.{{ .Values.global.namespace }}.svc.cluster.local
   ports:
   - port: 80
-

@@ -1,0 +1,7 @@
+global:
+  # Will be overwritten by the Jenkins deploy pipeline, values will then be injected in to yaml
+  # file in k8s/reapers/template
+  jobmon_version: ""
+  jobmon_container_uri: ""
+  rancher_slack_secret: ""
+  namespace: ""
