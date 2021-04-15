@@ -397,6 +397,18 @@ For example::
         # Run the workflow
         workflow.run()
 
+Logging
+===============================
+Jobmon client no longer attach log handlers by default, but let the user decides the logging preference.
+If you have attached any log handler to your root logger, Jobmon will follow. Otherwise, Jobmon also
+provides an easy way to attach a simple formatted log handler to StdOut.
+
+For example::
+
+    from jobmon.client.client_logging import ClientLogging
+
+    ClientLogging().attach()
+
 Jobmon Commands
 =======================================
 The Jobmon status
