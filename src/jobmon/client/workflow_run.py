@@ -1,5 +1,6 @@
 """The workflow run is an instance of a workflow"""
 import getpass
+import logging
 import time
 from typing import Dict, List, Optional, Tuple
 
@@ -9,8 +10,6 @@ from jobmon.client.task import Task
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import Requester, http_request_ok
-
-import logging
 
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,6 @@
 """Workflow Run is an execution instance of a declared workflow."""
 import copy
+import logging
 import time
 from datetime import datetime
 from multiprocessing import Process
@@ -11,7 +12,6 @@ from jobmon.constants import ExecutorParameterSetType, TaskStatus, WorkflowRunSt
 from jobmon.exceptions import InvalidResponse, SchedulerNotAlive
 from jobmon.requester import Requester, http_request_ok
 
-import logging
 
 logger = logging.getLogger(__name__)
 

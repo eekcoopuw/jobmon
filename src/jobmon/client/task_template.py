@@ -4,6 +4,7 @@ declared set of arguments.
 from __future__ import annotations
 
 import hashlib
+import logging
 from http import HTTPStatus as StatusCodes
 from typing import Callable, List, Optional, Union
 
@@ -13,9 +14,6 @@ from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
-
-import logging
-
 
 logger = logging.getLogger(__name__)
 

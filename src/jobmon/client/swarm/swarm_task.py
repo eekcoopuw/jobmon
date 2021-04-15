@@ -1,6 +1,7 @@
 """Swarm side task object."""
 from __future__ import annotations
 
+import logging
 from http import HTTPStatus as StatusCodes
 from typing import Callable, Dict, List, Optional, Set
 
@@ -10,8 +11,6 @@ from jobmon.constants import ExecutorParameterSetType, TaskStatus
 from jobmon.exceptions import CallableReturnedInvalidObject, InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeSwarmTask
-
-import logging
 
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,6 @@
 """The overarching framework to create tasks and dependencies within."""
 import hashlib
+import logging
 import time
 import uuid
 from multiprocessing import Event, Process, Queue
@@ -25,7 +26,6 @@ from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse, ResumeSe
                                WorkflowNotResumable)
 from jobmon.requester import Requester, http_request_ok
 
-import logging
 
 logger = logging.getLogger(__name__)
 

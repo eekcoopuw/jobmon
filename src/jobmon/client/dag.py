@@ -1,5 +1,6 @@
 """The DAG captures the interconnected graph of tasks and their dependencies."""
 import hashlib
+import logging
 from http import HTTPStatus as StatusCodes
 from typing import Dict, List, Optional, Set, Tuple, Union
 
@@ -8,9 +9,6 @@ from jobmon.client.node import Node
 from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse,
                                NodeDependencyNotExistError)
 from jobmon.requester import Requester, http_request_ok
-
-import logging
-
 
 logger = logging.getLogger(__name__)
 

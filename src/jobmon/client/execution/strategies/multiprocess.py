@@ -1,4 +1,5 @@
 """Multiprocess executes tasks in parallel if multiple threads are available."""
+import logging
 import os
 import queue
 import subprocess
@@ -10,8 +11,6 @@ from jobmon.client.execution.strategies.base import (Executor, ExecutorParameter
 from jobmon.constants import TaskInstanceStatus
 
 import psutil
-
-import logging
 
 logger = logging.getLogger(__name__)
 

@@ -3,13 +3,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import logging
 from http import HTTPStatus as StatusCodes
 from typing import Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.requester import Requester
-
-import logging
 
 
 logger = logging.getLogger(__name__)
