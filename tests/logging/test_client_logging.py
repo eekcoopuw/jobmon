@@ -1,12 +1,41 @@
 import pytest
 
-import structlog
+import logging
+from datetime import date
 
+def test_client_logging_default_format(client_env, capsys):
+    from jobmon.client.client_logging import ClientLogging
+    ClientLogging().attach(logger_name="test.test")
+    logger = logging.getLogger("test.test")
+    logger.info("This is a test")
+    captured = capsys.readouterr()
+    logs = captured.out.split('\n')
+    # should only contain two lines, one empty, one above log
+    for log in logs:
+        if log:
+            # check format and message
+            assert date.today().strftime("%Y-%m-%d") in log
+            assert "test.test" in log
+            assert "INFO" in log
+            assert "This is a test" in log
 
-
-
-
-
+def test_client_logging_customized_handler(client_env, capsys):
+    from jobmon.client.client_logging import ClientLogging
+    h = logging.StreamHandler() #stderr
+    # This formatter logs nothing but the fixed msg.
+    # Nobody would create a log like this; thus, it proves it's using my logger.
+    h.setFormatter("I log this instead of your message")
+    h.setLevel(logging.INFO)
+    ClientLogging().attach(logger_name="test.test", handler=h)
+    logger = logging.getLogger("test.test")
+    logger.info("This is a test")
+    captured = capsys.readouterr()
+    logs = captured.out.split('\n')
+    # should only contain two lines, one empty, one formatter text
+    for log in logs:
+        if log:
+            assert "I log this instead of your message" in log
+            assert "This is a test" not in log
 
 def test_tiny_structured_logger(client_env, capsys):
     """This is to make sure our jobmon clien works with tiny_structured_logger,
@@ -18,7 +47,6 @@ def test_tiny_structured_logger(client_env, capsys):
     from jobmon.client.api import Tool, UnknownWorkflow
     from tiny_structured_logger.lib import structured_logger
     from jobmon.client.client_logging import ClientLogging
-    import logging
     def _get_task():
         logger = structured_logger.logger(
             log_tag=LoggerConstants.LogTags.CONSOLE_TAG,

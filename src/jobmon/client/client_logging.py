@@ -28,9 +28,8 @@ class ClientLogging:
             logger = logging.getLogger(logger_name)
         else:
             logger = logging.getLogger()
-        logger.setLevel(self._level)
-        logging.basicConfig(format=self._format)
-        if handler:
-            logger.addHandler(handler)
-        else:
-            logger.addHandler(logging.StreamHandler(sys.stdout))
+        if not handler:
+            handler = logging.StreamHandler(sys.stdout)
+            handler.setFormatter(logging.Formatter(self._format))
+            handler.setLevel(self._level)
+        logger.addHandler(handler)
