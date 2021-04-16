@@ -4,6 +4,7 @@ Instances will be created from it for every execution.
 from __future__ import annotations
 
 import hashlib
+import logging
 from functools import partial
 from http import HTTPStatus as StatusCodes
 from typing import Callable, Dict, List, Optional, Tuple, Union
@@ -14,8 +15,6 @@ from jobmon.client.node import Node
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
-
-import structlog as logging
 
 
 logger = logging.getLogger(__name__)

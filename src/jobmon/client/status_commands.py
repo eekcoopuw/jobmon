@@ -1,5 +1,6 @@
 """Commands to check for workflow and task status (from CLI)."""
 import getpass
+import logging
 from typing import List, Optional, Tuple
 
 from jobmon.client.client_config import ClientConfig
@@ -7,9 +8,6 @@ from jobmon.constants import TaskStatus
 from jobmon.requester import Requester
 
 import pandas as pd
-
-import structlog as logging
-
 
 logger = logging.getLogger(__name__)
 

@@ -3,6 +3,7 @@ time.
 """
 from __future__ import annotations
 
+import logging
 from typing import Dict, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
@@ -11,7 +12,6 @@ from jobmon.client.workflow import Workflow
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientTool, SerializeClientToolVersion
 
-import structlog as logging
 
 logger = logging.getLogger(__name__)
 

@@ -397,6 +397,16 @@ For example::
         # Run the workflow
         workflow.run()
 
+Logging
+===============================
+To attach Jobmon's simple formatted logger use the following code.
+
+For example::
+
+    from jobmon.client.client_logging import ClientLogging
+
+    ClientLogging().attach()
+
 Jobmon Commands
 =======================================
 The Jobmon status

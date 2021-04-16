@@ -1,4 +1,5 @@
 """Sequential executor runs one task at a time."""
+import logging
 import os
 from collections import OrderedDict
 from typing import List, Optional, Tuple
@@ -9,9 +10,6 @@ from jobmon.client.execution.worker_node.execution_wrapper import (
     parse_arguments, unwrap)
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-
-import structlog as logging
-
 
 logger = logging.getLogger(__name__)
 

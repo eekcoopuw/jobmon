@@ -1,5 +1,6 @@
 """SGE specific executor implementation for SGE cluster compatibility."""
 import errno
+import logging
 import os
 from subprocess import check_output
 from typing import Dict, List, Optional, Tuple
@@ -9,9 +10,6 @@ from jobmon.client.execution.strategies.base import (
 from jobmon.client.execution.strategies.sge import sge_utils
 from jobmon.constants import QsubAttribute, TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
-
-import structlog as logging
-
 
 logger = logging.getLogger(__name__)
 

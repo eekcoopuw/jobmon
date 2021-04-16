@@ -1,6 +1,7 @@
 """Interface to the dynamic resource manager (DRM), aka the scheduler."""
 
 import itertools
+import logging
 import os
 import re
 import subprocess
@@ -8,9 +9,6 @@ from datetime import datetime
 from typing import Dict, List, Tuple
 
 import numpy as np
-
-import structlog as logging
-
 
 this_path = os.path.dirname(os.path.abspath(__file__))
 logger = logging.getLogger(__name__)
