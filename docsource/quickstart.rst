@@ -399,9 +399,7 @@ For example::
 
 Logging
 ===============================
-Jobmon client no longer attach log handlers by default, but let the user decides the logging preference.
-If you have attached any log handler to your root logger, Jobmon will follow. Otherwise, Jobmon also
-provides an easy way to attach a simple formatted log handler to StdOut.
+To attach Jobmon's simple formatted logger use the following code.
 
 For example::
 
