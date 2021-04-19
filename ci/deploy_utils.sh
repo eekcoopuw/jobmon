@@ -1,7 +1,8 @@
+export HELM_CONTAINER="docker.artifactory.ihme.washington.edu/alpine/helm:latest"
+export KUBECTL_CONTAINER="docker-infrapub.artifactory.ihme.washington.edu/kubectl:latest"
 
 get_metallb_cfg () {
-    KUBECTL_CONTAINER=$1
-    WORKSPACE=$2
+    WORKSPACE=$1
 
     # pull kubectl container
     docker pull $KUBECTL_CONTAINER
@@ -89,22 +90,20 @@ upload_jobmon_image () {
 
 
 deploy_jobmon_to_k8s () {
-    YASHA_CONTAINER=${1}
-    WORKSPACE=${2}
-    JOBMON_CONTAINER_URI=${3}
-    METALLB_IP_POOL=${4}
-    K8S_NAMESPACE=${5}
-    RANCHER_PROJECT_ID=${6}
-    GRAFANA_CONTAINER_URI=${7}
-    RANCHER_DB_SECRET=${8}
-    RANCHER_SLACK_SECRET=${9}
-    RANCHER_QPID_SECRET=${10}
-    KUBECTL_CONTAINER=${11}
-    KUBECONFIG=${12}
-    USE_LOGSTASH=${13}
-    JOBMON_VERSION=${14}
+    WORKSPACE=${1}
+    JOBMON_CONTAINER_URI=${2}
+    METALLB_IP_POOL=${3}
+    K8S_NAMESPACE=${4}
+    RANCHER_PROJECT_ID=${5}
+    GRAFANA_CONTAINER_URI=${6}
+    RANCHER_DB_SECRET=${7}
+    RANCHER_SLACK_SECRET=${8}
+    RANCHER_QPID_SECRET=${9}
+    KUBECONFIG=${10}
+    USE_LOGSTASH=${11}
+    JOBMON_VERSION=${12}
 
-    docker pull alpine/helm  # Pull prebuilt helm container
+    docker pull $HELM_CONTAINER  # Pull prebuilt helm container
     docker pull $KUBECTL_CONTAINER
 
     # Check if namespace exists, if not create it: render 01_namespace.yaml and apply it

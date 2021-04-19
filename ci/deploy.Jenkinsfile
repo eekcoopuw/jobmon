@@ -39,7 +39,6 @@ pipeline {
     DOCKER_ACTIVATE = "source /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
     QLOGIN_ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
     SCICOMP_DOCKER_REG_URL = "docker-scicomp.artifactory.ihme.washington.edu"
-    INFRA_PUB_REG_URL="docker-infrapub.artifactory.ihme.washington.edu"
   }
   stages {
     stage ('Get TARGET_IP address') {
@@ -53,7 +52,7 @@ pipeline {
             sh '''#!/bin/bash
                   . ${WORKSPACE}/ci/deploy_utils.sh
                   docker image prune -f
-                  get_metallb_cfg "${INFRA_PUB_REG_URL}/kubectl:latest" ${WORKSPACE}
+                  get_metallb_cfg ${WORKSPACE}
                '''
           }
           script {
@@ -151,7 +150,6 @@ pipeline {
             sh '''#!/bin/bash
                   . ${WORKSPACE}/ci/deploy_utils.sh
                   deploy_jobmon_to_k8s \
-                      "${INFRA_PUB_REG_URL}/yasha:latest" \
                       ${WORKSPACE} \
                       ${JOBMON_CONTAINER_URI} \
                       ${METALLB_IP_POOL} \
@@ -161,7 +159,6 @@ pipeline {
                       ${RANCHER_DB_SECRET} \
                       ${RANCHER_SLACK_SECRET} \
                       ${RANCHER_QPID_SECRET} \
-                      "${INFRA_PUB_REG_URL}/kubectl:latest" \
                       ${KUBECONFIG} \
                       ${USE_LOGSTASH} \
                       ${JOBMON_VERSION}
