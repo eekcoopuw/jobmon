@@ -415,7 +415,11 @@ def get_workflow_status():
     workflow_request = request.args.getlist('workflow_id')
     if workflow_request == "all":  # specifying all is equivalent to None
         workflow_request = []
-    limit = request.args.get("limit")
+    data = request.get_json()
+    if "limit" in data.keys():
+        limit = data['limit']
+    else:
+        limit = None
 
     where_clause = ""
     # convert workflow request into sql filter

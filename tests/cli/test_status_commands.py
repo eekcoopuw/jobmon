@@ -51,7 +51,7 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
     command_str = f"workflow_status -u {user} -w {workflow.workflow_id} -n"
     cli = CLI()
     args = cli.parse_args(command_str)
-    df = workflow_status(args.workflow_id, args.user, args.json)
+    df = workflow_status(args.workflow_id, args.user, 10, args.json)
     assert df == f'{{"WF_ID":{{"0":{workflow.workflow_id}}},"WF_NAME":{{"0":""}},' \
                  f'"WF_STATUS":{{"0":' \
                  '"QUEUED"},"TASKS":{"0":2},"PENDING":{"0":"2 (100.0%)"},' \
