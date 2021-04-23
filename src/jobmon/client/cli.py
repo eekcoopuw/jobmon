@@ -105,6 +105,10 @@ class ClientCLI(CLI):
             "-u", "--user", nargs="*", help="list of users", required=False, type=str
         )
         workflow_status_parser.add_argument("-n", "--json", dest="json", action="store_true")
+        workflow_status_parser.add_argument(
+            "-l", "--limit", nargs="*", help="limit the number of returning records", required=False,
+            type=int
+        )
         ParserDefaults.web_service_fqdn(workflow_status_parser)
         ParserDefaults.web_service_port(workflow_status_parser)
 

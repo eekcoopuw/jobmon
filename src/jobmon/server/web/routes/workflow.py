@@ -416,10 +416,8 @@ def get_workflow_status():
     if workflow_request == "all":  # specifying all is equivalent to None
         workflow_request = []
     data = request.get_json()
-    if "limit" in data.keys():
-        limit = data['limit']
-    else:
-        limit = None
+    limit_request = request.args.getlist('limit')
+    limit = None if len(limit_request)==0 else limit_request[0]
 
     where_clause = ""
     # convert workflow request into sql filter
@@ -464,7 +462,7 @@ def get_workflow_status():
             ON workflow_status.id = workflow.status
         {where_clause}
         GROUP BY workflow.id, task.status, workflow.name, workflow_status.label
-        ORDER BY workflow.id desc 
+        ORDER BY workflow.id desc
     """.format(where_clause=where_clause)
     if limit:
         q = f"{q}\nLIMIT {limit}"
