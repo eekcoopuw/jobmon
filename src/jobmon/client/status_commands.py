@@ -21,7 +21,8 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
         workflow_id: workflow_id/s to retrieve info for. If not specified will pull all
             workflows by user
         user: user/s to retrieve info for. If not specified will return for current user.
-        limit: return # of records order by wf id desc. Ignor if [], [<0] or None, and return all wf.
+        limit: return # of records order by wf id desc. Ignor if [], [<0] or None,
+             and return all wf.
         json: Flag to return data as JSON
 
     Returns:
@@ -35,7 +36,7 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
         msg["user"] = user
     else:
         msg["user"] = getpass.getuser()
-    if limit is not None and len(limit)>0 and limit[0] > 0:
+    if limit is not None and len(limit) > 0 and limit[0] > 0:
         msg["limit"] = limit
 
     if requester_url is None:
