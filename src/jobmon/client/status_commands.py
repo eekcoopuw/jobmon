@@ -12,8 +12,10 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
-                    json: bool = False, requester_url: Optional[str] = None,
+def workflow_status(workflow_id: List[int] = [],
+                    user: List[str] = [],
+                    json: bool = False,
+                    requester_url: Optional[str] = None,
                     limit: List[int] = []) -> pd.DataFrame:
     """Get metadata about workflow progress.
 
