@@ -46,7 +46,7 @@ class ClientCLI(CLI):
         from jobmon.client.status_commands import workflow_status as workflow_status_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = workflow_status_cmd(args.workflow_id, args.user, args.limit, args.json, cc.url)
+        df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url, args.limit)
         if args.json:
             print(df)
         else:
