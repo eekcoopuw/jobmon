@@ -25,6 +25,8 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
 
     monkeypatch.setattr(getpass, "getuser", mock_getuser)
     user = getpass.getuser()
+
+
     workflow = UnknownWorkflow(executor_class="SequentialExecutor")
     t1 = BashTask("sleep 10", executor_class="SequentialExecutor")
     t2 = BashTask("sleep 5", upstream_tasks=[t1],
@@ -89,13 +91,6 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
     df = workflow_status(args.workflow_id, args.user)
     assert len(df) == 2
 
-def test_workflow_status_limit(db_cfg, client_env, monkeypatch):
-    from jobmon.client.api import BashTask
-    from jobmon.client.api import UnknownWorkflow
-    from jobmon.client.status_commands import workflow_status
-
-    monkeypatch.setattr(getpass, "getuser", mock_getuser)
-    user = getpass.getuser()
     workflow1 = UnknownWorkflow(executor_class="SequentialExecutor")
     t1 = BashTask("sleep 10", executor_class="SequentialExecutor")
     workflow1.add_tasks([t1])
@@ -108,22 +103,15 @@ def test_workflow_status_limit(db_cfg, client_env, monkeypatch):
     workflow2.bind()
     workflow2._create_workflow_run()
 
-    # check limit 1 (< total)
+    # check limit 1
     command_str = f"workflow_status -u {user}  -l 1"
     cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(user=args.user, limit=args.limit)
     assert len(df) == 1
 
-    # check limit 2 (= total)
+    # check limit 2
     command_str = f"workflow_status -u {user}  -l 2"
-    cli = CLI()
-    args = cli.parse_args(command_str)
-    df = workflow_status(user=args.user, limit=args.limit)
-    assert len(df) == 2
-
-    # check limit 3 (> total)
-    command_str = f"workflow_status -u {user}  -l 3"
     cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(user=args.user, limit=args.limit)
@@ -134,7 +122,15 @@ def test_workflow_status_limit(db_cfg, client_env, monkeypatch):
     cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(user=args.user)
-    assert len(df) == 2
+    assert len(df) == 4
+
+    # check over limit
+    command_str = f"workflow_status -u {user}  -l 12"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(user=args.user, limit=args.limit)
+    assert len(df) == 4
+
 
 def test_workflow_tasks(db_cfg, client_env):
     from jobmon.client.api import BashTask
