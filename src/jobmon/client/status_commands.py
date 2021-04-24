@@ -16,7 +16,7 @@ def workflow_status(workflow_id: List[int] = [],
                     user: List[str] = [],
                     json: bool = False,
                     requester_url: Optional[str] = None,
-                    limit: List[int] = []) -> pd.DataFrame:
+                    limit: Optional[int] = None) -> pd.DataFrame:
     """Get metadata about workflow progress.
 
     Args:

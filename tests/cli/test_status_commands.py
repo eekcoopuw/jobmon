@@ -131,6 +131,13 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
     df = workflow_status(user=args.user, limit=args.limit)
     assert len(df) == 4
 
+    # check no value
+    command_str = f"workflow_status -u {user}  -l"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(user=args.user, limit=args.limit)
+    assert len(df) == 4
+
 
 def test_workflow_tasks(db_cfg, client_env):
     from jobmon.client.api import BashTask
