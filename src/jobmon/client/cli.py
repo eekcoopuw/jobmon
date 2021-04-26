@@ -46,7 +46,21 @@ class ClientCLI(CLI):
         from jobmon.client.status_commands import workflow_status as workflow_status_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url, args.limit)
+        if args.limit and len(args.limit) > 0:
+            # limit option provided
+            if args.limit[0] > 0:
+                # return given number of lines
+                df = workflow_status_cmd(args.workflow_id,
+                                         args.user,
+                                         args.json,
+                                         cc.url,
+                                         args.limit)
+            else:
+                # return all
+                df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url, -1)
+        else:
+            # limit option not provided
+            df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url)
         if args.json:
             print(df)
         else:
@@ -108,7 +122,7 @@ class ClientCLI(CLI):
         workflow_status_parser.add_argument(
             "-l", "--limit",
             nargs="*",
-            help="limit the number of returning records",
+            help="limit the number of returning records; default is 5",
             required=False,
             type=int
         )
