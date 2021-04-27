@@ -253,36 +253,38 @@ def test_fail_fast_resource_scaling(db_cfg, client_env):
 
     unknown_tool = Tool()
     workflow = unknown_tool.create_workflow(name="test_fail_fast")
+    # create SGE parameters with long run time
+    sleepy_params = ExecutorParameters(
+        num_cores=1,
+        m_mem_free="1G",
+        max_runtime_seconds=600,  # set max runtime to be shorter than task
+        queue="all.q",
+        executor_class="SGEExecutor")
+    t1 = BashTask("sleep 1", executor_parameters=sleepy_params)
 
-    # specify SGE specific parameters
+    # specify SGE specific parameters of a very short run time
     sleepy_params1 = ExecutorParameters(
         num_cores=1,
         m_mem_free="1G",
         max_runtime_seconds=8,  # set max runtime to be shorter than task
         queue="all.q",
         executor_class="SGEExecutor",
-        resource_scales={'m_mem_free': 0.2,
-                         'max_runtime_seconds': 0.5}
+        resource_scales={'max_runtime_seconds': 0.5}
     )
-    sleepy_task1 = BashTask(
+    t2 = BashTask(
         # set sleep to be longer than max runtime, forcing a retry
         "sleep 20",
         # job should succeed on second try. runtime will 150s on try 2
         max_attempts=2,
+        upstream_tasks=[t1],
         executor_parameters=sleepy_params1)
 
-    # create another task that runs much longer to see if it gets fast kill
-    sleepy_params2 = ExecutorParameters(
-        num_cores=1,
-        m_mem_free="1G",
-        max_runtime_seconds=600,  # set max runtime to be shorter than task
-        queue="all.q",
-        executor_class="SGEExecutor")
-    sleepy_task2 = BashTask(
+    t3 = BashTask(
         # longer enough than the first one
         "sleep 120",
-        executor_parameters=sleepy_params2)
-    workflow.add_tasks([sleepy_task1, sleepy_task2])
+        executor_parameters=sleepy_params)
+    t4 = BashTask("sleep 2", executor_parameters=sleepy_params, upstream_tasks=[t3])
+    workflow.add_tasks([t1, t2, t3, t4])
 
     # job will time out and get killed by the cluster. After a few minutes
     # jobmon will notice that it has disappeared and ask SGE for exit status.
@@ -290,7 +292,7 @@ def test_fail_fast_resource_scaling(db_cfg, client_env):
     # retry the job at which point it will succeed.
     wfr = workflow.run(fail_fast=True)
     assert len(wfr.all_error) == 1
-    assert len(wfr.all_done) == 1
+    assert len(wfr.all_done) == 3
     # Verify that there are retries for the first task not the second
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -300,15 +302,20 @@ def test_fail_fast_resource_scaling(db_cfg, client_env):
         r1 = DB.session.execute(q1).fetchone()
         assert r1[0] == 1
 
-        # Verify there are two ti for sleepy_task1
-        q2 = f"select count(*) from task_instance where task_id={sleepy_task1.task_id}"
+        # Verify there are two ti for t2
+        q2 = f"select count(*) from task_instance where task_id={t2.task_id}"
         r2 = DB.session.execute(q2).fetchone()
         assert r2[0] == 2
 
-        # Verify there is one t2 for sleepy_task2
-        q3 = f"select count(*) from task_instance where task_id={sleepy_task2.task_id}"
+        # Verify there is one ti for t3
+        q3 = f"select count(*) from task_instance where task_id={t3.task_id}"
         r3 = DB.session.execute(q3).fetchone()
         assert r3[0] == 1
+
+        # Verify there is one ti for t4
+        q4 = f"select count(*) from task_instance where task_id={t4.task_id}"
+        r4 = DB.session.execute(q4).fetchone()
+        assert r4[0] == 1
 
         DB.session.commit()
 
