@@ -25,6 +25,8 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
 
     monkeypatch.setattr(getpass, "getuser", mock_getuser)
     user = getpass.getuser()
+
+
     workflow = UnknownWorkflow(executor_class="SequentialExecutor")
     t1 = BashTask("sleep 10", executor_class="SequentialExecutor")
     t2 = BashTask("sleep 5", upstream_tasks=[t1],
@@ -88,6 +90,80 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
     args = cli.parse_args(command_str)
     df = workflow_status(args.workflow_id, args.user)
     assert len(df) == 2
+
+    # add 4 more wf to make it 6
+    workflow1 = UnknownWorkflow(executor_class="SequentialExecutor")
+    t1 = BashTask("sleep 1", executor_class="SequentialExecutor")
+    workflow1.add_tasks([t1])
+    workflow1.bind()
+    workflow1._create_workflow_run()
+
+    workflow2 = UnknownWorkflow(executor_class="SequentialExecutor")
+    t2 = BashTask("sleep 2", executor_class="SequentialExecutor")
+    workflow2.add_tasks([t2])
+    workflow2.bind()
+    workflow2._create_workflow_run()
+
+    workflow3 = UnknownWorkflow(executor_class="SequentialExecutor")
+    t3 = BashTask("sleep 3", executor_class="SequentialExecutor")
+    workflow3.add_tasks([t3])
+    workflow3.bind()
+    workflow3._create_workflow_run()
+
+    workflow4 = UnknownWorkflow(executor_class="SequentialExecutor")
+    t4 = BashTask("sleep 4", executor_class="SequentialExecutor")
+    workflow4.add_tasks([t4])
+    workflow4.bind()
+    workflow4._create_workflow_run()
+
+    # check limit 1
+    command_str = f"workflow_status -u {user}  -l 1"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(user=args.user, limit=args.limit)
+    assert len(df) == 1
+
+    # check limit 2
+    command_str = f"workflow_status -u {user}  -l 2"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(user=args.user, limit=args.limit)
+    assert len(df) == 2
+
+    # check default (no limit)
+    command_str = f"workflow_status -u {user}"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(user=args.user)
+    assert len(df) == 5
+
+    # check default (limit without value)
+    command_str = f"workflow_status -u {user} -l"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(user=args.user)
+    assert len(df) == 5
+
+    # check over limit
+    command_str = f"workflow_status -u {user}  -l 12"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(user=args.user, limit=args.limit)
+    assert len(df) == 6
+
+    # check 0
+    command_str = f"workflow_status -u {user}  -l 0"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(user=args.user, limit=args.limit)
+    assert len(df) == 0
+
+    # check negative
+    command_str = f"workflow_status -u {user}  -l -1"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_status(user=args.user, limit=args.limit)
+    assert len(df) == 6
 
 
 def test_workflow_tasks(db_cfg, client_env):

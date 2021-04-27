@@ -415,7 +415,14 @@ def get_workflow_status():
     workflow_request = request.args.getlist('workflow_id')
     if workflow_request == "all":  # specifying all is equivalent to None
         workflow_request = []
-
+    limit_request = request.args.getlist('limit')
+    limit = None if len(limit_request) == 0 else limit_request[0]
+    # anything less than 0 or non number will be treated as None
+    try:
+        if int(limit_request[0]) < 0:
+            limit = None
+    except ValueError:
+        limit = None
     where_clause = ""
     # convert workflow request into sql filter
     if workflow_request:
@@ -437,7 +444,6 @@ def get_workflow_status():
             workflow_ids = [int(row.workflow_id) for row in res_user]
             params["workflow_id"] = workflow_ids
             where_clause = "WHERE workflow.id in :workflow_id "
-
     # execute query
     q = """
         SELECT
@@ -459,7 +465,10 @@ def get_workflow_status():
             ON workflow_status.id = workflow.status
         {where_clause}
         GROUP BY workflow.id, task.status, workflow.name, workflow_status.label
+        ORDER BY workflow.id desc
     """.format(where_clause=where_clause)
+    if limit:
+        q = f"{q}\nLIMIT {limit}"
     res = DB.session.execute(q, params).fetchall()
 
     if res:

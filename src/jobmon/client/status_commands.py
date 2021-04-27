@@ -12,14 +12,19 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
-                    json: bool = False, requester_url: Optional[str] = None) -> pd.DataFrame:
+def workflow_status(workflow_id: List[int] = [],
+                    user: List[str] = [],
+                    json: bool = False,
+                    requester_url: Optional[str] = None,
+                    limit: Optional[int] = [5]) -> pd.DataFrame:
     """Get metadata about workflow progress.
 
     Args:
         workflow_id: workflow_id/s to retrieve info for. If not specified will pull all
             workflows by user
         user: user/s to retrieve info for. If not specified will return for current user.
+        limit: return # of records order by wf id desc. Return 5 if not provided;
+            return all if [], [<0].
         json: Flag to return data as JSON
 
     Returns:
@@ -33,6 +38,7 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
         msg["user"] = user
     else:
         msg["user"] = getpass.getuser()
+    msg["limit"] = limit
 
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url
