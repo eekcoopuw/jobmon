@@ -244,6 +244,75 @@ def test_fail_fast(client_env):
     assert len(wfr.all_done) <= 3
 
 
+@pytest.mark.integration_sge
+def test_fail_fast_resource_scaling(db_cfg, client_env):
+    """test that resources kill won't fail fast"""
+    from jobmon.client.execution.strategies.base import ExecutorParameters
+    from jobmon.client.api import BashTask, Tool
+    from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
+
+    unknown_tool = Tool()
+    workflow = unknown_tool.create_workflow(name="test_fail_fast")
+
+    # specify SGE specific parameters
+    sleepy_params1 = ExecutorParameters(
+        num_cores=1,
+        m_mem_free="1G",
+        max_runtime_seconds=8,  # set max runtime to be shorter than task
+        queue="all.q",
+        executor_class="SGEExecutor",
+        resource_scales={'m_mem_free': 0.2,
+                         'max_runtime_seconds': 0.5}
+    )
+    sleepy_task1 = BashTask(
+        # set sleep to be longer than max runtime, forcing a retry
+        "sleep 20",
+        # job should succeed on second try. runtime will 150s on try 2
+        max_attempts=2,
+        executor_parameters=sleepy_params1)
+
+    # create another task that runs much longer to see if it gets fast kill
+    sleepy_params2 = ExecutorParameters(
+        num_cores=1,
+        m_mem_free="1G",
+        max_runtime_seconds=600,  # set max runtime to be shorter than task
+        queue="all.q",
+        executor_class="SGEExecutor")
+    sleepy_task2 = BashTask(
+        # longer enough than the first one
+        "sleep 120",
+        executor_parameters=sleepy_params2)
+    workflow.add_tasks([sleepy_task1, sleepy_task2])
+
+    # job will time out and get killed by the cluster. After a few minutes
+    # jobmon will notice that it has disappeared and ask SGE for exit status.
+    # SGE will show a resource kill. Jobmon will scale all resources by 30% and
+    # retry the job at which point it will succeed.
+    wfr = workflow.run(fail_fast=True)
+    assert len(wfr.all_error) == 1
+    assert len(wfr.all_done) == 1
+    # Verify that there are retries for the first task not the second
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        # Verify there are two wfr
+        q1 = f"select count(*) from workflow_run where workflow_id={workflow.workflow_id}"
+        r1 = DB.session.execute(q1).fetchone()
+        assert r1[0] == 1
+
+        # Verify there are two ti for sleepy_task1
+        q2 = f"select count(*) from task_instance where task_id={sleepy_task1.task_id}"
+        r2 = DB.session.execute(q2).fetchone()
+        assert r2[0] == 2
+
+        # Verify there is one t2 for sleepy_task2
+        q3 = f"select count(*) from task_instance where task_id={sleepy_task2.task_id}"
+        r3 = DB.session.execute(q3).fetchone()
+        assert r3[0] == 1
+
+        DB.session.commit()
+
+
 def test_propagate_result(client_env):
     """set up workflow with 3 tasks on one layer and 3 tasks as dependant"""
     from jobmon.client.api import BashTask, Tool
