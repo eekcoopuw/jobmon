@@ -260,7 +260,6 @@ def test_fail_fast_resource_scaling(db_cfg, client_env):
         max_runtime_seconds=600,  # set max runtime to be shorter than task
         queue="all.q",
         executor_class="SGEExecutor")
-    t1 = BashTask("sleep 1", executor_parameters=sleepy_params)
 
     # specify SGE specific parameters of a very short run time
     sleepy_params1 = ExecutorParameters(
@@ -271,6 +270,7 @@ def test_fail_fast_resource_scaling(db_cfg, client_env):
         executor_class="SGEExecutor",
         resource_scales={'max_runtime_seconds': 0.5}
     )
+    t1 = BashTask("sleep 1", executor_parameters=sleepy_params1)
     t2 = BashTask(
         # set sleep to be longer than max runtime, forcing a retry
         "sleep 20",
