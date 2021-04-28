@@ -297,7 +297,7 @@ def test_fail_fast_resource_scaling(db_cfg, client_env):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        # Verify there are two wfr
+        # Verify there are 1 wfr
         q1 = f"select count(*) from workflow_run where workflow_id={workflow.workflow_id}"
         r1 = DB.session.execute(q1).fetchone()
         assert r1[0] == 1
