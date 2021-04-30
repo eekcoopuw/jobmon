@@ -12,10 +12,6 @@ jobmonr_loc <- args$jobmonr_loc
 Sys.setenv("RETICULATE_PYTHON" = python_path)  # Set the Python interpreter path
 library(jobmonr, lib.loc = jobmonr_loc)
 
-# Create a workflow
-username <- Sys.getenv("USER")
-script_path <- '/mnt/team/scicomp/training/test_scripts/test.py'  # Update with your repository installation
-
 # Bind a workflow to the tool
 my_tool <- tool()
 wf <- workflow(tool=my_tool, name=paste0("six-job-test-", runif(1)))
