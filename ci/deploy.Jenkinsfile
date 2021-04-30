@@ -170,7 +170,13 @@ pipeline {
     stage ('Test Deployment') {
       steps {
         node('qlogin') {
+          // Download jobmon
           checkout scm
+          // Download jobmonr
+          sshagent (credentials: ['svcscicompci']) {
+              sh "rm -rf jbomonr"
+              sh "git clone ssh://git@stash.ihme.washington.edu:7999/scic/jobmonr.git"
+           }
           sh '''#!/bin/bash
                 . ${WORKSPACE}/ci/deploy_utils.sh
                 test_k8s_deployment \
