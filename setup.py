@@ -45,6 +45,7 @@ DOCS_REQUIRES = [
     'sphinx-autodoc-typehints',
     'sphinx_rtd_theme',
     'graphviz',
+    'sphinx_code_tabs',
 ]
 
 

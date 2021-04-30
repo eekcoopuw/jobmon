@@ -86,7 +86,8 @@ def docs(session: Session) -> None:
     """Build the documentation."""
     session.conda_install("graphviz")
 
-    session.install("-e", ".[docs]")
+    session.install("-e", ".[docs,server]")
+
     autodoc_output = 'docsource/api'
     if os.path.exists(autodoc_output):
         shutil.rmtree(autodoc_output)
