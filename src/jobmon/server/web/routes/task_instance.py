@@ -243,7 +243,9 @@ def get_most_recent_ji_error(task_id: int):
     resp.status_code = StatusCodes.OK
     return resp
 
-@jobmon_worker.route('/task_instance/<task_instance_id>/task_instance_error_log', methods=['GET'])
+
+@jobmon_worker.route('/task_instance/<task_instance_id>/task_instance_error_log',
+                     methods=['GET'])
 def get_task_instance_error_log(task_instance_id: int):
     """
     Route to return all task_instance_error_log entries of the task_instance_id
@@ -265,9 +267,10 @@ def get_task_instance_error_log(task_instance_id: int):
     ).all()
     DB.session.commit()
     resp = jsonify(task_instance_error_log=[tiel.to_wire_as_executor_task_instance_error_log()
-                                   for tiel in ti_errors])
+                                            for tiel in ti_errors])
     resp.status_code = StatusCodes.OK
     return resp
+
 
 @jobmon_scheduler.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
                         methods=['GET'])
