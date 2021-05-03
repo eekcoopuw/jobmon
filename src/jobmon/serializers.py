@@ -88,8 +88,10 @@ class SerializeExecutorTaskInstanceErrorLog:
     @staticmethod
     def to_wire(task_instance_error_log_id: int, error_time: datetime,
                 description: str) -> tuple:
-        """Submit the above args for an SerializeExecutorTaskInstanceErrorLog
-        object to the database."""
+        """
+        Submit the above args for an SerializeExecutorTaskInstanceErrorLog
+        object to the database.
+        """
         return task_instance_error_log_id, error_time, description
 
     @staticmethod
