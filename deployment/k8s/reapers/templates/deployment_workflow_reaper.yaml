@@ -60,7 +60,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: traefik-{{ .Values.global.namespace }}
-  namespace: jobmon-reapers
+  namespace: jobmon-reaper-dev
 spec:
   type: ExternalName
   externalName: traefik.{{ .Values.global.namespace }}.svc.cluster.local
