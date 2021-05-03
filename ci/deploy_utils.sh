@@ -158,6 +158,7 @@ deploy_jobmon_to_k8s () {
         upgrade --install jobmon /apps/. \
         -n "$K8S_NAMESPACE" \
         --set global.namespace="$K8S_NAMESPACE" \
+        --set global.reaper_namespace="$K8S_REAPER_NAMESPACE" \
         --set global.rancher_project="$RANCHER_PROJECT_ID" \
         --set global.use_logstash="$USE_LOGSTASH" \
         --set global.metallb_ip_pool="$METALLB_IP_POOL" \
