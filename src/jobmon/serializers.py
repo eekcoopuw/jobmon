@@ -94,7 +94,7 @@ class SerializeExecutorTaskInstanceErrorLog:
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Retrieve the SerializeExecutorTaskInstanceErrorLog information from the database."""
         return {"task_instance_error_log_id": int(wire_tuple[0]),
-                "error_time": datetime(wire_tuple[1]),
+                "error_time": str(wire_tuple[1]),
                 "description": str(wire_tuple[2])}
 
 class SerializeClientTool:
