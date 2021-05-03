@@ -102,6 +102,7 @@ deploy_jobmon_to_k8s () {
     KUBECONFIG=${10}
     USE_LOGSTASH=${11}
     JOBMON_VERSION=${12}
+    K8S_REAPER_NAMESPACE=${13}
 
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
     docker pull $KUBECTL_CONTAINER
@@ -125,6 +126,7 @@ deploy_jobmon_to_k8s () {
             alpine/helm \
                 template /data -s templates/01_namespace.yaml \
                 --set global.namespace="$K8S_NAMESPACE" \
+                --set global.reaper_namespace="$K8S_REAPER_NAMESPACE}" \
                 --set global.rancher_project="$RANCHER_PROJECT_ID" >> \
                 "$WORKSPACE/deployment/k8s/jobmon/namespace.yaml"
         docker run -t \
