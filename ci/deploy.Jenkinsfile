@@ -8,7 +8,7 @@ pipeline {
     string(defaultValue: 'jobmon-dev',
      description: 'Kubernetes Namespace to deploy to',
      name: 'K8S_NAMESPACE')
-    string(defaultValue: 'jobmon_reapers_dev',
+    string(defaultValue: 'jobmon-reapers-dev',
      description: 'Kubernetes Namespace to deploy to',
      name: 'K8S_REAPER_NAMESPACE')
     string(defaultValue: 'jobmon-dev-ips',
