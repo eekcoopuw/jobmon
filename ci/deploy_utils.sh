@@ -192,5 +192,6 @@ test_k8s_deployment () {
         conda activate $CONDA_DIR && \
         pip install jobmon==$JOBMON_VERSION && \
         python $WORKSPACE/deployment/tests/six_job_test.py && \
-        /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/deployment/tests/six_job_test.r \
+        /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/deployment/tests/six_job_test.r \
             --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr
+}
