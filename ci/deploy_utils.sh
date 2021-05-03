@@ -176,7 +176,7 @@ deploy_jobmon_to_k8s () {
         upgrade --install jobmon-reapers /apps/. \
         -n "jobmon-reapers" \
         --set global.namespace="$K8S_NAMESPACE" \
-        --set global.reaper_namespace="$K8S_REAPER_NAMESPACE}" \
+        --set global.reaper_namespace="$K8S_REAPER_NAMESPACE" \
         --set global.jobmon_version="$JOBMON_VERSION" \
         --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
         --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI"
