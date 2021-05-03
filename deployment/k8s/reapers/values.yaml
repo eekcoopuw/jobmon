@@ -5,3 +5,4 @@ global:
   jobmon_container_uri: ""
   rancher_slack_secret: ""
   namespace: ""
+  reaper_namespace: ""
