@@ -126,7 +126,6 @@ deploy_jobmon_to_k8s () {
             alpine/helm \
                 template /data -s templates/01_namespace.yaml \
                 --set global.namespace="$K8S_NAMESPACE" \
-                --set global.reaper_namespace="$K8S_REAPER_NAMESPACE}" \
                 --set global.rancher_project="$RANCHER_PROJECT_ID" >> \
                 "$WORKSPACE/deployment/k8s/jobmon/namespace.yaml"
         docker run -t \
@@ -148,6 +147,7 @@ deploy_jobmon_to_k8s () {
         upgrade --install jobmon-elk /apps/. \
         -n "$K8S_NAMESPACE" \
         --set global.namespace="$K8S_NAMESPACE"
+
 
     echo "Creating or updating Jobmon deployment"
     docker run -t \
@@ -176,6 +176,7 @@ deploy_jobmon_to_k8s () {
         upgrade --install jobmon-reapers /apps/. \
         -n "jobmon-reapers" \
         --set global.namespace="$K8S_NAMESPACE" \
+        --set global.reaper_namespace="$K8S_REAPER_NAMESPACE}" \
         --set global.jobmon_version="$JOBMON_VERSION" \
         --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
         --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI"
