@@ -175,7 +175,7 @@ deploy_jobmon_to_k8s () {
     -v $KUBECONFIG:/root/.kube/config \
     alpine/helm \
         upgrade --install jobmon-reapers /apps/. \
-        -n "jobmon-reapers" \
+        -n "$K8S_REAPER_NAMESPACE" \
         --set global.namespace="$K8S_NAMESPACE" \
         --set global.reaper_namespace="$K8S_REAPER_NAMESPACE" \
         --set global.jobmon_version="$JOBMON_VERSION" \
