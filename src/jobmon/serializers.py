@@ -1,5 +1,6 @@
 """Serializing data when going to and from the database."""
 import ast
+from datetime import datetime
 from typing import Union
 
 
@@ -79,6 +80,26 @@ class SerializeExecutorTaskInstance:
         return {"task_instance_id": int(wire_tuple[0]),
                 "workflow_run_id": int(wire_tuple[1]),
                 "executor_id": executor_id}
+
+
+class SerializeExecutorTaskInstanceErrorLog:
+    """Serialize the data to and from the database for an ExecutorTaskInstanceErrorLog."""
+
+    @staticmethod
+    def to_wire(task_instance_error_log_id: int, error_time: datetime,
+                description: str) -> tuple:
+        """
+        Submit the above args for an SerializeExecutorTaskInstanceErrorLog
+        object to the database.
+        """
+        return task_instance_error_log_id, error_time, description
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        """Retrieve the SerializeExecutorTaskInstanceErrorLog information from the database."""
+        return {"task_instance_error_log_id": int(wire_tuple[0]),
+                "error_time": str(wire_tuple[1]),
+                "description": str(wire_tuple[2])}
 
 
 class SerializeClientTool:

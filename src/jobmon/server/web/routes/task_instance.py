@@ -244,6 +244,34 @@ def get_most_recent_ji_error(task_id: int):
     return resp
 
 
+@jobmon_worker.route('/task_instance/<task_instance_id>/task_instance_error_log',
+                     methods=['GET'])
+def get_task_instance_error_log(task_instance_id: int):
+    """
+    Route to return all task_instance_error_log entries of the task_instance_id
+    :param task_instance_id:
+    :return: jsonified task_instance_error_log result set
+    """
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    query = """
+        SELECT
+            tiel.id, tiel.error_time, tiel.description
+        FROM
+            task_instance_error_log tiel
+        WHERE
+            tiel.task_instance_id = :task_instance_id
+        ORDER BY
+            tiel.id ASC"""
+    ti_errors = DB.session.query(TaskInstanceErrorLog).from_statement(text(query)).params(
+        task_instance_id=task_instance_id
+    ).all()
+    DB.session.commit()
+    resp = jsonify(task_instance_error_log=[tiel.to_wire_as_executor_task_instance_error_log()
+                                            for tiel in ti_errors])
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @jobmon_scheduler.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
                         methods=['GET'])
 def get_queued_jobs(workflow_id: int, n_queued_tasks: int):

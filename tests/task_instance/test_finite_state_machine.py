@@ -244,6 +244,7 @@ def test_task_instance_error_fatal(db_cfg, client_env):
     from jobmon.client.api import BashTask, Tool
     from jobmon.client.execution.strategies.sequential import \
         SequentialExecutor
+    from jobmon.serializers import SerializeExecutorTaskInstanceErrorLog
 
     # setup workflow 1
     tool = Tool()
@@ -293,8 +294,29 @@ def test_task_instance_error_fatal(db_cfg, client_env):
         request_type='post'
     )
     assert return_code == 200
+
+    # log task_instance fatal error - 2nd error
+    app_route = f"/worker/task_instance/{ti_id}/log_error_worker_node"
+    return_code, _ = workflow1.requester.send_request(
+        app_route=app_route,
+        message={"error_state": "F", "error_message": "ble ble ble"},
+        request_type='post'
+    )
+    assert return_code == 200
+
     # Validate that the database indicates the Dag and its Jobs are complete
     with app.app_context():
         t = DB.session.query(Task).filter_by(id=task_a.task_id).one()
         assert t.status == TaskStatus.ERROR_FATAL
         DB.session.commit()
+
+    # make sure that the 2 errors logged above are counted for in the request_type='get'
+    rc, response = workflow1.requester.send_request(
+        app_route=f'/worker/task_instance/{ti_id}/task_instance_error_log',
+        message={},
+        request_type='get')
+    all_errors = [
+        SerializeExecutorTaskInstanceErrorLog.kwargs_from_wire(j)
+        for j in response['task_instance_error_log']]
+    assert len(all_errors) == 2
+
