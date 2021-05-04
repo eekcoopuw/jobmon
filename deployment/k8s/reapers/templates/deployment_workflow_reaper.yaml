@@ -6,7 +6,7 @@ metadata:
   annotations:
     "helm.sh/resource-policy": keep
   name: jobmon-reaper-{{ .Values.global.jobmon_version }}
-  namespace: jobmon-reapers
+  namespace: {{ .Values.global.reaper_namespace }}
   labels:
     app: jobmon-reaper-{{ .Values.global.jobmon_version }}
 spec:
@@ -60,7 +60,7 @@ kind: Service
 apiVersion: v1
 metadata:
   name: traefik-{{ .Values.global.namespace }}
-  namespace: jobmon-reapers
+  namespace: {{ .Values.global.reaper_namespace }}
 spec:
   type: ExternalName
   externalName: traefik.{{ .Values.global.namespace }}.svc.cluster.local

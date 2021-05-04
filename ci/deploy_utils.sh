@@ -102,6 +102,7 @@ deploy_jobmon_to_k8s () {
     KUBECONFIG=${10}
     USE_LOGSTASH=${11}
     JOBMON_VERSION=${12}
+    K8S_REAPER_NAMESPACE=${13}
 
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
     docker pull $KUBECTL_CONTAINER
@@ -147,6 +148,7 @@ deploy_jobmon_to_k8s () {
         -n "$K8S_NAMESPACE" \
         --set global.namespace="$K8S_NAMESPACE"
 
+
     echo "Creating or updating Jobmon deployment"
     docker run -t \
     --rm \
@@ -156,6 +158,7 @@ deploy_jobmon_to_k8s () {
         upgrade --install jobmon /apps/. \
         -n "$K8S_NAMESPACE" \
         --set global.namespace="$K8S_NAMESPACE" \
+        --set global.reaper_namespace="$K8S_REAPER_NAMESPACE" \
         --set global.rancher_project="$RANCHER_PROJECT_ID" \
         --set global.use_logstash="$USE_LOGSTASH" \
         --set global.metallb_ip_pool="$METALLB_IP_POOL" \
@@ -172,8 +175,9 @@ deploy_jobmon_to_k8s () {
     -v $KUBECONFIG:/root/.kube/config \
     alpine/helm \
         upgrade --install jobmon-reapers /apps/. \
-        -n "jobmon-reapers" \
+        -n "$K8S_REAPER_NAMESPACE" \
         --set global.namespace="$K8S_NAMESPACE" \
+        --set global.reaper_namespace="$K8S_REAPER_NAMESPACE" \
         --set global.jobmon_version="$JOBMON_VERSION" \
         --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
         --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI"
@@ -191,5 +195,12 @@ test_k8s_deployment () {
     $QLOGIN_ACTIVATE &&
         conda activate $CONDA_DIR && \
         pip install jobmon==$JOBMON_VERSION && \
-        python $WORKSPACE/deployment/tests/six_job_test.py
+        python $WORKSPACE/deployment/tests/six_job_test.py && \
+        /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/deployment/tests/six_job_test.r \
+            --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr
+        ###################################################################################################################
+        # The flowing line of code will install jobmonr to the latest R singularity image.
+        # It is deliberately commented out because jobmonr is not released yet.
+        #/bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/deployment/tests/install_jobmonr.r \
+        #    --jobmonr-loc $WORKSPACE/jobmonr
 }

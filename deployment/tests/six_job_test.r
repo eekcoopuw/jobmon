@@ -10,7 +10,11 @@ python_path <- args$python_path
 jobmonr_loc <- args$jobmonr_loc
 
 Sys.setenv("RETICULATE_PYTHON" = python_path)  # Set the Python interpreter path
-library(jobmonr, lib.loc = jobmonr_loc)
+
+library(devtools)
+# install from source an in-memory package
+devtools::load_all(path=jobmonr_loc)
+
 
 # Bind a workflow to the tool
 my_tool <- tool()

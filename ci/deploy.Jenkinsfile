@@ -8,6 +8,9 @@ pipeline {
     string(defaultValue: 'jobmon-dev',
      description: 'Kubernetes Namespace to deploy to',
      name: 'K8S_NAMESPACE')
+    string(defaultValue: 'jobmon-reapers-dev',
+     description: 'Kubernetes Namespace to deploy to',
+     name: 'K8S_REAPER_NAMESPACE')
     string(defaultValue: 'jobmon-dev-ips',
      description: 'Name of the MetalLB IP Pool you wish to get IPs from: https://stash.ihme.washington.edu/projects/ID/repos/metallb-scicomp/browse/k8s/scicomp-cluster-metallb.yml',
      name: 'METALLB_IP_POOL')
@@ -161,7 +164,8 @@ pipeline {
                       ${RANCHER_QPID_SECRET} \
                       ${KUBECONFIG} \
                       ${USE_LOGSTASH} \
-                      ${JOBMON_VERSION}
+                      ${JOBMON_VERSION} \
+                      ${K8S_REAPER_NAMESPACE}
                '''
           }
         }
@@ -170,7 +174,13 @@ pipeline {
     stage ('Test Deployment') {
       steps {
         node('qlogin') {
+          // Download jobmon
           checkout scm
+          // Download jobmonr
+          sshagent (credentials: ['svcscicompci']) {
+              sh "rm -rf jobmonr"
+              sh "git clone ssh://git@stash.ihme.washington.edu:7999/scic/jobmonr.git"
+           }
           sh '''#!/bin/bash
                 . ${WORKSPACE}/ci/deploy_utils.sh
                 test_k8s_deployment \
