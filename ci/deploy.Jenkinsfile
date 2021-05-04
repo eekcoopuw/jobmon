@@ -178,7 +178,7 @@ pipeline {
           checkout scm
           // Download jobmonr
           sshagent (credentials: ['svcscicompci']) {
-              sh "rm -rf jbomonr"
+              sh "rm -rf jobmonr"
               sh "git clone ssh://git@stash.ihme.washington.edu:7999/scic/jobmonr.git"
            }
           sh '''#!/bin/bash
