@@ -1,5 +1,4 @@
 """Cluster Table in the Database."""
-from sqlalchemy.orm import relationship
 from jobmon.serializers import SerializeCluster
 from jobmon.server.web.models import DB
 

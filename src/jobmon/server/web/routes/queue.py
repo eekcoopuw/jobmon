@@ -5,6 +5,9 @@ from jobmon.server.web.models import DB
 from sqlalchemy.sql import text
 from . import jobmon_client
 from jobmon.server.web.models.queue import Queue
+# needed for reference
+from jobmon.server.web.models.cluster import Cluster
+from jobmon.server.web.models.cluster_type import ClusterType
 
 
 @jobmon_client.route('/cluster/<cluster_name>/all_queues', methods=['GET'])
