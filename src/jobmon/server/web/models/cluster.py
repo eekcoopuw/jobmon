@@ -8,7 +8,6 @@ class Cluster(DB.Model):
 
     __tablename__ = 'cluster'
 
-
     def to_wire_as_requested_by_client(self):
         """Serialize cluster object."""
         return SerializeCluster.to_wire(self.id,
@@ -24,4 +23,3 @@ class Cluster(DB.Model):
     # ORM relationships
     cluster_type = DB.relationship("ClusterType", back_populates="clusters")
     queues = DB.relationship("Queue", back_populates="cluster")
-

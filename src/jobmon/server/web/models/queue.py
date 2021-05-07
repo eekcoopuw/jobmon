@@ -23,4 +23,3 @@ class Queue(DB.Model):
 
     # ORM relationships
     cluster = DB.relationship("Cluster", back_populates="queues")
-
