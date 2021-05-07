@@ -16,8 +16,8 @@ def get_queues_by_cluster_name(cluster_name: str):
     """Get the id, name, cluster_name and parameters and connection_string of a Cluster."""
     result = DB.session.query(Queue)\
         .join(Cluster, Queue.cluster_id == Cluster.id)\
-        .join(ClusterType, Cluster.cluster_type_id==ClusterType.id)\
-        .filter(Cluster.name==cluster_name)\
+        .join(ClusterType, Cluster.cluster_type_id == ClusterType.id)\
+        .filter(Cluster.name == cluster_name)\
         .all()
 
     # send back json
@@ -34,10 +34,10 @@ def get_queue_by_cluster_queue_names(cluster_name: str, queue_name: str):
     cluster_name and queue_name.
     """
     result = DB.session.query(Queue)\
-        .join(Cluster, Queue.cluster_id==Cluster.id)\
-        .join(ClusterType, Cluster.cluster_type_id==ClusterType.id)\
-        .filter(Cluster.name==cluster_name)\
-        .filter(Queue.name==queue_name)\
+        .join(Cluster, Queue.cluster_id == Cluster.id)\
+        .join(ClusterType, Cluster.cluster_type_id == ClusterType.id)\
+        .filter(Cluster.name == cluster_name)\
+        .filter(Queue.name == queue_name)\
         .one_or_none()
 
     # send back json

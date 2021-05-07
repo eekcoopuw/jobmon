@@ -14,7 +14,7 @@ from . import jobmon_client
 def get_clusters():
     """Get the id, cluster_type_name and connection_string of a Cluster."""
     result = DB.session.query(Cluster)\
-        .join(ClusterType, Cluster.cluster_type_id==ClusterType.id)\
+        .join(ClusterType, Cluster.cluster_type_id == ClusterType.id)\
         .all()
 
     # send back json
@@ -28,7 +28,7 @@ def get_clusters():
 def get_cluster_by_name(cluster_name: str):
     """Get the id, cluster_type_name and connection_string of a Cluster."""
     result = DB.session.query(Cluster)\
-        .join(ClusterType, Cluster.cluster_type_id==ClusterType.id)\
+        .join(ClusterType, Cluster.cluster_type_id == ClusterType.id)\
         .filter(Cluster.name==cluster_name)\
         .one_or_none()
 
