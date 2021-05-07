@@ -1,18 +1,20 @@
 """Routes for Clusters"""
 from http import HTTPStatus as StatusCodes
+
 from flask import jsonify
+
 from jobmon.server.web.models import DB
-from sqlalchemy.sql import text
-from . import jobmon_client
+
 from jobmon.server.web.models.cluster import Cluster
-# needed for reference
-from jobmon.server.web.models.cluster_type import ClusterType
+
+from sqlalchemy.sql import text
+
+from . import jobmon_client
 
 
 @jobmon_client.route('/all_clusters', methods=['GET'])
 def get_clusters():
     """Get the id, cluster_type_name and connection_string of a Cluster."""
-
     query = """
         SELECT c.id AS cluster_id, ct.name AS cluster_type_name, c.connection_string
         FROM cluster c
@@ -31,7 +33,6 @@ def get_clusters():
 @jobmon_client.route('/cluster/<cluster_name>', methods=['GET'])
 def get_cluster_by_name(cluster_name: str):
     """Get the id, cluster_type_name and connection_string of a Cluster."""
-
     query = """
         SELECT c.id AS cluster_id, ct.name AS cluster_type_name, c.connection_string
         FROM cluster c
