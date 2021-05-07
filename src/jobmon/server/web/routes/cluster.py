@@ -29,7 +29,7 @@ def get_cluster_by_name(cluster_name: str):
     """Get the id, cluster_type_name and connection_string of a Cluster."""
     result = DB.session.query(Cluster)\
         .join(ClusterType, Cluster.cluster_type_id == ClusterType.id)\
-        .filter(Cluster.name==cluster_name)\
+        .filter(Cluster.name == cluster_name)\
         .one_or_none()
 
     # send back json
