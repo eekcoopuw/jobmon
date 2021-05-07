@@ -5,8 +5,7 @@ from flask import jsonify
 
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.cluster import Cluster
-
-from sqlalchemy.sql import text
+from jobmon.server.web.models.cluster_type import ClusterType
 
 from . import jobmon_client
 
@@ -14,13 +13,9 @@ from . import jobmon_client
 @jobmon_client.route('/all_clusters', methods=['GET'])
 def get_clusters():
     """Get the id, cluster_type_name and connection_string of a Cluster."""
-    query = """
-        SELECT c.id AS cluster_id, ct.name AS cluster_type_name, c.connection_string
-        FROM cluster c
-            INNER JOIN cluster_type ct ON c.cluster_type_id = ct.id
-    """
-    result = DB.session.query(Cluster).from_statement(text(query)).params(
-    ).all()
+    result = DB.session.query(Cluster)\
+        .join(ClusterType, Cluster.cluster_type_id==ClusterType.id)\
+        .all()
 
     # send back json
     resp = jsonify(clusters=[row.to_wire_as_requested_by_client()
@@ -32,16 +27,10 @@ def get_clusters():
 @jobmon_client.route('/cluster/<cluster_name>', methods=['GET'])
 def get_cluster_by_name(cluster_name: str):
     """Get the id, cluster_type_name and connection_string of a Cluster."""
-    query = """
-        SELECT c.id AS cluster_id, ct.name AS cluster_type_name, c.connection_string
-        FROM cluster c
-            INNER JOIN cluster_type ct ON c.cluster_type_id = ct.id
-        WHERE
-            c.name = :cluster_name
-    """
-    result = DB.session.query(Cluster).from_statement(text(query)).params(
-        cluster_name=cluster_name
-    ).one_or_none()
+    result = DB.session.query(Cluster)\
+        .join(ClusterType, Cluster.cluster_type_id==ClusterType.id)\
+        .filter(Cluster.name==cluster_name)\
+        .one_or_none()
 
     # send back json
     if result is None:
