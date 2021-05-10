@@ -19,7 +19,7 @@ ALTER TABLE `cluster_type` ADD UNIQUE INDEX `ui_name` (`name`);
 LOCK TABLES `cluster_type` WRITE;
 INSERT INTO `cluster_type`(`name`, `package_location`)
 VALUES
-    ('SGE', NULL),
+    ('UGE', NULL),
     ('SLURM', NULL),
     ('AZURE', NULL);
 UNLOCK TABLES;

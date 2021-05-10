@@ -23,7 +23,7 @@ LOCK TABLES `cluster_type` READ, `cluster` WRITE;
 INSERT INTO `cluster`(`name`, `cluster_type_id`, `connection_string`)
 SELECT 'buster', id, NULL
 FROM `cluster_type`
-WHERE `name` = 'SGE';
+WHERE `name` = 'UGE';
 
 INSERT INTO `cluster`(`name`, `cluster_type_id`, `connection_string`)
 SELECT 'ihme_slurm', cluster_type.id, NULL
