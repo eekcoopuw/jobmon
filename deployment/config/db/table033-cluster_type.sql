@@ -10,7 +10,7 @@ CREATE TABLE `cluster_type` (
   `name` VARCHAR(255) NOT NULL,
   `package_location` VARCHAR(2500) NULL,
   PRIMARY KEY (`id`)
- ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ;
 
 ALTER TABLE `cluster_type` ADD UNIQUE INDEX `ui_name` (`name`);

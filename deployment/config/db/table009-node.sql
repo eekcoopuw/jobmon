@@ -9,7 +9,7 @@ CREATE TABLE `node` (
   `task_template_version_id` INTEGER NOT NULL,
   `node_args_hash` VARCHAR(150) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- add index on our fake foreign key
 ALTER TABLE `node` ADD INDEX `ix_task_template_version_id` (`task_template_version_id`);

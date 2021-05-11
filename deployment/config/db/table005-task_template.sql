@@ -11,7 +11,7 @@ CREATE TABLE `task_template`(
   `tool_version_id` INTEGER NOT NULL,
   `name` varchar(250) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- add index on our fake foreign key
 ALTER TABLE `task_template` ADD INDEX `ix_tool_version_id` (`tool_version_id`);

@@ -11,7 +11,7 @@ CREATE TABLE `task_instance_error_log` (
   `error_time` datetime DEFAULT NULL,
   `description` text,
   PRIMARY KEY (`id`)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ;
 
 ALTER TABLE `task_instance_error_log` ADD INDEX `ix_task_instance_id` (`task_instance_id`);

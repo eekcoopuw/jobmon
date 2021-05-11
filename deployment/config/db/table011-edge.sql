@@ -10,4 +10,4 @@ CREATE TABLE `edge` (
   `upstream_node_ids` text,
   `downstream_node_ids` text,
   PRIMARY KEY (`dag_id`, `node_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

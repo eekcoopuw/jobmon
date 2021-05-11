@@ -11,7 +11,7 @@ CREATE TABLE `queue` (
   `cluster_id` INTEGER NOT NULL,
   `parameters` VARCHAR(2500) NOT NULL,
   PRIMARY KEY (`id`)
- ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ;
 
 ALTER TABLE `queue` ADD UNIQUE INDEX `ui_name_cluster_id` (`name`, `cluster_id`);

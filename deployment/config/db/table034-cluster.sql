@@ -11,7 +11,7 @@ CREATE TABLE `cluster` (
   `cluster_type_id` INTEGER NOT NULL,
   `connection_string` varchar(2500) NULL,
   PRIMARY KEY (`id`)
- ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ;
 
 ALTER TABLE `cluster` ADD UNIQUE INDEX `ui_name` (`name`);

@@ -32,7 +32,8 @@ def test_cluster_queue(db_cfg, client_env):
             INSERT INTO cluster_type (name)
             VALUES ('{n}')""".format(n="zzzzCLUSTER_TYPE"))
         DB.session.commit()
-        # fake 2 new cluster zzzzCLUSTER1, zzzzCLUSTER2 under zzzzCLUSTER_TYPE
+        # fake 3 new cluster zzzzCLUSTER1, zzzzCLUSTER2, and zzzz我的新集群3 under zzzzCLUSTER_TYPE;
+        # and to test out Unicode charset briefly.
         DB.session.execute("""
             INSERT INTO cluster (name, cluster_type_id)
             SELECT '{n}', id
@@ -43,6 +44,11 @@ def test_cluster_queue(db_cfg, client_env):
             SELECT '{n}', id
             FROM cluster_type
             WHERE name = '{ct_name}'""".format(n="zzzzCLUSTER2", ct_name="zzzzCLUSTER_TYPE"))
+        DB.session.execute("""
+            INSERT INTO cluster (name, cluster_type_id)
+            SELECT '{n}', id
+            FROM cluster_type
+            WHERE name = '{ct_name}'""".format(n="zzzz我的新集群3", ct_name="zzzzCLUSTER_TYPE"))
         DB.session.commit()
 
         # fake 2 new queues for zzzzCluster2
@@ -58,7 +64,7 @@ def test_cluster_queue(db_cfg, client_env):
             WHERE c.name = '{n}'""".format(n="zzzzCLUSTER2"))
         DB.session.commit()
 
-    # make sure that the 2 clusters logged above are among the all_clusters
+    # make sure that the 3 clusters logged above are among the all_clusters
     rc, response = workflow1.requester.send_request(
         app_route=f'/client/all_clusters',
         message={},
@@ -67,9 +73,9 @@ def test_cluster_queue(db_cfg, client_env):
         SerializeCluster.kwargs_from_wire(j)
             for j in response['clusters']]
     target_clusters = [j for j in all_clusters if j["cluster_type_name"] == "zzzzCLUSTER_TYPE"]
-    assert len(target_clusters) == 2
+    assert len(target_clusters) == 3
 
-    # make sure that a single pull of one of the 2 clusters logged above gets 1 record back.
+    # make sure that a single pull of one of the 3 clusters logged above gets 1 record back.
     rc, response = workflow1.requester.send_request(
         app_route=f'/client/cluster/zzzzCLUSTER2',
         message={},

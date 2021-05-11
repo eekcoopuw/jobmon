@@ -17,7 +17,7 @@ CREATE TABLE `executor_parameter_set` (
   `j_resource` tinyint(1) DEFAULT NULL,
   `hard_limits` tinyint(1) DEFAULT NULL,
   PRIMARY KEY (`id`)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ;
 
 ALTER TABLE `executor_parameter_set` ADD INDEX `ix_task_id` (`task_id`);

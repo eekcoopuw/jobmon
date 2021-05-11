@@ -24,7 +24,7 @@ CREATE TABLE `task_instance`(
   `status_date` datetime DEFAULT NULL,
   `report_by_date` datetime DEFAULT NULL,
   PRIMARY KEY (`id`)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ;
 
 ALTER TABLE `task_instance` ADD INDEX `ix_workflow_run_id` (`workflow_run_id`);

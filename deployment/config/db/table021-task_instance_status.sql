@@ -10,7 +10,7 @@ CREATE TABLE `task_instance_status` (
   `id` varchar(1) NOT NULL,
   `label` varchar(150) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 LOCK TABLES `task_instance_status` WRITE;
 INSERT INTO `task_instance_status` VALUES ('B','SUBMITTED_TO_BATCH_EXECUTOR'),('D','DONE'),('E','ERROR'),('F','ERROR_FATAL'),('I','INSTANTIATED'),('R','RUNNING'),('U','UNKNOWN_ERROR'),('W','NO_EXECUTOR_ID'),('Z','RESOURCE_ERROR'),('K','KILL_SELF');

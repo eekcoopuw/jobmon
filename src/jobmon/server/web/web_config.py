@@ -71,6 +71,6 @@ class WebConfig(object):
         """Database connection string."""
         conn_str = "mysql+{driver}://{user}:{pw}@{host}:{port}/{db}".format(
             driver=driver, user=self.db_user, pw=self.db_pass, host=self.db_host,
-            port=self.db_port, db=self.db_name
+            port=self.db_port, db=self.db_name, charset="utf8mb4", use_unicode=True
         )
         return conn_str

@@ -9,7 +9,7 @@ CREATE TABLE `executor_parameter_set_type` (
   `id` varchar(1) NOT NULL,
   `label` varchar(150) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 LOCK TABLES `executor_parameter_set_type` WRITE;
 INSERT INTO `executor_parameter_set_type` VALUES ('A','ADJUSTED'),('O','ORIGINAL'),('V','VALIDATED');

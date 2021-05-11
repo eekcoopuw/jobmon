@@ -18,9 +18,9 @@ class Workflow(DB.Model):
     dag_id = DB.Column(DB.Integer, DB.ForeignKey('dag.id'))
     workflow_args_hash = DB.Column(DB.Integer)
     task_hash = DB.Column(DB.Integer)
-    description = DB.Column(DB.Text(collation='utf8_general_ci'))
+    description = DB.Column(DB.Text(collation='utf8mb4_unicode_ci'))
     name = DB.Column(DB.String(150))
-    workflow_args = DB.Column(DB.Text(collation='utf8_general_ci'))
+    workflow_args = DB.Column(DB.Text(collation='utf8mb4_unicode_ci'))
     max_concurrently_running = DB.Column(DB.Integer)
     status = DB.Column(DB.String(1),
                        DB.ForeignKey('workflow_status.id'),
