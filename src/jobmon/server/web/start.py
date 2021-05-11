@@ -47,6 +47,7 @@ def create_app(web_config: Optional[WebConfig] = None):
 
     app.config['SQLALCHEMY_DATABASE_URI'] = web_config.conn_str
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+    app.config['SQLALCHEMY_NATIVE_UNICODE'] = True
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 200}
 
     # register blueprints

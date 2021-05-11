@@ -10,4 +10,4 @@ CREATE TABLE `node_arg` (
   `arg_id` INTEGER NOT NULL,
   `val` VARCHAR(1000) NOT NULL,
   PRIMARY KEY (`node_id`, `arg_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -9,7 +9,7 @@ CREATE TABLE `arg_type`(
   `id` INTEGER NOT NULL AUTO_INCREMENT,
   `name` varchar(255) NOT NULL,
   PRIMARY KEY (`id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 ALTER TABLE `arg_type` ADD CONSTRAINT `uc_name` UNIQUE (`name`);
 

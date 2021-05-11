@@ -11,4 +11,4 @@ CREATE TABLE `template_arg_map`(
   `arg_id` INTEGER NOT NULL,
   `arg_type_id` INTEGER NOT NULL,
   PRIMARY KEY (`task_template_version_id`, `arg_id`, `arg_type_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

@@ -9,5 +9,5 @@ CREATE TABLE `task_attribute` (
   `task_attribute_type_id` int(11) DEFAULT NULL,
   `value` varchar(255) DEFAULT NULL,
   PRIMARY KEY (`task_id`, `task_attribute_type_id`)
-  ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ;

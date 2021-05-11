@@ -38,7 +38,7 @@ class TaskTemplateVersion(DB.Model):
 
     id = DB.Column(DB.Integer, primary_key=True)
     task_template_id = DB.Column(DB.Integer, DB.ForeignKey('task_template.id'))
-    command_template = DB.Column(DB.Text(collation='utf8_general_ci'))
+    command_template = DB.Column(DB.Text(collation='utf8mb4_unicode_ci'))
     arg_mapping_hash = DB.Column(DB.Integer)
 
     # orm relationship

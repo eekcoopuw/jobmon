@@ -12,6 +12,6 @@ class TaskInstanceErrorLog(DB.Model):
     id = DB.Column(DB.Integer, primary_key=True)
     task_instance_id = DB.Column(DB.Integer, DB.ForeignKey('task_instance.id'))
     error_time = DB.Column(DB.DateTime, default=func.now())
-    description = DB.Column(DB.Text(collation='utf8_general_ci'))
+    description = DB.Column(DB.Text(collation='utf8mb4_unicode_ci'))
 
     task_instance = DB.relationship("TaskInstance", back_populates="errors")

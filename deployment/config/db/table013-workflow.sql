@@ -19,7 +19,7 @@ CREATE TABLE `workflow` (
   `status_date` datetime DEFAULT NULL,
   `status` varchar(1) NOT NULL,
   PRIMARY KEY (`id`)
- ) ENGINE=InnoDB DEFAULT CHARSET=utf8
+ ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ;
 
 ALTER TABLE `workflow` ADD INDEX `ix_tool_version_id` (`tool_version_id`);
