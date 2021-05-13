@@ -1,40 +1,41 @@
 from typing import Protocol, Optional, Callable, Union, List, Dict
 from abc import abstractmethod, abstractproperty
 
+
 class ComputeResources(Protocol):
 
-	# Plugins may or may not be subclassed
-	# abcs are set here to distinguish properties and methods
+    # Plugins may or may not be subclassed
+    # abcs are set here to distinguish properties and methods
 
-	@abstractproperty
-	def memory(self):
-		raise NotImplementedError
+    @abstractproperty
+    def memory(self):
+        raise NotImplementedError
 
-	@abstractproperty
-	def runtime(self):
-		raise NotImplementedError
+    @abstractproperty
+    def runtime(self):
+        raise NotImplementedError
 
-	@abstractproperty
-	def cores(self):
-		raise NotImplementedError
+    @abstractproperty
+    def cores(self):
+        raise NotImplementedError
 
-	@abstractproperty
-	def queue(self):
-		raise NotImplementedError
+    @abstractproperty
+    def queue(self):
+        raise NotImplementedError
 
-	@abstractmethod
-	def adjust(self, adjust_func: Optional[Callable], **kwargs):
-		raise NotImplementedError
+    @abstractmethod
+    def adjust(self, adjust_func: Optional[Callable], **kwargs):
+        raise NotImplementedError
 
-	@abstractmethod
-	def scale_resources(self, resource: str):
-		raise NotImplementedError
+    @abstractmethod
+    def scale_resources(self, resource: str):
+        raise NotImplementedError
 
 
 class Queue(Protocol):
 
-	def validate(self, resource: str, value: Union[int, float, str]):
-		raise NotImplementedError
+    def validate(self, resource: str, value: Union[int, float, str]):
+        raise NotImplementedError
 
 
 class Executor(Protocol):
