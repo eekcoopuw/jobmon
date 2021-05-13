@@ -14,6 +14,7 @@ from jobmon.client.node import Node
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
+from jobmon import ClusterResourcesFactory as CRF
 
 import structlog as logging
 
@@ -63,7 +64,8 @@ class Task:
                  task_template_version_id: int,
                  node_args: dict,
                  task_args: dict,
-                 executor_parameters: Union[ExecutorParameters, Callable],
+                 compute_resources: Dict,
+                 cluster_name: str,
                  name: Optional[str] = None,
                  max_attempts: int = 3,
                  upstream_tasks: Optional[List['Task']] = None,
@@ -137,17 +139,7 @@ class Task:
             raise ValueError("task_attributes must be provided as a list of attributes or a "
                              "dictionary of attributes and their values")
 
-        if isinstance(executor_parameters, ExecutorParameters):
-            # if the resources have already been defined, function returns
-            # itself upon evalutaion
-            is_valid, msg = executor_parameters.is_valid()
-            if not is_valid:
-                logger.info(msg)
-            static_func = (lambda executor_parameters, *args: executor_parameters)
-            self.executor_parameters = partial(static_func, executor_parameters)
-        else:
-            # if a callable was provided instead
-            self.executor_parameters = partial(executor_parameters, self)
+        self.compute_resources = compute_resources
 
     @property
     def task_id(self) -> int:
@@ -159,6 +151,13 @@ class Task:
     @task_id.setter
     def task_id(self, val):
         self._task_id = val
+
+    @property
+    def compute_resources_validated(self):
+        try:
+            return self._compute_resources_validated
+        except AttributeError as e:
+            raise e("Compute resources cannot be validated and set until the task is bound")
 
     @property
     def initial_status(self) -> str:

@@ -6,6 +6,7 @@ from multiprocessing import Event, Process, Queue
 from multiprocessing import synchronize
 from queue import Empty
 from typing import Dict, List, Optional, Sequence, Union
+import importlib
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.dag import Dag
@@ -13,7 +14,7 @@ from jobmon.client.execution.scheduler.api import SchedulerConfig
 from jobmon.client.execution.scheduler.task_instance_scheduler import \
     ExceptionWrapper, TaskInstanceScheduler
 from jobmon.client.execution.strategies.api import get_scheduling_executor_by_name
-from jobmon.client.execution.strategies.base import Executor
+from jobmon.client.execution.strategies import Queue, ComputeResources
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
@@ -70,7 +71,8 @@ class Workflow(object):
                  workflow_attributes: Optional[Union[List, dict]] = None,
                  max_concurrently_running: int = 10_000,
                  requester: Optional[Requester] = None,
-                 chunk_size: int = 500  # TODO: should be in the config
+                 chunk_size: int = 500,  # TODO: should be in the config
+                 cluster_resources: Dict = None
                  ):
         """
         Args:
@@ -130,6 +132,8 @@ class Workflow(object):
                     "workflow_attributes must be provided as a list of attributes or a "
                     "dictionary of attributes and their values"
                 )
+        self.cluster_resources = cluster_resources  # TODO: Figure out format for this object
+        self.queue_factory = QueueFactory()
 
     @property
     def is_bound(self):
@@ -206,6 +210,7 @@ class Workflow(object):
                 f"{task.node.task_template_version_id}, node_args={task.node.node_args}"
             )
         self.tasks[hash(task)] = task
+
         logger.debug(f"Task {hash(task)} added")
 
         return task
@@ -216,19 +221,9 @@ class Workflow(object):
             # add the task
             self.add_task(task)
 
-    def set_executor(self, executor: Executor = None,
-                     executor_class: Optional[str] = 'SGEExecutor', *args, **kwargs):
-        """Set the executor and any arguments specific to that executor that will be applied
-        to the entire workflow (ex. specify project here for SGEExecutor class).
-
-        Args:
-            executor: if an executor object has already been created, use it
-            executor_class: which executor to run your tasks on
-        """
-        if executor is not None:
-            self._executor = executor
-        else:
-            self._executor = get_scheduling_executor_by_name(executor_class, *args, **kwargs)
+    def set_default_executor(self, executor_class: Optional[str] = 'SGE'):
+        self.default_executor_class = executor_class
+        # TODO: optionally pass to tasks unless specified at a lower level
 
     def run(self, fail_fast: bool = False, seconds_until_timeout: int = 36000,
             resume: bool = ResumeStatus.DONT_RESUME, reset_running_jobs: bool = True,
@@ -341,6 +336,13 @@ class Workflow(object):
         """Bind objects to the database if they haven't already been"""
         if self.is_bound:
             return
+
+        for task in self.tasks:
+            cname, qname = task.cluster_resources[0]
+
+            queue = self.queue_factory.get_queue(cname, qname)
+            validated_compute_resource: ComputeResources = queue.create_resources(task.compute_resources)
+            task.compute_resources_validated = validated_compute_resource
 
         # check if workflow is valid
         self._dag.validate()  # TODO: this does nothing at the moment
@@ -572,3 +574,24 @@ class Workflow(object):
         hash_value.update(str(self.task_hash).encode('utf-8'))
         hash_value.update(str(hash(self._dag)).encode('utf-8'))
         return int(hash_value.hexdigest(), 16)
+
+
+class QueueFactory:
+
+    def __init__(self):
+        self.queue_cache = {}  # (cluster_name, queue_name): queue instance
+
+    def get_queue(self, cluster_name, queue_name):
+        key = (cluster_name, queue_name)
+        try:
+            return self.queue_cache[key]
+        except KeyError:
+            cluster_type_name, queue_params = db_route(key)  # (cluster_type_id, cluster_type_name, queue_params)
+            try:
+                plugin = importlib.import_module(f"jobmon_{cluster_type_name}")
+            except Exception:
+                raise Exception("Install and try again")
+            queue_class = plugin.get_queue()
+            queue: Queue = queue_class(**queue_params)
+            self.queue_cache[key] = queue
+            return queue
