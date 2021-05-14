@@ -15,7 +15,7 @@ from jobmon.client.node import Node
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
-
+from jobmon.serializers import SerializeExecutorTaskInstanceErrorLog
 
 logger = logging.getLogger(__name__)
 
@@ -147,6 +147,8 @@ class Task:
         else:
             # if a callable was provided instead
             self.executor_parameters = partial(executor_parameters, self)
+
+        self._errors = None
 
     @property
     def task_id(self) -> int:
@@ -392,3 +394,31 @@ class Task:
             if arg in op_args:
                 op_args[arg] = str(args[arg])
         return node_args, task_args, op_args
+
+    def errors(self) -> dict:
+        """
+        Return all the errors for each task, with the recent
+        task_instance_id actually used.
+        """
+        if self._errors is None and \
+                hasattr(self, "_task_id") and \
+                self._task_id is not None:
+            return_code, response = self.requester.send_request(
+                app_route=f'/worker/task/{self._task_id}/most_recent_ti_error',
+                message={},
+                request_type='get',
+                logger=logger
+            )
+            if return_code == StatusCodes.OK:
+                __task_instance_id = response['task_instance_id']
+                if __task_instance_id is not None:
+                    rc, response = self.requester.send_request(
+                        app_route=f'/worker/task_instance/{__task_instance_id}/task_instance_error_log',
+                        message={},
+                        request_type='get')
+                    __errors_ti = [
+                        SerializeExecutorTaskInstanceErrorLog.kwargs_from_wire(j)
+                        for j in response['task_instance_error_log']]
+                    self._errors = {'task_instance_id': __task_instance_id, 'error_log': __errors_ti}
+
+        return self._errors

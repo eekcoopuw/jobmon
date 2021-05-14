@@ -212,7 +212,7 @@ def log_error_worker_node(task_instance_id: int):
 
 
 @jobmon_worker.route('/task/<task_id>/most_recent_ti_error', methods=['GET'])
-def get_most_recent_ji_error(task_id: int):
+def get_most_recent_ti_error(task_id: int):
     """
     Route to determine the cause of the most recent task_instance's error
     :param task_id:
@@ -237,9 +237,11 @@ def get_most_recent_ji_error(task_id: int):
     ).one_or_none()
     DB.session.commit()
     if ti_error is not None:
-        resp = jsonify({"error_description": ti_error.description})
+        resp = jsonify({"error_description": ti_error.description,
+                        "task_instance_id": ti_error.task_instance_id})
     else:
-        resp = jsonify({"error_description": ""})
+        resp = jsonify({"error_description": "",
+                        "task_instance_id": None})
     resp.status_code = StatusCodes.OK
     return resp
 

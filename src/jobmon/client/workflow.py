@@ -3,6 +3,7 @@ import hashlib
 import logging
 import time
 import uuid
+import warnings
 from multiprocessing import Event, Process, Queue
 from multiprocessing import synchronize
 from queue import Empty
@@ -257,6 +258,12 @@ class Workflow(object):
             object of WorkflowRun, can be checked to make sure all jobs ran to completion,
                 checked for status, etc.
         """
+        warnings.warn(
+            "From Jobmon 3.0 on, the return type of Workflow.run will no longer be "
+            "swarm/WorkflowRun. It will be WorkflowRunStatus instead. Please plan "
+            "accordingly.",
+            PendingDeprecationWarning
+        )
         if not hasattr(self, "_executor"):
             logger.debug("using default project: ihme_general")
             self.set_executor(project="ihme_general")
