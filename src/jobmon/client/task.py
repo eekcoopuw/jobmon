@@ -413,12 +413,14 @@ class Task:
                 __task_instance_id = response['task_instance_id']
                 if __task_instance_id is not None:
                     rc, response = self.requester.send_request(
-                        app_route=f'/worker/task_instance/{__task_instance_id}/task_instance_error_log',
+                        app_route=f'/worker/task_instance/{__task_instance_id}'
+                                  f'/task_instance_error_log',
                         message={},
                         request_type='get')
                     __errors_ti = [
                         SerializeExecutorTaskInstanceErrorLog.kwargs_from_wire(j)
                         for j in response['task_instance_error_log']]
-                    self._errors = {'task_instance_id': __task_instance_id, 'error_log': __errors_ti}
+                    self._errors = {'task_instance_id': __task_instance_id,
+                                    'error_log': __errors_ti}
 
         return self._errors
