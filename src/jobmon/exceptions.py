@@ -88,3 +88,9 @@ class DuplicateNodeArgsError(Exception):
     """Multiple nodes with the same args for the same TaskTemplate not allowed."""
 
     pass
+
+
+class UnregisteredClusterType(Exception):
+    """cluster type has not registered as a plugin yet"""
+
+    pass

@@ -13,7 +13,7 @@ from jobmon.client.dag import Dag
 from jobmon.client.execution.scheduler.api import SchedulerConfig
 from jobmon.client.execution.scheduler.task_instance_scheduler import \
     ExceptionWrapper, TaskInstanceScheduler
-from jobmon.client.execution.strategies.api import get_scheduling_executor_by_name
+from jobmon.cluster_type.api import register_cluster_plugin
 from jobmon.client.execution.strategies import Queue, ComputeResources
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
@@ -221,9 +221,12 @@ class Workflow(object):
             # add the task
             self.add_task(task)
 
-    def set_default_executor(self, executor_class: Optional[str] = 'SGE'):
-        self.default_executor_class = executor_class
+    def set_default_cluster(self, cluster_name: Optional[str] = 'buster'):
         # TODO: optionally pass to tasks unless specified at a lower level
+
+
+    def _get_cluster_by_name(self, cluster_name):
+        pass
 
     def run(self, fail_fast: bool = False, seconds_until_timeout: int = 36000,
             resume: bool = ResumeStatus.DONT_RESUME, reset_running_jobs: bool = True,

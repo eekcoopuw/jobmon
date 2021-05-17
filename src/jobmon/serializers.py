@@ -165,9 +165,9 @@ class SerializeCluster:
     """Serialize the data to and from the database for a Cluster."""
 
     @staticmethod
-    def to_wire(id: int, name: str, cluster_type_name: str, connection_string: str) -> tuple:
+    def to_wire(id: int, name: str, cluster_type_name: str, package_location: str) -> tuple:
         """Submit the Cluster information to the database."""
-        return (id, name, cluster_type_name, connection_string)
+        return (id, name, cluster_type_name, package_location)
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
@@ -175,7 +175,7 @@ class SerializeCluster:
         return {"id": int(wire_tuple[0]),
                 "name": str(wire_tuple[1]),
                 "cluster_type_name": str(wire_tuple[2]),
-                "connection_string": str(wire_tuple[3])}
+                "package_location": str(wire_tuple[3])}
 
 
 class SerializeQueue:
