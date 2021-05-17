@@ -104,8 +104,8 @@ def test_ti_error_state(db_cfg, client_env):
                       max_attempts=1)
     workflow.add_task(task_a)
 
-    # for an just initialized task, errors() should be None
-    assert task_a.errors() is None
+    # for an just initialized task, get_errors() should be None
+    assert task_a.get_errors() is None
 
     # run it
     wfr = workflow.run()
@@ -262,8 +262,8 @@ def test_task_instance_error_fatal(db_cfg, client_env):
     workflow1.bind()
     wfr_1 = workflow1._create_workflow_run()
 
-    # for an just initialized task, errors() should be None
-    assert task_a.errors() is None
+    # for an just initialized task, get_errors() should be None
+    assert task_a.get_errors() is None
 
     # now set everything to error fail
     app = db_cfg["app"]
@@ -329,7 +329,7 @@ def test_task_instance_error_fatal(db_cfg, client_env):
     # make sure we see the 2 task_instance_error_log when checking
     # on the existing task_a, which should return a dict
     # produced in task.py
-    task_errors = task_a.errors()
+    task_errors = task_a.get_errors()
     assert type(task_errors) == dict
     assert len(task_errors) == 2
     assert task_errors['task_instance_id'] == ti_id

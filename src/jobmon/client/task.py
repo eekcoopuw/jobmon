@@ -395,7 +395,7 @@ class Task:
                 op_args[arg] = str(args[arg])
         return node_args, task_args, op_args
 
-    def errors(self) -> dict:
+    def get_errors(self) -> Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]:
         """
         Return all the errors for each task, with the recent
         task_instance_id actually used.
@@ -410,17 +410,17 @@ class Task:
                 logger=logger
             )
             if return_code == StatusCodes.OK:
-                __task_instance_id = response['task_instance_id']
-                if __task_instance_id is not None:
+                task_instance_id = response['task_instance_id']
+                if task_instance_id is not None:
                     rc, response = self.requester.send_request(
-                        app_route=f'/worker/task_instance/{__task_instance_id}'
+                        app_route=f'/worker/task_instance/{task_instance_id}'
                                   f'/task_instance_error_log',
                         message={},
                         request_type='get')
-                    __errors_ti = [
+                    errors_ti = [
                         SerializeExecutorTaskInstanceErrorLog.kwargs_from_wire(j)
                         for j in response['task_instance_error_log']]
-                    self._errors = {'task_instance_id': __task_instance_id,
-                                    'error_log': __errors_ti}
+                    self._errors = {'task_instance_id': task_instance_id,
+                                    'error_log': errors_ti}
 
         return self._errors
