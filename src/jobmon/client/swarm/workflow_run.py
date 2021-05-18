@@ -21,14 +21,6 @@ logger = logging.getLogger(__name__)
 ValueError = ValueError
 
 
-class WorkflowRunExecutionStatus(object):
-    """Enumerate possible exit statuses for WorkflowRun._execute()"""
-
-    SUCCEEDED = 0
-    FAILED = 1
-    STOPPED_BY_USER = 2
-
-
 class WorkflowRun(object):
     """
     WorkflowRun enables tracking for multiple runs of a single Workflow. A
