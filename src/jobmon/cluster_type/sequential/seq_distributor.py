@@ -1,16 +1,13 @@
-"""Sequential executor runs one task at a time."""
-import os
+"""Sequential distributor that runs one task at a time."""
 from collections import OrderedDict
-from typing import List, Optional, Tuple
+import logging
+import os
+from typing import Optional, List, Tuple
 
-from jobmon.client.execution.strategies.base import (Executor, ExecutorParameters,
-                                                     TaskInstanceExecutorInfo)
-from jobmon.client.execution.worker_node.execution_wrapper import (
-    parse_arguments, unwrap)
+from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-
-import structlog as logging
+from jobmon.worker_node.execution_wrapper import parse_arguments, unwrap
 
 
 logger = logging.getLogger(__name__)
@@ -35,15 +32,14 @@ class LimitedSizeDict(OrderedDict):
                 self.popitem(last=False)
 
 
-class SequentialExecutor(Executor):
+class SequentialDistributor(ClusterDistributor):
     """Executor to run tasks one at a time."""
 
-    def __init__(self, exit_info_queue_size: int = 1000, *args, **kwargs):
+    def __init__(self, exit_info_queue_size: int = 1000):
         """
         Args:
             exit_info_queue_size: how many exit codes to retain
         """
-        super().__init__(*args, **kwargs)
         self._next_executor_id = 1
         self._exit_info = LimitedSizeDict(size_limit=exit_info_queue_size)
 
@@ -67,7 +63,7 @@ class SequentialExecutor(Executor):
         else:
             return []
 
-    def execute(self, command: str, name: str, executor_parameters: ExecutorParameters) -> int:
+    def execute(self, command: str, name: str, executor_parameters: dict) -> int:
         """Execute sequentially."""
         logger.debug(command)
 
@@ -89,7 +85,7 @@ class SequentialExecutor(Executor):
         return executor_id
 
 
-class TaskInstanceSequentialInfo(TaskInstanceExecutorInfo):
+class SequentialWorkerNode(ClusterWorkerNode):
     """Get Executor Info for a Task Instance."""
 
     def __init__(self) -> None:
