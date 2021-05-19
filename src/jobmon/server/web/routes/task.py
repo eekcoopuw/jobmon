@@ -9,7 +9,7 @@ from flask import current_app as app, jsonify, request
 from jobmon.constants import TaskInstanceStatus, TaskStatus, WorkflowStatus as Statuses
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
-from jobmon.server.web.models.executor_parameter_set import ExecutorParameterSet
+from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_arg import TaskArg
 from jobmon.server.web.models.task_attribute import TaskAttribute
@@ -428,6 +428,10 @@ def _transform_mem_to_gb(mem_str: Any) -> float:
         mem = 1
     return mem
 
+# this method may replace the original update_resources functionality as queue hopping?
+@jobmon_swarm.route('/task/<task_id>/<queue_id>/update_resources', methods=['POST'])
+def update_task_resources(task_id: int, queue_id):
+    pass
 
 @jobmon_swarm.route('/task/<task_id>/update_resources', methods=['POST'])
 def update_task_resources(task_id: int):
@@ -440,10 +444,6 @@ def update_task_resources(task_id: int):
             run for
         context_args (dict, optional): unstructured parameters to pass to
             executor
-        queue (str, optional): sge queue to submit tasks to
-        num_cores (int, optional): how many cores to get from sge
-        m_mem_free ():
-        j_resource (bool, optional): whether to request access to the j drive
         resource_scales (dict): values to scale by upon resource error
         hard_limit (bool): whether to move queues if requester resources exceed
             queue limits
@@ -464,10 +464,6 @@ def update_task_resources(task_id: int):
         parameter_set_type=parameter_set_type,
         max_runtime_seconds=data.get('max_runtime_seconds', None),
         context_args=data.get('context_args', None),
-        queue=data.get('queue', None),
-        num_cores=data.get('num_cores', None),
-        m_mem_free=_transform_mem_to_gb(data.get("m_mem_free")),
-        j_resource=data.get('j_resource', False),
         resource_scales=data.get('resource_scales', None),
         hard_limits=data.get('hard_limits', False))
     DB.session.add(exec_params)

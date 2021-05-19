@@ -1,8 +1,8 @@
 """Constants declared for different statuses, types and codes throughout Jobmon."""
 
 
-class ExecutorParameterSetType:
-    """Constant Types for Executor Parameter Sets."""
+class TaskResourcesType:
+    """Constant Types for Task Resources."""
 
     ORIGINAL = 'O'
     VALIDATED = 'V'

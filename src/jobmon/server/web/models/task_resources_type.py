@@ -1,14 +1,14 @@
-"""Executor Parameter Set Type Database Table."""
-from jobmon.constants import ExecutorParameterSetType as Types
+"""Task Resources Type Database Table."""
+from jobmon.constants import TaskResourcesType as Types
 from jobmon.server.web.models import DB
 
 
-class ExecutorParameterSetType(DB.Model):
+class TaskResourcesType(DB.Model):
     """The table in the database that holds the possible statuses for the
-    ExecutorParameterSet.
+    TaskResources.
     """
 
-    __tablename__ = 'executor_parameter_set_type'
+    __tablename__ = 'task_resources_type'
     ORIGINAL = Types.ORIGINAL
     VALIDATED = Types.VALIDATED
     ADJUSTED = Types.ADJUSTED

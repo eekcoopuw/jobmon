@@ -10,7 +10,7 @@ CREATE TABLE `task_instance`(
   `executor_type` varchar(50) DEFAULT NULL,
   `executor_id` INTEGER DEFAULT NULL,
   `task_id` INTEGER NOT NULL,
-  `executor_parameter_set_id` INTEGER DEFAULT NULL,
+  `task_resources_id` INTEGER DEFAULT NULL,
   `nodename` varchar(150) DEFAULT NULL,
   `process_group_id` INTEGER DEFAULT NULL,
   `usage_str` varchar(250) DEFAULT NULL,
@@ -30,5 +30,5 @@ CREATE TABLE `task_instance`(
 ALTER TABLE `task_instance` ADD INDEX `ix_workflow_run_id` (`workflow_run_id`);
 ALTER TABLE `task_instance` ADD INDEX `ix_executor_id` (`executor_id`);
 ALTER TABLE `task_instance` ADD INDEX `ix_task_id` (`task_id`);
-ALTER TABLE `task_instance` ADD INDEX `ix_executor_parameter_set_id` (`executor_parameter_set_id`);
+ALTER TABLE `task_instance` ADD INDEX `ix_task_resources_id` (`task_resources_id`);
 ALTER TABLE `task_instance` ADD INDEX `ix_status` (`status`);

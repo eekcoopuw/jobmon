@@ -27,14 +27,10 @@ class Task(DB.Model):
             name=self.name,
             command=self.command,
             status=self.status,
-            max_runtime_seconds=self.executor_parameter_set.max_runtime_seconds,
-            context_args=self.executor_parameter_set.context_args,
-            resource_scales=self.executor_parameter_set.resource_scales,
-            queue=self.executor_parameter_set.queue,
-            num_cores=self.executor_parameter_set.num_cores,
-            m_mem_free=self.executor_parameter_set.m_mem_free,
-            j_resource=self.executor_parameter_set.j_resource,
-            hard_limits=self.executor_parameter_set.hard_limits)
+            queue_id=self.task_resources.queue_id,
+            resources_type=self.task_resources.resources_type,
+            resource_scales=self.task_resources.resource_scales,
+            requested_resources=self.task_resources.requested_resources)
         return serialized
 
     def to_wire_as_swarm_task(self):
@@ -50,8 +46,8 @@ class Task(DB.Model):
     task_args_hash = DB.Column(DB.Integer)
     name = DB.Column(DB.String(255))
     command = DB.Column(DB.Text)
-    executor_parameter_set_id = DB.Column(
-        DB.Integer, DB.ForeignKey('executor_parameter_set.id'),
+    task_resources_id = DB.Column(
+        DB.Integer, DB.ForeignKey('task_resources.id'),
         default=None)
     num_attempts = DB.Column(DB.Integer, default=0)
     max_attempts = DB.Column(DB.Integer, default=1)
@@ -61,8 +57,8 @@ class Task(DB.Model):
 
     # ORM relationships
     task_instances = DB.relationship("TaskInstance", back_populates="task")
-    executor_parameter_set = DB.relationship(
-        "ExecutorParameterSet", foreign_keys=[executor_parameter_set_id])
+    task_resources = DB.relationship(
+        "TaskResources", foreign_keys=[task_resources_id])
 
     # Finite state machine
     valid_transitions = [
