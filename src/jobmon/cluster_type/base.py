@@ -40,6 +40,10 @@ class ClusterResources(Protocol):
 class ClusterQueue(Protocol):
 
     @abstractmethod
+    def __init__(self, queue_id: int, queue_name: str, parameters: Dict):
+        raise NotImplementedError
+
+    @abstractmethod
     def validate(self, resource: str, value: Union[int, float, str]) -> ClusterResources:
         raise NotImplementedError
 

@@ -8,7 +8,7 @@ from jobmon.cluster_type.api import register_cluster_plugin, import_cluster
 from jobmon.cluster_type.base import ClusterResources, ClusterQueue
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester, http_request_ok
-from jobmon.serializers import SerializeCluster
+from jobmon.serializers import SerializeCluster, SerializeQueue
 
 
 logger = logging.getLogger(__name__)
@@ -82,17 +82,36 @@ class Cluster:
             queue = self.queues[queue_name]
         except KeyError:
             Queue = self.plugin.get_cluster_queue_class()
-            queue = Queue(queue_name)
+            app_route = f'/client/cluster/{self.id}/queue/{queue_name}'
+            return_code, response = self.requester.send_request(
+                app_route=app_route,
+                message={},
+                request_type="get",
+                logger=logger
+            )
+            if http_request_ok(return_code) is False:
+                raise InvalidResponse(
+                    f'Unexpected status code {return_code} from POST '
+                    f'request through route {app_route}. Expected code '
+                    f'200. Response content: {response}'
+                )
+            queue_kwargs = SerializeQueue.kwargs_from_wire(response["queue"])
+            queue = Queue(**queue_kwargs)
             self.queues[queue_name] = queue
+
         return queue
 
     def adjust(self):
         pass
 
-    def create_resources(self, resource_params: Dict) -> ClusterResources:
+    def create_task_resources(self, resource_params: Dict) -> ClusterResources:
 
-        queue_name = resource_params.pop("queue")
-        queue = self.get_queue(queue_name)
+        try:
+            queue_name = resource_params.pop("queue")
+            queue = self.get_queue(queue_name)
+            queue.validate(resource_params)
+        except Exception:
+            pass
 
         # construct resource instance
         Resources = self.plugin.get_cluster_resources_class()

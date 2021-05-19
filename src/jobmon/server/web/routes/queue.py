@@ -27,16 +27,14 @@ def get_queues_by_cluster_name(cluster_name: str):
     return resp
 
 
-@jobmon_client.route('/cluster/<cluster_name>/queue/<queue_name>', methods=['GET'])
-def get_queue_by_cluster_queue_names(cluster_name: str, queue_name: str):
+@jobmon_client.route('/cluster/<cluster_id>/queue/<queue_name>', methods=['GET'])
+def get_queue_by_cluster_queue_names(cluster_id: int, queue_name: str):
     """
     Get the id, name, cluster_name and parameters of a Queue based on
     cluster_name and queue_name.
     """
     result = DB.session.query(Queue)\
-        .join(Cluster, Queue.cluster_id == Cluster.id)\
-        .join(ClusterType, Cluster.cluster_type_id == ClusterType.id)\
-        .filter(Cluster.name == cluster_name)\
+        .filter(Queue.cluster_id == cluster_id)\
         .filter(Queue.name == queue_name)\
         .one_or_none()
 
