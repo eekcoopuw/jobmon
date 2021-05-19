@@ -224,7 +224,7 @@ class Workflow(object):
 
     def set_default_cluster(self, cluster_name: Optional[str] = 'buster'):
         # TODO: optionally pass to tasks unless specified at a lower level
-
+        pass
 
     def _get_cluster_by_name(self, cluster_name):
         pass
@@ -344,7 +344,7 @@ class Workflow(object):
         for task in self.tasks:
             cname, qname = task.cluster_resources[0]
 
-            queue = self.queue_factory.get_queue(cname, qname)
+            queue = self.cluster.get_cluster_resources()
             validated_compute_resource: ComputeResources = queue.create_resources(task.compute_resources)
             task.compute_resources_validated = validated_compute_resource
 

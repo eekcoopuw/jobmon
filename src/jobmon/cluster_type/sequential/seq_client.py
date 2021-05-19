@@ -1,12 +1,14 @@
+from typing import Callable, Optional
 from jobmon.cluster_type.base import ClusterQueue, ClusterResources
 
 
 class SequentialQueue(ClusterQueue):
 
-    def __init__(self, **kwargs):
+    def __init__(self, queue_id: int, queue_name: str, parameters: dict):
         # Get the limits from DB in client
-        for key, val in kwargs:
-            setattr(self, key, val)
+        self.queue_id = queue_id
+        self.name = queue_name
+        self.parameters = parameters
 
     def validate(self, resource, value, fail=False):
         """Ensure cores requested isn't more than available on that

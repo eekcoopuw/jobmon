@@ -20,6 +20,15 @@ ALTER TABLE `queue` ADD INDEX `ix_cluster_id` (`cluster_id`);
 -- load queue names
 LOCK TABLES `cluster` c READ, `cluster_type` ct READ, `queue` WRITE;
 
+
+INSERT INTO `queue`(`name`, `cluster_id`, `parameters`)
+SELECT 'sequential', c.id,
+'{}'
+AS `parameters`
+FROM cluster c
+    INNER JOIN cluster_type ct ON c.cluster_type_id = ct.id
+WHERE ct.name = 'sequential';
+
 INSERT INTO `queue`(`name`, `cluster_id`, `parameters`)
 SELECT 'all.q', c.id,
 '{''max_threads'': 102, ''memory'': (0.128, 1010), ''default_runtime_seconds'': 24 * 60 * 60, ''max_runtime_seconds'': 3 * 24 * 60 * 60}'
