@@ -429,9 +429,9 @@ def _transform_mem_to_gb(mem_str: Any) -> float:
     return mem
 
 # this method may replace the original update_resources functionality as queue hopping?
-@jobmon_swarm.route('/task/<task_id>/<queue_id>/update_resources', methods=['POST'])
-def update_task_resources(task_id: int, queue_id):
-    pass
+# @jobmon_swarm.route('/task/<task_id>/<queue_id>/update_resources', methods=['POST'])
+# def update_task_resources(task_id: int, queue_id):
+#     pass
 
 @jobmon_swarm.route('/task/<task_id>/update_resources', methods=['POST'])
 def update_task_resources(task_id: int):
