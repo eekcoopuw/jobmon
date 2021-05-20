@@ -1,40 +1,10 @@
 """Inteface definition for jobmon executor plugins."""
 
 from abc import abstractmethod, abstractproperty
-from typing import Callable, Dict, List, Optional, Protocol, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
 
 from jobmon import __version__
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-
-
-class ClusterResources(Protocol):
-
-    # Plugins may or may not be subclassed
-    # abcs are set here to distinguish properties and methods
-
-    @abstractproperty
-    def memory(self):
-        raise NotImplementedError
-
-    @abstractproperty
-    def runtime(self):
-        raise NotImplementedError
-
-    @abstractproperty
-    def cores(self):
-        raise NotImplementedError
-
-    @abstractproperty
-    def queue(self):
-        raise NotImplementedError
-
-    @abstractmethod
-    def adjust(self, adjust_func: Optional[Callable], **kwargs):
-        raise NotImplementedError
-
-    @abstractmethod
-    def scale_resource(self, resource: str):
-        raise NotImplementedError
 
 
 class ClusterQueue(Protocol):
@@ -44,7 +14,7 @@ class ClusterQueue(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def validate(self, resource: str, value: Union[int, float, str]) -> ClusterResources:
+    def validate_resource(self, resource: str, value: Any, fail=False) -> Tuple[str, Any]:
         raise NotImplementedError
 
 
