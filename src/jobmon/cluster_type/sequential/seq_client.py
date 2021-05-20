@@ -1,5 +1,4 @@
-from typing import Callable, Optional
-from jobmon.cluster_type.base import ClusterQueue, ClusterResources
+from jobmon.cluster_type.base import ClusterQueue
 
 
 class SequentialQueue(ClusterQueue):
@@ -10,29 +9,8 @@ class SequentialQueue(ClusterQueue):
         self.name = queue_name
         self.parameters = parameters
 
-    def validate(self, resource, value, fail=False):
+    def validate_resource(self, resource, value, fail=False):
         """Ensure cores requested isn't more than available on that
         node.
         """
         return "", value
-
-
-class SequentialResources(ClusterResources):
-
-    def memory(self):
-        pass
-
-    def runtime(self):
-        pass
-
-    def cores(self):
-        pass
-
-    def queue(self):
-        pass
-
-    def adjust(self, adjust_func: Optional[Callable], **kwargs):
-        pass
-
-    def scale_resource(self, resource: str):
-        return resource

@@ -1,7 +1,7 @@
 """Inteface definition for jobmon executor plugins."""
 
 from abc import abstractmethod, abstractproperty
-from typing import Any, Callable, Dict, List, Optional, Protocol, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 from jobmon import __version__
 from jobmon.exceptions import RemoteExitInfoNotAvailable
@@ -40,7 +40,7 @@ class ClusterDistributor(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def execute(self, command: str, name: str, compute_resources: ClusterResources) -> int:
+    def execute(self, command: str, name: str, requested_resources: Dict[str, Any]) -> int:
         """Executor the command on the cluster technology
 
         Optionally, return an (int) executor_id which the subclass could

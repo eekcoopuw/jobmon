@@ -63,7 +63,7 @@ class SequentialDistributor(ClusterDistributor):
         else:
             return []
 
-    def execute(self, command: str, name: str, executor_parameters: dict) -> int:
+    def execute(self, command: str, name: str, task_resources: dict) -> int:
         """Execute sequentially."""
         logger.debug(command)
 

@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.cluster_type.api import register_cluster_plugin, import_cluster
-from jobmon.cluster_type.base import ClusterResources, ClusterQueue
+from jobmon.cluster_type.base import ClusterQueue
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeCluster, SerializeQueue
@@ -117,11 +117,11 @@ class Cluster:
             if full_error_msg:
                 raise ValueError(full_error_msg)
 
-    def adjust_task_resource(self, task_resources: TaskResources, adjustment_func) -> TaskResources:
+    def adjust_task_resource(self, task_resources, adjustment_func):
         """Adjust task resources based on the scaling factor"""
         pass
 
-    def create_task_resources(self, resource_params: Dict) -> ClusterResources:
+    def create_task_resources(self, resource_params: Dict):
 
         try:
             queue_name = resource_params.pop("queue")

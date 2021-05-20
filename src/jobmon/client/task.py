@@ -4,17 +4,14 @@ Instances will be created from it for every execution.
 from __future__ import annotations
 
 import hashlib
-from functools import partial
 from http import HTTPStatus as StatusCodes
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.node import Node
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
-from jobmon import ClusterResourcesFactory as CRF
 
 import structlog as logging
 
@@ -64,8 +61,8 @@ class Task:
                  task_template_version_id: int,
                  node_args: dict,
                  task_args: dict,
-                 compute_resources: Dict,
-                 cluster_name: str,
+                 compute_resources: Dict[str, Dict[str, Any]],
+                 cluster_name: Optional[str],
                  name: Optional[str] = None,
                  max_attempts: int = 3,
                  upstream_tasks: Optional[List['Task']] = None,
