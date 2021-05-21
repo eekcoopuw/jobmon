@@ -8,7 +8,7 @@ CREATE TABLE `task_resources` (
   `id` INTEGER NOT NULL AUTO_INCREMENT,
   `task_id` INTEGER NOT NULL,
   `queue_id` INTEGER NULL,
-  `resources_type` varchar(1) NOT NULL,
+  `task_resources_type_id` varchar(1) NOT NULL,
   `resource_scales` varchar(1000) DEFAULT NULL,
   `requested_resources` TEXT DEFAULT NULL,
   PRIMARY KEY (`id`)
@@ -17,4 +17,4 @@ CREATE TABLE `task_resources` (
 
 ALTER TABLE `task_resources` ADD INDEX `ix_task_id` (`task_id`);
 ALTER TABLE `task_resources` ADD INDEX `ix_queue_id` (`queue_id`);
-ALTER TABLE `task_resources` ADD INDEX `ix_resources_type` (`resources_type`);
+ALTER TABLE `task_resources` ADD INDEX `ix_task_resources_type_id` (`task_resources_type_id`);

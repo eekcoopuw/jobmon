@@ -192,3 +192,21 @@ class SerializeQueue:
         return {"queue_id": int(wire_tuple[0]),
                 "queue_name": str(wire_tuple[1]),
                 "parameters": str(wire_tuple[2])}
+
+class SerializeTaskResources:
+    """Serialize the data to and from the db for a TaskResources."""
+
+    @staticmethod
+    def to_wire(task_id: int, queue_id: int,  task_resources_type_id: str,
+                resource_scales: str, requested_resources: str) -> tuple:
+        """Submit the TaskResources info to the database."""
+        return task_id, queue_id, task_resources_type_id, resource_scales, requested_resources
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        """Get the whole  for a TaskResources."""
+        return {"id": int(wire_tuple[0]), "task_id": int(wire_tuple[1]),
+                "queue_id": int(wire_tuple[2]),
+                "task_resources_type_id": str(wire_tuple[3]),
+                "resource_scales": str(wire_tuple[4]),
+                "requested_resources": str(wire_tuple[5])}

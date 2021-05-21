@@ -1,3 +1,4 @@
+from jobmon.client.task_resources import TaskResources
 
 
 def test_plugin_loading(client_env):
@@ -19,16 +20,3 @@ def test_get_queue(client_env):
     sequential_queue = cluster.get_queue(queue_name="sequential")
     assert type(sequential_queue) == SequentialQueue
     assert sequential_queue == cluster.get_queue(queue_name="sequential")
-
-
-# def test_create_cluster_resources(client_env):
-#     from jobmon.client.cluster import Cluster
-
-#     cluster = Cluster(cluster_name="sequential")
-#     cluster.bind()
-#     resource = cluster.create_cluster_resources(
-#         {
-#             "queue": "foo",
-#             "param1": 1
-#         }
-#     )

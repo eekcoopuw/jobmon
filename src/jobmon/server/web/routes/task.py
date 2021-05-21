@@ -428,6 +428,39 @@ def _transform_mem_to_gb(mem_str: Any) -> float:
         mem = 1
     return mem
 
+@jobmon_swarm.route('/task/<task_id>/bind_resources', methods=['POST'])
+def bind_task_resources(task_id: int):
+    """Add the task resources for a given task
+
+    Args:
+        task_id (int): id of the task for which task resources will be added
+    """
+    app.logger = app.logger.bind(task_id=task_id)
+    data = request.get_json()
+
+    try:
+        task_id_int = int(task_id)
+    except ValueError:
+        resp = jsonify(msg="task_id {} is not a number".format(task_id))
+        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
+        return resp
+
+    new_resources = TaskResources(
+        id=None,
+        task_id=task_id_int,
+        queue_id=data.get('queue_id', None),
+        task_resources_type_id=data.get('task_resources_type_id', None),
+        resource_scales=data.get('resource_scales', None),
+        requested_resources=data.get('requested_resources', None))
+    DB.session.add(new_resources)
+    DB.session.flush()  # get auto increment
+    new_resources.activate()
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
 # this method may replace the original update_resources functionality as queue hopping?
 # @jobmon_swarm.route('/task/<task_id>/<queue_id>/update_resources', methods=['POST'])
 # def update_task_resources(task_id: int, queue_id):

@@ -15,7 +15,7 @@ class TaskResources(DB.Model):
     id = DB.Column(DB.Integer, primary_key=True)
     task_id = DB.Column(DB.Integer, DB.ForeignKey('task.id'))
     queue_id = DB.Column(DB.Integer, DB.ForeignKey('queue.id'))
-    task_resources_type = DB.Column(
+    task_resources_type_id = DB.Column(
         DB.String(1), DB.ForeignKey('task_resources_type.id'))
 
     resource_scales = DB.Column(DB.String(1000), default=None)
@@ -25,7 +25,10 @@ class TaskResources(DB.Model):
     # ORM relationships
     task = DB.relationship("Task", foreign_keys=[task_id])
     queue = DB.relationship("Queue", foreign_keys=[queue_id])
+    task_resources_type = DB.relationship("TaskResourcesType",
+                                          foreign_keys=[task_resources_type_id])
 
     def activate(self):
         """Activate Task Resources on Task object."""
-        self.task.task_resources_id = self.id
+        #TODO
+        #self.task.task_resources_id = self.id

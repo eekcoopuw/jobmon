@@ -28,7 +28,7 @@ class Task(DB.Model):
             command=self.command,
             status=self.status,
             queue_id=self.task_resources.queue_id,
-            resources_type=self.task_resources.resources_type,
+            task_resources_type_id=self.task_resources.task_resources_type_id,
             resource_scales=self.task_resources.resource_scales,
             requested_resources=self.task_resources.requested_resources)
         return serialized

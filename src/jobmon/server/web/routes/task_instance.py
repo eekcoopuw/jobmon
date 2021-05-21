@@ -297,7 +297,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
                 task.command AS task_command,
                 task.status AS task_status,
                 task_resources.queue_id AS task_resources_queue_id,
-                task_resources.resources_type AS task_resources_type,
+                task_resources.task_resources_type_id AS task_resources_type_id,
                 task_resources.resource_scales AS task_resources_resource_scales,
                 task_resources.requested_resources AS task_resources_requested_resources 
             FROM
