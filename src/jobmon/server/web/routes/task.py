@@ -457,7 +457,7 @@ def bind_task_resources(task_id: int):
     new_resources.activate()
     DB.session.commit()
 
-    resp = jsonify()
+    resp = jsonify(new_resources.id)
     resp.status_code = StatusCodes.OK
     return resp
 

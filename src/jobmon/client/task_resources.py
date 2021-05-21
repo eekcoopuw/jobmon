@@ -14,6 +14,7 @@ class TaskResources:
     def __init__(self, queue_id: int, task_resources_type_id: str, resource_scales: str,
                  requested_resources: str, requester: Optional[Requester] = None) -> None:
 
+        self._id = None
         self._task_id = None
 
         self._queue_id = queue_id
@@ -30,6 +31,13 @@ class TaskResources:
     def is_bound(self) -> bool:
         """If the TaskResources has been bound to the database."""
         return self._task_id is not None
+
+    @property
+    def id(self) -> int:
+        """If the task resources has been bound to the database."""
+        if not self.is_bound:
+            raise AttributeError("Cannot access id until TaskResources is bound to database")
+        return self._id
 
     @property
     def task_id(self) -> int:
@@ -73,10 +81,12 @@ class TaskResources:
             request_type='post',
             logger=logger
         )
+
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
+        self._id = response
         self._task_id = task_id
