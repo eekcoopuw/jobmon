@@ -191,7 +191,7 @@ class SerializeQueue:
         """Get the Queue information from the database."""
         return {"queue_id": int(wire_tuple[0]),
                 "queue_name": str(wire_tuple[1]),
-                "parameters": str(wire_tuple[2])}
+                "parameters": ast.literal_eval(wire_tuple[2])}
 
 class SerializeTaskResources:
     """Serialize the data to and from the db for a TaskResources."""
@@ -210,3 +210,4 @@ class SerializeTaskResources:
                 "task_resources_type_id": str(wire_tuple[3]),
                 "resource_scales": str(wire_tuple[4]),
                 "requested_resources": str(wire_tuple[5])}
+

@@ -1,11 +1,11 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.cluster_type.api import register_cluster_plugin, import_cluster
-from jobmon.cluster_type.base import ClusterResources, ClusterQueue
+from jobmon.cluster_type.base import ClusterQueue
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeCluster, SerializeQueue
@@ -101,10 +101,27 @@ class Cluster:
 
         return queue
 
-    def adjust(self):
+    def validate_requested_resources(self, requested_resources: Dict[str, Any],
+                                     queue_name: Optional[str]) -> None:
+        """Validate the requested task resources against the specified queue.
+
+        Raises: ValueError
+        """
+        if queue_name is not None:
+            queue = self.get_queue(queue_name)
+            full_error_msg = ""
+            for resource, resource_value in requested_resources.items():
+                msg, value = queue.validate_resource(resource, resource_value, fail=False)
+                full_error_msg += msg
+
+            if full_error_msg:
+                raise ValueError(full_error_msg)
+
+    def adjust_task_resource(self, task_resources, adjustment_func):
+        """Adjust task resources based on the scaling factor"""
         pass
 
-    def create_task_resources(self, resource_params: Dict) -> ClusterResources:
+    def create_task_resources(self, resource_params: Dict):
 
         try:
             queue_name = resource_params.pop("queue")

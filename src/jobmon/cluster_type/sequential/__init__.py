@@ -1,12 +1,6 @@
 """jobmon_uge."""
 from typing import Type
-from jobmon.cluster_type.base import (ClusterResources, ClusterQueue, ClusterDistributor,
-                                      ClusterWorkerNode)
-
-
-def get_cluster_resources_class() -> Type[ClusterResources]:
-    from jobmon.cluster_type.sequential.seq_client import SequentialResources
-    return SequentialResources
+from jobmon.cluster_type.base import ClusterQueue, ClusterDistributor, ClusterWorkerNode
 
 
 def get_cluster_queue_class() -> Type[ClusterQueue]:
