@@ -14,9 +14,6 @@ class TaskResources:
     def __init__(self, queue_id: int, task_resources_type_id: str, resource_scales: str,
                  requested_resources: str, requester: Optional[Requester] = None) -> None:
 
-        self._id = None
-        self._task_id = None
-
         self._queue_id = queue_id
         self._task_resources_type_id = task_resources_type_id
         self._resource_scales = resource_scales
@@ -70,10 +67,10 @@ class TaskResources:
         """Bind TaskResources to the database."""
         app_route = f'/swarm/task/{task_id}/bind_resources'
         msg = {
-                "queue_id": self._queue_id,
-                "task_resources_type_id": self._task_resources_type_id,
-                "resource_scales": self._resource_scales,
-                "requested_resources": self._requested_resources,
+            "queue_id": self._queue_id,
+            "task_resources_type_id": self._task_resources_type_id,
+            "resource_scales": self._resource_scales,
+            "requested_resources": self._requested_resources,
         }
         return_code, response = self.requester.send_request(
             app_route=app_route,
