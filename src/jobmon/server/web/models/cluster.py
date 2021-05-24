@@ -13,7 +13,7 @@ class Cluster(DB.Model):
         return SerializeCluster.to_wire(self.id,
                                         self.name,
                                         self.cluster_type.name,
-                                        self.connection_string)
+                                        self.cluster_type.package_location)
 
     id = DB.Column(DB.Integer, primary_key=True)
     name = DB.Column(DB.String(255))

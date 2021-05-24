@@ -12,8 +12,6 @@ class Queue(DB.Model):
         """Serialize cluster object."""
         return SerializeQueue.to_wire(self.id,
                                       self.name,
-                                      self.cluster.name,
-                                      self.cluster.cluster_type.name,
                                       self.parameters)
 
     id = DB.Column(DB.Integer, primary_key=True)

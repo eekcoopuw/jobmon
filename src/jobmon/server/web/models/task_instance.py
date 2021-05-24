@@ -28,8 +28,8 @@ class TaskInstance(DB.Model):
     executor_type = DB.Column(DB.String(50))
     executor_id = DB.Column(DB.Integer, index=True)
     task_id = DB.Column(DB.Integer, DB.ForeignKey('task.id'))
-    executor_parameter_set_id = DB.Column(
-        DB.Integer, DB.ForeignKey('executor_parameter_set.id'))
+    task_resources_id = DB.Column(
+        DB.Integer, DB.ForeignKey('task_resources.id'))
 
     # usage
     nodename = DB.Column(DB.String(150))
@@ -52,7 +52,7 @@ class TaskInstance(DB.Model):
     task = DB.relationship("Task", back_populates="task_instances")
     errors = DB.relationship("TaskInstanceErrorLog",
                              back_populates="task_instance")
-    executor_parameter_set = DB.relationship("ExecutorParameterSet")
+    task_resources = DB.relationship("TaskResources")
 
     # finite state machine transition information
     valid_transitions = [

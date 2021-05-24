@@ -296,21 +296,15 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
                 task.name AS task_name,
                 task.command AS task_command,
                 task.status AS task_status,
-                executor_parameter_set.max_runtime_seconds AS
-                    executor_parameter_set_max_runtime_seconds,
-                executor_parameter_set.context_args AS executor_parameter_set_context_args,
-                executor_parameter_set.resource_scales AS
-                    executor_parameter_set_resource_scales,
-                executor_parameter_set.queue AS executor_parameter_set_queue,
-                executor_parameter_set.num_cores AS executor_parameter_set_num_cores,
-                executor_parameter_set.m_mem_free AS executor_parameter_set_m_mem_free,
-                executor_parameter_set.j_resource AS executor_parameter_set_j_resource,
-                executor_parameter_set.hard_limits AS executor_parameter_set_hard_limits
+                task_resources.queue_id AS task_resources_queue_id,
+                task_resources.task_resources_type_id AS task_resources_type_id,
+                task_resources.resource_scales AS task_resources_resource_scales,
+                task_resources.requested_resources AS task_resources_requested_resources 
             FROM
                 task
             JOIN
-                executor_parameter_set
-                ON task.executor_parameter_set_id = executor_parameter_set.id
+                task_resources
+                ON task.task_resources_id = task_resources.id
             JOIN
                 workflow
                 ON task.workflow_id = workflow.id
@@ -470,7 +464,7 @@ def add_task_instance():
             workflow_run_id=data["workflow_run_id"],
             executor_type=data['executor_type'],
             task_id=data['task_id'],
-            executor_parameter_set_id=task.executor_parameter_set_id
+            task_resources_id=task.task_resources_id
         )
         DB.session.add(task_instance)
         DB.session.commit()

@@ -13,12 +13,12 @@ from jobmon.client.dag import Dag
 from jobmon.client.execution.scheduler.api import SchedulerConfig
 from jobmon.client.execution.scheduler.task_instance_scheduler import \
     ExceptionWrapper, TaskInstanceScheduler
-from jobmon.client.execution.strategies.api import get_scheduling_executor_by_name
-from jobmon.client.execution.strategies import Queue, ComputeResources
+from jobmon.cluster_type.api import register_cluster_plugin
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
+from jobmon.cluster_type.base import ClusterResources
 from jobmon.constants import WorkflowRunStatus, WorkflowStatus
 from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse, ResumeSet,
                                SchedulerNotAlive, SchedulerStartupTimeout,
@@ -132,8 +132,9 @@ class Workflow(object):
                     "workflow_attributes must be provided as a list of attributes or a "
                     "dictionary of attributes and their values"
                 )
+
         self.cluster_resources = cluster_resources  # TODO: Figure out format for this object
-        self.queue_factory = QueueFactory()
+        self._clusters: Dict[str, Cluster] = {}
 
     @property
     def is_bound(self):
@@ -221,9 +222,12 @@ class Workflow(object):
             # add the task
             self.add_task(task)
 
-    def set_default_executor(self, executor_class: Optional[str] = 'SGE'):
-        self.default_executor_class = executor_class
+    def set_default_cluster(self, cluster_name: Optional[str] = 'buster'):
         # TODO: optionally pass to tasks unless specified at a lower level
+        pass
+
+    def _get_cluster_by_name(self, cluster_name):
+        pass
 
     def run(self, fail_fast: bool = False, seconds_until_timeout: int = 36000,
             resume: bool = ResumeStatus.DONT_RESUME, reset_running_jobs: bool = True,
@@ -340,7 +344,7 @@ class Workflow(object):
         for task in self.tasks:
             cname, qname = task.cluster_resources[0]
 
-            queue = self.queue_factory.get_queue(cname, qname)
+            queue = self.cluster.get_cluster_resources()
             validated_compute_resource: ComputeResources = queue.create_resources(task.compute_resources)
             task.compute_resources_validated = validated_compute_resource
 
@@ -574,24 +578,3 @@ class Workflow(object):
         hash_value.update(str(self.task_hash).encode('utf-8'))
         hash_value.update(str(hash(self._dag)).encode('utf-8'))
         return int(hash_value.hexdigest(), 16)
-
-
-class QueueFactory:
-
-    def __init__(self):
-        self.queue_cache = {}  # (cluster_name, queue_name): queue instance
-
-    def get_queue(self, cluster_name, queue_name):
-        key = (cluster_name, queue_name)
-        try:
-            return self.queue_cache[key]
-        except KeyError:
-            cluster_type_name, queue_params = db_route(key)  # (cluster_type_id, cluster_type_name, queue_params)
-            try:
-                plugin = importlib.import_module(f"jobmon_{cluster_type_name}")
-            except Exception:
-                raise Exception("Install and try again")
-            queue_class = plugin.get_queue()
-            queue: Queue = queue_class(**queue_params)
-            self.queue_cache[key] = queue
-            return queue

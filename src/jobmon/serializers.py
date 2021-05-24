@@ -165,9 +165,9 @@ class SerializeCluster:
     """Serialize the data to and from the database for a Cluster."""
 
     @staticmethod
-    def to_wire(id: int, name: str, cluster_type_name: str, connection_string: str) -> tuple:
+    def to_wire(id: int, name: str, cluster_type_name: str, package_location: str) -> tuple:
         """Submit the Cluster information to the database."""
-        return (id, name, cluster_type_name, connection_string)
+        return (id, name, cluster_type_name, package_location)
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
@@ -175,23 +175,39 @@ class SerializeCluster:
         return {"id": int(wire_tuple[0]),
                 "name": str(wire_tuple[1]),
                 "cluster_type_name": str(wire_tuple[2]),
-                "connection_string": str(wire_tuple[3])}
+                "package_location": str(wire_tuple[3])}
 
 
 class SerializeQueue:
     """Serialize the data to and from the database for a Queue."""
 
     @staticmethod
-    def to_wire(id: int, name: str, cluster_name: str, cluster_type_name: str,
-                parameters: str) -> tuple:
+    def to_wire(id: int, name: str, parameters: str) -> tuple:
         """Submit the Queue information to the database."""
-        return (id, name, cluster_name, cluster_type_name, parameters)
+        return (id, name, parameters)
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Get the Queue information from the database."""
-        return {"id": int(wire_tuple[0]),
-                "name": str(wire_tuple[1]),
-                "cluster_name": str(wire_tuple[2]),
-                "cluster_type_name": str(wire_tuple[3]),
-                "parameters": str(wire_tuple[4])}
+        return {"queue_id": int(wire_tuple[0]),
+                "queue_name": str(wire_tuple[1]),
+                "parameters": ast.literal_eval(wire_tuple[2])}
+
+class SerializeTaskResources:
+    """Serialize the data to and from the db for a TaskResources."""
+
+    @staticmethod
+    def to_wire(task_id: int, queue_id: int,  task_resources_type_id: str,
+                resource_scales: str, requested_resources: str) -> tuple:
+        """Submit the TaskResources info to the database."""
+        return task_id, queue_id, task_resources_type_id, resource_scales, requested_resources
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        """Get the whole  for a TaskResources."""
+        return {"id": int(wire_tuple[0]), "task_id": int(wire_tuple[1]),
+                "queue_id": int(wire_tuple[2]),
+                "task_resources_type_id": str(wire_tuple[3]),
+                "resource_scales": str(wire_tuple[4]),
+                "requested_resources": str(wire_tuple[5])}
+
