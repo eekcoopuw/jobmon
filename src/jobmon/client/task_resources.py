@@ -9,6 +9,7 @@ import structlog as logging
 
 logger = logging.getLogger(__name__)
 
+
 class TaskResources:
 
     def __init__(self, queue_id: int, task_resources_type_id: str, resource_scales: str,

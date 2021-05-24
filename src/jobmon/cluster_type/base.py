@@ -14,7 +14,19 @@ class ClusterQueue(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def validate_resource(self, resource: str, value: Any, fail=False) -> Tuple[str, Any]:
+    def validate_resource(self, resource: str, value: Any, fail=False) -> str:
+        raise NotImplementedError
+
+    @abstractproperty
+    def required_resources(self):
+        raise NotImplementedError
+
+    @abstractproperty
+    def queue_name(self):
+        raise NotImplementedError
+
+    @abstractproperty
+    def queue_id(self):
         raise NotImplementedError
 
 
