@@ -115,8 +115,8 @@ class Cluster:
             missing_resources = set(queue.required_resources) - set(requested_resources.keys())
             if missing_resources:
                 full_error_msg = (
-                    f"Missing required resources {list(missing_resources)} for queue="
-                    f"{queue.queue_name}. Got {list(requested_resources.keys())}"
+                    f"\n  Missing required resources {list(missing_resources)} for "
+                    f"'{queue.queue_name}'. Got {list(requested_resources.keys())}."
                 )
 
             for resource, resource_value in requested_resources.items():
