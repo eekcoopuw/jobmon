@@ -25,6 +25,7 @@ def get_task_template():
         tool_version_id = int(request.args.get("tool_version_id"))
         name = request.args.get("task_template_name")
         app.logger = app.logger.bind(tool_version_id=tool_version_id, task_template_name=name)
+        app.logger.info(f"Get task template {name} for tool_version_id {tool_version_id}")
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     # get data from db
@@ -58,6 +59,8 @@ def add_task_template():
     try:
         tool_version_id = int(data["tool_version_id"])
         app.logger = app.logger.bind(tool_version_id=tool_version_id)
+        app.logger.info(f"Add task tamplate for tool_version_id {tool_version_id} ")
+
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
@@ -143,6 +146,7 @@ def add_task_template_version(task_template_id: int):
     # check input variables
     app.logger = app.logger.bind(task_template_id=task_template_id)
     data = request.get_json()
+    app.logger.info(f"Add tool for task_template_id {task_template_id}")
     if task_template_id is None:
         raise InvalidUsage(f"Missing variable task_template_id in {request.path}",
                            status_code=400)

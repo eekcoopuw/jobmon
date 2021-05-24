@@ -1,4 +1,6 @@
 """Workflow run database table."""
+from flask import current_app as app
+
 from jobmon.serializers import SerializeWorkflowRun
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
@@ -111,18 +113,28 @@ class WorkflowRun(DB.Model):
 
     def reap(self):
         """Transition dead workflow runs to a terminal state"""
+        app.logger = app.logger.bind(workflow_run_id=self.id,
+                                     workflow_id=self.workflow_id)
+        app.logger.info(f"Dead wfr {self.id} will be transitted.")
         if self.status == WorkflowRunStatus.LINKING:
+            app.logger.debug(f"Transiting wfr {self.id} to ABORTED")
             self.transition(WorkflowRunStatus.ABORTED)
         if self.status in [WorkflowRunStatus.COLD_RESUME, WorkflowRunStatus.HOT_RESUME]:
+            app.logger.debug(f"Transiting wfr {self.id} to TERMINATED")
             self.transition(WorkflowRunStatus.TERMINATED)
         if self.status == WorkflowRunStatus.RUNNING:
+            app.logger.debug(f"Transiting wfr {self.id} to ERROR")
             self.transition(WorkflowRunStatus.ERROR)
+        app.logger.info(f"Transited wfr {self.id} to {self.status}")
 
     def transition(self, new_state):
         """Transition the Workflow Run's state."""
+        app.logger = app.logger.bind(workflow_run_id=self.id,
+                                     workflow_id=self.workflow_id)
+        app.logger.info(f"Transitting wfr {self.id} from {self.status} "
+                        f"to {new_state}")
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
-
             self.status = new_state
             self.status_date = func.now()
             if new_state == WorkflowRunStatus.LINKING:
@@ -142,10 +154,16 @@ class WorkflowRun(DB.Model):
 
     def hot_reset(self) -> None:
         """Set Workflow Run to Hot Resume."""
+        app.logger = app.logger.bind(workflow_run_id=self.id,
+                                     workflow_id=self.workflow_id)
+        app.logger.info(f"Transitting wfr {self.id} to HOT_RESUME.")
         self.transition(WorkflowRunStatus.HOT_RESUME)
 
     def cold_reset(self) -> None:
         """Set Workflow Run to Cold Resume."""
+        app.logger = app.logger.bind(workflow_run_id=self.id,
+                                     workflow_id=self.workflow_id)
+        app.logger.info(f"Transitting wfr {self.id} to COLD_RESUME.")
         self.transition(WorkflowRunStatus.COLD_RESUME)
 
     def _validate_transition(self, new_state: str) -> None:
@@ -155,7 +173,11 @@ class WorkflowRun(DB.Model):
 
     def _is_timely_transition(self, new_state: str) -> bool:
         """Check if the transition is invalid due to a race condition."""
+        app.logger = app.logger.bind(workflow_run_id=self.id,
+                                     workflow_id=self.workflow_id)
         if (self.status, new_state) in self.untimely_transitions:
+            app.logger.info(f"Race condition when transitting wfr {self.id}")
             return False
         else:
+            app.logger.debug(f"No race condition when transitting wfr {self.id}")
             return True

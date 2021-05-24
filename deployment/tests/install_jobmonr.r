@@ -8,5 +8,4 @@ jobmonr_loc <- args$jobmonr_loc
 
 library(devtools)
 # install from source an in-memory package
-devtools::load_all(path=jobmonr_loc)
-devtools::install("jobmonr")
+install_local(jobmonr_loc)

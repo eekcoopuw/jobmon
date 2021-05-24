@@ -28,6 +28,7 @@ def add_tool():
 
     # add tool to db
     try:
+        app.logger.info(f"Adding tool {name}")
         tool = Tool(name=name)
         DB.session.add(tool)
         DB.session.commit()
@@ -48,7 +49,7 @@ def get_tool(tool_name: str):
     """Get the Tool object from the database."""
     # get data from db
     app.logger = app.logger.bind(tool_name=tool_name)
-    app.logger.info("Getting tool by name")
+    app.logger.info(f"Getting tool by name: {tool_name}")
     query = """
         SELECT
             tool.*
@@ -79,7 +80,7 @@ def get_tool_versions(tool_id: int):
     """Get the Tool Version."""
     # check input variable
     app.logger = app.logger.bind(tool_id=tool_id)
-    app.logger.info("Getting available tool versions")
+    app.logger.info(f"Getting available tool versions for tool_id {tool_id}")
     if tool_id is None:
         raise InvalidUsage(f"Variable tool_id is None in {request.path}", status_code=400)
     try:
@@ -101,6 +102,7 @@ def get_tool_versions(tool_id: int):
     ).all()
     DB.session.commit()
     tool_versions = [t.to_wire_as_client_tool_version() for t in tool_versions]
+    app.logger.info(f"Tool version for {tool_id} is {tool_versions}")
     resp = jsonify(tool_versions=tool_versions)
     resp.status_code = StatusCodes.OK
     return resp
@@ -114,6 +116,7 @@ def add_tool_version():
     try:
         tool_id = int(data["tool_id"])
         app.logger = app.logger.bind(tool_id=tool_id)
+        app.logger.info(f"Creating tool_version for tool_id {tool_id}")
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 

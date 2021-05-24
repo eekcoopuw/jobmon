@@ -45,6 +45,9 @@ _cli_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
 
 def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, str]):
     # add attribute
+    app.logger = app.logger.bind(workflow_id=workflow_id)
+    app.logger.info(f"Add attributes to workflow:{workflow_id}."
+                    f"Attributes: {workflow_attributes}")
     wf_attributes_list = []
     for name, val in workflow_attributes.items():
         wf_type_id = _add_or_get_wf_attribute_type(name)
@@ -52,6 +55,7 @@ def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, st
                                          workflow_attribute_type_id=wf_type_id,
                                          value=val)
         wf_attributes_list.append(wf_attribute)
+        app.logger.debug(f"Attribute name: {name}, value: {val}, wf: {workflow_id}")
     DB.session.add_all(wf_attributes_list)
     DB.session.flush()
 
@@ -73,6 +77,7 @@ def bind_workflow():
         workflow_attributes = data["workflow_attributes"]
         app.logger = app.logger.bind(dag_id=dag_id, tool_version_id=tv_id,
                                      workflow_args_hash=whash, task_hash=thash)
+        app.logger.info(f"Create workflow with tv {tv_id} and dag {dag_id}")
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     query = """
@@ -102,12 +107,13 @@ def bind_workflow():
                             max_concurrently_running=max_concurrently_running)
         DB.session.add(workflow)
         DB.session.commit()
+        app.logger.info(f"Created new workflow for dag_id: {dag_id}")
 
         # update attributes
         if workflow_attributes:
             _add_workflow_attributes(workflow.id, workflow_attributes)
             DB.session.commit()
-
+            app.logger.info(f"Add attribute for wf: {workflow.id}")
         newly_created = True
     else:
         newly_created = False
@@ -124,6 +130,7 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
     try:
         int(workflow_args_hash)
         app.logger = app.logger.bind(workflow_args_hash=workflow_args_hash)
+        app.logger.info(f"Looking for wf with hash {workflow_args_hash}")
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
@@ -191,6 +198,7 @@ def update_workflow_attribute(workflow_id: int):
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     """ Add/update attributes for a workflow """
     data = request.get_json()
+    app.logger.debug(f"Update attributes for wf {workflow_id}")
     attributes = data["workflow_attributes"]
     if attributes:
         for name, val in attributes.items():
@@ -207,6 +215,7 @@ def set_resume(workflow_id: int):
     app.logger = app.logger.bind(workflow_id=workflow_id)
     try:
         data = request.get_json()
+        app.logger.info(f"Set resume for wf {workflow_id}")
         reset_running_jobs = bool(data['reset_running_jobs'])
         description = str(data['description'])
         name = str(data["name"])
@@ -238,6 +247,7 @@ def set_resume(workflow_id: int):
 
     # update attributes
     if workflow_attributes:
+        app.logger.info(f"Update attributes for wf {workflow_id}")
         _add_workflow_attributes(workflow.id, workflow_attributes)
         DB.session.commit()
 
@@ -262,7 +272,7 @@ def workflow_is_resumable(workflow_id: int):
         workflow_id=workflow_id
     ).one()
     DB.session.commit()
-
+    app.logger.info(f"The wf {workflow_id} is resumable: {workflow.is_resumable}")
     resp = jsonify(workflow_is_resumable=workflow.is_resumable)
     resp.status_code = StatusCodes.OK
     return resp
@@ -272,6 +282,8 @@ def workflow_is_resumable(workflow_id: int):
 def update_max_running(workflow_id):
     """Update the number of tasks that can be running concurrently for a given workflow."""
     data = request.get_json()
+    app.logger = app.logger.bind(workflow_id=workflow_id)
+    app.logger.debug(f"Update wf {workflow_id} max running")
     try:
         new_limit = data['max_tasks']
     except KeyError as e:
@@ -307,6 +319,7 @@ def get_task_by_status_only(workflow_id: int):
     """
     app.logger = app.logger.bind(workflow_id=workflow_id)
     data = request.get_json()
+    app.logger.info(f"Get task by status only for wf {workflow_id}")
 
     last_sync = data['last_sync']
     swarm_tasks_tuples = data.get('swarm_tasks_tuples', [])
@@ -413,6 +426,8 @@ def get_workflow_status():
     if user_request == "all":  # specifying all is equivalent to None
         user_request = []
     workflow_request = request.args.getlist('workflow_id')
+    app.logger = app.logger.bind(user=user_request)
+    app.logger.debug(f"User {user_request} query for wf {workflow_request} status.")
     if workflow_request == "all":  # specifying all is equivalent to None
         workflow_request = []
     limit_request = request.args.getlist('limit')
@@ -530,8 +545,10 @@ def get_workflow_status():
 def get_workflow_tasks(workflow_id):
     """Get the tasks for a given workflow."""
     params = {"workflow_id": workflow_id}
+    app.logger = app.logger.bind(workflow_id=workflow_id)
     where_clause = "WHERE workflow.id = :workflow_id"
     status_request = request.args.getlist('status', None)
+    app.logger.debug(f"Get tasks for wf {workflow_id} in status {status_request}")
 
     if status_request:
         params["status"] = [i for arg in status_request
@@ -551,7 +568,8 @@ def get_workflow_tasks(workflow_id):
             ON workflow.id = task.workflow_id
         {where_clause}""".format(where_clause=where_clause)
     res = DB.session.execute(q, params).fetchall()
-
+    app.logger.debug(f"The following tasks of wf {workflow_id} are in status "
+                     f"{status_request}:\n{res}")
     if res:
         # assign to dataframe for serialization
         df = pd.DataFrame(res, columns=res[0].keys())
@@ -576,6 +594,8 @@ def get_workflow_users(workflow_id: int):
 
     Used to validate permissions for a self-service request.
     """
+    app.logger = app.logger.bind(workflow_id=workflow_id)
+    app.logger.debug(f"Get associated users for wf {workflow_id}")
     query = """
         SELECT DISTINCT user
         FROM workflow_run
@@ -585,6 +605,7 @@ def get_workflow_users(workflow_id: int):
     result = DB.session.execute(query)
 
     usernames = [row.user for row in result]
+    app.logger.info(f"User names associated with wf {workflow_id}:\n{usernames}")
     resp = jsonify(usernames=usernames)
 
     resp.status_code = StatusCodes.OK
@@ -598,7 +619,9 @@ def get_workflow_user_validation(workflow_id: int):
 
     Used to validate permissions for a self-service request.
     """
+    app.logger = app.logger.bind(workflow_id=workflow_id)
     user = request.args.get('username')
+    app.logger.debug(f"Validate user name {user} for wf {workflow_id}")
     query = """
         SELECT DISTINCT user
         FROM workflow_run
