@@ -9,6 +9,7 @@ import structlog as logging
 
 logger = logging.getLogger(__name__)
 
+
 class TaskResources:
 
     def __init__(self, queue_id: int, task_resources_type_id: str, resource_scales: str,
@@ -27,7 +28,7 @@ class TaskResources:
     @property
     def is_bound(self) -> bool:
         """If the TaskResources has been bound to the database."""
-        return self._task_id is not None
+        return hasattr(self, "_id")
 
     @property
     def id(self) -> int:
@@ -40,7 +41,9 @@ class TaskResources:
     def task_id(self) -> int:
         """If the task resources has been bound to the database."""
         if not self.is_bound:
-            raise AttributeError("Cannot access task_id until TaskResources is bound to database")
+            raise AttributeError(
+                "Cannot access task_id until TaskResources is bound to database"
+            )
         return self._task_id
 
     @property

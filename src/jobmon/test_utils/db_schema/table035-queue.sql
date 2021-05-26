@@ -22,51 +22,10 @@ LOCK TABLES `cluster` c READ, `cluster_type` ct READ, `queue` WRITE;
 
 
 INSERT INTO `queue`(`name`, `cluster_id`, `parameters`)
-SELECT 'sequential', c.id,
-'{}'
+SELECT 'null.q', c.id, '{}'
 AS `parameters`
 FROM cluster c
     INNER JOIN cluster_type ct ON c.cluster_type_id = ct.id
 WHERE ct.name = 'sequential';
-
-INSERT INTO `queue`(`name`, `cluster_id`, `parameters`)
-SELECT 'all.q', c.id,
-'{''cores'': (1, 102), ''memory'': (0.128, 1010), ''runtime'': (10, 259200)}'
-AS `parameters`
-FROM cluster c
-	INNER JOIN cluster_type ct ON c.cluster_type_id = ct.id
-WHERE ct.name = 'UGE';
-
-INSERT INTO `queue`(`name`, `cluster_id`, `parameters`)
-SELECT 'long.q', c.id,
-'{''cores'': (1, 102), ''memory'': (0.128, 1010), ''runtime'': (10, 1382400)}'
-AS `parameters`
-FROM cluster c
-	INNER JOIN cluster_type ct ON c.cluster_type_id = ct.id
-WHERE ct.name = 'UGE';
-
-INSERT INTO `queue`(`name`, `cluster_id`, `parameters`)
-SELECT 'geospatial.q', c.id,
-'{''cores'': (1, 62), ''memory'': (0.128, 1010), ''runtime'': (10, 2160000)}'
-AS `parameters`
-FROM cluster c
-	INNER JOIN cluster_type ct ON c.cluster_type_id = ct.id
-WHERE ct.name = 'UGE';
-
-INSERT INTO `queue`(`name`, `cluster_id`, `parameters`)
-SELECT 'i.q', c.id,
-'{''cores'': (1, 78), ''memory'': (0.128, 750), ''runtime'': (10, 604800)}'
-AS `parameters`
-FROM cluster c
-	INNER JOIN cluster_type ct ON c.cluster_type_id = ct.id
-WHERE ct.name = 'UGE';
-
-INSERT INTO `queue`(`name`, `cluster_id`, `parameters`)
-SELECT 'd.q', c.id,
-'{''cores'': (1, 78), ''memory'': (0.128, 750), ''runtime'': (10, 604800)}'
-AS `parameters`
-FROM cluster c
-	INNER JOIN cluster_type ct ON c.cluster_type_id = ct.id
-WHERE ct.name = 'UGE';
 
 UNLOCK TABLES;

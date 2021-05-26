@@ -3,9 +3,7 @@ import platform
 
 import pytest
 
-from jobmon.test_utils import (
-    test_server_config,
-    WebServerProcess, ephemera_db_instance)
+from jobmon.test_utils import test_server_config, WebServerProcess, ephemera_db_instance
 
 
 logger = logging.getLogger(__name__)
@@ -40,7 +38,7 @@ def web_server_process(ephemera):
 
 @pytest.fixture(scope='session')
 def db_cfg(ephemera) -> dict:
-    yield test_server_config(ephemera)
+    return test_server_config(ephemera)
 
 
 @pytest.fixture(scope='function')

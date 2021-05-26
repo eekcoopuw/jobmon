@@ -109,9 +109,18 @@ class Cluster:
         """
         if queue_name is not None:
             queue = self.get_queue(queue_name)
+
+            # validate it has required resources
             full_error_msg = ""
+            missing_resources = set(queue.required_resources) - set(requested_resources.keys())
+            if missing_resources:
+                full_error_msg = (
+                    f"\n  Missing required resources {list(missing_resources)} for "
+                    f"'{queue.queue_name}'. Got {list(requested_resources.keys())}."
+                )
+
             for resource, resource_value in requested_resources.items():
-                msg, value = queue.validate_resource(resource, resource_value, fail=False)
+                msg = queue.validate_resource(resource, resource_value, fail=False)
                 full_error_msg += msg
 
             if full_error_msg:
