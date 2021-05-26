@@ -195,7 +195,7 @@ pipeline {
       steps {
         node('qlogin') {
           sh '''. ${WORKSPACE}/ci/share_conda_install.sh \
-                   /ihme/scratch/users/svcscicompci/shared_jobmon_conda \
+                   /mnt/team/scicomp/pub/shared_jobmon_conda \
                    ${JOBMON_VERSION} \
                    /homes/svcscicompci/miniconda3/bin/conda
              '''
