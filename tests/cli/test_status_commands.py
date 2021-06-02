@@ -281,7 +281,8 @@ def test_task_reset(db_cfg, client_env, monkeypatch):
 def test_task_reset_wf_validation(db_cfg, client_env):
     from jobmon.client.api import BashTask
     from jobmon.client.api import UnknownWorkflow
-    from jobmon.client.status_commands import update_task_status
+    from jobmon.requester import Requester
+    from jobmon.client.status_commands import update_task_status, validate_workflow
 
     workflow1 = UnknownWorkflow(executor_class="SequentialExecutor")
     workflow2 = UnknownWorkflow(executor_class="SequentialExecutor")
@@ -304,6 +305,12 @@ def test_task_reset_wf_validation(db_cfg, client_env):
     # Validation with a task not in the workflow raises an error
     with pytest.raises(AssertionError):
         update_task_status([t1.task_id, t2.task_id], args.workflow_id, args.new_status)
+
+    # Test that the number of resets requested doesn't break HTTP
+    with pytest.raises(AssertionError):
+        requester = Requester(client_env)
+        task_ids = list(range(300))
+        validate_workflow(task_ids, requester)  # AssertionError since we have 2 workflows, but no HTTP 502 returned
 
 
 def test_sub_dag(db_cfg, client_env):
@@ -485,7 +492,7 @@ def test_update_task_status(db_cfg, client_env):
 
 def test_400_cli_route(db_cfg, client_env):
     from jobmon.requester import Requester
-    requester = Requester(client_env, logger)
+    requester = Requester(client_env)
     rc, resp = requester.send_request(
         app_route="/cli/task_status",
         message={},

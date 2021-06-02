@@ -619,7 +619,7 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list) -> d
     return task_dict
 
 
-@jobmon_cli.route('/task/subdag', methods=['GET'])
+@jobmon_cli.route('/task/subdag', methods=['POST'])
 def get_task_subdag():
     """
     Used to get the sub dag  of a given task. It returns a list of sub tasks as well as a
@@ -627,8 +627,10 @@ def get_task_subdag():
     :return:
     """
     # Only return sub tasks in the following status. If empty or None, return all
-    task_ids = request.args.getlist('task_ids')
-    task_status = request.args.getlist('task_status')
+    data = request.get_json()
+    task_ids = data.get('task_ids', [])
+    task_status = data.get('task_status', [])
+
     if len(task_ids) == 0:
         raise InvalidUsage(f"Missing {task_ids} in request", status_code=400)
     task_ids_str = "("
@@ -637,6 +639,7 @@ def get_task_subdag():
     task_ids_str = task_ids_str[:-1] + ")"
     if task_status is None:
         task_status = []
+
     q = f"""
         SELECT workflow.id as workflow_id, dag_id, node_id
         FROM task, workflow

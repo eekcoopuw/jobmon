@@ -144,9 +144,10 @@ class Task:
             if not is_valid:
                 logger.info(msg)
             static_func = (lambda executor_parameters, *args: executor_parameters)
-            # Deepcopy executor parameters since the object is rescaled in case of a resource error
-            # Common use case is one parameter -> multiple tasks. In that case, 1 resource error
-            # = multiple rescaled tasks without a deep copy.
+            # Deepcopy executor parameters since the object is rescaled in case
+            # of a resource error
+            # Common use case is one parameter -> multiple tasks. In that case,
+            # 1 resource error = multiple rescaled tasks without a deep copy.
             self.executor_parameters = partial(static_func, deepcopy(executor_parameters))
         else:
             # if a callable was provided instead

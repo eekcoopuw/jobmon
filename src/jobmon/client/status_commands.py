@@ -194,8 +194,8 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
 def validate_username(workflow_id: int, username: str, requester: Requester) -> None:
     """Validate that the user is approved to make these changes."""
     rc, res = requester.send_request(
-        app_route=f"/cli/workflow/{workflow_id}/validate_username",
-        message={'username': username},
+        app_route=f"/cli/workflow/{workflow_id}/validate_username/{username}",
+        message={},
         request_type="get",
         logger=logger)
     if not res['validation']:
@@ -208,7 +208,7 @@ def validate_workflow(task_ids: List[int], requester: Requester) -> None:
     rc, res = requester.send_request(
         app_route="/cli/workflow_validation",
         message={'task_ids': task_ids},
-        request_type="get")
+        request_type="post")
 
     if not bool(res["validation"]):
         raise AssertionError("The give task ids belong to multiple workflow.")
@@ -226,7 +226,7 @@ def get_sub_task_tree(task_ids: list, task_status: list = None,
         app_route="/cli/task/subdag",
         message={'task_ids': task_ids,
                  'task_status': task_status},
-        request_type="get")
+        request_type="post")
     if rc != 200:
         raise AssertionError(f"Server return HTTP error code: {rc}")
     task_tree_dict = res["sub_task"]

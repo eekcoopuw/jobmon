@@ -380,11 +380,12 @@ def get_task_by_status_only(workflow_id: int):
     return resp
 
 
-@jobmon_cli.route("/workflow_validation", methods=['GET'])
+@jobmon_cli.route("/workflow_validation", methods=['POST'])
 def get_workflow_validation_status():
     """Check if workflow is valid."""
     # initial params
-    task_ids = request.args.getlist('task_ids')
+    data = request.get_json()
+    task_ids = data['task_ids']
 
     # if the given list is empty, return True
     if len(task_ids) == 0:
@@ -405,6 +406,7 @@ def get_workflow_validation_status():
         WHERE id IN ({task_list})
     """
     res = DB.session.execute(q).fetchall()
+
     # Validate if all tasks are in the same workflow and the workflow status is dead
     if len(res) == 1 and res[0][1] in (Statuses.FAILED, Statuses.DONE, Statuses.ABORTED,
                                        Statuses.HALTED):
@@ -612,16 +614,15 @@ def get_workflow_users(workflow_id: int):
     return resp
 
 
-@jobmon_cli.route('/workflow/<workflow_id>/validate_username', methods=['GET'])
-def get_workflow_user_validation(workflow_id: int):
+@jobmon_cli.route('/workflow/<workflow_id>/validate_username/<username>', methods=['GET'])
+def get_workflow_user_validation(workflow_id: int, username: str):
     """
     Return all usernames associated with a given workflow_id's workflow runs.
 
     Used to validate permissions for a self-service request.
     """
     app.logger = app.logger.bind(workflow_id=workflow_id)
-    user = request.args.get('username')
-    app.logger.debug(f"Validate user name {user} for wf {workflow_id}")
+    app.logger.debug(f"Validate user name {username} for wf {workflow_id}")
     query = """
         SELECT DISTINCT user
         FROM workflow_run
@@ -632,7 +633,7 @@ def get_workflow_user_validation(workflow_id: int):
 
     usernames = [row.user for row in result]
 
-    resp = jsonify(validation=user in usernames)
+    resp = jsonify(validation=username in usernames)
 
     resp.status_code = StatusCodes.OK
     return resp
