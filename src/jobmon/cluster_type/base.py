@@ -4,6 +4,7 @@ from abc import abstractmethod, abstractproperty
 from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 from jobmon import __version__
+from jobmon.cluster_type.api import import_cluster
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 
@@ -38,7 +39,7 @@ class ClusterDistributor(Protocol):
         raise NotImplementedError
 
     @abstractproperty
-    def cluter_type_name(self):
+    def cluter_type_name(self) -> str:
         raise NotImplementedError
 
     @abstractmethod
@@ -105,7 +106,7 @@ class ClusterDistributor(Protocol):
         wrapped_cmd = [
             "--task_instance_id", task_instance_id,
             "--expected_jobmon_version", __version__,
-            "--executor_class", self.__class__.__name__,
+            "--cluster_type_name", self.cluster_type_name,
             "--heartbeat_interval", heartbeat_interval,
             "--report_by_buffer", report_by_buffer
         ]

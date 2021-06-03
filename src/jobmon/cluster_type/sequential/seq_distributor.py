@@ -2,7 +2,7 @@
 from collections import OrderedDict
 import logging
 import os
-from typing import Optional, List, Tuple
+from typing import Optional, List, Tuple, Dict, Any
 
 from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
@@ -63,9 +63,8 @@ class SequentialDistributor(ClusterDistributor):
         else:
             return []
 
-    def execute(self, command: str, name: str, task_resources: dict) -> int:
+    def execute(self, command: str, name: str, requested_resources: Dict[str, Any]) -> int:
         """Execute sequentially."""
-        logger.debug(command)
 
         # add an executor id to the environment
         os.environ["JOB_ID"] = str(self._next_executor_id)

@@ -68,7 +68,9 @@ def log_running(task_instance_id: int):
         func.now(), func.SEC_TO_TIME(data['next_report_increment']))
     DB.session.commit()
 
-    resp = jsonify(message=msg)
+    t = DB.session.query(Task).filter_by(id=ti.task_id).one()
+
+    resp = jsonify(message=msg, command=t.command)
     resp.status_code = StatusCodes.OK
     return resp
 

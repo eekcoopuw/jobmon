@@ -13,4 +13,5 @@ from jobmon.server.web.routes.blueprints import swarm_routes
 from jobmon.server.web.routes.blueprints import worker_routes
 
 from jobmon.server.web.routes import (dag, node, task, task_instance, task_template, tool,
-                                      tool_version, workflow, workflow_run, cluster, queue)
+                                      tool_version, workflow, workflow_run, cluster_type,
+                                      cluster, queue)

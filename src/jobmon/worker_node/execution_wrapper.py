@@ -15,8 +15,10 @@ from threading import Thread
 from time import sleep, time
 from typing import Optional
 
-from jobmon.client.execution.strategies.api import get_task_instance_executor_by_name
-from jobmon.client.execution.worker_node.worker_node_task_instance import (
+#from jobmon.client.execution.strategies.api import get_task_instance_executor_by_name
+from jobmon.cluster_type.api import import_cluster
+from jobmon.cluster_type.base import ClusterWorkerNode
+from jobmon.worker_node.worker_node_task_instance import (
     WorkerNodeTaskInstance)
 from jobmon.exceptions import ReturnCodes
 
@@ -66,9 +68,8 @@ def parse_arguments(argstr: Optional[str] = None) -> dict:
     logger.debug("parsing arguments")
     parser = argparse.ArgumentParser()
     parser.add_argument("--task_instance_id", required=True, type=int)
-    parser.add_argument("--command", required=True)
     parser.add_argument("--expected_jobmon_version", required=True)
-    parser.add_argument("--executor_class", required=True)
+    parser.add_argument("--cluster_type_name", required=True)
     parser.add_argument("--temp_dir", required=False)
     parser.add_argument("--heartbeat_interval", default=90, type=float)
     parser.add_argument("--report_by_buffer", default=3.1, type=float)
@@ -119,16 +120,15 @@ def _run_in_sub_process(command: str, temp_dir: Optional[str], heartbeat_interva
         sleep(0.5)  # don't thrash CPU by polling as fast as possible
     return err_q, proc.returncode
 
-
-def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
-           executor_class: str, temp_dir: Optional[str] = None,
+def unwrap(task_instance_id: int, expected_jobmon_version: str,
+           cluster_type_name: str, temp_dir: Optional[str] = None,
            heartbeat_interval: float = 90, report_by_buffer: float = 3.1):
     """This script executes on the target node and wraps the target application. Could be in
     any language, anything that can execute on linux.Similar to a stub or a container set ENV
     variables in case tasks need to access them.
     """
     os.environ["JOBMON_JOB_INSTANCE_ID"] = str(task_instance_id)
-    ti_executor_info = get_task_instance_executor_by_name(executor_class)
+
     version = pkg_resources.get_distribution("jobmon").version
     if version != expected_jobmon_version:
         msg = (f"Your workflow master node is using, {expected_jobmon_version} and your "
@@ -137,15 +137,15 @@ def unwrap(task_instance_id: int, command: str, expected_jobmon_version: str,
         sys.exit(ReturnCodes.WORKER_NODE_ENV_FAILURE)
     worker_node_task_instance = WorkerNodeTaskInstance(
         task_instance_id=task_instance_id,
-        task_instance_executor_info=ti_executor_info
+        cluster_type_name=cluster_type_name
     )
 
     # if it logs running and is in the 'W' or 'U' state then it will go
     # through the full process of trying to change states and receive a
     # special exception to signal that it can't run and should kill itself
-    rc, kill = worker_node_task_instance.log_running(next_report_increment=(
+    rc, kill, command = worker_node_task_instance.log_running(next_report_increment=(
         heartbeat_interval * report_by_buffer))
-    if kill == 'True':
+    if kill == 'True': #TODO: possibly incorrect; check to see if it should be 'kill self'.
         kill_self()
 
     try:

@@ -5,7 +5,8 @@ import time
 from http import HTTPStatus as StatusCodes
 from typing import Optional
 
-from jobmon.client.execution.strategies.base import Executor
+from jobmon.cluster_type.api import import_cluster
+from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable
 from jobmon.requester import Requester, http_request_ok
@@ -30,7 +31,7 @@ class ExecutorTaskInstance:
     """
 
     def __init__(self, task_instance_id: int, workflow_run_id: int,
-                 executor: Executor, requester: Requester,
+                 executor: ClusterDistributor, requester: Requester,
                  executor_id: Optional[int] = None):
 
         self.task_instance_id = task_instance_id
@@ -48,7 +49,7 @@ class ExecutorTaskInstance:
         self.requester = requester
 
     @classmethod
-    def from_wire(cls, wire_tuple: tuple, executor: Executor, requester: Requester
+    def from_wire(cls, wire_tuple: tuple, executor: ClusterDistributor, requester: Requester
                   ) -> ExecutorTaskInstance:
         """Create an instance from json that the JQS returns.
 
@@ -71,7 +72,7 @@ class ExecutorTaskInstance:
         return ti
 
     @classmethod
-    def register_task_instance(cls, task_id: int, workflow_run_id: int, executor: Executor,
+    def register_task_instance(cls, task_id: int, workflow_run_id: int, executor: ClusterDistributor,
                                requester: Requester) -> ExecutorTaskInstance:
         """Register a new task instance for an existing task_id.
 

@@ -161,6 +161,22 @@ class SerializeWorkflowRun:
                 "workflow_id": int(wire_tuple[1])}
 
 
+class SerializeClusterType:
+    """Serialize the data to and from the database for a ClusterType."""
+
+    @staticmethod
+    def to_wire(id: int, name: str, package_location: str) -> tuple:
+        """Submit the ClusterType information to the database."""
+        return (id, name, package_location)
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        """Get the Cluster information from the database."""
+        return {"id": int(wire_tuple[0]),
+                "name": str(wire_tuple[1]),
+                "package_location": str(wire_tuple[2])}
+
+
 class SerializeCluster:
     """Serialize the data to and from the database for a Cluster."""
 

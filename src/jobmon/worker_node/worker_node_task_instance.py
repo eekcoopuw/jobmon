@@ -5,11 +5,14 @@ import traceback
 from typing import Dict, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.execution.strategies.base import TaskInstanceExecutorInfo
-from jobmon.requester import Requester
+from jobmon.cluster_type.api import register_cluster_plugin, import_cluster
+from jobmon.cluster_type.base import ClusterWorkerNode
+from jobmon.exceptions import InvalidResponse
+from jobmon.requester import Requester, http_request_ok
 
 import structlog as logging
 
+from jobmon.serializers import SerializeClusterType
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +21,7 @@ class WorkerNodeTaskInstance:
     """The Task Instance object once it has been submitted to run on a worker node."""
 
     def __init__(self, task_instance_id: int,
-                 task_instance_executor_info: TaskInstanceExecutorInfo,
+                 cluster_type_name: str,
                  requester_url: Optional[str] = None):
         """The WorkerNodeTaskInstance is a mechanism whereby a running task_instance can
         communicate back to the JobStateManager to log its status, errors, usage details, etc.
@@ -37,11 +40,37 @@ class WorkerNodeTaskInstance:
         self._executor_id: Optional[int] = None
         self._nodename: Optional[str] = None
         self._process_group_id: Optional[int] = None
-        self.executor = task_instance_executor_info
 
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
         self.requester = Requester(requester_url)
+
+        self.executor = self._get_worker_node(cluster_type_name)
+
+    def _get_worker_node(self, cluster_type_name: str, **worker_node_kwargs) -> ClusterWorkerNode:
+
+        """Lookup ClusterType, getting package_location back."""
+        app_route = f'/client/cluster_type/{cluster_type_name}'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type="get",
+            logger=logger
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from POST '
+                f'request through route {app_route}. Expected code '
+                f'200. Response content: {response}'
+            )
+        cluster_type_kwargs = SerializeClusterType.kwargs_from_wire(response["cluster_type"])
+
+        register_cluster_plugin(cluster_type_name, cluster_type_kwargs["package_location"])
+
+        module = import_cluster(cluster_type_name)
+
+        WorkerNode = module.get_cluster_worker_node_class()
+        return WorkerNode(**worker_node_kwargs)
 
     @property
     def executor_id(self) -> Optional[int]:
@@ -154,7 +183,7 @@ class WorkerNodeTaskInstance:
             logger=logger
         )
         logger.debug(f"Response from log_running was: {resp}")
-        return rc, resp
+        return rc, resp["message"], resp["command"]
 
     def log_report_by(self, next_report_increment: Union[int, float]) -> int:
         """Log the heartbeat to show that the task instance is still alive."""

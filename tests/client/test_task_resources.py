@@ -7,4 +7,5 @@ def test_create_task_resources(client_env):
                         requested_resources="long list of resources", requester=None)
     tr.bind(111)
     assert tr.task_id==111
+    assert tr.id is not None
 

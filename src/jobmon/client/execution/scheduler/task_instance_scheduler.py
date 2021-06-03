@@ -9,7 +9,8 @@ from typing import Dict, List, Optional
 
 from jobmon.client.execution.scheduler.executor_task import ExecutorTask
 from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
-from jobmon.client.execution.strategies.base import Executor
+from jobmon.cluster_type.api import import_cluster
+from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import QsubAttribute, TaskInstanceStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, ResumeSet, WorkflowRunStateError
 from jobmon.requester import Requester, http_request_ok
@@ -39,7 +40,7 @@ class TaskInstanceScheduler:
     task_instances.
     """
 
-    def __init__(self, workflow_id: int, workflow_run_id: int, executor: Executor,
+    def __init__(self, workflow_id: int, workflow_run_id: int, executor: ClusterDistributor,
                  requester: Requester, workflow_run_heartbeat_interval: int = 30,
                  task_heartbeat_interval: int = 90, heartbeat_report_by_buffer: float = 3.1,
                  n_queued: int = 100, scheduler_poll_interval: int = 10,
@@ -399,7 +400,6 @@ class TaskInstanceScheduler:
 
         # TODO: unify qsub IDS to be meaningful across executor types
         command = task_instance.executor.build_wrapped_command(
-            command=task.command,
             task_instance_id=task_instance.task_instance_id,
             heartbeat_interval=self._task_heartbeat_interval,
             report_by_buffer=self._report_by_buffer
