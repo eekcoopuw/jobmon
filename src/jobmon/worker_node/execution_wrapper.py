@@ -122,7 +122,7 @@ def _run_in_sub_process(command: str, temp_dir: Optional[str], heartbeat_interva
 
 def unwrap(task_instance_id: int, expected_jobmon_version: str,
            cluster_type_name: str, temp_dir: Optional[str] = None,
-           heartbeat_interval: float = 90, report_by_buffer: float = 3.1):
+           heartbeat_interval: float = 90, report_by_buffer: float = 3.1) -> ReturnCodes:
     """This script executes on the target node and wraps the target application. Could be in
     any language, anything that can execute on linux.Similar to a stub or a container set ENV
     variables in case tasks need to access them.
