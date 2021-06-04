@@ -5,7 +5,7 @@ import configargparse
 
 from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 from jobmon.exceptions import ReturnCodes
-from jobmon.worker_node.execution_wrapper import unwrap
+from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
 
 
 class WorkerNodeCLI(CLI):
@@ -24,19 +24,22 @@ class WorkerNodeCLI(CLI):
         from jobmon.worker_node.worker_node_config import WorkerNodeConfig
 
         worker_node_config = WorkerNodeConfig(
-            workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
             task_heartbeat_interval=args.task_instance_heartbeat_interval,
             heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
             web_service_fqdn=args.web_service_fqdn,
             web_service_port=args.web_service_port
         )
 
-        # run the job and return the exit code
-        return unwrap(task_instance_id=worker_node_config.task_instance_id,
-                      expected_jobmon_version=worker_node_config.expected_jobmon_version,
-                      cluster_type_name=worker_node_config.cluster_type_name,
-                      heartbeat_interval=worker_node_config.task_instance_heartbeat_interval,
-                      report_by_buffer=worker_node_config.heartbeat_report_by_buffer)
+        worker_node_task_instance = WorkerNodeTaskInstance(
+            task_instance_id=worker_node_config.task_instance_id,
+            cluster_type_name=worker_node_config.cluster_type_name,
+            requester_url=worker_node_config.url
+        )
+
+        return worker_node_task_instance.run(
+                expected_jobmon_version=worker_node_config.expected_jobmon_version,
+                heartbeat_interval=worker_node_config.task_instance_heartbeat_interval,
+                report_by_buffer=worker_node_config.heartbeat_report_by_buffer)
 
 
     def _add_worker_node_parser(self) -> None:
@@ -60,14 +63,14 @@ class WorkerNodeCLI(CLI):
             help='expected_jobmon_version of the work node.',
             required=True
         )
-        ParserDefaults.workflow_run_heartbeat_interval(worker_node_parser)
         ParserDefaults.task_instance_heartbeat_interval(worker_node_parser)
         ParserDefaults.heartbeat_report_by_buffer(worker_node_parser)
         ParserDefaults.web_service_fqdn(worker_node_parser)
         ParserDefaults.web_service_port(worker_node_parser)
 
 
-def main(argstr: Optional[str] = None) -> None:
+def run(argstr: Optional[str] = None) -> ReturnCodes:
     """Entrypoint to create WorkerNode CLI."""
     cli = WorkerNodeCLI()
-    cli.main(argstr)
+    args = cli.parse_args(argstr)
+    return cli.run_task(args)
