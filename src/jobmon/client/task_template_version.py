@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import logging
 from http import HTTPStatus as StatusCodes
 from string import Formatter
 from typing import Dict, List, Optional, Tuple
@@ -10,8 +11,6 @@ from jobmon.client.client_config import ClientConfig
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientTaskTemplateVersion
-
-import structlog as logging
 
 
 logger = logging.getLogger(__name__)

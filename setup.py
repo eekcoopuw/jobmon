@@ -36,6 +36,7 @@ TEST_REQUIRES = [
     "mock",
     "filelock",
     'cluster_utils',
+    'tiny_structured_logger',
 ]
 
 # pip install -e .[docs]
@@ -44,6 +45,7 @@ DOCS_REQUIRES = [
     'sphinx-autodoc-typehints',
     'sphinx_rtd_theme',
     'graphviz',
+    'sphinx_code_tabs',
 ]
 
 

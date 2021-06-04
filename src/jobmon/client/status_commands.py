@@ -1,5 +1,6 @@
 """Commands to check for workflow and task status (from CLI)."""
 import getpass
+import logging
 from typing import List, Optional, Tuple
 
 from jobmon.client.client_config import ClientConfig
@@ -8,20 +9,22 @@ from jobmon.requester import Requester
 
 import pandas as pd
 
-import structlog as logging
-
-
 logger = logging.getLogger(__name__)
 
 
-def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
-                    json: bool = False, requester_url: Optional[str] = None) -> pd.DataFrame:
+def workflow_status(workflow_id: List[int] = [],
+                    user: List[str] = [],
+                    json: bool = False,
+                    requester_url: Optional[str] = None,
+                    limit: Optional[int] = [5]) -> pd.DataFrame:
     """Get metadata about workflow progress.
 
     Args:
         workflow_id: workflow_id/s to retrieve info for. If not specified will pull all
             workflows by user
         user: user/s to retrieve info for. If not specified will return for current user.
+        limit: return # of records order by wf id desc. Return 5 if not provided;
+            return all if [], [<0].
         json: Flag to return data as JSON
 
     Returns:
@@ -35,6 +38,7 @@ def workflow_status(workflow_id: List[int] = [], user: List[str] = [],
         msg["user"] = user
     else:
         msg["user"] = getpass.getuser()
+    msg["limit"] = limit
 
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url
@@ -190,8 +194,8 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
 def validate_username(workflow_id: int, username: str, requester: Requester) -> None:
     """Validate that the user is approved to make these changes."""
     rc, res = requester.send_request(
-        app_route=f"/cli/workflow/{workflow_id}/validate_username",
-        message={'username': username},
+        app_route=f"/cli/workflow/{workflow_id}/validate_username/{username}",
+        message={},
         request_type="get",
         logger=logger)
     if not res['validation']:
@@ -204,7 +208,7 @@ def validate_workflow(task_ids: List[int], requester: Requester) -> None:
     rc, res = requester.send_request(
         app_route="/cli/workflow_validation",
         message={'task_ids': task_ids},
-        request_type="get")
+        request_type="post")
 
     if not bool(res["validation"]):
         raise AssertionError("The give task ids belong to multiple workflow.")
@@ -222,7 +226,7 @@ def get_sub_task_tree(task_ids: list, task_status: list = None,
         app_route="/cli/task/subdag",
         message={'task_ids': task_ids,
                  'task_status': task_status},
-        request_type="get")
+        request_type="post")
     if rc != 200:
         raise AssertionError(f"Server return HTTP error code: {rc}")
     task_tree_dict = res["sub_task"]

@@ -2,6 +2,7 @@
 command.
 """
 import argparse
+import logging
 import os
 import shlex
 import signal
@@ -23,8 +24,6 @@ from jobmon.worker_node.worker_node_task_instance import (
 from jobmon.exceptions import ReturnCodes
 
 import pkg_resources
-
-import structlog as logging
 
 logger = logging.getLogger(__name__)
 

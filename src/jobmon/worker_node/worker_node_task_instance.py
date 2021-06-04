@@ -1,4 +1,5 @@
 """The Task Instance Object once it has been submitted to run on a worker node."""
+import logging
 import os
 import socket
 import traceback
@@ -9,9 +10,6 @@ from jobmon.cluster_type.api import register_cluster_plugin, import_cluster
 from jobmon.cluster_type.base import ClusterWorkerNode
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester, http_request_ok
-
-import structlog as logging
-
 from jobmon.serializers import SerializeClusterType
 
 logger = logging.getLogger(__name__)

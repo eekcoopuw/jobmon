@@ -1,4 +1,6 @@
 """Task Instance Database Table."""
+from flask import current_app as app
+
 from jobmon.serializers import SerializeExecutorTaskInstance
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition, KillSelfTransition
@@ -6,10 +8,6 @@ from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
 
 from sqlalchemy.sql import func
-
-import structlog as logging
-
-logger = logging.getLogger(__name__)
 
 
 class TaskInstance(DB.Model):
@@ -182,6 +180,11 @@ class TaskInstance(DB.Model):
     def transition(self, new_state):
         """Transition the TaskInstance status."""
         # if the transition is timely, move to new state. Otherwise do nothing
+        app.logger = app.logger.bind(workflow_run_id=self.workflow_run_id,
+                                     task_id=self.task_id,
+                                     task_instance_id=self.id)
+        app.logger.info(f"Transiting ti {self.id} from {self.status} "
+                        f"to {new_state}")
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
             self.status = new_state
@@ -196,6 +199,7 @@ class TaskInstance(DB.Model):
                 # if the task instance is F, the task status should be F too
                 self.task.transition(TaskStatus.ERROR_RECOVERABLE)
                 self.task.transition(TaskStatus.ERROR_FATAL)
+        app.logger.info(f"Status of ti {self.id} is now {self.status}")
 
     def _validate_transition(self, new_state):
         """Ensure the TaskInstance status transition is valid."""
@@ -209,6 +213,7 @@ class TaskInstance(DB.Model):
 
     def _is_timely_transition(self, new_state):
         """Check if the transition is invalid due to a race condition."""
+        app.logger.bind(task_instance_id=self.id)
         if (self.status, new_state) in self.__class__.untimely_transitions:
             msg = str(InvalidStateTransition(
                 'TaskInstance', self.id, self.status, new_state))
@@ -216,7 +221,7 @@ class TaskInstance(DB.Model):
                 ". This is an untimely transition likely caused by a race "
                 " condition between the UGE scheduler and the task instance"
                 " factory which logs the UGE id on the task instance.")
-            logger.warning(msg)
+            app.logger.warning(msg)
             return False
         else:
             return True

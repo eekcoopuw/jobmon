@@ -135,6 +135,65 @@ def test_static_resource_assignment(db_cfg, client_env):
             assert params['queue'] == "all.q"
 
 
+def test_executor_parameter_copy(db_cfg, client_env):
+    """test that 1 executorparameters object passed to multiple tasks are distinct objects,
+    and scaling 1 task does not scale the others"""
+    from jobmon.client.api import BashTask, UnknownWorkflow
+    from jobmon.client.swarm.swarm_task import SwarmTask
+    from jobmon.client.execution.strategies.sge import SGEExecutor  # noqa F401
+    from math import isclose
+
+    # Use SGEExecutor for adjust methods, but the executor is never called
+    # Therefore, not an SGEIntegration test
+    executor_parameters = ExecutorParameters(
+        m_mem_free='1G', max_runtime_seconds=60,
+        num_cores=1, queue='all.q',
+        executor_class="SGEExecutor",
+        resource_scales={'max_runtime_seconds': 0.5, 'm_mem_free': 0.5})
+
+    task1 = BashTask(name="foo", command="echo foo", executor_parameters=executor_parameters,
+                     executor_class="SGEExecutor")
+    task2 = BashTask(name="bar", command="echo bar", executor_parameters=executor_parameters,
+                     executor_class="SGEExecutor")
+
+    # Ensure memory addresses are different
+    assert id(executor_parameters) != id(task1.executor_parameters)
+    assert id(executor_parameters) != id(task2.executor_parameters)
+    assert id(task1.executor_parameters) != id(task2.executor_parameters)
+
+    # Create a workflow to bind the tasks
+    workflow = UnknownWorkflow(executor_class="SGEExecutor")
+    workflow.add_tasks([task1, task2])
+    workflow.bind()
+
+    task1.workflow_id = workflow.workflow_id
+    task2.workflow_id = workflow.workflow_id
+
+    task1.bind()
+    task2.bind()
+
+    # Create swarm tasks
+    swarmtask1 = SwarmTask(
+        task_id=task1.task_id,
+        status=task1.initial_status,
+        task_args_hash=task1.task_args_hash,
+        executor_parameters=task1.executor_parameters,
+        max_attempts=task1.max_attempts)
+
+    swarmtask2 = SwarmTask(
+        task_id=task2.task_id,
+        status=task2.initial_status,
+        task_args_hash=task2.task_args_hash,
+        executor_parameters=task2.executor_parameters,
+        max_attempts=task2.max_attempts)
+
+    # Adjust task 1
+    swarmtask1.bound_parameters.append(swarmtask1.get_executor_parameters())
+    adjusted_params = swarmtask1.adjust_resources(swarmtask1)
+    assert isclose(adjusted_params.m_mem_free, 1.5)  # Scaled by 1.5
+    assert isclose(swarmtask2.get_executor_parameters().m_mem_free, 1.0)  # Unscaled
+
+
 @pytest.mark.qsubs_jobs
 def test_resource_arguments(db_cfg, client_env):
     """

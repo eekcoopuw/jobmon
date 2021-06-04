@@ -1,6 +1,7 @@
 """Schedules and monitors state of Task Instances."""
 from __future__ import annotations
 
+import logging
 import multiprocessing as mp
 import sys
 import threading
@@ -14,8 +15,6 @@ from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import QsubAttribute, TaskInstanceStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, ResumeSet, WorkflowRunStateError
 from jobmon.requester import Requester, http_request_ok
-
-import structlog as logging
 
 import tblib.pickling_support
 

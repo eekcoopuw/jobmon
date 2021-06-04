@@ -27,6 +27,7 @@ from . import jobmon_scheduler, jobmon_worker
 def kill_self(task_instance_id: int):
     """Check a task instance's status to see if it needs to kill itself (state W, or L)."""
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    app.logger.debug(f"Checking whether ti {task_instance_id} should commit suicide.")
     kill_statuses = TaskInstance.kill_self_states
     query = """
         SELECT
@@ -41,6 +42,7 @@ def kill_self(task_instance_id: int):
         task_instance_id=task_instance_id,
         statuses=kill_statuses
     ).one_or_none()
+    app.logger.info(f"ti {task_instance_id} should_kill: {should_kill}")
     if should_kill is not None:
         resp = jsonify(should_kill=True)
     else:
@@ -57,6 +59,7 @@ def log_running(task_instance_id: int):
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     data = request.get_json()
+    app.logger.info(f"Log running for ti {task_instance_id}")
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(ti, TaskInstanceStatus.RUNNING)
     if data.get('executor_id', None) is not None:
@@ -86,7 +89,7 @@ def log_ti_report_by(task_instance_id: int):
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     data = request.get_json()
-    app.logger.debug(f"Log report_by for TI {task_instance_id}. Data={data}")
+    app.logger.debug(f"Log report_by for TI {task_instance_id}.")
 
     executor_id = data.get('executor_id', None)
     params = {}
@@ -168,7 +171,7 @@ def log_done(task_instance_id: int):
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     data = request.get_json()
-    app.logger.debug(f"Log DONE for TI {task_instance_id}. Data: {data}")
+    app.logger.info(f"Log DONE for TI {task_instance_id}.")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     if data.get('executor_id', None) is not None:
@@ -198,7 +201,7 @@ def log_error_worker_node(task_instance_id: int):
     error_message = data['error_message']
     executor_id = data.get('executor_id', None)
     nodename = data.get('nodename', None)
-    app.logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
+    app.logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
 
@@ -214,13 +217,14 @@ def log_error_worker_node(task_instance_id: int):
 
 
 @jobmon_worker.route('/task/<task_id>/most_recent_ti_error', methods=['GET'])
-def get_most_recent_ji_error(task_id: int):
+def get_most_recent_ti_error(task_id: int):
     """
     Route to determine the cause of the most recent task_instance's error
     :param task_id:
     :return: error message
     """
     app.logger = app.logger.bind(task_id=task_id)
+    app.logger.info(f"Getting most recent ji error for ti {task_id}")
     query = """
         SELECT
             tiel.*
@@ -239,9 +243,40 @@ def get_most_recent_ji_error(task_id: int):
     ).one_or_none()
     DB.session.commit()
     if ti_error is not None:
-        resp = jsonify({"error_description": ti_error.description})
+        resp = jsonify({"error_description": ti_error.description,
+                        "task_instance_id": ti_error.task_instance_id})
     else:
-        resp = jsonify({"error_description": ""})
+        resp = jsonify({"error_description": "",
+                        "task_instance_id": None})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_worker.route('/task_instance/<task_instance_id>/task_instance_error_log',
+                     methods=['GET'])
+def get_task_instance_error_log(task_instance_id: int):
+    """
+    Route to return all task_instance_error_log entries of the task_instance_id
+    :param task_instance_id:
+    :return: jsonified task_instance_error_log result set
+    """
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    app.logger.info(f"Getting task instance error log for ti {task_instance_id}")
+    query = """
+        SELECT
+            tiel.id, tiel.error_time, tiel.description
+        FROM
+            task_instance_error_log tiel
+        WHERE
+            tiel.task_instance_id = :task_instance_id
+        ORDER BY
+            tiel.id ASC"""
+    ti_errors = DB.session.query(TaskInstanceErrorLog).from_statement(text(query)).params(
+        task_instance_id=task_instance_id
+    ).all()
+    DB.session.commit()
+    resp = jsonify(task_instance_error_log=[tiel.to_wire_as_executor_task_instance_error_log()
+                                            for tiel in ti_errors])
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -262,6 +297,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
 
     # If we want to prioritize by task or workflow level it would be done in this query
     app.logger = app.logger.bind(workflow_id=workflow_id)
+    app.logger.info(f"Getting queued jobs for wf {workflow_id}")
     queue_limit_query = """
         SELECT (
             SELECT
@@ -284,7 +320,6 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
     concurrency_limit = DB.session.execute(
         queue_limit_query, {'workflow_id': int(workflow_id)}
     ).fetchone()[0]
-    print(concurrency_limit)
 
     # query if we aren't at the concurrency_limit
     if concurrency_limit > 0:
@@ -324,6 +359,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
         task_dcts = [t.to_wire_as_executor_task() for t in tasks]
     else:
         task_dcts = []
+    app.logger.info(f"Got wf {workflow_id} the following queued tasks: {task_dcts}")
     resp = jsonify(task_dcts=task_dcts)
     resp.status_code = StatusCodes.OK
     return resp
@@ -336,6 +372,7 @@ def get_suspicious_task_instances(workflow_run_id: int):
     reported as alive in the allocated time.
     """
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger.info(f"Getting suspicious tis for wfi {workflow_run_id}")
     query = """
         SELECT
             task_instance.id, task_instance.workflow_run_id,
@@ -364,6 +401,7 @@ def get_suspicious_task_instances(workflow_run_id: int):
 def get_task_instances_to_terminate(workflow_run_id: int):
     """Get the task instances for a given workflow run that need to be terminated."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger.info(f"Getting tis that should be terminated for wfr {workflow_run_id}")
     workflow_run = DB.session.query(WorkflowRun).filter_by(
         id=workflow_run_id
     ).one()
@@ -403,6 +441,7 @@ def set_maxpss(executor_id: int, maxpss: int):
     :return:
     """
     app.logger = app.logger.bind(executor_id=executor_id)
+    app.logger.info(f"Setting maxpss for executor_id {executor_id}")
     try:
         sql = f"UPDATE task_instance SET maxpss={maxpss} WHERE executor_id={executor_id}"
         DB.session.execute(sql)
@@ -457,6 +496,7 @@ def add_task_instance():
         data = request.get_json()
         task_id = data['task_id']
         app.logger = app.logger.bind(task_id=task_id)
+        app.logger.info(f"Add task instance for task {task_id}")
         # query task
         task = DB.session.query(Task).filter_by(id=task_id).first()
         DB.session.commit()
@@ -497,6 +537,7 @@ def add_task_instance():
 def log_no_executor_id(task_instance_id: int):
     """Log a task_instance_id that did not get an executor_id upon submission."""
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    app.logger.info(f"Logging ti {task_instance_id} did not get executor id upon submission")
     data = request.get_json()
     app.logger.debug(f"Log NO EXECUTOR ID for TI {task_instance_id}."
                      f"Data {data['executor_id']}")
@@ -528,7 +569,7 @@ def log_executor_id(task_instance_id: int):
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     data = request.get_json()
-    app.logger.debug(f"Log EXECUTOR ID for TI {task_instance_id}. Data {data}")
+    app.logger.info(f"Log EXECUTOR ID for TI {task_instance_id}.")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(
@@ -558,7 +599,7 @@ def log_known_error(task_instance_id: int):
     error_message = data['error_message']
     executor_id = data.get('executor_id', None)
     nodename = data.get('nodename', None)
-    app.logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
+    app.logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
     query = """
         SELECT
@@ -598,7 +639,7 @@ def log_unknown_error(task_instance_id: int):
     error_message = data['error_message']
     executor_id = data.get('executor_id', None)
     nodename = data.get('nodename', None)
-    app.logger.debug(f"Log ERROR for TI:{task_instance_id}. Data: {data}")
+    app.logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
     query = """
         SELECT
