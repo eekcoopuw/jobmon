@@ -30,6 +30,7 @@ class WorkerNodeTaskInstance:
     """The Task Instance object once it has been submitted to run on a worker node."""
 
     def __init__(self, task_instance_id: int,
+                 expected_jobmon_version: str,
                  cluster_type_name: str,
                  requester_url: Optional[str] = None):
         """The WorkerNodeTaskInstance is a mechanism whereby a running task_instance can
@@ -38,14 +39,12 @@ class WorkerNodeTaskInstance:
         Args:
             task_instance_id (int): the id of the job_instance_id that is
                 reporting back
-            task_instance_executor_info (TaskInstanceExecutorInfo): instance of
-                executor that was used for this job instance
-            nodename (str): hostname where this job_instance is running
-            process_group_id (int): linux process_group_id that this
-                job_instance is a part of
             requester_url (str): url to communicate with the flask services.
         """
         self.task_instance_id = task_instance_id
+        self.expected_jobmon_version=expected_jobmon_version,
+        self.cluster_type_name=cluster_type_name,
+
         self._executor_id: Optional[int] = None
         self._nodename: Optional[str] = None
         self._process_group_id: Optional[int] = None
@@ -228,8 +227,7 @@ class WorkerNodeTaskInstance:
             logger.debug("task instance does not need to kill itself")
             return False
 
-    def run(self, expected_jobmon_version: str,
-               temp_dir: Optional[str] = None,
+    def run(self, temp_dir: Optional[str] = None,
                heartbeat_interval: float = 90, report_by_buffer: float = 3.1) -> ReturnCodes:
         """This script executes on the target node and wraps the target application. Could be in
         any language, anything that can execute on linux.Similar to a stub or a container set ENV
@@ -238,8 +236,8 @@ class WorkerNodeTaskInstance:
         os.environ["JOBMON_JOB_INSTANCE_ID"] = str(self.task_instance_id)
 
         version = pkg_resources.get_distribution("jobmon").version
-        if version != expected_jobmon_version:
-            msg = (f"Your expected Jobmon version is {expected_jobmon_version} and your "
+        if version != self.expected_jobmon_version:
+            msg = (f"Your expected Jobmon version is {self.expected_jobmon_version} and your "
                    f"worker node is using {version}. Please check your bash profile ")
             logger.error(msg)
             sys.exit(ReturnCodes.WORKER_NODE_ENV_FAILURE)
@@ -310,27 +308,6 @@ def kill_self(child_process: subprocess.Popen = None) -> None:
     if child_process:
         child_process.kill()
     sys.exit(signal.SIGKILL)
-
-
-def parse_arguments(argstr: Optional[str] = None) -> dict:
-    """Parse out the components of the command sent to the node."""
-    # parse arguments
-    logger.debug("parsing arguments")
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--task_instance_id", required=True, type=int)
-    parser.add_argument("--expected_jobmon_version", required=True)
-    parser.add_argument("--cluster_type_name", required=True)
-    parser.add_argument("--temp_dir", required=False)
-    parser.add_argument("--heartbeat_interval", default=90, type=float)
-    parser.add_argument("--report_by_buffer", default=3.1, type=float)
-
-    if argstr is not None:
-        arglist = shlex.split(argstr)
-        args = parser.parse_args(arglist)
-    else:
-        args = parser.parse_args()
-
-    return vars(args)
 
 
 def _run_in_sub_process(command: str, temp_dir: Optional[str], heartbeat_interval: float,

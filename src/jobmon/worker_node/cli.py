@@ -31,13 +31,13 @@ class WorkerNodeCLI(CLI):
         )
 
         worker_node_task_instance = WorkerNodeTaskInstance(
-            task_instance_id=worker_node_config.task_instance_id,
-            cluster_type_name=worker_node_config.cluster_type_name,
+            task_instance_id=args.task_instance_id,
+            expected_jobmon_version=args.expected_jobmon_version,
+            cluster_type_name=args.cluster_type_name,
             requester_url=worker_node_config.url
         )
 
         return worker_node_task_instance.run(
-                expected_jobmon_version=worker_node_config.expected_jobmon_version,
                 heartbeat_interval=worker_node_config.task_instance_heartbeat_interval,
                 report_by_buffer=worker_node_config.heartbeat_report_by_buffer)
 
