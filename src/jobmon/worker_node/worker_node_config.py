@@ -1,6 +1,4 @@
 """Configuration specific to worker node."""
-from typing import Optional
-
 from jobmon.config import CLI, ParserDefaults
 
 

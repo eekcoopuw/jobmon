@@ -77,74 +77,153 @@ or :doc:`Executor Parameter Reference <api/jobmon.client.execution>`
     advantage of all of the metadata. To see more information on the recommended way, check
     out the Tool and TaskTemplate example further down. :ref:`Nodes, TaskTemplates, and Tools`
 
-Constructing a Workflow and adding a few Tasks is simple::
+Constructing a Workflow and adding a few Tasks is simple:
 
-    import os
-    import getpass
-    import uuid
+.. code-tabs::
 
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-    from jobmon.client.templates.bash_task import BashTask
-    from jobmon.client.templates.python_task import PythonTask
+    .. code-tab:: python
+      :title: Python
 
+      import os
+      import getpass
+      import uuid
 
-    def workflow_template_example():
-            """
-            Instructions:
-                This workflow uses workflow templates (UnknownWorkflow, BashTasks, and PythonTasks).
-                One of the benefits of using templates is that they are compatible with previous
-                versions of Jobmon and the new Jobmon_2.0.* series. (Guppy release)
-
-                The steps in this example are:
-                1. Create a workflow using the UnknownWorkflow template
-                2. Create tasks using the BashTask and PythonTask template
-                3. Add created tasks to the workflow
-                4. Run the workflow
-
-            To actually run the provided example:
-                with Jobmon installed in your conda environment from the root of the repo, run:
-                   $ python training_scripts/workflow_template_example.py
-            """
-
-            user = getpass.getuser()
-            wf_uuid = uuid.uuid4()
-            script_path = os.path.abspath(os.path.dirname(__file__))
+      from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+      from jobmon.client.templates.bash_task import BashTask
+      from jobmon.client.templates.python_task import PythonTask
 
 
-            # Create a workflow
-            workflow = Workflow(
-                name = f"template_workflow_{wf_uuid}",
-                description = "template_workflow",
-                executor_class = "SGEExecutor",
-                stderr = f"/ihme/scratch/users/{user}/{wf_uuid}",
-                stdout = f"/ihme/scratch/users/{user}/{wf_uuid}",
-                project = "proj_scicomp"  # specify your team's project
-            )
+      def workflow_template_example():
+      """
+      Instructions:
+        This workflow uses workflow templates (UnknownWorkflow, BashTasks, and PythonTasks).
+        One of the benefits of using templates is that they are compatible with previous
+        versions of Jobmon and the new Jobmon_2.0.* series. (Guppy release)
 
-            # Create tasks
-            task1 = BashTask(
-                command = "echo task1",
-                executor_class = "SGEExecutor"
-            )
+        The steps in this example are:
+        1. Create a workflow using the UnknownWorkflow template
+        2. Create tasks using the BashTask and PythonTask template
+        3. Add created tasks to the workflow
+        4. Run the workflow
 
-            task2 = BashTask(
-                command = "echo task2",
-                executor_class = "SGEExecutor",
-                upstream_tasks = [task1]
-            )
+      To actually run the provided example:
+        with Jobmon installed in your conda environment from the root of the repo, run:
+           $ python training_scripts/workflow_template_example.py
+      """
 
-            task3 = PythonTask(
-                script = os.path.join(script_path, 'test_scripts/test.py'),
-                args = ["--args1", "val1", "--args2", "val2"],
-                executor_class = "SGEExecutor",
-                upstream_tasks = [task2]
-            )
+      user = getpass.getuser()
+      wf_uuid = uuid.uuid4()
+      script_path = os.path.abspath(os.path.dirname(__file__))
 
-            # add task to workflow
-            workflow.add_tasks([task1, task2, task3])
 
-            # run workflow
-            workflow.run()
+      # Create a workflow
+      workflow = Workflow(
+        name = f"template_workflow_{wf_uuid}",
+        description = "template_workflow",
+        executor_class = "SGEExecutor",
+        stderr = f"/ihme/scratch/users/{user}/{wf_uuid}",
+        stdout = f"/ihme/scratch/users/{user}/{wf_uuid}",
+        project = "proj_scicomp"  # specify your team's project
+      )
+
+      # Create tasks
+      task1 = BashTask(
+        command = "echo task1",
+        executor_class = "SGEExecutor"
+      )
+
+      task2 = BashTask(
+        command = "echo task2",
+        executor_class = "SGEExecutor",
+        upstream_tasks = [task1]
+      )
+
+      task3 = PythonTask(
+        script = os.path.join(script_path, 'test_scripts/test.py'),
+        args = ["--args1", "val1", "--args2", "val2"],
+        executor_class = "SGEExecutor",
+        upstream_tasks = [task2]
+      )
+
+      # add task to workflow
+      workflow.add_tasks([task1, task2, task3])
+
+      # run workflow
+      workflow.run()
+
+    .. code-tab:: R
+      :title: R
+
+      Sys.setenv("RETICULATE_PYTHON"='/mnt/team/scicomp/envs/jobmon/bin/python')  # Set the Python interpreter path
+      library(jobmonr)
+
+      # Create a workflow
+      username <- Sys.getenv("USER")
+      script_path <- '/mnt/team/scicomp/training/test_scripts/test.py'  # Update with your repository installation
+
+      # Templates are not supported in the R client, since there are no Jobmon 1.* R clients.
+      # Create a tool
+
+      my_tool <- tool(name='r_example_tool')
+
+      # Bind a workflow to the tool
+      wf <- workflow(tool,
+        workflow_args=paste0('template_workflow_', Sys.Date()),
+        name='template_workflow')
+
+      # Set the executor
+      wf <- set_executor(wf, executor_class='SGEExecutor')
+
+      # Create an echoing task template
+      echo_tt <- task_template(tool=my_tool,
+        template_name='echo_templ',
+        command_template='echo {}',
+        task_args=list('echo_str'))
+
+
+      # Create template to run our script
+      script_tt <- task_template(tool=my_tool,
+        template_name='test_templ',
+        command_template=paste0(Sys.getenv("RETICULATE_PYTHON"), ' ', script_path, ' --args1 {val1} --args2 {val2}'),
+        task_args=list('val1', 'val2'))
+
+
+      # Define executor parameters for our tasks
+      params <- executor_parameters(num_cores=1,
+        m_mem_free="1G",
+        queue='all.q',
+        max_runtime_seconds=100)
+
+      # Create two sleepy tasks
+      task1 <- task(task_template=echo_tt,
+        executor_parameters=copy(params),  # Copied to prevent parallel resource scaling
+        name='echo_1',
+        echo_str="task1")
+
+      task2 <- task(task_template=echo_tt,
+        executor_parameters=copy(params),
+        name='echo_2',
+        upstream_tasks=list(task1), # Depends on the previous task,
+        echo_str="task2")
+
+      # Add the test script task
+      test_task <- task(task_template=tt,
+        executor_parameters=copy(params),
+        name='test_task',
+        upstream_tasks=list(task2),
+        val1="val1",
+        val2="val2"
+        )
+
+      # Add tasks to the workflow
+      wf <- add_tasks(wf, list(task1, task2, task3))
+
+      # Run it
+      wfr <- run(
+        workflow=wf,
+        resume=FALSE,
+        seconds_until_timeout=7200)
+
 
 .. note::
     Unique Workflows: If you know that your Workflow is to be used for a
@@ -164,12 +243,17 @@ cores (num_cores), memory (m_mem_free), and runtime (max_runtime_seconds). By de
 used will be 1, mem_free will be 1G, and max attempts will be 3. Stderr, stdout, project,
 and working_dir (if desired) are set at the Workflow level (see below).
 
-Example of adding ExecutorParameters to a Task::
+Example of adding ExecutorParameters to a Task:
 
-    from jobmon.client.api import ExecutorParameters
-    from jobmon.client.templates.bash_task import BashTask
+.. code-tabs::
 
-    #Create ExecutorParameter
+    .. code-tab:: python
+      :title: Python
+
+        from jobmon.client.api import ExecutorParameters
+        from jobmon.client.templates.bash_task import BashTask
+
+        #Create ExecutorParameter
         executor_parameters_example = ExecutorParameters(
             m_mem_free = "1G",
             num_cores = 1,
@@ -184,6 +268,18 @@ Example of adding ExecutorParameters to a Task::
             executor_parameters = executor_parameters_example
         )
 
+    .. code-tab:: R
+      :title: R
+
+        library(jobmonr)
+        executor_parameters_example <- executor_parameters(
+            m_mem_free="1G",
+            num_cores=1,
+            queue='all.q',
+            max_runtime_seconds=60,
+            executor_class="SGEExecutor")
+
+
 Additional Arguments: If you need to launch a Python, R, or Stata job, but
 usually do so with a shellscript that sets environment variables before
 running the full program, you can pass these environment variables to your
@@ -193,7 +289,12 @@ each node where the code executes. These additional arguments are called
 context_args.
 
 For example if you wanted to specify a host to run on, you would add context_args to a
-task's ExecutorParameters::
+task's ExecutorParameters
+
+.. code-tabs::
+
+    .. code-tab:: python
+      :title: Python
 
         #Create ExecutorParameter
         executor_parameters_example = ExecutorParameters(
@@ -205,6 +306,18 @@ task's ExecutorParameters::
             context_args={"sge_add_args": "-l hostname=<hostname>"}
         )
 
+    .. code-tab:: R
+        :title: R
+
+        # Create Executor Parameter
+        executor_parameters_example <- executor_parameters(
+            m_mem_free = "1G",
+            num_cores = 1,
+            queue = "all.q",
+            max_runtime_seconds = 60,
+            executor_class="SGEExecutor",
+            context_args=list("sge_add_args"="-l hostname=<hostname>")
+        )
 
 .. note::
     By default Workflows are set to time out if all of your tasks haven't
@@ -396,6 +509,16 @@ For example::
 
         # Run the workflow
         workflow.run()
+
+Logging
+===============================
+To attach Jobmon's simple formatted logger use the following code.
+
+For example::
+
+    from jobmon.client.client_logging import ClientLogging
+
+    ClientLogging().attach()
 
 Jobmon Commands
 =======================================

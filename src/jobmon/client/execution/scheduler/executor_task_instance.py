@@ -1,6 +1,7 @@
 """Task Instance object from the scheduler's perspective."""
 from __future__ import annotations
 
+import logging
 import time
 from http import HTTPStatus as StatusCodes
 from typing import Optional
@@ -11,8 +12,6 @@ from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeExecutorTaskInstance
-
-import structlog as logging
 
 
 logger = logging.getLogger(__name__)

@@ -8,6 +8,9 @@ pipeline {
     string(defaultValue: 'jobmon-dev',
      description: 'Kubernetes Namespace to deploy to',
      name: 'K8S_NAMESPACE')
+    string(defaultValue: 'jobmon-reapers-dev',
+     description: 'Kubernetes Namespace to deploy to',
+     name: 'K8S_REAPER_NAMESPACE')
     string(defaultValue: 'jobmon-dev-ips',
      description: 'Name of the MetalLB IP Pool you wish to get IPs from: https://stash.ihme.washington.edu/projects/ID/repos/metallb-scicomp/browse/k8s/scicomp-cluster-metallb.yml',
      name: 'METALLB_IP_POOL')
@@ -39,7 +42,6 @@ pipeline {
     DOCKER_ACTIVATE = "source /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
     QLOGIN_ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
     SCICOMP_DOCKER_REG_URL = "docker-scicomp.artifactory.ihme.washington.edu"
-    INFRA_PUB_REG_URL="docker-infrapub.artifactory.ihme.washington.edu"
   }
   stages {
     stage ('Get TARGET_IP address') {
@@ -53,7 +55,7 @@ pipeline {
             sh '''#!/bin/bash
                   . ${WORKSPACE}/ci/deploy_utils.sh
                   docker image prune -f
-                  get_metallb_cfg "${INFRA_PUB_REG_URL}/kubectl:latest" ${WORKSPACE}
+                  get_metallb_cfg ${WORKSPACE}
                '''
           }
           script {
@@ -151,7 +153,6 @@ pipeline {
             sh '''#!/bin/bash
                   . ${WORKSPACE}/ci/deploy_utils.sh
                   deploy_jobmon_to_k8s \
-                      "${INFRA_PUB_REG_URL}/yasha:latest" \
                       ${WORKSPACE} \
                       ${JOBMON_CONTAINER_URI} \
                       ${METALLB_IP_POOL} \
@@ -161,10 +162,10 @@ pipeline {
                       ${RANCHER_DB_SECRET} \
                       ${RANCHER_SLACK_SECRET} \
                       ${RANCHER_QPID_SECRET} \
-                      "${INFRA_PUB_REG_URL}/kubectl:latest" \
                       ${KUBECONFIG} \
                       ${USE_LOGSTASH} \
-                      ${JOBMON_VERSION}
+                      ${JOBMON_VERSION} \
+                      ${K8S_REAPER_NAMESPACE}
                '''
           }
         }
@@ -173,7 +174,13 @@ pipeline {
     stage ('Test Deployment') {
       steps {
         node('qlogin') {
+          // Download jobmon
           checkout scm
+          // Download jobmonr
+          sshagent (credentials: ['svcscicompci']) {
+              sh "rm -rf jobmonr"
+              sh "git clone ssh://git@stash.ihme.washington.edu:7999/scic/jobmonr.git"
+           }
           sh '''#!/bin/bash
                 . ${WORKSPACE}/ci/deploy_utils.sh
                 test_k8s_deployment \
@@ -181,6 +188,18 @@ pipeline {
                     "${QLOGIN_ACTIVATE}" \
                     ${JOBMON_VERSION}
              '''
+        }
+      }
+    }
+    stage ('Create Shared Conda') {
+      steps {
+        node('qlogin') {
+          sh '''. ${WORKSPACE}/ci/share_conda_install.sh \
+                   /mnt/team/scicomp/pub/shared_jobmon_conda \
+                   ${JOBMON_VERSION} \
+                   /homes/svcscicompci/miniconda3/bin/conda
+             '''
+          }
         }
       }
     }

@@ -1,11 +1,12 @@
 """Task object used by scheduler to create Task Instances from."""
 from __future__ import annotations
 
+import logging
+
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeExecutorTask
 
-import structlog as logging
 
 logger = logging.getLogger(__name__)
 

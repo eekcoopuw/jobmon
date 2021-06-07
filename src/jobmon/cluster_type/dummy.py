@@ -1,10 +1,8 @@
 """Dummy Executor fakes execution for testing purposes."""
+import logging
 import random
-
-#from jobmon.client.execution.strategies.base import Executor, ExecutorParameters
 from typing import Dict, Any
 
-import structlog as logging
 
 from jobmon.cluster_type.base import ClusterDistributor
 
