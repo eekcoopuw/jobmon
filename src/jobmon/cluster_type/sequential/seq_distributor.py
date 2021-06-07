@@ -7,7 +7,7 @@ from typing import Optional, List, Tuple, Dict, Any
 from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-from jobmon.worker_node.execution_wrapper import parse_arguments, unwrap
+from jobmon.worker_node.cli import WorkerNodeCLI
 
 
 logger = logging.getLogger(__name__)
@@ -73,7 +73,10 @@ class SequentialDistributor(ClusterDistributor):
 
         # run the job and log the exit code
         try:
-            exit_code = unwrap(**parse_arguments(command))
+            cli = WorkerNodeCLI()
+            args = cli.parse_args(command)
+            exit_code = cli.run_task(args)
+            #exit_code = unwrap(**parse_arguments(command))
         except SystemExit as e:
             if e.code == 199:
                 exit_code = e.code

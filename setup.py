@@ -94,7 +94,7 @@ setup(
             'jobmon=jobmon.client.cli:main',
             'jobmon_scheduler=jobmon.client.execution.cli:main',
             'jobmon_server=jobmon.server.cli:main [server]',
-            'jobmon_command=jobmon.client.execution.worker_node.execution_wrapper:main'
+            'jobmon_command=jobmon.worker_node.cli:run'
         ]
     }
 )
