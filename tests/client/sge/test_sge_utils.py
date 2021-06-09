@@ -3,7 +3,7 @@ import os
 import os.path as path
 from unittest.mock import patch
 
-from jobmon.client.execution.strategies.sge.sge_utils import (
+from jobmon.client.distributor.strategies.sge.sge_utils import (
     convert_wallclock_to_seconds, qacct_exit_status, true_path)
 
 import pytest

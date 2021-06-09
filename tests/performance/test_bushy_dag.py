@@ -113,7 +113,7 @@ def test_bushy_dag(db_cfg, client_env, monkeypatch):
     """
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
     from jobmon.client.templates.bash_task import BashTask
-    from jobmon.client.execution.strategies.base import ExecutorParameters
+    from jobmon.client.distributor.strategies.base import ExecutorParameters
     from jobmon.client.swarm.workflow_run import WorkflowRun
 
     monkeypatch.setattr(
@@ -174,7 +174,7 @@ def test_bushy_dag_prev(db_cfg, client_env, monkeypatch):
     """
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
     from jobmon.client.templates.bash_task import BashTask
-    from jobmon.client.execution.strategies.base import ExecutorParameters
+    from jobmon.client.distributor.strategies.base import ExecutorParameters
     from jobmon.client.swarm.workflow_run import WorkflowRun
     from jobmon.client.swarm.swarm_task import SwarmTask
 

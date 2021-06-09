@@ -20,7 +20,7 @@ import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import text
 
-from . import jobmon_cli, jobmon_client, jobmon_swarm
+from . import jobmon_cli, jobmon_client, jobmon_swarm, jobmon_distributor
 
 _cli_label_mapping = {
     "A": "PENDING",
@@ -635,5 +635,89 @@ def get_workflow_user_validation(workflow_id: int, username: str):
 
     resp = jsonify(validation=username in usernames)
 
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_distributor.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
+                          methods=['GET'])
+def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
+    """Returns oldest n tasks (or all tasks if total queued tasks < n) to be
+    instantiated. Because the SGE can only qsub tasks at a certain rate, and we
+    poll every 10 seconds, it does not make sense to return all tasks that are
+    queued because only a subset of them can actually be instantiated
+    Args:
+        workflow_id: id of workflow
+        n_queued_tasks: number of tasks to queue
+        last_sync (datetime): time since when to get tasks
+    """
+    # <usertablename>_<columnname>.
+
+    # If we want to prioritize by task or workflow level it would be done in this query
+    app.logger = app.logger.bind(workflow_id=workflow_id)
+    app.logger.info(f"Getting queued jobs for wf {workflow_id}")
+    queue_limit_query = """
+        SELECT (
+            SELECT
+                max_concurrently_running
+            FROM
+                workflow
+            WHERE
+                id = :workflow_id
+            ) - (
+            SELECT
+                count(*)
+            FROM
+                task
+            WHERE
+                task.workflow_id = :workflow_id
+                AND task.status IN ("I", "R")
+            )
+        AS queue_limit
+    """
+    concurrency_limit = DB.session.execute(
+        queue_limit_query, {'workflow_id': int(workflow_id)}
+    ).fetchone()[0]
+
+    # query if we aren't at the concurrency_limit
+    if concurrency_limit > 0:
+        concurrency_limit = min(int(concurrency_limit), int(n_queued_tasks))
+        task_query = """
+            SELECT
+                task.id AS task_id,
+                task.workflow_id AS task_workflow_id,
+                task.node_id AS task_node_id,
+                task.task_args_hash AS task_task_args_hash,
+                task.name AS task_name,
+                task.command AS task_command,
+                task.status AS task_status,
+                task_resources.queue_id AS task_resources_queue_id,
+                task_resources.task_resources_type_id AS task_resources_type_id,
+                task_resources.resource_scales AS task_resources_resource_scales,
+                task_resources.requested_resources AS task_resources_requested_resources
+            FROM
+                task
+            JOIN
+                task_resources
+                ON task.task_resources_id = task_resources.id
+            JOIN
+                workflow
+                ON task.workflow_id = workflow.id
+            WHERE
+                task.workflow_id = :workflow_id
+                AND task.status = "Q"
+            LIMIT :concurrency_limit
+        """
+
+        tasks = DB.session.query(Task).from_statement(text(task_query)).params(
+            workflow_id=workflow_id,
+            concurrency_limit=concurrency_limit
+        ).all()
+        DB.session.commit()
+        task_dcts = [t.to_wire_as_distributor_task() for t in tasks]
+    else:
+        task_dcts = []
+    app.logger.info(f"Got wf {workflow_id} the following queued tasks: {task_dcts}")
+    resp = jsonify(task_dcts=task_dcts)
     resp.status_code = StatusCodes.OK
     return resp

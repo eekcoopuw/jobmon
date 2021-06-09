@@ -1,11 +1,11 @@
-"""Configuration specific to scheduler."""
+"""Configuration specific to distributor."""
 from typing import Optional
 
 from jobmon.config import CLI, ParserDefaults
 
 
-class SchedulerConfig:
-    """Configuration specific to scheduler."""
+class DistributorConfig:
+    """Configuration specific to distributor."""
 
     @classmethod
     def from_defaults(cls):
@@ -16,8 +16,8 @@ class SchedulerConfig:
         ParserDefaults.workflow_run_heartbeat_interval(cli.parser)
         ParserDefaults.task_instance_heartbeat_interval(cli.parser)
         ParserDefaults.heartbeat_report_by_buffer(cli.parser)
-        ParserDefaults.scheduler_n_queued(cli.parser)
-        ParserDefaults.scheduler_poll_interval(cli.parser)
+        ParserDefaults.distributor_n_queued(cli.parser)
+        ParserDefaults.distributor_poll_interval(cli.parser)
         ParserDefaults.web_service_fqdn(cli.parser)
         ParserDefaults.web_service_port(cli.parser)
         ParserDefaults.use_logstash(cli.parser)
@@ -33,8 +33,8 @@ class SchedulerConfig:
             workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
             task_heartbeat_interval=args.task_instance_heartbeat_interval,
             heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
-            n_queued=args.scheduler_n_queued,
-            scheduler_poll_interval=args.scheduler_poll_interval,
+            n_queued=args.distributor_n_queued,
+            distributor_poll_interval=args.distributor_poll_interval,
             web_service_fqdn=args.web_service_fqdn,
             web_service_port=args.web_service_port,
             use_logstash=args.use_logstash,
@@ -45,7 +45,7 @@ class SchedulerConfig:
 
     def __init__(self, workflow_run_heartbeat_interval: int, task_heartbeat_interval: int,
                  heartbeat_report_by_buffer: float, n_queued: int,
-                 scheduler_poll_interval: int, web_service_fqdn: str, web_service_port: str,
+                 distributor_poll_interval: int, web_service_fqdn: str, web_service_port: str,
                  jobmon_command: Optional[str] = None, use_logstash: bool = False,
                  logstash_host: str = "", logstash_port: str = "",
                  logstash_protocol: str = ""):
@@ -54,7 +54,7 @@ class SchedulerConfig:
         self.task_heartbeat_interval = task_heartbeat_interval
         self.heartbeat_report_by_buffer = heartbeat_report_by_buffer
         self.n_queued = n_queued
-        self.scheduler_poll_interval = scheduler_poll_interval
+        self.distributor_poll_interval = distributor_poll_interval
         self.web_service_fqdn = web_service_fqdn
         self.web_service_port = web_service_port
         self.use_logstash = use_logstash

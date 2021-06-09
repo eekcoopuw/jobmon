@@ -13,8 +13,8 @@ class TaskInstanceStatus:
     """Statuses used for Task Instances."""
 
     INSTANTIATED = 'I'
-    NO_EXECUTOR_ID = 'W'
-    SUBMITTED_TO_BATCH_EXECUTOR = 'B'
+    NO_DISTRIBUTOR_ID = 'W'
+    SUBMITTED_TO_BATCH_DISTRIBUTOR = 'B'
     RUNNING = 'R'
     RESOURCE_ERROR = 'Z'
     UNKNOWN_ERROR = 'U'
@@ -72,6 +72,6 @@ class WorkflowStatus:
 class QsubAttribute:
     """SGE exit codes that Jobmon will detect and handle in a special way."""
 
-    NO_EXEC_ID = -99999
+    NO_DIST_ID = -99999
     UNPARSABLE = -33333
     ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)

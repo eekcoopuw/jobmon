@@ -2,7 +2,7 @@ from functools import partial
 from time import sleep
 
 from jobmon.client import ClientLogging as logging
-from jobmon.client.execution.strategies.sge import sge_utils
+from jobmon.client.distributor.strategies.sge import sge_utils
 
 import pytest
 

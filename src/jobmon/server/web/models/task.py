@@ -1,7 +1,7 @@
 """Task Table for the Database."""
 from flask import current_app as app
 
-from jobmon.serializers import SerializeExecutorTask, SerializeSwarmTask
+from jobmon.serializers import SerializeDistributorTask, SerializeSwarmTask
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
@@ -15,9 +15,9 @@ class Task(DB.Model):
 
     __tablename__ = "task"
 
-    def to_wire_as_executor_task(self):
+    def to_wire_as_distributor_task(self):
         """Serialize executor task object."""
-        serialized = SerializeExecutorTask.to_wire(
+        serialized = SerializeDistributorTask.to_wire(
             task_id=self.id,
             workflow_id=self.workflow_id,
             node_id=self.node_id,
@@ -26,8 +26,6 @@ class Task(DB.Model):
             command=self.command,
             status=self.status,
             queue_id=self.task_resources.queue_id,
-            task_resources_type_id=self.task_resources.task_resources_type_id,
-            resource_scales=self.task_resources.resource_scales,
             requested_resources=self.task_resources.requested_resources)
         return serialized
 

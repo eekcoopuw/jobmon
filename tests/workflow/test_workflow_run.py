@@ -11,7 +11,7 @@ import pytest
 logger = logging.getLogger(__name__)
 
 
-class MockSchedulerProc:
+class MockDistributorProc:
 
     def is_alive(self):
         return True
@@ -19,7 +19,7 @@ class MockSchedulerProc:
 
 def test_blocking_update_timeout(client_env):
     """This test runs a 1 task workflow and confirms that the workflow_run
-    execution will timeout with an appropriate error message if timeout is set
+    distributor will timeout with an appropriate error message if timeout is set
     """
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
@@ -37,7 +37,7 @@ def test_blocking_update_timeout(client_env):
     wfr.update_status(WorkflowRunStatus.LAUNCHED)
 
     with pytest.raises(RuntimeError) as error:
-        wfr.execute_interruptible(MockSchedulerProc(),
+        wfr.execute_interruptible(MockDistributorProc(),
                                   seconds_until_timeout=2)
 
     expected_msg = ("Not all tasks completed within the given workflow "
@@ -52,8 +52,8 @@ def test_sync(client_env):
     swarm objects"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
 
     task = BashTask(command="fizzbuzz", name="bar", max_attempts=1)
 
@@ -67,15 +67,15 @@ def test_sync(client_env):
     assert now is not None
 
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
 
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockSchedulerProc(),
+        wfr.execute_interruptible(MockDistributorProc(),
                                   seconds_until_timeout=2)
 
-    scheduler._get_tasks_queued_for_instantiation()
-    scheduler.schedule()
+    distributor._get_tasks_queued_for_instantiation()
+    distributor.distribute()
 
     time.sleep(1)
     wfr._parse_adjusting_done_and_errors(wfr._task_status_updates())
@@ -92,13 +92,13 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
     status collection in the workflow run to fail. Instead the test uses the
     wedged_workflow_sync_interval set to 1 second to force a full sync of
     the workflow tasks which resolves the wedge"""
-    from jobmon.client.execution.strategies import dummy
-    from jobmon.client.execution.worker_node.execution_wrapper \
+    from jobmon.client.distributor.strategies import dummy
+    from jobmon.client.distributor.worker_node.execution_wrapper \
         import parse_arguments
     from jobmon.client.api import BashTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
 
     class MockDummyExecutor(dummy.DummyExecutor):
 
@@ -180,7 +180,7 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
         wfr._adjust_resources_and_queue(swarm_task)
 
     # run initial sync
-    wfr._scheduler_proc = MockSchedulerProc()
+    wfr._distributor_proc = MockDistributorProc()
     with pytest.raises(RuntimeError):
         wfr._execute(seconds_until_timeout=1)
     assert wfr.swarm_tasks[t1.task_id].status == \
@@ -194,10 +194,10 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
     execute = MockDummyExecutor()
     execute.wedged_task_id = t2.task_id
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
-    scheduler.executor.start()
-    scheduler.schedule()
+    distributor.executor.start()
+    distributor.distribute()
 
     # run the normal workflow sync protocol. only t1 should be done
     with pytest.raises(RuntimeError):
@@ -216,8 +216,8 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
     assert wfr.swarm_tasks[t3.task_id].status == \
         TaskStatus.QUEUED_FOR_INSTANTIATION
 
-    # schedule the third task
-    scheduler.schedule()
+    # distribute the third task
+    distributor.distribute()
 
     # confirm that the final task finishes appropiately
     completed, _ = wfr._block_until_any_done_or_error(timeout=1)
@@ -228,7 +228,7 @@ def test_fail_fast(client_env):
     """set up a dag where a middle job fails. The fail_fast parameter should
     ensure that not all tasks finish"""
     from jobmon.client.api import BashTask, Tool
-    from jobmon.client.execution.strategies.sequential import \
+    from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
 
     # The sleep for t3 must be long so that the executor has time to notice that t2
@@ -257,9 +257,8 @@ def test_fail_fast(client_env):
 @pytest.mark.integration_sge
 def test_fail_fast_resource_scaling(db_cfg, client_env):
     """test that resources kill won't fail fast"""
-    from jobmon.client.execution.strategies.base import ExecutorParameters
+    from jobmon.client.distributor.strategies.base import ExecutorParameters
     from jobmon.client.api import BashTask, Tool
-    from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
 
     unknown_tool = Tool()
     workflow = unknown_tool.create_workflow(name="test_fail_fast")
@@ -333,7 +332,7 @@ def test_fail_fast_resource_scaling(db_cfg, client_env):
 def test_propagate_result(client_env):
     """set up workflow with 3 tasks on one layer and 3 tasks as dependant"""
     from jobmon.client.api import BashTask, Tool
-    from jobmon.client.execution.strategies.sequential import \
+    from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
 
     unknown_tool = Tool()
@@ -364,7 +363,7 @@ def test_instantiating_launched(db_cfg, client_env):
     from jobmon.client.api import Tool, BashTask
     from jobmon.requester import Requester
     from jobmon.client.client_config import ClientConfig
-    from jobmon.client.execution.strategies.sequential import \
+    from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
     from jobmon.constants import WorkflowRunStatus, WorkflowStatus
 
@@ -439,8 +438,8 @@ def test_instantiating_launched(db_cfg, client_env):
         DB.session.commit()
     assert res == (WorkflowStatus.QUEUED, WorkflowRunStatus.BOUND)
 
-    # Start the scheduler
-    workflow._start_task_instance_scheduler(
+    # Start the distributor
+    workflow._start_task_instance_distributor(
         wfr2.workflow_run_id, 180)
 
     with app.app_context():

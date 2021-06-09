@@ -13,7 +13,7 @@ TOTAL_TASKS = 1000
 @pytest.mark.performance_tests
 def test_bulk_request_too_large(db_cfg, client_env):
     """test that bulk bind can handle an extremely large bind request."""
-    from jobmon.client.execution.strategies.multiprocess import MultiprocessExecutor
+    from jobmon.client.distributor.strategies.multiprocess import MultiprocessExecutor
     from jobmon.client.api import Tool, BashTask
     num_tasks = 50
     large_cmd = "--abc ajfkadsljaskdfjadssdfhawe --bcd njdslgerdgfgbdfasfasdfasdfadssfadsfaf" \

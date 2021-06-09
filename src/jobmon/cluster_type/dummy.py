@@ -1,4 +1,4 @@
-"""Dummy Executor fakes execution for testing purposes."""
+"""Dummy Executor fakes distributor for testing purposes."""
 import logging
 import random
 from typing import Dict, Any
@@ -10,10 +10,10 @@ logger = logging.getLogger(__name__)
 
 
 class DummyDistributor(ClusterDistributor):
-    """The Dummy Executor fakes the execution of a Task and acts as though it succeeded."""
+    """The Dummy Executor fakes the distributor of a Task and acts as though it succeeded."""
 
     def execute(self, command: str, name: str, requested_resources: Dict[str, Any]) -> int:
-        """Run a fake execution of the task."""
+        """Run a fake distributor of the task."""
         # in a real executor, this is where qsub would happen.
         # here, since it's a dummy executor, we just get a random num
         logger.debug("This is the Dummy Distributor")

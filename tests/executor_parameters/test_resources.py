@@ -1,7 +1,7 @@
 import ast
 import os
 
-from jobmon.client.execution.strategies.base import ExecutorParameters
+from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import CallableReturnedInvalidObject
 
@@ -13,7 +13,7 @@ resource_file = os.path.join(this_dir, 'resources.txt')
 
 def test_callable_returns_exec_params(db_cfg, client_env):
     """Test when the provided callable returns the correct parameters"""
-    from jobmon.client.execution.strategies import sge  # noqa: F401
+    from jobmon.client.distributor.strategies import sge  # noqa: F401
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
 
@@ -140,7 +140,7 @@ def test_executor_parameter_copy(db_cfg, client_env):
     and scaling 1 task does not scale the others"""
     from jobmon.client.api import BashTask, UnknownWorkflow
     from jobmon.client.swarm.swarm_task import SwarmTask
-    from jobmon.client.execution.strategies.sge import SGEExecutor  # noqa F401
+    from jobmon.client.distributor.strategies.sge import SGEExecutor  # noqa F401
     from math import isclose
 
     # Use SGEExecutor for adjust methods, but the executor is never called
