@@ -44,7 +44,7 @@ class WorkerNodeCLI(CLI):
 
     def _add_worker_node_parser(self) -> None:
         worker_node_parser = self._subparsers.add_parser('worker_node', **PARSER_KWARGS)
-        worker_node_parser.set_defaults(func=self.scheduler)
+        worker_node_parser.set_defaults(func=self.run_task)
         worker_node_parser.add_argument(
             '--task_instance_id',
             type=int,

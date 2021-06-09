@@ -422,10 +422,7 @@ class TaskInstanceScheduler:
         elif executor_id:
             report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
             task_instance.register_submission_to_batch_executor(executor_id, report_by_buffer)
-            if self.executor.__class__.__name__ == "DummyExecutor":
-                task_instance.dummy_executor_task_instance_run_and_done()
-            else:
-                self._submitted_or_running[executor_id] = task_instance
+            self._submitted_or_running[executor_id] = task_instance
         else:
             msg = ("Did not receive an executor_id in _create_task_instance")
             logger.error(msg)
