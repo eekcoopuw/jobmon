@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import logging
 
-from jobmon.client.distributor.strategies.base import ExecutorParameters
+#from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.requester import Requester
-from jobmon.serializers import SerializeDistributorTask
+from jobmon.serializers import SerializeTask
 
 
 logger = logging.getLogger(__name__)
@@ -15,7 +15,7 @@ class DistributorTask:
     """Task object used by distributor to create Task Instances from."""
 
     # this API should always match what's returned by
-    # serializers.SerializeDistributorTask
+    # serializers.SerializeTask
     def __init__(self, task_id: int, workflow_id: int, node_id: int, task_args_hash: int,
                  name: str, command: str, status: str, executor_parameters: ExecutorParameters,
                  requester: Requester):
@@ -54,14 +54,14 @@ class DistributorTask:
 
         Args:
             wire_tuple (tuple): tuple representing the wire format for this
-                task. format = serializers.SerializeDistributorTask.to_wire()
+                task. format = serializers.SerializeTask.to_wire()
             executor_class (str): which executor class this task instance is
                 being run on
             requester (Requester, shared_requester): requester for
                 communicating with central services
         """
         # convert wire tuple into dictionary of kwargs
-        kwargs = SerializeDistributorTask.kwargs_from_wire(wire_tuple)
+        kwargs = SerializeTask.kwargs_from_wire(wire_tuple)
 
         # instantiate job
         logger.debug("Instantiate task tid {}".format(kwargs["task_id"]))

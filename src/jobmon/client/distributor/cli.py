@@ -19,7 +19,7 @@ class DistributorCLI(CLI):
         self._add_distributor_parser()
 
     def distributor(self, args: configargparse.Namespace) -> None:
-        """Configuration for the jobmon distributor."""
+        """Configuration for the jobmon worker node."""
         from jobmon.client.distributor.api import get_task_instance_distributor, DistributorConfig
 
         distributor_config = DistributorConfig(

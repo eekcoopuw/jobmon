@@ -9,7 +9,7 @@ from http import HTTPStatus as StatusCodes
 from typing import Callable, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.distributor.strategies.base import ExecutorParameters
+#from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
 from jobmon.exceptions import InvalidResponse

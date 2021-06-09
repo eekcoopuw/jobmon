@@ -1,7 +1,7 @@
 """Task Instance Database Table."""
 from flask import current_app as app
 
-from jobmon.serializers import SerializeDistributorTaskInstance
+from jobmon.serializers import SerializeTaskInstance
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
@@ -17,7 +17,7 @@ class TaskInstance(DB.Model):
 
     def to_wire_as_distributor_task_instance(self):
         """Serialize task instance object."""
-        return SerializeDistributorTaskInstance.to_wire(self.id,
+        return SerializeTaskInstance.to_wire(self.id,
                                                      self.workflow_run_id,
                                                      self.distributor_id)
 

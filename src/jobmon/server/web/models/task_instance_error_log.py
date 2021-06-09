@@ -1,5 +1,5 @@
 """Task Instance Error Log."""
-from jobmon.serializers import SerializeDistributorTaskInstanceErrorLog
+from jobmon.serializers import SerializeTaskInstanceErrorLog
 from jobmon.server.web.models import DB
 
 from sqlalchemy.sql import func
@@ -12,7 +12,7 @@ class TaskInstanceErrorLog(DB.Model):
 
     def to_wire_as_executor_task_instance_error_log(self):
         """Serialize task instance error log object."""
-        return SerializeDistributorTaskInstanceErrorLog.to_wire(self.id,
+        return SerializeTaskInstanceErrorLog.to_wire(self.id,
                                                              self.error_time,
                                                              self.description)
 

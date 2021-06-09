@@ -58,7 +58,7 @@ def test_n_queued(db_cfg, client_env):
         TaskInstanceDistributor
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.serializers import SerializeDistributorTask
+    from jobmon.serializers import SerializeTask
     from jobmon.requester import Requester
 
     tasks = []
@@ -87,7 +87,7 @@ def test_n_queued(db_cfg, client_env):
         message={},
         request_type='get')
     all_jobs = [
-        SerializeDistributorTask.kwargs_from_wire(j)
+        SerializeTask.kwargs_from_wire(j)
         for j in response['task_dcts']]
 
     # now new query that should only return 3 jobs
