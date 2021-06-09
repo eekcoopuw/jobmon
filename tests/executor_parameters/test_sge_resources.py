@@ -1,5 +1,5 @@
-from jobmon.client.execution.strategies.base import ExecutorParameters
-from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor  # noqa: F401
+from jobmon.client.distributor.strategies.base import ExecutorParameters
+from jobmon.client.distributor.strategies.sge.sge_executor import SGEExecutor  # noqa: F401
 from jobmon.server.web.models.task_instance import TaskInstance
 
 import pytest

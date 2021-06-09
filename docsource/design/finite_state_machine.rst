@@ -19,10 +19,10 @@ The definition objects (Task and Workflow) can have many instances assocaited wi
 Stateful Deployment Units
 =========================
 
-Each domain object can be controlled by one of three stateful deployment units (client, scheduler, worker node).
+Each domain object can be controlled by one of three stateful deployment units (client, distributor, worker node).
 
 - CLIENT: user interface to jobmon.
-- SCHEDULER: creates instances on a worker node.
+- DISTRIBUTOR: creates instances on a worker node.
 - WORKER NODE: executes the compute instructions of an instance.
 
 The web service is not considered a stateful actor because it cannot act, it can only transact. (perhaps this is incorrectly concieved??)

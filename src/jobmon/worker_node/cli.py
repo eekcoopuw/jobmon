@@ -20,7 +20,7 @@ class WorkerNodeCLI(CLI):
         self._add_worker_node_parser()
 
     def run_task(self, args: configargparse.Namespace) -> ReturnCodes:
-        """Configuration for the jobmon scheduler."""
+        """Configuration for the jobmon worker node."""
         from jobmon.worker_node.worker_node_config import WorkerNodeConfig
 
         worker_node_config = WorkerNodeConfig(

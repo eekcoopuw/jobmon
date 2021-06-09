@@ -5,7 +5,7 @@ from jobmon.requester import Requester
 import pytest
 
 
-class MockSchedulerProc:
+class MockDistributorProc:
 
     def is_alive(self):
         return True
@@ -17,17 +17,17 @@ def test_unknown_state(db_cfg, client_env, monkeypatch):
     its report by date and the reconciler will kill it)"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
 
-    class MockExecutorTaskInstance(ExecutorTaskInstance):
+    class MockDistributorTaskInstance(DistributorTaskInstance):
         def dummy_executor_task_instance_run_and_done(self):
             # do nothing so job gets marked as Batch then Unknown
             pass
 
-    monkeypatch.setattr(ExecutorTaskInstance, "dummy_executor_task_instance_run_and_done",
-                        MockExecutorTaskInstance.dummy_executor_task_instance_run_and_done)
+    monkeypatch.setattr(DistributorTaskInstance, "dummy_executor_task_instance_run_and_done",
+                        MockDistributorTaskInstance.dummy_executor_task_instance_run_and_done)
 
     # Queue a job
     task = BashTask(command="ls", name="dummyfbb", max_attempts=1,
@@ -41,15 +41,15 @@ def test_unknown_state(db_cfg, client_env, monkeypatch):
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester,
                                       task_heartbeat_interval=5)
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
+        wfr.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
 
     # How long we wait for a JI to report it is running before reconciler moves
     # it to error state.
-    scheduler.schedule()
+    distributor.distribute()
 
     # Since we are using the 'dummy' executor, we never actually do
     # any work. The job gets moved to lost_track during reconciliation
@@ -67,14 +67,14 @@ def test_unknown_state(db_cfg, client_env, monkeypatch):
     assert res[0] == "B"
 
     # sleep through the report by date
-    time.sleep(scheduler._task_heartbeat_interval * (scheduler._report_by_buffer + 1))
+    time.sleep(distributor._task_heartbeat_interval * (distributor._report_by_buffer + 1))
 
     # job will move into lost track because it never logs a heartbeat
-    scheduler._get_lost_task_instances()
-    assert len(scheduler._to_reconcile) == 1
+    distributor._get_lost_task_instances()
+    assert len(distributor._to_reconcile) == 1
 
     # will check the executor's return state and move the job to unknown
-    scheduler.schedule()
+    distributor.distribute()
     res = DB.session.execute(sql, {"task_id": str(task.task_id)}).fetchone()
     DB.session.commit()
     assert res[0] == "U"
@@ -88,11 +88,11 @@ def test_unknown_state(db_cfg, client_env, monkeypatch):
 def test_log_executor_report_by(db_cfg, client_env, monkeypatch):
     """test that jobs that are queued by an executor but not running still log
     heartbeats"""
-    from jobmon.client.execution.strategies import sequential
+    from jobmon.client.distributor.strategies import sequential
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
 
     # patch unwrap from sequential so the command doesn't execute
     def mock_unwrap(*args, **kwargs):
@@ -110,14 +110,14 @@ def test_log_executor_report_by(db_cfg, client_env, monkeypatch):
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
+        wfr.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
 
     # instantiate the job and then log a report by
-    scheduler.schedule()
-    scheduler._log_executor_report_by()
+    distributor.distribute()
+    distributor._log_executor_report_by()
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]

@@ -7,8 +7,8 @@ DROP TABLE IF EXISTS `task_instance`;
 CREATE TABLE `task_instance`(
   `id` INTEGER NOT NULL AUTO_INCREMENT,
   `workflow_run_id` INTEGER DEFAULT NULL,
-  `executor_type` varchar(50) DEFAULT NULL,
-  `executor_id` INTEGER DEFAULT NULL,
+  `cluster_type_name` varchar(50) DEFAULT NULL,
+  `distributor_id` INTEGER DEFAULT NULL,
   `task_id` INTEGER NOT NULL,
   `task_resources_id` INTEGER DEFAULT NULL,
   `nodename` varchar(150) DEFAULT NULL,

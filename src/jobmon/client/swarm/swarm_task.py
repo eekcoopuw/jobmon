@@ -6,7 +6,7 @@ from http import HTTPStatus as StatusCodes
 from typing import Callable, Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.execution.strategies import ExecutorParameters
+#from jobmon.client.distributor.strategies import ExecutorParameters
 from jobmon.constants import ExecutorParameterSetType, TaskStatus
 from jobmon.exceptions import CallableReturnedInvalidObject, InvalidResponse
 from jobmon.requester import Requester, http_request_ok

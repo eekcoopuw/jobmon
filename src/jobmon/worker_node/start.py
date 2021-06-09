@@ -1,4 +1,4 @@
-"""Start up scheduling process."""
+"""Start up distributing process."""
 from typing import Optional
 
 from jobmon.requester import Requester

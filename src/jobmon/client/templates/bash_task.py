@@ -2,7 +2,7 @@
 import getpass
 from typing import Callable, Dict, List, Optional, Tuple, Union
 
-from jobmon.client.execution.strategies.base import ExecutorParameters
+#from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool
 

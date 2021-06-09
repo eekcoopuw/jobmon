@@ -8,7 +8,7 @@ import pytest
 logger = logging.getLogger(__name__)
 
 
-class MockSchedulerProc:
+class MockDistributorProc:
 
     def is_alive(self):
         return True
@@ -170,8 +170,8 @@ def test_workflow_tasks(db_cfg, client_env):
     from jobmon.client.api import BashTask
     from jobmon.client.api import UnknownWorkflow
     from jobmon.client.status_commands import workflow_tasks
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.requester import Requester
     workflow = UnknownWorkflow(executor_class="SequentialExecutor")
     t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
@@ -194,14 +194,14 @@ def test_workflow_tasks(db_cfg, client_env):
 
     # execute the tasks
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockSchedulerProc(),
+        wfr.execute_interruptible(MockDistributorProc(),
                                   seconds_until_timeout=1)
 
-    scheduler._get_tasks_queued_for_instantiation()
-    scheduler.schedule()
+    distributor._get_tasks_queued_for_instantiation()
+    distributor.distribute()
 
     # we should get 0 tasks in pending
     command_str = f"workflow_tasks -w {workflow.workflow_id} -s PENDING"
@@ -400,7 +400,7 @@ def test_sub_dag(db_cfg, client_env):
 
 
 def test_dynamic_concurrency_limiting_cli(db_cfg, client_env):
-    """ The server-side logic is checked in scheduler/test_instantiate.
+    """ The server-side logic is checked in distributor/test_instantiate.
 
     This test checks the logic of the CLI only
     """
@@ -482,9 +482,9 @@ def test_update_task_status(db_cfg, client_env):
     assert [t.status for t in wfr3.swarm_tasks.values()] == ["D", "D", "D", "G", "G"]
 
     # Run the workflow
-    scheduler_proc = wf3._start_task_instance_scheduler(wfr3.workflow_run_id, 180)
-    wfr3.execute_interruptible(scheduler_proc, False, 360)
-    scheduler_proc.terminate()
+    distributor_proc = wf3._start_task_instance_distributor(wfr3.workflow_run_id, 180)
+    wfr3.execute_interruptible(distributor_proc, False, 360)
+    distributor_proc.terminate()
 
     assert wfr3.status == "D"
     assert all([st.status == "D" for st in wfr3.swarm_tasks.values()])

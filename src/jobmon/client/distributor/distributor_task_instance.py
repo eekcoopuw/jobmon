@@ -1,4 +1,4 @@
-"""Task Instance object from the scheduler's perspective."""
+"""Task Instance object from the distributor's perspective."""
 from __future__ import annotations
 
 import logging
@@ -11,81 +11,81 @@ from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable
 from jobmon.requester import Requester, http_request_ok
-from jobmon.serializers import SerializeExecutorTaskInstance
+from jobmon.serializers import SerializeTaskInstance
 
 
 logger = logging.getLogger(__name__)
 
 
-class ExecutorTaskInstance:
-    """Object used for communicating with JSM from the executor node.
+class DistributorTaskInstance:
+    """Object used for communicating with JSM from the distributor node.
 
     Args:
         task_instance_id (int): a task_instance_id
-        executor (Executor): an instance of an Executor or a subclass
-        executor_id (int, optional): the executor_id associated with this
+        distributor (ClusterDistributor): an instance of an ClusterDistributor or a subclass
+        distributor_id (int, optional): the distributor_id associated with this
             task_instance
         requester (Requester, optional): a requester to communicate with
             the JSM. default is shared requester
     """
 
     def __init__(self, task_instance_id: int, workflow_run_id: int,
-                 executor: ClusterDistributor, requester: Requester,
-                 executor_id: Optional[int] = None):
+                 distributor: ClusterDistributor, requester: Requester,
+                 distributor_id: Optional[int] = None):
 
         self.task_instance_id = task_instance_id
         self.workflow_run_id = workflow_run_id
-        self.executor_id = executor_id
+        self.distributor_id = distributor_id
 
         self.report_by_date: float
 
         self.error_state = ""
         self.error_msg = ""
 
-        # interfaces to the executor and server
-        self.executor = executor
+        # interfaces to the distributor and server
+        self.distributor = distributor
 
         self.requester = requester
 
     @classmethod
-    def from_wire(cls, wire_tuple: tuple, executor: ClusterDistributor, requester: Requester
-                  ) -> ExecutorTaskInstance:
+    def from_wire(cls, wire_tuple: tuple, distributor: ClusterDistributor, requester: Requester
+                  ) -> DistributorTaskInstance:
         """Create an instance from json that the JQS returns.
 
         Args:
             wire_tuple: tuple representing the wire format for this
-                task. format = serializers.SerializeExecutorTask.to_wire()
-            executor: which executor this task instance is
+                task. format = serializers.SerializeTask.to_wire()
+            distributor: which distributor this task instance is
                 being run on
             requester: requester for communicating with central services
 
         Returns:
-            ExecutorTaskInstance
+            DistributorTaskInstance
         """
-        kwargs = SerializeExecutorTaskInstance.kwargs_from_wire(wire_tuple)
+        kwargs = SerializeTaskInstance.kwargs_from_wire(wire_tuple)
         ti = cls(task_instance_id=kwargs["task_instance_id"],
                  workflow_run_id=kwargs["workflow_run_id"],
-                 executor=executor,
-                 executor_id=kwargs["executor_id"],
+                 distributor=distributor,
+                 distributor_id=kwargs["distributor_id"],
                  requester=requester)
         return ti
 
     @classmethod
-    def register_task_instance(cls, task_id: int, workflow_run_id: int, executor: ClusterDistributor,
-                               requester: Requester) -> ExecutorTaskInstance:
+    def register_task_instance(cls, task_id: int, workflow_run_id: int, distributor: ClusterDistributor,
+                               requester: Requester) -> DistributorTaskInstance:
         """Register a new task instance for an existing task_id.
 
         Args:
             task_id (int): the task_id to register this instance with
-            executor (Executor): which executor to schedule this task on
+            distributor (ClusterDistributor): which distributor to place this task on
             requester: requester for communicating with central services
         """
-        app_route = '/scheduler/task_instance'
+        app_route = '/distributor/task_instance'
         return_code, response = requester.send_request(
             app_route=app_route,
             message={'task_id': task_id,
                      'workflow_run_id': workflow_run_id,
-                     'executor_type': executor.__class__.__name__},
+                     'distributor_type': distributor.__class__.__name__},
             request_type='post',
             logger=logger
         )
@@ -95,21 +95,21 @@ class ExecutorTaskInstance:
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
-        return cls.from_wire(response['task_instance'], executor=executor, requester=requester)
+        return cls.from_wire(response['task_instance'], distributor=distributor, requester=requester)
 
-    def register_no_executor_id(self, executor_id: int) -> None:
+    def register_no_distributor_id(self, distributor_id: int) -> None:
         """Register that submission failed with the central service
 
         Args:
-            executor_id: placeholder executor id. generall -9999
+            distributor_id: placeholder distributor id. generall -9999
         """
-        self.executor_id = executor_id
+        self.distributor_id = distributor_id
 
         app_route = (
-            f'/scheduler/task_instance/{self.task_instance_id}/log_no_executor_id')
+            f'/distributor/task_instance/{self.task_instance_id}/log_no_distributor_id')
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={'executor_id': executor_id},
+            message={'distributor_id': distributor_id},
             request_type='post',
             logger=logger
         )
@@ -119,22 +119,22 @@ class ExecutorTaskInstance:
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
-    def register_submission_to_batch_executor(self, executor_id: int,
+    def register_submission_to_batch_distributor(self, distributor_id: int,
                                               next_report_increment: float) -> None:
-        """Register the submission of a new task instance to batch execution.
+        """Register the submission of a new task instance to batch distributor.
 
         Args:
-            executor_id (int): executor id created by executor for this task
+            distributor_id (int): distributor id created by distributor for this task
                 instance
             next_report_increment: how many seconds to wait for
                 report or status update before considering the task lost
         """
-        self.executor_id = executor_id
+        self.distributor_id = distributor_id
 
-        app_route = f'/scheduler/task_instance/{self.task_instance_id}/log_executor_id'
+        app_route = f'/distributor/task_instance/{self.task_instance_id}/log_distributor_id'
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={'executor_id': str(executor_id),
+            message={'distributor_id': str(distributor_id),
                      'next_report_increment': next_report_increment},
             request_type='post',
             logger=logger
@@ -148,25 +148,25 @@ class ExecutorTaskInstance:
         self.report_by_date = time.time() + next_report_increment
 
     def log_error(self) -> None:
-        """Log an error from the executor loops."""
-        if self.executor_id is None:
-            raise ValueError("executor_id cannot be None during log_error")
-        executor_id = self.executor_id
-        logger.debug(f"log_error for executor_id {executor_id}")
+        """Log an error from the distributor loops."""
+        if self.distributor_id is None:
+            raise ValueError("distributor_id cannot be None during log_error")
+        distributor_id = self.distributor_id
+        logger.debug(f"log_error for distributor_id {distributor_id}")
         if not self.error_state:
             raise ValueError("cannot log error if self.error_state isn't set")
 
         if self.error_state == TaskInstanceStatus.UNKNOWN_ERROR:
-            app_route = f"/scheduler/task_instance/{self.task_instance_id}/log_unknown_error"
+            app_route = f"/distributor/task_instance/{self.task_instance_id}/log_unknown_error"
         else:
-            app_route = f"/scheduler/task_instance/{self.task_instance_id}/log_known_error"
+            app_route = f"/distributor/task_instance/{self.task_instance_id}/log_known_error"
 
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
                 'error_state': self.error_state,
                 'error_message': self.error_msg,
-                'executor_id': executor_id,
+                'distributor_id': distributor_id,
             },
             request_type='post',
             logger=logger
@@ -178,14 +178,14 @@ class ExecutorTaskInstance:
                 f'code 200. Response content: {response}')
 
     def infer_error(self) -> None:
-        """Infer error by checking the executor remote exit info."""
+        """Infer error by checking the distributor remote exit info."""
         # infer error state if we don't know it already
-        if self.executor_id is None:
-            raise ValueError("executor_id cannot be None during log_error")
-        executor_id = self.executor_id
+        if self.distributor_id is None:
+            raise ValueError("distributor_id cannot be None during log_error")
+        distributor_id = self.distributor_id
 
         try:
-            error_state, error_msg = self.executor.get_remote_exit_info(executor_id)
+            error_state, error_msg = self.distributor.get_remote_exit_info(distributor_id)
         except RemoteExitInfoNotAvailable:
             error_state = TaskInstanceStatus.UNKNOWN_ERROR
             error_msg = (f"Unknown error caused task_instance_id {self.task_instance_id} "

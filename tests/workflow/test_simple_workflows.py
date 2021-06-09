@@ -102,7 +102,7 @@ def test_fork_and_join_tasks(db_cfg, client_env):
     """
     from jobmon.client.workflow import Workflow
     from jobmon.client.api import BashTask, Tool
-    from jobmon.client.execution.strategies.multiprocess import \
+    from jobmon.client.distributor.strategies.multiprocess import \
         MultiprocessExecutor
 
     tool = Tool()
@@ -166,7 +166,7 @@ def test_fork_and_join_tasks_with_fatal_error(db_cfg, client_env, tmpdir):
     """
     from jobmon.client.workflow import Workflow
     from jobmon.client.api import PythonTask, Tool
-    from jobmon.client.execution.strategies.multiprocess import \
+    from jobmon.client.distributor.strategies.multiprocess import \
         MultiprocessExecutor
 
     tool = Tool()
@@ -255,7 +255,7 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, client_env, tmpdir):
     """
     from jobmon.client.workflow import Workflow
     from jobmon.client.api import PythonTask, Tool
-    from jobmon.client.execution.strategies.multiprocess import \
+    from jobmon.client.distributor.strategies.multiprocess import \
         MultiprocessExecutor
 
     tool = Tool()
@@ -347,7 +347,7 @@ def test_bushy_real_dag(db_cfg, client_env, tmpdir):
     """
     from jobmon.client.workflow import Workflow
     from jobmon.client.api import PythonTask, Tool
-    from jobmon.client.execution.strategies.multiprocess import \
+    from jobmon.client.distributor.strategies.multiprocess import \
         MultiprocessExecutor
 
     tool = Tool()

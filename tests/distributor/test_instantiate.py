@@ -6,7 +6,7 @@ from jobmon.constants import WorkflowRunStatus
 import pytest
 
 
-class MockSchedulerProc:
+class MockDistributorProc:
 
     def is_alive(self):
         return True
@@ -16,8 +16,8 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
     """tests that a task can be instantiated and run and log done"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.requester import Requester
 
     t1 = BashTask("echo 1", executor_class="SequentialExecutor")
@@ -29,14 +29,14 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockSchedulerProc(),
+        wfr.execute_interruptible(MockDistributorProc(),
                                   seconds_until_timeout=1)
 
-    scheduler._get_tasks_queued_for_instantiation()
-    scheduler.schedule()
+    distributor._get_tasks_queued_for_instantiation()
+    distributor.distribute()
 
     # check the job finished
     app = db_cfg["app"]
@@ -54,11 +54,11 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
 def test_n_queued(db_cfg, client_env):
     """tests that we only return a subset of queued jobs based on the n_queued
     parameter"""
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.serializers import SerializeExecutorTask
+    from jobmon.serializers import SerializeTask
     from jobmon.requester import Requester
 
     tasks = []
@@ -74,38 +74,38 @@ def test_n_queued(db_cfg, client_env):
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester,
                                       n_queued=3)
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockSchedulerProc(),
+        wfr.execute_interruptible(MockDistributorProc(),
                                   seconds_until_timeout=1)
 
     # comparing results and times of old query vs new query
     rc, response = workflow.requester.send_request(
-        app_route=f'/scheduler/workflow/{workflow.workflow_id}/queued_tasks/1000',
+        app_route=f'/distributor/workflow/{workflow.workflow_id}/queued_tasks/1000',
         message={},
         request_type='get')
     all_jobs = [
-        SerializeExecutorTask.kwargs_from_wire(j)
+        SerializeTask.kwargs_from_wire(j)
         for j in response['task_dcts']]
 
     # now new query that should only return 3 jobs
-    select_jobs = scheduler._get_tasks_queued_for_instantiation()
+    select_jobs = distributor._get_tasks_queued_for_instantiation()
 
     assert len(select_jobs) == 3
     assert len(all_jobs) == 20
 
 
-@pytest.mark.parametrize('sge', [QsubAttribute.NO_EXEC_ID,
+@pytest.mark.parametrize('sge', [QsubAttribute.NO_DIST_ID,
                                  QsubAttribute.UNPARSABLE])
-def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
+def test_no_distributor_id(db_cfg, client_env, monkeypatch, sge):
     """test that things move successfully into 'W' state if the executor
     returns the correct id"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.requester import Requester
 
     t1 = BashTask("echo 2", executor_class="DummyExecutor")
@@ -117,18 +117,18 @@ def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockSchedulerProc(),
+        wfr.execute_interruptible(MockDistributorProc(),
                                   seconds_until_timeout=1)
 
     def mock_execute(*args, **kwargs):
         return sge
-    monkeypatch.setattr(scheduler.executor, "execute", mock_execute)
+    monkeypatch.setattr(distributor.executor, "execute", mock_execute)
 
-    scheduler._get_tasks_queued_for_instantiation()
-    scheduler.schedule()
+    distributor._get_tasks_queued_for_instantiation()
+    distributor.distribute()
 
     # check the job finished
     app = db_cfg["app"]
@@ -146,10 +146,10 @@ def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
 def test_concurrency_limiting(db_cfg, client_env):
     """tests that we only return a subset of queued jobs based on the n_queued
     parameter"""
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.client.api import Tool, BashTask
-    from jobmon.client.execution.strategies.multiprocess import MultiprocessExecutor
+    from jobmon.client.distributor.strategies.multiprocess import MultiprocessExecutor
     from jobmon.requester import Requester
 
     tasks = []
@@ -166,39 +166,39 @@ def test_concurrency_limiting(db_cfg, client_env):
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
+        wfr.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
 
     # now new query that should only return 2 jobs
-    select_tasks = scheduler._get_tasks_queued_for_instantiation()
+    select_tasks = distributor._get_tasks_queued_for_instantiation()
     assert len(select_tasks) == 2
     for task in select_tasks:
-        scheduler._create_task_instance(task)
+        distributor._create_task_instance(task)
 
     # jobs are now in I state. should return -
-    select_tasks = scheduler._get_tasks_queued_for_instantiation()
+    select_tasks = distributor._get_tasks_queued_for_instantiation()
     assert len(select_tasks) == 0
 
     # start executor and wait for tasks to move to running
-    scheduler.executor.start()
-    while not scheduler.executor.task_queue.empty():
+    distributor.executor.start()
+    while not distributor.executor.task_queue.empty():
         time.sleep(1)
 
     # should return 0 still because tasks are running
-    select_tasks = scheduler._get_tasks_queued_for_instantiation()
+    select_tasks = distributor._get_tasks_queued_for_instantiation()
     assert len(select_tasks) == 0
 
-    scheduler.executor.stop(list(scheduler._submitted_or_running.keys()))
+    distributor.executor.stop(list(distributor._submitted_or_running.keys()))
 
 
 def test_dynamic_concurrency_limiting(db_cfg, client_env):
     """ tests that the CLI functionality to update concurrent jobs behaves as expected"""
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.client.api import Tool, BashTask
-    from jobmon.client.execution.strategies.multiprocess import MultiprocessExecutor
+    from jobmon.client.distributor.strategies.multiprocess import MultiprocessExecutor
     from jobmon.client.status_commands import concurrency_limit
     from jobmon.requester import Requester
 
@@ -220,7 +220,7 @@ def test_dynamic_concurrency_limiting(db_cfg, client_env):
     wfr.update_status(WorkflowRunStatus.LAUNCHED)
 
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
+        wfr.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
 
     wfr.update_status(WorkflowRunStatus.ERROR)
 
@@ -230,13 +230,13 @@ def test_dynamic_concurrency_limiting(db_cfg, client_env):
     wfr2 = workflow._create_workflow_run(resume=True)
 
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr2.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr2.workflow_run_id,
                                       workflow._executor, requester=requester)
     with pytest.raises(RuntimeError):
-        wfr2.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
+        wfr2.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
 
     # Query should return 5 jobs
-    select_tasks = scheduler._get_tasks_queued_for_instantiation()
+    select_tasks = distributor._get_tasks_queued_for_instantiation()
     assert len(select_tasks) == 5
 
-    scheduler.executor.stop(list(scheduler._submitted_or_running.keys()))
+    distributor.executor.stop(list(distributor._submitted_or_running.keys()))

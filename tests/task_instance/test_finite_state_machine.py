@@ -21,11 +21,11 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
     """should try to log a report by date after being set to the U or K state
     and fail"""
     from jobmon.client.api import BashTask, Tool
-    from jobmon.client.execution.strategies.multiprocess import \
+    from jobmon.client.distributor.strategies.multiprocess import \
         MultiprocessExecutor
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
-    from jobmon.client.execution.scheduler.scheduler_config import SchedulerConfig
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
+    from jobmon.client.distributor.distributor_config import DistributorConfig
 
     tool = Tool()
     workflow = tool.create_workflow(name=f"test_ti_kill_self_state_{ti_state}")
@@ -44,10 +44,10 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
 
     # launch task on executor
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
-    scheduler.executor.start()
-    scheduler.schedule()
+    distributor.executor.start()
+    distributor.distribute()
 
     # wait till task is running
     while not swarm_task.status == TaskInstanceStatus.RUNNING:
@@ -57,10 +57,10 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
             swarm_task = tasks[0]
 
     # set task to kill self state. next heartbeat will fail and cause death
-    scheduler_config = SchedulerConfig.from_defaults()
+    distributor_config = DistributorConfig.from_defaults()
     max_heartbeat = datetime.utcnow() + timedelta(
-        seconds=(scheduler_config.task_heartbeat_interval *
-                 scheduler_config.heartbeat_report_by_buffer))
+        seconds=(distributor_config.task_heartbeat_interval *
+                 distributor_config.heartbeat_report_by_buffer))
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
@@ -72,15 +72,15 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
         DB.session.commit()
 
     # wait till it dies
-    actual = scheduler.executor.get_actual_submitted_or_running(
-        list(scheduler._submitted_or_running.keys())
+    actual = distributor.executor.get_actual_submitted_or_running(
+        list(distributor._submitted_or_running.keys())
     )
     while actual:
         time.sleep(1)
-        actual = scheduler.executor.get_actual_submitted_or_running(
-            list(scheduler._submitted_or_running.keys())
+        actual = distributor.executor.get_actual_submitted_or_running(
+            list(distributor._submitted_or_running.keys())
         )
-    scheduler.executor.stop(list(scheduler._submitted_or_running.keys()))
+    distributor.executor.stop(list(distributor._submitted_or_running.keys()))
 
     # make sure no more heartbeats were registered
     with app.app_context():
@@ -92,7 +92,7 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
 def test_ti_error_state(db_cfg, client_env):
     """test that a task that fails moves into error state"""
     from jobmon.client.api import BashTask, Tool
-    from jobmon.client.execution.strategies.sequential import \
+    from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
 
     # setup workflow
@@ -131,10 +131,10 @@ def test_ti_w_state(db_cfg, client_env):
     """test that a task moves into 'W' state if it gets -333333 from the
     executor"""
     from jobmon.client.api import BashTask, Tool
-    from jobmon.client.execution.strategies.sequential import \
+    from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
 
     # setup workflow
     tool = Tool()
@@ -154,15 +154,16 @@ def test_ti_w_state(db_cfg, client_env):
     wfr._adjust_resources_and_queue(swarm_task)
 
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    # TODO: fix workflow._executor
+    tid = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
 
     # patch register submission to go into 'W' state
     with patch.object(executor, "execute", mock_execute):
 
-        # try and schedule the job
-        scheduler.executor.start()
-        scheduler.schedule()
+        # try and distribute the job
+        tid.distributor.start()
+        tid.distribute()
 
     # make sure no more heartbeats were registered
     app = db_cfg["app"]
@@ -180,7 +181,7 @@ def test_reset_attempts_on_resume(db_cfg, client_env):
     # Manually modify the database so that some mid-dag jobs appear in
     # error state, max-ing out the attempts
     from jobmon.client.api import BashTask, Tool
-    from jobmon.client.execution.strategies.sequential import \
+    from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
 
     # setup workflow 1
@@ -245,9 +246,9 @@ def test_task_instance_error_fatal(db_cfg, client_env):
     # Manually modify the database so that some mid-dag jobs appear in
     # error state, max-ing out the attempts
     from jobmon.client.api import BashTask, Tool
-    from jobmon.client.execution.strategies.sequential import \
+    from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
-    from jobmon.serializers import SerializeExecutorTaskInstanceErrorLog
+    from jobmon.serializers import SerializeTaskInstanceErrorLog
 
     # setup workflow 1
     tool = Tool()
@@ -322,7 +323,7 @@ def test_task_instance_error_fatal(db_cfg, client_env):
         message={},
         request_type='get')
     all_errors = [
-        SerializeExecutorTaskInstanceErrorLog.kwargs_from_wire(j)
+        SerializeTaskInstanceErrorLog.kwargs_from_wire(j)
         for j in response['task_instance_error_log']]
     assert len(all_errors) == 2
 
