@@ -39,7 +39,7 @@ class ClusterDistributor(Protocol):
         raise NotImplementedError
 
     @abstractproperty
-    def cluter_type_name(self) -> str:
+    def cluster_type_name(self) -> str:
         raise NotImplementedError
 
     @abstractmethod

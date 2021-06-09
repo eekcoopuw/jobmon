@@ -421,10 +421,7 @@ class TaskInstanceDistributor:
         elif distributor_id:
             report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
             task_instance.register_submission_to_batch_distributor(distributor_id, report_by_buffer)
-            if self.distributor.__class__.__name__ == "DummyExecutor":
-                task_instance.dummy_executor_task_instance_run_and_done()
-            else:
-                self._submitted_or_running[distributor_id] = task_instance
+            self._submitted_or_running[distributor_id] = task_instance
         else:
             msg = ("Did not receive an distributor_id in _create_task_instance")
             logger.error(msg)
@@ -470,6 +467,6 @@ class TaskInstanceDistributor:
             to_terminate: List = []
         else:
             to_terminate = [DistributorTaskInstance.from_wire(ti, self.distributor, self.requester
-                                                           ).distributor_id
+                                                            ).distributor_id
                             for ti in response["task_instances"]]
         self.distributor.terminate_task_instances(to_terminate)

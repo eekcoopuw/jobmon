@@ -192,39 +192,3 @@ class DistributorTaskInstance:
                          "to be lost")
         self.error_state = error_state
         self.error_msg = error_msg
-
-    def dummy_distributor_task_instance_run_and_done(self) -> None:
-        """For all instances other than the DummyExecutor, the worker node task instance should
-        be the one logging the done status. Since the DummyExecutor doesn't actually run
-        anything, the task_instance_distributor needs to mark it done so that distributor can
-        proceed through the DAG.
-        """
-        if self.distributor.__class__.__name__ != "DummyExecutor":
-            logger.error("Cannot directly log a task instance done unless using the Dummy "
-                         "Executor")
-        logger.debug("Moving the job to running, then done so that dependencies can proceed to"
-                     " mock a successful dag traversal process")
-        run_app_route = f'/worker/task_instance/{self.task_instance_id}/log_running'
-        run_message = {'process_group_id': '0', 'next_report_increment': 60}
-        return_code, response = self.requester.send_request(
-            app_route=run_app_route,
-            message=run_message,
-            request_type='post',
-            logger=logger
-        )
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(f'Unexpected status code {return_code} from POST '
-                                  f'request through route {run_app_route}. Expected '
-                                  f'code 200. Response content: {response}')
-        done_app_route = f"/worker/task_instance/{self.task_instance_id}/log_done"
-        done_message = {'nodename': 'DummyNode', 'distributor_id': self.distributor_id}
-        return_code, response = self.requester.send_request(
-            app_route=done_app_route,
-            message=done_message,
-            request_type='post',
-            logger=logger
-        )
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(f'Unexpected status code {return_code} from POST '
-                                  f'request through route {done_app_route}. Expected '
-                                  f'code 200. Response content: {response}')
