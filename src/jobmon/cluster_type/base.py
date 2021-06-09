@@ -39,7 +39,7 @@ class ClusterDistributor(Protocol):
         raise NotImplementedError
 
     @abstractproperty
-    def cluter_type_name(self) -> str:
+    def cluster_type_name(self) -> str:
         raise NotImplementedError
 
     @abstractmethod
@@ -50,23 +50,6 @@ class ClusterDistributor(Protocol):
     @abstractmethod
     def stop(self, executor_ids: List[int]) -> None:
         """Stop the executor."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def execute(self, command: str, name: str, requested_resources: Dict[str, Any]) -> int:
-        """Executor the command on the cluster technology
-
-        Optionally, return an (int) executor_id which the subclass could
-        use at a later time to identify the associated TaskInstance, terminate
-        it, monitor for missingness, or collect usage statistics. If the
-        subclass does not intend to offer those functionalities, this method
-        can return None.
-
-        Args:
-            command: command to be run
-            name: name of task
-
-        """
         raise NotImplementedError
 
     @abstractmethod
@@ -91,24 +74,38 @@ class ClusterDistributor(Protocol):
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 
-    def build_wrapped_command(self, task_instance_id: int,
-                              heartbeat_interval: int, report_by_buffer: float
-                              ) -> str:
-        """Build a command that can be executed by the shell and can be unwrapped by jobmon
-        itself to setup proper communication channels to the monitor server.
+    def submit_to_batch_distributor(self, command: str, name: str,
+                                    requested_resources: Dict[str, Any]) -> int:
+        """submit the command on the cluster technology and return an distributor_id
+
+        The distributor_id can be used to identify the associated TaskInstance, terminate
+        it, monitor for missingness, or collect usage statistics.
+
         Args:
-            command: command to run the desired job
+            command: command to be run
+            name: name of task
+            requested_resources: resource requests sent to distributor API
+
+        Raises:
+
+        """
+        raise NotImplementedError
+
+    def build_worker_node_command(self, task_instance_id: int) -> str:
+        """Build a command that can be executed by the worker_node.
+
+        Args:
             task_instance_id: id for the given instance of this task
+
 
         Returns:
             (str) unwrappable command
         """
         wrapped_cmd = [
+            self.worker_node_wrapper_executable,
             "--task_instance_id", task_instance_id,
             "--expected_jobmon_version", __version__,
-            "--cluster_type_name", self.cluster_type_name,
-            "--heartbeat_interval", heartbeat_interval,
-            "--report_by_buffer", report_by_buffer
+            "--cluster_type_name", self.cluster_type_name
         ]
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         return str_cmd

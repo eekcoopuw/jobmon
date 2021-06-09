@@ -406,29 +406,18 @@ class TaskInstanceScheduler:
         # The following call will always return a value.
         # It catches exceptions internally and returns ERROR_SGE_JID
         logger.debug(f"Using the following parameters in execution {task.executor_parameters}")
-        executor_id = task_instance.executor.execute(
-            command=command,
-            name=task.name,
-            executor_parameters=task.executor_parameters
-        )
-        if executor_id == QsubAttribute.NO_EXEC_ID:
-            logger.debug(f"Received {executor_id} meaning the task did not qsub properly, "
-                         "moving to 'W' state")
-            task_instance.register_no_executor_id(executor_id=executor_id)
-        elif executor_id == QsubAttribute.UNPARSABLE:
-            logger.debug(f"Got response from qsub but did not contain a valid executor_id. "
-                         f"Using ({executor_id}), and moving to 'W' state")
-            task_instance.register_no_executor_id(executor_id=executor_id)
-        elif executor_id:
+
+        try:
+            executor_id = self.distributor.submit_to_batch_distributor(
+                command=command,
+                name=task.name,
+                executor_parameters=task.executor_parameters
+            )
             report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
             task_instance.register_submission_to_batch_executor(executor_id, report_by_buffer)
-            if self.executor.__class__.__name__ == "DummyExecutor":
-                task_instance.dummy_executor_task_instance_run_and_done()
-            else:
-                self._submitted_or_running[executor_id] = task_instance
-        else:
-            msg = ("Did not receive an executor_id in _create_task_instance")
-            logger.error(msg)
+            self._submitted_or_running[executor_id] = task_instance
+        except Exception as e:
+            task_instance.register_no_executor_id(msg=str(e))
 
         return task_instance
 
