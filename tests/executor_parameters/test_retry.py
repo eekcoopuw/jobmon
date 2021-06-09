@@ -7,7 +7,7 @@ import pytest
 
 def hot_resumable_workflow():
     from jobmon.client.api import Tool, ExecutorParameters
-    from jobmon.client.execution.strategies import sge  # noqa: F401
+    from jobmon.client.distributor.strategies import sge  # noqa: F401
 
     # set up tool and task template
     unknown_tool = Tool()
@@ -34,7 +34,7 @@ def hot_resumable_workflow():
     return workflow
 
 
-class MockSchedulerProc:
+class MockDistributorProc:
 
     def is_alive(self):
         return True
@@ -43,8 +43,8 @@ class MockSchedulerProc:
 @pytest.mark.integration_sge
 @pytest.mark.skip()
 def test_hot_resume_with_adjusting_resource(db_cfg, client_env):
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.requester import Requester
 
     # set up initial run
@@ -54,23 +54,23 @@ def test_hot_resume_with_adjusting_resource(db_cfg, client_env):
     workflow._bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester,
                                       task_heartbeat_interval=10, report_by_buffer=1.1)
     try:
-        wfr.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
+        wfr.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
     except RuntimeError:
         pass
-    scheduler._get_tasks_queued_for_instantiation()
-    scheduler.schedule()
+    distributor._get_tasks_queued_for_instantiation()
+    distributor.distribute()
 
     # wait till we enter adjusting then move on to hot resumed workflow
-    while not scheduler._to_reconcile:
+    while not distributor._to_reconcile:
         time.sleep(5)
-        scheduler._get_lost_task_instances()
+        distributor._get_lost_task_instances()
 
-    for ti in scheduler._to_reconcile:
-        app_route = f"/scheduler/task_instance/{ti.task_instance_id}/log_error_reconciler"
+    for ti in distributor._to_reconcile:
+        app_route = f"/distributor/task_instance/{ti.task_instance_id}/log_error_reconciler"
         return_code, response = ti.requester.send_request(
             app_route=app_route,
             message={

@@ -1,4 +1,4 @@
-from jobmon.client.execution.strategies.base import ExecutorParameters
+from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import WorkflowAlreadyComplete, DuplicateNodeArgsError
 

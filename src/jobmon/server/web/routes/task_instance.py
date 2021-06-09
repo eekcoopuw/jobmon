@@ -20,7 +20,7 @@ from jobmon.server.web.server_side_exception import ServerError
 import sqlalchemy
 from sqlalchemy.sql import func, text
 
-from . import jobmon_scheduler, jobmon_worker
+from . import jobmon_distributor, jobmon_worker
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/kill_self', methods=['GET'])
@@ -62,8 +62,8 @@ def log_running(task_instance_id: int):
     app.logger.info(f"Log running for ti {task_instance_id}")
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(ti, TaskInstanceStatus.RUNNING)
-    if data.get('executor_id', None) is not None:
-        ti.executor_id = data['executor_id']
+    if data.get('distributor_id', None) is not None:
+        ti.distributor_id = data['distributor_id']
     if data.get('nodename', None) is not None:
         ti.nodename = data['nodename']
     ti.process_group_id = data['process_group_id']
@@ -91,17 +91,17 @@ def log_ti_report_by(task_instance_id: int):
     data = request.get_json()
     app.logger.debug(f"Log report_by for TI {task_instance_id}.")
 
-    executor_id = data.get('executor_id', None)
+    distributor_id = data.get('distributor_id', None)
     params = {}
     params["next_report_increment"] = data["next_report_increment"]
     params["task_instance_id"] = task_instance_id
-    if executor_id is not None:
-        params["executor_id"] = executor_id
+    if distributor_id is not None:
+        params["distributor_id"] = distributor_id
         query = """
                 UPDATE task_instance
                 SET report_by_date = ADDTIME(
                     CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment)),
-                    executor_id = :executor_id
+                    distributor_id = :distributor_id
                 WHERE task_instance.id = :task_instance_id"""
     else:
         query = """
@@ -174,8 +174,8 @@ def log_done(task_instance_id: int):
     app.logger.info(f"Log DONE for TI {task_instance_id}.")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
-    if data.get('executor_id', None) is not None:
-        ti.executor_id = data['executor_id']
+    if data.get('distributor_id', None) is not None:
+        ti.distributor_id = data['distributor_id']
     if data.get('nodename', None) is not None:
         ti.nodename = data['nodename']
     msg = _update_task_instance_state(ti, TaskInstanceStatus.DONE)
@@ -199,20 +199,20 @@ def log_error_worker_node(task_instance_id: int):
     data = request.get_json()
     error_state = data['error_state']
     error_message = data['error_message']
-    executor_id = data.get('executor_id', None)
+    distributor_id = data.get('distributor_id', None)
     nodename = data.get('nodename', None)
     app.logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
 
     try:
-        resp = _log_error(ti, error_state, error_message, executor_id,
+        resp = _log_error(ti, error_state, error_message, distributor_id,
                           nodename)
         return resp
     except sqlalchemy.exc.OperationalError:
         # modify the error message and retry
         new_msg = error_message.encode("latin1", "replace").decode("utf-8")
-        resp = _log_error(ti, error_state, new_msg, executor_id, nodename)
+        resp = _log_error(ti, error_state, new_msg, distributor_id, nodename)
         return resp
 
 
@@ -275,13 +275,13 @@ def get_task_instance_error_log(task_instance_id: int):
         task_instance_id=task_instance_id
     ).all()
     DB.session.commit()
-    resp = jsonify(task_instance_error_log=[tiel.to_wire_as_executor_task_instance_error_log()
+    resp = jsonify(task_instance_error_log=[tiel.to_wire_as_distributor_task_instance_error_log()
                                             for tiel in ti_errors])
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@jobmon_scheduler.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
+@jobmon_distributor.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
                         methods=['GET'])
 def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
     """Returns oldest n tasks (or all tasks if total queued tasks < n) to be
@@ -356,7 +356,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
             concurrency_limit=concurrency_limit
         ).all()
         DB.session.commit()
-        task_dcts = [t.to_wire_as_executor_task() for t in tasks]
+        task_dcts = [t.to_wire_as_distributor_task() for t in tasks]
     else:
         task_dcts = []
     app.logger.info(f"Got wf {workflow_id} the following queued tasks: {task_dcts}")
@@ -365,10 +365,10 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
     return resp
 
 
-@jobmon_scheduler.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances',
+@jobmon_distributor.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances',
                         methods=['GET'])
 def get_suspicious_task_instances(workflow_run_id: int):
-    """Query all task instances that are submitted to executor or running which haven't
+    """Query all task instances that are submitted to distributor or running which haven't
     reported as alive in the allocated time.
     """
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
@@ -376,7 +376,7 @@ def get_suspicious_task_instances(workflow_run_id: int):
     query = """
         SELECT
             task_instance.id, task_instance.workflow_run_id,
-            task_instance.executor_id
+            task_instance.distributor_id
         FROM
             task_instance
         WHERE
@@ -385,18 +385,18 @@ def get_suspicious_task_instances(workflow_run_id: int):
             AND task_instance.report_by_date <= CURRENT_TIMESTAMP()
     """
     rows = DB.session.query(TaskInstance).from_statement(text(query)).params(
-        active_tasks=[TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+        active_tasks=[TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
                       TaskInstanceStatus.RUNNING],
         workflow_run_id=workflow_run_id
     ).all()
     DB.session.commit()
-    resp = jsonify(task_instances=[ti.to_wire_as_executor_task_instance()
+    resp = jsonify(task_instances=[ti.to_wire_as_distributor_task_instance()
                                    for ti in rows])
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@jobmon_scheduler.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate',
+@jobmon_distributor.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate',
                         methods=['GET'])
 def get_task_instances_to_terminate(workflow_run_id: int):
     """Get the task instances for a given workflow run that need to be terminated."""
@@ -407,15 +407,15 @@ def get_task_instances_to_terminate(workflow_run_id: int):
     ).one()
 
     if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
-        task_instance_states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR]
+        task_instance_states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR]
     if workflow_run.status == WorkflowRunStatus.COLD_RESUME:
-        task_instance_states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+        task_instance_states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
                                 TaskInstanceStatus.RUNNING]
 
     query = """
         SELECT
             task_instance.id, task_instance.workflow_run_id,
-            task_instance.executor_id
+            task_instance.distributor_id
         FROM
             task_instance
         WHERE
@@ -427,54 +427,54 @@ def get_task_instances_to_terminate(workflow_run_id: int):
         workflow_run_id=workflow_run_id
     ).all()
     DB.session.commit()
-    resp = jsonify(task_instances=[ti.to_wire_as_executor_task_instance()
+    resp = jsonify(task_instances=[ti.to_wire_as_distributor_task_instance()
                                    for ti in rows])
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@jobmon_scheduler.route('/task_instance/<executor_id>/maxpss/<maxpss>', methods=['POST'])
-def set_maxpss(executor_id: int, maxpss: int):
+@jobmon_distributor.route('/task_instance/<distributor_id>/maxpss/<maxpss>', methods=['POST'])
+def set_maxpss(distributor_id: int, maxpss: int):
     """
     Route to set maxpss of a job instance
-    :param executor_id: sge execution id
+    :param distributor_id: sge distributor id
     :return:
     """
-    app.logger = app.logger.bind(executor_id=executor_id)
-    app.logger.info(f"Setting maxpss for executor_id {executor_id}")
+    app.logger = app.logger.bind(distributor_id=distributor_id)
+    app.logger.info(f"Setting maxpss for distributor_id {distributor_id}")
     try:
-        sql = f"UPDATE task_instance SET maxpss={maxpss} WHERE executor_id={executor_id}"
+        sql = f"UPDATE task_instance SET maxpss={maxpss} WHERE distributor_id={distributor_id}"
         DB.session.execute(sql)
         DB.session.commit()
         resp = jsonify(message=None)
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        msg = "Error updating maxpss for execution id {eid}: {error}".format(eid=executor_id,
+        msg = "Error updating maxpss for distributor id {eid}: {error}".format(eid=distributor_id,
                                                                              error=str(e))
         app.logger.error(msg)
         raise ServerError(f"Unexpected Jobmon Server Error {sys.exc_info()[0]} in "
                           f"{request.path}", status_code=500) from e
 
 
-@jobmon_scheduler.route('/workflow_run/<workflow_run_id>/log_executor_report_by',
+@jobmon_distributor.route('/workflow_run/<workflow_run_id>/log_distributor_report_by',
                         methods=['POST'])
-def log_executor_report_by(workflow_run_id: int):
+def log_distributor_report_by(workflow_run_id: int):
     """Log the next report by date and time."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     data = request.get_json()
     params = {"workflow_run_id": int(workflow_run_id)}
-    for key in ["next_report_increment", "executor_ids"]:
+    for key in ["next_report_increment", "distributor_ids"]:
         params[key] = data[key]
 
-    if params["executor_ids"]:
+    if params["distributor_ids"]:
         query = """
             UPDATE task_instance
             SET report_by_date = ADDTIME(
                 CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
             WHERE
                 workflow_run_id = :workflow_run_id
-                AND executor_id in :executor_ids
+                AND distributor_id in :distributor_ids
         """
         DB.session.execute(query, params)
         DB.session.commit()
@@ -484,13 +484,13 @@ def log_executor_report_by(workflow_run_id: int):
     return resp
 
 
-@jobmon_scheduler.route('/task_instance', methods=['POST'])
+@jobmon_distributor.route('/task_instance', methods=['POST'])
 def add_task_instance():
     """Add a task_instance to the database
 
     Args:
         task_id (int): unique id for the task
-        executor_type (str): string name of the executor type used
+        cluster_type_name (str): string name of the cluster type used
     """
     try:
         data = request.get_json()
@@ -504,7 +504,7 @@ def add_task_instance():
         # create task_instance from task parameters
         task_instance = TaskInstance(
             workflow_run_id=data["workflow_run_id"],
-            executor_type=data['executor_type'],
+            cluster_type_name=data['cluster_type_name'],
             task_id=data['task_id'],
             task_resources_id=task.task_resources_id
         )
@@ -512,7 +512,7 @@ def add_task_instance():
         DB.session.commit()
         task_instance.task.transition(TaskStatus.INSTANTIATED)
         DB.session.commit()
-        resp = jsonify(task_instance=task_instance.to_wire_as_executor_task_instance())
+        resp = jsonify(task_instance=task_instance.to_wire_as_distributor_task_instance())
         resp.status_code = StatusCodes.OK
         return resp
     except InvalidStateTransition as e:
@@ -524,7 +524,7 @@ def add_task_instance():
             app.logger.warning(msg)
             DB.session.commit()
             resp = jsonify(
-                task_instance=task_instance.to_wire_as_executor_task_instance())
+                task_instance=task_instance.to_wire_as_distributor_task_instance())
             resp.status_code = StatusCodes.OK
             return resp
         else:
@@ -532,27 +532,27 @@ def add_task_instance():
                               status_code=500) from e
 
 
-@jobmon_scheduler.route('/task_instance/<task_instance_id>/log_no_executor_id',
+@jobmon_distributor.route('/task_instance/<task_instance_id>/log_no_distributor_id',
                         methods=['POST'])
-def log_no_executor_id(task_instance_id: int):
-    """Log a task_instance_id that did not get an executor_id upon submission."""
+def log_no_distributor_id(task_instance_id: int):
+    """Log a task_instance_id that did not get an distributor_id upon submission."""
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
-    app.logger.info(f"Logging ti {task_instance_id} did not get executor id upon submission")
+    app.logger.info(f"Logging ti {task_instance_id} did not get distributor id upon submission")
     data = request.get_json()
-    app.logger.debug(f"Log NO EXECUTOR ID for TI {task_instance_id}."
-                     f"Data {data['executor_id']}")
+    app.logger.debug(f"Log NO DISTRIBUTOR ID for TI {task_instance_id}."
+                     f"Data {data['distributor_id']}")
     app.logger.debug("Add TI for task ")
 
-    if data['executor_id'] == QsubAttribute.NO_EXEC_ID:
+    if data['distributor_id'] == QsubAttribute.NO_DIST_ID:
         app.logger.info("Qsub was unsuccessful and caused an exception")
     else:
         app.logger.info("Qsub may have run, but the sge job id could not be parsed"
-                        " from the qsub response so no executor id can be assigned"
+                        " from the qsub response so no distributor id can be assigned"
                         " at this time")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
-    msg = _update_task_instance_state(ti, TaskInstanceStatus.NO_EXECUTOR_ID)
-    ti.executor_id = data['executor_id']
+    msg = _update_task_instance_state(ti, TaskInstanceStatus.NO_DISTRIBUTOR_ID)
+    ti.distributor_id = data['distributor_id']
     DB.session.commit()
 
     resp = jsonify(message=msg)
@@ -560,21 +560,21 @@ def log_no_executor_id(task_instance_id: int):
     return resp
 
 
-@jobmon_scheduler.route('/task_instance/<task_instance_id>/log_executor_id', methods=['POST'])
-def log_executor_id(task_instance_id: int):
-    """Log a task_instance's executor id
+@jobmon_distributor.route('/task_instance/<task_instance_id>/log_distributor_id', methods=['POST'])
+def log_distributor_id(task_instance_id: int):
+    """Log a task_instance's distributor id
     Args:
 
         task_instance_id: id of the task_instance to log
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     data = request.get_json()
-    app.logger.info(f"Log EXECUTOR ID for TI {task_instance_id}.")
+    app.logger.info(f"Log DISTRIBUTOR ID for TI {task_instance_id}.")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(
-        ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR)
-    ti.executor_id = data['executor_id']
+        ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR)
+    ti.distributor_id = data['distributor_id']
     ti.report_by_date = func.ADDTIME(
         func.now(),
         func.SEC_TO_TIME(data["next_report_increment"]))
@@ -585,7 +585,7 @@ def log_executor_id(task_instance_id: int):
     return resp
 
 
-@jobmon_scheduler.route('/task_instance/<task_instance_id>/log_known_error', methods=['POST'])
+@jobmon_distributor.route('/task_instance/<task_instance_id>/log_known_error', methods=['POST'])
 def log_known_error(task_instance_id: int):
     """Log a task_instance as errored
     Args:
@@ -597,7 +597,7 @@ def log_known_error(task_instance_id: int):
     data = request.get_json()
     error_state = data['error_state']
     error_message = data['error_message']
-    executor_id = data.get('executor_id', None)
+    distributor_id = data.get('distributor_id', None)
     nodename = data.get('nodename', None)
     app.logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
@@ -614,19 +614,19 @@ def log_known_error(task_instance_id: int):
     ).one_or_none()
 
     try:
-        resp = _log_error(ti, error_state, error_message, executor_id,
+        resp = _log_error(ti, error_state, error_message, distributor_id,
                           nodename)
     except sqlalchemy.exc.OperationalError:
         # modify the error message and retry
         new_msg = error_message.encode("latin1", "replace").decode("utf-8")
-        resp = _log_error(ti, error_state, new_msg, executor_id, nodename)
+        resp = _log_error(ti, error_state, new_msg, distributor_id, nodename)
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@jobmon_scheduler.route('/task_instance/<task_instance_id>/log_unknown_error',
+@jobmon_distributor.route('/task_instance/<task_instance_id>/log_unknown_error',
                         methods=['POST'])
 def log_unknown_error(task_instance_id: int):
     """Log a task_instance as errored
@@ -637,7 +637,7 @@ def log_unknown_error(task_instance_id: int):
     data = request.get_json()
     error_state = data['error_state']
     error_message = data['error_message']
-    executor_id = data.get('executor_id', None)
+    distributor_id = data.get('distributor_id', None)
     nodename = data.get('nodename', None)
     app.logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
@@ -658,12 +658,12 @@ def log_unknown_error(task_instance_id: int):
     # reconciliation
     if ti is not None:
         try:
-            resp = _log_error(ti, error_state, error_message, executor_id,
+            resp = _log_error(ti, error_state, error_message, distributor_id,
                               nodename)
         except sqlalchemy.exc.OperationalError:
             # modify the error message and retry
             new_msg = error_message.encode("latin1", "replace").decode("utf-8")
-            resp = _log_error(ti, error_state, new_msg, executor_id, nodename)
+            resp = _log_error(ti, error_state, new_msg, distributor_id, nodename)
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -714,12 +714,12 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
 
 
 def _log_error(ti: TaskInstance, error_state: int, error_msg: str,
-               executor_id: Optional[int] = None,
+               distributor_id: Optional[int] = None,
                nodename: Optional[str] = None):
     if nodename is not None:
         ti.nodename = nodename
-    if executor_id is not None:
-        ti.executor_id = executor_id
+    if distributor_id is not None:
+        ti.distributor_id = distributor_id
 
     try:
         error = TaskInstanceErrorLog(task_instance_id=ti.id,

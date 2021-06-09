@@ -6,8 +6,8 @@ import subprocess
 from multiprocessing import JoinableQueue, Process, Queue
 from typing import Dict, List, Optional, Tuple
 
-from jobmon.client.execution.strategies.base import (Executor, ExecutorParameters,
-                                                     TaskInstanceExecutorInfo)
+#from jobmon.client.distributor.strategies.base import (Executor, ExecutorParameters,
+#                                                       TaskInstanceExecutorInfo)
 from jobmon.constants import TaskInstanceStatus
 
 import psutil
@@ -82,7 +82,7 @@ class PickableTask:
 
 class MultiprocessExecutor(Executor):
     """LocalExecutor executes tasks locally in parallel. It uses the multiprocessing Python
-    library and queues to parallelize the execution of tasks.
+    library and queues to parallelize the distributor of tasks.
 
     The subprocessing pattern looks like this.
         LocalExec
@@ -95,7 +95,7 @@ class MultiprocessExecutor(Executor):
         ----> subconsumerN
 
     Args:
-        parallelism (int, optional): how many parallel jobs to schedule at a
+        parallelism (int, optional): how many parallel jobs to distribute at a
             time
     """
 

@@ -2,7 +2,7 @@ import os
 import time
 from unittest.mock import patch
 
-from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
+from jobmon.client.distributor.strategies.sge.sge_executor import SGEExecutor
 from jobmon.constants import QsubAttribute, TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 
@@ -18,7 +18,7 @@ def mock_do_nothing(d):
 
 
 def mock_qstat(jids=None):
-    """mock jobmon.client.execution.strategies.sge.sge_utils.qstat to return a fixed job list
+    """mock jobmon.client.distributor.strategies.sge.sge_utils.qstat to return a fixed job list
     with one fixed job"""
     job = {'job_id': 66666,
            'hostname': 'mewo.cat.org',
@@ -33,7 +33,7 @@ def mock_qstat(jids=None):
 
 
 def mock_qacct_exit_status(id):
-    """mock jobmon.client.execution.strategies.sge.sge_utils.qacct_exit_status to
+    """mock jobmon.client.distributor.strategies.sge.sge_utils.qacct_exit_status to
     return some fixed code and msg according to id"""
     if id == 100:
         return QsubAttribute.ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES[0], \
@@ -50,7 +50,7 @@ def mock_qacct_exit_status(id):
 @pytest.mark.unittest
 def test_get_actual_submitted_or_running():
     """This is to test the get_actual_submitted_or_running returns a list of int"""
-    with patch("jobmon.client.execution.strategies.sge.sge_utils.qstat") as m_qstat:
+    with patch("jobmon.client.distributor.strategies.sge.sge_utils.qstat") as m_qstat:
         m_qstat.side_effect = mock_qstat
         sge = SGEExecutor()
         result = sge.get_actual_submitted_or_running(executor_ids=[66666])
@@ -67,7 +67,7 @@ def test_get_actual_submitted_or_running():
                (400, ('e', RemoteExitInfoNotAvailable))])
 def test_get_remote_exit_info(id, ex):
     """This test goes through the if else branches of get_remote_exit_info"""
-    with patch("jobmon.client.execution.strategies.sge.sge_utils.qacct_exit_status"
+    with patch("jobmon.client.distributor.strategies.sge.sge_utils.qacct_exit_status"
                ) as m_qacct_exit_status:
         m_qacct_exit_status.side_effect = mock_qacct_exit_status
         sge = SGEExecutor()
@@ -95,7 +95,7 @@ def test_build_qsub_command():
             "ihme_general   -w e  -V") in r
     assert "\"date\"" in r
     # dir
-    with patch("jobmon.client.execution.strategies.sge.sge_executor.makedirs_safely") as\
+    with patch("jobmon.client.distributor.strategies.sge.sge_executor.makedirs_safely") as\
             m_makedirs_safely:
         m_makedirs_safely.side_effect = mock_do_nothing
         r = SGEExecutor()._build_qsub_command(base_cmd="date",
@@ -114,7 +114,7 @@ def test_build_qsub_command():
                 "-l h_rt=10000 -P proj_test -e ~ -o ~ -w e  -V") in r
         assert "\"date\"" in r
         # context_args
-        with patch("jobmon.client.execution.strategies.sge.sge_executor.makedirs_safely") as \
+        with patch("jobmon.client.distributor.strategies.sge.sge_executor.makedirs_safely") as \
                 m_makedirs_safely:
             m_makedirs_safely.side_effect = mock_do_nothing
             r = SGEExecutor()._build_qsub_command(base_cmd="date",
@@ -134,7 +134,7 @@ def test_build_qsub_command():
             assert "\"date\"" in r
 
 
-class MockSchedulerProc:
+class MockDistributorProc:
     def is_alive(self):
         return True
 
@@ -145,7 +145,7 @@ def test_instantiation(db_cfg, requester_no_retries):
     from tests.client.sge._sgesimulator._test_unknown_workflow import (_TestUnknownWorkflow as
                                                                        Workflow)
     from jobmon.client.api import BashTask
-    from jobmon.client.execution.scheduler.task_instance_scheduler import TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import TaskInstanceDistributor
 
     t1 = BashTask("echo 1", executor_class="_SimulatorSGEExecutor")
     workflow = Workflow(executor_class="_SimulatorSGEExecutor",
@@ -153,14 +153,14 @@ def test_instantiation(db_cfg, requester_no_retries):
     workflow.add_tasks([t1])
     workflow.bind()
     wfr = workflow._create_workflow_run()
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester_no_retries)
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockSchedulerProc(),
+        wfr.execute_interruptible(MockDistributorProc(),
                                   seconds_until_timeout=1)
 
-    scheduler._get_tasks_queued_for_instantiation()
-    scheduler.schedule()
+    distributor._get_tasks_queued_for_instantiation()
+    distributor.distribute()
 
     # check the job finished
     app = db_cfg["app"]
@@ -432,7 +432,7 @@ def test_no_suitable_queue(db_cfg, client_env):
     checks that it was moved to all.q with 750gb of memory."""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
     from jobmon.client.api import BashTask
-    from jobmon.client.execution.strategies.sge.sge_queue import SGE_ALL_Q
+    from jobmon.client.distributor.strategies.sge.sge_queue import SGE_ALL_Q
 
     SGE_ALL_Q.max_memory_gb = 1000000
 
@@ -468,8 +468,8 @@ def test_eqw_restarting(db_cfg, client_env):
     """This test creates a task that will be moved in to eqw state by the cluster. It then
     checks that the task instance changes state."""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.client.api import BashTask
     from jobmon.requester import Requester
 
@@ -495,23 +495,23 @@ def test_eqw_restarting(db_cfg, client_env):
     workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
+        wfr.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
 
     # submit to qsub
-    scheduler.schedule()
+    distributor.distribute()
 
     # wait till it hits eqw
     i = 0
-    while not scheduler._to_log_error and i < 10:
+    while not distributor._to_log_error and i < 10:
         time.sleep(10)
         i += 1
-        scheduler._purge_queueing_errors()
+        distributor._purge_queueing_errors()
 
     # log error
-    scheduler.schedule()
+    distributor.distribute()
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]

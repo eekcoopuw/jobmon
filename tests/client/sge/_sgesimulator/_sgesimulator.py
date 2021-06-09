@@ -1,14 +1,14 @@
 from typing import Dict, List, Optional, Tuple
 
-from jobmon.client.execution.strategies.base import ExecutorParameters
-from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor, \
+from jobmon.client.distributor.strategies.base import ExecutorParameters
+from jobmon.client.distributor.strategies.sge.sge_executor import SGEExecutor, \
     TaskInstanceSGEInfo
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 
 import structlog as logging
 
 
-logger = logging.getLogger("jobmon.client.execution")
+logger = logging.getLogger("jobmon.client.distributor")
 
 """ The following classes are create for system testing purpose.
 They mimic the sge executor without actually running SGE.
@@ -61,16 +61,16 @@ class _SimulatorSGEExecutor(SGEExecutor):
 
     def execute(self, command: str, name: str,
                 executor_parameters: ExecutorParameters) -> int:
-        from jobmon.client.execution.worker_node.execution_wrapper import (
+        from jobmon.client.distributor.worker_node.execution_wrapper import (
             unwrap, parse_arguments)
         from queue import Queue
         from unittest.mock import patch
         from time import sleep
         with patch(
-                "jobmon.client.execution.worker_node.execution_wrapper._get_executor_class") \
+                "jobmon.client.distributor.worker_node.execution_wrapper._get_executor_class") \
                 as m_get_executor_c, \
              patch(
-                 "jobmon.client.execution.worker_node.execution_wrapper._run_in_sub_process")\
+                 "jobmon.client.distributor.worker_node.execution_wrapper._run_in_sub_process")\
                 as m_run_in_sub_p:
             m_get_executor_c.return_value = "_SimulatorSGEExecutor", \
                                             _SimulatorTaskInstanceSGEInfo()

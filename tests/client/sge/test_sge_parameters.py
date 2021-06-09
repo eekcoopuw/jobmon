@@ -1,6 +1,6 @@
 import os
 
-from jobmon.client.execution.strategies.sge.sge_parameters import SGEParameters
+from jobmon.client.distributor.strategies.sge.sge_parameters import SGEParameters
 
 import pytest
 
@@ -100,7 +100,7 @@ def test_allq_to_longq():
 
 @pytest.mark.unittest
 def test_all_to_long_max():
-    from jobmon.client.execution.strategies.sge.sge_queue import SGE_LONG_Q
+    from jobmon.client.distributor.strategies.sge.sge_queue import SGE_LONG_Q
     resources = SGEParameters(m_mem_free="1G", queue="all.q", max_runtime_seconds=1036800,
                               j_resource=True, resource_scales={'max_runtime_seconds': 0.5})
     resources.validate()

@@ -5,7 +5,7 @@ import getpass
 import sys
 from typing import Any, Callable, Dict, List, Optional, Union
 
-from jobmon.client.execution.strategies.base import ExecutorParameters
+#from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool
 

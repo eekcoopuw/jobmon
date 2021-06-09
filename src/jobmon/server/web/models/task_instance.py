@@ -1,7 +1,7 @@
 """Task Instance Database Table."""
 from flask import current_app as app
 
-from jobmon.serializers import SerializeExecutorTaskInstance
+from jobmon.serializers import SerializeTaskInstance
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
@@ -15,16 +15,16 @@ class TaskInstance(DB.Model):
 
     __tablename__ = "task_instance"
 
-    def to_wire_as_executor_task_instance(self):
+    def to_wire_as_distributor_task_instance(self):
         """Serialize task instance object."""
-        return SerializeExecutorTaskInstance.to_wire(self.id,
+        return SerializeTaskInstance.to_wire(self.id,
                                                      self.workflow_run_id,
-                                                     self.executor_id)
+                                                     self.distributor_id)
 
     id = DB.Column(DB.Integer, primary_key=True)
     workflow_run_id = DB.Column(DB.Integer)
-    executor_type = DB.Column(DB.String(50))
-    executor_id = DB.Column(DB.Integer, index=True)
+    cluster_type_name = DB.Column(DB.String(50))
+    distributor_id = DB.Column(DB.Integer, index=True)
     task_id = DB.Column(DB.Integer, DB.ForeignKey('task.id'))
     task_resources_id = DB.Column(
         DB.Integer, DB.ForeignKey('task_resources.id'))
@@ -56,10 +56,10 @@ class TaskInstance(DB.Model):
     valid_transitions = [
         # task instance is submitted normally (happy path)
         (TaskInstanceStatus.INSTANTIATED,
-         TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
+         TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR),
 
-        # task instance submission hit weird bug and didn't get an executor_id
-        (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.NO_EXECUTOR_ID),
+        # task instance submission hit weird bug and didn't get an distributor_id
+        (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.NO_DISTRIBUTOR_ID),
 
         # task instance is mid submission and a new workflow run starts and
         # tells it to die
@@ -69,24 +69,24 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.RUNNING),
 
         # task instance logs running after submission to batch (happy path)
-        (TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+        (TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
          TaskInstanceStatus.RUNNING),
 
-        # task instance disappeared from executor heartbeat and never logged
-        # running. The executor has no accounting of why it died
-        (TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+        # task instance disappeared from distributor heartbeat and never logged
+        # running. The distributor has no accounting of why it died
+        (TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
          TaskInstanceStatus.UNKNOWN_ERROR),
 
-        # task instance disappeared from executor heartbeat and never logged
-        # running. The executor discovered a resource error exit status.
+        # task instance disappeared from distributor heartbeat and never logged
+        # running. The distributor discovered a resource error exit status.
         # This seems unlikely but is valid for the purposes of the FSM
-        (TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+        (TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
          TaskInstanceStatus.RESOURCE_ERROR),
 
-        # task instance is submitted to the batch executor waiting to start
+        # task instance is submitted to the batch distributor waiting to start
         # running. new workflow run is created and this task is told to kill
         # itself
-        (TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR,
+        (TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
          TaskInstanceStatus.KILL_SELF),
 
         # task instance hits an application error (happy path)
@@ -109,16 +109,16 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.DONE),
 
         # allow task instance to transit to F to immediately fail the task
-        (TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR, TaskInstanceStatus.ERROR_FATAL),
+        (TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR, TaskInstanceStatus.ERROR_FATAL),
     ]
 
     untimely_transitions = [
 
-        # task instance logs running before the executor logs submitted due to
+        # task instance logs running before the distributor logs submitted due to
         # race condition. this is unlikely but happens and is valid for the
         # purposes of the FSM
         (TaskInstanceStatus.RUNNING,
-         TaskInstanceStatus.SUBMITTED_TO_BATCH_EXECUTOR),
+         TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR),
 
         # task instance stops logging heartbeats and reconciler is looking for
         # remote exit status but can't find it so logs an unknown error. task
@@ -166,12 +166,12 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.RESOURCE_ERROR)
     ]
 
-    kill_self_states = [TaskInstanceStatus.NO_EXECUTOR_ID,
+    kill_self_states = [TaskInstanceStatus.NO_DISTRIBUTOR_ID,
                         TaskInstanceStatus.UNKNOWN_ERROR,
                         TaskInstanceStatus.RESOURCE_ERROR,
                         TaskInstanceStatus.KILL_SELF]
 
-    error_states = [TaskInstanceStatus.NO_EXECUTOR_ID,
+    error_states = [TaskInstanceStatus.NO_DISTRIBUTOR_ID,
                     TaskInstanceStatus.ERROR,
                     TaskInstanceStatus.UNKNOWN_ERROR,
                     TaskInstanceStatus.RESOURCE_ERROR,
@@ -219,7 +219,7 @@ class TaskInstance(DB.Model):
                 'TaskInstance', self.id, self.status, new_state))
             msg += (
                 ". This is an untimely transition likely caused by a race "
-                " condition between the UGE scheduler and the task instance"
+                " condition between the UGE distributor and the task instance"
                 " factory which logs the UGE id on the task instance.")
             app.logger.warning(msg)
             return False

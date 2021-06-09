@@ -7,7 +7,7 @@ def test_cluster_queue(db_cfg, client_env):
     # Manually modify the database so that some cluster_type, cluster and queue
     # data could be tested
     from jobmon.client.api import BashTask, Tool
-    from jobmon.client.execution.strategies.sequential import \
+    from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
 
     # setup workflow 1

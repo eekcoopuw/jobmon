@@ -2,10 +2,10 @@ import os
 import sys
 from unittest.mock import patch
 
-import jobmon.client.execution.strategies.sequential
-import jobmon.client.execution.strategies.sge.sge_utils
-import jobmon.client.execution.worker_node.execution_wrapper
-import jobmon.client.execution.worker_node.worker_node_task_instance
+import jobmon.client.distributor.strategies.sequential
+import jobmon.client.distributor.strategies.sge.sge_utils
+import jobmon.client.distributor.worker_node.execution_wrapper
+import jobmon.client.distributor.worker_node.worker_node_task_instance
 
 import pkg_resources
 
@@ -13,7 +13,7 @@ import pytest
 
 
 # module paths
-worker_node = "jobmon.client.execution.worker_node."
+worker_node = "jobmon.client.distributor.worker_node."
 WNTI = "worker_node_task_instance.WorkerNodeTaskInstance."
 
 

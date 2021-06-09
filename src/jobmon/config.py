@@ -384,28 +384,28 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def scheduler_n_queued(parser: configargparse.ArgumentParser
+    def distributor_n_queued(parser: configargparse.ArgumentParser
                            ) -> configargparse.ArgumentParser:
-        """How many jobs to schedule in one scheduler loop."""
+        """How many jobs to distribute in one distributor loop."""
         parser.add_argument(
-            '--scheduler_n_queued',
+            '--distributor_n_queued',
             type=int,
-            help='How many jobs to schedule in one scheduler loop',
+            help='How many jobs to distribute in one distributor loop',
             default=100,
-            env_var='SCHEDULER_N_QUEUED'
+            env_var='DISTRIBUTOR_N_QUEUED'
         )
         return parser
 
     @staticmethod
-    def scheduler_poll_interval(parser: configargparse.ArgumentParser
+    def distributor_poll_interval(parser: configargparse.ArgumentParser
                                 ) -> configargparse.ArgumentParser:
-        """How long to sleep between scheduler loops."""
+        """How long to sleep between distributor loops."""
         parser.add_argument(
-            '--scheduler_poll_interval',
+            '--distributor_poll_interval',
             type=int,
-            help='How long to sleep between scheduler loops',
+            help='How long to sleep between distributor loops',
             default=10,
-            env_var='SCHEDULER_POLL_INTERVAL'
+            env_var='DISTRIBUTOR_POLL_INTERVAL'
         )
         return parser
 

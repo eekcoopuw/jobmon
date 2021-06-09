@@ -15,7 +15,7 @@ from jobmon.client.node import Node
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
-from jobmon.serializers import SerializeExecutorTaskInstanceErrorLog
+from jobmon.serializers import SerializeTaskInstanceErrorLog
 
 logger = logging.getLogger(__name__)
 
@@ -415,7 +415,7 @@ class Task:
                         message={},
                         request_type='get')
                     errors_ti = [
-                        SerializeExecutorTaskInstanceErrorLog.kwargs_from_wire(j)
+                        SerializeTaskInstanceErrorLog.kwargs_from_wire(j)
                         for j in response['task_instance_error_log']]
                     self._errors = {'task_instance_id': task_instance_id,
                                     'error_log': errors_ti}
