@@ -4,8 +4,8 @@ from datetime import datetime
 from typing import Dict, List, Tuple, Union
 
 
-class SerializeExecutorTask:
-    """Serialize the data to and from the database for an ExecutorTask object."""
+class SerializeDistributorTask:
+    """Serialize the data to and from the database for an DistributorTask object."""
 
     @staticmethod
     def to_wire(task_id: int, workflow_id: int, node_id: int,
@@ -13,7 +13,7 @@ class SerializeExecutorTask:
                 max_runtime_seconds: int, context_args: str,
                 resource_scales: str, queue: str, num_cores: int,
                 m_mem_free: str, j_resource: str, hard_limits: str) -> tuple:
-        """Submitting the above args to the database for an ExecutorTask object."""
+        """Submitting the above args to the database for an DistributorTask object."""
         return (task_id, workflow_id, node_id, task_args_hash, name, command,
                 status, max_runtime_seconds, context_args, resource_scales,
                 queue, num_cores, m_mem_free, j_resource, hard_limits)
@@ -64,39 +64,39 @@ class SerializeSwarmTask:
         return {"task_id": int(wire_tuple[0]), "status": wire_tuple[1]}
 
 
-class SerializeExecutorTaskInstance:
-    """Serialize the data to and from the database for an ExecutorTaskInstance."""
+class SerializeDistributorTaskInstance:
+    """Serialize the data to and from the database for an DistributorTaskInstance."""
 
     @staticmethod
     def to_wire(task_instance_id: int, workflow_run_id: int,
                 executor_id: Union[int, None]) -> tuple:
-        """Submit the above args for an ExecutorTaskInstance object to the database."""
+        """Submit the above args for an DistributorTaskInstance object to the database."""
         return task_instance_id, workflow_run_id, executor_id
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
-        """Retrieve the ExecutorTaskInstance information from the database."""
+        """Retrieve the DistributorTaskInstance information from the database."""
         executor_id = int(wire_tuple[2]) if wire_tuple[2] else None
         return {"task_instance_id": int(wire_tuple[0]),
                 "workflow_run_id": int(wire_tuple[1]),
                 "executor_id": executor_id}
 
 
-class SerializeExecutorTaskInstanceErrorLog:
-    """Serialize the data to and from the database for an ExecutorTaskInstanceErrorLog."""
+class SerializeDistributorTaskInstanceErrorLog:
+    """Serialize the data to and from the database for an DistributorTaskInstanceErrorLog."""
 
     @staticmethod
     def to_wire(task_instance_error_log_id: int, error_time: datetime,
                 description: str) -> tuple:
         """
-        Submit the above args for an SerializeExecutorTaskInstanceErrorLog
+        Submit the above args for an SerializeDistributorTaskInstanceErrorLog
         object to the database.
         """
         return task_instance_error_log_id, error_time, description
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
-        """Retrieve the SerializeExecutorTaskInstanceErrorLog information from the database."""
+        """Retrieve the SerializeDistributorTaskInstanceErrorLog information from the database."""
         return {"task_instance_error_log_id": int(wire_tuple[0]),
                 "error_time": str(wire_tuple[1]),
                 "description": str(wire_tuple[2])}

@@ -12,7 +12,7 @@ from jobmon.server.web.routes import jobmon_client
 def log_request_info():
     """Add blueprint to logger."""
     app.logger = app.logger.bind(blueprint=jobmon_client.name)
-    app.logger.debug("starting route execution")
+    app.logger.debug("starting route distributor")
 
 
 @jobmon_client.route('/', methods=['GET'])

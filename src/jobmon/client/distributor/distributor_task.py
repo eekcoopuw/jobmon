@@ -1,21 +1,21 @@
-"""Task object used by scheduler to create Task Instances from."""
+"""Task object used by distributor to create Task Instances from."""
 from __future__ import annotations
 
 import logging
 
-from jobmon.client.execution.strategies.base import ExecutorParameters
+from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.requester import Requester
-from jobmon.serializers import SerializeExecutorTask
+from jobmon.serializers import SerializeDistributorTask
 
 
 logger = logging.getLogger(__name__)
 
 
-class ExecutorTask:
-    """Task object used by scheduler to create Task Instances from."""
+class DistributorTask:
+    """Task object used by distributor to create Task Instances from."""
 
     # this API should always match what's returned by
-    # serializers.SerializeExecutorTask
+    # serializers.SerializeDistributorTask
     def __init__(self, task_id: int, workflow_id: int, node_id: int, task_args_hash: int,
                  name: str, command: str, status: str, executor_parameters: ExecutorParameters,
                  requester: Requester):
@@ -49,19 +49,19 @@ class ExecutorTask:
 
     @classmethod
     def from_wire(cls, wire_tuple: tuple, executor_class: str, requester: Requester
-                  ) -> ExecutorTask:
+                  ) -> DistributorTask:
         """Construct instance from wire format the JQS gives
 
         Args:
             wire_tuple (tuple): tuple representing the wire format for this
-                task. format = serializers.SerializeExecutorTask.to_wire()
+                task. format = serializers.SerializeDistributorTask.to_wire()
             executor_class (str): which executor class this task instance is
                 being run on
             requester (Requester, shared_requester): requester for
                 communicating with central services
         """
         # convert wire tuple into dictionary of kwargs
-        kwargs = SerializeExecutorTask.kwargs_from_wire(wire_tuple)
+        kwargs = SerializeDistributorTask.kwargs_from_wire(wire_tuple)
 
         # instantiate job
         logger.debug("Instantiate task tid {}".format(kwargs["task_id"]))

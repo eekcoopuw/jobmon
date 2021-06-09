@@ -13,7 +13,7 @@ from jobmon.server.web.server_side_exception import InvalidUsage
 
 from sqlalchemy.sql import text
 
-from . import jobmon_client, jobmon_scheduler, jobmon_swarm
+from . import jobmon_client, jobmon_distributor, jobmon_swarm
 
 
 @jobmon_client.route('/workflow_run', methods=['POST'])
@@ -294,8 +294,8 @@ def log_wfr_heartbeat(workflow_run_id: int):
     return resp
 
 
-@jobmon_scheduler.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
-def scheduler_log_workflow_run_heartbeat(workflow_run_id: int):
+@jobmon_distributor.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
+def distributor_log_workflow_run_heartbeat(workflow_run_id: int):
     """Log a heartbeat on behalf of the workflow run to show that the client side is still
     alive.
     """

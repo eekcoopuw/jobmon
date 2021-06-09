@@ -1,4 +1,4 @@
-"""Workflow Run is an execution instance of a declared workflow."""
+"""Workflow Run is an distributor instance of a declared workflow."""
 import copy
 import logging
 import time
@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Set, Tuple
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.constants import ExecutorParameterSetType, TaskStatus, WorkflowRunStatus
-from jobmon.exceptions import InvalidResponse, SchedulerNotAlive
+from jobmon.exceptions import InvalidResponse, DistributorNotAlive
 from jobmon.requester import Requester, http_request_ok
 
 
@@ -68,13 +68,13 @@ class WorkflowRun:
                 if task.status not in terminal_status]
 
     @property
-    def scheduler_alive(self) -> bool:
-        """If the scheduler process is still active."""
-        if not hasattr(self, "_scheduler_proc"):
+    def distributor_alive(self) -> bool:
+        """If the distributor process is still active."""
+        if not hasattr(self, "_distributor_proc"):
             return False
         else:
-            logger.debug(f"Scheduler proc is: {self._scheduler_proc.is_alive()}")
-            return self._scheduler_proc.is_alive()
+            logger.debug(f"Distributor proc is: {self._distributor_proc.is_alive()}")
+            return self._distributor_proc.is_alive()
 
     @property
     def completed_report(self) -> Tuple:
@@ -99,12 +99,12 @@ class WorkflowRun:
                 f'code 200. Response content: {response}')
         self._status = status
 
-    def execute_interruptible(self, scheduler_proc: Process, fail_fast: bool = False,
+    def execute_interruptible(self, distributor_proc: Process, fail_fast: bool = False,
                               seconds_until_timeout: int = 36000):
         """Execute the workflow run."""
         # _block_until_any_done_or_error continually checks to make sure this
         # process is alive
-        self._scheduler_proc = scheduler_proc
+        self._distributor_proc = distributor_proc
 
         keep_running = True
         while keep_running:
@@ -116,7 +116,7 @@ class WorkflowRun:
                 if confirm == "y":
                     raise
                 else:
-                    logger.info("Continuing jobmon execution...")
+                    logger.info("Continuing jobmon distributor...")
 
     def terminate_workflow_run(self) -> None:
         """Terminate the workflow run."""
@@ -174,7 +174,7 @@ class WorkflowRun:
         to be better at scaling.
 
         Conceptually:
-        Mark all Tasks as not tried for this execution
+        Mark all Tasks as not tried for this distributor
         while the fringe is not empty:
             if the job is DONE, skip it and add its downstreams to the fringe
             if not, queue it
@@ -207,7 +207,7 @@ class WorkflowRun:
         while fringe or self.active_tasks:
             # Everything in the fringe should be run or skipped,
             # they either have no upstreams, or all upstreams are marked DONE
-            # in this execution
+            # in this distributor
 
             while fringe:
                 # Get the front of the queue and add it to the end.
@@ -302,7 +302,7 @@ class WorkflowRun:
     def _block_until_any_done_or_error(self, timeout: int = 36000,
                                        poll_interval: int = 10,
                                        wedged_workflow_sync_interval: int = 600):
-        """Block code execution until a task is done or errored"""
+        """Block code distributor until a task is done or errored"""
         time_since_last_update = 0
         time_since_last_wedge_sync = 0
         while True:
@@ -314,11 +314,11 @@ class WorkflowRun:
                     f"will need to be restarted."
                 )
 
-            # make sure scheduler is still alive or this is all for nothing
-            if not self.scheduler_alive:
-                raise SchedulerNotAlive(
-                    f"Scheduler process pid=({self._scheduler_proc.pid}) unexpectedly died "
-                    f"with exit code {self._scheduler_proc.exitcode}"
+            # make sure distributor is still alive or this is all for nothing
+            if not self.distributor_alive:
+                raise DistributorNotAlive(
+                    f"Distributor process pid=({self._distributor_proc.pid}) unexpectedly died "
+                    f"with exit code {self._distributor_proc.exitcode}"
                 )
 
             # check if we are doing a full sync or a date based sync

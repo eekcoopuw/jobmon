@@ -53,7 +53,7 @@ def test_integration_with_mock(db_cfg, dag_factory):
         MaxpssQ.keep_running = False
         assert MaxpssQ().get_size() == 0
         code, response = req.send_request(
-            app_route='/scheduler/task_instance/1/maxpss',
+            app_route='/distributor/task_instance/1/maxpss',
             message={},
             request_type='get')
         assert code == 200
@@ -207,7 +207,7 @@ def test_route_get_maxpss_error_path(qpidcfg, client_env):
     MaxpssQ().empty_q()
     # test non-existing ji
     code, _ = req.send_request(
-        app_route='/scheduler/task_instance/9999/maxpss',
+        app_route='/distributor/task_instance/9999/maxpss',
         message={},
         request_type='get'
     )

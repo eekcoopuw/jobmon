@@ -1,9 +1,4 @@
-import time
-from typing import Dict
-
-import pytest
 from mock import patch, PropertyMock
-from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
 from jobmon.constants import WorkflowRunStatus
 
 
@@ -33,8 +28,8 @@ def test_error_state(db_cfg, requester_no_retry):
     """
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.client.workflow_run import WorkflowRun
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
 
@@ -46,9 +41,9 @@ def test_error_state(db_cfg, requester_no_retry):
     workflow1.add_tasks([task1])
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
-    scheduler1 = TaskInstanceScheduler(workflow1.workflow_id, wfr1.workflow_run_id,
+    distributor1 = TaskInstanceDistributor(workflow1.workflow_id, wfr1.workflow_run_id,
                                        workflow1._executor, requester=requester_no_retry)
-    scheduler1.heartbeat()
+    distributor1.heartbeat()
 
     # Create a second workflow with one task. Don't log a heartbeat so that it can die
     task2 = BashTask("sleep 11")
@@ -90,8 +85,8 @@ def test_halted_state(db_cfg, requester_no_retry):
     """
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.client.workflow_run import WorkflowRun
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
 
@@ -103,9 +98,9 @@ def test_halted_state(db_cfg, requester_no_retry):
     workflow1.add_tasks([task1])
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
-    scheduler1 = TaskInstanceScheduler(workflow1.workflow_id, wfr1.workflow_run_id,
+    distributor1 = TaskInstanceDistributor(workflow1.workflow_id, wfr1.workflow_run_id,
                                        workflow1._executor, requester=requester_no_retry)
-    scheduler1.heartbeat()
+    distributor1.heartbeat()
     wfr1.update_status("R")
 
     # Create second WorkflowRun and tranistion to C status

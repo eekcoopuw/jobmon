@@ -20,7 +20,7 @@ class WorkerNodeCLI(CLI):
         self._add_worker_node_parser()
 
     def run_task(self, args: configargparse.Namespace) -> ReturnCodes:
-        """Configuration for the jobmon scheduler."""
+        """Configuration for the jobmon distributor."""
         from jobmon.worker_node.worker_node_config import WorkerNodeConfig
 
         worker_node_config = WorkerNodeConfig(
@@ -44,7 +44,7 @@ class WorkerNodeCLI(CLI):
 
     def _add_worker_node_parser(self) -> None:
         worker_node_parser = self._subparsers.add_parser('worker_node', **PARSER_KWARGS)
-        worker_node_parser.set_defaults(func=self.scheduler)
+        worker_node_parser.set_defaults(func=self.distributor)
         worker_node_parser.add_argument(
             '--task_instance_id',
             type=int,

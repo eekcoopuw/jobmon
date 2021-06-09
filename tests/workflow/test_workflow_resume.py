@@ -21,7 +21,7 @@ def test_fail_one_task_resume(db_cfg, client_env, tmpdir):
     """test that a workflow with a task that fails. The workflow is resumed and
     the task then finishes successfully and the workflow runs to completion"""
     from jobmon.client.api import Tool, ExecutorParameters
-    from jobmon.client.execution.strategies.sequential import \
+    from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
 
     unknown_tool = Tool()
@@ -88,7 +88,7 @@ def test_fail_one_task_resume(db_cfg, client_env, tmpdir):
 def test_multiple_active_race_condition(db_cfg, client_env):
     """test that we cannot create 2 workflow runs simultaneously"""
     from jobmon.client.api import Tool, ExecutorParameters
-    from jobmon.client.execution.strategies.sequential import \
+    from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
 
     unknown_tool = Tool()
@@ -120,7 +120,7 @@ def test_multiple_active_race_condition(db_cfg, client_env):
         workflow2._create_workflow_run(resume=True)
 
 
-class MockSchedulerProc:
+class MockDistributorProc:
 
     def is_alive(self):
         return True
@@ -129,10 +129,10 @@ class MockSchedulerProc:
 def test_cold_resume(db_cfg, client_env):
     """"""
     from jobmon.client.api import Tool, ExecutorParameters
-    from jobmon.client.execution.strategies.multiprocess import \
+    from jobmon.client.distributor.strategies.multiprocess import \
         MultiprocessExecutor
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.requester import Requester
 
     # set up tool and task template
@@ -153,18 +153,18 @@ def test_cold_resume(db_cfg, client_env):
     workflow1.set_executor(MultiprocessExecutor(parallelism=3))
     workflow1.add_tasks(tasks)
 
-    # create an in memory scheduler and start up the first 3 jobs
+    # create an in memory distributor and start up the first 3 jobs
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow1.workflow_id, wfr1.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow1.workflow_id, wfr1.workflow_run_id,
                                       workflow1._executor, requester=requester)
     with pytest.raises(RuntimeError):
-        wfr1.execute_interruptible(MockSchedulerProc(), seconds_until_timeout=1)
-    scheduler.executor.start()
-    scheduler.heartbeat()
-    scheduler._get_tasks_queued_for_instantiation()
-    scheduler.schedule()
+        wfr1.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
+    distributor.executor.start()
+    distributor.heartbeat()
+    distributor._get_tasks_queued_for_instantiation()
+    distributor.distribute()
 
     time.sleep(6)
     # import pdb; pdb.set_trace()
@@ -182,8 +182,8 @@ def test_cold_resume(db_cfg, client_env):
 
     # test if resume signal is received
     with pytest.raises(ResumeSet):
-        scheduler.run_scheduler()
-    assert scheduler.executor.started is False
+        distributor.run_distributor()
+    assert distributor.executor.started is False
     # get internal state of workflow run. at least 1 task should have finished
     completed, _ = wfr1._block_until_any_done_or_error()
     assert len(completed) > 0
@@ -212,7 +212,7 @@ def test_cold_resume(db_cfg, client_env):
 @pytest.mark.integration_sge
 def test_cold_resume_from_failures(db_cfg, client_env):
     from jobmon.client.api import Tool, ExecutorParameters
-    from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor  # noqa F401
+    from jobmon.client.distributor.strategies.sge.sge_executor import SGEExecutor  # noqa F401
 
     # set up tool and task template
     unknown_tool = Tool()
@@ -279,7 +279,7 @@ def test_cold_resume_from_failures(db_cfg, client_env):
 
 def hot_resumable_workflow():
     from jobmon.client.api import Tool, ExecutorParameters
-    from jobmon.client.execution.strategies.sequential import \
+    from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
 
     # set up tool and task template
@@ -310,7 +310,7 @@ def run_hot_resumable_workflow():
 
 
 def test_hot_resume(db_cfg, client_env):
-    from jobmon.client.execution.strategies.multiprocess import MultiprocessExecutor
+    from jobmon.client.distributor.strategies.multiprocess import MultiprocessExecutor
     p1 = Process(target=run_hot_resumable_workflow)
     p1.start()
 
@@ -372,7 +372,7 @@ def test_stopped_resume(db_cfg, client_env):
     keyboard interrupt mid stream. The workflow is resumed and
     the tasks then finishes successfully and the workflow runs to completion"""
     from jobmon.client.api import Tool, BashTask
-    from jobmon.client.execution.strategies.sequential import \
+    from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
 
     unknown_tool = Tool()

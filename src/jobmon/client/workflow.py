@@ -8,22 +8,20 @@ from multiprocessing import Event, Process, Queue
 from multiprocessing import synchronize
 from queue import Empty
 from typing import Dict, List, Optional, Sequence, Union
-import importlib
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.dag import Dag
-from jobmon.client.execution.scheduler.api import SchedulerConfig
-from jobmon.client.execution.scheduler.task_instance_scheduler import \
-    ExceptionWrapper, TaskInstanceScheduler
-from jobmon.cluster_type.api import register_cluster_plugin
+from jobmon.client.distributor.api import DistributorConfig
+from jobmon.client.distributor.task_instance_distributor import \
+    ExceptionWrapper, TaskInstanceDistributor
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
-from jobmon.cluster_type.base import ClusterResources
+from jobmon.cluster_type.api import import_cluster
 from jobmon.constants import WorkflowRunStatus, WorkflowStatus
 from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse, ResumeSet,
-                               SchedulerNotAlive, SchedulerStartupTimeout,
+                               DistributorNotAlive, DistributorStartupTimeout,
                                WorkflowAlreadyComplete, WorkflowAlreadyExists,
                                WorkflowNotResumable)
 from jobmon.requester import Requester, http_request_ok
@@ -117,9 +115,9 @@ class Workflow(object):
         self.workflow_args_hash = int(
             hashlib.sha1(self.workflow_args.encode('utf-8')).hexdigest(), 16)
 
-        self._scheduler_proc: Optional[Process] = None
-        self._scheduler_com_queue: Queue = Queue()
-        self._scheduler_stop_event: synchronize.Event = Event()
+        self._distributor_proc: Optional[Process] = None
+        self._distributor_com_queue: Queue = Queue()
+        self._distributor_stop_event: synchronize.Event = Event()
         self.workflow_attributes = {}
         if workflow_attributes:
             if isinstance(workflow_attributes, List):
@@ -232,14 +230,14 @@ class Workflow(object):
 
     def run(self, fail_fast: bool = False, seconds_until_timeout: int = 36000,
             resume: bool = ResumeStatus.DONT_RESUME, reset_running_jobs: bool = True,
-            scheduler_response_wait_timeout: int = 180,
-            scheduler_config: Optional[SchedulerConfig] = None,
+            distributor_response_wait_timeout: int = 180,
+            distributor_config: Optional[DistributorConfig] = None,
             resume_timeout: int = 300) -> WorkflowRun:
         """Run the workflow by traversing the dag and submitting new tasks when their tasks
         have completed successfully.
 
         Args:
-            fail_fast: whether or not to break out of execution on
+            fail_fast: whether or not to break out of distributor on
                 first failure
             seconds_until_timeout: amount of time (in seconds) to wait
                 until the whole workflow times out. Submitted jobs will
@@ -248,9 +246,9 @@ class Workflow(object):
                 it is not set to resume and an identical workflow already
                 exists, the workflow will error out
             reset_running_jobs: whether or not to reset running jobs upon resume
-            scheduler_response_wait_timeout: amount of time to wait for the
-                scheduler thread to start up
-            scheduler_config: a scheduler config object
+            distributor_response_wait_timeout: amount of time to wait for the
+                distributor thread to start up
+            distributor_config: a distributor config object
             resume_timeout: seconds to wait for a workflow to become resumable before giving up
 
         Returns:
@@ -263,10 +261,10 @@ class Workflow(object):
             "accordingly.",
             PendingDeprecationWarning
         )
-        if not hasattr(self, "_executor"):
+        if not hasattr(self, "_distributor"):
             logger.debug("using default project: ihme_general")
-            self.set_executor(project="ihme_general")
-        logger.debug("executor: {}".format(self._executor))
+            self.set_distributor(project="ihme_general")
+        logger.debug("distributor: {}".format(self._distributor))
 
         # bind to database
         logger.info("Adding Workflow metadata to database")
@@ -283,12 +281,12 @@ class Workflow(object):
             wfr._set_fail_after_n_executions(self._val_fail_after_n_executions)
 
         try:
-            # start scheduler
-            scheduler_proc = self._start_task_instance_scheduler(
-                wfr.workflow_run_id, scheduler_response_wait_timeout, scheduler_config
+            # start distributor
+            distributor_proc = self._start_task_instance_distributor(
+                wfr.workflow_run_id, distributor_response_wait_timeout, distributor_config
             )
             # execute the workflow run
-            wfr.execute_interruptible(scheduler_proc, fail_fast, seconds_until_timeout)
+            wfr.execute_interruptible(distributor_proc, fail_fast, seconds_until_timeout)
             logger.info(f"WorkflowRun run finished executing. Status is: {wfr.status}")
             return wfr
 
@@ -297,16 +295,16 @@ class Workflow(object):
             logger.warning("Keyboard interrupt raised and Workflow Run set to Stopped")
             return wfr
 
-        except SchedulerNotAlive:
-            # check if we got an exception from the scheduler
+        except DistributorNotAlive:
+            # check if we got an exception from the distributor
             try:
-                resp = self._scheduler_com_queue.get(False)
+                resp = self._distributor_com_queue.get(False)
             except Empty:
                 wfr.update_status(WorkflowRunStatus.ERROR)
-                # no response. raise scheduler not alive
+                # no response. raise distributor not alive
                 raise
             else:
-                # re-raise error from scheduler
+                # re-raise error from distributor
                 if isinstance(resp, ExceptionWrapper):
                     try:
                         resp.re_raise()
@@ -323,8 +321,8 @@ class Workflow(object):
                     wfr.update_status(WorkflowRunStatus.ERROR)
                     raise
             finally:
-                scheduler_proc.terminate()
-                self._scheduler_proc = None
+                distributor_proc.terminate()
+                self._distributor_proc = None
                 return wfr
 
         except Exception:
@@ -332,16 +330,16 @@ class Workflow(object):
             raise
 
         finally:
-            # deal with task instance scheduler process if it was started
-            logger.info("Terminating scheduling process. This could take a few minutes.")
-            if self._scheduler_proc is not None:
-                self._scheduler_stop_event.set()
+            # deal with task instance distributor process if it was started
+            logger.info("Terminating distributing process. This could take a few minutes.")
+            if self._distributor_proc is not None:
+                self._distributor_stop_event.set()
                 try:
                     # give it some time to shut down
-                    self._scheduler_com_queue.get(timeout=scheduler_response_wait_timeout)
+                    self._distributor_com_queue.get(timeout=distributor_response_wait_timeout)
                 except Empty:
                     pass
-                self._scheduler_proc.terminate()
+                self._distributor_proc.terminate()
 
     def bind(self):
         """Bind objects to the database if they haven't already been"""
@@ -412,7 +410,7 @@ class Workflow(object):
         # create workflow run
         client_wfr = ClientWorkflowRun(
             workflow_id=self.workflow_id,
-            executor_class=self._executor.__class__.__name__,
+            executor_class=self._distributor.__class__.__name__,
             requester=self.requester
         )
         client_wfr.bind(self.tasks, reset_running_jobs, self._chunk_size)
@@ -518,54 +516,59 @@ class Workflow(object):
                 sleep_time = round(float(resume_timeout) / 10., 1)
                 time.sleep(sleep_time)
 
-    def _start_task_instance_scheduler(self, workflow_run_id: int,
-                                       scheduler_startup_wait_timeout: int,
-                                       scheduler_config: Optional[SchedulerConfig] = None
+    def _start_task_instance_distributor(self, workflow_run_id: int,
+                                       distributor_startup_wait_timeout: int,
+                                       cluster_type_name: str,
+                                       distributor_config: Optional[DistributorConfig] = None
                                        ) -> Process:
-        if scheduler_config is None:
-            scheduler_config = SchedulerConfig.from_defaults()
+        if distributor_config is None:
+            distributor_config = DistributorConfig.from_defaults()
 
-        logger.info("Instantiating Scheduler Process")
+        module = import_cluster(cluster_type_name)
+        ClusterDistributor = module.get_cluster_distributor_class()
+        self._distributor = ClusterDistributor()
 
-        # instantiate scheduler and launch in separate proc. use event to
-        # signal back when scheduler is started
-        scheduler = TaskInstanceScheduler(
+        logger.info("Instantiating Distributor Process")
+
+        # instantiate TaskInstanceDistributor and launch in separate proc. use event to
+        # signal back when distributor is started
+        tid = TaskInstanceDistributor(
             workflow_id=self.workflow_id,
             workflow_run_id=workflow_run_id,
-            executor=self._executor,
-            workflow_run_heartbeat_interval=scheduler_config.workflow_run_heartbeat_interval,
-            task_heartbeat_interval=scheduler_config.task_heartbeat_interval,
-            heartbeat_report_by_buffer=scheduler_config.heartbeat_report_by_buffer,
-            n_queued=scheduler_config.n_queued,
-            scheduler_poll_interval=scheduler_config.scheduler_poll_interval,
-            jobmon_command=scheduler_config.jobmon_command,
+            distributor=self._distributor,
+            workflow_run_heartbeat_interval=distributor_config.workflow_run_heartbeat_interval,
+            task_heartbeat_interval=distributor_config.task_heartbeat_interval,
+            heartbeat_report_by_buffer=distributor_config.heartbeat_report_by_buffer,
+            n_queued=distributor_config.n_queued,
+            distributor_poll_interval=distributor_config.distributor_poll_interval,
+            jobmon_command=distributor_config.jobmon_command,
             requester=self.requester
         )
         self._status = WorkflowStatus.INSTANTIATING
 
-        scheduler_proc = Process(
-            target=scheduler.run_scheduler,
-            args=(self._scheduler_stop_event, self._scheduler_com_queue)
+        distributor_proc = Process(
+            target=tid.run_distributor,
+            args=(self._distributor_stop_event, self._distributor_com_queue)
         )
 
         try:
 
-            # Start the scheduler
-            scheduler_proc.start()
+            # Start the distributor
+            distributor_proc.start()
 
-            # wait for response from scheduler
-            resp = self._scheduler_com_queue.get(timeout=scheduler_startup_wait_timeout)
+            # wait for response from distributor
+            resp = self._distributor_com_queue.get(timeout=distributor_startup_wait_timeout)
         except Empty:  # mypy complains but this is correct
-            raise SchedulerStartupTimeout("Scheduler process did not start within the alloted "
-                                          f"timeout t={scheduler_startup_wait_timeout}s")
+            raise DistributorStartupTimeout("Distributor process did not start within the alloted "
+                                          f"timeout t={distributor_startup_wait_timeout}s")
         else:
             # the first message can only be "ALIVE" or an ExceptionWrapper
             if isinstance(resp, ExceptionWrapper):
                 resp.re_raise()
             else:
-                self._scheduler_proc = scheduler_proc
+                self._distributor_proc = distributor_proc
 
-        return scheduler_proc
+        return distributor_proc
 
     def _set_fail_after_n_executions(self, n: int) -> None:
         """

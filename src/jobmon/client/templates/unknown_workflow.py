@@ -3,7 +3,7 @@ import logging
 from typing import List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.execution.scheduler.scheduler_config import SchedulerConfig
+from jobmon.client.distributor.distributor_config import DistributorConfig
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.tool import Tool
 from jobmon.client.workflow import Workflow
@@ -85,7 +85,7 @@ class UnknownWorkflow(Workflow):
             working_dir: the working dir that a job should be run from,
                 if run on SGE
             executor_class: name of one of Jobmon's executors
-            fail_fast: whether or not to break out of execution on
+            fail_fast: whether or not to break out of distributor on
                 first failure
             requester: the requester used to communicate with central services.
             seconds_until_timeout: amount of time (in seconds) to wait
@@ -111,7 +111,7 @@ class UnknownWorkflow(Workflow):
         self._set_executor(executor_class=executor_class, stderr=stderr,
                            stdout=stdout, working_dir=working_dir,
                            project=project)
-        cfg = SchedulerConfig.from_defaults()
+        cfg = DistributorConfig.from_defaults()
         if reconciliation_interval is not None:
             cfg.reconciliation_interval = reconciliation_interval
         if heartbeat_interval is not None:
@@ -160,14 +160,14 @@ class UnknownWorkflow(Workflow):
         logger.info("Set executor to {}".format(executor_class))
         self.executor_class = executor_class
         if self.executor_class == 'SGEExecutor':
-            from jobmon.client.execution.strategies.sge import SGEExecutor
+            from jobmon.client.distributor.strategies.sge import SGEExecutor
             self._executor = SGEExecutor(*args, **kwargs)
         elif self.executor_class == "SequentialExecutor":
-            from jobmon.client.execution.strategies.sequential import \
+            from jobmon.client.distributor.strategies.sequential import \
                 SequentialExecutor
             self._executor = SequentialExecutor()
         elif self.executor_class == "DummyExecutor":
-            from jobmon.client.execution.strategies.dummy import DummyExecutor
+            from jobmon.client.distributor.strategies.dummy import DummyExecutor
             self._executor = DummyExecutor()
         else:
             raise ValueError(f"{executor_class} is not a valid executor_class")

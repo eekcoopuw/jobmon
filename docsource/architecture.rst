@@ -50,7 +50,7 @@ Roles
 
 A Role (aka Actor) is a human or an external system that interacts with Jobmon.
 Most roles are human, but some system roles exist because they initiate a use case.
-For example, the UGE scheduler is a system role because it initiates the Use Case "Launch a Job."
+For example, the UGE distributor is a system role because it initiates the Use Case "Launch a Job."
 
 One person will often play the part of different Roles during the same day.
 For example, at IHME a Coder will often also be an Application Operator.
@@ -73,10 +73,10 @@ System Roles
 
 - Python Control Script
 - R Control Script
-- UGE Scheduler (it starts jobs)
+- UGE Distributor (it starts jobs)
 - cgroups (it kills jobs)
 - OOM Killer (it also kills jobs if cgroups failes)
-- Cluster Scheduler (Broadly UGE, Azure, SLURM)
+- Cluster Distributor (Broadly UGE, Azure, SLURM)
 - The Gremlin (a synthetic System Role, it causes hardware to fail)
 
 Domain Objects
@@ -144,7 +144,7 @@ A GUI would open up this feature to more Application Owners.
 
 How do they find the task statuses? How do they find Errors from their own applications?
 
-Jobmon Scheduler Use Cases
+Jobmon Distributor Use Cases
 ==========================
 
 330. Jobmon submits a Job to UGE
@@ -406,7 +406,7 @@ Jobmon has three at present:
 - Multiprocessing (jobs launched using Python MP)
 - Dummy, which does nothing and is used to test Jobmon's internal machinery.
 
-Only the UGE scheduler is used in production, the others are useful for testing, and for
+Only the UGE distributor is used in production, the others are useful for testing, and for
 the upcoming Jobmon-on-a-laptop deployment.
 
 Be very aware of the difference between where:

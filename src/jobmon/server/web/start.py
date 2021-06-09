@@ -51,12 +51,12 @@ def create_app(web_config: Optional[WebConfig] = None):
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 200}
 
     # register blueprints
-    from .routes import jobmon_client, jobmon_scheduler, jobmon_swarm, jobmon_worker, \
+    from .routes import jobmon_client, jobmon_distributor, jobmon_swarm, jobmon_worker, \
         jobmon_cli
 
     app.register_blueprint(jobmon_client, url_prefix='/')  # default traffic to jobmon_client
     app.register_blueprint(jobmon_client, url_prefix='/client')
-    app.register_blueprint(jobmon_scheduler, url_prefix='/scheduler')
+    app.register_blueprint(jobmon_distributor, url_prefix='/distributor')
     app.register_blueprint(jobmon_swarm, url_prefix='/swarm')
     app.register_blueprint(jobmon_worker, url_prefix='/worker')
     app.register_blueprint(jobmon_cli, url_prefix='/cli')

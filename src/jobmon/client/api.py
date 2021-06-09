@@ -1,4 +1,4 @@
-from jobmon.client.execution.strategies.base import ExecutorParameters  # noqa F401
+from jobmon.client.distributor.strategies.base import ExecutorParameters  # noqa F401
 from jobmon.client.templates.bash_task import BashTask  # noqa F401
 from jobmon.client.templates.python_task import PythonTask  # noqa F401
 from jobmon.client.templates.unknown_workflow import UnknownWorkflow  # noqa F401

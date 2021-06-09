@@ -5,18 +5,18 @@ from jobmon.exceptions import ResumeSet
 import pytest
 
 
-class MockSchedulerProc:
+class MockDistributorProc:
 
     def is_alive(self):
         return True
 
 
 def test_heartbeat(db_cfg, client_env):
-    """test that the TaskInstanceScheduler logs a heartbeat in the database"""
+    """test that the TaskInstanceDistributor logs a heartbeat in the database"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.requester import Requester
 
     t1 = BashTask("echo 1", executor_class="SequentialExecutor")
@@ -28,9 +28,9 @@ def test_heartbeat(db_cfg, client_env):
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
-    scheduler.heartbeat()
+    distributor.heartbeat()
 
     # check the job finished
     app = db_cfg["app"]
@@ -50,8 +50,8 @@ def test_heartbeat_raises_error(db_cfg, client_env):
     """test that a heartbeat logged after resume will raise ResumeSet"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.requester import Requester
 
     t1 = BashTask("echo 1", executor_class="SequentialExecutor")
@@ -63,7 +63,7 @@ def test_heartbeat_raises_error(db_cfg, client_env):
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
     # check the job finished
     app = db_cfg["app"]
@@ -77,7 +77,7 @@ def test_heartbeat_raises_error(db_cfg, client_env):
         DB.session.commit()
 
     with pytest.raises(ResumeSet):
-        scheduler.heartbeat()
+        distributor.heartbeat()
 
 
 def test_heartbeat_propagate_error(db_cfg, client_env):
@@ -86,8 +86,8 @@ def test_heartbeat_propagate_error(db_cfg, client_env):
 
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.execution.scheduler.task_instance_scheduler import \
-        TaskInstanceScheduler
+    from jobmon.client.distributor.task_instance_distributor import \
+        TaskInstanceDistributor
     from jobmon.requester import Requester
 
     t1 = BashTask("echo 1", executor_class="SequentialExecutor")
@@ -99,7 +99,7 @@ def test_heartbeat_propagate_error(db_cfg, client_env):
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
     # check the job finished
     app = db_cfg["app"]
@@ -113,7 +113,7 @@ def test_heartbeat_propagate_error(db_cfg, client_env):
         DB.session.commit()
 
     q = Queue()
-    scheduler.run_scheduler(status_queue=q)
+    distributor.run_distributor(status_queue=q)
     assert q.get() == "ALIVE"
 
     with pytest.raises(ResumeSet):

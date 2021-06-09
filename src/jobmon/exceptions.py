@@ -2,7 +2,7 @@
 
 
 class ReturnCodes(object):
-    """Bash return codes used in execution wrapper."""
+    """Bash return codes used in distributor wrapper."""
 
     OK = 0
     WORKER_NODE_ENV_FAILURE = 198
@@ -54,14 +54,14 @@ class EmptyWorkflowError(Exception):
     pass
 
 
-class SchedulerStartupTimeout(Exception):
-    """Scheduler was not able to start in time."""
+class DistributorStartupTimeout(Exception):
+    """Distributor was not able to start in time."""
 
     pass
 
 
-class SchedulerNotAlive(Exception):
-    """The Scheduler is not running."""
+class DistributorNotAlive(Exception):
+    """The Distributor is not running."""
 
     pass
 
