@@ -421,7 +421,7 @@ class TaskInstanceDistributor:
         elif distributor_id:
             report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
             task_instance.register_submission_to_batch_distributor(distributor_id, report_by_buffer)
-            self._submitted_or_running[executor_id] = task_instance
+            self._submitted_or_running[distributor_id] = task_instance
         else:
             msg = ("Did not receive an distributor_id in _create_task_instance")
             logger.error(msg)
