@@ -48,29 +48,29 @@ class ClusterDistributor(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def stop(self, executor_ids: List[int]) -> None:
+    def stop(self, distributor_ids: List[int]) -> None:
         """Stop the executor."""
         raise NotImplementedError
 
     @abstractmethod
-    def get_queueing_errors(self, executor_ids: List[int]) -> Dict[int, str]:
+    def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
         """Get the task instances that have errored out."""
         raise NotImplementedError
 
     @abstractmethod
-    def get_submitted_or_running(self, executor_ids: List[int]) -> List[int]:
+    def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
         """Check which task instances are active."""
         raise NotImplementedError
 
     @abstractmethod
-    def terminate_task_instances(self, executor_ids: List[int]) -> None:
+    def terminate_task_instances(self, distributor_ids: List[int]) -> None:
         """If implemented, return a list of (task_instance_id, hostname) tuples for any
         task_instances that are terminated.
         """
         raise NotImplementedError
 
     @abstractmethod
-    def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
+    def get_remote_exit_info(self, distributor_ids: int) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 

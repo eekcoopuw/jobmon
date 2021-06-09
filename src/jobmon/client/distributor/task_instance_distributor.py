@@ -280,7 +280,7 @@ class TaskInstanceDistributor:
         active_distributor_ids = list(self._submitted_or_running.keys())
 
         try:
-            actual = self.distributor.get_actual_submitted_or_running(active_distributor_ids)
+            actual = self.distributor.get_submitted_or_running(active_distributor_ids)
             logger.debug(f"active distributor_ids: {actual}")
         except NotImplementedError:
             logger.warning(
@@ -402,7 +402,7 @@ class TaskInstanceDistributor:
 
         try:
             logger.debug(
-                f"Using the following resources in execution {task.executor_parameters}"
+                f"Using the following resources in execution {task.requested_resources}"
             )
             executor_id = self.distributor.submit_to_batch_distributor(
                 command=command,
