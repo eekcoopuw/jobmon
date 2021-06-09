@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Dict, List, Tuple, Union
 
 
-class SerializeDistributorTask:
+class SerializeTask:
     """Serialize the data to and from the database for an DistributorTask object."""
 
     @staticmethod
@@ -64,7 +64,7 @@ class SerializeSwarmTask:
         return {"task_id": int(wire_tuple[0]), "status": wire_tuple[1]}
 
 
-class SerializeDistributorTaskInstance:
+class SerializeTaskInstance:
     """Serialize the data to and from the database for an DistributorTaskInstance."""
 
     @staticmethod
@@ -82,21 +82,21 @@ class SerializeDistributorTaskInstance:
                 "executor_id": executor_id}
 
 
-class SerializeDistributorTaskInstanceErrorLog:
-    """Serialize the data to and from the database for an DistributorTaskInstanceErrorLog."""
+class SerializeTaskInstanceErrorLog:
+    """Serialize the data to and from the database for an TaskInstanceErrorLog."""
 
     @staticmethod
     def to_wire(task_instance_error_log_id: int, error_time: datetime,
                 description: str) -> tuple:
         """
-        Submit the above args for an SerializeDistributorTaskInstanceErrorLog
+        Submit the above args for an SerializeTaskInstanceErrorLog
         object to the database.
         """
         return task_instance_error_log_id, error_time, description
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
-        """Retrieve the SerializeDistributorTaskInstanceErrorLog information from the database."""
+        """Retrieve the SerializeTaskInstanceErrorLog information from the database."""
         return {"task_instance_error_log_id": int(wire_tuple[0]),
                 "error_time": str(wire_tuple[1]),
                 "description": str(wire_tuple[2])}

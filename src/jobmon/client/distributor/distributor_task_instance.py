@@ -11,7 +11,7 @@ from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable
 from jobmon.requester import Requester, http_request_ok
-from jobmon.serializers import SerializeDistributorTaskInstance
+from jobmon.serializers import SerializeTaskInstance
 
 
 logger = logging.getLogger(__name__)
@@ -54,7 +54,7 @@ class DistributorTaskInstance:
 
         Args:
             wire_tuple: tuple representing the wire format for this
-                task. format = serializers.SerializeDistributorTask.to_wire()
+                task. format = serializers.SerializeTask.to_wire()
             distributor: which distributor this task instance is
                 being run on
             requester: requester for communicating with central services
@@ -62,7 +62,7 @@ class DistributorTaskInstance:
         Returns:
             DistributorTaskInstance
         """
-        kwargs = SerializeDistributorTaskInstance.kwargs_from_wire(wire_tuple)
+        kwargs = SerializeTaskInstance.kwargs_from_wire(wire_tuple)
         ti = cls(task_instance_id=kwargs["task_instance_id"],
                  workflow_run_id=kwargs["workflow_run_id"],
                  distributor=distributor,

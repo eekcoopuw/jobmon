@@ -248,7 +248,7 @@ def test_task_instance_error_fatal(db_cfg, client_env):
     from jobmon.client.api import BashTask, Tool
     from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
-    from jobmon.serializers import SerializeDistributorTaskInstanceErrorLog
+    from jobmon.serializers import SerializeTaskInstanceErrorLog
 
     # setup workflow 1
     tool = Tool()
@@ -323,7 +323,7 @@ def test_task_instance_error_fatal(db_cfg, client_env):
         message={},
         request_type='get')
     all_errors = [
-        SerializeDistributorTaskInstanceErrorLog.kwargs_from_wire(j)
+        SerializeTaskInstanceErrorLog.kwargs_from_wire(j)
         for j in response['task_instance_error_log']]
     assert len(all_errors) == 2
 
