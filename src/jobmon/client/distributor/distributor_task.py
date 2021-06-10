@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-#from jobmon.client.distributor.strategies.base import ExecutorParameters
+# from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeTask
 
@@ -17,7 +17,7 @@ class DistributorTask:
     # this API should always match what's returned by
     # serializers.SerializeTask
     def __init__(self, task_id: int, workflow_id: int, node_id: int, task_args_hash: int,
-                 name: str, command: str, status: str, executor_parameters: ExecutorParameters,
+                 name: str, command: str, status: str, executor_parameters,
                  requester: Requester):
         """
         This is a Task object used on the RESTful API client side

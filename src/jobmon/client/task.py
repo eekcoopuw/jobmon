@@ -11,7 +11,9 @@ from http import HTTPStatus as StatusCodes
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.cluster import Cluster
 from jobmon.client.node import Node
+from jobmon.client.task_resources import TaskResources
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
@@ -62,13 +64,14 @@ class Task:
                  task_template_version_id: int,
                  node_args: dict,
                  task_args: dict,
-                 compute_resources: Dict[str, Dict[str, Any]],
                  cluster_name: Optional[str],
+                 compute_resources: Dict[str, Dict[str, Any]] = None,
                  name: Optional[str] = None,
                  max_attempts: int = 3,
                  upstream_tasks: Optional[List['Task']] = None,
                  task_attributes: Union[List, dict] = None,
-                 requester: Optional[Requester] = None):
+                 requester: Optional[Requester] = None,
+                 task_resources: Optional[TaskResources] = None):
         """
         Create a single executable object in the workflow, aka a Task. Relate it to a Task
         Template in order to classify it as a type of job within the context of your workflow.
@@ -81,8 +84,10 @@ class Task:
             node_args (dict): Task arguments that identify a unique node in the DAG.
             task_args (dict): Task arguments that make the command unique across workflows
                 usually pertaining to data flowing through the task.
-            executor_parameters: callable to be evaluated and assign resources or static
-                instance of ExecutorParameters class.
+            compute_resources (dict): A dictionary that includes the users requested resources
+                for a given cluster. E.g. {'buster': {cores: 1, mem: 1, runtime: 60, queue:
+                all.q}, 'slurm': {'cores: 1, mem: 1, runtime: 60, queue: long.q}}
+            cluster_name (optional str): The specific cluster that the user wants to use.
             name (str): name that will be visible in qstat for this job
             upstream_tasks (List): Task objects that must be run prior to this
             max_attempts (int): number of attempts to allow the cluster to try before giving
@@ -138,6 +143,8 @@ class Task:
                              "dictionary of attributes and their values")
 
         self.compute_resources = compute_resources
+        self.cluster_name = cluster_name
+        self.task_resources = task_resources
         self._errors = None
 
     @property

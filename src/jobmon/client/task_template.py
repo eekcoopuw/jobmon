@@ -6,7 +6,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from http import HTTPStatus as StatusCodes
-from typing import Callable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 #from jobmon.client.distributor.strategies.base import ExecutorParameters
@@ -253,16 +253,16 @@ class TaskTemplate:
         return self.active_task_template_version.bind(self.id)
 
     def create_task(self,
-                    executor_parameters: Union[ExecutorParameters, Callable],
                     name: Optional[str] = None,
                     upstream_tasks: List[Task] = [],
                     task_attributes: Union[List, dict] = {},
                     max_attempts: int = 3,
+                    compute_resources: Dict[str, Dict[str, Any]] = None,
+                    cluster_name: str = None,
                     **kwargs) -> Task:
         """Create an instance of a task associated with this template.
 
         Args:
-            executor_parameters: an instance of executor paremeters class
             name: a name associated with this specific task
             upstream_tasks: Task objects that must be run prior to this one
             task_attributes (dict or list): attributes and their values or just the attributes
@@ -311,7 +311,8 @@ class TaskTemplate:
             task_template_version_id=self.active_task_template_version.id,
             node_args=node_args,
             task_args=task_args,
-            executor_parameters=executor_parameters,
+            compute_resources=compute_resources,
+            cluster_name=cluster_name,
             name=name,
             max_attempts=max_attempts,
             upstream_tasks=upstream_tasks,

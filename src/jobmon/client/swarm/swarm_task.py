@@ -7,7 +7,7 @@ from typing import Callable, Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
 #from jobmon.client.distributor.strategies import ExecutorParameters
-from jobmon.constants import ExecutorParameterSetType, TaskStatus
+from jobmon.constants import TaskStatus
 from jobmon.exceptions import CallableReturnedInvalidObject, InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeSwarmTask

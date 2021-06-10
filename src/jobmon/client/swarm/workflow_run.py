@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_task import SwarmTask
-from jobmon.constants import ExecutorParameterSetType, TaskStatus, WorkflowRunStatus
+from jobmon.constants import TaskStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, DistributorNotAlive
 from jobmon.requester import Requester, http_request_ok
 
