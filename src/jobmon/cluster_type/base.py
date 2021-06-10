@@ -34,6 +34,10 @@ class ClusterQueue(Protocol):
 class ClusterDistributor(Protocol):
 
     @abstractproperty
+    def executor_id(self):
+        raise NotImplementedError
+
+    @abstractproperty
     def worker_node_wrapper_executable(self):
         """Path to jobmon worker node executable"""
         raise NotImplementedError
