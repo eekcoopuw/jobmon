@@ -456,19 +456,15 @@ def log_no_distributor_id(task_instance_id: int):
     app.logger.info(f"Logging ti {task_instance_id} did not get distributor id upon submission")
     data = request.get_json()
     app.logger.debug(f"Log NO DISTRIBUTOR ID for TI {task_instance_id}."
-                     f"Data {data['distributor_id']}")
-    app.logger.debug("Add TI for task ")
+                     f"Data {data['no_id_err_msg']}")
 
-    if data['distributor_id'] == QsubAttribute.NO_DIST_ID:
-        app.logger.info("Qsub was unsuccessful and caused an exception")
-    else:
-        app.logger.info("Qsub may have run, but the sge job id could not be parsed"
-                        " from the qsub response so no distributor id can be assigned"
-                        " at this time")
+    err_msg = data['no_id_err_msg']
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(ti, TaskInstanceStatus.NO_DISTRIBUTOR_ID)
-    ti.distributor_id = data['distributor_id']
+    error = TaskInstanceErrorLog(task_instance_id=ti.id,
+                                 description=err_msg)
+    DB.session.add(error)
     DB.session.commit()
 
     resp = jsonify(message=msg)

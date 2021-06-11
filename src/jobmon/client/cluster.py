@@ -112,7 +112,7 @@ class Cluster:
 
             # validate it has required resources
             full_error_msg = ""
-            missing_resources = set(queue.required_resources) - set(requested_resources.keys())
+            missing_resources = set(queue. required_resources) - set(requested_resources.keys())
             if missing_resources:
                 full_error_msg = (
                     f"\n  Missing required resources {list(missing_resources)} for "
