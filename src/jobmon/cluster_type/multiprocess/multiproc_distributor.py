@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Tuple
 
 #from jobmon.client.distributor.strategies.base import (Executor, ExecutorParameters,
 #                                                       TaskInstanceExecutorInfo)
+from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
 
 import psutil
@@ -27,7 +28,7 @@ class Consumer(Process):
         Args:
             task_queue (multiprocessing.JoinableQueue): a JoinableQueue object
                 created by LocalExecutor used to retrieve work from the
-                executor
+                distributor
         """
         super().__init__()
 
@@ -49,7 +50,7 @@ class Consumer(Process):
                     break
 
                 else:
-                    os.environ["JOB_ID"] = str(task.executor_id)
+                    os.environ["JOB_ID"] = str(task.distributor_id)
                     logger.debug(f"consumer received {task.command}")
                     # run the job
                     proc = subprocess.Popen(
@@ -57,15 +58,15 @@ class Consumer(Process):
                         env=os.environ.copy(),
                         shell=True)
 
-                    # log the pid with the executor class
-                    self.response_queue.put((task.executor_id, proc.pid))
+                    # log the pid with the distributor class
+                    self.response_queue.put((task.distributor_id, proc.pid))
 
                     # wait till the process finishes
                     proc.communicate()
 
                     # tell the queue this job is done so it can be shut down
                     # someday
-                    self.response_queue.put((task.executor_id, None))
+                    self.response_queue.put((task.distributor_id, None))
                     self.task_queue.task_done()
 
             except queue.Empty:
@@ -75,14 +76,14 @@ class Consumer(Process):
 class PickableTask:
     """Object passed between processes."""
 
-    def __init__(self, executor_id: int, command: str):
-        self.executor_id = executor_id
+    def __init__(self, distributor_id: int, command: str):
+        self.distributor_id = distributor_id
         self.command = command
 
 
-class MultiprocessExecutor(Executor):
-    """LocalExecutor executes tasks locally in parallel. It uses the multiprocessing Python
-    library and queues to parallelize the distributor of tasks.
+class MultiprocessDistributor(ClusterDistributor):
+    """ executes tasks locally in parallel. It uses the multiprocessing Python
+    library and queues to parallelize the execution of tasks.
 
     The subprocessing pattern looks like this.
         LocalExec
@@ -100,11 +101,16 @@ class MultiprocessExecutor(Executor):
     """
 
     def __init__(self, parallelism: int = 10, *args, **kwargs) -> None:
-        super().__init__(*args, **kwargs)
-        self._parallelism = parallelism
-        self._next_executor_id = 1
+        self.temp_dir: Optional[str] = None
+        self.started = False
+        #self._jobmon_command = shutil.which(("jobmon_command")) #worker_node_wrapper_executable
+        self.worker_node_entry_point = shutil.which(("worker_node_entry_point"))  #
+        logger.info("Initializing {}".format(self.__class__.__name__))
 
-        # mapping of executor_id to pid. if pid is None then it is queued
+        self._parallelism = parallelism
+        self._next_distributor_id = 1
+
+        # mapping of distributor_id to pid. if pid is None then it is queued
         self._running_or_submitted: Dict[int, Optional[int]] = {}
 
         # ipc queues
@@ -113,6 +119,9 @@ class MultiprocessExecutor(Executor):
 
         # workers
         self.consumers: List[Consumer] = []
+
+        self.cluster_type_name = "multiprocess"
+
 
     def start(self, jobmon_command: Optional[str] = None) -> None:
         """Fire up N task consuming processes using Multiprocessing. number of consumers is
@@ -126,11 +135,14 @@ class MultiprocessExecutor(Executor):
         ]
         for w in self.consumers:
             w.start()
-        super().start(jobmon_command=jobmon_command)
 
-    def stop(self, executor_ids: List[int]) -> None:
+        """Start the default."""
+        self.jobmon_command = jobmon_command
+        self.started = True
+
+    def stop(self, distributor_ids: List[int]) -> None:
         """Terminate consumers and call sync 1 final time."""
-        actual = self.get_actual_submitted_or_running(executor_ids=executor_ids)
+        actual = self.get_actual_submitted_or_running(distributor_ids=distributor_ids)
         self.terminate_task_instances(actual)
 
         # Sending poison pill to all worker
@@ -139,21 +151,23 @@ class MultiprocessExecutor(Executor):
 
         # Wait for commands to finish
         self.task_queue.join()
-        super().stop(executor_ids)
+
+        """Stop the default."""
+        self.started = False
 
     def _update_internal_states(self) -> None:
         while not self.response_queue.empty():
-            executor_id, pid = self.response_queue.get()
+            distributor_id, pid = self.response_queue.get()
             if pid is not None:
-                self._running_or_submitted.update({executor_id: pid})
+                self._running_or_submitted.update({distributor_id: pid})
             else:
-                self._running_or_submitted.pop(executor_id)
+                self._running_or_submitted.pop(distributor_id)
 
-    def terminate_task_instances(self, executor_ids: List[int]) -> None:
+    def terminate_task_instances(self, distributor_ids: List[int]) -> None:
         """Only terminate the task instances that are running, not going to kill the jobs that
         are actually still in a waiting or a transitioning state.
         """
-        logger.debug(f"Going to terminate: {executor_ids}")
+        logger.debug(f"Going to terminate: {distributor_ids}")
 
         # first drain the work queue so there are no race conditions with the
         # workers
@@ -164,7 +178,7 @@ class MultiprocessExecutor(Executor):
             current_work.append(self.task_queue.get())
             self.task_queue.task_done()
             # create a dictionary of the work indices for quick removal later
-            work_order[i] = current_work[-1].executor_id
+            work_order[i] = current_work[-1].distributor_id
             i += 1
 
         # no need to worry about race conditions because there are no state
@@ -174,9 +188,9 @@ class MultiprocessExecutor(Executor):
         self._update_internal_states()
 
         # now terminate any running jobs and remove from state tracker
-        for executor_id in executor_ids:
+        for distributor_id in distributor_ids:
             # the job is running
-            execution_pid = self._running_or_submitted.get(executor_id)
+            execution_pid = self._running_or_submitted.get(distributor_id)
             if execution_pid is not None:
                 # kill the process and remove it from the state tracker
                 parent = psutil.Process(execution_pid)
@@ -184,14 +198,14 @@ class MultiprocessExecutor(Executor):
                     child.kill()
 
             # a race condition. job finished before
-            elif executor_id not in work_order.values():
+            elif distributor_id not in work_order.values():
                 logger.error(
-                    f"executor_id {executor_id} was requested to be terminated"
+                    f"distributor_id {distributor_id} was requested to be terminated"
                     " but is not submitted or running")
 
         # if not running remove from queue and state tracker
         for index in sorted(work_order.keys(), reverse=True):
-            if work_order[index] in executor_ids:
+            if work_order[index] in distributor_ids:
                 del current_work[index]
                 del self._running_or_submitted[work_order[index]]
 
@@ -199,37 +213,62 @@ class MultiprocessExecutor(Executor):
         for task in current_work:
             self.task_queue.put(task)
 
-    def get_actual_submitted_or_running(self, executor_ids: List[int]) -> List[int]:
+    def get_actual_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
         """Get tasks that are active."""
         self._update_internal_states()
         return list(self._running_or_submitted.keys())
 
-    def execute(self, command: str, name: str, executor_parameters: ExecutorParameters) -> int:
+    def execute(self, command: str, name: str, distributor_parameters: ExecutorParameters) -> int:
         """Execute a task instance."""
-        executor_id = self._next_executor_id
-        self._next_executor_id += 1
-        task = PickableTask(executor_id, self.jobmon_command + " " + command)
+        distributor_id = self._next_distributor_id
+        self._next_distributor_id += 1
+        # task = PickableTask(distributor_id, self.jobmon_command + " " + command)
+        task = PickableTask(distributor_id, command)
         self.task_queue.put(task)
-        self._running_or_submitted.update({executor_id: None})
-        return executor_id
+        self._running_or_submitted.update({distributor_id: None})
+        return distributor_id
+
+#################
+    @abstractproperty
+    def worker_node_wrapper_executable(self):
+        """Path to jobmon worker node executable"""
+        raise NotImplementedError
 
 
-class TaskInstanceMultiprocessInfo(TaskInstanceExecutorInfo):
-    """Task instance info for an instance run with the Multiprocessing executor."""
+    def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
+        """Get the task instances that have errored out."""
+        raise NotImplementedError
+
+    @abstractmethod ## user old
+    def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
+        """Check which task instances are active."""
+        raise NotImplementedError
+
+    def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
+        """Get the exit info about the task instance once it is done running."""
+        raise RemoteExitInfoNotAvailable
+
+class MultiprocessWorkerNode(ClusterWorkerNode):
+    """Task instance info for an instance run with the Multiprocessing distributor."""
 
     def __init__(self) -> None:
-        self._executor_id: Optional[int] = None
+        self._distributor_id: Optional[int] = None
 
     @property
-    def executor_id(self) -> Optional[int]:
-        """The id from the executor."""
-        if self._executor_id is None:
+    def distributor_id(self) -> Optional[int]:
+        """The id from the distributor."""
+        if self._distributor_id is None:
             jid = os.environ.get('JOB_ID')
             if jid:
-                self._executor_id = int(jid)
-        return self._executor_id
+                self._distributor_id = int(jid)
+        return self._distributor_id
 
     def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
         """Exit code and message."""
         msg = f"Got exit_code: {exit_code}. Error message was: {error_msg}"
         return TaskInstanceStatus.ERROR, msg
+
+#############
+    def get_usage_stats(self) -> Dict:
+        """Usage information specific to the exector."""
+        raise NotImplementedError

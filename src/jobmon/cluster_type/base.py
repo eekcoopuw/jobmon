@@ -44,19 +44,19 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def start(self) -> None:
-        """Start the executor."""
+        """Start the distributor."""
         raise NotImplementedError
 
     @abstractmethod
-    def stop(self, executor_ids: List[int]) -> None:
-        """Stop the executor."""
+    def stop(self, distributor_ids: List[int]) -> None:
+        """Stop the distributor."""
         raise NotImplementedError
 
     @abstractmethod
     def execute(self, command: str, name: str, requested_resources: Dict[str, Any]) -> int:
         """Executor the command on the cluster technology
 
-        Optionally, return an (int) executor_id which the subclass could
+        Optionally, return an (int) distributor_id which the subclass could
         use at a later time to identify the associated TaskInstance, terminate
         it, monitor for missingness, or collect usage statistics. If the
         subclass does not intend to offer those functionalities, this method
@@ -70,24 +70,24 @@ class ClusterDistributor(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def get_queueing_errors(self, executor_ids: List[int]) -> Dict[int, str]:
+    def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
         """Get the task instances that have errored out."""
         raise NotImplementedError
 
     @abstractmethod
-    def get_submitted_or_running(self, executor_ids: List[int]) -> List[int]:
+    def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
         """Check which task instances are active."""
         raise NotImplementedError
 
     @abstractmethod
-    def terminate_task_instances(self, executor_ids: List[int]) -> None:
+    def terminate_task_instances(self, distributor_ids: List[int]) -> None:
         """If implemented, return a list of (task_instance_id, hostname) tuples for any
         task_instances that are terminated.
         """
         raise NotImplementedError
 
     @abstractmethod
-    def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
+    def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 
@@ -97,7 +97,6 @@ class ClusterDistributor(Protocol):
         """Build a command that can be executed by the shell and can be unwrapped by jobmon
         itself to setup proper communication channels to the monitor server.
         Args:
-            command: command to run the desired job
             task_instance_id: id for the given instance of this task
 
         Returns:
@@ -115,7 +114,7 @@ class ClusterDistributor(Protocol):
 
 
 class ClusterWorkerNode(Protocol):
-    """Base class defining interface for gathering executor specific info
+    """Base class defining interface for gathering distributor specific info
     in the execution_wrapper.
 
     While not required, implementing get_usage_stats() will allow collection
@@ -126,7 +125,7 @@ class ClusterWorkerNode(Protocol):
     """
 
     @abstractproperty
-    def executor_id(self) -> Optional[int]:
+    def distributor_id(self) -> Optional[int]:
         """Executor specific id assigned to a task instance."""
         raise NotImplementedError
 
@@ -137,5 +136,5 @@ class ClusterWorkerNode(Protocol):
 
     @abstractmethod
     def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
-        """Error and exit code info from the executor."""
+        """Error and exit code info from the distributor."""
         raise NotImplementedError
