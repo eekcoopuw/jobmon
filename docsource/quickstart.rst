@@ -71,12 +71,6 @@ required if the Workflow is to be resumable.
 For more about the objects go to the :doc:`Workflow and Task Reference <api/jobmon.client>`
 or :doc:`Executor Parameter Reference <api/jobmon.client.execution>`
 
-.. note::
-    The following example is the easiest way to create a Workflow that is backwards compatible
-    with previous versions of Jobmon. It is not the recommended way since it does not take full
-    advantage of all of the metadata. To see more information on the recommended way, check
-    out the Tool and TaskTemplate example further down. :ref:`Nodes, TaskTemplates, and Tools`
-
 Constructing a Workflow and adding a few Tasks is simple:
 
 .. code-tabs::
@@ -88,23 +82,20 @@ Constructing a Workflow and adding a few Tasks is simple:
       import getpass
       import uuid
 
-      from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-      from jobmon.client.templates.bash_task import BashTask
-      from jobmon.client.templates.python_task import PythonTask
-
+      from jobmon.client.api import Tool, ExecutorParameters
 
       def workflow_template_example():
       """
       Instructions:
-        This workflow uses workflow templates (UnknownWorkflow, BashTasks, and PythonTasks).
-        One of the benefits of using templates is that they are compatible with previous
-        versions of Jobmon and the new Jobmon_2.0.* series. (Guppy release)
 
         The steps in this example are:
-        1. Create a workflow using the UnknownWorkflow template
-        2. Create tasks using the BashTask and PythonTask template
-        3. Add created tasks to the workflow
-        4. Run the workflow
+        1. Create a tool
+        2. Create  workflow using the tool from step 1
+        3. Create executor parameters to use with the tasks
+        4. Create task templates using the tool from step 1
+        5. Create tasks using the template from step 3
+        6. Add created tasks to the workflow
+        7. Run the workflow
 
       To actually run the provided example:
         with Jobmon installed in your conda environment from the root of the repo, run:
@@ -115,34 +106,68 @@ Constructing a Workflow and adding a few Tasks is simple:
       wf_uuid = uuid.uuid4()
       script_path = os.path.abspath(os.path.dirname(__file__))
 
+      # Create a tool
+      tool = Tool.create_tool(name="example tool")
 
-      # Create a workflow
-      workflow = Workflow(
+      # Create a workflow, and set the executor
+      workflow = tool.create_workflow(
         name = f"template_workflow_{wf_uuid}",
-        description = "template_workflow",
-        executor_class = "SGEExecutor",
+        description = "template_workflow")
+      workflow.set_executor(
+        executor_class='SGEExecutor',
         stderr = f"/ihme/scratch/users/{user}/{wf_uuid}",
         stdout = f"/ihme/scratch/users/{user}/{wf_uuid}",
         project = "proj_scicomp"  # specify your team's project
       )
 
+      # Create task templates
+      echo_template = tool.get_task_template(
+        template_name='echo_template',
+        command_template='echo {output}',
+        task_args=['output'])
+
+      python_template = tool.get_task_template(
+        template_name='python_template',
+        command_template='{python} {script_path} --args1 {val1} --args2 {val2}',
+        task_args=['val1', 'val2'],
+        op_args=['python', 'script_path'])
+
+      # Create an executorparameters object for each task template
+      echo_parameters = ExecutorParameters(
+        num_cores=1,
+        queue='all.q',
+        max_runtime_seconds=10,
+        m_mem_free='128M')
+
+      python_parameters = ExecutorParameters(
+        num_cores=2,
+        queue='all.q',
+        max_runtime_seconds=1000,
+        m_mem_free='2G')
+
+
       # Create tasks
-      task1 = BashTask(
-        command = "echo task1",
-        executor_class = "SGEExecutor"
+      task1 = echo_template.create_task(
+        executor_parameters=echo_parameters,
+        name='task1',
+        output='task1'
       )
 
-      task2 = BashTask(
-        command = "echo task2",
-        executor_class = "SGEExecutor",
-        upstream_tasks = [task1]
+      task2 = echo_template.create_task(
+        executor_parameters=echo_parameters,
+        name='task2',
+        upstream_tasks = [task1],
+        output='task2'
       )
 
-      task3 = PythonTask(
-        script = os.path.join(script_path, 'test_scripts/test.py'),
-        args = ["--args1", "val1", "--args2", "val2"],
-        executor_class = "SGEExecutor",
-        upstream_tasks = [task2]
+      task3 = python_template.create_task(
+        executor_parameters=python_parameters,
+        name='task3',
+        upstream_tasks=[task2],
+        python=sys.executable,
+        script_path=os.path.join(script_path, 'test_scripts/test.py'),
+        val1='val1',
+        val2='val2'
       )
 
       # add task to workflow
