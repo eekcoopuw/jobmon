@@ -1,10 +1,9 @@
 """Inteface definition for jobmon executor plugins."""
 
-from abc import abstractmethod, abstractproperty
+from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 from jobmon import __version__
-from jobmon.cluster_type.api import import_cluster
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 
@@ -18,31 +17,32 @@ class ClusterQueue(Protocol):
     def validate_resource(self, resource: str, value: Any, fail=False) -> str:
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def required_resources(self):
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def queue_name(self):
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def queue_id(self):
         raise NotImplementedError
 
 
 class ClusterDistributor(Protocol):
 
-    @abstractproperty
-    def executor_id(self):
-        raise NotImplementedError
-
-    @abstractproperty
+    @property
+    @abstractmethod
     def worker_node_wrapper_executable(self):
         """Path to jobmon worker node executable"""
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def cluster_type_name(self) -> str:
         raise NotImplementedError
 
@@ -126,7 +126,8 @@ class ClusterWorkerNode(Protocol):
     system error of some variety.
     """
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def executor_id(self) -> Optional[int]:
         """Executor specific id assigned to a task instance."""
         raise NotImplementedError

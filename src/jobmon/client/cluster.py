@@ -4,8 +4,10 @@ import logging
 from typing import Any, Dict, Optional
 
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.task_resources import TaskResources
 from jobmon.cluster_type.api import register_cluster_plugin, import_cluster
 from jobmon.cluster_type.base import ClusterQueue
+from jobmon.constants import TaskResourcesType
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeCluster, SerializeQueue
@@ -60,12 +62,12 @@ class Cluster:
 
     @property
     def is_bound(self) -> bool:
-        """If the task template version has been bound to the database."""
+        """If the Cluster has been bound to the database."""
         return hasattr(self, "_cluster_id")
 
     @property
     def id(self) -> int:
-        """If the task template version has been bound to the database."""
+        """Unique id from database if Cluster has been bound."""
         if not self.is_bound:
             raise AttributeError("Cannot access id until Cluster is bound to database")
         return self._cluster_id
@@ -101,26 +103,24 @@ class Cluster:
 
         return queue
 
-    def validate_requested_resources(self, requested_resources: Dict[str, Any],
-                                     queue_name: Optional[str]) -> None:
+    def __validate_requested_resources(self, requested_resources: Dict[str, Any],
+                                     queue: ClusterQueue) -> None:
         """Validate the requested task resources against the specified queue.
 
         Raises: ValueError
         """
-        if queue_name is not None:
-            queue = self.get_queue(queue_name)
-
+        if queue is not None:
             # validate it has required resources
             full_error_msg = ""
             missing_resources = set(queue. required_resources) - set(requested_resources.keys())
             if missing_resources:
                 full_error_msg = (
                     f"\n  Missing required resources {list(missing_resources)} for "
-                    f"'{queue.queue_name}'. Got {list(requested_resources.keys())}."
+                    f"'{queue.queue_name}'. Got {list(requested_resources.keys)}."
                 )
 
             for resource, resource_value in requested_resources.items():
-                msg = queue.validate_resource(resource, resource_value, fail=False)
+                msg = queue.validate_resources(resource, resource_value, fail=False)
                 full_error_msg += msg
 
             if full_error_msg:
@@ -131,20 +131,19 @@ class Cluster:
         pass
 
     def create_task_resources(self, resource_params: Dict):
-
+        resource_params = resource_params.get(self.cluster_name)
         try:
-            queue_name = resource_params.pop("queue")
+            queue_name = resource_params.get("queue")
             queue = self.get_queue(queue_name)
-            queue.validate(resource_params)
+            self.__validate_requested_resources(resource_params, queue)
         except Exception:
             pass
 
         # construct resource instance
-        Resources = self.plugin.get_cluster_resources_class()
-        cluster_resources = Resources(queue=queue, **resource_params)
-        return cluster_resources
+        resource_scales = resource_params.get("resource_scales")
 
-        # for resource, val in resource_params:
-        #     msg, val = self.validate(resource, val)
-        #     resource_params[resource] = val
-        # return UGEClusterResources(queue=self, **resource_params)
+        task_resource = TaskResources(queue_id=queue.queue_id,
+                                      requested_resources=resource_params,
+                                      resource_scales=resource_scales,
+                                      task_resources_type_id=TaskResourcesType.VALIDATED)
+        return task_resource

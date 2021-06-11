@@ -1,4 +1,5 @@
-from jobmon.client.distributor.strategies.base import ExecutorParameters
+# from jobmon.client.distributor.strategies.base import ExecutorParameters
+from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import WorkflowAlreadyComplete, DuplicateNodeArgsError
 
@@ -141,3 +142,61 @@ def test_numpy_array_node_args(client_env, db_cfg):
     workflow.add_tasks([task])
     workflow_run = workflow.run()
     assert workflow_run.status == WorkflowRunStatus.DONE
+
+
+def test_compute_resources(db_cfg, client_env):
+    """Test user passed cluster_resources. Need to test: 1. task with compute resources,
+    no workflow resources 2. task with no compute resources, workflow resources 3. tasks with
+    less resources than workflow"""
+    from jobmon.client.tool import Tool
+    tool = Tool(name="cluster_resource_test")
+    wf_compute_resources = {"sequential": {"num_cores": 2, "mem": "2G",
+                                            "max_runtime_seconds": 10, "queue": "null.q",
+                                            "resource_scales": {"runtime": 0.7}},
+                             "buster": {"mem": "5G"}}
+    workflow_1 = tool.create_workflow(name="compute_resource_1",
+                                      compute_resources=wf_compute_resources)
+    template = tool.get_task_template(
+        template_name="my_template",
+        command_template="echo {node_arg}",
+        node_args=["node_arg"]
+    )
+    task_compute_resource = {"sequential": {"num_cores": 1, "mem": "1G",
+                                            "max_runtime_seconds": 1, "queue": "null.q",
+                                            "resource_scales": {"runtime": 0.5}},
+                             "buster": {"mem": "5G"}}
+    # Use case: Task compute resources, no workflow resources
+    task_1 = template.create_task(name="task_1", node_arg={1},
+                                  compute_resources=task_compute_resource,
+                                  cluster_name="sequential")
+
+    # Use case: No Task compute resources, inherit from workflow compute resources
+    task_2 = template.create_task(name="task_2", node_arg={2},
+                                  cluster_name="sequential")
+
+    # TODO: Add test case when we implement partial compute resource dicts
+    # Use case: No Task compute resources, inherit from workflow compute resources
+    # Use case: Minimal task resources, keep task runtime, inherit other resources from wf
+    # task_3 = template.create_task(name="task_3", node_arg={3},
+    #                               compute_resources={"max_runtime_seconds": 8},
+    #                               cluster_name="sequential")
+
+    workflow_1.add_tasks([task_1, task_2])
+    workflow_1.bind()
+
+    client_wfr = ClientWorkflowRun(
+        workflow_id=workflow_1.workflow_id,
+        executor_class="Sequential"
+    )
+    client_wfr.bind(workflow_1.tasks, False, workflow_1._chunk_size)
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query = "SELECT requested_resources " \
+                "FROM task_resources "
+        res = DB.session.execute(query).fetchall()
+        DB.session.commit()
+    assert res[0][0] == f"{task_compute_resource['sequential']}"
+    assert res[1][0] == f"{wf_compute_resources['sequential']}"
+

@@ -7,9 +7,10 @@ import warnings
 from multiprocessing import Event, Process, Queue
 from multiprocessing import synchronize
 from queue import Empty
-from typing import Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.distributor.api import DistributorConfig
 from jobmon.client.distributor.task_instance_distributor import \
@@ -25,6 +26,7 @@ from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse, ResumeSe
                                WorkflowAlreadyComplete, WorkflowAlreadyExists,
                                WorkflowNotResumable)
 from jobmon.requester import Requester, http_request_ok
+from jobmon.serializers import SerializeCluster
 
 
 logger = logging.getLogger(__name__)
@@ -71,7 +73,7 @@ class Workflow(object):
                  max_concurrently_running: int = 10_000,
                  requester: Optional[Requester] = None,
                  chunk_size: int = 500,  # TODO: should be in the config
-                 cluster_resources: Dict = None
+                 compute_resources: Dict[str, Dict[str, Any]] = None
                  ):
         """
         Args:
@@ -132,8 +134,9 @@ class Workflow(object):
                     "dictionary of attributes and their values"
                 )
 
-        self.cluster_resources = cluster_resources  # TODO: Figure out format for this object
+        # Cache for clusters
         self._clusters: Dict[str, Cluster] = {}
+        self.compute_resources = compute_resources
 
     @property
     def is_bound(self):
@@ -225,8 +228,33 @@ class Workflow(object):
         # TODO: optionally pass to tasks unless specified at a lower level
         pass
 
-    def _get_cluster_by_name(self, cluster_name):
+    def set_default_compute_resources(self):
         pass
+
+    def _get_cluster_by_name(self, cluster_name: str) -> Cluster:
+        """Check if the cluster that the task specified is in the cache, if not create it and
+        add to cache"""
+        try:
+            cluster = self._clusters[cluster_name]
+        except KeyError:
+            app_route = f'/client/cluster/{cluster_name}'
+            return_code, response = self.requester.send_request(
+                app_route=app_route,
+                message={},
+                request_type="get",
+                logger=logger
+            )
+            if http_request_ok(return_code) is False:
+                raise InvalidResponse(
+                    f'Unexpected status code {return_code} from POST '
+                    f'request through route {app_route}. Expected code '
+                    f'200. Response content: {response}'
+                )
+            cluster_kwargs = SerializeCluster.kwargs_from_wire(response["cluster"])
+            cluster = Cluster(cluster_name=cluster_kwargs["name"])
+            cluster.bind()
+            self._clusters[cluster_name] = cluster
+        return cluster
 
     def run(self, fail_fast: bool = False, seconds_until_timeout: int = 36000,
             resume: bool = ResumeStatus.DONT_RESUME, reset_running_jobs: bool = True,
@@ -346,12 +374,19 @@ class Workflow(object):
         if self.is_bound:
             return
 
-        for task in self.tasks:
-            cname, qname = task.cluster_resources[0]
-
-            queue = self.cluster.get_cluster_resources()
-            validated_compute_resource: ComputeResources = queue.create_resources(task.compute_resources)
-            task.compute_resources_validated = validated_compute_resource
+        for task in self.tasks.values():
+            cluster_name = task.cluster_name
+            # Check if there are compute resources for given task, if not set at workflow level
+            if task.compute_resources is None:
+                task.compute_resources = {}
+            if self.compute_resources is None:
+                self.compute_resources = {}
+            # TODO figure out user API rule, for how to handle a user passing in partial dicts
+            # to task
+            compute_resources = {**self.compute_resources, **task.compute_resources}
+            cluster = self._get_cluster_by_name(cluster_name)
+            task_resources = cluster.create_task_resources(compute_resources)
+            task.task_resources = task_resources
 
         # check if workflow is valid
         self._dag.validate()  # TODO: this does nothing at the moment
@@ -419,6 +454,7 @@ class Workflow(object):
         # create swarm workflow run
         swarm_tasks: Dict[int, SwarmTask] = {}
         for task in self.tasks.values():
+
             # create swarmtasks
             swarm_task = SwarmTask(
                 task_id=task.task_id,
