@@ -385,20 +385,11 @@ class TaskInstanceDistributor:
         Args:
             task (DistributorTask): A Task that we want to execute
         """
-        try:
-            task_instance = DistributorTaskInstance.register_task_instance(
-                task.task_id, self.workflow_run_id, self.distributor, self.requester
-            )
-        except Exception as e:
-            # we can't do anything more at this point so must return None
-            logger.error(e)
-            return None
-
-        logger.debug("Executing {}".format(task.command))
-
-        command = self.distributor.build_worker_node_command(
-            task_instance_id=task_instance.task_instance_id
+        task_instance = DistributorTaskInstance.register_task_instance(
+            task.task_id, self.workflow_run_id, self.distributor, self.requester
         )
+        logger.debug("Executing {}".format(task.command))
+        command = self.distributor.build_worker_node_command(task_instance.task_instance_id)
 
         try:
             logger.debug(
@@ -409,11 +400,12 @@ class TaskInstanceDistributor:
                 name=task.name,
                 executor_parameters=task.requested_resources
             )
+        except Exception as e:
+            task_instance.register_no_executor_id(no_id_err_msg=str(e))
+        else:
             report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
             task_instance.register_submission_to_batch_executor(executor_id, report_by_buffer)
             self._submitted_or_running[executor_id] = task_instance
-        except Exception as e:
-            task_instance.register_no_executor_id(msg=str(e))
 
         return task_instance
 

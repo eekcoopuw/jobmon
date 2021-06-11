@@ -119,7 +119,7 @@ class DistributorTaskInstance:
                 f'code 200. Response content: {response}')
 
     def register_submission_to_batch_distributor(self, distributor_id: int,
-                                              next_report_increment: float) -> None:
+                                                 next_report_increment: float) -> None:
         """Register the submission of a new task instance to batch distributor.
 
         Args:
