@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
-from jobmon.constants import QsubAttribute, TaskInstanceStatus, WorkflowRunStatus
+from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, ResumeSet, WorkflowRunStateError
 from jobmon.requester import Requester, http_request_ok
 
