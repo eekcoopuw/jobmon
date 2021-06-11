@@ -103,8 +103,8 @@ class Cluster:
 
         return queue
 
-    def __validate_requested_resources(self, requested_resources: Dict[str, Any],
-                                     queue: ClusterQueue) -> None:
+    def _validate_requested_resources(self, requested_resources: Dict[str, Any],
+                                      queue: ClusterQueue) -> None:
         """Validate the requested task resources against the specified queue.
 
         Raises: ValueError
@@ -112,7 +112,7 @@ class Cluster:
         if queue is not None:
             # validate it has required resources
             full_error_msg = ""
-            missing_resources = set(queue. required_resources) - set(requested_resources.keys())
+            missing_resources = set(queue.required_resources) - set(requested_resources.keys())
             if missing_resources:
                 full_error_msg = (
                     f"\n  Missing required resources {list(missing_resources)} for "
@@ -135,7 +135,7 @@ class Cluster:
         try:
             queue_name = resource_params.get("queue")
             queue = self.get_queue(queue_name)
-            self.__validate_requested_resources(resource_params, queue)
+            self._validate_requested_resources(resource_params, queue)
         except Exception:
             pass
 
