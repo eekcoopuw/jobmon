@@ -1,10 +1,9 @@
 """Inteface definition for jobmon executor plugins."""
 
-from abc import abstractmethod, abstractproperty
+from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 from jobmon import __version__
-from jobmon.cluster_type.api import import_cluster
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 
@@ -18,27 +17,32 @@ class ClusterQueue(Protocol):
     def validate_resource(self, resource: str, value: Any, fail=False) -> str:
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def required_resources(self):
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def queue_name(self):
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def queue_id(self):
         raise NotImplementedError
 
 
 class ClusterDistributor(Protocol):
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def worker_node_wrapper_executable(self):
         """Path to jobmon worker node executable"""
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def cluster_type_name(self) -> str:
         raise NotImplementedError
 
@@ -50,23 +54,6 @@ class ClusterDistributor(Protocol):
     @abstractmethod
     def stop(self, distributor_ids: List[int]) -> None:
         """Stop the distributor."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def execute(self, command: str, name: str, requested_resources: Dict[str, Any]) -> int:
-        """Executor the command on the cluster technology
-
-        Optionally, return an (int) distributor_id which the subclass could
-        use at a later time to identify the associated TaskInstance, terminate
-        it, monitor for missingness, or collect usage statistics. If the
-        subclass does not intend to offer those functionalities, this method
-        can return None.
-
-        Args:
-            command: command to be run
-            name: name of task
-
-        """
         raise NotImplementedError
 
     @abstractmethod
@@ -87,15 +74,30 @@ class ClusterDistributor(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
+    def get_remote_exit_info(self, distributor_ids: int) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 
-    def build_wrapped_command(self, task_instance_id: int,
-                              heartbeat_interval: int, report_by_buffer: float
-                              ) -> str:
-        """Build a command that can be executed by the shell and can be unwrapped by jobmon
-        itself to setup proper communication channels to the monitor server.
+    @abstractmethod
+    def submit_to_batch_distributor(self, command: str, name: str,
+                                    requested_resources: Dict[str, Any]) -> int:
+        """Submit the command on the cluster technology and return a distributor_id.
+
+        The distributor_id can be used to identify the associated TaskInstance, terminate
+        it, monitor for missingness, or collect usage statistics. If an exception is raised by
+        this method the task instance will move to "W" state and the exception will be logged
+        in the database under the task_instance_error_log table.
+
+        Args:
+            command: command to be run
+            name: name of task
+            requested_resources: resource requests sent to distributor API
+        """
+        raise NotImplementedError
+
+    def build_worker_node_command(self, task_instance_id: int) -> str:
+        """Build a command that can be executed by the worker_node.
+
         Args:
             task_instance_id: id for the given instance of this task
 
@@ -103,18 +105,17 @@ class ClusterDistributor(Protocol):
             (str) unwrappable command
         """
         wrapped_cmd = [
+            self.worker_node_wrapper_executable,
             "--task_instance_id", task_instance_id,
             "--expected_jobmon_version", __version__,
-            "--cluster_type_name", self.cluster_type_name,
-            "--heartbeat_interval", heartbeat_interval,
-            "--report_by_buffer", report_by_buffer
+            "--cluster_type_name", self.cluster_type_name
         ]
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         return str_cmd
 
 
 class ClusterWorkerNode(Protocol):
-    """Base class defining interface for gathering distributor specific info
+    """Base class defining interface for gathering executor specific info
     in the execution_wrapper.
 
     While not required, implementing get_usage_stats() will allow collection
@@ -124,7 +125,8 @@ class ClusterWorkerNode(Protocol):
     system error of some variety.
     """
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def distributor_id(self) -> Optional[int]:
         """Executor specific id assigned to a task instance."""
         raise NotImplementedError
@@ -136,5 +138,5 @@ class ClusterWorkerNode(Protocol):
 
     @abstractmethod
     def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
-        """Error and exit code info from the distributor."""
+        """Error and exit code info from the executor."""
         raise NotImplementedError

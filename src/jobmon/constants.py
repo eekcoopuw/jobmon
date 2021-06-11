@@ -71,7 +71,4 @@ class WorkflowStatus:
 
 class QsubAttribute:
     """SGE exit codes that Jobmon will detect and handle in a special way."""
-
-    NO_DIST_ID = -99999
-    UNPARSABLE = -33333
     ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)

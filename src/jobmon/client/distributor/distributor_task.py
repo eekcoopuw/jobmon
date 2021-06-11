@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 
-#from jobmon.client.distributor.strategies.base import ExecutorParameters
+# from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeTask
 
@@ -17,8 +17,8 @@ class DistributorTask:
     # this API should always match what's returned by
     # serializers.SerializeTask
     def __init__(self, task_id: int, workflow_id: int, node_id: int, task_args_hash: int,
-                 name: str, command: str, status: str, executor_parameters: ExecutorParameters,
-                 requester: Requester):
+                 name: str, command: str, status: str, queue_id: int,
+                 requested_resources: dict, requester: Requester):
         """
         This is a Task object used on the RESTful API client side
         when constructing task instances.
@@ -31,8 +31,8 @@ class DistributorTask:
             name: name associated with this task
             command: what command to run when executing
             status: job status  associated with this task
-            executor_parameters: Executor parameters class associated with the
-                current executor for this task
+            queue_id: the queue we are submitting to
+            requested_resources: the distributor resources for this task
             requester: requester for communicating with central services
         """
         self.task_id = task_id
@@ -42,8 +42,8 @@ class DistributorTask:
         self.name = name
         self.command = command
         self.status = status
-
-        self.executor_parameters = executor_parameters
+        self.queue_id = queue_id
+        self.requested_resources = requested_resources
 
         self.requester = requester
 
@@ -73,17 +73,8 @@ class DistributorTask:
             name=kwargs["name"],
             command=kwargs["command"],
             status=kwargs["status"],
-            executor_parameters=ExecutorParameters(
-                executor_class=executor_class,
-                num_cores=kwargs["num_cores"],
-                queue=kwargs["queue"],
-                max_runtime_seconds=kwargs["max_runtime_seconds"],
-                j_resource=kwargs["j_resource"],
-                m_mem_free=kwargs["m_mem_free"],
-                context_args=kwargs["context_args"],
-                resource_scales=kwargs["resource_scales"],
-                hard_limits=kwargs["hard_limits"]
-            ),
+            queue_id=kwargs["queue_id"],
+            requested_resources=kwargs["requested_resources"],
             requester=requester
         )
         return executor_task

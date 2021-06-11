@@ -7,7 +7,7 @@ import getpass
 import warnings
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
@@ -193,12 +193,12 @@ class Tool:
 
     def create_workflow(self, workflow_args: str = "", name: str = "", description: str = "",
                         workflow_attributes: Optional[Union[List, dict]] = None,
-                        max_concurrently_running: int = 10_000, chunk_size: int = 500) \
-            -> Workflow:
+                        max_concurrently_running: int = 10_000, chunk_size: int = 500,
+                        compute_resources: Dict[str, Dict[str, Any]] = None) -> Workflow:
         """Create a workflow object associated with the tool."""
         wf = Workflow(self.active_tool_version.id, workflow_args, name, description,
                       workflow_attributes, max_concurrently_running, requester=self.requester,
-                      chunk_size=chunk_size)
+                      chunk_size=chunk_size, compute_resources=compute_resources)
         return wf
 
     def _load_tool_versions(self):
