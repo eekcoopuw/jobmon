@@ -281,92 +281,8 @@ def get_task_instance_error_log(task_instance_id: int):
     return resp
 
 
-@jobmon_distributor.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
-                        methods=['GET'])
-def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
-    """Returns oldest n tasks (or all tasks if total queued tasks < n) to be
-    instantiated. Because the SGE can only qsub tasks at a certain rate, and we
-    poll every 10 seconds, it does not make sense to return all tasks that are
-    queued because only a subset of them can actually be instantiated
-    Args:
-        workflow_id: id of workflow
-        n_queued_tasks: number of tasks to queue
-        last_sync (datetime): time since when to get tasks
-    """
-    # <usertablename>_<columnname>.
-
-    # If we want to prioritize by task or workflow level it would be done in this query
-    app.logger = app.logger.bind(workflow_id=workflow_id)
-    app.logger.info(f"Getting queued jobs for wf {workflow_id}")
-    queue_limit_query = """
-        SELECT (
-            SELECT
-                max_concurrently_running
-            FROM
-                workflow
-            WHERE
-                id = :workflow_id
-            ) - (
-            SELECT
-                count(*)
-            FROM
-                task
-            WHERE
-                task.workflow_id = :workflow_id
-                AND task.status IN ("I", "R")
-            )
-        AS queue_limit
-    """
-    concurrency_limit = DB.session.execute(
-        queue_limit_query, {'workflow_id': int(workflow_id)}
-    ).fetchone()[0]
-
-    # query if we aren't at the concurrency_limit
-    if concurrency_limit > 0:
-        concurrency_limit = min(int(concurrency_limit), int(n_queued_tasks))
-        task_query = """
-            SELECT
-                task.id AS task_id,
-                task.workflow_id AS task_workflow_id,
-                task.node_id AS task_node_id,
-                task.task_args_hash AS task_task_args_hash,
-                task.name AS task_name,
-                task.command AS task_command,
-                task.status AS task_status,
-                task_resources.queue_id AS task_resources_queue_id,
-                task_resources.task_resources_type_id AS task_resources_type_id,
-                task_resources.resource_scales AS task_resources_resource_scales,
-                task_resources.requested_resources AS task_resources_requested_resources 
-            FROM
-                task
-            JOIN
-                task_resources
-                ON task.task_resources_id = task_resources.id
-            JOIN
-                workflow
-                ON task.workflow_id = workflow.id
-            WHERE
-                task.workflow_id = :workflow_id
-                AND task.status = "Q"
-            LIMIT :concurrency_limit
-        """
-
-        tasks = DB.session.query(Task).from_statement(text(task_query)).params(
-            workflow_id=workflow_id,
-            concurrency_limit=concurrency_limit
-        ).all()
-        DB.session.commit()
-        task_dcts = [t.to_wire_as_distributor_task() for t in tasks]
-    else:
-        task_dcts = []
-    app.logger.info(f"Got wf {workflow_id} the following queued tasks: {task_dcts}")
-    resp = jsonify(task_dcts=task_dcts)
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
 @jobmon_distributor.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances',
-                        methods=['GET'])
+                          methods=['GET'])
 def get_suspicious_task_instances(workflow_run_id: int):
     """Query all task instances that are submitted to distributor or running which haven't
     reported as alive in the allocated time.
@@ -397,7 +313,7 @@ def get_suspicious_task_instances(workflow_run_id: int):
 
 
 @jobmon_distributor.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate',
-                        methods=['GET'])
+                          methods=['GET'])
 def get_task_instances_to_terminate(workflow_run_id: int):
     """Get the task instances for a given workflow run that need to be terminated."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
@@ -458,7 +374,7 @@ def set_maxpss(distributor_id: int, maxpss: int):
 
 
 @jobmon_distributor.route('/workflow_run/<workflow_run_id>/log_distributor_report_by',
-                        methods=['POST'])
+                          methods=['POST'])
 def log_distributor_report_by(workflow_run_id: int):
     """Log the next report by date and time."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
@@ -533,26 +449,22 @@ def add_task_instance():
 
 
 @jobmon_distributor.route('/task_instance/<task_instance_id>/log_no_distributor_id',
-                        methods=['POST'])
+                          methods=['POST'])
 def log_no_distributor_id(task_instance_id: int):
     """Log a task_instance_id that did not get an distributor_id upon submission."""
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     app.logger.info(f"Logging ti {task_instance_id} did not get distributor id upon submission")
     data = request.get_json()
     app.logger.debug(f"Log NO DISTRIBUTOR ID for TI {task_instance_id}."
-                     f"Data {data['distributor_id']}")
-    app.logger.debug("Add TI for task ")
+                     f"Data {data['no_id_err_msg']}")
 
-    if data['distributor_id'] == QsubAttribute.NO_DIST_ID:
-        app.logger.info("Qsub was unsuccessful and caused an exception")
-    else:
-        app.logger.info("Qsub may have run, but the sge job id could not be parsed"
-                        " from the qsub response so no distributor id can be assigned"
-                        " at this time")
+    err_msg = data['no_id_err_msg']
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(ti, TaskInstanceStatus.NO_DISTRIBUTOR_ID)
-    ti.distributor_id = data['distributor_id']
+    error = TaskInstanceErrorLog(task_instance_id=ti.id,
+                                 description=err_msg)
+    DB.session.add(error)
     DB.session.commit()
 
     resp = jsonify(message=msg)
@@ -627,7 +539,7 @@ def log_known_error(task_instance_id: int):
 
 
 @jobmon_distributor.route('/task_instance/<task_instance_id>/log_unknown_error',
-                        methods=['POST'])
+                          methods=['POST'])
 def log_unknown_error(task_instance_id: int):
     """Log a task_instance as errored
     Args:

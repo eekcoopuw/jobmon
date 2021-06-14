@@ -97,19 +97,18 @@ class DistributorTaskInstance:
 
         return cls.from_wire(response['task_instance'], distributor=distributor, requester=requester)
 
-    def register_no_distributor_id(self, distributor_id: int) -> None:
+    def register_no_distributor_id(self, no_id_err_msg: str) -> None:
         """Register that submission failed with the central service
 
-        Args:
-            distributor_id: placeholder distributor id. generall -9999
+        no_id_err_msg:
+            The error msg from the executor when failed to obtain distributor id
         """
-        self.distributor_id = distributor_id
 
         app_route = (
             f'/distributor/task_instance/{self.task_instance_id}/log_no_distributor_id')
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={'distributor_id': distributor_id},
+            message={'no_id_err_msg': no_id_err_msg},
             request_type='post',
             logger=logger
         )
@@ -120,7 +119,7 @@ class DistributorTaskInstance:
                 f'code 200. Response content: {response}')
 
     def register_submission_to_batch_distributor(self, distributor_id: int,
-                                              next_report_increment: float) -> None:
+                                                 next_report_increment: float) -> None:
         """Register the submission of a new task instance to batch distributor.
 
         Args:

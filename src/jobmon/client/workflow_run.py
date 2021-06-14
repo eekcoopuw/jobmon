@@ -196,7 +196,10 @@ class WorkflowRun(object):
             # populate returned values onto task dict
             return_tasks = response["tasks"]
             for k in return_tasks.keys():
-                tasks[int(k)].task_id = return_tasks[k][0]
-                tasks[int(k)].initial_status = return_tasks[k][1]
+                task = tasks[int(k)]
+                task.task_id = return_tasks[k][0]
+                task.initial_status = return_tasks[k][1]
+                #Bind the task resources
+                task.task_resources.bind(task.task_id)
 
         return tasks

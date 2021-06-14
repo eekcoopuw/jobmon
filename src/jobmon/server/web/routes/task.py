@@ -438,6 +438,7 @@ def _transform_mem_to_gb(mem_str: Any) -> float:
         mem = 1
     return mem
 
+
 @jobmon_swarm.route('/task/<task_id>/bind_resources', methods=['POST'])
 def bind_task_resources(task_id: int):
     """Add the task resources for a given task

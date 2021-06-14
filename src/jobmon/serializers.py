@@ -10,13 +10,10 @@ class SerializeTask:
     @staticmethod
     def to_wire(task_id: int, workflow_id: int, node_id: int,
                 task_args_hash: int, name: str, command: str, status: str,
-                max_runtime_seconds: int, context_args: str,
-                resource_scales: str, queue: str, num_cores: int,
-                m_mem_free: str, j_resource: str, hard_limits: str) -> tuple:
+                queue_id: int, requested_resources: dict) -> tuple:
         """Submitting the above args to the database for an DistributorTask object."""
         return (task_id, workflow_id, node_id, task_args_hash, name, command,
-                status, max_runtime_seconds, context_args, resource_scales,
-                queue, num_cores, m_mem_free, j_resource, hard_limits)
+                queue_id, requested_resources)
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
@@ -24,14 +21,6 @@ class SerializeTask:
         security issue but was the only solution I could find to turning the data into json
         twice.
         """
-        max_runtime_seconds = int(wire_tuple[7]) if wire_tuple[7] else None
-        context_args = ast.literal_eval(
-            wire_tuple[8]) if wire_tuple[8] else None
-        resource_scales = ast.literal_eval(
-            wire_tuple[9]) if wire_tuple[9] else None
-        num_cores = int(wire_tuple[11]) if wire_tuple[11] else None
-        m_mem_free = float(wire_tuple[12]) if wire_tuple[12] else None
-
         return {"task_id": int(wire_tuple[0]),
                 "workflow_id": int(wire_tuple[1]),
                 "node_id": int(wire_tuple[2]),
@@ -39,14 +28,8 @@ class SerializeTask:
                 "name": wire_tuple[4],
                 "command": wire_tuple[5],
                 "status": wire_tuple[6],
-                "max_runtime_seconds": max_runtime_seconds,
-                "context_args": context_args,
-                "resource_scales": resource_scales,
-                "queue": wire_tuple[10],
-                "num_cores": num_cores,
-                "m_mem_free": m_mem_free,
-                "j_resource": wire_tuple[13],
-                "hard_limits": wire_tuple[14]
+                "queue_id": wire_tuple[7],
+                "requested_resources": ast.literal_eval(wire_tuple[8])
                 }
 
 
@@ -228,7 +211,7 @@ class SerializeQueue:
         """Get the Queue information from the database."""
         return {"queue_id": int(wire_tuple[0]),
                 "queue_name": str(wire_tuple[1]),
-                "parameters": ast.literal_eval(wire_tuple[2])}
+                "required_resources": ast.literal_eval(wire_tuple[2])}
 
 
 class SerializeTaskResources:

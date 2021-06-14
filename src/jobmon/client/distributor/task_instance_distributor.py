@@ -11,7 +11,7 @@ from typing import Dict, List, Optional
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
-from jobmon.constants import QsubAttribute, TaskInstanceStatus, WorkflowRunStatus
+from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, ResumeSet, WorkflowRunStateError
 from jobmon.requester import Requester, http_request_ok
 
@@ -110,7 +110,7 @@ class TaskInstanceDistributor:
                 f'code 200. Response content: {resp}')
 
     def run_distributor(self, stop_event: Optional[mp.synchronize.Event] = None,
-                      status_queue: Optional[mp.Queue] = None):
+                        status_queue: Optional[mp.Queue] = None):
         """Start up the distributor."""
         try:
             # start up the worker thread and distributor
@@ -238,7 +238,7 @@ class TaskInstanceDistributor:
             return any_work_to_do
 
     def _distribute_forever(self, thread_stop_event: threading.Event, poll_interval: float = 10
-                          ) -> None:
+                            ) -> None:
         sleep_time: float = 0.
         while not thread_stop_event.wait(timeout=sleep_time):
             poll_start = time.time()
@@ -280,7 +280,7 @@ class TaskInstanceDistributor:
         active_distributor_ids = list(self._submitted_or_running.keys())
 
         try:
-            actual = self.distributor.get_actual_submitted_or_running(active_distributor_ids)
+            actual = self.distributor.get_submitted_or_running(active_distributor_ids)
             logger.debug(f"active distributor_ids: {actual}")
         except NotImplementedError:
             logger.warning(
@@ -385,46 +385,27 @@ class TaskInstanceDistributor:
         Args:
             task (DistributorTask): A Task that we want to execute
         """
+        task_instance = DistributorTaskInstance.register_task_instance(
+            task.task_id, self.workflow_run_id, self.distributor, self.requester
+        )
+        logger.debug("Executing {}".format(task.command))
+        command = self.distributor.build_worker_node_command(task_instance.task_instance_id)
+
         try:
-            task_instance = DistributorTaskInstance.register_task_instance(
-                task.task_id, self.workflow_run_id, self.distributor, self.requester
+            logger.debug(
+                f"Using the following resources in execution {task.requested_resources}"
+            )
+            executor_id = self.distributor.submit_to_batch_distributor(
+                command=command,
+                name=task.name,
+                executor_parameters=task.requested_resources
             )
         except Exception as e:
-            # we can't do anything more at this point so must return None
-            logger.error(e)
-            return None
-
-        logger.debug("Executing {}".format(task.command))
-
-        # TODO: unify qsub IDS to be meaningful across distributor types
-        command = task_instance.distributor.build_wrapped_command(
-            task_instance_id=task_instance.task_instance_id,
-            heartbeat_interval=self._task_heartbeat_interval,
-            report_by_buffer=self._report_by_buffer
-        )
-        # The following call will always return a value.
-        # It catches exceptions internally and returns ERROR_SGE_JID
-        logger.debug(f"Using the following parameters in distributor {task.distributor_parameters}")
-        distributor_id = task_instance.distributor.execute(
-            command=command,
-            name=task.name,
-            executor_parameters=task.executor_parameters
-        )
-        if distributor_id == QsubAttribute.NO_DIST_ID:
-            logger.debug(f"Received {distributor_id} meaning the task did not qsub properly, "
-                         "moving to 'W' state")
-            task_instance.register_no_distributor_id(distributor_id=distributor_id)
-        elif distributor_id == QsubAttribute.UNPARSABLE:
-            logger.debug(f"Got response from qsub but did not contain a valid distributor_id. "
-                         f"Using ({distributor_id}), and moving to 'W' state")
-            task_instance.register_no_distributor_id(distributor_id=distributor_id)
-        elif distributor_id:
-            report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
-            task_instance.register_submission_to_batch_distributor(distributor_id, report_by_buffer)
-            self._submitted_or_running[distributor_id] = task_instance
+            task_instance.register_no_executor_id(no_id_err_msg=str(e))
         else:
-            msg = ("Did not receive an distributor_id in _create_task_instance")
-            logger.error(msg)
+            report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
+            task_instance.register_submission_to_batch_executor(executor_id, report_by_buffer)
+            self._submitted_or_running[executor_id] = task_instance
 
         return task_instance
 
@@ -467,6 +448,10 @@ class TaskInstanceDistributor:
             to_terminate: List = []
         else:
             to_terminate = [DistributorTaskInstance.from_wire(ti, self.distributor, self.requester
+<<<<<<< HEAD
+                                                              ).distributor_id
+=======
                                                             ).distributor_id
+>>>>>>> d099a595f2ceb0a3bf6c769928993448ec4d0db0
                             for ti in response["task_instances"]]
         self.distributor.terminate_task_instances(to_terminate)
