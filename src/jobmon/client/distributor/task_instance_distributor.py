@@ -115,7 +115,7 @@ class TaskInstanceDistributor:
         try:
             # start up the worker thread and distributor
             if not self.distributor.started:
-                self.distributor.start(self._worker_node_entry_point)
+                self.distributor.start()
             logger.info("Distributor has started")
 
             # send response back to main
@@ -448,10 +448,6 @@ class TaskInstanceDistributor:
             to_terminate: List = []
         else:
             to_terminate = [DistributorTaskInstance.from_wire(ti, self.distributor, self.requester
-<<<<<<< HEAD
                                                               ).distributor_id
-=======
-                                                            ).distributor_id
->>>>>>> d099a595f2ceb0a3bf6c769928993448ec4d0db0
                             for ti in response["task_instances"]]
         self.distributor.terminate_task_instances(to_terminate)

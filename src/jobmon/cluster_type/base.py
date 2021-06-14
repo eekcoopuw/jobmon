@@ -37,8 +37,8 @@ class ClusterDistributor(Protocol):
 
     @property
     @abstractmethod
-    def worker_node_wrapper_executable(self):
-        """Path to jobmon worker node executable"""
+    def worker_node_entry_point(self):
+        """Path to jobmon worker_node_entry_point"""
         raise NotImplementedError
 
     @property
@@ -105,7 +105,7 @@ class ClusterDistributor(Protocol):
             (str) unwrappable command
         """
         wrapped_cmd = [
-            self.worker_node_wrapper_executable,
+            self.worker_node_entry_point,
             "--task_instance_id", task_instance_id,
             "--expected_jobmon_version", __version__,
             "--cluster_type_name", self.cluster_type_name

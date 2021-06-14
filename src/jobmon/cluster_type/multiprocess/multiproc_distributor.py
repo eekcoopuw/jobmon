@@ -126,7 +126,7 @@ class MultiprocessDistributor(ClusterDistributor):
         return "multiprocess"
 
 
-    def start(self, worker_node_entry_point: Optional[str] = None) -> None:
+    def start(self) -> None:
         """Fire up N task consuming processes using Multiprocessing. number of consumers is
         controlled by parallelism.
         """
@@ -140,7 +140,6 @@ class MultiprocessDistributor(ClusterDistributor):
             w.start()
 
         """Start the default."""
-        self.worker_node_entry_point = worker_node_entry_point
         self.started = True
 
     def stop(self, distributor_ids: List[int]) -> None:
