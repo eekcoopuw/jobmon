@@ -29,6 +29,13 @@ pipeline {
     string(defaultValue: 'c-99499:p-4h54h',
      description: 'Rancher project must be created in the rancher web ui before running this job. Get this from the URL after you select the project in the rancher UI. Shouldnt change often',
      name: 'RANCHER_PROJECT_ID')
+    booleanParam(defaultValue: 'false',
+     description: 'Whether or not you want to deploy Jobmon',
+     name: 'DEPLOY_JOBMON')
+    booleanParam(defaultValue: 'false',
+     description: 'Whether or not you want to deploy the ELK stack',
+     name: 'DEPLOY_ELK')
+
   }
   triggers {
     // This cron expression runs seldom, or never runs, but having the value set
@@ -165,7 +172,9 @@ pipeline {
                       ${KUBECONFIG} \
                       ${USE_LOGSTASH} \
                       ${JOBMON_VERSION} \
-                      ${K8S_REAPER_NAMESPACE}
+                      ${K8S_REAPER_NAMESPACE} \
+                      ${DEPLOY_JOBMON} \
+                      ${DEPLOY_ELK}
                '''
           }
         }
@@ -216,4 +225,3 @@ pipeline {
       }
     }
   }
-}
