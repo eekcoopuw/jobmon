@@ -23,7 +23,7 @@ class DistributorCLI(CLI):
         from jobmon.client.distributor.api import get_task_instance_distributor, DistributorConfig
 
         distributor_config = DistributorConfig(
-            jobmon_command=args.worker_node_entry_point,
+            worker_node_entry_point=args.worker_node_entry_point,
             workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
             task_heartbeat_interval=args.task_instance_heartbeat_interval,
             heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,

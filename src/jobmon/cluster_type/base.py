@@ -38,7 +38,8 @@ class ClusterDistributor(Protocol):
         """Path to jobmon worker node executable"""
         raise NotImplementedError
 
-    @abstractproperty
+    @property
+    @abstractmethod
     def cluster_type_name(self) -> str:
         raise NotImplementedError
 
