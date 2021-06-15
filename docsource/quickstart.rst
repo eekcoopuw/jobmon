@@ -969,7 +969,7 @@ task_attribute
     or resource prediction work in the Jobmon database. Pass in task attributes as a list or
     dictionary to create_task().
 task_attribute_type
-    Types of task attributes that can be tracked
+    Types of task attributes that can be tracked.
 task_instance
     This is an actual run of a task. Like calling a function in Python. One Task can have
     multiple task instances if they are retried.
