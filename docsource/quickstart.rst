@@ -44,9 +44,9 @@ upcoming trainings.
 
 Getting Started
 ***************
-Currently, the Jobmon controller script (i.e. the code defining the workflow) has to be
-written in Python. The modeling code can be in Python, R, Stata, C++, or in fact any language.
-SciComp is actively developing an R controller and expects to release it by May 2021.
+The Jobmon controller script (i.e. the code defining the workflow) has to be
+written in Python or R. The modeling code can be in Python, R, Stata, C++, or in fact any
+language.
 
 Users will primarily interact with Jobmon by creating a :term:`Workflow` and iteratively
 adding :term:`Task` to it. Each Workflow is uniquely defined by its
@@ -491,7 +491,8 @@ For example::
                     script = os.path.join(script_path, 'test_scripts/transform.py'),
                     location_id = location_id,
                     sex_id = sex_id,
-                    output_file_path = f"/ihme/scratch/users/{user}/{workflow.name}/transform"
+                    output_file_path = f"/ihme/scratch/users/{user}/{workflow.name}/transform",
+                    task_attributes = {"release_id": 3}
                 )
                 # Append Task to Workflow and the list
                 task_all_list.append(task)
@@ -511,7 +512,8 @@ For example::
                 python = sys.executable,
                 script = os.path.join(script_path, 'test_scripts/aggregate.py'),
                 location_id = location_id,
-                output_file_path = f"/ihme/scratch/users/{user}/{workflow.name}/aggregate"
+                output_file_path = f"/ihme/scratch/users/{user}/{workflow.name}/aggregate",
+                task_attributes = {"location_set_version_id": 35}
             )
             task_all_list.append(task)
             task_aggregate_list.append(task)
@@ -962,11 +964,14 @@ task
 task_arg
     A list of args that make a command unique across different workflows, includes task_id, arg_id and the associated value.
 task_attribute
-    Additional attributes of the task that can be tracked.
+    Additional attributes of the task that can be tracked. For example, release ID or location
+    set version ID. Task attributes are not passed to the job but may be useful for profiling
+    or resource prediction work in the Jobmon database. Pass in task attributes as a list or
+    dictionary to create_task().
 task_attribute_type
     Types of task attributes that can be tracked.
 task_instance
-    This is an actual run of a task. Like calling a function in python. One Task can have
+    This is an actual run of a task. Like calling a function in Python. One Task can have
     multiple task instances if they are retried.
 task_instance_error_log
     Any errors that are produced by a task instance are logged in this table.
