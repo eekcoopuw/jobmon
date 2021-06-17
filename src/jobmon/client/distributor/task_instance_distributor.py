@@ -12,7 +12,8 @@ from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
-from jobmon.exceptions import InvalidResponse, ResumeSet, WorkflowRunStateError
+from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable, ResumeSet,\
+    WorkflowRunStateError
 from jobmon.requester import Requester, http_request_ok
 
 import tblib.pickling_support
@@ -76,6 +77,22 @@ class TaskInstanceDistributor:
 
         # log heartbeat on startup so workflow run FSM doesn't have any races
         self.heartbeat()
+
+    def _infer_error(self, task_instance: DistributorTaskInstance) -> None:
+        """Infer error by checking the distributor remote exit info."""
+        # infer error state if we don't know it already
+        if task_instance.distributor_id is None:
+            raise ValueError("distributor_id cannot be None during log_error")
+        distributor_id = task_instance.distributor_id
+
+        try:
+            error_state, error_msg = self.distributor.get_remote_exit_info(distributor_id)
+        except RemoteExitInfoNotAvailable:
+            error_state = TaskInstanceStatus.UNKNOWN_ERROR
+            error_msg = (f"Unknown error caused task_instance_id "
+                         f"{task_instance.task_instance_id} to be lost")
+        task_instance.error_state = error_state
+        task_instance.error_msg = error_msg
 
     def _instantiate_workflows(self):
         """Move the workflow and workflow run to instantiating"""
@@ -207,7 +224,7 @@ class TaskInstanceDistributor:
             # infer errors and move from reconciliation queue to error queue
             if self._to_reconcile:
                 task_instance = self._to_reconcile.pop(0)
-                task_instance.infer_error()
+                self._infer_error(task_instance)
                 self._to_log_error.append(task_instance)
 
         # log all errors
@@ -386,7 +403,8 @@ class TaskInstanceDistributor:
             task (DistributorTask): A Task that we want to execute
         """
         task_instance = DistributorTaskInstance.register_task_instance(
-            task.task_id, self.workflow_run_id, self.distributor, self.requester
+            task.task_id, self.workflow_run_id, self.distributor.cluster_type_name,
+            self.requester
         )
         logger.debug("Executing {}".format(task.command))
         command = self.distributor.build_worker_node_command(task_instance.task_instance_id)
@@ -398,13 +416,15 @@ class TaskInstanceDistributor:
             executor_id = self.distributor.submit_to_batch_distributor(
                 command=command,
                 name=task.name,
-                executor_parameters=task.requested_resources
+                requested_resources=task.requested_resources
             )
         except Exception as e:
-            task_instance.register_no_executor_id(no_id_err_msg=str(e))
+            task_instance.register_no_distributor_id(no_id_err_msg=str(e))
         else:
             report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
-            task_instance.register_submission_to_batch_executor(executor_id, report_by_buffer)
+            task_instance.register_submission_to_batch_distributor(
+                executor_id, report_by_buffer
+            )
             self._submitted_or_running[executor_id] = task_instance
 
         return task_instance
@@ -425,7 +445,8 @@ class TaskInstanceDistributor:
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
         lost_task_instances = [
-            DistributorTaskInstance.from_wire(ti, self.distributor, self.requester)
+            DistributorTaskInstance.from_wire(ti, self.distributor.cluster_type_name,
+                                              self.requester)
             for ti in response["task_instances"]
         ]
         self._to_reconcile = lost_task_instances
@@ -447,7 +468,9 @@ class TaskInstanceDistributor:
         if http_request_ok(return_code) is False:
             to_terminate: List = []
         else:
-            to_terminate = [DistributorTaskInstance.from_wire(ti, self.distributor, self.requester
-                                                              ).distributor_id
-                            for ti in response["task_instances"]]
+            to_terminate = [
+                DistributorTaskInstance.from_wire(ti, self.distributor.cluster_type_name,
+                                                  self.requester).distributor_id
+                for ti in response["task_instances"]
+            ]
         self.distributor.terminate_task_instances(to_terminate)
