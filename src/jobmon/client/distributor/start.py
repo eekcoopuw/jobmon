@@ -26,6 +26,6 @@ def get_task_instance_distributor(workflow_id: int, workflow_run_id: int,
         heartbeat_report_by_buffer=distributor_config.heartbeat_report_by_buffer,
         n_queued=distributor_config.n_queued,
         distributor_poll_interval=distributor_config.distributor_poll_interval,
-        jobmon_command=distributor_config.jobmon_command
+        worker_node_entry_point=distributor_config.worker_node_entry_point
     )
     return task_instance_distributor

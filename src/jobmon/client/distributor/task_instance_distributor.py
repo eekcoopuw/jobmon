@@ -42,7 +42,7 @@ class TaskInstanceDistributor:
                  requester: Requester, workflow_run_heartbeat_interval: int = 30,
                  task_heartbeat_interval: int = 90, heartbeat_report_by_buffer: float = 3.1,
                  n_queued: int = 100, distributor_poll_interval: int = 10,
-                 jobmon_command: Optional[str] = None):
+                 worker_node_entry_point: Optional[str] = None):
         # which workflow to distribute for
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
@@ -51,7 +51,7 @@ class TaskInstanceDistributor:
         self.distributor = distributor
 
         # operational args
-        self._jobmon_command = jobmon_command
+        self._worker_node_entry_point = worker_node_entry_point
         self._workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
         self._task_heartbeat_interval = task_heartbeat_interval
         self._report_by_buffer = heartbeat_report_by_buffer
@@ -115,7 +115,7 @@ class TaskInstanceDistributor:
         try:
             # start up the worker thread and distributor
             if not self.distributor.started:
-                self.distributor.start(self._jobmon_command)
+                self.distributor.start()
             logger.info("Distributor has started")
 
             # send response back to main

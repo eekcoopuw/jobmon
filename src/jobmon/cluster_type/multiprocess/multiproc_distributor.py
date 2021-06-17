@@ -120,10 +120,13 @@ class MultiprocessDistributor(ClusterDistributor):
         # workers
         self.consumers: List[Consumer] = []
 
-        self.cluster_type_name = "multiprocess"
+
+    @property
+    def cluster_type_name(self) -> str:
+        return "multiprocess"
 
 
-    def start(self, jobmon_command: Optional[str] = None) -> None:
+    def start(self) -> None:
         """Fire up N task consuming processes using Multiprocessing. number of consumers is
         controlled by parallelism.
         """
@@ -137,7 +140,6 @@ class MultiprocessDistributor(ClusterDistributor):
             w.start()
 
         """Start the default."""
-        self.jobmon_command = jobmon_command
         self.started = True
 
     def stop(self, distributor_ids: List[int]) -> None:
@@ -218,7 +220,7 @@ class MultiprocessDistributor(ClusterDistributor):
         self._update_internal_states()
         return list(self._running_or_submitted.keys())
 
-    def execute(self, command: str, name: str, distributor_parameters: ExecutorParameters) -> int:
+    def execute(self, command: str, name: str, requested_resources: dict) -> int:
         """Execute a task instance."""
         distributor_id = self._next_distributor_id
         self._next_distributor_id += 1
@@ -228,25 +230,21 @@ class MultiprocessDistributor(ClusterDistributor):
         self._running_or_submitted.update({distributor_id: None})
         return distributor_id
 
-#################
-    @abstractproperty
+
     def worker_node_wrapper_executable(self):
         """Path to jobmon worker node executable"""
-        raise NotImplementedError
+        return self.worker_node_entry_point
 
 
     def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
         """Get the task instances that have errored out."""
         raise NotImplementedError
 
-    @abstractmethod ## user old
-    def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
-        """Check which task instances are active."""
-        raise NotImplementedError
 
     def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
+
 
 class MultiprocessWorkerNode(ClusterWorkerNode):
     """Task instance info for an instance run with the Multiprocessing distributor."""
@@ -268,7 +266,7 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
         msg = f"Got exit_code: {exit_code}. Error message was: {error_msg}"
         return TaskInstanceStatus.ERROR, msg
 
-#############
+
     def get_usage_stats(self) -> Dict:
-        """Usage information specific to the exector."""
+        """Usage information specific to the distributor."""
         raise NotImplementedError
