@@ -42,8 +42,8 @@ class WorkerNodeTaskInstance:
             requester_url (str): url to communicate with the flask services.
         """
         self.task_instance_id = task_instance_id
-        self.expected_jobmon_version=expected_jobmon_version,
-        self.cluster_type_name=cluster_type_name,
+        self.expected_jobmon_version = expected_jobmon_version,
+        self.cluster_type_name = cluster_type_name,
 
         self._executor_id: Optional[int] = None
         self._nodename: Optional[str] = None

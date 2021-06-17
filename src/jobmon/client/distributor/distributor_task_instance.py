@@ -7,9 +7,8 @@ from http import HTTPStatus as StatusCodes
 from typing import Optional
 
 from jobmon.cluster_type.api import import_cluster
-from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus
-from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable
+from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeTaskInstance
 
@@ -22,7 +21,7 @@ class DistributorTaskInstance:
 
     Args:
         task_instance_id (int): a task_instance_id
-        distributor (ClusterDistributor): an instance of an ClusterDistributor or a subclass
+        cluster_type_name (str): the type of Cluster
         distributor_id (int, optional): the distributor_id associated with this
             task_instance
         requester (Requester, optional): a requester to communicate with
@@ -30,7 +29,7 @@ class DistributorTaskInstance:
     """
 
     def __init__(self, task_instance_id: int, workflow_run_id: int,
-                 distributor: ClusterDistributor, requester: Requester,
+                 cluster_type_name: str, requester: Requester,
                  distributor_id: Optional[int] = None):
 
         self.task_instance_id = task_instance_id
@@ -42,20 +41,19 @@ class DistributorTaskInstance:
         self.error_state = ""
         self.error_msg = ""
 
-        # interfaces to the distributor and server
-        self.distributor = distributor
+        self.cluster_type_name = cluster_type_name
 
         self.requester = requester
 
     @classmethod
-    def from_wire(cls, wire_tuple: tuple, distributor: ClusterDistributor, requester: Requester
+    def from_wire(cls, wire_tuple: tuple, cluster_type_name: str, requester: Requester
                   ) -> DistributorTaskInstance:
         """Create an instance from json that the JQS returns.
 
         Args:
             wire_tuple: tuple representing the wire format for this
                 task. format = serializers.SerializeTask.to_wire()
-            distributor: which distributor this task instance is
+            cluster_type_name: which cluster type this task instance is
                 being run on
             requester: requester for communicating with central services
 
@@ -65,19 +63,20 @@ class DistributorTaskInstance:
         kwargs = SerializeTaskInstance.kwargs_from_wire(wire_tuple)
         ti = cls(task_instance_id=kwargs["task_instance_id"],
                  workflow_run_id=kwargs["workflow_run_id"],
-                 distributor=distributor,
+                 cluster_type_name=cluster_type_name,
                  distributor_id=kwargs["distributor_id"],
                  requester=requester)
         return ti
 
     @classmethod
-    def register_task_instance(cls, task_id: int, workflow_run_id: int, distributor: ClusterDistributor,
-                               requester: Requester) -> DistributorTaskInstance:
+    def register_task_instance(cls, task_id: int, workflow_run_id: int,
+                               cluster_type_name: str, requester: Requester
+                               ) -> DistributorTaskInstance:
         """Register a new task instance for an existing task_id.
 
         Args:
             task_id (int): the task_id to register this instance with
-            distributor (ClusterDistributor): which distributor to place this task on
+            cluster_type_name (str): which Cluster to this task is on
             requester: requester for communicating with central services
         """
         app_route = '/distributor/task_instance'
@@ -85,7 +84,7 @@ class DistributorTaskInstance:
             app_route=app_route,
             message={'task_id': task_id,
                      'workflow_run_id': workflow_run_id,
-                     'distributor_type': distributor.__class__.__name__},
+                     'cluster_type_name': cluster_type_name},
             request_type='post',
             logger=logger
         )
@@ -95,7 +94,8 @@ class DistributorTaskInstance:
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
-        return cls.from_wire(response['task_instance'], distributor=distributor, requester=requester)
+        return cls.from_wire(response['task_instance'], cluster_type_name=cluster_type_name,
+                             requester=requester)
 
     def register_no_distributor_id(self, no_id_err_msg: str) -> None:
         """Register that submission failed with the central service
@@ -175,19 +175,3 @@ class DistributorTaskInstance:
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
-
-    def infer_error(self) -> None:
-        """Infer error by checking the distributor remote exit info."""
-        # infer error state if we don't know it already
-        if self.distributor_id is None:
-            raise ValueError("distributor_id cannot be None during log_error")
-        distributor_id = self.distributor_id
-
-        try:
-            error_state, error_msg = self.distributor.get_remote_exit_info(distributor_id)
-        except RemoteExitInfoNotAvailable:
-            error_state = TaskInstanceStatus.UNKNOWN_ERROR
-            error_msg = (f"Unknown error caused task_instance_id {self.task_instance_id} "
-                         "to be lost")
-        self.error_state = error_state
-        self.error_msg = error_msg
