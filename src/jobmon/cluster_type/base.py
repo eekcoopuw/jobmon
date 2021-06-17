@@ -37,8 +37,8 @@ class ClusterDistributor(Protocol):
 
     @property
     @abstractmethod
-    def worker_node_wrapper_executable(self):
-        """Path to jobmon worker node executable"""
+    def worker_node_entry_point(self):
+        """Path to jobmon worker_node_entry_point"""
         raise NotImplementedError
 
     @property
@@ -48,12 +48,12 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def start(self) -> None:
-        """Start the executor."""
+        """Start the distributor."""
         raise NotImplementedError
 
     @abstractmethod
     def stop(self, distributor_ids: List[int]) -> None:
-        """Stop the executor."""
+        """Stop the distributor."""
         raise NotImplementedError
 
     @abstractmethod
@@ -78,20 +78,20 @@ class ClusterDistributor(Protocol):
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 
+    @abstractmethod
     def submit_to_batch_distributor(self, command: str, name: str,
                                     requested_resources: Dict[str, Any]) -> int:
-        """submit the command on the cluster technology and return an distributor_id
+        """Submit the command on the cluster technology and return a distributor_id.
 
         The distributor_id can be used to identify the associated TaskInstance, terminate
-        it, monitor for missingness, or collect usage statistics.
+        it, monitor for missingness, or collect usage statistics. If an exception is raised by
+        this method the task instance will move to "W" state and the exception will be logged
+        in the database under the task_instance_error_log table.
 
         Args:
             command: command to be run
             name: name of task
             requested_resources: resource requests sent to distributor API
-
-        Raises:
-
         """
         raise NotImplementedError
 
@@ -101,12 +101,11 @@ class ClusterDistributor(Protocol):
         Args:
             task_instance_id: id for the given instance of this task
 
-
         Returns:
             (str) unwrappable command
         """
         wrapped_cmd = [
-            self.worker_node_wrapper_executable,
+            self.worker_node_entry_point,
             "--task_instance_id", task_instance_id,
             "--expected_jobmon_version", __version__,
             "--cluster_type_name", self.cluster_type_name
@@ -128,7 +127,7 @@ class ClusterWorkerNode(Protocol):
 
     @property
     @abstractmethod
-    def executor_id(self) -> Optional[int]:
+    def distributor_id(self) -> Optional[int]:
         """Executor specific id assigned to a task instance."""
         raise NotImplementedError
 

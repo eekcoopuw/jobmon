@@ -43,7 +43,7 @@ class TaskInstanceDistributor:
                  requester: Requester, workflow_run_heartbeat_interval: int = 30,
                  task_heartbeat_interval: int = 90, heartbeat_report_by_buffer: float = 3.1,
                  n_queued: int = 100, distributor_poll_interval: int = 10,
-                 jobmon_command: Optional[str] = None):
+                 worker_node_entry_point: Optional[str] = None):
         # which workflow to distribute for
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
@@ -52,7 +52,7 @@ class TaskInstanceDistributor:
         self.distributor = distributor
 
         # operational args
-        self._jobmon_command = jobmon_command
+        self._worker_node_entry_point = worker_node_entry_point
         self._workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
         self._task_heartbeat_interval = task_heartbeat_interval
         self._report_by_buffer = heartbeat_report_by_buffer
@@ -132,7 +132,7 @@ class TaskInstanceDistributor:
         try:
             # start up the worker thread and distributor
             if not self.distributor.started:
-                self.distributor.start(self._jobmon_command)
+                self.distributor.start()
             logger.info("Distributor has started")
 
             # send response back to main
@@ -402,21 +402,12 @@ class TaskInstanceDistributor:
         Args:
             task (DistributorTask): A Task that we want to execute
         """
-        try:
-            task_instance = DistributorTaskInstance.register_task_instance(
-                task.task_id, self.workflow_run_id, self.distributor.cluster_type_name,
-                self.requester
-            )
-        except Exception as e:
-            # we can't do anything more at this point so must return None
-            logger.error(e)
-            return None
-
-        logger.debug("Executing {}".format(task.command))
-
-        command = self.distributor.build_worker_node_command(
-            task_instance_id=task_instance.task_instance_id
+        task_instance = DistributorTaskInstance.register_task_instance(
+            task.task_id, self.workflow_run_id, self.distributor.cluster_type_name,
+            self.requester
         )
+        logger.debug("Executing {}".format(task.command))
+        command = self.distributor.build_worker_node_command(task_instance.task_instance_id)
 
         try:
             logger.debug(
@@ -425,13 +416,16 @@ class TaskInstanceDistributor:
             executor_id = self.distributor.submit_to_batch_distributor(
                 command=command,
                 name=task.name,
-                executor_parameters=task.requested_resources
+                requested_resources=task.requested_resources
             )
-            report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
-            task_instance.register_submission_to_batch_executor(executor_id, report_by_buffer)
-            self._submitted_or_running[executor_id] = task_instance
         except Exception as e:
-            task_instance.register_no_executor_id(msg=str(e))
+            task_instance.register_no_distributor_id(no_id_err_msg=str(e))
+        else:
+            report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
+            task_instance.register_submission_to_batch_distributor(
+                executor_id, report_by_buffer
+            )
+            self._submitted_or_running[executor_id] = task_instance
 
         return task_instance
 
@@ -474,7 +468,9 @@ class TaskInstanceDistributor:
         if http_request_ok(return_code) is False:
             to_terminate: List = []
         else:
-            to_terminate = [DistributorTaskInstance.from_wire(
-                ti, self.distributor.cluster_type_name, self.requester).distributor_id
-                            for ti in response["task_instances"]]
+            to_terminate = [
+                DistributorTaskInstance.from_wire(ti, self.distributor.cluster_type_name,
+                                                  self.requester).distributor_id
+                for ti in response["task_instances"]
+            ]
         self.distributor.terminate_task_instances(to_terminate)

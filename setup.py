@@ -96,7 +96,7 @@ setup(
             'jobmon=jobmon.client.cli:main',
             'jobmon_distributor=jobmon.client.distributor.cli:main',
             'jobmon_server=jobmon.server.cli:main [server]',
-            'jobmon_command=jobmon.worker_node.cli:run'
+            'worker_node_wrapper_executable=jobmon.worker_node.cli:run'
         ]
     }
 )

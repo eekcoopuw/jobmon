@@ -3,10 +3,8 @@ from __future__ import annotations
 
 import logging
 import time
-from http import HTTPStatus as StatusCodes
 from typing import Optional
 
-from jobmon.cluster_type.api import import_cluster
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester, http_request_ok
@@ -119,7 +117,7 @@ class DistributorTaskInstance:
                 f'code 200. Response content: {response}')
 
     def register_submission_to_batch_distributor(self, distributor_id: int,
-                                              next_report_increment: float) -> None:
+                                                 next_report_increment: float) -> None:
         """Register the submission of a new task instance to batch distributor.
 
         Args:
