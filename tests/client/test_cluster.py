@@ -1,4 +1,3 @@
-from jobmon.client.task_resources import TaskResources
 
 
 def test_plugin_loading(client_env):
@@ -17,6 +16,6 @@ def test_get_queue(client_env):
     cluster = Cluster(cluster_name="sequential")
     cluster.bind()
 
-    sequential_queue = cluster.get_queue(queue_name="sequential")
+    sequential_queue = cluster.get_queue(queue_name="null.q")
     assert type(sequential_queue) == SequentialQueue
-    assert sequential_queue == cluster.get_queue(queue_name="sequential")
+    assert sequential_queue == cluster.get_queue(queue_name="null.q")
