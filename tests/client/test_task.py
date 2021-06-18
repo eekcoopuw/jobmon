@@ -1,6 +1,5 @@
 import os
 
-from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool
 
@@ -47,21 +46,18 @@ def test_bad_names():
 def test_equality(task_template):
     """tests that 2 identical tasks are equal and that non-identical tasks
     are not equal"""
-    params = ExecutorParameters(executor_class="DummyExecutor")
-    a = task_template.create_task(arg="a", executor_parameters=params)
-    a_again = task_template.create_task(arg="a", executor_parameters=params)
+    a = task_template.create_task(arg="a")
+    a_again = task_template.create_task(arg="a")
     assert a == a_again
 
-    b = task_template.create_task(arg="b", upstream_tasks=[a, a_again],
-                                  executor_parameters=params)
+    b = task_template.create_task(arg="b", upstream_tasks=[a, a_again])
     assert b != a
     assert len(b.node.upstream_nodes) == 1
 
 
 def test_hash_name_compatibility(task_template):
     """test that name based on hash"""
-    params = ExecutorParameters(executor_class="DummyExecutor")
-    a = task_template.create_task(arg="a", executor_parameters=params)
+    a = task_template.create_task(arg="a")
     assert "task_" + str(hash(a)) == a.name
 
 
