@@ -2,10 +2,8 @@ import os
 import sys
 from unittest.mock import patch
 
-import jobmon.client.distributor.strategies.sequential
-import jobmon.client.distributor.strategies.sge.sge_utils
-import jobmon.client.distributor.worker_node.execution_wrapper
-import jobmon.client.distributor.worker_node.worker_node_task_instance
+from jobmon.cluster_type import sequential
+from jobmon.worker_node import worker_node_task_instance
 
 import pkg_resources
 
