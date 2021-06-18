@@ -1,1 +1,0 @@
-echo "success" >> /tmp/jmtest-$$.txt#!/usr/bin/env bash
