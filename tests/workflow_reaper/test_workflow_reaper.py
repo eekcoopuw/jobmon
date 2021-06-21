@@ -28,8 +28,7 @@ def test_error_state(db_cfg, requester_no_retry):
     """
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.distributor.task_instance_distributor import \
-        TaskInstanceDistributor
+    from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.workflow_run import WorkflowRun
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
 
@@ -41,7 +40,7 @@ def test_error_state(db_cfg, requester_no_retry):
     workflow1.add_tasks([task1])
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
-    distributor1 = TaskInstanceDistributor(workflow1.workflow_id, wfr1.workflow_run_id,
+    distributor1 = DistributorService(workflow1.workflow_id, wfr1.workflow_run_id,
                                        workflow1._executor, requester=requester_no_retry)
     distributor1.heartbeat()
 
@@ -85,8 +84,7 @@ def test_halted_state(db_cfg, requester_no_retry):
     """
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.distributor.task_instance_distributor import \
-        TaskInstanceDistributor
+    from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.workflow_run import WorkflowRun
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
 
@@ -98,7 +96,7 @@ def test_halted_state(db_cfg, requester_no_retry):
     workflow1.add_tasks([task1])
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
-    distributor1 = TaskInstanceDistributor(workflow1.workflow_id, wfr1.workflow_run_id,
+    distributor1 = DistributorService(workflow1.workflow_id, wfr1.workflow_run_id,
                                        workflow1._executor, requester=requester_no_retry)
     distributor1.heartbeat()
     wfr1.update_status("R")

@@ -52,8 +52,7 @@ def test_sync(client_env):
     swarm objects"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.distributor.task_instance_distributor import \
-        TaskInstanceDistributor
+    from jobmon.client.distributor.distributor_service import DistributorService
 
     task = BashTask(command="fizzbuzz", name="bar", max_attempts=1)
 
@@ -67,7 +66,7 @@ def test_sync(client_env):
     assert now is not None
 
     requester = Requester(client_env)
-    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
 
     with pytest.raises(RuntimeError):
@@ -97,8 +96,7 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
         import parse_arguments
     from jobmon.client.api import BashTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.distributor.task_instance_distributor import \
-        TaskInstanceDistributor
+    from jobmon.client.distributor.distributor_service import DistributorService
 
     class MockDummyExecutor(dummy.DummyExecutor):
 
@@ -194,7 +192,7 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
     execute = MockDummyExecutor()
     execute.wedged_task_id = t2.task_id
     requester = Requester(client_env)
-    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
     distributor.executor.start()
     distributor.distribute()
@@ -439,7 +437,7 @@ def test_instantiating_launched(db_cfg, client_env):
     assert res == (WorkflowStatus.QUEUED, WorkflowRunStatus.BOUND)
 
     # Start the distributor
-    workflow._start_task_instance_distributor(
+    workflow._start_distributor_service(
         wfr2.workflow_run_id, 180)
 
     with app.app_context():

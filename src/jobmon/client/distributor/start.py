@@ -2,21 +2,21 @@
 from typing import Optional
 
 from jobmon.client.distributor.distributor_config import DistributorConfig
-from jobmon.client.distributor.task_instance_distributor import TaskInstanceDistributor
+from jobmon.client.distributor.distributor_service import DistributorService
 
 from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.requester import Requester
 
 
-def get_task_instance_distributor(workflow_id: int, workflow_run_id: int,
-                    distributor: ClusterDistributor,
-                    distributor_config: Optional[DistributorConfig] = None) -> TaskInstanceDistributor:
+def get_distributor_service(workflow_id: int, workflow_run_id: int,
+                            distributor: ClusterDistributor,
+                            distributor_config: Optional[DistributorConfig] = None) -> DistributorService:
     """Set up and return distributor object."""
     if distributor_config is None:
         distributor_config = DistributorConfig.from_defaults()
 
     requester = Requester(distributor_config.url)
-    task_instance_distributor = TaskInstanceDistributor(
+    distributor_service = DistributorService(
         workflow_id=workflow_id,
         workflow_run_id=workflow_run_id,
         distributor=distributor,
@@ -28,4 +28,4 @@ def get_task_instance_distributor(workflow_id: int, workflow_run_id: int,
         distributor_poll_interval=distributor_config.distributor_poll_interval,
         worker_node_entry_point=distributor_config.worker_node_entry_point
     )
-    return task_instance_distributor
+    return distributor_service

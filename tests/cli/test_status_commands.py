@@ -170,8 +170,7 @@ def test_workflow_tasks(db_cfg, client_env):
     from jobmon.client.api import BashTask
     from jobmon.client.api import UnknownWorkflow
     from jobmon.client.status_commands import workflow_tasks
-    from jobmon.client.distributor.task_instance_distributor import \
-        TaskInstanceDistributor
+    from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.requester import Requester
     workflow = UnknownWorkflow(executor_class="SequentialExecutor")
     t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
@@ -194,7 +193,7 @@ def test_workflow_tasks(db_cfg, client_env):
 
     # execute the tasks
     requester = Requester(client_env)
-    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockDistributorProc(),
@@ -482,7 +481,7 @@ def test_update_task_status(db_cfg, client_env):
     assert [t.status for t in wfr3.swarm_tasks.values()] == ["D", "D", "D", "G", "G"]
 
     # Run the workflow
-    distributor_proc = wf3._start_task_instance_distributor(wfr3.workflow_run_id, 180)
+    distributor_proc = wf3._start_distributor_service(wfr3.workflow_run_id, 180)
     wfr3.execute_interruptible(distributor_proc, False, 360)
     distributor_proc.terminate()
 

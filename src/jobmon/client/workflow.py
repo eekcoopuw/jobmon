@@ -13,8 +13,8 @@ from jobmon.client.client_config import ClientConfig
 from jobmon.client.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.distributor.api import DistributorConfig
-from jobmon.client.distributor.task_instance_distributor import \
-    ExceptionWrapper, TaskInstanceDistributor
+from jobmon.client.distributor.distributor_service import \
+    ExceptionWrapper, DistributorService
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
@@ -310,7 +310,7 @@ class Workflow(object):
 
         try:
             # start distributor
-            distributor_proc = self._start_task_instance_distributor(
+            distributor_proc = self._start_distributor_service(
                 wfr.workflow_run_id, distributor_response_wait_timeout, distributor_config
             )
             # execute the workflow run
@@ -552,11 +552,11 @@ class Workflow(object):
                 sleep_time = round(float(resume_timeout) / 10., 1)
                 time.sleep(sleep_time)
 
-    def _start_task_instance_distributor(self, workflow_run_id: int,
-                                       distributor_startup_wait_timeout: int,
-                                       cluster_type_name: str,
-                                       distributor_config: Optional[DistributorConfig] = None
-                                       ) -> Process:
+    def _start_distributor_service(self, workflow_run_id: int,
+                                   distributor_startup_wait_timeout: int,
+                                   cluster_type_name: str,
+                                   distributor_config: Optional[DistributorConfig] = None
+                                   ) -> Process:
         if distributor_config is None:
             distributor_config = DistributorConfig.from_defaults()
 
@@ -566,9 +566,9 @@ class Workflow(object):
 
         logger.info("Instantiating Distributor Process")
 
-        # instantiate TaskInstanceDistributor and launch in separate proc. use event to
+        # instantiate DistributorService and launch in separate proc. use event to
         # signal back when distributor is started
-        tid = TaskInstanceDistributor(
+        tid = DistributorService(
             workflow_id=self.workflow_id,
             workflow_run_id=workflow_run_id,
             distributor=self._distributor,

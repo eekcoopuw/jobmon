@@ -23,8 +23,7 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
     from jobmon.client.api import BashTask, Tool
     from jobmon.client.distributor.strategies.multiprocess import \
         MultiprocessExecutor
-    from jobmon.client.distributor.task_instance_distributor import \
-        TaskInstanceDistributor
+    from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.distributor.distributor_config import DistributorConfig
 
     tool = Tool()
@@ -44,7 +43,7 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
 
     # launch task on executor
     requester = Requester(client_env)
-    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
     distributor.executor.start()
     distributor.distribute()
@@ -133,8 +132,7 @@ def test_ti_w_state(db_cfg, client_env):
     from jobmon.client.api import BashTask, Tool
     from jobmon.client.distributor.strategies.sequential import \
         SequentialExecutor
-    from jobmon.client.distributor.task_instance_distributor import \
-        TaskInstanceDistributor
+    from jobmon.client.distributor.distributor_service import DistributorService
 
     # setup workflow
     tool = Tool()
@@ -155,7 +153,7 @@ def test_ti_w_state(db_cfg, client_env):
 
     requester = Requester(client_env)
     # TODO: fix workflow._executor
-    tid = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
+    tid = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
 
     # patch register submission to go into 'W' state

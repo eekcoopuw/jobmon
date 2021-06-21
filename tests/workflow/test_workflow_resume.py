@@ -131,8 +131,7 @@ def test_cold_resume(db_cfg, client_env):
     from jobmon.client.api import Tool, ExecutorParameters
     from jobmon.client.distributor.strategies.multiprocess import \
         MultiprocessExecutor
-    from jobmon.client.distributor.task_instance_distributor import \
-        TaskInstanceDistributor
+    from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.requester import Requester
 
     # set up tool and task template
@@ -157,7 +156,7 @@ def test_cold_resume(db_cfg, client_env):
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
     requester = Requester(client_env)
-    distributor = TaskInstanceDistributor(workflow1.workflow_id, wfr1.workflow_run_id,
+    distributor = DistributorService(workflow1.workflow_id, wfr1.workflow_run_id,
                                       workflow1._executor, requester=requester)
     with pytest.raises(RuntimeError):
         wfr1.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)

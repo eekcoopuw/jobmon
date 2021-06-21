@@ -20,7 +20,7 @@ class DistributorCLI(CLI):
 
     def distributor(self, args: configargparse.Namespace) -> None:
         """Configuration for the jobmon worker node."""
-        from jobmon.client.distributor.api import get_task_instance_distributor, DistributorConfig
+        from jobmon.client.distributor.api import get_distributor_service, DistributorConfig
 
         distributor_config = DistributorConfig(
             worker_node_entry_point=args.worker_node_entry_point,
@@ -40,12 +40,12 @@ class DistributorCLI(CLI):
 
         # TODO: how do we pass in executor args
         if args.command == 'start':
-            task_instance_distributor = \
-                get_task_instance_distributor(args.workflow_id,
+            distributor_service = \
+                get_distributor_service(args.workflow_id,
                                               args.workflow_run_id,
                                               distributor,
                                               distributor_config)
-            task_instance_distributor.run_distributor()
+            distributor_service.run_distributor()
         else:
             raise ValueError(f"Command {args.command} not supported.")
 

@@ -43,8 +43,7 @@ class MockDistributorProc:
 @pytest.mark.integration_sge
 @pytest.mark.skip()
 def test_hot_resume_with_adjusting_resource(db_cfg, client_env):
-    from jobmon.client.distributor.task_instance_distributor import \
-        TaskInstanceDistributor
+    from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.requester import Requester
 
     # set up initial run
@@ -54,7 +53,7 @@ def test_hot_resume_with_adjusting_resource(db_cfg, client_env):
     workflow._bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
-    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester,
                                       task_heartbeat_interval=10, report_by_buffer=1.1)
     try:
