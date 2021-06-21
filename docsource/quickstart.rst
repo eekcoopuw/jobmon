@@ -598,7 +598,7 @@ Possible states: PENDING, RUNNING, DONE, FATAL
 Jobmon Self-Service Commands
 ****************************
 
-Jobmon 2.1.0 will introduce a suite of additional commands to not only visualize task statuses from the database, but to allow the users to modify the states of their workflows. These self-service commands can be invoked from the command line in the same way as the status commands.
+Jobmon has a suite of commands to not only visualize task statuses from the database, but to allow the users to modify the states of their workflows. These self-service commands can be invoked from the command line in the same way as the status commands.
 
 There are two supported:
 
@@ -611,9 +611,11 @@ There are two supported:
 
     Entering ``jobmon update_task_status`` allows the user to set the status of tasks in their workflow. This is helpful for either rerunning portions of a workflow that have already completed, or allowing a workflow to progress past a blocking error. The usage is ``jobmon update_task_status -t [task_ids] -w [workflow_id] -s [status]``
 
-    There are 2 allowed statuses - "D" and "F". Specifying status "D" will mark only the listed task_ids as "D", and leave the rest of the DAG unchanged. When the workflow is resumed, the DAG executes as if the listed task_ids have finished successfully.
+    There are 2 allowed statuses: "D" - DONE and "G" - REGISTERED.
 
-    If status "F" is specified, the listed task IDs will be set to "F" as well as all downstream dependents of those tasks. When the workflow is resumed, the specified tasks will be rerun and subsequently their downstream tasks as well. If the workflow has successfully completed, and is marked with status "D", the workflow status will be amended to status "E" in order to allow a resume.
+    Specifying status "D" will mark only the listed task_ids as "D", and leave the rest of the DAG unchanged. When the workflow is resumed, the DAG executes as if the listed task_ids have finished successfully.
+
+    If status "G" is specified, the listed task IDs will be set to "G" as well as all downstream dependents of those tasks. TaskInstances will be set to "K". When the workflow is resumed, the specified tasks will be rerun and subsequently their downstream tasks as well. If the workflow has successfully completed, and is marked with status "D", the workflow status will be amended to status "E" in order to allow a resume.
 
     .. note::
         1. All status changes are propagated to the database.
