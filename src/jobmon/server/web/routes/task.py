@@ -53,7 +53,7 @@ def get_task_id_and_status():
         int(nid)
         h = request.args["task_args_hash"]
         int(h)
-        app.logger = app.logger.bind(workflow_id=wid, node_id=nid, task_args_hash=h)
+        app.logger = app.logger.bind(workflow_id=wid, node_id=nid, task_args_hash=str(h))
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 

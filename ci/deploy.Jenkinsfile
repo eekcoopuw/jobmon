@@ -212,7 +212,6 @@ pipeline {
         }
       }
     }
-  }
   post {
     always {
       node('docker') {
@@ -225,3 +224,4 @@ pipeline {
       }
     }
   }
+}
