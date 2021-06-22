@@ -53,7 +53,7 @@ def get_task_id_and_status():
         int(nid)
         h = request.args["task_args_hash"]
         int(h)
-        app.logger = app.logger.bind(workflow_id=wid, node_id=nid, task_args_hash=h)
+        app.logger = app.logger.bind(workflow_id=wid, node_id=nid, task_args_hash=str(h))
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
@@ -74,8 +74,12 @@ def get_task_id_and_status():
     # send back json
     if result is None:
         resp = jsonify({'task_id': None, 'task_status': None})
+        app.logger.info(f"The task_id for wf {wid},  node_id {nid}, and task_args_hash {h} "
+                        f"is none.")
     else:
         resp = jsonify({'task_id': result.id, 'task_status': result.status})
+        app.logger.info(f"The task_id for wf {wid},  node_id {nid}, and task_args_hash {h} "
+                        f"is {result.id}.")
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -158,6 +162,8 @@ def update_task_parameters(task_id: int):
     """Update the parameters for a given task."""
     app.logger = app.logger.bind(task_id=task_id)
     data = request.get_json()
+    app.logger.info(f"Update task {task_id} parameters")
+
     try:
         int(task_id)
     except Exception as e:
@@ -187,6 +193,8 @@ def bind_tasks():
     all_data = request.get_json()
     tasks = all_data["tasks"]
     workflow_id = int(all_data["workflow_id"])
+    app.logger = app.logger.bind(workflow_id=workflow_id)
+    app.logger.info(f"Binding tasks for wf {workflow_id}")
     # receive from client the tasks in a format of:
     # {<hash>:[node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5),
     # reset_if_running(6), task_args(7),task_attributes(8)]}
@@ -365,6 +373,7 @@ def update_task_attribute(task_id: int):
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
     data = request.get_json()
+    app.logger.info(f"Updating task attributes for task {task_id}")
     attributes = data["task_attributes"]
     # update existing attributes with their values
     for name, val in attributes.items():
@@ -383,6 +392,7 @@ def queue_job(task_id: int):
         job_id: id of the job to queue
     """
     app.logger = app.logger.bind(task_id=task_id)
+    app.logger.debug(f"Queue job {task_id}")
     task = DB.session.query(Task).filter_by(id=task_id).one()
     try:
         task.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
@@ -450,6 +460,7 @@ def update_task_resources(task_id: int):
     """
     app.logger = app.logger.bind(task_id=task_id)
     data = request.get_json()
+    app.logger.info("Update task resource for {task_id}")
     parameter_set_type = data["parameter_set_type"]
 
     try:
@@ -608,7 +619,7 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list) -> d
     return task_dict
 
 
-@jobmon_cli.route('/task/subdag', methods=['GET'])
+@jobmon_cli.route('/task/subdag', methods=['POST'])
 def get_task_subdag():
     """
     Used to get the sub dag  of a given task. It returns a list of sub tasks as well as a
@@ -616,8 +627,10 @@ def get_task_subdag():
     :return:
     """
     # Only return sub tasks in the following status. If empty or None, return all
-    task_ids = request.args.getlist('task_ids')
-    task_status = request.args.getlist('task_status')
+    data = request.get_json()
+    task_ids = data.get('task_ids', [])
+    task_status = data.get('task_status', [])
+
     if len(task_ids) == 0:
         raise InvalidUsage(f"Missing {task_ids} in request", status_code=400)
     task_ids_str = "("
@@ -626,6 +639,7 @@ def get_task_subdag():
     task_ids_str = task_ids_str[:-1] + ")"
     if task_status is None:
         task_status = []
+
     q = f"""
         SELECT workflow.id as workflow_id, dag_id, node_id
         FROM task, workflow

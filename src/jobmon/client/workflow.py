@@ -1,7 +1,9 @@
 """The overarching framework to create tasks and dependencies within."""
 import hashlib
+import logging
 import time
 import uuid
+import warnings
 from multiprocessing import Event, Process, Queue
 from multiprocessing import synchronize
 from queue import Empty
@@ -25,7 +27,6 @@ from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse, ResumeSe
                                WorkflowNotResumable)
 from jobmon.requester import Requester, http_request_ok
 
-import structlog as logging
 
 logger = logging.getLogger(__name__)
 
@@ -192,7 +193,7 @@ class Workflow(object):
         Args:
             task: single task to add
         """
-        logger.debug(f"Adding Task {task}")
+        logger.info(f"Adding Task {task}")
         if hash(task) in self.tasks.keys():
             raise ValueError(f"A task with hash {hash(task)} already exists. "
                              f"All tasks in a workflow must have unique "
@@ -257,6 +258,12 @@ class Workflow(object):
             object of WorkflowRun, can be checked to make sure all jobs ran to completion,
                 checked for status, etc.
         """
+        warnings.warn(
+            "From Jobmon 3.0 on, the return type of Workflow.run will no longer be "
+            "swarm/WorkflowRun. It will be WorkflowRunStatus instead. Please plan "
+            "accordingly.",
+            PendingDeprecationWarning
+        )
         if not hasattr(self, "_executor"):
             logger.debug("using default project: ihme_general")
             self.set_executor(project="ihme_general")

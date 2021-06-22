@@ -1,4 +1,6 @@
 """Workflow Database Table."""
+from flask import current_app as app
+
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.workflow_run import WorkflowRun
@@ -71,10 +73,14 @@ class Workflow(DB.Model):
 
     def transition(self, new_state: str):
         """Transition the state of the workflow."""
+        app.logger = app.logger.bind(workflow_id=self.id)
+        app.logger.info(f"Transitting wf {self.id} from {self.status} "
+                        f"to {new_state}")
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
             self.status = new_state
             self.status_date = func.now()
+        app.logger.info(f"WF {self.id} status is now {self.status}")
 
     def _validate_transition(self, new_state: str):
         """Ensure the Job state transition is valid."""
@@ -90,6 +96,8 @@ class Workflow(DB.Model):
 
     def link_workflow_run(self, workflow_run: WorkflowRun, next_report_increment: float):
         """Link a workflow run to this workflow."""
+        app.logger = app.logger.bind(workflow_id=self.id)
+        app.logger.info(f"Linking wfr for wf {self.id}")
         linked_wfr = [wfr.status == WorkflowRunStatus.LINKING for wfr in self.workflow_runs]
         if not any(linked_wfr) and self.ready_to_link:
             workflow_run.heartbeat(next_report_increment, WorkflowRunStatus.LINKING)
@@ -105,12 +113,15 @@ class Workflow(DB.Model):
 
     def resume(self, reset_running_jobs: bool) -> None:
         """Resume a workflow."""
+        app.logger = app.logger.bind(workflow_id=self.id)
+        app.logger.info(f"Resume wf {self.id}")
         for workflow_run in self.workflow_runs:
             if workflow_run.is_active:
                 if reset_running_jobs:
                     workflow_run.cold_reset()
                 else:
                     workflow_run.hot_reset()
+                break
 
     @property
     def ready_to_link(self):

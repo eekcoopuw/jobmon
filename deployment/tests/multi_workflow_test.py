@@ -46,7 +46,7 @@ def multi_workflow_test(yaml_path: str, scratch_dir: str) -> WorkflowRun:
     for wfid in params["load_test_parameters"].keys():
         executor_parameters = ExecutorParameters(
             num_cores=3,
-            m_mem_free="5G",
+            m_mem_free="120G",
             queue='all.q',
         )
         task = task_template.create_task(

@@ -1,4 +1,6 @@
 """Task Table for the Database."""
+from flask import current_app as app
+
 from jobmon.serializers import SerializeExecutorTask, SerializeSwarmTask
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
@@ -6,10 +8,6 @@ from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
 
 from sqlalchemy.sql import func
-
-import structlog as logging
-
-logger = logging.getLogger(__name__)
 
 
 class Task(DB.Model):
@@ -94,24 +92,32 @@ class Task(DB.Model):
 
     def transition(self, new_state):
         """Transition the Task to a new state."""
+        app.logger = app.logger.bind(workflow_id=self.workflow_id,
+                                     task_id=self.id)
+        app.logger.info(f"Transiting task {self.id} from {self.status} "
+                        f"to {new_state}")
         self._validate_transition(new_state)
         if new_state == TaskStatus.INSTANTIATED:
             self.num_attempts = self.num_attempts + 1
         self.status = new_state
         self.status_date = func.now()
-        logger.info(f"Transition task status to {new_state} at {self.status_date}")
+        app.logger.info(f"Transition task status to {new_state} at {self.status_date}")
 
     def transition_after_task_instance_error(self, job_instance_error_state):
         """Transition the task to an error state."""
+        app.logger = app.logger.bind(workflow_id=self.workflow_id,
+                                     task_id=self.id)
+        app.logger.info(f"Transiting task {self.id} to ERROR_RECOVERABLE")
         self.transition(TaskStatus.ERROR_RECOVERABLE)
         if self.num_attempts >= self.max_attempts:
-            logger.debug("ZZZ GIVING UP Task {}".format(self.id))
+            app.logger.info("Giving up task {} after max attempts.".format(self.id))
             self.transition(TaskStatus.ERROR_FATAL)
         else:
             if job_instance_error_state == TaskInstanceStatus.RESOURCE_ERROR:
+                app.logger.debug(f"Adjust resource for task {self.id}")
                 self.transition(TaskStatus.ADJUSTING_RESOURCES)
             else:
-                logger.debug("ZZZ retrying Task {}".format(self.id))
+                app.logger.debug("Retrying Task {}".format(self.id))
                 self.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
 
     def _validate_transition(self, new_state):

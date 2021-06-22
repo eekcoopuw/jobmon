@@ -24,6 +24,8 @@ def add_workflow_run():
         wid = data["workflow_id"]
         int(wid)
         app.logger = app.logger.bind(workflow_id=wid)
+        app.logger.info(f"Add wfr for workflow_id:{wid}.")
+
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     workflow_run = WorkflowRun(
@@ -35,6 +37,8 @@ def add_workflow_run():
     )
     DB.session.add(workflow_run)
     DB.session.commit()
+    app.logger = app.logger.bind(workflow_run_id=workflow_run.id)
+    app.logger.info(f"Add workflow_run:{workflow_run.id} for workflow: {wid}.")
     resp = jsonify(workflow_run_id=workflow_run.id)
     resp.status_code = StatusCodes.OK
     return resp
@@ -45,10 +49,12 @@ def link_workflow_run(workflow_run_id: int):
     """Link this workflow run to a workflow."""
     try:
         data = request.get_json()
+        app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
+        app.logger.info(f"Linking workflow_run:{workflow_run_id}")
         next_report_increment = float(data["next_report_increment"])
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-
+    app.logger.info(f"Query wfr with {workflow_run_id}")
     query = """
         SELECT
             workflow_run.*
@@ -63,11 +69,14 @@ def link_workflow_run(workflow_run_id: int):
 
     # refresh with lock in case other workflow run is trying to progress
     workflow = workflow_run.workflow
+    app.logger.info(f"Got wf for wfr {workflow_run_id}: {workflow}")
     DB.session.refresh(workflow, with_for_update=True)
 
     # check if any workflow run is in linked state.
     # if not any linked, proceed.
+    app.logger.debug("Check if any wfr is in linked state; otherwise, link.")
     current_wfr = workflow.link_workflow_run(workflow_run, next_report_increment)
+    app.logger.debug("WF linked")
     DB.session.commit()  # release lock
     resp = jsonify(current_wfr=current_wfr)
     resp.status_code = StatusCodes.OK
@@ -78,6 +87,7 @@ def link_workflow_run(workflow_run_id: int):
 def client_terminate_workflow_run(workflow_run_id: int):
     """Terminate a workflow run and get its tasks in order."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger.info(f"Client terminate wfr: {workflow_run_id}")
     try:
         int(workflow_run_id)
     except Exception as e:
@@ -87,8 +97,10 @@ def client_terminate_workflow_run(workflow_run_id: int):
         id=workflow_run_id).one()
 
     if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
+        app.logger.debug(f"HOT_RESUME {workflow_run_id}")
         states = [TaskStatus.INSTANTIATED]
     elif workflow_run.status == WorkflowRunStatus.COLD_RESUME:
+        app.logger.debug(f"COLD_RESUME {workflow_run_id}")
         states = [TaskStatus.INSTANTIATED, TaskInstanceStatus.RUNNING]
 
     # add error logs
@@ -113,6 +125,7 @@ def client_terminate_workflow_run(workflow_run_id: int):
                        {"workflow_run_id": int(workflow_run_id),
                         "states": states})
     DB.session.flush()
+    app.logger.debug(f"Error logged for {workflow_run_id}")
 
     # update job instance states
     update_task_instance = """
@@ -131,10 +144,11 @@ def client_terminate_workflow_run(workflow_run_id: int):
                        {"workflow_run_id": workflow_run_id,
                         "states": states})
     DB.session.flush()
-
+    app.logger.debug(f"Job instance status updated for {workflow_run_id}")
     # transition to terminated
     workflow_run.transition(WorkflowRunStatus.TERMINATED)
     DB.session.commit()
+    app.logger.debug(f"WFR {workflow_run_id} terminated")
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -169,7 +183,7 @@ def client_log_workflow_run_heartbeat(workflow_run_id: int):
     """
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     data = request.get_json()
-    app.logger.debug(f"Heartbeat data: {data}")
+    app.logger.debug(f"WFR {workflow_run_id} heartbeat data")
 
     workflow_run = DB.session.query(WorkflowRun).filter_by(
         id=workflow_run_id).one()
@@ -193,8 +207,7 @@ def log_workflow_run_status_update(workflow_run_id: int):
     """Update the status of the workflow run."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     data = request.get_json()
-    app.logger.debug(f"Log status update for workflow_run_id:{workflow_run_id}."
-                     f"Data: {data}")
+    app.logger.info(f"Log status update for workflow_run_id:{workflow_run_id}.")
 
     workflow_run = DB.session.query(WorkflowRun).filter_by(id=workflow_run_id).one()
     workflow_run.transition(data["status"])
@@ -243,10 +256,12 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
     DB.session.commit()
 
     if wfr is not None:
+        app.logger.info(f"Transit wfr {workflow_run_id} to ABORTED")
         wfr.transition(WorkflowRunStatus.ABORTED)
         DB.session.commit()
         aborted = True
     else:
+        app.logger.info(f"Do not transit wfr {workflow_run_id} to ABORTED")
         aborted = False
     resp = jsonify(was_aborted=aborted)
     resp.status_code = StatusCodes.OK
@@ -261,6 +276,7 @@ def log_wfr_heartbeat(workflow_run_id: int):
         workflow_run_id: id of the workflow_run to log
     """
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
+    app.logger.debug(f"Log heartbeat for wfr {workflow_run_id}")
     params = {"workflow_run_id": int(workflow_run_id)}
     query = """
         UPDATE workflow_run
@@ -281,7 +297,7 @@ def scheduler_log_workflow_run_heartbeat(workflow_run_id: int):
     """
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     data = request.get_json()
-    app.logger.debug(f"Heartbeat data: {data}")
+    app.logger.debug("Heartbeat")
 
     workflow_run = DB.session.query(WorkflowRun).filter_by(
         id=workflow_run_id).one()
@@ -332,7 +348,7 @@ def reap_workflow_run(workflow_run_id: int):
     while waiting for a resume (when workflow is in suspended state).
     """
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
-
+    app.logger.info(f"Reap wfr: {workflow_run_id}")
     query = """
         SELECT
             workflow_run.*

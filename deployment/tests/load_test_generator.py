@@ -16,7 +16,7 @@ from jobmon.client.task_template import TaskTemplate
 
 
 logger = logging.getLogger(__name__)
-
+logger.setLevel(logging.INFO)
 
 @dataclass
 class LoadTestParameters:

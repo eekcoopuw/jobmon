@@ -4,11 +4,11 @@ kind: Service
 apiVersion: v1
 metadata:
   name: traefik
-  namespace: {{namespace}}
+  namespace: {{ .Values.global.namespace }}
   annotations:
     # This is the only connection back to the MetalLB Repo, the value filled in here
     # will determine the IP addresses available to the deployment.
-    metallb.universe.tf/address-pool: {{ip_pool}}
+    metallb.universe.tf/address-pool: {{ .Values.global.metallb_ip_pool }}
 spec:
   selector:
     app: traefik
