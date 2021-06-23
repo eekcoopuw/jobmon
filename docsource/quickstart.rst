@@ -44,9 +44,9 @@ upcoming trainings.
 
 Getting Started
 ***************
-Currently, the Jobmon controller script (i.e. the code defining the workflow) has to be
-written in Python. The modeling code can be in Python, R, Stata, C++, or in fact any language.
-SciComp is actively developing an R controller and expects to release it by May 2021.
+The Jobmon controller script (i.e. the code defining the workflow) has to be
+written in Python or R. The modeling code can be in Python, R, Stata, C++, or in fact any
+language.
 
 Users will primarily interact with Jobmon by creating a :term:`Workflow` and iteratively
 adding :term:`Task` to it. Each Workflow is uniquely defined by its
@@ -71,12 +71,6 @@ required if the Workflow is to be resumable.
 For more about the objects go to the :doc:`Workflow and Task Reference <api/jobmon.client>`
 or :doc:`Executor Parameter Reference <api/jobmon.client.execution>`
 
-.. note::
-    The following example is the easiest way to create a Workflow that is backwards compatible
-    with previous versions of Jobmon. It is not the recommended way since it does not take full
-    advantage of all of the metadata. To see more information on the recommended way, check
-    out the Tool and TaskTemplate example further down. :ref:`Nodes, TaskTemplates, and Tools`
-
 Constructing a Workflow and adding a few Tasks is simple:
 
 .. code-tabs::
@@ -88,23 +82,20 @@ Constructing a Workflow and adding a few Tasks is simple:
       import getpass
       import uuid
 
-      from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-      from jobmon.client.templates.bash_task import BashTask
-      from jobmon.client.templates.python_task import PythonTask
-
+      from jobmon.client.api import Tool, ExecutorParameters
 
       def workflow_template_example():
       """
       Instructions:
-        This workflow uses workflow templates (UnknownWorkflow, BashTasks, and PythonTasks).
-        One of the benefits of using templates is that they are compatible with previous
-        versions of Jobmon and the new Jobmon_2.0.* series. (Guppy release)
 
         The steps in this example are:
-        1. Create a workflow using the UnknownWorkflow template
-        2. Create tasks using the BashTask and PythonTask template
-        3. Add created tasks to the workflow
-        4. Run the workflow
+        1. Create a tool
+        2. Create  workflow using the tool from step 1
+        3. Create executor parameters to use with the tasks
+        4. Create task templates using the tool from step 1
+        5. Create tasks using the template from step 3
+        6. Add created tasks to the workflow
+        7. Run the workflow
 
       To actually run the provided example:
         with Jobmon installed in your conda environment from the root of the repo, run:
@@ -115,34 +106,68 @@ Constructing a Workflow and adding a few Tasks is simple:
       wf_uuid = uuid.uuid4()
       script_path = os.path.abspath(os.path.dirname(__file__))
 
+      # Create a tool
+      tool = Tool.create_tool(name="example tool")
 
-      # Create a workflow
-      workflow = Workflow(
+      # Create a workflow, and set the executor
+      workflow = tool.create_workflow(
         name = f"template_workflow_{wf_uuid}",
-        description = "template_workflow",
-        executor_class = "SGEExecutor",
+        description = "template_workflow")
+      workflow.set_executor(
+        executor_class='SGEExecutor',
         stderr = f"/ihme/scratch/users/{user}/{wf_uuid}",
         stdout = f"/ihme/scratch/users/{user}/{wf_uuid}",
         project = "proj_scicomp"  # specify your team's project
       )
 
+      # Create task templates
+      echo_template = tool.get_task_template(
+        template_name='echo_template',
+        command_template='echo {output}',
+        task_args=['output'])
+
+      python_template = tool.get_task_template(
+        template_name='python_template',
+        command_template='{python} {script_path} --args1 {val1} --args2 {val2}',
+        task_args=['val1', 'val2'],
+        op_args=['python', 'script_path'])
+
+      # Create an executorparameters object for each task template
+      echo_parameters = ExecutorParameters(
+        num_cores=1,
+        queue='all.q',
+        max_runtime_seconds=10,
+        m_mem_free='128M')
+
+      python_parameters = ExecutorParameters(
+        num_cores=2,
+        queue='all.q',
+        max_runtime_seconds=1000,
+        m_mem_free='2G')
+
+
       # Create tasks
-      task1 = BashTask(
-        command = "echo task1",
-        executor_class = "SGEExecutor"
+      task1 = echo_template.create_task(
+        executor_parameters=echo_parameters,
+        name='task1',
+        output='task1'
       )
 
-      task2 = BashTask(
-        command = "echo task2",
-        executor_class = "SGEExecutor",
-        upstream_tasks = [task1]
+      task2 = echo_template.create_task(
+        executor_parameters=echo_parameters,
+        name='task2',
+        upstream_tasks = [task1],
+        output='task2'
       )
 
-      task3 = PythonTask(
-        script = os.path.join(script_path, 'test_scripts/test.py'),
-        args = ["--args1", "val1", "--args2", "val2"],
-        executor_class = "SGEExecutor",
-        upstream_tasks = [task2]
+      task3 = python_template.create_task(
+        executor_parameters=python_parameters,
+        name='task3',
+        upstream_tasks=[task2],
+        python=sys.executable,
+        script_path=os.path.join(script_path, 'test_scripts/test.py'),
+        val1='val1',
+        val2='val2'
       )
 
       # add task to workflow
@@ -466,7 +491,8 @@ For example::
                     script = os.path.join(script_path, 'test_scripts/transform.py'),
                     location_id = location_id,
                     sex_id = sex_id,
-                    output_file_path = f"/ihme/scratch/users/{user}/{workflow.name}/transform"
+                    output_file_path = f"/ihme/scratch/users/{user}/{workflow.name}/transform",
+                    task_attributes = {"release_id": 3}
                 )
                 # Append Task to Workflow and the list
                 task_all_list.append(task)
@@ -486,7 +512,8 @@ For example::
                 python = sys.executable,
                 script = os.path.join(script_path, 'test_scripts/aggregate.py'),
                 location_id = location_id,
-                output_file_path = f"/ihme/scratch/users/{user}/{workflow.name}/aggregate"
+                output_file_path = f"/ihme/scratch/users/{user}/{workflow.name}/aggregate",
+                task_attributes = {"location_set_version_id": 35}
             )
             task_all_list.append(task)
             task_aggregate_list.append(task)
@@ -571,7 +598,7 @@ Possible states: PENDING, RUNNING, DONE, FATAL
 Jobmon Self-Service Commands
 ****************************
 
-Jobmon 2.1.0 will introduce a suite of additional commands to not only visualize task statuses from the database, but to allow the users to modify the states of their workflows. These self-service commands can be invoked from the command line in the same way as the status commands.
+Jobmon has a suite of commands to not only visualize task statuses from the database, but to allow the users to modify the states of their workflows. These self-service commands can be invoked from the command line in the same way as the status commands.
 
 There are two supported:
 
@@ -584,9 +611,11 @@ There are two supported:
 
     Entering ``jobmon update_task_status`` allows the user to set the status of tasks in their workflow. This is helpful for either rerunning portions of a workflow that have already completed, or allowing a workflow to progress past a blocking error. The usage is ``jobmon update_task_status -t [task_ids] -w [workflow_id] -s [status]``
 
-    There are 2 allowed statuses - "D" and "F". Specifying status "D" will mark only the listed task_ids as "D", and leave the rest of the DAG unchanged. When the workflow is resumed, the DAG executes as if the listed task_ids have finished successfully.
+    There are 2 allowed statuses: "D" - DONE and "G" - REGISTERED.
 
-    If status "F" is specified, the listed task IDs will be set to "F" as well as all downstream dependents of those tasks. When the workflow is resumed, the specified tasks will be rerun and subsequently their downstream tasks as well. If the workflow has successfully completed, and is marked with status "D", the workflow status will be amended to status "E" in order to allow a resume.
+    Specifying status "D" will mark only the listed task_ids as "D", and leave the rest of the DAG unchanged. When the workflow is resumed, the DAG executes as if the listed task_ids have finished successfully.
+
+    If status "G" is specified, the listed task IDs will be set to "G" as well as all downstream dependents of those tasks. TaskInstances will be set to "K". When the workflow is resumed, the specified tasks will be rerun and subsequently their downstream tasks as well. If the workflow has successfully completed, and is marked with status "D", the workflow status will be amended to status "E" in order to allow a resume.
 
     .. note::
         1. All status changes are propagated to the database.
@@ -937,11 +966,14 @@ task
 task_arg
     A list of args that make a command unique across different workflows, includes task_id, arg_id and the associated value.
 task_attribute
-    Additional attributes of the task that can be tracked.
+    Additional attributes of the task that can be tracked. For example, release ID or location
+    set version ID. Task attributes are not passed to the job but may be useful for profiling
+    or resource prediction work in the Jobmon database. Pass in task attributes as a list or
+    dictionary to create_task().
 task_attribute_type
     Types of task attributes that can be tracked.
 task_instance
-    This is an actual run of a task. Like calling a function in python. One Task can have
+    This is an actual run of a task. Like calling a function in Python. One Task can have
     multiple task instances if they are retried.
 task_instance_error_log
     Any errors that are produced by a task instance are logged in this table.

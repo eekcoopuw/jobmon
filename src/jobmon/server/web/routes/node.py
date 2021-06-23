@@ -54,7 +54,7 @@ def add_node():
     data = request.get_json()
     app.logger = app.logger.bind(
         task_template_version_id=data['task_template_version_id'],
-        node_args_hash=data['node_args_hash']
+        node_args_hash=str(data['node_args_hash'])
     )
     app.logger.info(f"Add node with ttv id:{data['task_template_version_id']}, "
                     f"node_args_hash {data['node_args_hash']}")
