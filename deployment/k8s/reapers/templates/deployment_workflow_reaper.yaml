@@ -59,6 +59,8 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
+  annotations:
+    "helm.sh/resource-policy": keep
   name: traefik-{{ .Values.global.namespace }}
   namespace: {{ .Values.global.reaper_namespace }}
 spec:
