@@ -150,7 +150,8 @@ deploy_jobmon_to_k8s () {
         alpine/helm \
             upgrade --install jobmon-elk /apps/. \
             -n "$K8S_NAMESPACE" \
-            --set global.namespace="$K8S_NAMESPACE"
+            --set global.namespace="$K8S_NAMESPACE" \
+            --set metricbeat.db_host_secret="$RANCHER_DB_SECRET"
     fi
 
     if [[ "$DEPLOY_JOBMON" = true ]]
