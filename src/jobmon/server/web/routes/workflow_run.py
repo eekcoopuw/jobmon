@@ -31,7 +31,6 @@ def add_workflow_run():
     workflow_run = WorkflowRun(
         workflow_id=wid,
         user=data["user"],
-        executor_class=data["executor_class"],
         jobmon_version=data["jobmon_version"],
         status=WorkflowRunStatus.REGISTERED
     )

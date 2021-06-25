@@ -385,8 +385,11 @@ class Workflow(object):
             # to task
             compute_resources = {**self.compute_resources, **task.compute_resources}
             cluster = self._get_cluster_by_name(cluster_name)
-            task_resources = cluster.create_task_resources(compute_resources)
+            task_resources = cluster.create_task_resources(compute_resources[cluster_name])
             task.task_resources = task_resources
+
+        # 1) can only have 1 cluster
+        # 2) workflow cluster is overridden by the task cluster
 
         # check if workflow is valid
         self._dag.validate()  # TODO: this does nothing at the moment
@@ -445,7 +448,6 @@ class Workflow(object):
         # create workflow run
         client_wfr = ClientWorkflowRun(
             workflow_id=self.workflow_id,
-            executor_class=self._distributor.__class__.__name__,
             requester=self.requester
         )
         client_wfr.bind(self.tasks, reset_running_jobs, self._chunk_size)

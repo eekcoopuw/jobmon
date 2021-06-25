@@ -211,14 +211,14 @@ class SerializeQueue:
         """Get the Queue information from the database."""
         return {"queue_id": int(wire_tuple[0]),
                 "queue_name": str(wire_tuple[1]),
-                "required_resources": ast.literal_eval(wire_tuple[2])}
+                "parameters": ast.literal_eval(wire_tuple[2])}
 
 
 class SerializeTaskResources:
     """Serialize the data to and from the db for a TaskResources."""
 
     @staticmethod
-    def to_wire(task_id: int, queue_id: int,  task_resources_type_id: str,
+    def to_wire(task_id: int, queue_id: int, task_resources_type_id: str,
                 resource_scales: str, requested_resources: str) -> tuple:
         """Submit the TaskResources info to the database."""
         return task_id, queue_id, task_resources_type_id, resource_scales, requested_resources

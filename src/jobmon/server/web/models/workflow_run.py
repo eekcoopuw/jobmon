@@ -26,7 +26,6 @@ class WorkflowRun(DB.Model):
     id = DB.Column(DB.Integer, primary_key=True)
     workflow_id = DB.Column(DB.Integer, DB.ForeignKey('workflow.id'))
     user = DB.Column(DB.String(150))
-    executor_class = DB.Column(DB.String(150))
     jobmon_version = DB.Column(DB.String(150), default='UNKNOWN')
     status = DB.Column(DB.String(1),
                        DB.ForeignKey('workflow_run_status.id'),

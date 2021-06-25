@@ -109,38 +109,41 @@ class Cluster:
 
         Raises: ValueError
         """
-        if queue is not None:
-            # validate it has required resources
-            full_error_msg = ""
-            missing_resources = set(queue.required_resources) - set(requested_resources.keys())
-            if missing_resources:
-                full_error_msg = (
-                    f"\n  Missing required resources {list(missing_resources)} for "
-                    f"'{queue.queue_name}'. Got {list(requested_resources.keys)}."
-                )
+        # validate it has required resources
+        full_error_msg = ""
+        missing_resources = set(queue.required_resources) - set(requested_resources.keys())
+        if missing_resources:
+            full_error_msg = (
+                f"\n  Missing required resources {list(missing_resources)} for "
+                f"'{queue.queue_name}'. Got {list(requested_resources.keys)}."
+            )
 
-            for resource, resource_value in requested_resources.items():
-                msg = queue.validate_resources(resource, resource_value, fail=False)
-                full_error_msg += msg
+        for resource, resource_value in requested_resources.items():
+            msg = queue.validate_resource(resource, resource_value, fail=False)
+            full_error_msg += msg
 
-            if full_error_msg:
-                raise ValueError(full_error_msg)
+        if full_error_msg:
+            raise ValueError(full_error_msg)
 
     def adjust_task_resource(self, task_resources, adjustment_func):
         """Adjust task resources based on the scaling factor"""
         pass
 
     def create_task_resources(self, resource_params: Dict):
-        resource_params = resource_params.get(self.cluster_name)
-        try:
-            queue_name = resource_params.get("queue")
-            queue = self.get_queue(queue_name)
-            self._validate_requested_resources(resource_params, queue)
-        except Exception:
-            pass
+        queue_name = resource_params.pop("queue")
+        queue = self.get_queue(queue_name)
 
-        # construct resource instance
-        resource_scales = resource_params.get("resource_scales")
+        # construct resource scales
+        try:
+            resource_scales = resource_params.pop("resource_scales")
+        except KeyError:
+            resource_scales = {}
+
+        try:
+            self._validate_requested_resources(resource_params, queue)
+        except ValueError as e:
+            # TODO how to raise validation errors
+            print(e)
 
         task_resource = TaskResources(queue_id=queue.queue_id,
                                       requested_resources=resource_params,

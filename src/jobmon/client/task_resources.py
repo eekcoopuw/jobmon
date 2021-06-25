@@ -1,6 +1,7 @@
 """The client Task Resources with the resources initiation and binding to Task ID."""
 from http import HTTPStatus as StatusCodes
-from typing import Optional
+from typing import Dict, Optional
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
@@ -12,8 +13,8 @@ logger = logging.getLogger(__name__)
 
 class TaskResources:
 
-    def __init__(self, queue_id: int, task_resources_type_id: str, resource_scales: str,
-                 requested_resources: str, requester: Optional[Requester] = None) -> None:
+    def __init__(self, queue_id: int, task_resources_type_id: str, resource_scales: Dict,
+                 requested_resources: Dict, requester: Optional[Requester] = None) -> None:
 
         self._queue_id = queue_id
         self._task_resources_type_id = task_resources_type_id
@@ -55,11 +56,11 @@ class TaskResources:
         return self._task_resources_type_id
 
     @property
-    def resource_scales(self) -> str:
+    def resource_scales(self) -> Dict:
         return self._resource_scales
 
     @property
-    def requested_resources(self) -> str:
+    def requested_resources(self) -> Dict:
         return self._requested_resources
 
     @property
