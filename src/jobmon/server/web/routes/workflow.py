@@ -76,7 +76,7 @@ def bind_workflow():
         max_concurrently_running = data['max_concurrently_running']
         workflow_attributes = data["workflow_attributes"]
         app.logger = app.logger.bind(dag_id=dag_id, tool_version_id=tv_id,
-                                     workflow_args_hash=whash, task_hash=thash)
+                                     workflow_args_hash=str(whash), task_hash=str(thash))
         app.logger.info(f"Create workflow with tv {tv_id} and dag {dag_id}")
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
@@ -129,7 +129,7 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
     """Return any dag hashes that are assigned to workflows with identical workflow args."""
     try:
         int(workflow_args_hash)
-        app.logger = app.logger.bind(workflow_args_hash=workflow_args_hash)
+        app.logger = app.logger.bind(workflow_args_hash=str(workflow_args_hash))
         app.logger.info(f"Looking for wf with hash {workflow_args_hash}")
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e

@@ -52,8 +52,7 @@ def test_sync(client_env):
     swarm objects"""
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.client.api import BashTask
-    from jobmon.client.distributor.task_instance_distributor import \
-        TaskInstanceDistributor
+    from jobmon.client.distributor.distributor_service import DistributorService
 
     task = BashTask(command="fizzbuzz", name="bar", max_attempts=1)
 
@@ -67,7 +66,7 @@ def test_sync(client_env):
     assert now is not None
 
     requester = Requester(client_env)
-    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
 
     with pytest.raises(RuntimeError):
@@ -97,8 +96,7 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
         import parse_arguments
     from jobmon.client.api import BashTask
     from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.distributor.task_instance_distributor import \
-        TaskInstanceDistributor
+    from jobmon.client.distributor.distributor_service import DistributorService
 
     class MockDummyExecutor(dummy.DummyExecutor):
 
@@ -194,7 +192,7 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
     execute = MockDummyExecutor()
     execute.wedged_task_id = t2.task_id
     requester = Requester(client_env)
-    distributor = TaskInstanceDistributor(workflow.workflow_id, wfr.workflow_run_id,
+    distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
                                       workflow._executor, requester=requester)
     distributor.executor.start()
     distributor.distribute()
@@ -252,81 +250,6 @@ def test_fail_fast(client_env):
     assert len(wfr.all_error) == 1
     assert len(wfr.all_done) >= 1
     assert len(wfr.all_done) <= 3
-
-
-@pytest.mark.integration_sge
-def test_fail_fast_resource_scaling(db_cfg, client_env):
-    """test that resources kill won't fail fast"""
-    from jobmon.client.distributor.strategies.base import ExecutorParameters
-    from jobmon.client.api import BashTask, Tool
-
-    unknown_tool = Tool()
-    workflow = unknown_tool.create_workflow(name="test_fail_fast")
-    # create SGE parameters with long run time
-    sleepy_params = ExecutorParameters(
-        num_cores=1,
-        m_mem_free="1G",
-        max_runtime_seconds=600,  # set max runtime to be shorter than task
-        queue="all.q",
-        executor_class="SGEExecutor")
-
-    # specify SGE specific parameters of a very short run time
-    sleepy_params1 = ExecutorParameters(
-        num_cores=1,
-        m_mem_free="1G",
-        max_runtime_seconds=8,  # set max runtime to be shorter than task
-        queue="all.q",
-        executor_class="SGEExecutor",
-        resource_scales={'max_runtime_seconds': 0.5}
-    )
-    t1 = BashTask("sleep 1", executor_parameters=sleepy_params1)
-    t2 = BashTask(
-        # set sleep to be longer than max runtime, forcing a retry
-        "sleep 20",
-        # job should succeed on second try. runtime will 150s on try 2
-        max_attempts=2,
-        upstream_tasks=[t1],
-        executor_parameters=sleepy_params1)
-
-    t3 = BashTask(
-        # longer enough than the first one
-        "sleep 120",
-        executor_parameters=sleepy_params)
-    t4 = BashTask("sleep 2", executor_parameters=sleepy_params, upstream_tasks=[t3])
-    workflow.add_tasks([t1, t2, t3, t4])
-
-    # job will time out and get killed by the cluster. After a few minutes
-    # jobmon will notice that it has disappeared and ask SGE for exit status.
-    # SGE will show a resource kill. Jobmon will scale all resources by 30% and
-    # retry the job at which point it will succeed.
-    wfr = workflow.run(fail_fast=True)
-    assert len(wfr.all_error) == 1
-    assert len(wfr.all_done) == 3
-    # Verify that there are retries for the first task not the second
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        # Verify there are 1 wfr
-        q1 = f"select count(*) from workflow_run where workflow_id={workflow.workflow_id}"
-        r1 = DB.session.execute(q1).fetchone()
-        assert r1[0] == 1
-
-        # Verify there are two ti for t2
-        q2 = f"select count(*) from task_instance where task_id={t2.task_id}"
-        r2 = DB.session.execute(q2).fetchone()
-        assert r2[0] == 2
-
-        # Verify there is one ti for t3
-        q3 = f"select count(*) from task_instance where task_id={t3.task_id}"
-        r3 = DB.session.execute(q3).fetchone()
-        assert r3[0] == 1
-
-        # Verify there is one ti for t4
-        q4 = f"select count(*) from task_instance where task_id={t4.task_id}"
-        r4 = DB.session.execute(q4).fetchone()
-        assert r4[0] == 1
-
-        DB.session.commit()
 
 
 def test_propagate_result(client_env):
@@ -439,7 +362,7 @@ def test_instantiating_launched(db_cfg, client_env):
     assert res == (WorkflowStatus.QUEUED, WorkflowRunStatus.BOUND)
 
     # Start the distributor
-    workflow._start_task_instance_distributor(
+    workflow._start_distributor_service(
         wfr2.workflow_run_id, 180)
 
     with app.app_context():

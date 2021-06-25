@@ -103,6 +103,8 @@ deploy_jobmon_to_k8s () {
     USE_LOGSTASH=${11}
     JOBMON_VERSION=${12}
     K8S_REAPER_NAMESPACE=${13}
+    DEPLOY_JOBMON=${14}
+    DEPLOY_ELK=${15}
 
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
     docker pull $KUBECTL_CONTAINER
@@ -138,49 +140,54 @@ deploy_jobmon_to_k8s () {
     # Remove file, so helm doesn't attempt to re-deploy it
     rm -f ./deployment/k8s/jobmon/templates/01_namespace.yaml
 
-    echo "Creating or updating Jobmon-ELK deployment"
-    docker run -t \
-    --rm \
-    -v "$WORKSPACE/deployment/k8s/elk:/apps" \
-    -v $KUBECONFIG:/root/.kube/config \
-    alpine/helm \
-        upgrade --install jobmon-elk /apps/. \
-        -n "$K8S_NAMESPACE" \
-        --set global.namespace="$K8S_NAMESPACE"
+    if [[ "$DEPLOY_ELK" = true ]]
+    then
+        echo "Creating or updating Jobmon-ELK deployment"
+        docker run -t \
+        --rm \
+        -v "$WORKSPACE/deployment/k8s/elk:/apps" \
+        -v $KUBECONFIG:/root/.kube/config \
+        alpine/helm \
+            upgrade --install jobmon-elk /apps/. \
+            -n "$K8S_NAMESPACE" \
+            --set global.namespace="$K8S_NAMESPACE" \
+            --set metricbeat.db_host_secret="$RANCHER_DB_SECRET"
+    fi
 
+    if [[ "$DEPLOY_JOBMON" = true ]]
+    then
+        echo "Creating or updating Jobmon deployment"
+        docker run -t \
+        --rm \
+        -v "$WORKSPACE/deployment/k8s/jobmon:/apps" \
+        -v $KUBECONFIG:/root/.kube/config \
+        alpine/helm \
+            upgrade --install jobmon /apps/. \
+            -n "$K8S_NAMESPACE" \
+            --set global.grafana_image="$GRAFANA_CONTAINER_URI" \
+            --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI" \
+            --set global.metallb_ip_pool="$METALLB_IP_POOL" \
+            --set global.namespace="$K8S_NAMESPACE" \
+            --set global.rancher_db_secret="$RANCHER_DB_SECRET" \
+            --set global.rancher_project="$RANCHER_PROJECT_ID" \
+            --set global.rancher_qpid_secret="$RANCHER_QPID_SECRET" \
+            --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
+            --set global.use_logstash="$USE_LOGSTASH"
 
-    echo "Creating or updating Jobmon deployment"
-    docker run -t \
-    --rm \
-    -v "$WORKSPACE/deployment/k8s/jobmon:/apps" \
-    -v $KUBECONFIG:/root/.kube/config \
-    alpine/helm \
-        upgrade --install jobmon /apps/. \
-        -n "$K8S_NAMESPACE" \
-        --set global.namespace="$K8S_NAMESPACE" \
-        --set global.reaper_namespace="$K8S_REAPER_NAMESPACE" \
-        --set global.rancher_project="$RANCHER_PROJECT_ID" \
-        --set global.use_logstash="$USE_LOGSTASH" \
-        --set global.metallb_ip_pool="$METALLB_IP_POOL" \
-        --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI" \
-        --set global.rancher_db_secret="$RANCHER_DB_SECRET" \
-        --set global.rancher_qpid_secret="$RANCHER_QPID_SECRET" \
-        --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
-        --set global.grafana_image="$GRAFANA_CONTAINER_URI"
-
-    echo "Adding new reaper to reapers namespace"
-    docker run -t \
-    --rm \
-    -v "$WORKSPACE/deployment/k8s/reapers:/apps" \
-    -v $KUBECONFIG:/root/.kube/config \
-    alpine/helm \
-        upgrade --install jobmon-reapers /apps/. \
-        -n "$K8S_REAPER_NAMESPACE" \
-        --set global.namespace="$K8S_NAMESPACE" \
-        --set global.reaper_namespace="$K8S_REAPER_NAMESPACE" \
-        --set global.jobmon_version="$JOBMON_VERSION" \
-        --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
-        --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI"
+        echo "Adding new reaper to reapers namespace"
+        docker run -t \
+        --rm \
+        -v "$WORKSPACE/deployment/k8s/reapers:/apps" \
+        -v $KUBECONFIG:/root/.kube/config \
+        alpine/helm \
+            upgrade --install jobmon-reapers /apps/. \
+            -n "$K8S_REAPER_NAMESPACE" \
+            --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI" \
+            --set global.jobmon_version="$JOBMON_VERSION" \
+            --set global.namespace="$K8S_NAMESPACE" \
+            --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
+            --set global.reaper_namespace="$K8S_REAPER_NAMESPACE"
+    fi
 }
 
 

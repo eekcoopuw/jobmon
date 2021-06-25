@@ -35,11 +35,11 @@ spec:
             - logstash
           resources:
             limits:
-              memory: 800Mi
+              memory: 1500Mi
               cpu: 2
             requests:
               cpu: 200m
-              memory: 600Mi
+              memory: 900Mi
       volumes:
         - name: logstash-pipeline
           configMap:

@@ -26,7 +26,7 @@ def add_dag():
 
     # add dag
     dag_hash = data.pop("dag_hash")
-    app.logger = app.logger.bind(dag_hash=dag_hash)
+    app.logger = app.logger.bind(dag_hash=str(dag_hash))
     app.logger.info(f"Add dag:{dag_hash}")
     try:
         dag = Dag(hash=dag_hash)

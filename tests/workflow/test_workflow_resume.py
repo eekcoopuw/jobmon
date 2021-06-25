@@ -131,8 +131,7 @@ def test_cold_resume(db_cfg, client_env):
     from jobmon.client.api import Tool, ExecutorParameters
     from jobmon.client.distributor.strategies.multiprocess import \
         MultiprocessExecutor
-    from jobmon.client.distributor.task_instance_distributor import \
-        TaskInstanceDistributor
+    from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.requester import Requester
 
     # set up tool and task template
@@ -157,7 +156,7 @@ def test_cold_resume(db_cfg, client_env):
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
     requester = Requester(client_env)
-    distributor = TaskInstanceDistributor(workflow1.workflow_id, wfr1.workflow_run_id,
+    distributor = DistributorService(workflow1.workflow_id, wfr1.workflow_run_id,
                                       workflow1._executor, requester=requester)
     with pytest.raises(RuntimeError):
         wfr1.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
@@ -207,74 +206,6 @@ def test_cold_resume(db_cfg, client_env):
 
     assert wfr3.status == WorkflowRunStatus.DONE
     assert wfr3.completed_report[0] > 0  # number of newly completed tasks
-
-
-@pytest.mark.integration_sge
-def test_cold_resume_from_failures(db_cfg, client_env):
-    from jobmon.client.api import Tool, ExecutorParameters
-    from jobmon.client.distributor.strategies.sge.sge_executor import SGEExecutor  # noqa F401
-
-    # set up tool and task template
-    unknown_tool = Tool()
-    tt_a = unknown_tool.get_task_template(
-        template_name="foo",
-        command_template="sleep {time}",
-        node_args=["time"])
-    tt_b = unknown_tool.get_task_template(
-        template_name="bar",
-        command_template="sleep {time}",
-        node_args=["time"])
-    tt_c = unknown_tool.get_task_template(
-        template_name="baz",
-        command_template="sleep {time}",
-        node_args=["time"])
-
-    # prepare first workflow
-    tasks = []
-    for i in range(3):
-        t = tt_a.create_task(executor_parameters=ExecutorParameters(
-            max_runtime_seconds=1),
-            time=2+i)
-        tasks.append(t)
-    for i in range(2):
-        t = tt_b.create_task(executor_parameters=ExecutorParameters(
-                max_runtime_seconds=30), time=5+i)
-        tasks.append(t)
-    for i in range(2):
-        t = tt_c.create_task(executor_parameters=ExecutorParameters(
-                max_runtime_seconds=30), time=8 + i)
-        t.add_upstream(tasks[i])
-        t.add_upstream(tasks[i+1])
-        t.add_upstream(tasks[i+2])
-        tasks.append(t)
-    workflow1 = unknown_tool.create_workflow(name="cold_resume_fail")
-    workflow1.add_tasks(tasks)
-    workflow1.run()
-
-    tasks = []
-    for i in range(3):
-        t = tt_a.create_task(executor_parameters=ExecutorParameters(
-            max_runtime_seconds=10),
-            time=2 + i)
-        tasks.append(t)
-    for i in range(2):
-        t = tt_b.create_task(executor_parameters=ExecutorParameters(
-                max_runtime_seconds=30), time=5 + i)
-        tasks.append(t)
-    for i in range(2):
-        t = tt_c.create_task(executor_parameters=ExecutorParameters(
-                max_runtime_seconds=30), time=8 + i)
-        t.add_upstream(tasks[i])
-        t.add_upstream(tasks[i + 1])
-        t.add_upstream(tasks[i + 2])
-        tasks.append(t)
-    workflow2 = unknown_tool.create_workflow(name="cold_resume_fail",
-                                             workflow_args=workflow1.workflow_args)
-    workflow2.add_tasks(tasks)
-    wfr_2 = workflow2.run(resume=True)
-    assert wfr_2.status == WorkflowRunStatus.DONE
-    for task in wfr_2.swarm_tasks:
-        assert wfr_2.swarm_tasks[task].status == 'D'
 
 
 def hot_resumable_workflow():

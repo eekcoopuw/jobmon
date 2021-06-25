@@ -34,7 +34,7 @@ class ExceptionWrapper(object):
         raise self.ee.with_traceback(self.tb)
 
 
-class TaskInstanceDistributor:
+class DistributorService:
     """Distributes Task Instances when they are ready and monitors the status of active
     task_instances.
     """

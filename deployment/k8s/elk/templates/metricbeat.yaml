@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: metricbeat
+  labels:
+    name: metricbeat
+  namespace: {{ .Values.global.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: metricbeat
+  template:
+    metadata:
+      labels:
+        name: metricbeat
+        app: metricbeat
+    spec:
+      containers:
+        - image: docker.elastic.co/beats/metricbeat:7.13.2
+          name: metricbeat
+          env:
+          - name: ROOT_DB_USER
+            valueFrom:
+              secretKeyRef:
+                key: ROOT_DB_USER
+                name: {{ .Values.metricbeat.db_root_secret }}
+          - name: ROOT_DB_PASSWORD
+            valueFrom:
+              secretKeyRef:
+                key: ROOT_DB_PASSWORD
+                name: {{ .Values.metricbeat.db_root_secret }}
+          - name: DB_HOST
+            valueFrom:
+              secretKeyRef:
+                key: DB_HOST
+                name: {{ .Values.metricbeat.db_host_secret }}
+          - name: DB_PORT
+            valueFrom:
+              secretKeyRef:
+                key: DB_PORT
+                name: {{ .Values.metricbeat.db_host_secret }}
+          resources:
+            limits:
+              memory: 800Mi
+              cpu: 2
+            requests:
+              cpu: 300m
+              memory: 600Mi
+          volumeMounts:
+          - name: metricbeat-config
+            mountPath: /usr/share/metricbeat/metricbeat.yml
+            subPath: metricbeat.yml
+      volumes:
+        - name: metricbeat-config
+          configMap:
+            name: metricbeat-config
+            items:
+              - key: metricbeat.yml
+                path: metricbeat.yml
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: metricbeat-config
+  namespace: {{ .Values.global.namespace }}
+  labels:
+    k8s-app: metricbeat
+data:
+  metricbeat.yml: |
+    metricbeat.modules:
+    - module: mysql
+      metricsets: ["status", "performance"]
+      hosts: ["${ROOT_DB_USER}:${ROOT_DB_PASSWORD}@tcp(${DB_HOST}:${DB_PORT})/"]
+    output.elasticsearch:
+      hosts: ["elasticsearch:{{ .Values.ports.elasticsearch }}"]
+    setup.dashboards.enabled: true
+    setup.kibana.host: "kibana:{{ .Values.ports.kibana }}"
+
