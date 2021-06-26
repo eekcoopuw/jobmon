@@ -73,7 +73,6 @@ class Workflow(object):
                  max_concurrently_running: int = 10_000,
                  requester: Optional[Requester] = None,
                  chunk_size: int = 500,  # TODO: should be in the config
-                 compute_resources: Dict[str, Dict[str, Any]] = None
                  ):
         """
         Args:
@@ -136,7 +135,6 @@ class Workflow(object):
 
         # Cache for clusters
         self._clusters: Dict[str, Cluster] = {}
-        self.compute_resources = compute_resources
 
     @property
     def is_bound(self):
@@ -369,23 +367,34 @@ class Workflow(object):
                     pass
                 self._distributor_proc.terminate()
 
-    def bind(self):
+    def bind(self, cluster_name: Optional[str] = None, compute_resources: Optional[Dict] = None
+             ):
         """Bind objects to the database if they haven't already been"""
         if self.is_bound:
             return
 
         for task in self.tasks.values():
-            cluster_name = task.cluster_name
-            # Check if there are compute resources for given task, if not set at workflow level
-            if task.compute_resources is None:
-                task.compute_resources = {}
-            if self.compute_resources is None:
-                self.compute_resources = {}
+            if task.cluster_name is None:
+                if cluster_name is None:
+                    # TODO: more cluster name validation
+                    raise ValueError("No valid cluster_name found on task or workflow.")
+                else:
+                    task.cluster_name = cluster_name
+
             # TODO figure out user API rule, for how to handle a user passing in partial dicts
             # to task
-            compute_resources = {**self.compute_resources, **task.compute_resources}
-            cluster = self._get_cluster_by_name(cluster_name)
-            task_resources = cluster.create_task_resources(compute_resources[cluster_name])
+            # Check if there are compute resources for given task, if not set at workflow level
+            if task.compute_resources is None:
+                if compute_resources is None:
+                    raise ValueError("No compute_resources found on task or workflow.")
+                else:
+                    task.compute_resources = compute_resources.copy()
+            else:
+                if compute_resources is not None:
+                    task.compute_resources = {**compute_resources, **task.compute_resources}
+
+            cluster = self._get_cluster_by_name(task.cluster_name)
+            task_resources = cluster.create_task_resources(task.compute_resources)
             task.task_resources = task_resources
 
         # 1) can only have 1 cluster
