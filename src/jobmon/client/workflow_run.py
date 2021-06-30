@@ -98,7 +98,7 @@ class WorkflowRun(object):
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
-        self._status = status
+        self.status = status
 
     def _register_workflow_run(self) -> int:
         # bind to database
@@ -196,7 +196,7 @@ class WorkflowRun(object):
                 task = tasks[int(k)]
                 task.task_id = return_tasks[k][0]
                 task.initial_status = return_tasks[k][1]
-                #Bind the task resources
+                # Bind the task resources
                 task.task_resources.bind(task.task_id)
 
         return tasks

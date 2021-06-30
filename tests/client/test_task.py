@@ -215,18 +215,18 @@ def test_task_attribute(db_cfg, task_template):
     task1 = task_template.create_task(
         arg="sleep 2", task_attributes={'LOCATION_ID': 1, 'AGE_GROUP_ID': 5, 'SEX': 1},
         cluster_name="sequential",
-        compute_resources={"sequential": {"queue": "null.q"}}
+        compute_resources={"queue": "null.q"}
     )
     task2 = task_template.create_task(
         arg="sleep 3", task_attributes=["NUM_CORES", "NUM_YEARS"],
         cluster_name="sequential",
-        compute_resources={"sequential": {"queue": "null.q"}}
+        compute_resources={"queue": "null.q"}
     )
 
     task3 = task_template.create_task(
         arg="sleep 4", task_attributes={'NUM_CORES': 3, 'NUM_YEARS': 5},
         cluster_name="sequential",
-        compute_resources={"sequential": {"queue": "null.q"}}
+        compute_resources={"queue": "null.q"}
     )
     workflow1.add_tasks([task1, task2, task3])
     workflow1.bind()

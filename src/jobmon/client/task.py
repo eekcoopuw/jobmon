@@ -5,13 +5,10 @@ from __future__ import annotations
 
 import hashlib
 import logging
-from copy import deepcopy
-from functools import partial
 from http import HTTPStatus as StatusCodes
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.cluster import Cluster
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
 from jobmon.constants import TaskStatus
@@ -64,14 +61,13 @@ class Task:
                  task_template_version_id: int,
                  node_args: dict,
                  task_args: dict,
-                 cluster_name: Optional[str],
-                 compute_resources: Dict[str, Dict[str, Any]] = None,
+                 cluster_name: str = '',
+                 compute_resources: Optional[Dict[str, Any]] = None,
                  name: Optional[str] = None,
                  max_attempts: int = 3,
                  upstream_tasks: Optional[List['Task']] = None,
                  task_attributes: Union[List, dict] = None,
-                 requester: Optional[Requester] = None,
-                 task_resources: Optional[TaskResources] = None):
+                 requester: Optional[Requester] = None):
         """
         Create a single executable object in the workflow, aka a Task. Relate it to a Task
         Template in order to classify it as a type of job within the context of your workflow.
@@ -85,8 +81,10 @@ class Task:
             task_args (dict): Task arguments that make the command unique across workflows
                 usually pertaining to data flowing through the task.
             compute_resources (dict): A dictionary that includes the users requested resources
-                for a given cluster. E.g. {'buster': {cores: 1, mem: 1, runtime: 60, queue:
-                all.q}, 'slurm': {'cores: 1, mem: 1, runtime: 60, queue: long.q}}
+                for the current run. E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
+            compute_resources_set (dict): A dictionary that includes the users requested
+                resources for a given cluster. E.g. {'buster': {cores: 1, mem: 1, runtime: 60,
+                queue: all.q}, 'slurm': {'cores: 1, mem: 1, runtime: 60, queue: long.q}}.
             cluster_name (optional str): The specific cluster that the user wants to use.
             name (str): name that will be visible in qstat for this job
             upstream_tasks (List): Task objects that must be run prior to this
@@ -142,9 +140,10 @@ class Task:
             raise ValueError("task_attributes must be provided as a list of attributes or a "
                              "dictionary of attributes and their values")
 
-        self.compute_resources = compute_resources
+        if compute_resources is None:
+            compute_resources = {}
+        self.compute_resources = compute_resources.copy()
         self.cluster_name = cluster_name
-        self.task_resources = task_resources
         self._errors = None
 
     @property
@@ -157,6 +156,19 @@ class Task:
     @task_id.setter
     def task_id(self, val):
         self._task_id = val
+
+    @property
+    def task_resources(self) -> TaskResources:
+        """Get the id of the task if it has been bound to the db otherwise raise an error"""
+        if not hasattr(self, "_task_resources"):
+            raise AttributeError("task_resources cannot be accessed before task is bound")
+        return self._task_resources
+
+    @task_resources.setter
+    def task_resources(self, val):
+        if not isinstance(val, TaskResources):
+            raise ValueError("task_resources must be of type=TaskResources")
+        self._task_resources = val
 
     @property
     def compute_resources_validated(self):
@@ -226,6 +238,63 @@ class Task:
         descendent.upstream_tasks.add(self)
 
         self.node.add_downstream_node(descendent.node)
+
+    def add_attributes(self, task_attributes: dict) -> None:
+        """Function that users can call either to update values of existing attributes or add
+        new attributes.
+        """
+        app_route = f'/client/task/{self.task_id}/task_attributes'
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={"task_attributes": task_attributes},
+            request_type="put",
+            logger=logger
+        )
+        if return_code != StatusCodes.OK:
+            raise ValueError(f'Unexpected status code {return_code} from PUT request through '
+                             f'route {app_route}. Expected code 200. Response content: '
+                             f'{response}')
+
+    def add_attribute(self, attribute: str, value: str):
+        """Function that users can call to add a single attribute for a task."""
+        self.task_attributes[str(attribute)] = str(value)
+        # if the task has already been bound, bind the attributes
+        if self._task_id:
+            self.add_attributes({str(attribute): str(value)})
+
+    def get_errors(self) -> Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]:
+        """
+        Return all the errors for each task, with the recent
+        task_instance_id actually used.
+        """
+        if self._errors is None and hasattr(self, "_task_id") and self._task_id is not None:
+            return_code, response = self.requester.send_request(
+                app_route=f'/worker/task/{self._task_id}/most_recent_ti_error',
+                message={},
+                request_type='get',
+                logger=logger
+            )
+            if return_code == StatusCodes.OK:
+                task_instance_id = response['task_instance_id']
+                if task_instance_id is not None:
+                    rc, response = self.requester.send_request(
+                        app_route=f'/worker/task_instance/{task_instance_id}'
+                                  f'/task_instance_error_log',
+                        message={},
+                        request_type='get')
+                    errors_ti = [
+                        SerializeTaskInstanceErrorLog.kwargs_from_wire(j)
+                        for j in response['task_instance_error_log']]
+                    self._errors = {'task_instance_id': task_instance_id,
+                                    'error_log': errors_ti}
+
+        return self._errors
+
+    def set_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
+        pass
+
+    def update_compute_resources(self, **kwargs):
+        self.compute_resources.update(kwargs)
 
     def _hash_task_args(self) -> int:
         """A task_arg_hash is a hash of the encoded result of the args and values concatenated
@@ -308,29 +377,6 @@ class Task:
                 f'{app_route}. Expected code 200. Response content: {response}')
         return list(response["tasks"].values())[0]
 
-    def add_attributes(self, task_attributes: dict) -> None:
-        """Function that users can call either to update values of existing attributes or add
-        new attributes.
-        """
-        app_route = f'/client/task/{self.task_id}/task_attributes'
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={"task_attributes": task_attributes},
-            request_type="put",
-            logger=logger
-        )
-        if return_code != StatusCodes.OK:
-            raise ValueError(f'Unexpected status code {return_code} from PUT request through '
-                             f'route {app_route}. Expected code 200. Response content: '
-                             f'{response}')
-
-    def add_attribute(self, attribute: str, value: str):
-        """Function that users can call to add a single attribute for a task."""
-        self.task_attributes[str(attribute)] = str(value)
-        # if the task has already been bound, bind the attributes
-        if self._task_id:
-            self.add_attributes({str(attribute): str(value)})
-
     def __eq__(self, other: 'Task') -> bool:
         """Check if the hashes of two tasks are equivalent."""
         return hash(self) == hash(other)
@@ -345,86 +391,3 @@ class Task:
         hash_value.update(bytes(str(hash(self.node)).encode('utf-8')))
         hash_value.update(bytes(str(self.task_args_hash).encode('utf-8')))
         return int(hash_value.hexdigest(), 16)
-
-    def _parse_command_to_args(self, full_command: str, node_args: Dict, task_args: Dict,
-                               op_args: Dict, command_line_args: str = "") -> str:
-        """This will attempt to parse out the different types of args from a bash task or
-        python task for backwards compatibility. It will look for flags that match the arg
-        key (ex. node_arg = blah, flag = --blah) otherwise it will look for a matching value
-        and mark it with the arg in the template (ex.
-        """
-        cmd_list = full_command.split()
-        if command_line_args != "":
-            cmd_list.append(command_line_args)  # may have spaces so can't be split
-        args = {**node_args, **task_args, **op_args}  # join all args
-        for arg in args.keys():
-            if f'--{arg}' in cmd_list:  # if cmd uses flags
-                try:
-                    val = cmd_list[cmd_list.index(f'--{arg}') + 1]
-                except IndexError:
-                    if args[arg] is True or args[arg] is False:
-                        args[arg] = f'--{arg}'
-                        cmd_list[cmd_list.index(f'--{arg}')] = f'{{{arg}}}'
-                    else:
-                        raise IndexError(f"You have not supplied a value for the key {arg}, it"
-                                         f" was expecting {args[arg]}")
-                if val != str(args[arg]):
-                    if '--' in val or args[arg] is True or args[arg] is False:
-                        args[arg] = f'--{arg}'
-                        cmd_list[cmd_list.index(f'--{arg}')] = f'{{{arg}}}'
-                    else:
-                        raise ValueError(f"Your node_arg: {arg} expected a value of: "
-                                         f"{args[arg]}, but found {val}")
-                else:  # the arg value provided is the expected one
-                    cmd_list[cmd_list.index(f'--{arg}') + 1] = f'{{{arg}}}'
-            # if an arg is not denoted by a flag, then look for the value itself to replace
-            elif str(args[arg]) in cmd_list:
-                cmd_list[cmd_list.index(str(args[arg]))] = f'{{{arg}}}'
-            else:
-                raise ValueError(f'{arg} or {args[arg]} cannot be found in the list: '
-                                 f'{cmd_list}. If you have multiple args with the same value, '
-                                 f'or if you have the same arg name in multiple types (node, '
-                                 f'task, op) this may cause problems')
-        cmd_template = ' '.join(cmd_list)
-        node_args, task_args, op_args = self._update_args(node_args, task_args, op_args, args)
-        return cmd_template, node_args, task_args, op_args
-
-    def _update_args(self, node_args, task_args, op_args, args) -> Tuple:
-        for arg in args.keys():
-            if arg in node_args:
-                node_args[arg] = str(args[arg])
-            if arg in task_args:
-                task_args[arg] = str(args[arg])
-            if arg in op_args:
-                op_args[arg] = str(args[arg])
-        return node_args, task_args, op_args
-
-    def get_errors(self) -> Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]:
-        """
-        Return all the errors for each task, with the recent
-        task_instance_id actually used.
-        """
-        if self._errors is None and \
-                hasattr(self, "_task_id") and \
-                self._task_id is not None:
-            return_code, response = self.requester.send_request(
-                app_route=f'/worker/task/{self._task_id}/most_recent_ti_error',
-                message={},
-                request_type='get',
-                logger=logger
-            )
-            if return_code == StatusCodes.OK:
-                task_instance_id = response['task_instance_id']
-                if task_instance_id is not None:
-                    rc, response = self.requester.send_request(
-                        app_route=f'/worker/task_instance/{task_instance_id}'
-                                  f'/task_instance_error_log',
-                        message={},
-                        request_type='get')
-                    errors_ti = [
-                        SerializeTaskInstanceErrorLog.kwargs_from_wire(j)
-                        for j in response['task_instance_error_log']]
-                    self._errors = {'task_instance_id': task_instance_id,
-                                    'error_log': errors_ti}
-
-        return self._errors

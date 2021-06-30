@@ -7,7 +7,7 @@ import getpass
 import warnings
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate

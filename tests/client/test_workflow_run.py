@@ -1,21 +1,37 @@
+import pytest
+
+from jobmon.client.api import Tool
+from jobmon.client.workflow_run import WorkflowRun
 from jobmon.constants import WorkflowRunStatus, WorkflowStatus
 
 
-def test_log_heartbeat(client_env, db_cfg):
+@pytest.fixture
+def task_template(db_cfg, client_env):
+    tool = Tool()
+    tt = tool.get_task_template(
+        template_name="simple_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[]
+    )
+    return tt
+
+
+def test_log_heartbeat(task_template, db_cfg):
     """test _log_heartbeat sets the wfr status to L
     """
-    from jobmon.client.templates.bash_task import BashTask
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.workflow_run import WorkflowRun
 
-    # Create identical dags
-    t1 = BashTask("sleep 1")
-    wf = UnknownWorkflow("v1")
+    tool = Tool()
+    wf = tool.create_workflow()
+    t1 = task_template.create_task(arg="sleep 1")
     wf.add_tasks([t1])
-    wf.bind()
+    wf.bind(
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q"}
+    )
     wfr = WorkflowRun(
         workflow_id=wf._workflow_id,
-        executor_class=wf._executor.__class__.__name__,
         requester=wf.requester
     )
     id, s = wfr._link_to_workflow(89)

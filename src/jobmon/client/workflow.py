@@ -135,6 +135,8 @@ class Workflow(object):
 
         # Cache for clusters
         self._clusters: Dict[str, Cluster] = {}
+        self.cluster_name: str = ""
+        self.compute_resources: Dict[str, Any] = {}
 
     @property
     def is_bound(self):
@@ -222,37 +224,11 @@ class Workflow(object):
             # add the task
             self.add_task(task)
 
-    def set_default_cluster(self, cluster_name: Optional[str] = 'buster'):
-        # TODO: optionally pass to tasks unless specified at a lower level
+    def set_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
         pass
 
-    def set_default_compute_resources(self):
-        pass
-
-    def _get_cluster_by_name(self, cluster_name: str) -> Cluster:
-        """Check if the cluster that the task specified is in the cache, if not create it and
-        add to cache"""
-        try:
-            cluster = self._clusters[cluster_name]
-        except KeyError:
-            app_route = f'/client/cluster/{cluster_name}'
-            return_code, response = self.requester.send_request(
-                app_route=app_route,
-                message={},
-                request_type="get",
-                logger=logger
-            )
-            if http_request_ok(return_code) is False:
-                raise InvalidResponse(
-                    f'Unexpected status code {return_code} from POST '
-                    f'request through route {app_route}. Expected code '
-                    f'200. Response content: {response}'
-                )
-            cluster_kwargs = SerializeCluster.kwargs_from_wire(response["cluster"])
-            cluster = Cluster(cluster_name=cluster_kwargs["name"])
-            cluster.bind()
-            self._clusters[cluster_name] = cluster
-        return cluster
+    def update_compute_resources(self, **kwargs):
+        self.compute_resources.update(kwargs)
 
     def run(self, fail_fast: bool = False, seconds_until_timeout: int = 36000,
             resume: bool = ResumeStatus.DONT_RESUME, reset_running_jobs: bool = True,
@@ -367,41 +343,39 @@ class Workflow(object):
                     pass
                 self._distributor_proc.terminate()
 
-    def bind(self, cluster_name: Optional[str] = None, compute_resources: Optional[Dict] = None
-             ):
-        """Bind objects to the database if they haven't already been"""
-        if self.is_bound:
-            return
+    def validate(self):
+        """Confirm that the tasks in this workflow are valid.
 
+        This method will access the database to confirm the requested resources are valid for
+        the specified cluster. It will also confirm that the workflow args are valid.  It also
+        will make sure no task contains up/down stream tasks that are not in the workflow.
+        """
         for task in self.tasks.values():
-            if task.cluster_name is None:
-                if cluster_name is None:
-                    # TODO: more cluster name validation
-                    raise ValueError("No valid cluster_name found on task or workflow.")
-                else:
-                    task.cluster_name = cluster_name
-
-            # TODO figure out user API rule, for how to handle a user passing in partial dicts
-            # to task
-            # Check if there are compute resources for given task, if not set at workflow level
-            if task.compute_resources is None:
-                if compute_resources is None:
-                    raise ValueError("No compute_resources found on task or workflow.")
-                else:
-                    task.compute_resources = compute_resources.copy()
-            else:
-                if compute_resources is not None:
-                    task.compute_resources = {**compute_resources, **task.compute_resources}
-
-            cluster = self._get_cluster_by_name(task.cluster_name)
-            task_resources = cluster.create_task_resources(task.compute_resources)
-            task.task_resources = task_resources
-
-        # 1) can only have 1 cluster
-        # 2) workflow cluster is overridden by the task cluster
+            self._get_task_resources(task)
 
         # check if workflow is valid
         self._dag.validate()  # TODO: this does nothing at the moment
+        self._matching_wf_args_diff_hash()
+
+    def bind(self, cluster_name: str = '', compute_resources: Optional[Dict[str, Any]] = None):
+        """Bind objects to the database if they haven't already been.
+
+        compute_resources: A dictionary that includes the users requested resources
+            for the current run. E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
+        cluster_name: The specific cluster that the user wants to use.
+        """
+        if self.is_bound:
+            return
+
+        if cluster_name:
+            self.cluster_name = cluster_name
+        if compute_resources is not None:
+            self.compute_resources = compute_resources.copy()
+
+        # check if workflow is valid
+        for task in self.tasks.values():
+            task.task_resources = self._get_task_resources(task)
+        self._dag.validate()
         self._matching_wf_args_diff_hash()
 
         # bind dag
@@ -434,6 +408,49 @@ class Workflow(object):
         self._workflow_id = response["workflow_id"]
         self._status = response["status"]
         self._newly_created = response["newly_created"]
+
+    def _get_cluster_by_name(self, cluster_name: str) -> Cluster:
+        """Check if the cluster that the task specified is in the cache, if not create it and
+        add to cache"""
+        try:
+            cluster = self._clusters[cluster_name]
+        except KeyError:
+            app_route = f'/client/cluster/{cluster_name}'
+            return_code, response = self.requester.send_request(
+                app_route=app_route,
+                message={},
+                request_type="get",
+                logger=logger
+            )
+            if http_request_ok(return_code) is False:
+                raise InvalidResponse(
+                    f'Unexpected status code {return_code} from POST '
+                    f'request through route {app_route}. Expected code '
+                    f'200. Response content: {response}'
+                )
+            cluster_kwargs = SerializeCluster.kwargs_from_wire(response["cluster"])
+            cluster = Cluster(cluster_name=cluster_kwargs["name"])
+            cluster.bind()
+            self._clusters[cluster_name] = cluster
+        return cluster
+
+    def _get_task_resources(self, task: Task):
+        cluster_name = task.cluster_name
+        if not cluster_name:
+            if self.cluster_name:
+                cluster_name = self.cluster_name
+            else:
+                # TODO: more cluster name validation?
+                raise ValueError("No valid cluster_name found on workflow or task")
+        cluster = self._get_cluster_by_name(cluster_name)
+
+        # Check if there are compute resources for given task, if not set at workflow level
+        # copy params for idepotent operation
+        resource_params = self.compute_resources.copy()
+        resource_params.update(task.compute_resources.copy())
+
+        # validate by creating the object. validate is called under the hood
+        return cluster.create_task_resources(resource_params)
 
     def _create_workflow_run(self, resume: bool = ResumeStatus.DONT_RESUME,
                              reset_running_jobs: bool = True,
@@ -476,7 +493,7 @@ class Workflow(object):
             )
             swarm_tasks[task.task_id] = swarm_task
 
-        # create relationships on swarm tasks
+        # create relationships on swarm taskf
         for task in self.tasks.values():
             swarm_task = swarm_tasks[task.task_id]
             swarm_task.upstream_swarm_tasks = set([
@@ -505,15 +522,16 @@ class Workflow(object):
         )
         bound_workflow_hashes = response['matching_workflows']
         for task_hash, tool_version_id, dag_hash in bound_workflow_hashes:
-            match = (self.task_hash == task_hash and self.tool_version_id and hash(
-                self.dag) == dag_hash)
+            match = (self.tool_version_id == tool_version_id and
+                     (str(self.task_hash) != task_hash or str(hash(self._dag)) != dag_hash))
             if match:
                 raise WorkflowAlreadyExists(
                     "The unique workflow_args already belong to a workflow "
                     "that contains different tasks than the workflow you are "
                     "creating, either change your workflow args so that they "
                     "are unique for this set of tasks, or make sure your tasks"
-                    " match the workflow you are trying to resume")
+                    " match the workflow you are trying to resume"
+                )
 
     def _set_workflow_resume(self, reset_running_jobs: bool = True):
         app_route = f'/client/workflow/{self.workflow_id}/set_resume'
