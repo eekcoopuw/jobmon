@@ -56,7 +56,8 @@ class Consumer(Process):
                     proc = subprocess.Popen(
                         task.command,
                         env=os.environ.copy(),
-                        shell=True)
+                        shell=True
+                    )
 
                     # log the pid with the distributor class
                     self.response_queue.put((task.distributor_id, proc.pid))

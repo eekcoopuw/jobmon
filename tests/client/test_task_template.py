@@ -6,7 +6,7 @@ import pytest
 @pytest.fixture(scope='function')
 def tool(client_env):
     from jobmon.client.tool import Tool
-    return Tool.create_tool(name=str(uuid.uuid4()))
+    return Tool(name=str(uuid.uuid4()))
 
 
 def test_task_template(db_cfg, client_env, tool):

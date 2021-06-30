@@ -105,7 +105,7 @@ class Cluster:
 
     def _validate_requested_resources(self, requested_resources: Dict[str, Any],
                                       queue: ClusterQueue) -> None:
-        """Validate the requested task resources against the specified queue.
+        """Validate the requested resources dict against the specified queue.
 
         Raises: ValueError
         """
@@ -115,7 +115,7 @@ class Cluster:
         if missing_resources:
             full_error_msg = (
                 f"\n  Missing required resources {list(missing_resources)} for "
-                f"'{queue.queue_name}'. Got {list(requested_resources.keys)}."
+                f"'{queue.queue_name}'. Got {list(requested_resources.keys())}."
             )
 
         for resource, resource_value in requested_resources.items():
@@ -139,11 +139,8 @@ class Cluster:
         except KeyError:
             resource_scales = {}
 
-        try:
-            self._validate_requested_resources(resource_params, queue)
-        except ValueError as e:
-            # TODO how to raise validation errors
-            print(e)
+        # now validate
+        self._validate_requested_resources(resource_params, queue)
 
         task_resource = TaskResources(queue_id=queue.queue_id,
                                       requested_resources=resource_params,
