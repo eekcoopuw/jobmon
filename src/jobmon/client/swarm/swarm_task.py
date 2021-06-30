@@ -7,7 +7,8 @@ from typing import Callable, Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
 #from jobmon.client.distributor.strategies import ExecutorParameters
-from jobmon.constants import TaskStatus
+from jobmon.client.task_resources import TaskResources
+from jobmon.constants import TaskStatus, TaskResourcesType
 from jobmon.exceptions import CallableReturnedInvalidObject, InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeSwarmTask
@@ -20,7 +21,7 @@ class SwarmTask(object):
     """Swarm side task object."""
 
     def __init__(self, task_id: int, status: str, task_args_hash: int,
-                 executor_parameters: Optional[Callable] = None,
+                 task_resources: Optional[TaskResources] = None,
                  max_attempts: int = 3, requester: Optional[Requester] = None) -> None:
         """Implementing swarm behavior of tasks
 
@@ -28,7 +29,7 @@ class SwarmTask(object):
             task_id: id of task object from bound db object
             status: status of task object
             task_args_hash: hash of unique task arguments
-            executor_parameters: callable to be executed when Task is ready to be run and
+            task_resources: callable to be executed when Task is ready to be run and
             resources can be assigned
             max_attempts: maximum number of task_instances before failure
             requester_url (str): url to communicate with the flask services.
@@ -39,7 +40,7 @@ class SwarmTask(object):
         self.upstream_swarm_tasks: Set[SwarmTask] = set()
         self.downstream_swarm_tasks: Set[SwarmTask] = set()
 
-        self.executor_parameters_callable = executor_parameters
+        self.task_resources_callable = task_resources
         self.max_attempts = max_attempts
         self.task_args_hash = task_args_hash
 
@@ -88,9 +89,9 @@ class SwarmTask(object):
         """Return a list of upstream tasks."""
         return list(self.upstream_swarm_tasks)
 
-    def get_executor_parameters(self):
+    def get_task_resources(self):
         """Return an instance of executor parameters."""
-        return self.executor_parameters_callable(self)
+        return self.task_resources_callable
 
     def queue_task(self) -> int:
         """Transition a task to the Queued for Instantiation status in the db."""
@@ -106,7 +107,7 @@ class SwarmTask(object):
         return rc
 
     @staticmethod
-    def adjust_resources(self) -> ExecutorParameters:
+    def adjust_resources(self) -> TaskResources:
         """Function from Job Instance Factory that adjusts resources and then queues them,
         this should also incorporate resource binding if they have not yet been bound.
         """
@@ -141,25 +142,25 @@ class SwarmTask(object):
         exec_param_set.adjust(**resources_adjusted)
         return exec_param_set
 
-    def bind_executor_parameters(self, executor_parameter_set_type: str) -> None:
+    def bind_task_resources(self, task_resources_type_id: str) -> None:
         """Bind executor parameters to db."""
         # evaluate callable and validate it is the right type of object
-        executor_parameters = self.get_executor_parameters()
-        if not isinstance(executor_parameters, ExecutorParameters):
+        task_resources = self.get_task_resources()
+        if not isinstance(task_resources, TaskResources):
             raise CallableReturnedInvalidObject(
-                "The function called to return executor_parameters did not "
-                "return the expected ExecutorParameters object, it is of type"
-                f"{type(executor_parameters)}")
-        self.bound_parameters.append(executor_parameters)
+                "The function called to return TaskResources did not "
+                "return the expected TaskResources object, it is of type"
+                f"{type(task_resources)}")
+        self.bound_parameters.append(task_resources)
 
         # validate the values
-        if executor_parameter_set_type == ExecutorParameterSetType.VALIDATED:
-            executor_parameters.validate()
+        # if task_resources_type_id == TaskResourcesType.VALIDATED:
+        #    task_resources.validate()
 
         # bind to db
         app_route = f'/swarm/task/{self.task_id}/update_resources'
-        msg = {'parameter_set_type': executor_parameter_set_type}
-        msg.update(executor_parameters.to_wire())
+        msg = {'task_resources_type_id': task_resources_type_id}
+        msg.update(task_resources.to_wire())
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message=msg,

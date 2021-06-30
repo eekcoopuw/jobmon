@@ -130,6 +130,7 @@ class Cluster:
         pass
 
     def create_task_resources(self, resource_params: Dict):
+        resource_params = resource_params.get(self.cluster_name)
         queue_name = resource_params.pop("queue")
         queue = self.get_queue(queue_name)
 

@@ -18,23 +18,30 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.requester import Requester
 
-    t1 = BashTask("echo 1", executor_class="SequentialExecutor")
+    t1 = BashTask("echo 1", cluster_name="sequential")
     workflow = UnknownWorkflow("test_instantiate_queued_jobs",
-                               executor_class="SequentialExecutor",
+                               cluster_name="sequential",
                                seconds_until_timeout=1)
     workflow.add_tasks([t1])
-    workflow.bind()
+    wf_compute_resources = {"sequential": {"num_cores": 2, "mem": "2G",
+                                           "max_runtime_seconds": 10, "queue": "null.q",
+                                           "resource_scales": {"runtime": 0.7}},
+                            "buster": {"mem": "5G"}}
+    workflow.bind(cluster_name="buster", compute_resources=wf_compute_resources)
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester=requester)
+    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._distributor, requester=requester)
+
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockDistributorProc(),
                                   seconds_until_timeout=1)
 
-    distributor._get_tasks_queued_for_instantiation()
-    distributor.distribute()
+    breakpoint()
+
+    distributor_service._get_tasks_queued_for_instantiation()
+    distributor_service.distribute()
 
     # check the job finished
     app = db_cfg["app"]
@@ -46,6 +53,9 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
         WHERE task_id = :task_id"""
         res = DB.session.execute(sql, {"task_id": t1.task_id}).fetchone()
         DB.session.commit()
+
+    breakpoint()
+
     assert res[0] == "D"
 
 

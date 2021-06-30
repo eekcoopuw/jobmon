@@ -24,7 +24,7 @@ class WorkerNodeCLI(CLI):
         from jobmon.worker_node.worker_node_config import WorkerNodeConfig
 
         worker_node_config = WorkerNodeConfig(
-            task_heartbeat_interval=args.task_instance_heartbeat_interval,
+            task_instance_heartbeat_interval=args.task_instance_heartbeat_interval,
             heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
             web_service_fqdn=args.web_service_fqdn,
             web_service_port=args.web_service_port

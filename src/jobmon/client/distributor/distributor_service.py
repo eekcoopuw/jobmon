@@ -41,7 +41,7 @@ class DistributorService:
 
     def __init__(self, workflow_id: int, workflow_run_id: int, distributor: ClusterDistributor,
                  requester: Requester, workflow_run_heartbeat_interval: int = 30,
-                 task_heartbeat_interval: int = 90, heartbeat_report_by_buffer: float = 3.1,
+                 task_instance_heartbeat_interval: int = 90, heartbeat_report_by_buffer: float = 3.1,
                  n_queued: int = 100, distributor_poll_interval: int = 10,
                  worker_node_entry_point: Optional[str] = None):
         # which workflow to distribute for
@@ -413,7 +413,7 @@ class DistributorService:
             logger.debug(
                 f"Using the following resources in execution {task.requested_resources}"
             )
-            executor_id = self.distributor.submit_to_batch_distributor(
+            distributor_id = self.distributor.submit_to_batch_distributor(
                 command=command,
                 name=task.name,
                 requested_resources=task.requested_resources
@@ -423,9 +423,9 @@ class DistributorService:
         else:
             report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
             task_instance.register_submission_to_batch_distributor(
-                executor_id, report_by_buffer
+                distributor_id, report_by_buffer
             )
-            self._submitted_or_running[executor_id] = task_instance
+            self._submitted_or_running[distributor_id] = task_instance
 
         return task_instance
 

@@ -2,6 +2,7 @@
 from collections import OrderedDict
 import logging
 import os
+import shutil
 from typing import Optional, List, Tuple, Dict, Any
 
 from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
@@ -40,13 +41,34 @@ class SequentialDistributor(ClusterDistributor):
         Args:
             exit_info_queue_size: how many exit codes to retain
         """
-        self._next_executor_id = 1
+        self._next_distributor_id = 1
         self._exit_info = LimitedSizeDict(size_limit=exit_info_queue_size)
 
-    def get_remote_exit_info(self, executor_id: int) -> Tuple[str, str]:
+    @property
+    def worker_node_entry_point(self):
+        """Path to jobmon worker_node_entry_point"""
+        return shutil.which("worker_node_entry_point")
+
+    @property
+    def cluster_type_name(self) -> str:
+        return "sequential"
+
+    def start(self) -> None:
+        """Start the distributor."""
+        raise NotImplementedError
+
+    def stop(self, distributor_ids: List[int]) -> None:
+        """Stop the distributor."""
+        raise NotImplementedError
+
+    def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
+        """Get the task instances that have errored out."""
+        raise NotImplementedError
+
+    def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
         """Get exit info from task instances that have run."""
         try:
-            exit_code = self._exit_info[executor_id]
+            exit_code = self._exit_info[distributor_id]
             if exit_code == 199:
                 msg = "job was in kill self state"
                 return TaskInstanceStatus.UNKNOWN_ERROR, msg
@@ -55,7 +77,7 @@ class SequentialDistributor(ClusterDistributor):
         except KeyError:
             raise RemoteExitInfoNotAvailable
 
-    def get_actual_submitted_or_running(self, executor_ids: List[int]) -> List[int]:
+    def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
         """Check status of running task."""
         running = os.environ.get("JOB_ID")
         if running:
@@ -63,13 +85,23 @@ class SequentialDistributor(ClusterDistributor):
         else:
             return []
 
-    def execute(self, command: str, name: str, requested_resources: Dict[str, Any]) -> int:
+    def terminate_task_instances(self, distributor_ids: List[int]) -> None:
+        """If implemented, return a list of (task_instance_id, hostname) tuples for any
+        task_instances that are terminated.
+        """
+        raise NotImplementedError
+
+    def submit_to_batch_distributor(self, command: str, name: str,
+                                    requested_resources: Dict[str, Any]) -> int:
+
         """Execute sequentially."""
 
         # add an executor id to the environment
-        os.environ["JOB_ID"] = str(self._next_executor_id)
-        executor_id = self._next_executor_id
-        self._next_executor_id += 1
+        os.environ["JOB_ID"] = str(self._next_distributor_id)
+        distributor_id = self._next_distributor_id
+        self._next_distributor_id += 1
+
+        breakpoint()
 
         # run the job and log the exit code
         try:
@@ -83,25 +115,30 @@ class SequentialDistributor(ClusterDistributor):
             else:
                 raise
 
-        self._exit_info[executor_id] = exit_code
-        return executor_id
+        self._exit_info[distributor_id] = exit_code
+        return distributor_id
 
 
 class SequentialWorkerNode(ClusterWorkerNode):
     """Get Executor Info for a Task Instance."""
 
     def __init__(self) -> None:
-        self._executor_id: Optional[int] = None
+        self._distributor_id: Optional[int] = None
 
     @property
-    def executor_id(self) -> Optional[int]:
+    def distributor_id(self) -> Optional[int]:
         """Executor id of the task."""
-        if self._executor_id is None:
+        if self._distributor_id is None:
             jid = os.environ.get('JOB_ID')
             if jid:
-                self._executor_id = int(jid)
-        return self._executor_id
+                self._distributor_id = int(jid)
+        return self._distributor_id
 
     def get_exit_info(self, exit_code: int, error_msg: str):
         """Exit info, error message."""
         return TaskInstanceStatus.ERROR, error_msg
+
+    def get_usage_stats(self) -> Dict:
+        """Usage information specific to the exector."""
+        return {}
+

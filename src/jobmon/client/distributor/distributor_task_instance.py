@@ -58,6 +58,9 @@ class DistributorTaskInstance:
         Returns:
             DistributorTaskInstance
         """
+
+        breakpoint()
+
         kwargs = SerializeTaskInstance.kwargs_from_wire(wire_tuple)
         ti = cls(task_instance_id=kwargs["task_instance_id"],
                  workflow_run_id=kwargs["workflow_run_id"],

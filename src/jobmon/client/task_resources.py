@@ -26,6 +26,9 @@ class TaskResources:
             requester = Requester(requester_url)
         self._requester = requester
 
+    def __call__(self):
+        return self
+
     @property
     def is_bound(self) -> bool:
         """If the TaskResources has been bound to the database."""
@@ -91,3 +94,12 @@ class TaskResources:
 
         self._id = response
         self._task_id = task_id
+
+    def to_wire(self):
+        """Resources to dictionary."""
+        return {
+            "queue_id": self._queue_id,
+            "task_resources_type_id": self._task_resources_type_id,
+            "resource_scales": self._resource_scales,
+            "requested_resources": self._requested_resources,
+        }
