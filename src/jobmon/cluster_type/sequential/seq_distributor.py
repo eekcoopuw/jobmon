@@ -101,8 +101,6 @@ class SequentialDistributor(ClusterDistributor):
         distributor_id = self._next_distributor_id
         self._next_distributor_id += 1
 
-        breakpoint()
-
         # run the job and log the exit code
         try:
             cli = WorkerNodeCLI()
@@ -127,7 +125,7 @@ class SequentialWorkerNode(ClusterWorkerNode):
 
     @property
     def distributor_id(self) -> Optional[int]:
-        """Executor id of the task."""
+        """Distributor id of the task."""
         if self._distributor_id is None:
             jid = os.environ.get('JOB_ID')
             if jid:

@@ -42,8 +42,8 @@ class WorkerNodeTaskInstance:
             requester_url (str): url to communicate with the flask services.
         """
         self.task_instance_id = task_instance_id
-        self.expected_jobmon_version = expected_jobmon_version,
-        self.cluster_type_name = cluster_type_name,
+        self.expected_jobmon_version = expected_jobmon_version
+        self.cluster_type_name = cluster_type_name
 
         self._distributor_id: Optional[int] = None
         self._nodename: Optional[str] = None
@@ -172,7 +172,7 @@ class WorkerNodeTaskInstance:
             logger.error(f"Usage stats not available due to exception {e}")
             logger.error(f"Traceback {traceback.format_exc()}")
 
-    def log_running(self, next_report_increment: Union[int, float]) -> Tuple[int, str]:
+    def log_running(self, next_report_increment: Union[int, float]) -> Tuple[int, str, str]:
         """Tell the JobStateManager that this task_instance is running, and update the
         report_by_date to be further in the future in case it gets reconciled immediately.
         """
