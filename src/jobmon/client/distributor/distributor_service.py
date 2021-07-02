@@ -41,7 +41,7 @@ class DistributorService:
 
     def __init__(self, workflow_id: int, workflow_run_id: int, distributor: ClusterDistributor,
                  requester: Requester, workflow_run_heartbeat_interval: int = 30,
-                 task_instance_heartbeat_interval: int = 90, heartbeat_report_by_buffer: float = 3.1,
+                 task_heartbeat_interval: int = 90, heartbeat_report_by_buffer: float = 3.1,
                  n_queued: int = 100, distributor_poll_interval: int = 10,
                  worker_node_entry_point: Optional[str] = None):
         # which workflow to distribute for
