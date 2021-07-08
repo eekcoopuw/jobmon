@@ -21,8 +21,18 @@ ALTER TABLE `cluster` ADD INDEX `ix_cluster_type_id` (`cluster_type_id`);
 LOCK TABLES `cluster_type` READ, `cluster` WRITE;
 
 INSERT INTO `cluster`(`name`, `cluster_type_id`, `connection_string`)
+SELECT 'dummy', id, NULL
+FROM `cluster_type`
+WHERE `name` = 'dummy';
+
+INSERT INTO `cluster`(`name`, `cluster_type_id`, `connection_string`)
 SELECT 'sequential', id, NULL
 FROM `cluster_type`
 WHERE `name` = 'sequential';
+
+INSERT INTO `cluster`(`name`, `cluster_type_id`, `connection_string`)
+SELECT 'multiprocess', id, NULL
+FROM `cluster_type`
+WHERE `name` = 'multiprocess';
 
 UNLOCK TABLES;

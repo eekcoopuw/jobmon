@@ -47,15 +47,14 @@ def create_app(web_config: Optional[WebConfig] = None):
 
     app.config['SQLALCHEMY_DATABASE_URI'] = web_config.conn_str
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    app.config['SQLALCHEMY_NATIVE_UNICODE'] = True
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 200}
 
     # register blueprints
     from .routes import jobmon_client, jobmon_distributor, jobmon_swarm, jobmon_worker, \
         jobmon_cli
 
-    app.register_blueprint(jobmon_client, url_prefix='/')  # default traffic to jobmon_client
-    app.register_blueprint(jobmon_client, url_prefix='/client')
+    app.register_blueprint(jobmon_client, url_prefix='/', name="")  # default traffic to jobmon_client
+    app.register_blueprint(jobmon_client, url_prefix='/client', name="client")
     app.register_blueprint(jobmon_distributor, url_prefix='/distributor')
     app.register_blueprint(jobmon_swarm, url_prefix='/swarm')
     app.register_blueprint(jobmon_worker, url_prefix='/worker')

@@ -12,7 +12,7 @@ class SerializeTask:
                 task_args_hash: int, name: str, command: str, status: str,
                 queue_id: int, requested_resources: dict) -> tuple:
         """Submitting the above args to the database for an DistributorTask object."""
-        return (task_id, workflow_id, node_id, task_args_hash, name, command,
+        return (task_id, workflow_id, node_id, task_args_hash, name, command, status,
                 queue_id, requested_resources)
 
     @staticmethod
@@ -29,7 +29,7 @@ class SerializeTask:
                 "command": wire_tuple[5],
                 "status": wire_tuple[6],
                 "queue_id": wire_tuple[7],
-                "requested_resources": ast.literal_eval(wire_tuple[8])
+                "requested_resources": {} if wire_tuple[8] is None else ast.literal_eval(wire_tuple[8])
                 }
 
 
@@ -52,17 +52,17 @@ class SerializeTaskInstance:
 
     @staticmethod
     def to_wire(task_instance_id: int, workflow_run_id: int,
-                executor_id: Union[int, None]) -> tuple:
+                distributor_id: Union[int, None]) -> tuple:
         """Submit the above args for an DistributorTaskInstance object to the database."""
-        return task_instance_id, workflow_run_id, executor_id
+        return task_instance_id, workflow_run_id, distributor_id
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Retrieve the DistributorTaskInstance information from the database."""
-        executor_id = int(wire_tuple[2]) if wire_tuple[2] else None
+        distributor_id = int(wire_tuple[2]) if wire_tuple[2] else None
         return {"task_instance_id": int(wire_tuple[0]),
                 "workflow_run_id": int(wire_tuple[1]),
-                "executor_id": executor_id}
+                "distributor_id": distributor_id}
 
 
 class SerializeTaskInstanceErrorLog:
@@ -211,7 +211,7 @@ class SerializeQueue:
         """Get the Queue information from the database."""
         return {"queue_id": int(wire_tuple[0]),
                 "queue_name": str(wire_tuple[1]),
-                "parameters": ast.literal_eval(wire_tuple[2])}
+                "parameters": {} if wire_tuple[2] is None else ast.literal_eval(wire_tuple[2])}
 
 
 class SerializeTaskResources:
