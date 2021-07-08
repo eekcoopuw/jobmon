@@ -28,13 +28,11 @@ class WorkflowRun(object):
     this is not enforced via any database constraints.
     """
 
-    def __init__(self, workflow_id: int, executor_class: str,
-                 slack_channel: str = 'jobmon-alerts', requester: Optional[Requester] = None,
+    def __init__(self, workflow_id: int, requester: Optional[Requester] = None,
                  workflow_run_heartbeat_interval: Optional[int] = None,
                  heartbeat_report_by_buffer: Optional[float] = None):
         # set attrs
         self.workflow_id = workflow_id
-        self.executor_class = executor_class
         self.user = getpass.getuser()
 
         # set attrs from config
@@ -100,7 +98,7 @@ class WorkflowRun(object):
                 f'Unexpected status code {return_code} from POST '
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
-        self._status = status
+        self.status = status
 
     def _register_workflow_run(self) -> int:
         # bind to database
@@ -109,7 +107,6 @@ class WorkflowRun(object):
             app_route=app_route,
             message={'workflow_id': self.workflow_id,
                      'user': self.user,
-                     'executor_class': self.executor_class,
                      'jobmon_version': __version__,
                      },
             request_type='post',
@@ -199,7 +196,7 @@ class WorkflowRun(object):
                 task = tasks[int(k)]
                 task.task_id = return_tasks[k][0]
                 task.initial_status = return_tasks[k][1]
-                #Bind the task resources
+                # Bind the task resources
                 task.task_resources.bind(task.task_id)
 
         return tasks

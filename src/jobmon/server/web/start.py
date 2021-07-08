@@ -38,7 +38,7 @@ def create_app(web_config: Optional[WebConfig] = None):
     if web_config.use_logstash:
         logstash_handler_config = get_logstash_handler_config(
             logstash_host=web_config.logstash_host,
-            logstash_port=web_config.logstash_port,
+            logstash_port=str(web_config.logstash_port),
             logstash_protocol=web_config.logstash_protocol,
             logstash_log_level=web_config.log_level
         )

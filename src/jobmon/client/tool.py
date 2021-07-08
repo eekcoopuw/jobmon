@@ -7,7 +7,7 @@ import getpass
 import warnings
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Dict, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
@@ -66,27 +66,6 @@ class Tool:
             self.get_new_tool_version()
         else:
             self.set_active_tool_version_id(active_tool_version_id)
-
-    @classmethod
-    def create_tool(cls, name: str, requester: Optional[Requester] = None) -> Tool:
-        """Create a new tool in the jobmon database.
-
-        Args:
-            name: the name of the tool
-            requester: requester object directed at a flask service instance
-
-        Returns:
-            An instance of of Tool of with the provided name
-        """
-        warnings.warn(
-            "The create_tool method is deprecated. You can create a new tool by instantiating "
-            "the Tool class", DeprecationWarning
-        )
-
-        # return instance of new tool
-        tool = cls(name, requester=requester)
-
-        return tool
 
     def get_new_tool_version(self) -> int:
         """Create a new tool version for the current tool and activate it.
@@ -193,12 +172,12 @@ class Tool:
 
     def create_workflow(self, workflow_args: str = "", name: str = "", description: str = "",
                         workflow_attributes: Optional[Union[List, dict]] = None,
-                        max_concurrently_running: int = 10_000, chunk_size: int = 500,
-                        compute_resources: Dict[str, Dict[str, Any]] = None) -> Workflow:
+                        max_concurrently_running: int = 10_000, chunk_size: int = 500
+                        ) -> Workflow:
         """Create a workflow object associated with the tool."""
         wf = Workflow(self.active_tool_version.id, workflow_args, name, description,
                       workflow_attributes, max_concurrently_running, requester=self.requester,
-                      chunk_size=chunk_size, compute_resources=compute_resources)
+                      chunk_size=chunk_size)
         return wf
 
     def _load_tool_versions(self):

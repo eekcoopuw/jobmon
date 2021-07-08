@@ -41,7 +41,6 @@ class WorkerNodeCLI(CLI):
                 heartbeat_interval=worker_node_config.task_instance_heartbeat_interval,
                 report_by_buffer=worker_node_config.heartbeat_report_by_buffer)
 
-
     def _add_worker_node_parser(self) -> None:
         worker_node_parser = self._subparsers.add_parser('worker_node', **PARSER_KWARGS)
         worker_node_parser.set_defaults(func=self.run_task)

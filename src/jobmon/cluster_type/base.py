@@ -19,7 +19,7 @@ class ClusterQueue(Protocol):
 
     @property
     @abstractmethod
-    def required_resources(self):
+    def parameters(self):
         raise NotImplementedError
 
     @property
@@ -30,6 +30,11 @@ class ClusterQueue(Protocol):
     @property
     @abstractmethod
     def queue_id(self):
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def required_resources(self):
         raise NotImplementedError
 
 

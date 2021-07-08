@@ -1,8 +1,7 @@
 """Bash Task object for backward compatibility with jobmon 1.* series."""
 import getpass
-from typing import Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
-#from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool
 
@@ -28,7 +27,7 @@ class BashTask(Task):
                  m_mem_free: Optional[str] = None,
                  hard_limits: bool = False,
                  executor_class: str = 'DummyExecutor',
-                 executor_parameters: Optional[Union[ExecutorParameters, Callable]] = None,
+                 compute_resources: Optional[Union[Dict, Callable]] = None,
                  tool: Optional[Tool] = None,
                  task_args: Optional[Dict] = None,
                  node_args: Optional[Dict] = None,
@@ -130,18 +129,17 @@ class BashTask(Task):
         )
 
         # construct deprecated API for executor_parameters
-        if executor_parameters is None:
-            executor_parameters = ExecutorParameters(
-                num_cores=num_cores,
-                m_mem_free=m_mem_free,
-                max_runtime_seconds=max_runtime_seconds,
-                queue=queue,
-                j_resource=j_resource,
-                context_args=context_args,
-                resource_scales=resource_scales,
-                hard_limits=hard_limits,
-                executor_class=executor_class
-            )
+        if compute_resources is None:
+            compute_resources_final: Dict[str, Dict[str, Any]] = {
+                "num_cores": num_cores,
+                "m_mem_free": m_mem_free,
+                "max_runtime_seconds": max_runtime_seconds,
+                "queue": queue,
+                "j_resource": j_resource,
+                "context_args": context_args,
+                "resource_scales": resource_scales,
+                "hard_limits": hard_limits
+            }
 
         node_args = {task_template.active_task_template_version.id_name_map[k]: v
                      for k, v in node_args.items()
@@ -155,7 +153,7 @@ class BashTask(Task):
             task_template_version_id=task_template.active_task_template_version.id,
             node_args=node_args,
             task_args=task_args,
-            executor_parameters=executor_parameters,
+            compute_resources=compute_resources,
             name=name,
             max_attempts=max_attempts,
             upstream_tasks=upstream_tasks,

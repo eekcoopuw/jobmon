@@ -257,8 +257,8 @@ class TaskTemplate:
                     upstream_tasks: List[Task] = [],
                     task_attributes: Union[List, dict] = {},
                     max_attempts: int = 3,
-                    compute_resources: Dict[str, Dict[str, Any]] = None,
-                    cluster_name: str = None,
+                    compute_resources: Optional[Dict[str, Any]] = None,
+                    cluster_name: str = "",
                     **kwargs) -> Task:
         """Create an instance of a task associated with this template.
 
