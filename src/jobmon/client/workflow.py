@@ -488,7 +488,7 @@ class Workflow(object):
                 task_id=task.task_id,
                 status=task.initial_status,
                 task_args_hash=task.task_args_hash,
-                executor_parameters=task.executor_parameters,
+                task_resources=task.task_resources,
                 max_attempts=task.max_attempts
             )
             swarm_tasks[task.task_id] = swarm_task
