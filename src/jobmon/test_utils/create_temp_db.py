@@ -25,7 +25,6 @@ def create_temp_db() -> dict:
     edb = create_ephemerdb(elevated_privileges=True, database_type=MARIADB)
     edb.db_name = "docker"
     conn_str = edb.start()
-
     # Set the time zone
     eng = create_engine(edb.root_conn_str)
     with eng.connect() as conn:

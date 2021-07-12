@@ -127,7 +127,7 @@ class SequentialWorkerNode(ClusterWorkerNode):
 
     @property
     def distributor_id(self) -> Optional[int]:
-        """Executor id of the task."""
+        """Distributor id of the task."""
         if self._distributor_id is None:
             jid = os.environ.get('JOB_ID')
             if jid:

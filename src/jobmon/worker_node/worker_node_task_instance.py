@@ -172,7 +172,7 @@ class WorkerNodeTaskInstance:
             logger.error(f"Usage stats not available due to exception {e}")
             logger.error(f"Traceback {traceback.format_exc()}")
 
-    def log_running(self, next_report_increment: Union[int, float]) -> Tuple[int, str]:
+    def log_running(self, next_report_increment: Union[int, float]) -> Tuple[int, str, str]:
         """Tell the JobStateManager that this task_instance is running, and update the
         report_by_date to be further in the future in case it gets reconciled immediately.
         """
