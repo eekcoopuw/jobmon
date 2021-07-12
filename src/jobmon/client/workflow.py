@@ -20,7 +20,7 @@ from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
 from jobmon.cluster_type.api import import_cluster
-from jobmon.constants import WorkflowRunStatus, WorkflowStatus
+from jobmon.constants import WorkflowRunStatus, WorkflowStatus, TaskResourcesType
 from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse, ResumeSet,
                                DistributorNotAlive, DistributorStartupTimeout,
                                WorkflowAlreadyComplete, WorkflowAlreadyExists,
@@ -135,8 +135,8 @@ class Workflow(object):
 
         # Cache for clusters
         self._clusters: Dict[str, Cluster] = {}
-        self.cluster_name: str = ""
-        self.compute_resources: Dict[str, Any] = {}
+        self.default_cluster_name: str = ""
+        self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
 
     @property
     def is_bound(self):
@@ -224,11 +224,15 @@ class Workflow(object):
             # add the task
             self.add_task(task)
 
-    def set_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
+    def set_default_compute_resources_from_yaml(self, yaml_file: str):
         pass
 
-    def update_compute_resources(self, **kwargs):
-        self.compute_resources.update(kwargs)
+    def set_default_compute_resources_from_dict(self, cluster_name: str,
+                                                dictionary: Dict[str, Any]):
+        self.default_compute_resources_set[cluster_name] = dictionary
+
+    def set_default_cluster_name(self, cluster_name: str):
+        self.default_cluster_name = cluster_name
 
     def run(self, fail_fast: bool = False, seconds_until_timeout: int = 36000,
             resume: bool = ResumeStatus.DONT_RESUME, reset_running_jobs: bool = True,
@@ -351,13 +355,34 @@ class Workflow(object):
         will make sure no task contains up/down stream tasks that are not in the workflow.
         """
         for task in self.tasks.values():
-            self._get_task_resources(task)
+
+            # get the cluster for this task
+            cluster_name = self._get_cluster_name(task)
+            cluster = self._get_cluster_by_name(cluster_name)
+
+            # construct the resource params by traversing from workflow to task
+            resource_params = self._get_resource_params(task, cluster_name)
+
+            # get queue from resource params. it is cached on cluster object
+            queue_name = resource_params.pop("queue")
+            queue = cluster.get_queue(queue_name)
+
+            # construct resource scales
+            try:
+                resource_params.pop("resource_scales")
+            except KeyError:
+                pass
+
+            cluster.validate_requested_resources(resource_params, queue)
+
+        # # validate by creating the object. validate is called under the hood
+        # return cluster.create_task_resources(resource_params)
 
         # check if workflow is valid
-        self._dag.validate()  # TODO: this does nothing at the moment
+        self._dag.validate()
         self._matching_wf_args_diff_hash()
 
-    def bind(self, cluster_name: str = '', compute_resources: Optional[Dict[str, Any]] = None):
+    def bind(self):
         """Bind objects to the database if they haven't already been.
 
         compute_resources: A dictionary that includes the users requested resources
@@ -367,16 +392,20 @@ class Workflow(object):
         if self.is_bound:
             return
 
-        if cluster_name:
-            self.cluster_name = cluster_name
-        if compute_resources is not None:
-            self.compute_resources = compute_resources.copy()
+        self.validate()
 
-        # check if workflow is valid
+        # construct task resources
+        # TODO: consider moving to create_workflow_run
         for task in self.tasks.values():
-            task.task_resources = self._get_task_resources(task)
-        self._dag.validate()
-        self._matching_wf_args_diff_hash()
+            # get the cluster for this task
+            cluster_name = self._get_cluster_name(task)
+            cluster = self._get_cluster_by_name(cluster_name)
+
+            # construct the resource params by traversing from workflow to task
+            resource_params = self._get_resource_params(task, cluster_name)
+
+            task.task_resources = cluster.create_task_resources(resource_params,
+                                                                TaskResourcesType.VALIDATED)
 
         # bind dag
         self._dag.bind(self._chunk_size)
@@ -434,23 +463,25 @@ class Workflow(object):
             self._clusters[cluster_name] = cluster
         return cluster
 
-    def _get_task_resources(self, task: Task):
+    def _get_cluster_name(self, task: Task) -> str:
         cluster_name = task.cluster_name
         if not cluster_name:
-            if self.cluster_name:
-                cluster_name = self.cluster_name
+            if self.default_cluster_name:
+                cluster_name = self.default_cluster_name
             else:
                 # TODO: more cluster name validation?
                 raise ValueError("No valid cluster_name found on workflow or task")
-        cluster = self._get_cluster_by_name(cluster_name)
+        return cluster_name
+
+    def _get_resource_params(self, task: Task, cluster_name: str):
+        # TODO: once we have concrete task template add ability to get cluster resources
+        # from it
 
         # Check if there are compute resources for given task, if not set at workflow level
         # copy params for idepotent operation
-        resource_params = self.compute_resources.copy()
+        resource_params = self.default_compute_resources_set.copy().get(cluster_name, {})
         resource_params.update(task.compute_resources.copy())
-
-        # validate by creating the object. validate is called under the hood
-        return cluster.create_task_resources(resource_params)
+        return resource_params
 
     def _create_workflow_run(self, resume: bool = ResumeStatus.DONT_RESUME,
                              reset_running_jobs: bool = True,

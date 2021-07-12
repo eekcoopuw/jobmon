@@ -141,8 +141,9 @@ class Task:
                              "dictionary of attributes and their values")
 
         if compute_resources is None:
-            compute_resources = {}
-        self.compute_resources = compute_resources.copy()
+            self.compute_resources = {}
+        else:
+            self.compute_resources = compute_resources.copy()
         self.cluster_name = cluster_name
         self._errors = None
 

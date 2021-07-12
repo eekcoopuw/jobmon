@@ -4,10 +4,10 @@ time.
 from __future__ import annotations
 
 import getpass
-import warnings
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+import warnings
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
@@ -89,6 +89,14 @@ class Tool:
     def active_tool_version(self) -> ToolVersion:
         """Tool version id to use when spawning task templates."""
         return self._active_tool_version
+
+    @property
+    def default_compute_resources_set(self):
+        return self.active_tool_version.default_compute_resources_set
+
+    @property
+    def default_cluster_name(self):
+        return self.active_tool_version.cluster_name
 
     def set_active_tool_version_id(self, tool_version_id: Union[str, int]):
         """Tool version that is set as the active one (latest is default during instantiation).
@@ -178,7 +186,25 @@ class Tool:
         wf = Workflow(self.active_tool_version.id, workflow_args, name, description,
                       workflow_attributes, max_concurrently_running, requester=self.requester,
                       chunk_size=chunk_size)
+        if self.default_cluster_name:
+            wf.default_cluster_name = self.default_cluster_name
+        if self.active_tool_version.default_compute_resources_set:
+            wf.default_compute_resources_set = self.default_compute_resources_set
         return wf
+
+    def update_default_compute_resources(self, cluster_name: str, **kwargs):
+        self.active_tool_version.update_default_compute_resources(cluster_name, **kwargs)
+
+    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
+        pass
+
+    def set_default_compute_resources_from_dict(self, cluster_name: str,
+                                                dictionary: Dict[str, Any]):
+        self.active_tool_version.set_default_compute_resources_from_dict(cluster_name,
+                                                                         dictionary)
+
+    def set_default_cluster_name(self, cluster_name: str):
+        self.active_tool_version.default_cluster_name = cluster_name
 
     def _load_tool_versions(self):
         app_route = f"/client/tool/{self.id}/tool_versions"

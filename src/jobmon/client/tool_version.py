@@ -4,16 +4,14 @@ over.
 from __future__ import annotations
 
 from http import HTTPStatus as StatusCodes
-from typing import Dict, Optional, Tuple
+import logging
+from typing import Any, Dict, Optional, Tuple
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientToolVersion
-
-
-import structlog as logging
 
 
 logger = logging.getLogger(__name__)
@@ -38,6 +36,9 @@ class ToolVersion:
         self.requester = requester
 
         self.task_templates: Dict[str, TaskTemplate] = {}
+
+        self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
+        self.default_cluster_name: str = ""
 
     @classmethod
     def get_tool_version(cls, tool_id: Optional[int] = None,
@@ -123,3 +124,14 @@ class ToolVersion:
             task_template.load_task_template_versions()
             self.task_templates[template_name] = task_template
         return task_template
+
+    def update_default_compute_resources(self, cluster_name: str, **kwargs):
+        compute_resources = {cluster_name: kwargs}
+        self.default_compute_resources_set.update(compute_resources)
+
+    def set_default_compute_resources_from_dict(self, cluster_name: str,
+                                                dictionary: Dict[str, Any]):
+        self.default_compute_resources_set[cluster_name] = dictionary
+
+    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
+        pass
