@@ -31,7 +31,7 @@ class DistributorConfig:
         return cls(
             worker_node_entry_point=args.worker_node_entry_point,
             workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
-            task_heartbeat_interval=args.task_instance_heartbeat_interval,
+            task_instance_heartbeat_interval=args.task_instance_heartbeat_interval,
             heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
             n_queued=args.distributor_n_queued,
             distributor_poll_interval=args.distributor_poll_interval,
@@ -43,7 +43,7 @@ class DistributorConfig:
             logstash_protocol=args.logstash_protocol
         )
 
-    def __init__(self, workflow_run_heartbeat_interval: int, task_heartbeat_interval: int,
+    def __init__(self, workflow_run_heartbeat_interval: int, task_instance_heartbeat_interval: int,
                  heartbeat_report_by_buffer: float, n_queued: int,
                  distributor_poll_interval: int, web_service_fqdn: str, web_service_port: str,
                  worker_node_entry_point: Optional[str] = None, use_logstash: bool = False,
@@ -51,7 +51,7 @@ class DistributorConfig:
                  logstash_protocol: str = ""):
         self.worker_node_entry_point = worker_node_entry_point
         self.workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
-        self.task_heartbeat_interval = task_heartbeat_interval
+        self.task_instance_heartbeat_interval = task_instance_heartbeat_interval
         self.heartbeat_report_by_buffer = heartbeat_report_by_buffer
         self.n_queued = n_queued
         self.distributor_poll_interval = distributor_poll_interval

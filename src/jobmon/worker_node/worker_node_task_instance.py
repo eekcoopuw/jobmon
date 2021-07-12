@@ -42,10 +42,10 @@ class WorkerNodeTaskInstance:
             requester_url (str): url to communicate with the flask services.
         """
         self.task_instance_id = task_instance_id
-        self.expected_jobmon_version = expected_jobmon_version,
-        self.cluster_type_name = cluster_type_name,
+        self.expected_jobmon_version = expected_jobmon_version
+        self.cluster_type_name = cluster_type_name
 
-        self._executor_id: Optional[int] = None
+        self._distributor_id: Optional[int] = None
         self._nodename: Optional[str] = None
         self._process_group_id: Optional[int] = None
 
@@ -81,12 +81,12 @@ class WorkerNodeTaskInstance:
         return WorkerNode(**worker_node_kwargs)
 
     @property
-    def executor_id(self) -> Optional[int]:
+    def distributor_id(self) -> Optional[int]:
         """Executor id given from the executor it is being run on."""
-        if self._executor_id is None and self.executor.executor_id is not None:
-            self._executor_id = self.executor.executor_id
-        logger.debug("executor_id: " + str(self._executor_id))
-        return self._executor_id
+        if self._distributor_id is None and self.executor.distributor_id is not None:
+            self._distributor_id = self.executor.distributor_id
+        logger.debug("distributor_id: " + str(self._distributor_id))
+        return self._distributor_id
 
     @property
     def nodename(self) -> Optional[str]:
@@ -106,8 +106,8 @@ class WorkerNodeTaskInstance:
         """Tell the JobStateManager that this task_instance is done."""
         logger.info(f"Logging done for task_instance {self.task_instance_id}")
         message = {'nodename': self.nodename}
-        if self.executor_id is not None:
-            message['executor_id'] = str(self.executor_id)
+        if self.distributor_id is not None:
+            message['distributor_id'] = str(self.distributor_id)
         else:
             logger.debug("No executor id was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
@@ -137,10 +137,10 @@ class WorkerNodeTaskInstance:
                    'error_state': error_state,
                    'nodename': self.nodename}
 
-        if self.executor_id is not None:
-            message['executor_id'] = str(self.executor_id)
+        if self.distributor_id is not None:
+            message['distributor_id'] = str(self.distributor_id)
         else:
-            logger.debug("No executor_id was found in the qsub env at this time")
+            logger.debug("No distributor_id was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
             app_route=f'/worker/task_instance/{self.task_instance_id}/log_error_worker_node',
             message=message,
@@ -180,8 +180,8 @@ class WorkerNodeTaskInstance:
         message = {'nodename': self.nodename,
                    'process_group_id': str(self.process_group_id),
                    'next_report_increment': next_report_increment}
-        if self.executor_id is not None:
-            message['executor_id'] = str(self.executor_id)
+        if self.distributor_id is not None:
+            message['distributor_id'] = str(self.distributor_id)
         else:
             logger.info("No Task ID was found in the qsub env at this time")
         rc, resp = self.requester.send_request(
@@ -197,10 +197,10 @@ class WorkerNodeTaskInstance:
         """Log the heartbeat to show that the task instance is still alive."""
         logger.debug(f"Logging heartbeat for task_instance {self.task_instance_id}")
         message: Dict = {"next_report_increment": next_report_increment}
-        if self.executor_id is not None:
-            message['executor_id'] = str(self.executor_id)
+        if self.distributor_id is not None:
+            message['distributor_id'] = str(self.distributor_id)
         else:
-            logger.debug("No executor_id was found in the qsub env at this time")
+            logger.debug("No distributor_id was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
             app_route=f'/worker/task_instance/{self.task_instance_id}/log_report_by',
             message=message,

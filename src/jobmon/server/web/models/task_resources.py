@@ -30,5 +30,4 @@ class TaskResources(DB.Model):
 
     def activate(self):
         """Activate Task Resources on Task object."""
-        #TODO
-        #self.task.task_resources_id = self.id
+        self.task.task_resources_id = self.id

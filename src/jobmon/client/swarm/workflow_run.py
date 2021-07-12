@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_task import SwarmTask
-from jobmon.constants import TaskStatus, WorkflowRunStatus
+from jobmon.constants import TaskStatus, WorkflowRunStatus, TaskResourcesType
 from jobmon.exceptions import InvalidResponse, DistributorNotAlive
 from jobmon.requester import Requester, http_request_ok
 
@@ -291,10 +291,10 @@ class WorkflowRun:
         task_id = swarm_task.task_id
         # Create original and validated entries if no params are bound yet
         if not swarm_task.bound_parameters:
-            swarm_task.bind_executor_parameters(ExecutorParameterSetType.ORIGINAL)
-            swarm_task.bind_executor_parameters(ExecutorParameterSetType.VALIDATED)
+            swarm_task.bind_task_resources(TaskResourcesType.ORIGINAL)
+            swarm_task.bind_task_resources(TaskResourcesType.VALIDATED)
         else:
-            swarm_task.bind_executor_parameters(ExecutorParameterSetType.ADJUSTED)
+            swarm_task.bind_task_resources(TaskResourcesType.ADJUSTED)
 
         logger.debug(f"Queueing task id: {task_id}")
         swarm_task.queue_task()

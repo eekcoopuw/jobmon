@@ -1,6 +1,7 @@
 """Distributes and monitors state of Task Instances."""
 from __future__ import annotations
 
+import os
 import logging
 import multiprocessing as mp
 import sys
@@ -10,11 +11,13 @@ from typing import Dict, List, Optional
 
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
-from jobmon.cluster_type.base import ClusterDistributor
+
 from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable, ResumeSet,\
     WorkflowRunStateError
 from jobmon.requester import Requester, http_request_ok
+from jobmon.cluster_type.api import register_cluster_plugin, import_cluster
+from jobmon.client.cluster import Cluster
 
 import tblib.pickling_support
 
@@ -39,7 +42,7 @@ class DistributorService:
     task_instances.
     """
 
-    def __init__(self, workflow_id: int, workflow_run_id: int, distributor: ClusterDistributor,
+    def __init__(self, workflow_id: int, workflow_run_id: int, cluster_name: str,
                  requester: Requester, workflow_run_heartbeat_interval: int = 30,
                  task_heartbeat_interval: int = 90, heartbeat_report_by_buffer: float = 3.1,
                  n_queued: int = 100, distributor_poll_interval: int = 10,
@@ -48,8 +51,14 @@ class DistributorService:
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
 
-        # distributor interface
-        self.distributor = distributor
+        # cluster_name
+        self._cluster_name = cluster_name
+        cluster = Cluster.get_cluster(self._cluster_name, requester)
+        module = import_cluster(cluster._cluster_type_name)
+
+        # distributor
+        ClusterDistributor = module.get_cluster_distributor_class()
+        self.distributor = ClusterDistributor()
 
         # operational args
         self._worker_node_entry_point = worker_node_entry_point
@@ -413,7 +422,7 @@ class DistributorService:
             logger.debug(
                 f"Using the following resources in execution {task.requested_resources}"
             )
-            executor_id = self.distributor.submit_to_batch_distributor(
+            distributor_id = self.distributor.submit_to_batch_distributor(
                 command=command,
                 name=task.name,
                 requested_resources=task.requested_resources
@@ -423,9 +432,9 @@ class DistributorService:
         else:
             report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
             task_instance.register_submission_to_batch_distributor(
-                executor_id, report_by_buffer
+                distributor_id, report_by_buffer
             )
-            self._submitted_or_running[executor_id] = task_instance
+            self._submitted_or_running[distributor_id] = task_instance
 
         return task_instance
 
