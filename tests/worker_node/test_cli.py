@@ -51,7 +51,7 @@ def test_unwrap_happy_path(client_env):
         worker_node_ti = worker_node_task_instance.\
             WorkerNodeTaskInstance(task_instance_id=1,
                                    expected_jobmon_version=version,
-                                   cluster_type_name="Sequential")
+                                   cluster_type_name="sequential")
         r = worker_node_ti.run(
              heartbeat_interval=1,
              report_by_buffer=3.1)
@@ -91,7 +91,7 @@ def test_stderr_buffering(capsys, client_env):
         worker_node_ti = worker_node_task_instance. \
             WorkerNodeTaskInstance(task_instance_id=1,
                                    expected_jobmon_version=version,
-                                   cluster_type_name="Sequential")
+                                   cluster_type_name="sequential")
         r = worker_node_ti.run(
             heartbeat_interval=1,
             report_by_buffer=3.1)
