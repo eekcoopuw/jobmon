@@ -989,17 +989,19 @@ task_instance_status
     +-----+---------------------------------+---------------------------------------------------------------------------------+
     |  E  |  ERROR                          | Task instance has hit an application error.                                     |
     +-----+---------------------------------+---------------------------------------------------------------------------------+
+    |  F  |  ERROR_FATAL                    | Task instance encountered a fatal error.                                        |
+    +-----+---------------------------------+---------------------------------------------------------------------------------+
     |  I  |  INSTANTIATED                   | Task instance is created.                                                       |
+    +-----+---------------------------------+---------------------------------------------------------------------------------+
+    |  K  |  KILL_SELF                      | Task instance has been ordered to kill itself if it is still alive.             |
     +-----+---------------------------------+---------------------------------------------------------------------------------+
     |  R  |  RUNNING                        | Task instance starts running normally.                                          |
     +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  U  |  UNKNOWN                        | Task instance stops reporting that it's alive and Jobmon can't figure out why.  |
+    |  U  |  UNKNOWN_ERROR                  | Task instance stops reporting that it's alive and Jobmon can't figure out why.  |
     +-----+---------------------------------+---------------------------------------------------------------------------------+
     |  W  |  NO_EXECUTOR_ID                 | Task instance submission has hit a bug and did not receive an executor_id.      |
     +-----+---------------------------------+---------------------------------------------------------------------------------+
     |  Z  |  RESOURCE_ERROR                 | Task instance died because of an insufficient resource request.                 |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  K  |  KILL_SELF                      | Task instance has been ordered to kill itself if it is still alive.             |
     +-----+---------------------------------+---------------------------------------------------------------------------------+
 
 task_status
@@ -1044,53 +1046,51 @@ workflow_run
     workflow_id.
 workflow_run_status
     Meta-data table that defines the ten states of Workflow Run:
-
     +-----+--------------+--------------------------------------------------------------------------------------------------------+
     |     | Status       | Description                                                                                            |
     +=====+==============+========================================================================================================+
-    |  G  |  REGISTERED  | WorkflowRun has been validated.                                                                        |
+    |  A  |  ABORTED     | WorkflowRun encountered problems while binding so it stopped.                                          |
     +-----+--------------+--------------------------------------------------------------------------------------------------------+
     |  B  |  BOUND       | WorkflowRun has been bound to the database.                                                            |
     +-----+--------------+--------------------------------------------------------------------------------------------------------+
-    |  R  |  RUNNING     | WorkflowRun is currently running.                                                                      |
+    |  C  |  COLD_RESUME | WorkflowRun was set to resume once all tasks were stopped.                                             |
     +-----+--------------+--------------------------------------------------------------------------------------------------------+
     |  D  |  DONE        | WorkflowRun has run to completion.                                                                     |
     +-----+--------------+--------------------------------------------------------------------------------------------------------+
-    |  A  |  ABORTED     | WorkflowRun encountered problems while binding so it stopped.                                          |
-    +-----+--------------+--------------------------------------------------------------------------------------------------------+
-    |  S  |  STOPPED     | WorkflowRun has been stopped, probably due to keyboard interrupt from user.                            |
-    +-----+--------------+--------------------------------------------------------------------------------------------------------+
     |  E  |  ERROR       | WorkflowRun has not completed successfully, may have lost contact with services.                       |
     +-----+--------------+--------------------------------------------------------------------------------------------------------+
-    |  C  |  COLD RESUME | WorkflowRun was set to resume once all tasks were stopped.                                             |
+    |  G  |  REGISTERED  | WorkflowRun has been validated.                                                                        |
     +-----+--------------+--------------------------------------------------------------------------------------------------------+
     |  H  |  HOT RESUME  | WorkflowRun was set to resume while tasks are still running, they will continue running.               |
+    +-----+--------------+--------------------------------------------------------------------------------------------------------+
+    |  L  |  LINKING     | Instantiation complete. Executor control for tasks or waiting for first scheduling loop for workflows. |
+    +-----+--------------+--------------------------------------------------------------------------------------------------------+
+    |  R  |  RUNNING     | WorkflowRun is currently running.                                                                      |
+    +-----+--------------+--------------------------------------------------------------------------------------------------------+
+    |  S  |  STOPPED     | WorkflowRun has been stopped, probably due to keyboard interrupt from user.                            |
     +-----+--------------+--------------------------------------------------------------------------------------------------------+
     |  T  |  TERMINATED  | WorkflowRun was in resume, new WorkflowRun created to pick up remainingtTasks, so this one terminated. |
     +-----+--------------+--------------------------------------------------------------------------------------------------------+
 
 workflow_status
     Meta-data table that defines eight states of Workflow:
-
-    +-----+--------------+--------------------------------------------------------------------------+
-    |     | Status       | Description                                                              |
-    +=====+==============+==========================================================================+
-    |  G  |  REGISTERED  | Workflow created and validated.                                          |
-    +-----+--------------+--------------------------------------------------------------------------+
-    |  B  |  BOUND       | Workflow bound to the database.                                          |
-    +-----+--------------+--------------------------------------------------------------------------+
-    |  A  |  ABORTED     | Workflow encountered an error before a WorkflowRun was created.          |
-    +-----+--------------+--------------------------------------------------------------------------+
-    |  C  |  CREATED     | Workflow created a WorkflowRun.                                          |
-    +-----+--------------+--------------------------------------------------------------------------+
-    |  D  |  DONE        | Workflow finished successfully.                                          |
-    +-----+--------------+--------------------------------------------------------------------------+
-    |  F  |  FAILED      | Workflow unsuccessful in one or more WorkflowRuns, none finished as Done.|
-    +-----+--------------+--------------------------------------------------------------------------+
-    |  R  |  RUNNING     | Workflow has a WorkflowRun that is running.                              |
-    +-----+--------------+--------------------------------------------------------------------------+
-    |  S  |  SUSPENDED   | Workflow paused if marked for resume, can be set to running again.       |
-    +-----+--------------+--------------------------------------------------------------------------+
+    +-----+--------------+-----------------------------------------------------------------------------+
+    |     | Status       | Description                                                                 |
+    +=====+==============+=============================================================================+
+    |  A  |  ABORTED     | Workflow encountered an error before a WorkflowRun was created.             |
+    +-----+--------------+-----------------------------------------------------------------------------+
+    |  D  |  DONE        | Workflow finished successfully.                                             |
+    +-----+--------------+-----------------------------------------------------------------------------+
+    |  F  |  FAILED      | Workflow unsuccessful in one or more WorkflowRuns, none finished as Done.   |
+    +-----+--------------+-----------------------------------------------------------------------------+
+    |  G  |  REGISTERING | Workflow is being validated.                                                |
+    +-----+--------------+-----------------------------------------------------------------------------+
+    |  H  |  HALTED      | 1. Resume was set and wf shut down or 2. Controller died and wf was reaped. |
+    +-----+--------------+-----------------------------------------------------------------------------+
+    |  Q  |  QUEUED      | Client has added all necessary metadata, signal to scheduler to instantiate.|
+    +-----+--------------+-----------------------------------------------------------------------------+
+    |  R  |  RUNNING     | Workflow has a WorkflowRun that is running.                                 |
+    +-----+--------------+-----------------------------------------------------------------------------+
 
 You will need to know your workflow_id or dag_id. Hopefully your application
 logged it, otherwise it will be obvious by name as one of the recent entries

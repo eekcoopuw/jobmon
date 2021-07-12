@@ -1,6 +1,7 @@
 """Multiprocess executes tasks in parallel if multiple threads are available."""
 import logging
 import os
+import shutil
 import queue
 import subprocess
 from multiprocessing import JoinableQueue, Process, Queue
@@ -105,7 +106,7 @@ class MultiprocessDistributor(ClusterDistributor):
         self.temp_dir: Optional[str] = None
         self.started = False
         #self._jobmon_command = shutil.which(("jobmon_command")) #worker_node_wrapper_executable
-        self.worker_node_entry_point = shutil.which(("worker_node_entry_point"))  #
+        # self.worker_node_entry_point = shutil.which("worker_node_entry_point")  #
         logger.info("Initializing {}".format(self.__class__.__name__))
 
         self._parallelism = parallelism
@@ -221,7 +222,7 @@ class MultiprocessDistributor(ClusterDistributor):
         self._update_internal_states()
         return list(self._running_or_submitted.keys())
 
-    def execute(self, command: str, name: str, requested_resources: dict) -> int:
+    def submit_to_batch_distributor(self, command: str, name: str, requested_resources: dict) -> int:
         """Execute a task instance."""
         distributor_id = self._next_distributor_id
         self._next_distributor_id += 1
@@ -246,6 +247,18 @@ class MultiprocessDistributor(ClusterDistributor):
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 
+    @property
+    def worker_node_entry_point(self):
+        """Path to jobmon worker_node_entry_point"""
+        return shutil.which("worker_node_entry_point")
+
+    def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
+        """Check status of running task."""
+        running = os.environ.get("JOB_ID")
+        if running:
+            return [int(running)]
+        else:
+            return []
 
 class MultiprocessWorkerNode(ClusterWorkerNode):
     """Task instance info for an instance run with the Multiprocessing distributor."""

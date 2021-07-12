@@ -30,4 +30,9 @@ SELECT 'sequential', id, NULL
 FROM `cluster_type`
 WHERE `name` = 'sequential';
 
+INSERT INTO `cluster`(`name`, `cluster_type_id`, `connection_string`)
+SELECT 'multiprocess', id, NULL
+FROM `cluster_type`
+WHERE `name` = 'multiprocess';
+
 UNLOCK TABLES;

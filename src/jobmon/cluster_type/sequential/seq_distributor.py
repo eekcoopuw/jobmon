@@ -41,6 +41,7 @@ class SequentialDistributor(ClusterDistributor):
         Args:
             exit_info_queue_size: how many exit codes to retain
         """
+        self.started = False
         self._next_distributor_id = 1
         self._exit_info = LimitedSizeDict(size_limit=exit_info_queue_size)
 
@@ -55,11 +56,11 @@ class SequentialDistributor(ClusterDistributor):
 
     def start(self) -> None:
         """Start the distributor."""
-        raise NotImplementedError
+        self.started = True
 
     def stop(self, distributor_ids: List[int]) -> None:
         """Stop the distributor."""
-        raise NotImplementedError
+        self.started = False
 
     def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
         """Get the task instances that have errored out."""
@@ -89,7 +90,8 @@ class SequentialDistributor(ClusterDistributor):
         """If implemented, return a list of (task_instance_id, hostname) tuples for any
         task_instances that are terminated.
         """
-        raise NotImplementedError
+        logger.warning("terminate_task_instances not implemented by ClusterDistributor: "
+                       f"{self.__class__.__name__}")
 
     def submit_to_batch_distributor(self, command: str, name: str,
                                     requested_resources: Dict[str, Any]) -> int:
