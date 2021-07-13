@@ -92,10 +92,12 @@ class Tool:
 
     @property
     def default_compute_resources_set(self):
+        """Default compute resources associated with active tool version."""
         return self.active_tool_version.default_compute_resources_set
 
     @property
     def default_cluster_name(self):
+        """Default cluster_name associated with active tool version."""
         return self.active_tool_version.default_cluster_name
 
     def set_active_tool_version_id(self, tool_version_id: Union[str, int]):
@@ -184,7 +186,22 @@ class Tool:
                         default_cluster_name: str = "",
                         default_compute_resources_set: Optional[Dict] = None
                         ) -> Workflow:
-        """Create a workflow object associated with the tool."""
+        """Create a workflow object associated with the active tool version.
+
+        Args:
+            workflow_args: Unique identifier of a workflow.
+            name: Name of the workflow.
+            description: Description of the workflow.
+            workflow_attributes: Any key/value pair that the user wants to record for this
+                workflow
+            max_concurrently_running: How many running jobs to allow in parallel.
+            chunk_size: how many tasks to bind in a single request
+            default_cluster_name: name of cluster to run tasks on by default. Can be overridden
+                at the task template or task level.
+            default_compute_resources_set: dictionary of default compute resources to run tasks
+                with. Can be overridden at task template or task level.
+                dict of {cluster_name: {resource_name: resource_value}}
+        """
 
         wf = Workflow(self.active_tool_version.id, workflow_args, name, description,
                       workflow_attributes, max_concurrently_running, requester=self.requester,
@@ -205,6 +222,15 @@ class Tool:
         return wf
 
     def update_default_compute_resources(self, cluster_name: str, **kwargs):
+        """Update default compute resources in place only overridding specified keys.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to modify default values for.
+            **kwargs: any key/value pair you want to update specified as an argument.
+        """
         if not self.default_cluster_name:
             self.active_tool_version.default_cluster_name = cluster_name
         self.active_tool_version.update_default_compute_resources(cluster_name, **kwargs)
@@ -214,12 +240,28 @@ class Tool:
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,
                                                 compute_resources: Dict[str, Any]):
+        """Set default compute resources for a given cluster_name.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            compute_resources: dictionary of default compute resources to run tasks
+                with. Can be overridden at task template or task level.
+                dict of {resource_name: resource_value}
+        """
         if not self.default_cluster_name:
             self.active_tool_version.default_cluster_name = cluster_name
         self.active_tool_version.set_default_compute_resources_from_dict(cluster_name,
                                                                          compute_resources)
 
     def set_default_cluster_name(self, cluster_name: str):
+        """Set default cluster.
+
+        Args:
+            cluster_name: name of cluster to set as default.
+        """
         self.active_tool_version.default_cluster_name = cluster_name
 
     def _load_tool_versions(self):

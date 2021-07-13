@@ -126,11 +126,31 @@ class ToolVersion:
         return task_template
 
     def update_default_compute_resources(self, cluster_name: str, **kwargs):
+        """Update default compute resources in place only overridding specified keys.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to modify default values for.
+            **kwargs: any key/value pair you want to update specified as an argument.
+        """
         compute_resources = {cluster_name: kwargs}
         self.default_compute_resources_set.update(compute_resources)
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,
                                                 compute_resources: Dict[str, Any]):
+        """Set default compute resources for a given cluster_name.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            compute_resources: dictionary of default compute resources to run tasks
+                with. Can be overridden at task template or task level.
+                dict of {resource_name: resource_value}
+        """
         self.default_compute_resources_set[cluster_name] = compute_resources
 
     def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
