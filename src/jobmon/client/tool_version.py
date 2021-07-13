@@ -130,8 +130,8 @@ class ToolVersion:
         self.default_compute_resources_set.update(compute_resources)
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,
-                                                dictionary: Dict[str, Any]):
-        self.default_compute_resources_set[cluster_name] = dictionary
+                                                compute_resources: Dict[str, Any]):
+        self.default_compute_resources_set[cluster_name] = compute_resources
 
     def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
         pass

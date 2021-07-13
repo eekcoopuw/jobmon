@@ -479,7 +479,7 @@ class Workflow(object):
 
         # Check if there are compute resources for given task, if not set at workflow level
         # copy params for idepotent operation
-        resource_params = self.default_compute_resources_set.copy().get(cluster_name, {})
+        resource_params = self.default_compute_resources_set.get(cluster_name, {}).copy()
         resource_params.update(task.compute_resources.copy())
         return resource_params
 
@@ -519,7 +519,7 @@ class Workflow(object):
                 task_id=task.task_id,
                 status=task.initial_status,
                 task_args_hash=task.task_args_hash,
-                executor_parameters=task.executor_parameters,
+                task_resources=task.task_resources,
                 max_attempts=task.max_attempts
             )
             swarm_tasks[task.task_id] = swarm_task

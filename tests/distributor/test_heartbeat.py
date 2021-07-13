@@ -4,6 +4,28 @@ from jobmon.exceptions import ResumeSet
 
 import pytest
 
+from jobmon.client.tool import Tool
+
+
+@pytest.fixture
+def tool(db_cfg, client_env):
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
+                                                 compute_resources={"queue": "null.q"})
+    return tool
+
+
+@pytest.fixture
+def task_template(tool):
+    tt = tool.get_task_template(
+        template_name="my_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[]
+    )
+    return tt
+
 
 class MockDistributorProc:
 
@@ -11,25 +33,21 @@ class MockDistributorProc:
         return True
 
 
-def test_heartbeat(db_cfg, client_env):
+def test_heartbeat(tool, db_cfg, client_env, task_template):
     """test that the TaskInstanceDistributor logs a heartbeat in the database"""
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.api import BashTask
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.requester import Requester
 
-    t1 = BashTask("echo 1", executor_class="SequentialExecutor")
-    workflow = UnknownWorkflow("my_beating_heart",
-                               executor_class="SequentialExecutor",
-                               seconds_until_timeout=1)
+    t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
+    workflow = tool.create_workflow(name="my_beating_heart")
     workflow.add_tasks([t1])
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester=requester)
-    distributor.heartbeat()
+    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
+                                             "sequential", requester=requester)
+    distributor_service.heartbeat()
 
     # check the job finished
     app = db_cfg["app"]
@@ -45,24 +63,20 @@ def test_heartbeat(db_cfg, client_env):
     assert res[0] == 1
 
 
-def test_heartbeat_raises_error(db_cfg, client_env):
+def test_heartbeat_raises_error(tool, db_cfg, client_env, task_template):
     """test that a heartbeat logged after resume will raise ResumeSet"""
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.api import BashTask
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.requester import Requester
 
-    t1 = BashTask("echo 1", executor_class="SequentialExecutor")
-    workflow = UnknownWorkflow("my_heartbeat_error",
-                               executor_class="SequentialExecutor",
-                               seconds_until_timeout=1)
+    t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
+    workflow = tool.create_workflow(name="my_heartbeat_error")
     workflow.add_tasks([t1])
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester=requester)
+    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
+                                             "sequential", requester=requester)
     # check the job finished
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -75,29 +89,25 @@ def test_heartbeat_raises_error(db_cfg, client_env):
         DB.session.commit()
 
     with pytest.raises(ResumeSet):
-        distributor.heartbeat()
+        distributor_service.heartbeat()
 
 
-def test_heartbeat_propagate_error(db_cfg, client_env):
+def test_heartbeat_propagate_error(tool, db_cfg, client_env, task_template):
     """test that a heartbeat logged after resume will raise ResumeSet through
     the message queue and can be re_raised"""
 
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.api import BashTask
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.requester import Requester
 
-    t1 = BashTask("echo 1", executor_class="SequentialExecutor")
-    workflow = UnknownWorkflow("heartbeat_propagate_error",
-                               executor_class="SequentialExecutor",
-                               seconds_until_timeout=1)
+    t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
+    workflow = tool.create_workflow(name="heartbeat_propagate_error")
     workflow.add_tasks([t1])
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester=requester)
+    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
+                                             "sequential", requester=requester)
     # check the job finished
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -110,7 +120,7 @@ def test_heartbeat_propagate_error(db_cfg, client_env):
         DB.session.commit()
 
     q = Queue()
-    distributor.run_distributor(status_queue=q)
+    distributor_service.run_distributor(status_queue=q)
     assert q.get() == "ALIVE"
 
     with pytest.raises(ResumeSet):

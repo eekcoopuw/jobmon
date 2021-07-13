@@ -457,7 +457,6 @@ def bind_task_resources(task_id: int):
         return resp
 
     new_resources = TaskResources(
-        id=None,
         task_id=task_id_int,
         queue_id=data.get('queue_id', None),
         task_resources_type_id=data.get('task_resources_type_id', None),
@@ -495,7 +494,7 @@ def update_task_resources(task_id: int):
     app.logger = app.logger.bind(task_id=task_id)
     data = request.get_json()
     app.logger.info("Update task resource for {task_id}")
-    parameter_set_type = data["parameter_set_type"]
+    task_resources_type_id = data.get('task_resources_type_id')
 
     try:
         task_id = int(task_id)
@@ -504,16 +503,13 @@ def update_task_resources(task_id: int):
         resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
         return resp
 
-    exec_params = ExecutorParameterSet(
+    resources = TaskResources(
         task_id=task_id,
-        parameter_set_type=parameter_set_type,
-        max_runtime_seconds=data.get('max_runtime_seconds', None),
-        context_args=data.get('context_args', None),
-        resource_scales=data.get('resource_scales', None),
-        hard_limits=data.get('hard_limits', False))
-    DB.session.add(exec_params)
+        task_resources_type_id=task_resources_type_id,
+        resource_scales=data.get('resource_scales', None))
+    DB.session.add(resources)
     DB.session.flush()  # get auto increment
-    exec_params.activate()
+    resources.activate()
     DB.session.commit()
 
     resp = jsonify()

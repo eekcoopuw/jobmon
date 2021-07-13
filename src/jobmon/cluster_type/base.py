@@ -110,7 +110,7 @@ class ClusterDistributor(Protocol):
             (str) unwrappable command
         """
         wrapped_cmd = [
-            self.worker_node_entry_point,
+            "worker_node",
             "--task_instance_id", task_instance_id,
             "--expected_jobmon_version", __version__,
             "--cluster_type_name", self.cluster_type_name

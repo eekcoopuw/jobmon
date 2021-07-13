@@ -96,7 +96,7 @@ class Tool:
 
     @property
     def default_cluster_name(self):
-        return self.active_tool_version.cluster_name
+        return self.active_tool_version.default_cluster_name
 
     def set_active_tool_version_id(self, tool_version_id: Union[str, int]):
         """Tool version that is set as the active one (latest is default during instantiation).
@@ -180,28 +180,44 @@ class Tool:
 
     def create_workflow(self, workflow_args: str = "", name: str = "", description: str = "",
                         workflow_attributes: Optional[Union[List, dict]] = None,
-                        max_concurrently_running: int = 10_000, chunk_size: int = 500
+                        max_concurrently_running: int = 10_000, chunk_size: int = 500,
+                        default_cluster_name: str = "",
+                        default_compute_resources_set: Optional[Dict] = None
                         ) -> Workflow:
         """Create a workflow object associated with the tool."""
+
         wf = Workflow(self.active_tool_version.id, workflow_args, name, description,
                       workflow_attributes, max_concurrently_running, requester=self.requester,
                       chunk_size=chunk_size)
-        if self.default_cluster_name:
-            wf.default_cluster_name = self.default_cluster_name
-        if self.active_tool_version.default_compute_resources_set:
-            wf.default_compute_resources_set = self.default_compute_resources_set
+
+        # set compute resource defaults
+        if default_cluster_name:
+            wf.default_cluster_name = default_cluster_name
+        else:
+            if self.default_cluster_name:
+                wf.default_cluster_name = self.default_cluster_name
+        if default_compute_resources_set:
+            wf.default_compute_resources_set = default_compute_resources_set
+        else:
+            if self.active_tool_version.default_compute_resources_set:
+                wf.default_compute_resources_set = self.default_compute_resources_set
+
         return wf
 
     def update_default_compute_resources(self, cluster_name: str, **kwargs):
+        if not self.default_cluster_name:
+            self.active_tool_version.default_cluster_name = cluster_name
         self.active_tool_version.update_default_compute_resources(cluster_name, **kwargs)
 
     def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
         pass
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,
-                                                dictionary: Dict[str, Any]):
+                                                compute_resources: Dict[str, Any]):
+        if not self.default_cluster_name:
+            self.active_tool_version.default_cluster_name = cluster_name
         self.active_tool_version.set_default_compute_resources_from_dict(cluster_name,
-                                                                         dictionary)
+                                                                         compute_resources)
 
     def set_default_cluster_name(self, cluster_name: str):
         self.active_tool_version.default_cluster_name = cluster_name

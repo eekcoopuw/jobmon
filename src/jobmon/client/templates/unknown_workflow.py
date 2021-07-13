@@ -7,6 +7,7 @@ from jobmon.client.distributor.distributor_config import DistributorConfig
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.tool import Tool
 from jobmon.client.workflow import Workflow
+from jobmon.cluster_type.api import import_cluster
 from jobmon.requester import Requester
 
 
@@ -55,7 +56,7 @@ class UnknownWorkflow(Workflow):
                  project: Optional[str] = None,
                  reset_running_jobs: bool = True,
                  working_dir: Optional[str] = None,
-                 executor_class: str = 'SGEExecutor',
+                 cluster_name: str = 'buster',
                  fail_fast: bool = False,
                  requester: Optional[Requester] = None,
                  seconds_until_timeout: int = 36000,
@@ -108,9 +109,6 @@ class UnknownWorkflow(Workflow):
             max_concurrently_running: How many running jobs to allow in parallel
             chunk_size: size of task and node chunks that are bound in one call to the db
         """
-        self._set_executor(executor_class=executor_class, stderr=stderr,
-                           stdout=stdout, working_dir=working_dir,
-                           project=project)
         cfg = DistributorConfig.from_defaults()
         if reconciliation_interval is not None:
             cfg.reconciliation_interval = reconciliation_interval
@@ -144,36 +142,29 @@ class UnknownWorkflow(Workflow):
             max_concurrently_running=max_concurrently_running,
             chunk_size=chunk_size
         )
+        cluster = self._get_cluster_by_name(cluster_name)
+        self._set_distributor(cluster_type_name=cluster._cluster_type_name)
 
     @classmethod
     def _set_tool(cls, tool: Tool) -> None:
         cls._tool = tool
 
-    def _set_executor(self, executor_class: str, *args, **kwargs) -> None:
-        """Set which executor and parameters associated with that executor to
+    def _set_distributor(self, cluster_type_name: str) -> None:
+        """Set which distributor and parameters associated with that distributor to
         use to run the tasks.
 
         Args:
-            executor_class (str): string referring to one of the executor
+            cluster_type_name (str): string referring to one of the executor
             classes in jobmon.client.swarm.executors
         """
-        logger.info("Set executor to {}".format(executor_class))
-        self.executor_class = executor_class
-        if self.executor_class == 'SGEExecutor':
-            from jobmon.client.distributor.strategies.sge import SGEExecutor
-            self._executor = SGEExecutor(*args, **kwargs)
-        elif self.executor_class == "SequentialExecutor":
-            from jobmon.client.distributor.strategies.sequential import \
-                SequentialExecutor
-            self._executor = SequentialExecutor()
-        elif self.executor_class == "DummyExecutor":
-            from jobmon.client.distributor.strategies.dummy import DummyExecutor
-            self._executor = DummyExecutor()
-        else:
-            raise ValueError(f"{executor_class} is not a valid executor_class")
+        logger.info("Set cluster_type_name to {}".format(cluster_type_name))
 
-        if not hasattr(self._executor, "execute"):
-            raise AttributeError("Executor must have an execute() method")
+        module = import_cluster(cluster_type_name)
+        ClusterDistributor = module.get_cluster_distributor_class()
+        self._distributor = ClusterDistributor()
+
+        if not hasattr(self._distributor, "submit_to_batch_distributor"):
+            raise AttributeError("Distributor must have an submit_to_batch_distributor() method")
 
     def run(self) -> WorkflowRun:
         """Run this workflow

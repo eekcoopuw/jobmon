@@ -25,7 +25,7 @@ class DistributorCLI(CLI):
         distributor_config = DistributorConfig(
             worker_node_entry_point=args.worker_node_entry_point,
             workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
-            task_heartbeat_interval=args.task_instance_heartbeat_interval,
+            task_instance_heartbeat_interval=args.task_instance_heartbeat_interval,
             heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
             n_queued=args.distributor_n_queued,
             distributor_poll_interval=args.distributor_poll_interval,

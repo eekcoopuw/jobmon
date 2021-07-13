@@ -6,8 +6,15 @@ from jobmon.constants import WorkflowRunStatus, WorkflowStatus
 
 
 @pytest.fixture
-def task_template(db_cfg, client_env):
+def tool(db_cfg, client_env):
     tool = Tool()
+    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
+                                                 compute_resources={"queue": "null.q"})
+    return tool
+
+
+@pytest.fixture
+def task_template(tool):
     tt = tool.get_task_template(
         template_name="simple_template",
         command_template="{arg}",
@@ -18,18 +25,14 @@ def task_template(db_cfg, client_env):
     return tt
 
 
-def test_log_heartbeat(task_template, db_cfg):
+def test_log_heartbeat(tool, task_template, db_cfg):
     """test _log_heartbeat sets the wfr status to L
     """
 
-    tool = Tool()
     wf = tool.create_workflow()
     t1 = task_template.create_task(arg="sleep 1")
     wf.add_tasks([t1])
-    wf.bind(
-        cluster_name="sequential",
-        compute_resources={"queue": "null.q"}
-    )
+    wf.bind()
     wfr = WorkflowRun(
         workflow_id=wf._workflow_id,
         requester=wf.requester
