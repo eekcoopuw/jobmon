@@ -457,7 +457,6 @@ def bind_task_resources(task_id: int):
         return resp
 
     new_resources = TaskResources(
-        id=None,
         task_id=task_id_int,
         queue_id=data.get('queue_id', None),
         task_resources_type_id=data.get('task_resources_type_id', None),
@@ -495,7 +494,7 @@ def update_task_resources(task_id: int):
     app.logger = app.logger.bind(task_id=task_id)
     data = request.get_json()
     app.logger.info("Update task resource for {task_id}")
-    task_resources_type_id=data.get('task_resources_type_id')
+    task_resources_type_id = data.get('task_resources_type_id')
 
     try:
         task_id = int(task_id)

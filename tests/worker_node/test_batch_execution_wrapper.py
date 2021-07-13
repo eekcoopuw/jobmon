@@ -3,8 +3,6 @@ import os
 from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.requester import Requester
 from jobmon.client.tool import Tool
-from getpass import getuser
-from time import sleep
 
 import pytest
 
@@ -18,7 +16,6 @@ class MockDistributorProc:
 
 
 def test_limited_error_log(db_cfg, client_env):
-    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
     tool = Tool()
     wf = tool.create_workflow(name="random_workflow")
     template = tool.get_task_template(
@@ -26,8 +23,8 @@ def test_limited_error_log(db_cfg, client_env):
         command_template="python {node_arg}",
         node_args=["node_arg"]
     )
-    task_resources = {"sequential": {"num_cores": 1, "mem": "1G", "max_runtime_seconds": 600,
-                                     "queue": "null.q"}}
+    task_resources = {"num_cores": 1, "mem": "1G", "max_runtime_seconds": 600,
+                      "queue": "null.q"}
     task = template.create_task(name="task1", node_arg=os.path.join(thisdir, 'fill_pipe.py'),
                                 compute_resources=task_resources, cluster_name="sequential",
                                 max_attempts=1)
@@ -35,9 +32,8 @@ def test_limited_error_log(db_cfg, client_env):
     wf.bind()
     wfr = wf._create_workflow_run()
     requester = Requester(client_env)
-    sequential_distributor = SequentialDistributor()
     distributor = DistributorService(wf.workflow_id, wfr.workflow_run_id,
-                                     sequential_distributor, requester=requester)
+                                     "sequential", requester=requester)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockDistributorProc(),
                                   seconds_until_timeout=2)

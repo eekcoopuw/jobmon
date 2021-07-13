@@ -103,8 +103,8 @@ class Cluster:
 
         return queue
 
-    def _validate_requested_resources(self, requested_resources: Dict[str, Any],
-                                      queue: ClusterQueue) -> None:
+    def validate_requested_resources(self, requested_resources: Dict[str, Any],
+                                     queue: ClusterQueue) -> None:
         """Validate the requested resources dict against the specified queue.
 
         Raises: ValueError
@@ -129,8 +129,7 @@ class Cluster:
         """Adjust task resources based on the scaling factor"""
         pass
 
-    def create_task_resources(self, resource_params: Dict):
-        resource_params = resource_params.get(self.cluster_name)
+    def create_task_resources(self, resource_params: Dict, task_resources_type_id: str):
         queue_name = resource_params.pop("queue")
         queue = self.get_queue(queue_name)
 
@@ -140,11 +139,8 @@ class Cluster:
         except KeyError:
             resource_scales = {}
 
-        # now validate
-        self._validate_requested_resources(resource_params, queue)
-
         task_resource = TaskResources(queue_id=queue.queue_id,
                                       requested_resources=resource_params,
                                       resource_scales=resource_scales,
-                                      task_resources_type_id=TaskResourcesType.VALIDATED)
+                                      task_resources_type_id=task_resources_type_id)
         return task_resource

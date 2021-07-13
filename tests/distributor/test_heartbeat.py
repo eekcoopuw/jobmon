@@ -4,13 +4,19 @@ from jobmon.exceptions import ResumeSet
 
 import pytest
 
-from jobmon.client.task import Task
 from jobmon.client.tool import Tool
 
 
 @pytest.fixture
-def task_template(db_cfg, client_env):
+def tool(db_cfg, client_env):
     tool = Tool()
+    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
+                                                 compute_resources={"queue": "null.q"})
+    return tool
+
+
+@pytest.fixture
+def task_template(tool):
     tt = tool.get_task_template(
         template_name="my_template",
         command_template="{arg}",
@@ -20,30 +26,27 @@ def task_template(db_cfg, client_env):
     )
     return tt
 
+
 class MockDistributorProc:
 
     def is_alive(self):
         return True
 
 
-def test_heartbeat(db_cfg, client_env, task_template):
+def test_heartbeat(tool, db_cfg, client_env, task_template):
     """test that the TaskInstanceDistributor logs a heartbeat in the database"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.requester import Requester
 
-    tool = Tool()
-
-    t1 = task_template.create_task(
-        arg="echo 1", cluster_name="sequential")
+    t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
     workflow = tool.create_workflow(name="my_beating_heart")
     workflow.add_tasks([t1])
-    workflow.bind(cluster_name="sequential",
-                  compute_resources={"queue": "null.q"})
+    workflow.bind()
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                      "sequential", requester=requester)
+                                             "sequential", requester=requester)
     distributor_service.heartbeat()
 
     # check the job finished
@@ -60,24 +63,20 @@ def test_heartbeat(db_cfg, client_env, task_template):
     assert res[0] == 1
 
 
-def test_heartbeat_raises_error(db_cfg, client_env, task_template):
+def test_heartbeat_raises_error(tool, db_cfg, client_env, task_template):
     """test that a heartbeat logged after resume will raise ResumeSet"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.requester import Requester
 
-    tool = Tool()
-
-    t1 = task_template.create_task(
-        arg="echo 1", cluster_name="sequential")
+    t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
     workflow = tool.create_workflow(name="my_heartbeat_error")
     workflow.add_tasks([t1])
-    workflow.bind(cluster_name="sequential",
-                  compute_resources={"queue": "null.q"})
+    workflow.bind()
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                      "sequential", requester=requester)
+                                             "sequential", requester=requester)
     # check the job finished
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -93,21 +92,17 @@ def test_heartbeat_raises_error(db_cfg, client_env, task_template):
         distributor_service.heartbeat()
 
 
-def test_heartbeat_propagate_error(db_cfg, client_env, task_template):
+def test_heartbeat_propagate_error(tool, db_cfg, client_env, task_template):
     """test that a heartbeat logged after resume will raise ResumeSet through
     the message queue and can be re_raised"""
 
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.requester import Requester
 
-    tool = Tool()
-
-    t1 = task_template.create_task(
-        arg="echo 1", cluster_name="sequential")
+    t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
     workflow = tool.create_workflow(name="heartbeat_propagate_error")
     workflow.add_tasks([t1])
-    workflow.bind(cluster_name="sequential",
-                  compute_resources={"queue": "null.q"})
+    workflow.bind()
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)

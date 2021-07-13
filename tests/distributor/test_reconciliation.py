@@ -4,13 +4,19 @@ from jobmon.requester import Requester
 
 import pytest
 
-from jobmon.client.task import Task
 from jobmon.client.tool import Tool
 
 
 @pytest.fixture
-def task_template(db_cfg, client_env):
+def tool(db_cfg, client_env):
     tool = Tool()
+    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
+                                                 compute_resources={"queue": "null.q"})
+    return tool
+
+
+@pytest.fixture
+def task_template(tool):
     tt = tool.get_task_template(
         template_name="my_template",
         command_template="{arg}",
@@ -30,6 +36,7 @@ class MockDistributorProc:
         return True
 
 
+@pytest.mark.skip()
 def test_unknown_state(db_cfg, client_env, task_template, monkeypatch):
     """Creates a job instance, gets an distributor id so it can be in submitted
     to the batch distributor state, and then it will never be run (it will miss
@@ -136,18 +143,15 @@ def test_unknown_state(db_cfg, client_env, task_template, monkeypatch):
     assert len(wfr.all_error) > 0
 
 
-def test_log_distributor_report_by(db_cfg, client_env, task_template, monkeypatch):
+def test_log_distributor_report_by(tool, db_cfg, client_env, task_template, monkeypatch):
     """test that jobs that are queued by an distributor but not running still log
     heartbeats"""
-    from jobmon.cluster_type import sequential
     from jobmon.client.distributor.distributor_service import DistributorService
 
     # patch unwrap from sequential so the command doesn't execute,
     # def mock_unwrap(*args, **kwargs):
     #     pass
     # monkeypatch.setattr(sequential, "unwrap", mock_unwrap)
-
-    tool = Tool()
 
     task = task_template.create_task(
         arg="sleep 5", name="heartbeat_sleeper",
@@ -157,7 +161,7 @@ def test_log_distributor_report_by(db_cfg, client_env, task_template, monkeypatc
     workflow.add_task(task)
 
     # add workflow info to db and then time out.
-    workflow.bind(cluster_name="sequential")
+    workflow.bind()
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)

@@ -70,7 +70,7 @@ class WorkflowRun(object):
                 f"({self.workflow_id}). Found previous workflow_run_id/status: "
                 f"{current_wfr_id}/{current_wfr_status}"
             )
-        self._status = WorkflowRunStatus.LINKING
+        self.status = WorkflowRunStatus.LINKING
         # last heartbeat
         self._last_heartbeat: float = time.time()
 

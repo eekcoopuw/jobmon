@@ -4,10 +4,10 @@ time.
 from __future__ import annotations
 
 import getpass
-import warnings
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
+import warnings
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
@@ -89,6 +89,16 @@ class Tool:
     def active_tool_version(self) -> ToolVersion:
         """Tool version id to use when spawning task templates."""
         return self._active_tool_version
+
+    @property
+    def default_compute_resources_set(self):
+        """Default compute resources associated with active tool version."""
+        return self.active_tool_version.default_compute_resources_set
+
+    @property
+    def default_cluster_name(self):
+        """Default cluster_name associated with active tool version."""
+        return self.active_tool_version.default_cluster_name
 
     def set_active_tool_version_id(self, tool_version_id: Union[str, int]):
         """Tool version that is set as the active one (latest is default during instantiation).
@@ -172,13 +182,87 @@ class Tool:
 
     def create_workflow(self, workflow_args: str = "", name: str = "", description: str = "",
                         workflow_attributes: Optional[Union[List, dict]] = None,
-                        max_concurrently_running: int = 10_000, chunk_size: int = 500
+                        max_concurrently_running: int = 10_000, chunk_size: int = 500,
+                        default_cluster_name: str = "",
+                        default_compute_resources_set: Optional[Dict] = None
                         ) -> Workflow:
-        """Create a workflow object associated with the tool."""
+        """Create a workflow object associated with the active tool version.
+
+        Args:
+            workflow_args: Unique identifier of a workflow.
+            name: Name of the workflow.
+            description: Description of the workflow.
+            workflow_attributes: Any key/value pair that the user wants to record for this
+                workflow
+            max_concurrently_running: How many running jobs to allow in parallel.
+            chunk_size: how many tasks to bind in a single request
+            default_cluster_name: name of cluster to run tasks on by default. Can be overridden
+                at the task template or task level.
+            default_compute_resources_set: dictionary of default compute resources to run tasks
+                with. Can be overridden at task template or task level.
+                dict of {cluster_name: {resource_name: resource_value}}
+        """
+
         wf = Workflow(self.active_tool_version.id, workflow_args, name, description,
                       workflow_attributes, max_concurrently_running, requester=self.requester,
                       chunk_size=chunk_size)
+
+        # set compute resource defaults
+        if default_cluster_name:
+            wf.default_cluster_name = default_cluster_name
+        else:
+            if self.default_cluster_name:
+                wf.default_cluster_name = self.default_cluster_name
+        if default_compute_resources_set:
+            wf.default_compute_resources_set = default_compute_resources_set
+        else:
+            if self.active_tool_version.default_compute_resources_set:
+                wf.default_compute_resources_set = self.default_compute_resources_set
+
         return wf
+
+    def update_default_compute_resources(self, cluster_name: str, **kwargs):
+        """Update default compute resources in place only overridding specified keys.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to modify default values for.
+            **kwargs: any key/value pair you want to update specified as an argument.
+        """
+        if not self.default_cluster_name:
+            self.active_tool_version.default_cluster_name = cluster_name
+        self.active_tool_version.update_default_compute_resources(cluster_name, **kwargs)
+
+    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
+        pass
+
+    def set_default_compute_resources_from_dict(self, cluster_name: str,
+                                                compute_resources: Dict[str, Any]):
+        """Set default compute resources for a given cluster_name.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            compute_resources: dictionary of default compute resources to run tasks
+                with. Can be overridden at task template or task level.
+                dict of {resource_name: resource_value}
+        """
+        if not self.default_cluster_name:
+            self.active_tool_version.default_cluster_name = cluster_name
+        self.active_tool_version.set_default_compute_resources_from_dict(cluster_name,
+                                                                         compute_resources)
+
+    def set_default_cluster_name(self, cluster_name: str):
+        """Set default cluster.
+
+        Args:
+            cluster_name: name of cluster to set as default.
+        """
+        self.active_tool_version.default_cluster_name = cluster_name
 
     def _load_tool_versions(self):
         app_route = f"/client/tool/{self.id}/tool_versions"

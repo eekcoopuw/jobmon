@@ -9,8 +9,15 @@ import pytest
 
 
 @pytest.fixture
-def task_template(db_cfg, client_env):
+def tool(db_cfg, client_env):
     tool = Tool()
+    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
+                                                 compute_resources={"queue": "null.q"})
+    return tool
+
+
+@pytest.fixture
+def task_template(tool):
     tt = tool.get_task_template(
         template_name="simple_template",
         command_template="{arg}",
@@ -21,10 +28,9 @@ def task_template(db_cfg, client_env):
     return tt
 
 
-def test_wfargs_update(task_template):
+def test_wfargs_update(tool, task_template):
     """test that 2 workflows with different names, have different ids and tasks
     """
-    tool = Tool()
 
     # Create identical dags
     t1 = task_template.create_task(arg="sleep 1")
@@ -38,12 +44,12 @@ def test_wfargs_update(task_template):
     wfa1 = "v1"
     wf1 = tool.create_workflow(wfa1)
     wf1.add_tasks([t1, t2, t3])
-    wf1.bind(cluster_name="sequential", compute_resources={"queue": "null.q"})
+    wf1.bind()
 
     wfa2 = "v2"
     wf2 = tool.create_workflow(wfa2)
     wf2.add_tasks([t4, t5, t6])
-    wf2.bind(cluster_name="sequential", compute_resources={"queue": "null.q"})
+    wf2.bind()
 
     # Make sure the second Workflow has a distinct Workflow ID & WorkflowRun ID
     assert wf1.workflow_id != wf2.workflow_id
@@ -60,11 +66,10 @@ def test_wfargs_update(task_template):
                 set([t.task_id for _, t in wf2.tasks.items()]))
 
 
-def test_attempt_resume_on_complete_workflow(task_template):
+def test_attempt_resume_on_complete_workflow(tool, task_template):
     """Should not allow a resume, but should prompt user to create a new
     workflow by modifying the WorkflowArgs (e.g. new version #)
     """
-    tool = Tool()
 
     # Create identical dags
     t1 = task_template.create_task(arg="sleep 1")
@@ -75,7 +80,7 @@ def test_attempt_resume_on_complete_workflow(task_template):
     wf1.add_tasks([t1, t2])
 
     # bind workflow to db and move to done state
-    wf1.bind(cluster_name="sequential", compute_resources={"queue": "null.q"})
+    wf1.bind()
     wfr1 = WorkflowRun(wf1.workflow_id)
     wfr1.bind(wf1.tasks)
     wfr1._update_status(WorkflowRunStatus.INSTANTIATING)
@@ -92,28 +97,27 @@ def test_attempt_resume_on_complete_workflow(task_template):
     workflow2.add_tasks([t1, t2])
 
     # bind workflow to db and move to done state
-    workflow2.bind(cluster_name="sequential", compute_resources={"queue": "null.q"})
+    workflow2.bind()
     with pytest.raises(WorkflowAlreadyComplete):
         workflow2._create_workflow_run()
 
 
-def test_workflow_identical_args(task_template):
+def test_workflow_identical_args(tool, task_template):
     """test that 2 workflows with identical arguments can't exist
     simultaneously"""
-    tool = Tool()
 
     # first workflow runs and finishes
     wf1 = tool.create_workflow(workflow_args="same")
     task = task_template.create_task(arg="sleep 1")
     wf1.add_task(task)
-    wf1.bind(cluster_name="sequential", compute_resources={"queue": "null.q"})
+    wf1.bind()
 
     # tries to create an identical workflow without the restart flag
     wf2 = tool.create_workflow(workflow_args="same")
     task = task_template.create_task(arg="sleep 2")
     wf2.add_task(task)
     with pytest.raises(WorkflowAlreadyExists):
-        wf2.bind(cluster_name="sequential", compute_resources={"queue": "null.q"})
+        wf2.bind()
 
 
 def test_add_same_node_args_twice(client_env):
@@ -134,10 +138,8 @@ def test_add_same_node_args_twice(client_env):
         workflow.add_task(b)
 
 
-def test_numpy_array_node_args(client_env, db_cfg):
+def test_numpy_array_node_args(tool):
     """Test passing an object (set) that is not JSON serializable to node and task args."""
-    from jobmon.client.tool import Tool
-    tool = Tool(name="numpy_test_tool")
     workflow = tool.create_workflow(name="numpy_test_wf")
     template = tool.get_task_template(
         template_name="numpy_test_template",
@@ -150,7 +152,7 @@ def test_numpy_array_node_args(client_env, db_cfg):
         task_arg={3, 4}
     )
     workflow.add_tasks([task])
-    workflow.bind(cluster_name="sequential", compute_resources={"queue": "null.q"})
+    workflow.bind()
     assert workflow.workflow_id
 
 
