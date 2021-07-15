@@ -5,7 +5,6 @@ from typing import Optional
 
 from flask import current_app as app, jsonify, request
 
-from jobmon.constants import QsubAttribute
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.server.web.models.task import Task
@@ -275,8 +274,8 @@ def get_task_instance_error_log(task_instance_id: int):
         task_instance_id=task_instance_id
     ).all()
     DB.session.commit()
-    resp = jsonify(task_instance_error_log=[tiel.to_wire_as_distributor_task_instance_error_log()
-                                            for tiel in ti_errors])
+    resp = jsonify(task_instance_error_log=[tiel.
+                   to_wire_as_distributor_task_instance_error_log() for tiel in ti_errors])
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -366,8 +365,8 @@ def set_maxpss(distributor_id: int, maxpss: int):
         resp.status_code = StatusCodes.OK
         return resp
     except Exception as e:
-        msg = "Error updating maxpss for distributor id {eid}: {error}".format(eid=distributor_id,
-                                                                             error=str(e))
+        msg = "Error updating maxpss for distributor id {eid}: {error}".format(
+            eid=distributor_id, error=str(e))
         app.logger.error(msg)
         raise ServerError(f"Unexpected Jobmon Server Error {sys.exc_info()[0]} in "
                           f"{request.path}", status_code=500) from e
@@ -453,7 +452,8 @@ def add_task_instance():
 def log_no_distributor_id(task_instance_id: int):
     """Log a task_instance_id that did not get an distributor_id upon submission."""
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
-    app.logger.info(f"Logging ti {task_instance_id} did not get distributor id upon submission")
+    app.logger.info(f"Logging ti {task_instance_id} did not get distributor id upon "
+                    f"submission")
     data = request.get_json()
     app.logger.debug(f"Log NO DISTRIBUTOR ID for TI {task_instance_id}."
                      f"Data {data['no_id_err_msg']}")
@@ -472,7 +472,8 @@ def log_no_distributor_id(task_instance_id: int):
     return resp
 
 
-@jobmon_distributor.route('/task_instance/<task_instance_id>/log_distributor_id', methods=['POST'])
+@jobmon_distributor.route('/task_instance/<task_instance_id>/log_distributor_id',
+                          methods=['POST'])
 def log_distributor_id(task_instance_id: int):
     """Log a task_instance's distributor id
     Args:
@@ -497,7 +498,8 @@ def log_distributor_id(task_instance_id: int):
     return resp
 
 
-@jobmon_distributor.route('/task_instance/<task_instance_id>/log_known_error', methods=['POST'])
+@jobmon_distributor.route('/task_instance/<task_instance_id>/log_known_error',
+                          methods=['POST'])
 def log_known_error(task_instance_id: int):
     """Log a task_instance as errored
     Args:

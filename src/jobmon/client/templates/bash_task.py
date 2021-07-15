@@ -130,7 +130,7 @@ class BashTask(Task):
 
         # construct deprecated API for executor_parameters
         if compute_resources is None:
-            compute_resources_final: Dict[str, Dict[str, Any]] = {
+            compute_resources: Dict[str, Dict[str, Any]] = {
                 "num_cores": num_cores,
                 "m_mem_free": m_mem_free,
                 "max_runtime_seconds": max_runtime_seconds,

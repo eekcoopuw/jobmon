@@ -8,8 +8,8 @@ from typing import Dict, List, Optional, Set, Tuple
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_task import SwarmTask
-from jobmon.constants import TaskStatus, WorkflowRunStatus, TaskResourcesType
-from jobmon.exceptions import InvalidResponse, DistributorNotAlive
+from jobmon.constants import TaskResourcesType, TaskStatus, WorkflowRunStatus
+from jobmon.exceptions import DistributorNotAlive, InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 
 
@@ -317,8 +317,8 @@ class WorkflowRun:
             # make sure distributor is still alive or this is all for nothing
             if not self.distributor_alive:
                 raise DistributorNotAlive(
-                    f"Distributor process pid=({self._distributor_proc.pid}) unexpectedly died "
-                    f"with exit code {self._distributor_proc.exitcode}"
+                    f"Distributor process pid=({self._distributor_proc.pid}) unexpectedly died"
+                    f" with exit code {self._distributor_proc.exitcode}"
                 )
 
             # check if we are doing a full sync or a date based sync

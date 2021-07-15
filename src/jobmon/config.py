@@ -5,11 +5,9 @@ from typing import List, Optional
 
 import configargparse
 
-
 CONFIG_FILE_NAME = '.jobmon.ini'
 INSTALLED_CONFIG_FILE = os.path.join(os.path.dirname(__file__), CONFIG_FILE_NAME)
 HOMEDIR_CONFIG_FILE = os.path.join('~/', CONFIG_FILE_NAME)
-
 
 PARSER_KWARGS = {
     'description': 'Jobmon CLI',
@@ -384,8 +382,8 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def distributor_n_queued(parser: configargparse.ArgumentParser
-                           ) -> configargparse.ArgumentParser:
+    def distributor_n_queued(parser: configargparse.ArgumentParser) \
+            -> configargparse.ArgumentParser:
         """How many jobs to distribute in one distributor loop."""
         parser.add_argument(
             '--distributor_n_queued',
@@ -397,8 +395,8 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def distributor_poll_interval(parser: configargparse.ArgumentParser
-                                ) -> configargparse.ArgumentParser:
+    def distributor_poll_interval(parser: configargparse.ArgumentParser) \
+            -> configargparse.ArgumentParser:
         """How long to sleep between distributor loops."""
         parser.add_argument(
             '--distributor_poll_interval',

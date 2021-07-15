@@ -3,8 +3,8 @@ over.
 """
 from __future__ import annotations
 
-from http import HTTPStatus as StatusCodes
 import logging
+from http import HTTPStatus as StatusCodes
 from typing import Any, Dict, Optional, Tuple
 
 from jobmon.client.client_config import ClientConfig
@@ -154,4 +154,12 @@ class ToolVersion:
         self.default_compute_resources_set[cluster_name] = compute_resources
 
     def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
+        """Set default compute resources from a user provided yaml file.
+
+        TODO: Implement this method.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            yaml_file: the yaml file that is providing the compute resource values.
+        """
         pass

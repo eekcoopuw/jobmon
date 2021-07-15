@@ -3,14 +3,14 @@ from typing import Optional
 
 from jobmon.client.distributor.distributor_config import DistributorConfig
 from jobmon.client.distributor.distributor_service import DistributorService
-
 from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.requester import Requester
 
 
 def get_distributor_service(workflow_id: int, workflow_run_id: int,
                             distributor: ClusterDistributor,
-                            distributor_config: Optional[DistributorConfig] = None) -> DistributorService:
+                            distributor_config: Optional[DistributorConfig] = None) \
+        -> DistributorService:
     """Set up and return distributor object."""
     if distributor_config is None:
         distributor_config = DistributorConfig.from_defaults()

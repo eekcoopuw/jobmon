@@ -4,10 +4,10 @@ time.
 from __future__ import annotations
 
 import getpass
-from http import HTTPStatus as StatusCodes
 import logging
-from typing import Any, Dict, List, Optional, Union
 import warnings
+from http import HTTPStatus as StatusCodes
+from typing import Any, Dict, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
@@ -202,7 +202,6 @@ class Tool:
                 with. Can be overridden at task template or task level.
                 dict of {cluster_name: {resource_name: resource_value}}
         """
-
         wf = Workflow(self.active_tool_version.id, workflow_args, name, description,
                       workflow_attributes, max_concurrently_running, requester=self.requester,
                       chunk_size=chunk_size)
@@ -236,6 +235,14 @@ class Tool:
         self.active_tool_version.update_default_compute_resources(cluster_name, **kwargs)
 
     def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
+        """Set default compute resources from a user provided yaml file for tool level.
+
+        TODO: Implement this method.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            yaml_file: the yaml file that is providing the compute resource values.
+        """
         pass
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,

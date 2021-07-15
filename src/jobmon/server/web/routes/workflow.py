@@ -21,7 +21,7 @@ from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import text
 
-from . import jobmon_cli, jobmon_client, jobmon_swarm, jobmon_distributor
+from . import jobmon_cli, jobmon_client, jobmon_distributor, jobmon_swarm
 
 _cli_label_mapping = {
     "A": "PENDING",

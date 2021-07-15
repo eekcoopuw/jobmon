@@ -9,11 +9,11 @@ from flask import current_app as app, jsonify, request
 from jobmon.constants import TaskInstanceStatus, TaskStatus, WorkflowStatus as Statuses
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
-from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_arg import TaskArg
 from jobmon.server.web.models.task_attribute import TaskAttribute
 from jobmon.server.web.models.task_attribute_type import TaskAttributeType
+from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.server_side_exception import InvalidUsage
 
 import pandas as pd
@@ -471,10 +471,6 @@ def bind_task_resources(task_id: int):
     resp.status_code = StatusCodes.OK
     return resp
 
-# this method may replace the original update_resources functionality as queue hopping?
-# @jobmon_swarm.route('/task/<task_id>/<queue_id>/update_resources', methods=['POST'])
-# def update_task_resources(task_id: int, queue_id):
-#     pass
 
 @jobmon_swarm.route('/task/<task_id>/update_resources', methods=['POST'])
 def update_task_resources(task_id: int):

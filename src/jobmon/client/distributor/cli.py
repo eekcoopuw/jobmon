@@ -41,10 +41,8 @@ class DistributorCLI(CLI):
         # TODO: how do we pass in executor args
         if args.command == 'start':
             distributor_service = \
-                get_distributor_service(args.workflow_id,
-                                              args.workflow_run_id,
-                                              distributor,
-                                              distributor_config)
+                get_distributor_service(args.workflow_id, args.workflow_run_id, distributor,
+                                        distributor_config)
             distributor_service.run_distributor()
         else:
             raise ValueError(f"Command {args.command} not supported.")

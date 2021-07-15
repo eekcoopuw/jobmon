@@ -1,15 +1,14 @@
 """Start up distributing process."""
 from typing import Optional
 
-from jobmon.requester import Requester
 from jobmon.worker_node.worker_node_config import WorkerNodeConfig
 from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
 
 
-def get_worker_node_task_instance(task_instance_id: int,
-                 expected_jobmon_version: str,
-                 cluster_type_name: str,
-                 worker_node_config: Optional[WorkerNodeConfig] = None) -> WorkerNodeTaskInstance:
+def get_worker_node_task_instance(task_instance_id: int, expected_jobmon_version: str,
+                                  cluster_type_name: str,
+                                  worker_node_config: Optional[WorkerNodeConfig] = None)\
+        -> WorkerNodeTaskInstance:
     """Set up and return WorkerNodeTaskInstance object."""
     if worker_node_config is None:
         worker_node_config = WorkerNodeConfig.from_defaults()

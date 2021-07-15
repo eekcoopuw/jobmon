@@ -13,16 +13,15 @@ from jobmon.client.client_config import ClientConfig
 from jobmon.client.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.distributor.api import DistributorConfig
-from jobmon.client.distributor.distributor_service import \
-    ExceptionWrapper, DistributorService
+from jobmon.client.distributor.distributor_service import DistributorService, ExceptionWrapper
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
 from jobmon.cluster_type.api import import_cluster
-from jobmon.constants import WorkflowRunStatus, WorkflowStatus, TaskResourcesType
-from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse, ResumeSet,
-                               DistributorNotAlive, DistributorStartupTimeout,
+from jobmon.constants import TaskResourcesType, WorkflowRunStatus, WorkflowStatus
+from jobmon.exceptions import (DistributorNotAlive, DistributorStartupTimeout,
+                               DuplicateNodeArgsError, InvalidResponse, ResumeSet,
                                WorkflowAlreadyComplete, WorkflowAlreadyExists,
                                WorkflowNotResumable)
 from jobmon.requester import Requester, http_request_ok
@@ -224,14 +223,35 @@ class Workflow(object):
             # add the task
             self.add_task(task)
 
-    def set_default_compute_resources_from_yaml(self, yaml_file: str):
+    def set_default_compute_resources_from_yaml(self, cluster_name, yaml_file: str):
+        """Set default compute resources from a user provided yaml file for workflow level.
+
+        TODO: Implement this method.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            yaml_file: the yaml file that is providing the compute resource values.
+        """
         pass
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,
                                                 dictionary: Dict[str, Any]):
+        """Set default compute resources for a given cluster_name.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            dictionary: dictionary of default compute resources to run tasks
+                with. Can be overridden at task template, tool or task level.
+        """
+        # TODO: Do we need to handle the scenario where no cluster name is specified?
         self.default_compute_resources_set[cluster_name] = dictionary
 
     def set_default_cluster_name(self, cluster_name: str):
+        """Set the default cluster.
+
+        Args:
+            cluster_name: name of cluster to set as default.
+        """
         self.default_cluster_name = cluster_name
 
     def run(self, fail_fast: bool = False, seconds_until_timeout: int = 36000,
@@ -440,7 +460,8 @@ class Workflow(object):
 
     def _get_cluster_by_name(self, cluster_name: str) -> Cluster:
         """Check if the cluster that the task specified is in the cache, if not create it and
-        add to cache"""
+        add to cache.
+        """
         try:
             cluster = self._clusters[cluster_name]
         except KeyError:
@@ -655,8 +676,9 @@ class Workflow(object):
             # wait for response from distributor
             resp = self._distributor_com_queue.get(timeout=distributor_startup_wait_timeout)
         except Empty:  # mypy complains but this is correct
-            raise DistributorStartupTimeout("Distributor process did not start within the alloted "
-                                          f"timeout t={distributor_startup_wait_timeout}s")
+            raise DistributorStartupTimeout("Distributor process did not start within the "
+                                            "alloted timeout t={"
+                                            "distributor_startup_wait_timeout}s")
         else:
             # the first message can only be "ALIVE" or an ExceptionWrapper
             if isinstance(resp, ExceptionWrapper):

@@ -47,7 +47,6 @@ class DistributorTaskInstance:
     def from_wire(cls, wire_tuple: tuple, cluster_type_name: str, requester: Requester
                   ) -> DistributorTaskInstance:
         """Create an instance from json that the JQS returns.
-
         Args:
             wire_tuple: tuple representing the wire format for this
                 task. format = serializers.SerializeTask.to_wire()
@@ -58,7 +57,6 @@ class DistributorTaskInstance:
         Returns:
             DistributorTaskInstance
         """
-
         kwargs = SerializeTaskInstance.kwargs_from_wire(wire_tuple)
         ti = cls(task_instance_id=kwargs["task_instance_id"],
                  workflow_run_id=kwargs["workflow_run_id"],
@@ -97,12 +95,10 @@ class DistributorTaskInstance:
                              requester=requester)
 
     def register_no_distributor_id(self, no_id_err_msg: str) -> None:
-        """Register that submission failed with the central service
-
+        """Register that submission failed with the central service.
         no_id_err_msg:
             The error msg from the executor when failed to obtain distributor id
         """
-
         app_route = (
             f'/distributor/task_instance/{self.task_instance_id}/log_no_distributor_id')
         return_code, response = self.requester.send_request(

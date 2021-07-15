@@ -3,9 +3,8 @@ a python script.
 """
 import getpass
 import sys
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
-#from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool
 
@@ -36,7 +35,9 @@ class PythonTask(Task):
                  m_mem_free: Optional[str] = None,
                  hard_limits: bool = False,
                  executor_class: str = 'DummyExecutor',
-                 executor_parameters: Optional[Union[ExecutorParameters, Callable]] = None,
+                 # TODO: Replacee executor_parameters, with compute_resources
+                 executor_parameters: Any = None,
+                 # executor_parameters: Optional[Union[ExecutorParameters, Callable]] = None,
                  tool: Optional[Tool] = None):
         """
         Python Task object can be used by users upgrading from older versions of
@@ -127,17 +128,19 @@ class PythonTask(Task):
 
         # construct deprecated API for executor_parameters
         if executor_parameters is None:
-            executor_parameters = ExecutorParameters(
-                num_cores=num_cores,
-                m_mem_free=m_mem_free,
-                max_runtime_seconds=max_runtime_seconds,
-                queue=queue,
-                j_resource=j_resource,
-                context_args=context_args,
-                resource_scales=resource_scales,
-                hard_limits=hard_limits,
-                executor_class=executor_class
-            )
+            # TODO: replace executor parameters with compute resources
+            executor_parameters = {}
+            # executor_parameters = ExecutorParameters(
+            #     num_cores=num_cores,
+            #     m_mem_free=m_mem_free,
+            #     max_runtime_seconds=max_runtime_seconds,
+            #     queue=queue,
+            #     j_resource=j_resource,
+            #     context_args=context_args,
+            #     resource_scales=resource_scales,
+            #     hard_limits=hard_limits,
+            #     executor_class=executor_class
+            # )
 
         command = command_template.format(**op_args, **node_args)
         id_node_args = {task_template.active_task_template_version.id_name_map[k]: v

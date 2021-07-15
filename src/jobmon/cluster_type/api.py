@@ -1,6 +1,5 @@
 """Mapping to different executors depending on which is being used."""
 import importlib
-
 from typing import Any, Dict
 
 from jobmon.exceptions import UnregisteredClusterType
@@ -17,6 +16,12 @@ _plugins: Dict[str, Any] = {}
 
 
 def register_cluster_plugin(cluster_type_name: str, plugin_module_path: str) -> None:
+    """Add a cluster type to the known clusters cache.
+
+    Args:
+        cluster_type_name: the name of the cluster technology.
+        plugin_module_path: the path to the cluster type plugin module.
+    """
     known_clusters[cluster_type_name] = plugin_module_path
 
 
