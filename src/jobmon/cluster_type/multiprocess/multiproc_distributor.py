@@ -105,6 +105,7 @@ class MultiprocessDistributor(ClusterDistributor):
     def __init__(self, parallelism: int = 10, *args, **kwargs) -> None:
         self.temp_dir: Optional[str] = None
         self.started = False
+        self._worker_node_entry_point = shutil.which("worker_node_entry_point")
         logger.info("Initializing {}".format(self.__class__.__name__))
 
         self._parallelism = parallelism
@@ -123,7 +124,7 @@ class MultiprocessDistributor(ClusterDistributor):
     @property
     def worker_node_entry_point(self):
         """Path to jobmon worker_node_entry_point"""
-        return shutil.which("worker_node_entry_point")
+        return self._worker_node_entry_point
 
 
     @property

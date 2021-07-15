@@ -65,6 +65,7 @@ def test_one_task(task_template):
     assert workflow._last_workflowrun.completed_report[1] == 0
     assert len(workflow._last_workflowrun.all_error) == 0
 
+
 def test_two_tasks_same_command_error(task_template):
     """
     Create a Workflow with two Tasks, with the second task having the same
@@ -119,6 +120,7 @@ def test_three_linear_tasks(task_template):
     assert workflow._last_workflowrun.completed_report[0] == 3
     assert workflow._last_workflowrun.completed_report[1] == 0
     assert len(workflow._last_workflowrun.all_error) == 0
+
 
 def test_fork_and_join_tasks(task_template, tmpdir):
     """
@@ -180,6 +182,7 @@ def test_fork_and_join_tasks(task_template, tmpdir):
     assert workflow._last_workflowrun.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
 
     assert workflow._last_workflowrun.swarm_tasks[task_d.task_id].status == TaskStatus.DONE
+
 
 def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
     """
