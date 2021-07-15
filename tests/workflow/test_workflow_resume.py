@@ -251,60 +251,62 @@ def run_hot_resumable_workflow():
     workflow.run()
 
 
-# def test_hot_resume(db_cfg, client_env):
-#     p1 = Process(target=run_hot_resumable_workflow)
-#     p1.start()
-#
-#     # poll until we determine that the workflow is running
-#     session = db_cfg["DB"].session
-#     with db_cfg["app"].app_context():
-#         status = ""
-#         max_sleep = 180  # 3 min max till test fails
-#         slept = 0
-#
-#         while status != "R" and slept <= max_sleep:
-#             time.sleep(5)
-#             slept += 5
-#
-#             q = """
-#                 SELECT
-#                     workflow.status
-#                 FROM
-#                     workflow
-#                 WHERE
-#                     workflow.name = 'hot_resume'
-#             """
-#             status = session.execute(q).fetchone()
-#             if status is not None:
-#                 status = status[0]
-#
-#     if status != "R":
-#         raise Exception("Workflow never started. Test failed")
-#
-#     # we need to time out early because the original job will never finish
-#     with pytest.raises(RuntimeError):
-#         workflow = hot_resumable_workflow()
-#         workflow.run(resume=True, reset_running_jobs=False, seconds_until_timeout=200)
-#
-#     session = db_cfg["DB"].session
-#     with db_cfg["app"].app_context():
-#         q = """
-#             SELECT
-#                 task.*
-#             FROM
-#                 task
-#             WHERE
-#                 workflow_id = {}
-#         """.format(workflow.workflow_id)
-#         tasks = session.execute(q).fetchall()
-#
-#     task_dict = {}
-#     for task in tasks:
-#         task_dict[task[0]] = task[9]
-#     tasks = list(collections.OrderedDict(sorted(task_dict.items())).values())
-#
-#     assert "R" in list(tuple(tasks))  # the task left hanging by hot resume
-#     assert len([status for status in tasks if status == "D"]) == 5
+def test_hot_resume(db_cfg, client_env):
+    p1 = Process(target=run_hot_resumable_workflow)
+    p1.start()
+
+    # poll until we determine that the workflow is running
+    session = db_cfg["DB"].session
+    with db_cfg["app"].app_context():
+        status = ""
+        max_sleep = 180  # 3 min max till test fails
+        slept = 0
+
+        while status != "R" and slept <= max_sleep:
+            time.sleep(5)
+            slept += 5
+
+            q = """
+                SELECT
+                    workflow.status
+                FROM
+                    workflow
+                WHERE
+                    workflow.name = 'hot_resume'
+            """
+            status = session.execute(q).fetchone()
+            if status is not None:
+                status = status[0]
+
+    if status != "R":
+        raise Exception("Workflow never started. Test failed")
+
+    # we need to time out early because the original job will never finish
+    with pytest.raises(RuntimeError):
+        workflow = hot_resumable_workflow()
+        workflow.bind()
+        workflow.run(resume=True, reset_running_jobs=False, seconds_until_timeout=200)
+
+    session = db_cfg["DB"].session
+    with db_cfg["app"].app_context():
+        q = """
+            SELECT
+                task.*
+            FROM
+                task
+            WHERE
+                workflow_id = {}
+        """.format(workflow.workflow_id)
+        tasks = session.execute(q).fetchall()
+
+    task_dict = {}
+    for task in tasks:
+        task_dict[task[0]] = task[9]
+    tasks = list(collections.OrderedDict(sorted(task_dict.items())).values())
+
+    assert "R" in list(tuple(tasks))  # the task left hanging by hot resume
+    assert len([status for status in tasks if status == "D"]) == 5
+
 
 def test_stopped_resume(db_cfg, client_env, task_template):
     """test that a workflow with two task where the workflow is stopped with a
