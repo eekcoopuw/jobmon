@@ -493,7 +493,7 @@ def update_task_resources(task_id: int):
     """
     app.logger = app.logger.bind(task_id=task_id)
     data = request.get_json()
-    app.logger.info("Update task resource for {task_id}")
+    app.logger.info(f"Update task resource for {task_id}")
     task_resources_type_id = data.get('task_resources_type_id')
 
     try:

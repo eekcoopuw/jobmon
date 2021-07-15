@@ -136,7 +136,10 @@ class Workflow(object):
         # Cache for clusters
         self._clusters: Dict[str, Cluster] = {}
         self.default_cluster_name: str = ""
+        self.default_cluster: Cluster = None
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
+
+        self._last_workflowrun = None
 
     @property
     def is_bound(self):
@@ -238,7 +241,7 @@ class Workflow(object):
             resume: bool = ResumeStatus.DONT_RESUME, reset_running_jobs: bool = True,
             distributor_response_wait_timeout: int = 180,
             distributor_config: Optional[DistributorConfig] = None,
-            resume_timeout: int = 300) -> WorkflowRun:
+            resume_timeout: int = 300) -> WorkflowRunStatus:
         """Run the workflow by traversing the dag and submitting new tasks when their tasks
         have completed successfully.
 
@@ -258,20 +261,8 @@ class Workflow(object):
             resume_timeout: seconds to wait for a workflow to become resumable before giving up
 
         Returns:
-            object of WorkflowRun, can be checked to make sure all jobs ran to completion,
-                checked for status, etc.
+            object of WorkflowRunStatus
         """
-        warnings.warn(
-            "From Jobmon 3.0 on, the return type of Workflow.run will no longer be "
-            "swarm/WorkflowRun. It will be WorkflowRunStatus instead. Please plan "
-            "accordingly.",
-            PendingDeprecationWarning
-        )
-        if not hasattr(self, "_distributor"):
-            logger.debug("using default project: ihme_general")
-            self.set_distributor(project="ihme_general")
-        logger.debug("distributor: {}".format(self._distributor))
-
         # bind to database
         logger.info("Adding Workflow metadata to database")
         self.bind()
@@ -282,6 +273,8 @@ class Workflow(object):
         wfr = self._create_workflow_run(resume, reset_running_jobs, resume_timeout)
         logger.info(f"WorkflowRun ID {wfr.workflow_run_id} assigned")
 
+        self._last_workflowrun = wfr
+
         # testing parameter
         if hasattr(self, "_val_fail_after_n_executions"):
             wfr._set_fail_after_n_executions(self._val_fail_after_n_executions)
@@ -289,17 +282,18 @@ class Workflow(object):
         try:
             # start distributor
             distributor_proc = self._start_distributor_service(
-                wfr.workflow_run_id, distributor_response_wait_timeout, distributor_config
+                wfr.workflow_run_id, distributor_response_wait_timeout,
+                self.default_cluster._cluster_type_name, distributor_config
             )
             # execute the workflow run
             wfr.execute_interruptible(distributor_proc, fail_fast, seconds_until_timeout)
             logger.info(f"WorkflowRun run finished executing. Status is: {wfr.status}")
-            return wfr
+            return wfr.status
 
         except KeyboardInterrupt:
             wfr.update_status(WorkflowRunStatus.STOPPED)
             logger.warning("Keyboard interrupt raised and Workflow Run set to Stopped")
-            return wfr
+            return wfr.status
 
         except DistributorNotAlive:
             # check if we got an exception from the distributor
@@ -329,7 +323,7 @@ class Workflow(object):
             finally:
                 distributor_proc.terminate()
                 self._distributor_proc = None
-                return wfr
+                return wfr.status
 
         except Exception:
             wfr.update_status(WorkflowRunStatus.ERROR)
@@ -391,6 +385,9 @@ class Workflow(object):
         """
         if self.is_bound:
             return
+
+
+        self.default_cluster = self._get_cluster_by_name(self.default_cluster_name)
 
         self.validate()
 
@@ -631,13 +628,12 @@ class Workflow(object):
         tid = DistributorService(
             workflow_id=self.workflow_id,
             workflow_run_id=workflow_run_id,
-            distributor=self._distributor,
+            cluster_name=self.default_cluster_name,
             workflow_run_heartbeat_interval=distributor_config.workflow_run_heartbeat_interval,
-            task_heartbeat_interval=distributor_config.task_heartbeat_interval,
+            task_heartbeat_interval=distributor_config.task_instance_heartbeat_interval,
             heartbeat_report_by_buffer=distributor_config.heartbeat_report_by_buffer,
             n_queued=distributor_config.n_queued,
             distributor_poll_interval=distributor_config.distributor_poll_interval,
-            jobmon_command=distributor_config.jobmon_command,
             requester=self.requester
         )
         self._status = WorkflowStatus.INSTANTIATING

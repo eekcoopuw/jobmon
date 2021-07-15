@@ -4,124 +4,144 @@ from jobmon.constants import TaskStatus, WorkflowRunStatus
 
 import pytest
 
+from jobmon.client.task import Task
+from jobmon.client.tool import Tool
+
+@pytest.fixture
+def tool(db_cfg, client_env):
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
+                                                 compute_resources={"queue": "null.q"})
+    return tool
+
+
+@pytest.fixture
+def task_template(tool):
+    tt = tool.get_task_template(
+        template_name="my_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[]
+    )
+    return tt
+
+
 this_file = os.path.dirname(__file__)
 remote_sleep_and_write = os.path.abspath(os.path.expanduser(
     f"{this_file}/../_scripts/remote_sleep_and_write.py"))
 
 
-def test_empty_workflow(db_cfg, client_env):
+def test_empty_workflow(task_template):
     """
     Create a real_dag with no Tasks. Call all the creation methods and check
     that it raises no Exceptions.
     """
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
 
-    workflow = UnknownWorkflow("test_empty_real_dag",
-                               executor_class="SequentialExecutor")
+    tool = Tool()
+    workflow = tool.create_workflow(name="test_empty_real_dag",
+                                    default_cluster_name="sequential",
+                                    default_compute_resources_set={"sequential": {"queue": "null.q"}})
 
     with pytest.raises(RuntimeError):
+        workflow.bind()
         workflow.run()
 
 
-def test_one_task(db_cfg, client_env):
+def test_one_task(task_template):
     """create a 1 task workflow and confirm it works end to end"""
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.api import BashTask
 
-    workflow = UnknownWorkflow("test_one_task",
-                               executor_class="SequentialExecutor")
-    t1 = BashTask("echo 1", executor_class="SequentialExecutor")
+    tool = Tool()
+    workflow = tool.create_workflow(name="test_one_task",
+                                    default_cluster_name="sequential",
+                                    default_compute_resources_set={"sequential": {"queue": "null.q"}}
+                                    )
+    t1 = task_template.create_task(arg="echo 1")
     workflow.add_tasks([t1])
-    wfr = workflow.run()
-    assert wfr.status == WorkflowRunStatus.DONE
-    assert wfr.completed_report[0] == 1
-    assert wfr.completed_report[1] == 0
-    assert len(wfr.all_error) == 0
+    workflow.bind()
+    wfrs = workflow.run()
+    assert wfrs == WorkflowRunStatus.DONE
+    assert workflow._last_workflowrun.completed_report[0] == 1
+    assert workflow._last_workflowrun.completed_report[1] == 0
+    assert len(workflow._last_workflowrun.all_error) == 0
 
-
-def test_two_tasks_same_command_error(db_cfg, client_env):
+def test_two_tasks_same_command_error(task_template):
     """
     Create a Workflow with two Tasks, with the second task having the same
     hash_name as the first. Make sure that, upon adding the second task to the
     dag, Workflow raises a ValueError
     """
 
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.api import BashTask
-
-    workflow = UnknownWorkflow("test_two_tasks_same_command_error",
-                               executor_class="SequentialExecutor")
-    t1 = BashTask("echo 1", executor_class="SequentialExecutor")
+    tool = Tool()
+    workflow = tool.create_workflow(name="test_two_tasks_same_command_error")
+    t1 = task_template.create_task(
+         arg="echo 1")
     workflow.add_task(t1)
 
-    t1_again = BashTask("echo 1", executor_class="SequentialExecutor")
+    t1_again = task_template.create_task(
+         arg="echo 1")
     with pytest.raises(ValueError):
         workflow.add_task(t1_again)
 
 
-def test_three_linear_tasks(db_cfg, client_env):
+def test_three_linear_tasks(task_template):
     """
     Create and execute a real_dag with three Tasks, one after another:
     a->b->c
     """
 
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.api import BashTask
+    tool = Tool()
+    workflow = tool.create_workflow(name="test_three_linear_tasks",
+                                    default_cluster_name = "sequential",
+                                    default_compute_resources_set = {"sequential": {"queue": "null.q"}}
+                                    )
 
-    workflow = UnknownWorkflow("test_three_linear_tasks",
-                               executor_class="SequentialExecutor")
-
-    task_a = BashTask(
-        "echo a", executor_class="SequentialExecutor",
-        upstream_tasks=[]  # To be clear
+    task_a = task_template.create_task(
+             arg="echo a",
+             upstream_tasks=[]  # To be clear
     )
     workflow.add_task(task_a)
 
-    task_b = BashTask(
-        "echo b", executor_class="SequentialExecutor",
-        upstream_tasks=[task_a]
+    task_b = task_template.create_task(
+             arg="echo b",
+             upstream_tasks=[task_a]
     )
     workflow.add_task(task_b)
 
-    task_c = BashTask("echo c", executor_class="SequentialExecutor")
+    task_c = task_template.create_task(
+             arg="echo c")
     workflow.add_task(task_c)
     task_c.add_upstream(task_b)  # Exercise add_upstream post-instantiation
-    wfr = workflow.run()
+    workflow.bind()
+    wfrs = workflow.run()
 
-    assert wfr.status == WorkflowRunStatus.DONE
-    assert wfr.completed_report[0] == 3
-    assert wfr.completed_report[1] == 0
-    assert len(wfr.all_error) == 0
+    assert wfrs == WorkflowRunStatus.DONE
+    assert workflow._last_workflowrun.completed_report[0] == 3
+    assert workflow._last_workflowrun.completed_report[1] == 0
+    assert len(workflow._last_workflowrun.all_error) == 0
 
-
-def test_fork_and_join_tasks(db_cfg, client_env):
+def test_fork_and_join_tasks(task_template, tmpdir):
     """
     Create a small fork and join real_dag with four phases:
      a->b[0..2]->c[0..2]->d
      and execute it
     """
-    from jobmon.client.workflow import Workflow
-    from jobmon.client.api import BashTask, Tool
-    from jobmon.client.distributor.strategies.multiprocess import \
-        MultiprocessExecutor
 
     tool = Tool()
-    workflow = Workflow(tool_version_id=tool.active_tool_version.id,
-                        name="test_fork_and_join_tasks")
-    executor = MultiprocessExecutor(parallelism=3)
-    workflow.set_executor(executor)
-
-    task_a = BashTask("sleep 1 && echo a",
-                      executor_class="MultiprocessExecutor")
+    workflow = tool.create_workflow(name="test_fork_and_join_tasks",
+                                    default_cluster_name="multiprocess",
+                                    default_compute_resources_set={"multiprocess": {"queue": "null.q"}}
+                                    )
+    task_a = task_template.create_task(arg="sleep 1 && echo a")
     workflow.add_task(task_a)
 
     # The B's all have varying runtimes,
     task_b = {}
     for i in range(3):
         sleep_secs = 5 + i
-        task_b[i] = BashTask(f"sleep {sleep_secs} && echo b",
-                             executor_class="MultiprocessExecutor",
-                             upstream_tasks=[task_a])
+        task_b[i] = task_template.create_task(
+                    arg=f"sleep {sleep_secs} && echo b",
+                    upstream_tasks=[task_a])
         workflow.add_task(task_b[i])
 
     # Each c[i] depends exactly and only on b[i]
@@ -130,58 +150,54 @@ def test_fork_and_join_tasks(db_cfg, client_env):
     task_c = {}
     for i in range(3):
         sleep_secs = 5 - i
-        task_c[i] = BashTask(f"sleep {sleep_secs} && echo c",
-                             executor_class="MultiprocessExecutor",
-                             upstream_tasks=[task_b[i]])
+        task_c[i] = task_template.create_task(
+                    arg=f"sleep {sleep_secs} && echo c",
+                    upstream_tasks=[task_b[i]])
         workflow.add_task(task_c[i])
 
-    task_d = BashTask("sleep 3 && echo d",
-                      executor_class="MultiprocessExecutor",
-                      upstream_tasks=[task_c[i] for i in range(3)])
+    task_d = task_template.create_task(
+             arg=f"sleep 3 && echo d",
+             upstream_tasks=[task_c[i] for i in range(3)])
     workflow.add_task(task_d)
 
-    wfr = workflow.run()
-    assert wfr.status == WorkflowRunStatus.DONE
-    assert wfr.completed_report[0] == 1 + 3 + 3 + 1
-    assert wfr.completed_report[1] == 0
-    assert len(wfr.all_error) == 0
+    workflow.bind()
 
-    assert wfr.swarm_tasks[task_a.task_id].status == TaskStatus.DONE
+    wfrs = workflow.run()
 
-    assert wfr.swarm_tasks[task_b[0].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_b[1].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_b[2].task_id].status == TaskStatus.DONE
+    assert wfrs == WorkflowRunStatus.DONE
+    assert workflow._last_workflowrun.completed_report[0] == 1 + 3 + 3 + 1
+    assert workflow._last_workflowrun.completed_report[1] == 0
+    assert len(workflow._last_workflowrun.all_error) == 0
 
-    assert wfr.swarm_tasks[task_c[0].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_c[1].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_a.task_id].status == TaskStatus.DONE
 
-    assert wfr.swarm_tasks[task_d.task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_b[0].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_b[1].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_b[2].task_id].status == TaskStatus.DONE
 
+    assert workflow._last_workflowrun.swarm_tasks[task_c[0].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_c[1].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
 
-def test_fork_and_join_tasks_with_fatal_error(db_cfg, client_env, tmpdir):
+    assert workflow._last_workflowrun.swarm_tasks[task_d.task_id].status == TaskStatus.DONE
+
+def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
     """
     Create the same small fork and join real_dag.
     One of the b-tasks (#1) fails consistently, so c[1] will never be ready.
     """
     from jobmon.client.workflow import Workflow
-    from jobmon.client.api import PythonTask, Tool
-    from jobmon.client.distributor.strategies.multiprocess import \
-        MultiprocessExecutor
 
     tool = Tool()
-    workflow = Workflow(tool_version_id=tool.active_tool_version.id,
-                        name="test_fork_and_join_tasks_with_fatal_error")
-    executor = MultiprocessExecutor(parallelism=3)
-    workflow.set_executor(executor)
+    workflow = tool.create_workflow(name="test_fork_and_join_tasks_with_fatal_error",
+                                    default_cluster_name="multiprocess",
+                                    default_compute_resources_set={"multiprocess": {"queue": "null.q"}}
+                                    )
 
     a_path = os.path.join(str(tmpdir), "a.out")
-    task_a = PythonTask(
-        script=remote_sleep_and_write,
-        args=["--sleep_secs", "1",
-              "--output_file_path", a_path,
-              "--name", a_path],
-        upstream_tasks=[])
+    task_a = task_template.create_task(
+             arg=f"python {remote_sleep_and_write} --sleep_secs 1 --output_file_path {a_path} --name {a_path}",
+             upstream_tasks=[])
     workflow.add_task(task_a)
 
     task_b = {}
@@ -193,60 +209,56 @@ def test_fork_and_join_tasks_with_fatal_error(db_cfg, client_env, tmpdir):
         else:
             fail_always = ""
 
-        task_b[i] = PythonTask(
-            script=remote_sleep_and_write,
-            args=["--sleep_secs", "1",
-                  "--output_file_path", b_output_file_name,
-                  "--name", b_output_file_name,
-                  fail_always],
-            upstream_tasks=[task_a]
+        task_b[i] = task_template.create_task(
+             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
+                 f"--output_file_path {b_output_file_name} --name {b_output_file_name} "
+                 f"{fail_always}",
+             upstream_tasks=[task_a]
         )
         workflow.add_task(task_b[i])
 
     task_c = {}
     for i in range(3):
         c_output_file_name = os.path.join(str(tmpdir), f"c-{i}.out")
-        task_c[i] = PythonTask(
-            script=remote_sleep_and_write,
-            args=["--sleep_secs", "1",
-                  "--output_file_path", c_output_file_name,
-                  "--name", c_output_file_name],
-            upstream_tasks=[task_b[i]]
+        task_c[i] = task_template.create_task(
+             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
+                 f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
+             upstream_tasks=[task_b[i]]
         )
         workflow.add_task(task_c[i])
 
     d_path = os.path.join(str(tmpdir), "d.out")
-    task_d = PythonTask(
-        script=remote_sleep_and_write,
-        args=["--sleep_secs", "1",
-              "--output_file_path", d_path,
-              "--name", d_path],
-        upstream_tasks=[task_c[i] for i in range(3)]
+    task_d = task_template.create_task(
+             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
+                 f"--output_file_path {d_path} --name {d_path}",
+             upstream_tasks=[task_c[i] for i in range(3)]
     )
     workflow.add_task(task_d)
 
-    wfr = workflow.run()
+    workflow.bind()
 
-    assert wfr.status == WorkflowRunStatus.ERROR
+    wfrs = workflow.run()
+
+    assert wfrs == WorkflowRunStatus.ERROR
     # a, b[0], b[2], c[0], c[2],  but not b[1], c[1], d
-    assert wfr.completed_report[0] == 1 + 2 + 2
-    assert wfr.completed_report[1] == 0
-    assert len(wfr.all_error) == 1  # b[1]
+    assert workflow._last_workflowrun.completed_report[0] == 1 + 2 + 2
+    assert workflow._last_workflowrun.completed_report[1] == 0
+    assert len(workflow._last_workflowrun.all_error) == 1  # b[1]
 
-    assert wfr.swarm_tasks[task_a.task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_a.task_id].status == TaskStatus.DONE
 
-    assert wfr.swarm_tasks[task_b[0].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_b[1].task_id].status == TaskStatus.ERROR_FATAL
-    assert wfr.swarm_tasks[task_b[2].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_b[0].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_b[1].task_id].status == TaskStatus.ERROR_FATAL
+    assert workflow._last_workflowrun.swarm_tasks[task_b[2].task_id].status == TaskStatus.DONE
 
-    assert wfr.swarm_tasks[task_c[0].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_c[1].task_id].status == TaskStatus.REGISTERED
-    assert wfr.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_c[0].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_c[1].task_id].status == TaskStatus.REGISTERED
+    assert workflow._last_workflowrun.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
 
-    assert wfr.swarm_tasks[task_d.task_id].status == TaskStatus.REGISTERED
+    assert workflow._last_workflowrun.swarm_tasks[task_d.task_id].status == TaskStatus.REGISTERED
 
 
-def test_fork_and_join_tasks_with_retryable_error(db_cfg, client_env, tmpdir):
+def test_fork_and_join_tasks_with_retryable_error(task_template, tmpdir):
     """
     Create the same fork and join real_dag with three Tasks a->b[0..3]->c and
     execute it.
@@ -254,23 +266,18 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, client_env, tmpdir):
     the whole real_dag should complete
     """
     from jobmon.client.workflow import Workflow
-    from jobmon.client.api import PythonTask, Tool
-    from jobmon.client.distributor.strategies.multiprocess import \
-        MultiprocessExecutor
 
     tool = Tool()
-    workflow = Workflow(tool_version_id=tool.active_tool_version.id,
-                        name="test_fork_and_join_tasks_with_retryable_error")
-    executor = MultiprocessExecutor(parallelism=3)
-    workflow.set_executor(executor)
+    workflow = tool.create_workflow(name="test_fork_and_join_tasks_with_retryable_error",
+                                    default_cluster_name="multiprocess",
+                                    default_compute_resources_set={"multiprocess": {"queue": "null.q"}}
+                                    )
 
     a_path = os.path.join(str(tmpdir), "a.out")
-    task_a = PythonTask(
-        script=remote_sleep_and_write,
-        args=["--sleep_secs", "1",
-              "--output_file_path", a_path,
-              "--name", a_path],
-        upstream_tasks=[])
+    task_a = task_template.create_task(
+             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
+                 f"--output_file_path {a_path} --name {a_path}",
+             upstream_tasks=[])
     workflow.add_task(task_a)
 
     task_b = {}
@@ -283,60 +290,56 @@ def test_fork_and_join_tasks_with_retryable_error(db_cfg, client_env, tmpdir):
             fail_count = "0"
 
         # task b[1] will fail
-        task_b[i] = PythonTask(
-            script=remote_sleep_and_write,
-            args=["--sleep_secs", "1",
-                  "--output_file_path", b_output_file_name,
-                  "--name", b_output_file_name,
-                  "--fail_count", fail_count],
-            upstream_tasks=[task_a]
+        task_b[i] = task_template.create_task(
+             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
+                 f"--output_file_path {b_output_file_name} --name {b_output_file_name} "
+                 f"--fail_count {fail_count}",
+             upstream_tasks=[task_a]
         )
         workflow.add_task(task_b[i])
 
     task_c = {}
     for i in range(3):
         c_output_file_name = os.path.join(str(tmpdir), f"c-{i}.out")
-        task_c[i] = PythonTask(
-            script=remote_sleep_and_write,
-            args=["--sleep_secs", "1",
-                  "--output_file_path", c_output_file_name,
-                  "--name", c_output_file_name],
-            upstream_tasks=[task_b[i]]
+        task_c[i] = task_template.create_task(
+             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
+                 f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
+             upstream_tasks=[task_b[i]]
         )
         workflow.add_task(task_c[i])
 
     d_path = os.path.join(str(tmpdir), "d.out")
-    task_d = PythonTask(
-        script=remote_sleep_and_write,
-        args=["--sleep_secs", "1",
-              "--output_file_path", d_path,
-              "--name", d_path,
-              "--fail_count", "2"],
+    task_d = task_template.create_task(
+             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
+                 f"--output_file_path {d_path} --name {d_path} "
+                 f"--fail_count 2",
         upstream_tasks=[task_c[i] for i in range(3)]
     )
     workflow.add_task(task_d)
 
-    wfr = workflow.run()
-    assert wfr.status == WorkflowRunStatus.DONE
-    assert wfr.completed_report[0] == 1 + 3 + 3 + 1
-    assert wfr.completed_report[1] == 0
-    assert len(wfr.all_error) == 0
+    workflow.bind()
 
-    assert wfr.swarm_tasks[task_a.task_id].status == TaskStatus.DONE
+    wfrs = workflow.run()
+    assert wfrs == WorkflowRunStatus.DONE
+    assert workflow._last_workflowrun.completed_report[0] == 1 + 3 + 3 + 1
+    assert workflow._last_workflowrun.completed_report[1] == 0
+    assert len(workflow._last_workflowrun.all_error) == 0
 
-    assert wfr.swarm_tasks[task_b[0].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_b[1].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_b[2].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_a.task_id].status == TaskStatus.DONE
 
-    assert wfr.swarm_tasks[task_c[0].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_c[1].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_b[0].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_b[1].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_b[2].task_id].status == TaskStatus.DONE
 
-    assert wfr.swarm_tasks[task_d.task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_c[0].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_c[1].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
+
+    assert workflow._last_workflowrun.swarm_tasks[task_d.task_id].status == TaskStatus.DONE
 
 
 @pytest.mark.qsubs_jobs
-def test_bushy_real_dag(db_cfg, client_env, tmpdir):
+def test_bushy_real_dag(task_template, tmpdir):
     """
     Similar to the a small fork and join real_dag but with connections between
     early and late phases:
@@ -346,23 +349,18 @@ def test_bushy_real_dag(db_cfg, client_env, tmpdir):
        d depends on b
     """
     from jobmon.client.workflow import Workflow
-    from jobmon.client.api import PythonTask, Tool
-    from jobmon.client.distributor.strategies.multiprocess import \
-        MultiprocessExecutor
 
     tool = Tool()
-    workflow = Workflow(tool_version_id=tool.active_tool_version.id,
-                        name="test_fork_and_join_tasks_with_fatal_error")
-    executor = MultiprocessExecutor(parallelism=3)
-    workflow.set_executor(executor)
+    workflow = tool.create_workflow(name="test_fork_and_join_tasks_with_fatal_error",
+                                    default_cluster_name="multiprocess",
+                                    default_compute_resources_set={"multiprocess": {"queue": "null.q"}}
+                                    )
 
     a_path = os.path.join(str(tmpdir), "a.out")
-    task_a = PythonTask(
-        script=remote_sleep_and_write,
-        args=["--sleep_secs", "1",
-              "--output_file_path", a_path,
-              "--name", a_path],
-        upstream_tasks=[])
+    task_a = task_template.create_task(
+             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
+                 f"--output_file_path {a_path} --name {a_path}",
+             upstream_tasks=[])
     workflow.add_task(task_a)
 
     # The B's all have varying runtimes,
@@ -372,12 +370,10 @@ def test_bushy_real_dag(db_cfg, client_env, tmpdir):
         sleep_secs = 5 + i
 
         # task b[1] will fail
-        task_b[i] = PythonTask(
-            script=remote_sleep_and_write,
-            args=["--sleep_secs", sleep_secs,
-                  "--output_file_path", b_output_file_name,
-                  "--name", b_output_file_name],
-            upstream_tasks=[task_a]
+        task_b[i] = task_template.create_task(
+             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
+                 f"--output_file_path {b_output_file_name} --name {b_output_file_name}",
+             upstream_tasks=[task_a]
         )
         workflow.add_task(task_b[i])
 
@@ -388,12 +384,10 @@ def test_bushy_real_dag(db_cfg, client_env, tmpdir):
     for i in range(3):
         sleep_secs = 5 - i
         c_output_file_name = os.path.join(str(tmpdir), f"c-{i}.out")
-        task_c[i] = PythonTask(
-            script=remote_sleep_and_write,
-            args=["--sleep_secs", "1",
-                  "--output_file_path", c_output_file_name,
-                  "--name", c_output_file_name],
-            upstream_tasks=[task_b[i], task_a]
+        task_c[i] = task_template.create_task(
+             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
+                 f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
+             upstream_tasks=[task_b[i], task_a]
         )
         workflow.add_task(task_c[i])
 
@@ -402,16 +396,16 @@ def test_bushy_real_dag(db_cfg, client_env, tmpdir):
     sleep_secs = 3
 
     d_path = os.path.join(str(tmpdir), "d.out")
-    task_d = PythonTask(
-        script=remote_sleep_and_write,
-        args=["--sleep_secs", "1",
-              "--output_file_path", d_path,
-              "--name", d_path],
-        upstream_tasks=b_and_c
+    task_d = task_template.create_task(
+             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
+                 f"--output_file_path {d_path} --name {d_path}",
+             upstream_tasks=b_and_c
     )
     workflow.add_task(task_d)
 
-    wfr = workflow.run()
+    workflow.bind()
+
+    wfrs = workflow.run()
 
     # TODO: How to check that nothing was started before its upstream were
     # done?
@@ -419,37 +413,39 @@ def test_bushy_real_dag(db_cfg, client_env, tmpdir):
     # creation, not qsub status_date is date of last change.
     # Could we listen to job-instance state transitions?
 
-    assert wfr.status == WorkflowRunStatus.DONE
-    assert wfr.completed_report[0] == 1 + 3 + 3 + 1
-    assert wfr.completed_report[1] == 0
-    assert len(wfr.all_error) == 0
+    assert wfrs == WorkflowRunStatus.DONE
+    assert workflow._last_workflowrun.completed_report[0] == 1 + 3 + 3 + 1
+    assert workflow._last_workflowrun.completed_report[1] == 0
+    assert len(workflow._last_workflowrun.all_error) == 0
 
-    assert wfr.swarm_tasks[task_a.task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_a.task_id].status == TaskStatus.DONE
 
-    assert wfr.swarm_tasks[task_b[0].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_b[1].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_b[2].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_b[0].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_b[1].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_b[2].task_id].status == TaskStatus.DONE
 
-    assert wfr.swarm_tasks[task_c[0].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_c[1].task_id].status == TaskStatus.DONE
-    assert wfr.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_c[0].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_c[1].task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
 
-    assert wfr.swarm_tasks[task_d.task_id].status == TaskStatus.DONE
+    assert workflow._last_workflowrun.swarm_tasks[task_d.task_id].status == TaskStatus.DONE
 
 
-def test_workflow_attribute(db_cfg, client_env):
+def test_workflow_attribute(db_cfg, client_env, task_template):
     """Test the workflow attributes feature"""
-    from jobmon.client.api import BashTask
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
     from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
     from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
 
-    wf1 = UnknownWorkflow("test_wf_attributes", executor_class="SequentialExecutor",
-                          workflow_attributes={'location_id': 5, 'year': 2019, 'sex': 1})
+    tool = Tool()
+    wf1 = tool.create_workflow(name="test_wf_attributes",
+                                    default_cluster_name="sequential",
+                                    default_compute_resources_set={"sequential": {"queue": "null.q"}},
+                                    workflow_attributes={'location_id': 5, 'year': 2019, 'sex': 1})
 
-    t1 = BashTask("exit -0", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={}, max_attempts=1)
+    t1 = task_template.create_task(
+         arg="exit -0")
     wf1.add_task(t1)
+    wf1.bind()
     wf1.run()
 
     # check database entries are populated correctly
@@ -474,8 +470,11 @@ def test_workflow_attribute(db_cfg, client_env):
                                       ('age_group_id', '1')])
 
     # Test workflow w/o attributes
-    wf2 = UnknownWorkflow("test_empty_wf_attributes", executor_class="SequentialExecutor")
+    wf2 = tool.create_workflow(name="test_empty_wf_attributes",
+                               default_cluster_name="sequential",
+                               default_compute_resources_set={"sequential": {"queue": "null.q"}})
     wf2.add_task(t1)
+    wf2.bind()
     wf2.run()
 
     with app.app_context():
@@ -485,20 +484,31 @@ def test_workflow_attribute(db_cfg, client_env):
     assert wf_attributes == []
 
 
-def test_chunk_size(db_cfg, client_env):
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.api import Tool, BashTask
-
-    wf_a = UnknownWorkflow("test_wf_chunks_a", chunk_size=3)
-
-    task_a = BashTask(
-        "echo a", executor_class="SequentialExecutor",
-        upstream_tasks=[]  # To be clear
-    )
-    wf_a.add_task(task_a)
+def test_chunk_size(db_cfg, client_env, task_template):
 
     tool = Tool()
-    wf_b = tool.create_workflow("test_wf_chunks_b", chunk_size=10)
+    wf_a = tool.create_workflow(name="test_wf_chunks_a",
+                                    default_cluster_name="sequential",
+                                    default_compute_resources_set={"sequential": {"queue": "null.q"}},
+                                    chunk_size=3)
+
+    task_a = task_template.create_task(
+         arg="echo a",
+         upstream_tasks=[]  # To be clear
+    )
+    wf_a.add_task(task_a)
+    wf_a.bind()
+
+    wf_b = tool.create_workflow(name="test_wf_chunks_b",
+                                default_cluster_name="sequential",
+                                default_compute_resources_set={"sequential": {"queue": "null.q"}},
+                                chunk_size=10)
+    task_b = task_template.create_task(
+        arg="echo b",
+        upstream_tasks=[]  # To be clear
+    )
+    wf_b.add_task(task_b)
+    wf_b.bind()
 
     assert wf_a._chunk_size == 3
     assert wf_b._chunk_size == 10
