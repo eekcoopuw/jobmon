@@ -1,6 +1,7 @@
 """ClusterType table in the database."""
-from jobmon.server.web.models import DB
 from jobmon.serializers import SerializeClusterType
+from jobmon.server.web.models import DB
+
 
 class ClusterType(DB.Model):
     """ClusterType table in the database."""
@@ -16,6 +17,4 @@ class ClusterType(DB.Model):
 
     def to_wire_as_requested_by_client(self):
         """Serialize cluster object."""
-        return SerializeClusterType.to_wire(self.id,
-                                        self.name,
-                                        self.package_location)
+        return SerializeClusterType.to_wire(self.id, self.name, self.package_location)

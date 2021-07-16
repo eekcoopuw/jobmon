@@ -1,7 +1,6 @@
 """Distributes and monitors state of Task Instances."""
 from __future__ import annotations
 
-import os
 import logging
 import multiprocessing as mp
 import sys
@@ -9,15 +8,14 @@ import threading
 import time
 from typing import Dict, List, Optional
 
+from jobmon.client.cluster import Cluster
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
-
+from jobmon.cluster_type.api import import_cluster
 from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable, ResumeSet,\
     WorkflowRunStateError
 from jobmon.requester import Requester, http_request_ok
-from jobmon.cluster_type.api import register_cluster_plugin, import_cluster
-from jobmon.client.cluster import Cluster
 
 import tblib.pickling_support
 
@@ -341,8 +339,8 @@ class DistributorService:
                 if executing_task_instance is not None:
                     executing_task_instance.report_by_date = new_report_by_date
                 else:
-                    logger.warning(f"distributor_id {distributor_id} found in qstat but not in "
-                                   "distributor tracking for submitted or running tasks")
+                    logger.warning(f"distributor_id {distributor_id} found in qstat but not in"
+                                   " distributor tracking for submitted or running tasks")
 
         # remove task instance from tracking if they haven't logged a heartbeat in a while
         current_time = time.time()
@@ -403,7 +401,8 @@ class DistributorService:
         self._to_instantiate = tasks
         return tasks
 
-    def _create_task_instance(self, task: DistributorTask) -> Optional[DistributorTaskInstance]:
+    def _create_task_instance(self, task: DistributorTask) \
+            -> Optional[DistributorTaskInstance]:
         """
         Creates a TaskInstance based on the parameters of Task and tells the
         TaskStateManager to react accordingly.

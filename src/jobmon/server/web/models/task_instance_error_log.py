@@ -12,9 +12,8 @@ class TaskInstanceErrorLog(DB.Model):
 
     def to_wire_as_executor_task_instance_error_log(self):
         """Serialize task instance error log object."""
-        return SerializeTaskInstanceErrorLog.to_wire(self.id,
-                                                             self.error_time,
-                                                             self.description)
+        return SerializeTaskInstanceErrorLog.to_wire(self.id, self.error_time,
+                                                     self.description)
 
     id = DB.Column(DB.Integer, primary_key=True)
     task_instance_id = DB.Column(DB.Integer, DB.ForeignKey('task_instance.id'))

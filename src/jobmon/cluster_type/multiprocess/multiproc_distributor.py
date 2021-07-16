@@ -1,16 +1,15 @@
 """Multiprocess executes tasks in parallel if multiple threads are available."""
 import logging
 import os
-import shutil
 import queue
+import shutil
 import subprocess
 from multiprocessing import JoinableQueue, Process, Queue
 from typing import Dict, List, Optional, Tuple
 
-#from jobmon.client.distributor.strategies.base import (Executor, ExecutorParameters,
-#                                                       TaskInstanceExecutorInfo)
 from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
+from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 import psutil
 
@@ -84,9 +83,8 @@ class PickableTask:
 
 
 class MultiprocessDistributor(ClusterDistributor):
-    """ executes tasks locally in parallel. It uses the multiprocessing Python
+    """Executes tasks locally in parallel. It uses the multiprocessing Python
     library and queues to parallelize the execution of tasks.
-
     The subprocessing pattern looks like this.
         LocalExec
         --> consumer1
@@ -126,11 +124,10 @@ class MultiprocessDistributor(ClusterDistributor):
         """Path to jobmon worker_node_entry_point"""
         return self._worker_node_entry_point
 
-
     @property
     def cluster_type_name(self) -> str:
+        """Return the name of the cluster type."""
         return "multiprocess"
-
 
     def start(self) -> None:
         """Fire up N task consuming processes using Multiprocessing. number of consumers is
@@ -227,7 +224,6 @@ class MultiprocessDistributor(ClusterDistributor):
         self._update_internal_states()
         return list(self._running_or_submitted.keys())
 
-
     def submit_to_batch_distributor(self, command: str, name: str, requested_resources: dict) -> int:
         """Execute a task instance."""
         distributor_id = self._next_distributor_id
@@ -237,11 +233,9 @@ class MultiprocessDistributor(ClusterDistributor):
         self._running_or_submitted.update({distributor_id: None})
         return distributor_id
 
-
     def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
         """Get the task instances that have errored out."""
         raise NotImplementedError
-
 
     def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
@@ -276,7 +270,6 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
         """Exit code and message."""
         msg = f"Got exit_code: {exit_code}. Error message was: {error_msg}"
         return TaskInstanceStatus.ERROR, msg
-
 
     def get_usage_stats(self) -> Dict:
         """Usage information specific to the distributor."""

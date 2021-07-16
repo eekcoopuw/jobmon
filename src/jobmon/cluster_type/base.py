@@ -8,6 +8,7 @@ from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 
 class ClusterQueue(Protocol):
+    """The protocol class for queues on a cluster."""
 
     @abstractmethod
     def __init__(self, queue_id: int, queue_name: str, parameters: Dict):
@@ -15,30 +16,36 @@ class ClusterQueue(Protocol):
 
     @abstractmethod
     def validate_resource(self, resource: str, value: Any, fail=False) -> str:
+        """Ensures that requested resources aren't greater than what's available."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def parameters(self):
+        """Returns the dictionary of parameters."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def queue_name(self):
+        """Returns the name of the queue."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def queue_id(self):
+        """Returns the ID of the queue."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def required_resources(self):
+        """Returns the list of resources that are required."""
         raise NotImplementedError
 
 
 class ClusterDistributor(Protocol):
+    """The protocol class for cluster distributors."""
 
     @property
     @abstractmethod
@@ -49,6 +56,7 @@ class ClusterDistributor(Protocol):
     @property
     @abstractmethod
     def cluster_type_name(self) -> str:
+        """Return the name of the cluster type."""
         raise NotImplementedError
 
     @abstractmethod

@@ -1,9 +1,8 @@
 """The Task Instance Object once it has been submitted to run on a worker node."""
 import logging
 import os
-import socket
-import shlex
 import signal
+import socket
 import subprocess
 import sys
 import traceback
@@ -15,7 +14,7 @@ from time import sleep, time
 from typing import Dict, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.cluster_type.api import register_cluster_plugin, import_cluster
+from jobmon.cluster_type.api import import_cluster, register_cluster_plugin
 from jobmon.cluster_type.base import ClusterWorkerNode
 from jobmon.exceptions import InvalidResponse, ReturnCodes
 from jobmon.requester import Requester, http_request_ok
@@ -55,8 +54,8 @@ class WorkerNodeTaskInstance:
 
         self.executor = self._get_worker_node(cluster_type_name)
 
-    def _get_worker_node(self, cluster_type_name: str, **worker_node_kwargs) -> ClusterWorkerNode:
-
+    def _get_worker_node(self, cluster_type_name: str, **worker_node_kwargs) \
+            -> ClusterWorkerNode:
         """Lookup ClusterType, getting package_location back."""
         app_route = f'/client/cluster_type/{cluster_type_name}'
         return_code, response = self.requester.send_request(
@@ -227,11 +226,11 @@ class WorkerNodeTaskInstance:
             logger.debug("task instance does not need to kill itself")
             return False
 
-    def run(self, temp_dir: Optional[str] = None,
-               heartbeat_interval: float = 90, report_by_buffer: float = 3.1) -> ReturnCodes:
-        """This script executes on the target node and wraps the target application. Could be in
-        any language, anything that can execute on linux.Similar to a stub or a container set ENV
-        variables in case tasks need to access them.
+    def run(self, temp_dir: Optional[str] = None, heartbeat_interval: float = 90,
+            report_by_buffer: float = 3.1) -> ReturnCodes:
+        """This script executes on the target node and wraps the target application. Could be
+        in any language, anything that can execute on linux.Similar to a stub or a container
+        set ENV variables in case tasks need to access them.
         """
         os.environ["JOBMON_JOB_INSTANCE_ID"] = str(self.task_instance_id)
 
@@ -242,12 +241,12 @@ class WorkerNodeTaskInstance:
             logger.error(msg)
             sys.exit(ReturnCodes.WORKER_NODE_ENV_FAILURE)
 
-        # if it logs running and is in the 'W' or 'U' state then it will go
+        # If it logs running and is in the 'W' or 'U' state then it will go
         # through the full process of trying to change states and receive a
         # special exception to signal that it can't run and should kill itself
         rc, kill, command = self.log_running(next_report_increment=(
             heartbeat_interval * report_by_buffer))
-        if kill == 'True': #TODO: possibly incorrect; check to see if it should be 'kill self'.
+        if kill == 'True':  # TODO: possibly incorrect;check to see if it should be 'kill self'
             kill_self()
 
         try:
@@ -346,4 +345,3 @@ def _run_in_sub_process(command: str, temp_dir: Optional[str], heartbeat_interva
             last_heartbeat_time = time()
         sleep(0.5)  # don't thrash CPU by polling as fast as possible
     return err_q, proc.returncode
-

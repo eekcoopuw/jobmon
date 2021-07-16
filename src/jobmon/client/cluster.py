@@ -1,3 +1,4 @@
+"""Cluster objects define where a user wants their tasks run. e.g. UGE, Azure, Seq"""
 from __future__ import annotations
 
 import logging
@@ -5,9 +6,8 @@ from typing import Any, Dict, Optional
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_resources import TaskResources
-from jobmon.cluster_type.api import register_cluster_plugin, import_cluster
+from jobmon.cluster_type.api import import_cluster, register_cluster_plugin
 from jobmon.cluster_type.base import ClusterQueue
-from jobmon.constants import TaskResourcesType
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeCluster, SerializeQueue
@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 
 class Cluster:
+    """Cluster objects define where a user wants their tasks run. e.g. UGE, Azure, Seq"""
 
     def __init__(self, cluster_name: str, requester: Optional[Requester] = None) -> None:
         self.cluster_name = cluster_name
@@ -74,11 +75,20 @@ class Cluster:
 
     @property
     def plugin(self):
+        """If the cluster is bound, return the cluster interface for a given type of cluster"""
         if not self.is_bound:
             raise AttributeError("Cannot access plugin until Cluster is bound to database")
         return import_cluster(self._cluster_type_name)
 
     def get_queue(self, queue_name: str) -> ClusterQueue:
+        """Get the ClusterQueue object associated with a given queue_name.
+
+        Checks if queue object is in the cache, if it's not it will query the database and add
+        the queue object to the cache.
+
+        Args:
+            queue_name: name of the queue you want.
+        """
         # this is cached so should be fast
         try:
             queue = self.queues[queue_name]
@@ -130,6 +140,7 @@ class Cluster:
         pass
 
     def create_task_resources(self, resource_params: Dict, task_resources_type_id: str):
+        """Construct a TaskResources object with the specified resource parameters."""
         queue_name = resource_params.pop("queue")
         queue = self.get_queue(queue_name)
 

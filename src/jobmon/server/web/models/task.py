@@ -1,7 +1,7 @@
 """Task Table for the Database."""
 from flask import current_app as app
 
-from jobmon.serializers import SerializeTask, SerializeSwarmTask
+from jobmon.serializers import SerializeSwarmTask, SerializeTask
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus

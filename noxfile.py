@@ -58,14 +58,18 @@ def performance(session: Session) -> None:
 
 @nox.session(python=python, venv_backend="conda")
 def lint(session: Session) -> None:
-    """Lint code using various plugins."""
+    """Lint code using various plugins.
+
+    flake8 - a Python library that wraps PyFlakes, pycodestyle and McCabe script
+    flake8-import-order - checks the ordering of your imports
+    flake8-docstrings - extension for flake8 which uses pydocstyle to check docstrings
+    """
     args = session.posargs or src_locations + test_locations
     # TODO: work these in over time?
     # "flake8-black",
-    # "flake8-import-order",
     # "flake8-annotations",
-    # "flake8-docstrings",
     # "darglint",
+    # "flake8-bandit"
     session.install("flake8",
                     "flake8-import-order",
                     "flake8-docstrings")
