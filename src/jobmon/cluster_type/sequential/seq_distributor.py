@@ -42,13 +42,14 @@ class SequentialDistributor(ClusterDistributor):
             exit_info_queue_size: how many exit codes to retain
         """
         self.started = False
+        self._worker_node_entry_point = shutil.which("worker_node_entry_point")
         self._next_distributor_id = 1
         self._exit_info = LimitedSizeDict(size_limit=exit_info_queue_size)
 
     @property
     def worker_node_entry_point(self):
         """Path to jobmon worker_node_entry_point"""
-        return shutil.which("worker_node_entry_point")
+        return self._worker_node_entry_point
 
     @property
     def cluster_type_name(self) -> str:

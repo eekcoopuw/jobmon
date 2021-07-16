@@ -103,6 +103,7 @@ class MultiprocessDistributor(ClusterDistributor):
     def __init__(self, parallelism: int = 10, *args, **kwargs) -> None:
         self.temp_dir: Optional[str] = None
         self.started = False
+        self._worker_node_entry_point = shutil.which("worker_node_entry_point")
         logger.info("Initializing {}".format(self.__class__.__name__))
 
         self._parallelism = parallelism
@@ -117,6 +118,11 @@ class MultiprocessDistributor(ClusterDistributor):
 
         # workers
         self.consumers: List[Consumer] = []
+
+    @property
+    def worker_node_entry_point(self):
+        """Path to jobmon worker_node_entry_point"""
+        return self._worker_node_entry_point
 
     @property
     def cluster_type_name(self) -> str:
@@ -217,20 +223,15 @@ class MultiprocessDistributor(ClusterDistributor):
         self._update_internal_states()
         return list(self._running_or_submitted.keys())
 
-    def submit_to_batch_distributor(self, command: str, name: str, requested_resources: dict) \
+    def submit_to_batch_distributor(self, command: str, name: str, requested_resources: dict)\
             -> int:
         """Execute a task instance."""
         distributor_id = self._next_distributor_id
         self._next_distributor_id += 1
-        # task = PickableTask(distributor_id, self.jobmon_command + " " + command)
-        task = PickableTask(distributor_id, command)
+        task = PickableTask(distributor_id, self.worker_node_entry_point + " " + command)
         self.task_queue.put(task)
         self._running_or_submitted.update({distributor_id: None})
         return distributor_id
-
-    def worker_node_wrapper_executable(self):
-        """Path to jobmon worker node executable"""
-        return self.worker_node_entry_point
 
     def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
         """Get the task instances that have errored out."""
@@ -239,11 +240,6 @@ class MultiprocessDistributor(ClusterDistributor):
     def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
-
-    @property
-    def worker_node_entry_point(self):
-        """Path to jobmon worker_node_entry_point"""
-        return shutil.which("worker_node_entry_point")
 
     def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
         """Check status of running task."""

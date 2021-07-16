@@ -8,6 +8,30 @@ from jobmon.constants import WorkflowRunStatus
 
 import pytest
 
+from jobmon.client.task import Task
+from jobmon.client.tool import Tool
+
+
+@pytest.fixture
+def tool(db_cfg, client_env):
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
+                                                 compute_resources={"queue": "null.q"})
+    return tool
+
+
+@pytest.fixture
+def task_template(tool):
+    tt = tool.get_task_template(
+        template_name="my_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[]
+    )
+    return tt
+
+
 logger = logging.getLogger(__name__)
 
 
@@ -17,17 +41,18 @@ class MockDistributorProc:
         return True
 
 
-def test_blocking_update_timeout(client_env):
+def test_blocking_update_timeout(client_env, task_template):
     """This test runs a 1 task workflow and confirms that the workflow_run
     distributor will timeout with an appropriate error message if timeout is set
     """
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.api import BashTask
 
-    task = BashTask("sleep 3", executor_class="SequentialExecutor",
-                    name="foobarbaz")
-    workflow = UnknownWorkflow("my_simple_dag",
-                               executor_class="SequentialExecutor")
+    tool = Tool()
+    task = task_template.create_task(
+           arg="sleep 3",
+           name="foobarbaz")
+    workflow = tool.create_workflow(name="my_simple_dag",
+                                    default_cluster_name="sequential",
+                                    default_compute_resources_set={"sequential": {"queue": "null.q"}})
     workflow.add_tasks([task])
     workflow.bind()
     wfr = workflow._create_workflow_run()
@@ -46,18 +71,19 @@ def test_blocking_update_timeout(client_env):
     assert expected_msg == str(error.value)
 
 
-def test_sync(client_env):
+def test_sync(client_env, task_template):
     """this test executes a single task workflow where the task fails. It
     is testing to confirm that the status updates are propagated into the
     swarm objects"""
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.api import BashTask
     from jobmon.client.distributor.distributor_service import DistributorService
 
-    task = BashTask(command="fizzbuzz", name="bar", max_attempts=1)
+    tool = Tool()
+    task = task_template.create_task(
+           arg="fizzbuzz", name="bar", max_attempts=1)
 
-    workflow = UnknownWorkflow("my_simple_dag",
-                               executor_class="SequentialExecutor")
+    workflow = tool.create_workflow(name="my_simple_dag",
+                                    default_cluster_name="sequential",
+                                    default_compute_resources_set={"sequential": {"queue": "null.q"}})
     workflow.add_tasks([task])
     workflow.bind()
     wfr = workflow._create_workflow_run()
@@ -66,15 +92,15 @@ def test_sync(client_env):
     assert now is not None
 
     requester = Requester(client_env)
-    distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester=requester)
+    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
+                                             "sequential", requester=requester)
 
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockDistributorProc(),
                                   seconds_until_timeout=2)
 
-    distributor._get_tasks_queued_for_instantiation()
-    distributor.distribute()
+    distributor_service._get_tasks_queued_for_instantiation()
+    distributor_service.distribute()
 
     time.sleep(1)
     wfr._parse_adjusting_done_and_errors(wfr._task_status_updates())
@@ -85,7 +111,7 @@ def test_sync(client_env):
 
 
 @pytest.mark.skip(reason="need executor plugin interface")
-def test_wedged_dag(monkeypatch, client_env, db_cfg):
+def test_wedged_dag(monkeypatch, client_env, db_cfg, task_template):
     """This test runs a 3 task dag where one of the tasks updates it status
     without updating its status date. This would cause the normal pathway of
     status collection in the workflow run to fail. Instead the test uses the
@@ -222,80 +248,70 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg):
     assert list(completed)[0].task_id == t3.task_id
 
 
-def test_fail_fast(client_env):
+def test_fail_fast(client_env, task_template):
     """set up a dag where a middle job fails. The fail_fast parameter should
     ensure that not all tasks finish"""
-    from jobmon.client.api import BashTask, Tool
-    from jobmon.client.distributor.strategies.sequential import \
-        SequentialExecutor
 
     # The sleep for t3 must be long so that the executor has time to notice that t2
     # died and react accordingly.
-    unknown_tool = Tool()
-    workflow = unknown_tool.create_workflow(name="test_fail_fast")
-    t1 = BashTask("sleep 1", executor_class="SequentialExecutor")
-    t2 = BashTask("erroring_out 1", upstream_tasks=[t1],
-                  executor_class="SequentialExecutor")
-    t3 = BashTask("sleep 20", upstream_tasks=[t1],
-                  executor_class="SequentialExecutor")
-    t4 = BashTask("sleep 3", upstream_tasks=[t3],
-                  executor_class="SequentialExecutor")
-    t5 = BashTask("sleep 4", upstream_tasks=[t4],
-                  executor_class="SequentialExecutor")
+    tool = Tool()
+    workflow = tool.create_workflow(name="test_fail_fast",
+                                    default_cluster_name="sequential",
+                                    default_compute_resources_set={"sequential": {"queue": "null.q"}})
+    t1 = task_template.create_task(arg="sleep 1")
+    t2 = task_template.create_task(arg="erroring_out 1", upstream_tasks=[t1])
+    t3 = task_template.create_task(arg="sleep 20", upstream_tasks=[t1])
+    t4 = task_template.create_task(arg="sleep 3", upstream_tasks=[t3])
+    t5 = task_template.create_task(arg="sleep 4", upstream_tasks=[t4])
 
     workflow.add_tasks([t1, t2, t3, t4, t5])
-    workflow.set_executor(SequentialExecutor())
+    workflow.bind()
     wfr = workflow.run(fail_fast=True)
 
-    assert len(wfr.all_error) == 1
-    assert len(wfr.all_done) >= 1
-    assert len(wfr.all_done) <= 3
+    assert len(workflow._last_workflowrun.all_error) == 1
+    assert len(workflow._last_workflowrun.all_done) >= 1
+    assert len(workflow._last_workflowrun.all_done) <= 3
 
 
-def test_propagate_result(client_env):
+def test_propagate_result(client_env, task_template):
     """set up workflow with 3 tasks on one layer and 3 tasks as dependant"""
-    from jobmon.client.api import BashTask, Tool
-    from jobmon.client.distributor.strategies.sequential import \
-        SequentialExecutor
 
-    unknown_tool = Tool()
-    workflow = unknown_tool.create_workflow(name="test_propagate_result")
+    tool = Tool()
+    workflow = tool.create_workflow(name="test_propagate_result",
+                                    default_cluster_name="sequential",
+                                    default_compute_resources_set={"sequential": {"queue": "null.q"}})
 
-    t1 = BashTask("echo 1", executor_class="SequentialExecutor")
-    t2 = BashTask("echo 2", executor_class="SequentialExecutor")
-    t3 = BashTask("echo 3", executor_class="SequentialExecutor")
-    t4 = BashTask("echo 4", upstream_tasks=[t1, t2, t3],
-                  executor_class="SequentialExecutor")
-    t5 = BashTask("echo 5", upstream_tasks=[t1, t2, t3],
-                  executor_class="SequentialExecutor")
-    t6 = BashTask("echo 6", upstream_tasks=[t1, t2, t3],
-                  executor_class="SequentialExecutor")
+    t1 = task_template.create_task(arg="echo 1")
+    t2 = task_template.create_task(arg="echo 2")
+    t3 = task_template.create_task(arg="echo 3")
+    t4 = task_template.create_task(arg="echo 4", upstream_tasks=[t1, t2, t3])
+    t5 = task_template.create_task(arg="echo 5", upstream_tasks=[t1, t2, t3])
+    t6 = task_template.create_task(arg="echo 6", upstream_tasks=[t1, t2, t3])
     workflow.add_tasks([t1, t2, t3, t4, t5, t6])
-    workflow.set_executor(SequentialExecutor())
-    wfr = workflow.run(seconds_until_timeout=300)
+    workflow.bind()
+    wfrs = workflow.run(seconds_until_timeout=300)
 
-    assert len(wfr.all_done) == 6
-    keys = list(wfr.swarm_tasks.keys())
-    assert wfr.swarm_tasks[keys[3]].num_upstreams_done >= 3
-    assert wfr.swarm_tasks[keys[4]].num_upstreams_done >= 3
-    assert wfr.swarm_tasks[keys[5]].num_upstreams_done >= 3
+    assert wfrs == WorkflowRunStatus.DONE
+    assert len(workflow._last_workflowrun.all_done) == 6
+    keys = list(workflow._last_workflowrun.swarm_tasks.keys())
+    assert workflow._last_workflowrun.swarm_tasks[keys[3]].num_upstreams_done >= 3
+    assert workflow._last_workflowrun.swarm_tasks[keys[4]].num_upstreams_done >= 3
+    assert workflow._last_workflowrun.swarm_tasks[keys[5]].num_upstreams_done >= 3
 
 
-def test_instantiating_launched(db_cfg, client_env):
+def test_instantiating_launched(db_cfg, client_env, task_template):
     """Check that the workflow and WFR are moving through appropriate states"""
-    from jobmon.client.api import Tool, BashTask
     from jobmon.requester import Requester
     from jobmon.client.client_config import ClientConfig
-    from jobmon.client.distributor.strategies.sequential import \
-        SequentialExecutor
     from jobmon.constants import WorkflowRunStatus, WorkflowStatus
 
-    unknown_tool = Tool()
-    workflow = unknown_tool.create_workflow(name="test_instantiated_launched")
+    tool = Tool()
+    workflow = tool.create_workflow(name="test_instantiated_launched",
+                                    default_cluster_name="sequential",
+                                    default_compute_resources_set={"sequential": {"queue": "null.q"}})
 
-    t1 = BashTask("echo 1", executor_class="SequentialExecutor")
+    t1 = task_template.create_task(arg="echo 1")
     workflow.add_task(t1)
-    workflow.set_executor(SequentialExecutor())
 
     # Bind, and check state
     workflow.bind()
@@ -363,7 +379,7 @@ def test_instantiating_launched(db_cfg, client_env):
 
     # Start the distributor
     workflow._start_distributor_service(
-        wfr2.workflow_run_id, 180)
+        wfr2.workflow_run_id, 180, workflow.default_cluster._cluster_type_name)
 
     with app.app_context():
         res = DB.session.execute(
