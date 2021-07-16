@@ -218,13 +218,13 @@ class MultiprocessDistributor(ClusterDistributor):
         for task in current_work:
             self.task_queue.put(task)
 
-
     def get_actual_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
         """Get tasks that are active."""
         self._update_internal_states()
         return list(self._running_or_submitted.keys())
 
-    def submit_to_batch_distributor(self, command: str, name: str, requested_resources: dict) -> int:
+    def submit_to_batch_distributor(self, command: str, name: str, requested_resources: dict)\
+            -> int:
         """Execute a task instance."""
         distributor_id = self._next_distributor_id
         self._next_distributor_id += 1
@@ -240,7 +240,6 @@ class MultiprocessDistributor(ClusterDistributor):
     def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
-
 
     def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
         """Check status of running task."""

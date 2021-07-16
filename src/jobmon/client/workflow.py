@@ -3,7 +3,6 @@ import hashlib
 import logging
 import time
 import uuid
-import warnings
 from multiprocessing import Event, Process, Queue
 from multiprocessing import synchronize
 from queue import Empty
@@ -405,7 +404,6 @@ class Workflow(object):
         """
         if self.is_bound:
             return
-
 
         self.default_cluster = self._get_cluster_by_name(self.default_cluster_name)
 
