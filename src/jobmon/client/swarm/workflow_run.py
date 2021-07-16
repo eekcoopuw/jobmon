@@ -99,25 +99,6 @@ class WorkflowRun:
                 f'code 200. Response content: {response}')
         self._status = status
 
-    def execute_interruptible(self, distributor_proc: Process, fail_fast: bool = False,
-                              seconds_until_timeout: int = 36000):
-        """Execute the workflow run."""
-        # _block_until_any_done_or_error continually checks to make sure this
-        # process is alive
-        self._distributor_proc = distributor_proc
-
-        keep_running = True
-        while keep_running:
-            try:
-                return self._execute(fail_fast, seconds_until_timeout)
-            except KeyboardInterrupt:
-                confirm = input("Are you sure you want to exit (y/n): ")
-                confirm = confirm.lower().strip()
-                if confirm == "y":
-                    raise
-                else:
-                    logger.info("Continuing jobmon distributor...")
-
     def terminate_workflow_run(self) -> None:
         """Terminate the workflow run."""
         app_route = f'/client/workflow_run/{self.workflow_run_id}/terminate'
@@ -159,9 +140,9 @@ class WorkflowRun:
                 f'code 200. Response content: {response}')
         return response["time"]
 
-    def _execute(self, fail_fast: bool = False,
-                 seconds_until_timeout: int = 36000,
-                 wedged_workflow_sync_interval: int = 600):
+    def run_swarm(self, fail_fast: bool = False,
+                  seconds_until_timeout: int = 36000,
+                  wedged_workflow_sync_interval: int = 600):
         """
         Take a concrete DAG and queue al the Tasks that are not DONE.
 
@@ -218,10 +199,13 @@ class WorkflowRun:
                 if swarm_task.is_done:
                     raise RuntimeError("Invalid DAG. Encountered a DONE node")
                 else:
-                    logger.debug(f"Instantiating resources for newly ready  task and "
+                    logger.debug(f"Instantiating resources for newly ready task and "
                                  f"changing it to the queued state. Task: {swarm_task},"
                                  f" id: {swarm_task.task_id}")
-                    self._adjust_resources_and_queue(swarm_task)
+                    if swarm_task.task_resources is None:
+                        yield swarm_task
+                    swarm_task.queue_task()
+                    # self._adjust_resources_and_queue(swarm_task)
 
             # TBD timeout?
             # An exception is raised if the runtime exceeds the timeout limit

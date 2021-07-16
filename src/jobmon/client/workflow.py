@@ -16,7 +16,7 @@ from jobmon.client.distributor.api import DistributorConfig
 from jobmon.client.distributor.distributor_service import \
     ExceptionWrapper, DistributorService
 from jobmon.client.swarm.swarm_task import SwarmTask
-from jobmon.client.swarm.workflow_run import WorkflowRun
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
 from jobmon.cluster_type.api import import_cluster
@@ -288,7 +288,7 @@ class Workflow(object):
 
         try:
             # start distributor
-            distributor_proc = self._start_distributor_service(
+            self._distributor_proc = self._start_distributor_service(
                 wfr.workflow_run_id, distributor_response_wait_timeout, distributor_config
             )
             # execute the workflow run
@@ -485,7 +485,7 @@ class Workflow(object):
 
     def _create_workflow_run(self, resume: bool = ResumeStatus.DONT_RESUME,
                              reset_running_jobs: bool = True,
-                             resume_timeout: int = 300) -> WorkflowRun:
+                             resume_timeout: int = 300) -> ClientWorkflowRun:
         # raise error if workflow exists and is done
         if self._status == WorkflowStatus.DONE:
             raise WorkflowAlreadyComplete(
@@ -510,6 +510,10 @@ class Workflow(object):
         client_wfr.bind(self.tasks, reset_running_jobs, self._chunk_size)
         self._status = WorkflowStatus.QUEUED
 
+        return client_wfr
+
+    def _create_swarm(self, workflow_run_id: int) -> SwarmWorkflowRun:
+
         # create swarm workflow run
         swarm_tasks: Dict[int, SwarmTask] = {}
         for task in self.tasks.values():
@@ -532,14 +536,33 @@ class Workflow(object):
             swarm_task.downstream_swarm_tasks = set([
                 swarm_tasks[t.task_id] for t in task.downstream_tasks])
 
-        wfr = WorkflowRun(
-            workflow_id=client_wfr.workflow_id,
-            workflow_run_id=client_wfr.workflow_run_id,
+        wfr = SwarmWorkflowRun(
+            workflow_id=self.workflow_id,
+            workflow_run_id=workflow_run_id,
             swarm_tasks=swarm_tasks,
             requester=self.requester
         )
-
         return wfr
+
+    def _monitor_swarm(self, workflow_run_id: int, distributor_proc: Process,
+                       fail_fast: bool = False, seconds_until_timeout: int = 36000):
+
+        """Execute the workflow run."""
+        # _block_until_any_done_or_error continually checks to make sure this
+        # process is alive
+        self._distributor_proc = distributor_proc
+
+        keep_running = True
+        while keep_running:
+            try:
+                return self._execute(fail_fast, seconds_until_timeout)
+            except KeyboardInterrupt:
+                confirm = input("Are you sure you want to exit (y/n): ")
+                confirm = confirm.lower().strip()
+                if confirm == "y":
+                    raise
+                else:
+                    logger.info("Continuing jobmon distributor...")
 
     def _matching_wf_args_diff_hash(self):
         """Check that an existing workflow with the same workflow_args does not have a
@@ -655,14 +678,14 @@ class Workflow(object):
             # wait for response from distributor
             resp = self._distributor_com_queue.get(timeout=distributor_startup_wait_timeout)
         except Empty:  # mypy complains but this is correct
-            raise DistributorStartupTimeout("Distributor process did not start within the alloted "
-                                          f"timeout t={distributor_startup_wait_timeout}s")
+            raise DistributorStartupTimeout(
+                "Distributor process did not start within the alloted timeout "
+                f"t={distributor_startup_wait_timeout}s"
+            )
         else:
             # the first message can only be "ALIVE" or an ExceptionWrapper
             if isinstance(resp, ExceptionWrapper):
                 resp.re_raise()
-            else:
-                self._distributor_proc = distributor_proc
 
         return distributor_proc
 
