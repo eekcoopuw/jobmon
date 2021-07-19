@@ -26,6 +26,7 @@ def workflow_status(workflow_id: List[int] = [],
         limit: return # of records order by wf id desc. Return 5 if not provided;
             return all if [], [<0].
         json: Flag to return data as JSON
+        requester_url (str): url to communicate with the flask services
 
     Returns:
         dataframe of all workflows and their status
@@ -57,13 +58,16 @@ def workflow_status(workflow_id: List[int] = [],
 
 
 def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = False,
-                   requester_url: Optional[str] = None) -> pd.DataFrame:
+                   requester_url: Optional[str] = None,
+                   limit: Optional[int] = [5]) -> pd.DataFrame:
     """Get metadata about task state for a given workflow.
 
     Args:
         workflow_id: workflow_id/s to retrieve info for
         status: limit task state to one of [PENDING, RUNNING, DONE, FATAL] tasks
         json: Flag to return data as JSON
+        requester_url (str): url to communicate with the flask services
+        limit: return # of records order by wf id desc. Return 5 if not provided
 
     Returns:
         Dataframe of tasks for a given workflow
@@ -72,6 +76,7 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
     msg = {}
     if status:
         msg["status"] = [i.upper() for i in status]
+    msg["limit"] = limit
 
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url

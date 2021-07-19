@@ -550,6 +550,14 @@ def get_workflow_tasks(workflow_id):
     """Get the tasks for a given workflow."""
     params = {"workflow_id": workflow_id}
     app.logger = app.logger.bind(workflow_id=workflow_id)
+    limit_request = request.args.getlist('limit')
+    limit = None if len(limit_request) == 0 else limit_request[0]
+    # anything less than 0 or non number will be treated as None
+    try:
+        if int(limit_request[0]) < 0:
+            limit = None
+    except ValueError:
+        limit = None
     where_clause = "WHERE workflow.id = :workflow_id"
     status_request = request.args.getlist('status', None)
     app.logger.debug(f"Get tasks for wf {workflow_id} in status {status_request}")
@@ -571,6 +579,8 @@ def get_workflow_tasks(workflow_id):
         JOIN task
             ON workflow.id = task.workflow_id
         {where_clause}""".format(where_clause=where_clause)
+    if limit:
+        q = f"{q}\nLIMIT {limit}"
     res = DB.session.execute(q, params).fetchall()
     app.logger.debug(f"The following tasks of wf {workflow_id} are in status "
                      f"{status_request}:\n{res}")
