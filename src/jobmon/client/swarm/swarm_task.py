@@ -23,8 +23,7 @@ class SwarmTask(object):
     def __init__(self, task_id: int, status: str, task_args_hash: int,
                  cluster: Cluster,
                  task_resources: Optional[TaskResources] = None,
-                 max_attempts: int = 3,
-                 fallback_queues: Optional[List[str]] = None,
+                 max_attempts: int = 3, fallback_queues: Optional[List[str]] = None,
                  requester: Optional[Requester] = None) -> None:
         """Implementing swarm behavior of tasks
 
