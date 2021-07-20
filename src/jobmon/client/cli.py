@@ -110,6 +110,7 @@ class ClientCLI(CLI):
         workflow_status_parser.add_argument(
             "-l", "--limit",
             nargs="*",
+            default=5,
             help="limit the number of returning records; default is 5",
             required=False,
             type=int
@@ -135,6 +136,7 @@ class ClientCLI(CLI):
         workflow_tasks_parser.add_argument(
             "-l", "--limit",
             nargs="*",
+            default=5,
             help="limit the number of returning records; default is 5",
             required=False,
             type=int
