@@ -10,17 +10,19 @@ logger = logging.getLogger(__name__)
 class SlackNotifier(object):
     """Send notifications via slack."""
 
-    def __init__(self, slack_api_url: str, token: str, default_channel: str):
+    def __init__(self, slack_api_url: str, token: str, default_channel: str) -> None:
         """Container for connection with Slack.
+
         Args:
-            token (str): token gotten from your app in api.slack.com
-            default_channel (str): name of channel to which you want to post
+            slack_api_url (str): url to Slack.
+            token (str): token gotten from your app in api.slack.com.
+            default_channel (str): name of channel to which you want to post.
         """
         self._token = token
         self.default_channel = default_channel
         self.slack_api_url = slack_api_url
 
-    def send(self, msg: str, channel: Optional[str] = None):
+    def send(self, msg: str, channel: Optional[str] = None) -> None:
         """Send message to Slack using requests.post."""
         if channel is None:
             channel = self.default_channel

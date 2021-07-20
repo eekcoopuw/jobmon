@@ -4,9 +4,7 @@ from jobmon.server.web.models import DB
 
 
 class TaskResourcesType(DB.Model):
-    """The table in the database that holds the possible statuses for the
-    TaskResources.
-    """
+    """The table in the database that holds the possible statuses for the TaskResources."""
 
     __tablename__ = 'task_resources_type'
     ORIGINAL = Types.ORIGINAL

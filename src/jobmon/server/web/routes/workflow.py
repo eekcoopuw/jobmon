@@ -1,10 +1,9 @@
-"""Routes for Workflows"""
+"""Routes for Workflows."""
 from http import HTTPStatus as StatusCodes
-from typing import Dict
+from typing import Any, Dict
 
 
 from flask import current_app as app, jsonify, request
-
 from jobmon.constants import WorkflowStatus as Statuses
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.dag import Dag
@@ -13,9 +12,7 @@ from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
 from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
 from jobmon.server.web.server_side_exception import InvalidUsage
-
 import pandas as pd
-
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.orm import joinedload
@@ -44,7 +41,7 @@ _reversed_cli_label_mapping = {
 _cli_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
 
 
-def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, str]):
+def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, str]) -> None:
     # add attribute
     app.logger = app.logger.bind(workflow_id=workflow_id)
     app.logger.info(f"Add attributes to workflow:{workflow_id}."
@@ -62,7 +59,7 @@ def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, st
 
 
 @jobmon_client.route('/workflow', methods=['POST'])
-def bind_workflow():
+def bind_workflow() -> Any:
     """Bind a workflow to the database."""
     data = request.get_json()
     try:
@@ -126,7 +123,7 @@ def bind_workflow():
 
 
 @jobmon_client.route('/workflow/<workflow_args_hash>', methods=['GET'])
-def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
+def get_matching_workflows_by_workflow_args(workflow_args_hash: int) -> Any:
     """Return any dag hashes that are assigned to workflows with identical workflow args."""
     try:
         int(workflow_args_hash)
@@ -173,7 +170,7 @@ def _add_or_get_wf_attribute_type(name: str) -> int:
     return wf_attrib_type.id
 
 
-def _upsert_wf_attribute(workflow_id: int, name: str, value: str):
+def _upsert_wf_attribute(workflow_id: int, name: str, value: str) -> None:
     wf_attrib_id = _add_or_get_wf_attribute_type(name)
     insert_vals = insert(WorkflowAttribute).values(
         workflow_id=workflow_id,
@@ -190,7 +187,7 @@ def _upsert_wf_attribute(workflow_id: int, name: str, value: str):
 
 
 @jobmon_client.route('/workflow/<workflow_id>/workflow_attributes', methods=['PUT'])
-def update_workflow_attribute(workflow_id: int):
+def update_workflow_attribute(workflow_id: int) -> Any:
     """Update the attributes for a given workflow."""
     app.logger = app.logger.bind(workflow_id=workflow_id)
     try:
@@ -211,8 +208,8 @@ def update_workflow_attribute(workflow_id: int):
 
 
 @jobmon_client.route('/workflow/<workflow_id>/set_resume', methods=['POST'])
-def set_resume(workflow_id: int):
-    """Set resume on a workflow"""
+def set_resume(workflow_id: int) -> Any:
+    """Set resume on a workflow."""
     app.logger = app.logger.bind(workflow_id=workflow_id)
     try:
         data = request.get_json()
@@ -258,8 +255,8 @@ def set_resume(workflow_id: int):
 
 
 @jobmon_client.route('/workflow/<workflow_id>/is_resumable', methods=['GET'])
-def workflow_is_resumable(workflow_id: int):
-    """Check if a workflow is in a resumable state"""
+def workflow_is_resumable(workflow_id: int) -> Any:
+    """Check if a workflow is in a resumable state."""
     app.logger = app.logger.bind(workflow_id=workflow_id)
     query = """
         SELECT
@@ -280,7 +277,7 @@ def workflow_is_resumable(workflow_id: int):
 
 
 @jobmon_cli.route('workflow/<workflow_id>/update_max_running', methods=['PUT'])
-def update_max_running(workflow_id):
+def update_max_running(workflow_id: int) -> Any:
     """Update the number of tasks that can be running concurrently for a given workflow."""
     data = request.get_json()
     app.logger = app.logger.bind(workflow_id=workflow_id)
@@ -311,12 +308,11 @@ def update_max_running(workflow_id):
 
 
 @jobmon_swarm.route('/workflow/<workflow_id>/task_status_updates', methods=['POST'])
-def get_task_by_status_only(workflow_id: int):
-    """Returns all tasks in the database that have the specified status
+def get_task_by_status_only(workflow_id: int) -> Any:
+    """Returns all tasks in the database that have the specified status.
 
     Args:
-        status (str): status to query for
-        last_sync (datetime): time since when to get tasks
+        workflow_id (int): the ID of the workflow.
     """
     app.logger = app.logger.bind(workflow_id=workflow_id)
     data = request.get_json()
@@ -383,7 +379,7 @@ def get_task_by_status_only(workflow_id: int):
 
 
 @jobmon_cli.route("/workflow_validation", methods=['POST'])
-def get_workflow_validation_status():
+def get_workflow_validation_status() -> Any:
     """Check if workflow is valid."""
     # initial params
     data = request.get_json()
@@ -422,7 +418,7 @@ def get_workflow_validation_status():
 
 
 @jobmon_cli.route('/workflow_status', methods=['GET'])
-def get_workflow_status():
+def get_workflow_status() -> Any:
     """Get the status of the workflow."""
     # initial params
     params = {}
@@ -546,7 +542,7 @@ def get_workflow_status():
 
 
 @jobmon_cli.route('/workflow/<workflow_id>/workflow_tasks', methods=['GET'])
-def get_workflow_tasks(workflow_id):
+def get_workflow_tasks(workflow_id: int) -> Any:
     """Get the tasks for a given workflow."""
     params = {"workflow_id": workflow_id}
     app.logger = app.logger.bind(workflow_id=workflow_id)
@@ -592,9 +588,8 @@ def get_workflow_tasks(workflow_id):
 
 
 @jobmon_cli.route('/workflow/<workflow_id>/usernames', methods=['GET'])
-def get_workflow_users(workflow_id: int):
-    """
-    Return all usernames associated with a given workflow_id's workflow runs.
+def get_workflow_users(workflow_id: int) -> Any:
+    """Return all usernames associated with a given workflow_id's workflow runs.
 
     Used to validate permissions for a self-service request.
     """
@@ -617,9 +612,8 @@ def get_workflow_users(workflow_id: int):
 
 
 @jobmon_cli.route('/workflow/<workflow_id>/validate_username/<username>', methods=['GET'])
-def get_workflow_user_validation(workflow_id: int, username: str):
-    """
-    Return all usernames associated with a given workflow_id's workflow runs.
+def get_workflow_user_validation(workflow_id: int, username: str) -> Any:
+    """Return all usernames associated with a given workflow_id's workflow runs.
 
     Used to validate permissions for a self-service request.
     """
@@ -643,11 +637,13 @@ def get_workflow_user_validation(workflow_id: int, username: str):
 
 @jobmon_distributor.route('/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>',
                           methods=['GET'])
-def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
-    """Returns oldest n tasks (or all tasks if total queued tasks < n) to be
-    instantiated. Because the SGE can only qsub tasks at a certain rate, and we
-    poll every 10 seconds, it does not make sense to return all tasks that are
-    queued because only a subset of them can actually be instantiated
+def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Any:
+    """Returns oldest n tasks (or all tasks if total queued tasks < n) to be instantiated.
+
+    Because the SGE can only qsub tasks at a certain rate, and we poll every 10 seconds, it
+    does not make sense to return all tasks that are queued because only a subset of them can
+    actually be instantiated.
+
     Args:
         workflow_id: id of workflow
         n_queued_tasks: number of tasks to queue

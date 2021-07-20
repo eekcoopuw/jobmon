@@ -1,8 +1,8 @@
-"""Routes for Tasks"""
+"""Routes for Tasks."""
 from http import HTTPStatus as StatusCodes
+from typing import Any
 
 from flask import current_app as app, jsonify, request
-
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.arg import Arg
 from jobmon.server.web.models.arg_type import ArgType
@@ -10,7 +10,6 @@ from jobmon.server.web.models.task_template import TaskTemplate
 from jobmon.server.web.models.task_template_version import TaskTemplateVersion
 from jobmon.server.web.models.template_arg_map import TemplateArgMap
 from jobmon.server.web.server_side_exception import InvalidUsage
-
 import sqlalchemy
 from sqlalchemy.sql import text
 
@@ -18,7 +17,7 @@ from . import jobmon_client
 
 
 @jobmon_client.route('/task_template', methods=['POST'])
-def get_task_template():
+def get_task_template() -> Any:
     """Add a task template for a given tool to the database."""
     # check input variable
     data = request.get_json()
@@ -56,7 +55,7 @@ def get_task_template():
 
 
 @jobmon_client.route('/task_template/<task_template_id>/versions', methods=['GET'])
-def get_task_template_versions(task_template_id: int):
+def get_task_template_versions(task_template_id: int) -> Any:
     """Get the task_template_version."""
     # get task template version object
     app.logger = app.logger.bind(task_template_id=task_template_id)
@@ -98,7 +97,7 @@ def _add_or_get_arg(name: str) -> Arg:
 
 
 @jobmon_client.route('/task_template/<task_template_id>/add_version', methods=['POST'])
-def add_task_template_version(task_template_id: int):
+def add_task_template_version(task_template_id: int) -> Any:
     """Add a tool to the database."""
     # check input variables
     app.logger = app.logger.bind(task_template_id=task_template_id)

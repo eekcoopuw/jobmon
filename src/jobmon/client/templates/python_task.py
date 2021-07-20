@@ -1,6 +1,4 @@
-"""Python Task for backward compatibility with Jobmon 1.* series. Used for Tasks that execute
-a python script.
-"""
+"""Python Task for backward compatibility with Jobmon 1.* series."""
 import getpass
 import sys
 from typing import Any, Dict, List, Optional, Union
@@ -10,8 +8,9 @@ from jobmon.client.tool import Tool
 
 
 class PythonTask(Task):
-    """Python Task for backward compatibility with Jobmon 1.* series. Used for Tasks that
-    execute a python script.
+    """Python Task for backward compatibility with Jobmon 1.* series.
+
+    Used for Tasks that execute a python script.
     """
 
     _tool_registry: Dict[str, Tool] = {}
@@ -35,11 +34,12 @@ class PythonTask(Task):
                  m_mem_free: Optional[str] = None,
                  hard_limits: bool = False,
                  executor_class: str = 'DummyExecutor',
-                 # TODO: Replacee executor_parameters, with compute_resources
+                 # TODO: Replace executor_parameters, with compute_resources
                  executor_parameters: Any = None,
                  # executor_parameters: Optional[Union[ExecutorParameters, Callable]] = None,
-                 tool: Optional[Tool] = None):
-        """
+                 tool: Optional[Tool] = None) -> None:
+        """Python Task template.
+
         Python Task object can be used by users upgrading from older versions of
         Jobmon (version < 2.0). It sets a default of unknown tool and a task
         template for each unique script for the user, however if the user wants
@@ -158,5 +158,5 @@ class PythonTask(Task):
             task_attributes=task_attributes)
 
     @classmethod
-    def _add_tool_to_registry(cls, tool: Tool):
+    def _add_tool_to_registry(cls: Any, tool: Tool) -> None:
         cls._tool_registry[tool.name] = tool

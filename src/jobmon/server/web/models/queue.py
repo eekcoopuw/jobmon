@@ -8,7 +8,7 @@ class Queue(DB.Model):
 
     __tablename__ = 'queue'
 
-    def to_wire_as_requested_by_client(self):
+    def to_wire_as_requested_by_client(self) -> tuple:
         """Serialize cluster object."""
         return SerializeQueue.to_wire(self.id,
                                       self.name,

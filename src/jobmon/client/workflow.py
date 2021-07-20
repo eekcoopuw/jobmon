@@ -1,12 +1,12 @@
 """The overarching framework to create tasks and dependencies within."""
 import hashlib
 import logging
-import time
-import uuid
 from multiprocessing import Event, Process, Queue
 from multiprocessing import synchronize
 from queue import Empty
+import time
 from typing import Any, Dict, List, Optional, Sequence, Union
+import uuid
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.cluster import Cluster
@@ -23,7 +23,7 @@ from jobmon.exceptions import (DistributorNotAlive, DistributorStartupTimeout,
                                DuplicateNodeArgsError, InvalidResponse, ResumeSet,
                                WorkflowAlreadyComplete, WorkflowAlreadyExists,
                                WorkflowNotResumable)
-from jobmon.requester import Requester, http_request_ok
+from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeCluster
 
 
@@ -71,8 +71,9 @@ class Workflow(object):
                  max_concurrently_running: int = 10_000,
                  requester: Optional[Requester] = None,
                  chunk_size: int = 500,  # TODO: should be in the config
-                 ):
-        """
+                 ) -> None:
+        """Initialization of Workflow object.
+
         Args:
             tool_version_id: id of the associated tool
             workflow_args: Unique identifier of a workflow
@@ -140,7 +141,7 @@ class Workflow(object):
         self._last_workflowrun = None
 
     @property
-    def is_bound(self):
+    def is_bound(self) -> bool:
         """If the workflow has been bound to the db."""
         if not hasattr(self, "_workflow_id"):
             return False
@@ -162,7 +163,7 @@ class Workflow(object):
         return self._dag.dag_id
 
     @property
-    def task_hash(self):
+    def task_hash(self) -> int:
         """Hash of all of the tasks."""
         hash_value = hashlib.sha1()
         tasks = sorted(self.tasks.values())
@@ -172,7 +173,9 @@ class Workflow(object):
         return int(hash_value.hexdigest(), 16)
 
     def add_attributes(self, workflow_attributes: dict) -> None:
-        """Function that users can call either to update values of existing attributes or add
+        """Adds or updates attributes.
+
+        Function that users can call either to update values of existing attributes or add
         new attributes.
 
         Args:
@@ -193,7 +196,9 @@ class Workflow(object):
                 f'200. Response content: {response}')
 
     def add_task(self, task: Task) -> Task:
-        """Add a task to the workflow to be executed. Set semantics - add tasks once only,
+        """Add a task to the workflow to be executed.
+
+        Set semantics - add tasks once only,
         based on hash name. Also creates the job. If is_no has no task_id the creates task_id
         and writes it onto object.
 
@@ -219,13 +224,14 @@ class Workflow(object):
 
         return task
 
-    def add_tasks(self, tasks: Sequence[Task]):
+    def add_tasks(self, tasks: Sequence[Task]) -> None:
         """Add a list of task to the workflow to be executed."""
         for task in tasks:
             # add the task
             self.add_task(task)
 
-    def set_default_compute_resources_from_yaml(self, cluster_name, yaml_file: str):
+    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str) \
+            -> None:
         """Set default compute resources from a user provided yaml file for workflow level.
 
         TODO: Implement this method.
@@ -237,7 +243,7 @@ class Workflow(object):
         pass
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,
-                                                dictionary: Dict[str, Any]):
+                                                dictionary: Dict[str, Any]) -> None:
         """Set default compute resources for a given cluster_name.
 
         Args:
@@ -248,7 +254,7 @@ class Workflow(object):
         # TODO: Do we need to handle the scenario where no cluster name is specified?
         self.default_compute_resources_set[cluster_name] = dictionary
 
-    def set_default_cluster_name(self, cluster_name: str):
+    def set_default_cluster_name(self, cluster_name: str) -> None:
         """Set the default cluster.
 
         Args:
@@ -261,8 +267,7 @@ class Workflow(object):
             distributor_response_wait_timeout: int = 180,
             distributor_config: Optional[DistributorConfig] = None,
             resume_timeout: int = 300) -> WorkflowRunStatus:
-        """Run the workflow by traversing the dag and submitting new tasks when their tasks
-        have completed successfully.
+        """Traverse the DAG and submit new tasks when their tasks have completed successfully.
 
         Args:
             fail_fast: whether or not to break out of distributor on
@@ -360,7 +365,7 @@ class Workflow(object):
                     pass
                 self._distributor_proc.terminate()
 
-    def validate(self):
+    def validate(self) -> None:
         """Confirm that the tasks in this workflow are valid.
 
         This method will access the database to confirm the requested resources are valid for
@@ -395,7 +400,7 @@ class Workflow(object):
         self._dag.validate()
         self._matching_wf_args_diff_hash()
 
-    def bind(self):
+    def bind(self) -> None:
         """Bind objects to the database if they haven't already been.
 
         compute_resources: A dictionary that includes the users requested resources
@@ -454,9 +459,7 @@ class Workflow(object):
         self._newly_created = response["newly_created"]
 
     def _get_cluster_by_name(self, cluster_name: str) -> Cluster:
-        """Check if the cluster that the task specified is in the cache, if not create it and
-        add to cache.
-        """
+        """Check if the cluster is in the cache, if not create it and add to cache."""
         try:
             cluster = self._clusters[cluster_name]
         except KeyError:
@@ -489,7 +492,7 @@ class Workflow(object):
                 raise ValueError("No valid cluster_name found on workflow or task")
         return cluster_name
 
-    def _get_resource_params(self, task: Task, cluster_name: str):
+    def _get_resource_params(self, task: Task, cluster_name: str) -> Dict[str, Dict[str, Any]]:
         # TODO: once we have concrete task template add ability to get cluster resources
         # from it
 
@@ -557,8 +560,10 @@ class Workflow(object):
 
         return wfr
 
-    def _matching_wf_args_diff_hash(self):
-        """Check that an existing workflow with the same workflow_args does not have a
+    def _matching_wf_args_diff_hash(self) -> None:
+        """Check matching workflow args.
+
+        Check that an existing workflow with the same workflow_args does not have a
         different hash indicating that it contains different tasks.
         """
         rc, response = self.requester.send_request(
@@ -569,8 +574,9 @@ class Workflow(object):
         )
         bound_workflow_hashes = response['matching_workflows']
         for task_hash, tool_version_id, dag_hash in bound_workflow_hashes:
-            match = (self.tool_version_id == tool_version_id and
-                     (str(self.task_hash) != task_hash or str(hash(self._dag)) != dag_hash))
+            match = (self.tool_version_id == tool_version_id
+                     and (str(self.task_hash) != task_hash or str(hash(self._dag))
+                          != dag_hash))
             if match:
                 raise WorkflowAlreadyExists(
                     "The unique workflow_args already belong to a workflow "
@@ -580,7 +586,7 @@ class Workflow(object):
                     " match the workflow you are trying to resume"
                 )
 
-    def _set_workflow_resume(self, reset_running_jobs: bool = True):
+    def _set_workflow_resume(self, reset_running_jobs: bool = True) -> None:
         app_route = f'/client/workflow/{self.workflow_id}/set_resume'
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -600,7 +606,7 @@ class Workflow(object):
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
-    def _workflow_is_resumable(self, resume_timeout: int = 300):
+    def _workflow_is_resumable(self, resume_timeout: int = 300) -> None:
         # previous workflow exists but is resumable. we will wait till it terminates
         wait_start = time.time()
         workflow_is_resumable = False
@@ -683,16 +689,17 @@ class Workflow(object):
         return distributor_proc
 
     def _set_fail_after_n_executions(self, n: int) -> None:
-        """
-        For use during testing, force the TaskDag to 'fall over' after n
-        executions, so that the resume case can be tested.
+        """For use during testing.
+
+        Force the TaskDag to 'fall over' after n executions, so that the resume case can be
+        tested.
 
         In every non-test case, self.fail_after_n_executions will be None, and
         so the 'fall over' will not be triggered in production.
         """
         self._val_fail_after_n_executions = n
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""
         hash_value = hashlib.sha1()
         hash_value.update(str(hash(self.tool_version_id)).encode('utf-8'))

@@ -1,12 +1,12 @@
 """Workflow Database Table."""
-from flask import current_app as app
+from typing import List
 
+from flask import current_app as app
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.models.workflow_status import WorkflowStatus
-
 from sqlalchemy.sql import func
 
 
@@ -80,7 +80,7 @@ class Workflow(DB.Model):
         (WorkflowStatus.REGISTERING, WorkflowStatus.REGISTERING)
     ]
 
-    def transition(self, new_state: str):
+    def transition(self, new_state: str) -> None:
         """Transition the state of the workflow."""
         app.logger = app.logger.bind(workflow_id=self.id)
         app.logger.info(f"Transitting wf {self.id} from {self.status} "
@@ -91,19 +91,20 @@ class Workflow(DB.Model):
             self.status_date = func.now()
         app.logger.info(f"WF {self.id} status is now {self.status}")
 
-    def _validate_transition(self, new_state: str):
+    def _validate_transition(self, new_state: str) -> None:
         """Ensure the Job state transition is valid."""
         if (self.status, new_state) not in self.valid_transitions:
             raise InvalidStateTransition('Workflow', self.id, self.status, new_state)
 
-    def _is_timely_transition(self, new_state):
+    def _is_timely_transition(self, new_state: str) -> bool:
         """Check if the transition is invalid due to a race condition."""
         if (self.status, new_state) in self.untimely_transitions:
             return False
         else:
             return True
 
-    def link_workflow_run(self, workflow_run: WorkflowRun, next_report_increment: float):
+    def link_workflow_run(self, workflow_run: WorkflowRun, next_report_increment: float) \
+            -> List:
         """Link a workflow run to this workflow."""
         app.logger = app.logger.bind(workflow_id=self.id)
         app.logger.info(f"Linking wfr for wf {self.id}")
@@ -133,12 +134,12 @@ class Workflow(DB.Model):
                 break
 
     @property
-    def ready_to_link(self):
+    def ready_to_link(self) -> bool:
         """Is this workflow able to link a new workflow run."""
         return self.status not in [WorkflowStatus.QUEUED, WorkflowStatus.RUNNING,
                                    WorkflowStatus.DONE]
 
     @property
-    def is_resumable(self):
+    def is_resumable(self) -> bool:
         """Is this workflow resumable."""
         return not any([wfr.is_alive for wfr in self.workflow_runs])

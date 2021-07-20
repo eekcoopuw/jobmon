@@ -1,8 +1,8 @@
-"""Routes for Clusters"""
+"""Routes for Clusters."""
 from http import HTTPStatus as StatusCodes
+from typing import Any
 
 from flask import jsonify
-
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.cluster import Cluster
 from jobmon.server.web.models.cluster_type import ClusterType
@@ -12,7 +12,7 @@ from . import jobmon_client
 
 
 @jobmon_client.route('/cluster/<cluster_name>/all_queues', methods=['GET'])
-def get_queues_by_cluster_name(cluster_name: str):
+def get_queues_by_cluster_name(cluster_name: str) -> Any:
     """Get the id, name, cluster_name and parameters and connection_string of a Cluster."""
     result = DB.session.query(Queue)\
         .join(Cluster, Queue.cluster_id == Cluster.id)\
@@ -28,10 +28,10 @@ def get_queues_by_cluster_name(cluster_name: str):
 
 
 @jobmon_client.route('/cluster/<cluster_id>/queue/<queue_name>', methods=['GET'])
-def get_queue_by_cluster_queue_names(cluster_id: int, queue_name: str):
-    """
-    Get the id, name, cluster_name and parameters of a Queue based on
-    cluster_name and queue_name.
+def get_queue_by_cluster_queue_names(cluster_id: int, queue_name: str) -> Any:
+    """Get the id, name, cluster_name and parameters of a Queue.
+
+    Based on cluster_name and queue_name.
     """
     result = DB.session.query(Queue)\
         .filter(Queue.cluster_id == cluster_id)\

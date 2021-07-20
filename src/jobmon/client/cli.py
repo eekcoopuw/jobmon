@@ -1,9 +1,8 @@
 """Client command line interface for workflow/task status and concurrency limiting."""
 import argparse
-from typing import Optional
+from typing import Any, Optional
 
 import configargparse
-
 from jobmon.client.client_config import ClientConfig
 from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 
@@ -11,7 +10,8 @@ from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 class _HelpAction(argparse._HelpAction):
     """To show help for all subparsers in one place."""
 
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(self, parser: Any, namespace: str, values: Any, option_string: str = None) \
+            -> None:
         """Add subparsers' help info when jobmon --help is called."""
         print(parser.format_help())
         subparsers_actions = [action for action in parser._actions if
@@ -29,6 +29,7 @@ class ClientCLI(CLI):
     """Client command line interface for workflow/task status and concurrency limiting."""
 
     def __init__(self) -> None:
+        """Initialization of client CLI."""
         self.parser = configargparse.ArgumentParser(add_help=False, **PARSER_KWARGS)
         self.parser.add_argument('--help', action=_HelpAction, help="Help if you need Help")
         self._subparsers = self.parser.add_subparsers(
@@ -189,7 +190,7 @@ class ClientCLI(CLI):
             help="Workflow ID of the workflow to be adjusted")
 
         # Define a custom function to validate the user's input.
-        def _validate_ntasks(x):
+        def _validate_ntasks(x: Any) -> int:
             try:
                 x = int(x)
             except ValueError:

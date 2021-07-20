@@ -1,5 +1,7 @@
 """Configuration specific to distributor."""
-from typing import Optional
+from __future__ import annotations
+
+from typing import Any, Optional
 
 from jobmon.config import CLI, ParserDefaults
 
@@ -8,7 +10,7 @@ class DistributorConfig:
     """Configuration specific to distributor."""
 
     @classmethod
-    def from_defaults(cls):
+    def from_defaults(cls: Any) -> DistributorConfig:
         """If no special config set up, use defaults to set config."""
         cli = CLI()
 
@@ -48,7 +50,8 @@ class DistributorConfig:
                  n_queued: int, distributor_poll_interval: int, web_service_fqdn: str,
                  web_service_port: str, worker_node_entry_point: Optional[str] = None,
                  use_logstash: bool = False, logstash_host: str = "", logstash_port: str = "",
-                 logstash_protocol: str = ""):
+                 logstash_protocol: str = "") -> None:
+        """Initialization of the distributor config."""
         self.worker_node_entry_point = worker_node_entry_point
         self.workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
         self.task_instance_heartbeat_interval = task_instance_heartbeat_interval
@@ -63,6 +66,6 @@ class DistributorConfig:
         self.logstash_protocol = logstash_protocol
 
     @property
-    def url(self):
+    def url(self) -> str:
         """URL to connect to the jobmon flask web services."""
         return f"http://{self.web_service_fqdn}:{self.web_service_port}"

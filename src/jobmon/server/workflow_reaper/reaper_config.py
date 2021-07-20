@@ -1,7 +1,7 @@
 """Configuration specific to reaper."""
 from __future__ import annotations
 
-from typing import Optional
+from typing import Any, Optional
 
 from jobmon.config import CLI, ParserDefaults
 
@@ -10,7 +10,7 @@ class WorkflowReaperConfig:
     """Configuration specific to reaper."""
 
     @classmethod
-    def from_defaults(cls) -> WorkflowReaperConfig:
+    def from_defaults(cls: Any) -> WorkflowReaperConfig:
         """If nothing specified by user, set up with defaults."""
         cli = CLI()
         ParserDefaults.reaper_poll_interval_minutes(cli.parser)
@@ -38,6 +38,7 @@ class WorkflowReaperConfig:
                  slack_api_url: Optional[str], slack_token: Optional[str],
                  slack_channel_default: Optional[str], workflow_run_heartbeat_interval: int,
                  heartbeat_report_by_buffer: float) -> None:
+        """Initialization of workflow reaper config."""
         self.poll_interval_minutes = poll_interval_minutes
         self.host = host
         self.port = port
@@ -48,6 +49,6 @@ class WorkflowReaperConfig:
         self.heartbeat_report_by_buffer = heartbeat_report_by_buffer
 
     @property
-    def url(self):
+    def url(self) -> str:
         """URL to connect to the jobmon flask web services."""
         return f"http://{self.host}:{self.port}"

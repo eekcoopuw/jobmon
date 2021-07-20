@@ -1,24 +1,24 @@
-"""A context manager to handle the creation/teardown of the web service for testing"""
+"""A context manager to handle the creation/teardown of the web service for testing."""
 import multiprocessing as mp
 import os
 import signal
 import socket
 import sys
 from time import sleep
+from types import TracebackType
+from typing import Any, Optional
 
 import requests
 
 
 class WebServerProcess:
-    """
-    Context manager that creates the Jobmon web server in a process,
-    and tears it down on exit.
-    """
+    """Context manager creates the Jobmon web server in a process and tears it down on exit."""
 
-    def __init__(self, ephemera: dict):
-        """
+    def __init__(self, ephemera: dict) -> None:
+        """Initializes the web server process.
+
         Args:
-            ephemera - a dictionary containing the connection information for the database,
+            ephemera: a dictionary containing the connection information for the database,
             specifically the database host, port, service account user, service account
             password, and database name
         """
@@ -29,8 +29,8 @@ class WebServerProcess:
             self.web_host = socket.getfqdn()
         self.web_port = str(10_000 + os.getpid() % 30_000)
 
-    def __enter__(self):
-        """Starts the web service process"""
+    def __enter__(self) -> Any:
+        """Starts the web service process."""
         # jobmon_cli string
         argstr = (
             'web_service test '
@@ -41,8 +41,8 @@ class WebServerProcess:
             f'--db_name {self.ephemera["DB_NAME"]} '
             f'--web_service_port {self.web_port}')
 
-        def run_server_with_handler(argstr):
-            def sigterm_handler(_signo, _stack_frame):
+        def run_server_with_handler(argstr: str) -> None:
+            def sigterm_handler(_signo: signal, _stack_frame: Any) -> None:
                 # catch SIGTERM and shut down with 0 so pycov finalizers are run
                 # Raises SystemExit(0):
                 sys.exit(0)
@@ -78,8 +78,9 @@ class WebServerProcess:
 
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_traceback):
-        """Terminate the web service process"""
+    def __exit__(self, exc_type: Optional[BaseException], exc_value: Optional[BaseException],
+                 exc_traceback: Optional[TracebackType]) -> None:
+        """Terminate the web service process."""
         # interrupt and join for coverage
         self.p1.terminate()
         self.p1.join()

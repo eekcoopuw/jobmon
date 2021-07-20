@@ -1,4 +1,6 @@
 """Workflow Attribute Database Table."""
+from typing import Any, Dict
+
 from jobmon.server.web.models import DB
 
 
@@ -14,7 +16,7 @@ class WorkflowAttribute(DB.Model):
     value = DB.Column(DB.String(255))
 
     @classmethod
-    def from_wire(cls, dct):
+    def from_wire(cls: Any, dct: Dict) -> Any:
         """Create class object from dict."""
         return cls(
             workflow_id=dct['workflow_id'],
@@ -22,7 +24,7 @@ class WorkflowAttribute(DB.Model):
             value=dct['value']
         )
 
-    def to_wire(self):
+    def to_wire(self) -> Dict:
         """Send data."""
         return {
             'workflow_id': self.workflow_id,

@@ -1,5 +1,5 @@
-"""
-Creates the Flask app and sqlalchemy database session for a single test.
+"""Creates the Flask app and sqlalchemy database session for a single test.
+
 Intended to be function scoped.
 """
 try:
@@ -14,24 +14,16 @@ except ImportError as e:
     raise Exception(error_msg) from e
 
 
-def test_server_config(ephemera) -> dict:
-    """
-    This is run at the beginning of every test function to:
-      1. tear down the db of the previous test and restart it fresh, and
-      2. plus it starts all the services in this process
+def test_server_config(ephemera: dict) -> dict:
+    """Create a webconfig and the create a Flask app from the webconfig.
 
-      HOWEVER, this flask application is ignored, we are forced to start it to get the
-      database connection. This fixture is used to start the database, the services are
-      ignored.
+    Args:
+        ephemera: a dict containing database connection information, specifically the database
+        host, port, service user account, service user password, and the database name.
 
-      Input:
-          ephemera - a dict containing database connection information,
-          specifically the database host, port, service user account,
-          service user password, and the database name
-
-      Returns:
-          A dictionary with the flask app, sqlalchemy database session,
-          and the Jobmon WebConfig object
+    Returns:
+        A dictionary with the flask app, sqlalchemy database session, and the Jobmon WebConfig
+        object.
     """
     # The create_app call sets up database connections
     web_config = WebConfig(

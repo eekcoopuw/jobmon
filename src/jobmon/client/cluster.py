@@ -1,4 +1,4 @@
-"""Cluster objects define where a user wants their tasks run. e.g. UGE, Azure, Seq"""
+"""Cluster objects define where a user wants their tasks run. e.g. UGE, Azure, Seq."""
 from __future__ import annotations
 
 import logging
@@ -9,7 +9,7 @@ from jobmon.client.task_resources import TaskResources
 from jobmon.cluster_type.api import import_cluster, register_cluster_plugin
 from jobmon.cluster_type.base import ClusterQueue
 from jobmon.exceptions import InvalidResponse
-from jobmon.requester import Requester, http_request_ok
+from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeCluster, SerializeQueue
 
 
@@ -17,9 +17,10 @@ logger = logging.getLogger(__name__)
 
 
 class Cluster:
-    """Cluster objects define where a user wants their tasks run. e.g. UGE, Azure, Seq"""
+    """Cluster objects define where a user wants their tasks run. e.g. UGE, Azure, Seq."""
 
     def __init__(self, cluster_name: str, requester: Optional[Requester] = None) -> None:
+        """Initialization of Cluster."""
         self.cluster_name = cluster_name
 
         if requester is None:
@@ -30,11 +31,13 @@ class Cluster:
         self.queues: Dict[str, ClusterQueue] = {}
 
     @classmethod
-    def get_cluster(cls, cluster_name: str, requester: Optional[Requester] = None) -> Cluster:
+    def get_cluster(cls: Any, cluster_name: str, requester: Optional[Requester] = None) \
+            -> Cluster:
         """Get a bound instance of a Cluster.
 
         Args:
             cluster_name: the name of the cluster
+            requester (Requester): requester object to connect to Flask service.
         """
         cluster = cls(cluster_name, requester)
         cluster.bind()
@@ -74,8 +77,8 @@ class Cluster:
         return self._cluster_id
 
     @property
-    def plugin(self):
-        """If the cluster is bound, return the cluster interface for a given type of cluster"""
+    def plugin(self) -> Any:
+        """If the cluster is bound, return the cluster interface for the type of cluster."""
         if not self.is_bound:
             raise AttributeError("Cannot access plugin until Cluster is bound to database")
         return import_cluster(self._cluster_type_name)
@@ -135,11 +138,16 @@ class Cluster:
         if full_error_msg:
             raise ValueError(full_error_msg)
 
-    def adjust_task_resource(self, task_resources, adjustment_func):
-        """Adjust task resources based on the scaling factor"""
+    def adjust_task_resource(self, task_resources: TaskResources, adjustment_func: Any) \
+            -> None:
+        """Adjust task resources based on the scaling factor.
+
+        TODO: Implement this function?
+        """
         pass
 
-    def create_task_resources(self, resource_params: Dict, task_resources_type_id: str):
+    def create_task_resources(self, resource_params: Dict, task_resources_type_id: str) -> \
+            TaskResources:
         """Construct a TaskResources object with the specified resource parameters."""
         queue_name = resource_params.pop("queue")
         queue = self.get_queue(queue_name)

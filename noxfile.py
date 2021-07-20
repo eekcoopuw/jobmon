@@ -60,17 +60,19 @@ def performance(session: Session) -> None:
 def lint(session: Session) -> None:
     """Lint code using various plugins.
 
-    flake8 - a Python library that wraps PyFlakes, pycodestyle and McCabe script
-    flake8-import-order - checks the ordering of your imports
-    flake8-docstrings - extension for flake8 which uses pydocstyle to check docstrings
+    flake8 - a Python library that wraps PyFlakes, pycodestyle and McCabe script.
+    flake8-import-order - checks the ordering of your imports.
+    flake8-docstrings - extension for flake8 which uses pydocstyle to check docstrings.
+    flake8-annotations -is a plugin for Flake8 that detects the absence of PEP 3107-style
+    function annotations and PEP 484-style type comments.
     """
     args = session.posargs or src_locations + test_locations
     # TODO: work these in over time?
     # "flake8-black",
-    # "flake8-annotations",
     # "darglint",
     # "flake8-bandit"
     session.install("flake8",
+                    "flake8-annotations",
                     "flake8-import-order",
                     "flake8-docstrings")
     session.run("flake8", *args)

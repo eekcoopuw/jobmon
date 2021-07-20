@@ -1,14 +1,14 @@
-"""Creates a single instance of the test database, used for tests in multiprocessing mode"""
+"""Creates a single instance of the test database, used for tests in multiprocessing mode."""
 import json
+from typing import Any
 
 from filelock import FileLock
-
 from jobmon.test_utils import create_temp_db
 
 
-def ephemera_db_instance(tmp_path_factory, worker_id="master") -> dict:
-    """
-    Boots exactly one instance of the test ephemera database.
+def ephemera_db_instance(tmp_path_factory: Any, worker_id: str = "master") -> dict:
+    """Boots exactly one instance of the test ephemera database.
+
     If tests are run in multiprocessing mode, ensure only one database
     is created.
 

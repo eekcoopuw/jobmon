@@ -1,15 +1,15 @@
 """Swarm side task object."""
 from __future__ import annotations
 
-import logging
 from http import HTTPStatus as StatusCodes
+import logging
 from typing import Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_resources import TaskResources
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import CallableReturnedInvalidObject, InvalidResponse
-from jobmon.requester import Requester, http_request_ok
+from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeSwarmTask
 
 
@@ -22,16 +22,16 @@ class SwarmTask(object):
     def __init__(self, task_id: int, status: str, task_args_hash: int,
                  task_resources: Optional[TaskResources] = None,
                  max_attempts: int = 3, requester: Optional[Requester] = None) -> None:
-        """Implementing swarm behavior of tasks
+        """Implementing swarm behavior of tasks.
 
-        Args
+        Args:
             task_id: id of task object from bound db object
             status: status of task object
             task_args_hash: hash of unique task arguments
             task_resources: callable to be executed when Task is ready to be run and
             resources can be assigned
             max_attempts: maximum number of task_instances before failure
-            requester_url (str): url to communicate with the flask services.
+            requester (Requester): Requester object to communicate with the flask services.
         """
         self.task_id = task_id
         self.status = status
@@ -88,7 +88,7 @@ class SwarmTask(object):
         """Return a list of upstream tasks."""
         return list(self.upstream_swarm_tasks)
 
-    def get_task_resources(self):
+    def get_task_resources(self) -> TaskResources:
         """Return an instance of executor parameters."""
         return self.task_resources_callable
 
@@ -105,10 +105,10 @@ class SwarmTask(object):
         self.status = TaskStatus.QUEUED_FOR_INSTANTIATION
         return rc
 
-    @staticmethod
     def adjust_resources(self) -> TaskResources:
-        """Function from Job Instance Factory that adjusts resources and then queues them,
-        this should also incorporate resource binding if they have not yet been bound.
+        """Function from Job Instance Factory that adjusts resources and then queues them.
+
+        This should also incorporate resource binding if they have not yet been bound.
         """
         logger.debug("Job in A state, adjusting resources before queueing")
 
@@ -132,8 +132,8 @@ class SwarmTask(object):
         # check if we are only scaling runtime.
         # TODO: this logic should be in ExecutorParameters.adjust since it is
         # SGE specific
-        if ('max_runtime' in response['error_description'] and
-                'max_runtime_seconds' in only_scale):
+        if ('max_runtime' in response['error_description'] and 'max_runtime_seconds'
+                in only_scale):
             only_scale = ['max_runtime_seconds']
         logger.debug(
             f"Only going to scale the following resources: {only_scale}")

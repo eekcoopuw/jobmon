@@ -1,11 +1,9 @@
-"""Routes for Tasks"""
-import json
+"""Routes for Tasks."""
 from http import HTTPStatus as StatusCodes
+import json
 from typing import Any, Dict, List, Set, Union
 
-
 from flask import current_app as app, jsonify, request
-
 from jobmon.constants import TaskInstanceStatus, TaskStatus, WorkflowStatus as Statuses
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
@@ -15,9 +13,7 @@ from jobmon.server.web.models.task_attribute import TaskAttribute
 from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.server_side_exception import InvalidUsage
-
 import pandas as pd
-
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import text
 
@@ -44,7 +40,7 @@ _reversed_task_instance_label_mapping = {
 
 
 @jobmon_client.route('/task', methods=['GET'])
-def get_task_id_and_status():
+def get_task_id_and_status() -> Any:
     """Get the status and id of a Task."""
     try:
         wid = request.args['workflow_id']
@@ -85,19 +81,18 @@ def get_task_id_and_status():
 
 
 @jobmon_client.route('/task', methods=['POST'])
-def add_task():
+def add_task() -> Any:
     """Add a task to the database.
 
     Args:
-        a list of:
-            workflow_id: workflow this task is associated with
-            node_id: structural node this task is associated with
-            task_arg_hash: hash of the data args for this task
-            name: task's name
-            command: task's command
-            max_attempts: how many times the job should be attempted
-            task_args: dictionary of data args for this task
-            task_attributes: dictionary of attributes associated with the task
+        workflow_id: workflow this task is associated with
+        node_id: structural node this task is associated with
+        task_arg_hash: hash of the data args for this task
+        name: task's name
+        command: task's command
+        max_attempts: how many times the job should be attempted
+        task_args: dictionary of data args for this task
+        task_attributes: dictionary of attributes associated with the task
     """
     try:
         data = request.get_json()
@@ -158,7 +153,7 @@ def add_task():
 
 
 @jobmon_client.route('/task/<task_id>/update_parameters', methods=['PUT'])
-def update_task_parameters(task_id: int):
+def update_task_parameters(task_id: int) -> Any:
     """Update the parameters for a given task."""
     app.logger = app.logger.bind(task_id=task_id)
     data = request.get_json()
@@ -188,7 +183,7 @@ def update_task_parameters(task_id: int):
 
 
 @jobmon_client.route('/task/bind_tasks', methods=['PUT'])
-def bind_tasks():
+def bind_tasks() -> Any:
     """Bind the task objects to the database."""
     all_data = request.get_json()
     tasks = all_data["tasks"]
@@ -364,7 +359,7 @@ def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
 
 
 @jobmon_client.route('/task/<task_id>/task_attributes', methods=['PUT'])
-def update_task_attribute(task_id: int):
+def update_task_attribute(task_id: int) -> Any:
     """Add or update attributes for a task."""
     app.logger = app.logger.bind(task_id=task_id)
     try:
@@ -385,11 +380,11 @@ def update_task_attribute(task_id: int):
 
 
 @jobmon_swarm.route('/task/<task_id>/queue', methods=['POST'])
-def queue_job(task_id: int):
-    """Queue a job and change its status
-    Args:
+def queue_job(task_id: int) -> Any:
+    """Queue a job and change its status.
 
-        job_id: id of the job to queue
+    Args:
+        task_id: id of the job to queue
     """
     app.logger = app.logger.bind(task_id=task_id)
     app.logger.debug(f"Queue job {task_id}")
@@ -440,8 +435,8 @@ def _transform_mem_to_gb(mem_str: Any) -> float:
 
 
 @jobmon_swarm.route('/task/<task_id>/bind_resources', methods=['POST'])
-def bind_task_resources(task_id: int):
-    """Add the task resources for a given task
+def bind_task_resources(task_id: int) -> Any:
+    """Add the task resources for a given task.
 
     Args:
         task_id (int): id of the task for which task resources will be added
@@ -473,8 +468,8 @@ def bind_task_resources(task_id: int):
 
 
 @jobmon_swarm.route('/task/<task_id>/update_resources', methods=['POST'])
-def update_task_resources(task_id: int):
-    """Change the resources set for a given task
+def update_task_resources(task_id: int) -> Any:
+    """Change the resources set for a given task.
 
     Args:
         task_id (int): id of the task for which resources will be changed
@@ -514,7 +509,7 @@ def update_task_resources(task_id: int):
 
 
 @jobmon_cli.route('/task_status', methods=['GET'])
-def get_task_status():
+def get_task_status() -> Any:
     """Get the status of a task."""
     task_ids = request.args.getlist('task_ids')
     if len(task_ids) == 0:
@@ -572,10 +567,11 @@ def get_task_status():
 
 
 def _get_node_downstream(nodes: set, dag_id: int) -> set:
-    """
-    Get all downstream nodes of a node
-    :param node_id:
-    :return: a list of node_id
+    """Get all downstream nodes of a node.
+
+    Args:
+        nodes (set): set of nodes
+        dag_id (int): ID of DAG
     """
     nodes_str = str((tuple(nodes))).replace(",)", ")")
     q = f"""
@@ -597,11 +593,13 @@ def _get_node_downstream(nodes: set, dag_id: int) -> set:
 
 
 def _get_subdag(node_ids: list, dag_id: int) -> list:
-    """
-    Get all descendants of a given nodes. It only queries the primary keys on the edge table
-    without join.
-    :param node_ids:
-    :return: a list of node_id
+    """Get all descendants of a given nodes.
+
+    It only queries the primary keys on the edge table without join.
+
+    Args:
+        node_ids (list): list of node IDs
+        dag_id (int): ID of DAG
     """
     node_set = set(node_ids)
     node_descendants = node_set
@@ -612,11 +610,12 @@ def _get_subdag(node_ids: list, dag_id: int) -> list:
 
 
 def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list) -> dict:
-    """
-    Get task ids of the given node ids
-    :param workflow_id:
-    :param nodes:
-    :return: a dict of {<id>: <status>}
+    """Get task ids of the given node ids.
+
+    Args:
+        workflow_id (int): ID of the workflow
+        nodes (list): list of nodes
+        task_status (list): list of task statuses
     """
     if nodes is None or len(nodes) == 0:
         return {}
@@ -642,11 +641,10 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list) -> d
 
 
 @jobmon_cli.route('/task/subdag', methods=['POST'])
-def get_task_subdag():
-    """
-    Used to get the sub dag  of a given task. It returns a list of sub tasks as well as a
-    list of sub nodes.
-    :return:
+def get_task_subdag() -> Any:
+    """Used to get the sub dag  of a given task.
+
+    It returns a list of sub tasks as well as a list of sub nodes.
     """
     # Only return sub tasks in the following status. If empty or None, return all
     data = request.get_json()
@@ -691,7 +689,7 @@ def get_task_subdag():
 
 
 @jobmon_cli.route('/task/update_statuses', methods=['PUT'])
-def update_task_statuses():
+def update_task_statuses() -> Any:
     """Update the status of the tasks."""
     data = request.get_json()
     try:

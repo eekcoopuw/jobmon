@@ -1,8 +1,8 @@
 """Sequential distributor that runs one task at a time."""
+from collections import OrderedDict
 import logging
 import os
 import shutil
-from collections import OrderedDict
 from typing import Any, Dict, List, Optional, Tuple
 
 from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
@@ -17,17 +17,18 @@ logger = logging.getLogger(__name__)
 class LimitedSizeDict(OrderedDict):
     """Dictionary for exit info."""
 
-    def __init__(self, *args, **kwds):
+    def __init__(self, *args: int, **kwds: int) -> None:
+        """Initialization of LimitedSizeDict."""
         self.size_limit = kwds.pop("size_limit", None)
         OrderedDict.__init__(self, *args, **kwds)
         self._check_size_limit()
 
-    def __setitem__(self, key, value):
+    def __setitem__(self, key: int, value: Any) -> None:
         """Set item in dict."""
         OrderedDict.__setitem__(self, key, value)
         self._check_size_limit()
 
-    def _check_size_limit(self):
+    def _check_size_limit(self) -> None:
         if self.size_limit is not None:
             while len(self) > self.size_limit:
                 self.popitem(last=False)
@@ -36,8 +37,9 @@ class LimitedSizeDict(OrderedDict):
 class SequentialDistributor(ClusterDistributor):
     """Executor to run tasks one at a time."""
 
-    def __init__(self, exit_info_queue_size: int = 1000):
-        """
+    def __init__(self, exit_info_queue_size: int = 1000) -> None:
+        """Initialization of the sequential distributor.
+
         Args:
             exit_info_queue_size: how many exit codes to retain
         """
@@ -47,8 +49,8 @@ class SequentialDistributor(ClusterDistributor):
         self._exit_info = LimitedSizeDict(size_limit=exit_info_queue_size)
 
     @property
-    def worker_node_entry_point(self):
-        """Path to jobmon worker_node_entry_point"""
+    def worker_node_entry_point(self) -> str:
+        """Path to jobmon worker_node_entry_point."""
         return self._worker_node_entry_point
 
     @property
@@ -89,7 +91,9 @@ class SequentialDistributor(ClusterDistributor):
             return []
 
     def terminate_task_instances(self, distributor_ids: List[int]) -> None:
-        """If implemented, return a list of (task_instance_id, hostname) tuples for any
+        """Terminate task instances.
+
+        If implemented, return a list of (task_instance_id, hostname) tuples for any
         task_instances that are terminated.
         """
         logger.warning("terminate_task_instances not implemented by ClusterDistributor: "
@@ -122,6 +126,7 @@ class SequentialWorkerNode(ClusterWorkerNode):
     """Get Executor Info for a Task Instance."""
 
     def __init__(self) -> None:
+        """Initialization of the sequential executor worker node."""
         self._distributor_id: Optional[int] = None
 
     @property
@@ -133,7 +138,7 @@ class SequentialWorkerNode(ClusterWorkerNode):
                 self._distributor_id = int(jid)
         return self._distributor_id
 
-    def get_exit_info(self, exit_code: int, error_msg: str):
+    def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[TaskInstanceStatus, str]:
         """Exit info, error message."""
         return TaskInstanceStatus.ERROR, error_msg
 

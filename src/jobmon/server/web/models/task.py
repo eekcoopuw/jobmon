@@ -1,12 +1,10 @@
 """Task Table for the Database."""
 from flask import current_app as app
-
 from jobmon.serializers import SerializeSwarmTask, SerializeTask
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
-
 from sqlalchemy.sql import func
 
 
@@ -15,7 +13,7 @@ class Task(DB.Model):
 
     __tablename__ = "task"
 
-    def to_wire_as_distributor_task(self):
+    def to_wire_as_distributor_task(self) -> tuple:
         """Serialize executor task object."""
         serialized = SerializeTask.to_wire(
             task_id=self.id,
@@ -29,7 +27,7 @@ class Task(DB.Model):
             requested_resources=self.task_resources.requested_resources)
         return serialized
 
-    def to_wire_as_swarm_task(self):
+    def to_wire_as_swarm_task(self) -> tuple:
         """Serialize swarm task."""
         serialized = SerializeSwarmTask.to_wire(
             task_id=self.id,
@@ -69,7 +67,8 @@ class Task(DB.Model):
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.QUEUED_FOR_INSTANTIATION),
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.ERROR_FATAL)]
 
-    def reset(self, name, command, max_attempts, reset_if_running):
+    def reset(self, name: str, command: str, max_attempts: int, reset_if_running: bool) \
+            -> None:
         """Reset status and number of attempts on a Task."""
         # only reset undone tasks
         if self.status != TaskStatus.DONE:
@@ -84,7 +83,7 @@ class Task(DB.Model):
                 self.max_attempts = max_attempts
                 self.status_date = func.now()
 
-    def transition(self, new_state):
+    def transition(self, new_state: str) -> None:
         """Transition the Task to a new state."""
         app.logger = app.logger.bind(workflow_id=self.workflow_id,
                                      task_id=self.id)
@@ -97,7 +96,7 @@ class Task(DB.Model):
         self.status_date = func.now()
         app.logger.info(f"Transition task status to {new_state} at {self.status_date}")
 
-    def transition_after_task_instance_error(self, job_instance_error_state):
+    def transition_after_task_instance_error(self, job_instance_error_state: str) -> None:
         """Transition the task to an error state."""
         app.logger = app.logger.bind(workflow_id=self.workflow_id,
                                      task_id=self.id)
@@ -114,7 +113,7 @@ class Task(DB.Model):
                 app.logger.debug("Retrying Task {}".format(self.id))
                 self.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
 
-    def _validate_transition(self, new_state):
+    def _validate_transition(self, new_state: str) -> None:
         """Ensure the task state transition is valid."""
         if (self.status, new_state) not in self.valid_transitions:
             raise InvalidStateTransition('Task', self.id, self.status,

@@ -1,16 +1,16 @@
 """Workflow Run is an distributor instance of a declared workflow."""
 import copy
-import logging
-import time
 from datetime import datetime
+import logging
 from multiprocessing import Process
+import time
 from typing import Dict, List, Optional, Set, Tuple
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.constants import TaskResourcesType, TaskStatus, WorkflowRunStatus
 from jobmon.exceptions import DistributorNotAlive, InvalidResponse
-from jobmon.requester import Requester, http_request_ok
+from jobmon.requester import http_request_ok, Requester
 
 
 logger = logging.getLogger(__name__)
@@ -22,9 +22,9 @@ ValueError = ValueError
 
 
 class WorkflowRun:
-    """
-    WorkflowRun enables tracking for multiple runs of a single Workflow. A
-    Workflow may be started/paused/ and resumed multiple times. Each start or
+    """WorkflowRun enables tracking for multiple runs of a single Workflow.
+
+    A Workflow may be started/paused/ and resumed multiple times. Each start or
     resume represents a new WorkflowRun.
 
     In order for a Workflow can be deemed to be DONE (successfully), it
@@ -35,7 +35,9 @@ class WorkflowRun:
     """
 
     def __init__(self, workflow_id: int, workflow_run_id: int,
-                 swarm_tasks: Dict[int, SwarmTask], requester: Optional[Requester] = None):
+                 swarm_tasks: Dict[int, SwarmTask], requester: Optional[Requester] = None) \
+            -> None:
+        """Initialization of swarm WorkflowRun object."""
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
 
@@ -100,7 +102,7 @@ class WorkflowRun:
         self._status = status
 
     def execute_interruptible(self, distributor_proc: Process, fail_fast: bool = False,
-                              seconds_until_timeout: int = 36000):
+                              seconds_until_timeout: int = 36000) -> None:
         """Execute the workflow run."""
         # _block_until_any_done_or_error continually checks to make sure this
         # process is alive
@@ -134,9 +136,9 @@ class WorkflowRun:
                 f'code 200. Response content: {response}')
 
     def _set_fail_after_n_executions(self, n: int) -> None:
-        """
-        For use during testing, force the TaskDag to 'fall over' after n
-        executions, so that the resume case can be tested.
+        """For use during testing, force the TaskDag to 'fall over' after n executions.
+
+        Allows the resume case to be tested.
 
         In every non-test case, self.fail_after_n_executions will be None, and
         so the 'fall over' will not be triggered in production.
@@ -161,9 +163,8 @@ class WorkflowRun:
 
     def _execute(self, fail_fast: bool = False,
                  seconds_until_timeout: int = 36000,
-                 wedged_workflow_sync_interval: int = 600):
-        """
-        Take a concrete DAG and queue al the Tasks that are not DONE.
+                 wedged_workflow_sync_interval: int = 600) -> None:
+        """Take a concrete DAG and queue al the Tasks that are not DONE.
 
         Uses forward chaining from initial fringe, hence out-of-date is not
         applied transitively backwards through the graph. It could also use
@@ -240,8 +241,8 @@ class WorkflowRun:
             for swarm_task in completed:
                 task_to_add = self._propagate_results(swarm_task)
                 fringe = list(set(fringe + task_to_add))
-            if (self._val_fail_after_n_executions is not None and
-                    n_executions >= self._val_fail_after_n_executions):
+            if (self._val_fail_after_n_executions
+                    is not None and n_executions >= self._val_fail_after_n_executions):
                 raise ValueError(f"WorkflowRun asked to fail after {n_executions} "
                                  f"executions. Failing now")
 
@@ -281,8 +282,7 @@ class WorkflowRun:
 
             # top fringe is defined by:
             # not any unfinished upstream tasks and current task is registered
-            is_fringe = (not unfinished_upstreams and
-                         swarm_task.status == TaskStatus.REGISTERED)
+            is_fringe = not unfinished_upstreams and swarm_task.status == TaskStatus.REGISTERED
             if is_fringe:
                 current_fringe += [swarm_task]
         return current_fringe
@@ -301,8 +301,8 @@ class WorkflowRun:
 
     def _block_until_any_done_or_error(self, timeout: int = 36000,
                                        poll_interval: int = 10,
-                                       wedged_workflow_sync_interval: int = 600):
-        """Block code distributor until a task is done or errored"""
+                                       wedged_workflow_sync_interval: int = 600) -> None:
+        """Block code distributor until a task is done or errored."""
         time_since_last_update = 0
         time_since_last_wedge_sync = 0
         while True:
@@ -362,8 +362,9 @@ class WorkflowRun:
             time_since_last_wedge_sync += poll_interval
 
     def _task_status_updates(self, swarm_tasks: List[SwarmTask] = []) -> List[SwarmTask]:
-        """Update internal state of tasks to match the database. If no tasks are specified,
-        get all.
+        """Update internal state of tasks to match the database.
+
+        If no tasks are specified, get all.
         """
         swarm_tasks_tuples = [t.to_wire() for t in swarm_tasks]
         app_route = f'/swarm/workflow/{self.workflow_id}/task_status_updates'
@@ -387,8 +388,9 @@ class WorkflowRun:
     def _parse_adjusting_done_and_errors(self, swarm_tasks: List[SwarmTask]) \
             -> Tuple[Set[SwarmTask], Set[SwarmTask], Set[SwarmTask]]:
         """Separate out the done jobs from the errored ones.
+
         Args:
-            tasks (list): list of objects of type models:Task
+            swarm_tasks (list): list of objects of type models:Task
         """
         completed_tasks = set()
         failed_tasks = set()
@@ -410,11 +412,11 @@ class WorkflowRun:
         return completed_tasks, failed_tasks, adjusting_tasks
 
     def _propagate_results(self, swarm_task: SwarmTask) -> List[SwarmTask]:
-        """For all its downstream tasks, is that task now ready to run? Also mark this Task as
-        DONE.
+        """For all its downstream tasks, is that task now ready to run? Mark this Task as DONE.
 
-        :param task: The task that just completed
-        :return: Tasks to be added to the fringe
+        Args:
+            swarm_task: The task that just completed.
+        return: Tasks to be added to the fringe
         """
         new_fringe: List[SwarmTask] = []
         logger.debug(f"Propagate {swarm_task}")
@@ -422,8 +424,7 @@ class WorkflowRun:
             logger.debug(f"downstream {downstream}")
             downstream_done = (downstream.status == TaskStatus.DONE)
             downstream.num_upstreams_done += 1
-            if (not downstream_done and
-                    downstream.status == TaskStatus.REGISTERED):
+            if not downstream_done and downstream.status == TaskStatus.REGISTERED:
                 if downstream.all_upstreams_done:
                     logger.debug(" and add to fringe")
                     new_fringe += [downstream]  # make sure there's no dups

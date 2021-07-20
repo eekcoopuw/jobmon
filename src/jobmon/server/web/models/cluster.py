@@ -1,4 +1,6 @@
 """Cluster Table in the Database."""
+from typing import Tuple
+
 from jobmon.serializers import SerializeCluster
 from jobmon.server.web.models import DB
 
@@ -8,7 +10,7 @@ class Cluster(DB.Model):
 
     __tablename__ = 'cluster'
 
-    def to_wire_as_requested_by_client(self):
+    def to_wire_as_requested_by_client(self) -> Tuple:
         """Serialize cluster object."""
         return SerializeCluster.to_wire(self.id,
                                         self.name,

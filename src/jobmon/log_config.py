@@ -3,9 +3,7 @@ import logging.config
 from typing import Dict, Optional
 
 from jobmon import __version__
-
 from pythonjsonlogger import jsonlogger
-
 import structlog
 
 
@@ -37,19 +35,20 @@ def get_logstash_handler_config(logstash_host: str, logstash_port: str, logstash
     return handler_config
 
 
-def _processor_add_version(logger, log_method, event_dict):
+def _processor_add_version(logger: logging.Logger, log_method: str, event_dict: dict) -> dict:
     event_dict["jobmon_version"] = __version__
     return event_dict
 
 
-def _processor_remove_data_if_not_debug(logger, log_method, event_dict):
+def _processor_remove_data_if_not_debug(logger: logging.Logger, log_method: str,
+                                        event_dict: dict) -> dict:
     if "web" in logger.name and log_method != "debug":
         if "data" in event_dict.keys():
             event_dict.pop("data")
     return event_dict
 
 
-def configure_logger(name, add_handlers: Optional[Dict] = None,
+def configure_logger(name: str, add_handlers: Optional[Dict] = None,
                      json_formatter_prefix: str = "") -> logging.Logger:
     """Configure logging format, handlers, etc."""
     dict_config = {

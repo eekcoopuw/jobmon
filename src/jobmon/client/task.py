@@ -1,11 +1,12 @@
-"""Task object defines a single executable object that will be added to a Workflow. Task
-Instances will be created from it for every execution.
+"""Task object defines a single executable object that will be added to a Workflow.
+
+TaskInstances will be created from it for every execution.
 """
 from __future__ import annotations
 
 import hashlib
-import logging
 from http import HTTPStatus as StatusCodes
+import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
@@ -20,18 +21,19 @@ logger = logging.getLogger(__name__)
 
 
 class Task:
-    """Task object defines a single executable object that will be added to a Workflow. Task
-    Instances will be created from it for every execution.
+    """Task object defines a single executable object that will be added to a Workflow.
+
+    Task Instances will be created from it for every execution.
     """
 
     ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""
 
     @classmethod
-    def is_valid_job_name(cls, name: str) -> bool:
-        """
-        If the name is invalid it will raises an exception. Primarily based on the
-        restrictions SGE places on job names. The list of illegal characters might not be
-        complete, I could not find an official list.
+    def is_valid_job_name(cls: Any, name: str) -> bool:
+        """If the name is invalid it will raises an exception.
+
+        Primarily based on the restrictions SGE places on job names. The list of illegal
+        characters might not be complete, I could not find an official list.
 
         Must:
           - Not be null or the empty string
@@ -67,10 +69,11 @@ class Task:
                  max_attempts: int = 3,
                  upstream_tasks: Optional[List['Task']] = None,
                  task_attributes: Union[List, dict] = None,
-                 requester: Optional[Requester] = None):
-        """
-        Create a single executable object in the workflow, aka a Task. Relate it to a Task
-        Template in order to classify it as a type of job within the context of your workflow.
+                 requester: Optional[Requester] = None) -> None:
+        """Create a single executable object in the workflow, aka a Task.
+
+        Relate it to a Task Template in order to classify it as a type of job within the
+        context of your workflow.
 
         Args:
             command (str): the unique command for this Task, also readable by humans. Should
@@ -92,7 +95,7 @@ class Task:
                 up. Default is 3.
             task_attributes (list or dict): dictionary of attributes and their values or list
                 of attributes that will be assigned later.
-            requester_url (str): url to communicate with the flask services.
+            requester (Requester): requester object to communicate with the flask services.
 
         Raise:
             ValueError: If the hashed command is not allowed as an SGE job name; see
@@ -149,39 +152,37 @@ class Task:
 
     @property
     def task_id(self) -> int:
-        """Get the id of the task if it has been bound to the db otherwise raise an error"""
+        """Get the id of the task if it has been bound to the db otherwise raise an error."""
         if not hasattr(self, "_task_id"):
             raise AttributeError("task_id cannot be accessed before task is bound")
         return self._task_id
 
     @task_id.setter
-    def task_id(self, val):
+    def task_id(self, val: int) -> None:
         self._task_id = val
 
     @property
     def task_resources(self) -> TaskResources:
-        """Get the id of the task if it has been bound to the db otherwise raise an error"""
+        """Get the id of the task if it has been bound to the db otherwise raise an error."""
         if not hasattr(self, "_task_resources"):
             raise AttributeError("task_resources cannot be accessed before task is bound")
         return self._task_resources
 
     @task_resources.setter
-    def task_resources(self, val):
+    def task_resources(self, val: int) -> None:
         if not isinstance(val, TaskResources):
             raise ValueError("task_resources must be of type=TaskResources")
         self._task_resources = val
 
     @property
     def initial_status(self) -> str:
-        """Get initial status of the task if it has been bound to the db otherwise raise
-        an error.
-        """
+        """Get initial status of the task if it has been bound to the db; else raise error."""
         if not hasattr(self, "_initial_status"):
             raise AttributeError("initial_status cannot be accessed before task is bound")
         return self._initial_status
 
     @initial_status.setter
-    def initial_status(self, val):
+    def initial_status(self, val: int) -> None:
         self._initial_status = val
 
     @property
@@ -193,13 +194,14 @@ class Task:
         return self._workflow_id
 
     @workflow_id.setter
-    def workflow_id(self, val):
+    def workflow_id(self, val: int) -> None:
         """Set the workflow id."""
         self._workflow_id = val
 
     def bind(self, reset_if_running: bool = True) -> int:
-        """Bind tasks to the db if they have not been bound already, otherwise make sure their
-        ExecutorParameters are up to date.
+        """Bind tasks to the db if they have not been bound already.
+
+        Otherwise make sure their ExecutorParameters are up to date.
         """
         task_id, status = self._get_task_id_and_status()
         if task_id is None:
@@ -212,10 +214,10 @@ class Task:
         return task_id
 
     def add_upstream(self, ancestor: 'Task') -> None:
-        """
-        Add an upstream (ancestor) Task. This has Set semantics, an upstream task will only
-        be added once. Symmetrically, this method also adds this Task as a downstream on the
-        ancestor.
+        """Add an upstream (ancestor) Task.
+
+        This has Set semantics, an upstream task will only be added once. Symmetrically, this
+        method also adds this Task as a downstream on the ancestor.
         """
         self.upstream_tasks.add(ancestor)
         ancestor.downstream_tasks.add(self)
@@ -223,10 +225,10 @@ class Task:
         self.node.add_upstream_node(ancestor.node)
 
     def add_downstream(self, descendent: 'Task') -> None:
-        """
-        Add an downstream (ancestor) Task. This has Set semantics, a downstream task will only
-        be added once. Symmetrically, this method also adds this Task as an upstream on the
-        ancestor.
+        """Add an downstream (ancestor) Task.
+
+        This has Set semantics, a downstream task will only be added once. Symmetrically,
+        this method also adds this Task as an upstream on the ancestor.
         """
         self.downstream_tasks.add(descendent)
         descendent.upstream_tasks.add(self)
@@ -234,7 +236,9 @@ class Task:
         self.node.add_downstream_node(descendent.node)
 
     def add_attributes(self, task_attributes: dict) -> None:
-        """Function that users can call either to update values of existing attributes or add
+        """Update or add attributes.
+
+        Function that users can call either to update values of existing attributes or add
         new attributes.
         """
         app_route = f'/client/task/{self.task_id}/task_attributes'
@@ -249,7 +253,7 @@ class Task:
                              f'route {app_route}. Expected code 200. Response content: '
                              f'{response}')
 
-    def add_attribute(self, attribute: str, value: str):
+    def add_attribute(self, attribute: str, value: str) -> None:
         """Function that users can call to add a single attribute for a task."""
         self.task_attributes[str(attribute)] = str(value)
         # if the task has already been bound, bind the attributes
@@ -257,10 +261,7 @@ class Task:
             self.add_attributes({str(attribute): str(value)})
 
     def get_errors(self) -> Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]:
-        """
-        Return all the errors for each task, with the recent
-        task_instance_id actually used.
-        """
+        """Return all errors for each task, with the recent task_instance_id actually used."""
         if self._errors is None and hasattr(self, "_task_id") and self._task_id is not None:
             return_code, response = self.requester.send_request(
                 app_route=f'/worker/task/{self._task_id}/most_recent_ti_error',
@@ -284,7 +285,7 @@ class Task:
 
         return self._errors
 
-    def set_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
+    def set_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str) -> None:
         """Set default compute resources from a user provided yaml file for task level.
 
         TODO: Implement this method.
@@ -295,14 +296,12 @@ class Task:
         """
         pass
 
-    def update_compute_resources(self, **kwargs):
+    def update_compute_resources(self, **kwargs: Any) -> None:
         """Function that allows users to update their compute resources."""
         self.compute_resources.update(kwargs)
 
     def _hash_task_args(self) -> int:
-        """A task_arg_hash is a hash of the encoded result of the args and values concatenated
-        together.
-        """
+        """A hash of the encoded result of the args and values concatenated together."""
         arg_ids = list(self.task_args.keys())
         arg_ids.sort()
 

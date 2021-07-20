@@ -1,6 +1,8 @@
 """Config specific to web services."""
 from __future__ import annotations
 
+from typing import Any
+
 try:
     # default to mysqldb if installed. ~10x faster than pymysql
     import MySQLdb  # noqa F401
@@ -18,7 +20,7 @@ class WebConfig(object):
     """This is intended to be a singleton. If using in another way, proceed with CAUTION."""
 
     @classmethod
-    def from_defaults(cls) -> WebConfig:
+    def from_defaults(cls: Any) -> WebConfig:
         """Defaults hierarchy is available from configargparse jobmon_cli."""
         cli = CLI()
         ParserDefaults.db_host(cli.parser)
@@ -49,7 +51,7 @@ class WebConfig(object):
                  db_name: str, use_logstash: bool = False, logstash_host: str = "",
                  logstash_port: int = None, logstash_protocol: str = "", use_apm: bool = False,
                  apm_server_url: str = "", apm_server_name: str = "", apm_port: int = None,
-                 log_level: str = "INFO"):
+                 log_level: str = "INFO") -> None:
         """Initialize config for server."""
         self.db_host = db_host
         self.db_port = db_port

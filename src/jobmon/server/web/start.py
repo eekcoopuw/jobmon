@@ -2,17 +2,14 @@
 from typing import Optional
 
 from elasticapm.contrib.flask import ElasticAPM
-
 from flask import Flask
-
 from flask_cors import CORS
-
 from jobmon.log_config import get_logstash_handler_config
 from jobmon.server.web.handlers import add_hooks_and_handlers
 from jobmon.server.web.web_config import WebConfig
 
 
-def create_app(web_config: Optional[WebConfig] = None):
+def create_app(web_config: Optional[WebConfig] = None) -> Flask:
     """Create a Flask app."""
     app = Flask(__name__)
 

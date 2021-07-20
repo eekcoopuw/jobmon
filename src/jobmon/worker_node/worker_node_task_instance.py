@@ -1,25 +1,24 @@
 """The Task Instance Object once it has been submitted to run on a worker node."""
+from functools import partial
+from io import TextIOBase
 import logging
 import os
+from queue import Queue
 import signal
 import socket
 import subprocess
 import sys
-import traceback
-from functools import partial
-from io import TextIOBase
-from queue import Queue
 from threading import Thread
 from time import sleep, time
-from typing import Dict, Optional, Tuple, Union
+import traceback
+from typing import Any, Dict, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.cluster_type.api import import_cluster, register_cluster_plugin
 from jobmon.cluster_type.base import ClusterWorkerNode
 from jobmon.exceptions import InvalidResponse, ReturnCodes
-from jobmon.requester import Requester, http_request_ok
+from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeClusterType
-
 import pkg_resources
 
 logger = logging.getLogger(__name__)
@@ -31,13 +30,16 @@ class WorkerNodeTaskInstance:
     def __init__(self, task_instance_id: int,
                  expected_jobmon_version: str,
                  cluster_type_name: str,
-                 requester_url: Optional[str] = None):
-        """The WorkerNodeTaskInstance is a mechanism whereby a running task_instance can
-        communicate back to the JobStateManager to log its status, errors, usage details, etc.
+                 requester_url: Optional[str] = None) -> None:
+        """A mechanism whereby a running task_instance can communicate back to the JSM.
+
+         Logs its status, errors, usage details, etc.
 
         Args:
             task_instance_id (int): the id of the job_instance_id that is
-                reporting back
+                reporting back.
+            expected_jobmon_version (str): version of Jobmon.
+            cluster_type_name (str): the name of the cluster type.
             requester_url (str): url to communicate with the flask services.
         """
         self.task_instance_id = task_instance_id
@@ -54,7 +56,7 @@ class WorkerNodeTaskInstance:
 
         self.executor = self._get_worker_node(cluster_type_name)
 
-    def _get_worker_node(self, cluster_type_name: str, **worker_node_kwargs) \
+    def _get_worker_node(self, cluster_type_name: str, **worker_node_kwargs: Any) \
             -> ClusterWorkerNode:
         """Lookup ClusterType, getting package_location back."""
         app_route = f'/client/cluster_type/{cluster_type_name}'
@@ -172,8 +174,10 @@ class WorkerNodeTaskInstance:
             logger.error(f"Traceback {traceback.format_exc()}")
 
     def log_running(self, next_report_increment: Union[int, float]) -> Tuple[int, str, str]:
-        """Tell the JobStateManager that this task_instance is running, and update the
-        report_by_date to be further in the future in case it gets reconciled immediately.
+        """Tell the JobStateManager that this task_instance is running.
+
+        Update the report_by_date to be further in the future in case it gets reconciled
+        immediately.
         """
         logger.info(f'Log running for task_instance {self.task_instance_id}')
         message = {'nodename': self.nodename,
@@ -209,8 +213,9 @@ class WorkerNodeTaskInstance:
         return rc
 
     def in_kill_self_state(self) -> bool:
-        """Check if the task instance has been set to kill itself (upon resume or other error
-        from miscommunication).
+        """Check if the task instance has been set to kill itself.
+
+        Either upon resume or other error from miscommunication.
         """
         logger.debug(f"checking kill_self for task_instance {self.task_instance_id}")
         rc, resp = self.requester.send_request(
@@ -228,9 +233,10 @@ class WorkerNodeTaskInstance:
 
     def run(self, temp_dir: Optional[str] = None, heartbeat_interval: float = 90,
             report_by_buffer: float = 3.1) -> ReturnCodes:
-        """This script executes on the target node and wraps the target application. Could be
-        in any language, anything that can execute on linux.Similar to a stub or a container
-        set ENV variables in case tasks need to access them.
+        """This script executes on the target node and wraps the target application.
+
+        Could be in any language, anything that can execute on linux.Similar to a stub or a
+        container set ENV variables in case tasks need to access them.
         """
         os.environ["JOBMON_JOB_INSTANCE_ID"] = str(self.task_instance_id)
 
@@ -278,6 +284,7 @@ class WorkerNodeTaskInstance:
 
 def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
     """Eagerly print 100 byte blocks to stderr so pipe doesn't fill up and deadlock.
+
     Also collect blocks for reporting to db by putting them in a queue to main thread.
 
     Args:
@@ -300,8 +307,9 @@ def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
 
 
 def kill_self(child_process: subprocess.Popen = None) -> None:
-    """If the worker has received a signal to kill itself, kill the child processes and then
-    self, will show up as an exit code 299 in qacct.
+    """If the worker received a signal to kill itself, kill the child processes and then self.
+
+    Will show up as an exit code 299 in qacct.
     """
     logger.info("kill self message received")
     if child_process:
@@ -311,7 +319,7 @@ def kill_self(child_process: subprocess.Popen = None) -> None:
 
 def _run_in_sub_process(command: str, temp_dir: Optional[str], heartbeat_interval: float,
                         worker_node_task_instance: WorkerNodeTaskInstance,
-                        report_by_buffer: float):
+                        report_by_buffer: float) -> tuple:
     """Move out of unwrap for easy mock."""
     proc = subprocess.Popen(
         command,

@@ -17,9 +17,10 @@ class SerializeTask:
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
-        """Coerce types for all nullables that are cast using ast.literal_eval is a potential
-        security issue but was the only solution I could find to turning the data into json
-        twice.
+        """Coerce types for all nullables that are cast using ast.literal_eval.
+
+        It is a potential security issue but was the only solution I could find to turning
+        the data into json twice.
         """
         return {"task_id": int(wire_tuple[0]),
                 "workflow_id": int(wire_tuple[1]),
@@ -72,10 +73,7 @@ class SerializeTaskInstanceErrorLog:
     @staticmethod
     def to_wire(task_instance_error_log_id: int, error_time: datetime,
                 description: str) -> tuple:
-        """
-        Submit the above args for an SerializeTaskInstanceErrorLog
-        object to the database.
-        """
+        """Submit the args for an SerializeTaskInstanceErrorLog object to the database."""
         return task_instance_error_log_id, error_time, description
 
     @staticmethod
@@ -118,7 +116,7 @@ class SerializeClientTaskTemplate:
     """Serialize the data to and from the database for a TaskTemplate."""
 
     @staticmethod
-    def to_wire(id: int, tool_version_id: int, template_name: str):
+    def to_wire(id: int, tool_version_id: int, template_name: str) -> tuple:
         """Submit the TaskTemplate information for transfer over http."""
         return (id, tool_version_id, template_name)
 

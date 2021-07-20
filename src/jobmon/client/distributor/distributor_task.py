@@ -2,8 +2,8 @@
 from __future__ import annotations
 
 import logging
+from typing import Any
 
-# from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeTask
 
@@ -18,10 +18,8 @@ class DistributorTask:
     # serializers.SerializeTask
     def __init__(self, task_id: int, workflow_id: int, node_id: int, task_args_hash: int,
                  name: str, command: str, status: str, queue_id: int,
-                 requested_resources: dict, requester: Requester):
-        """
-        This is a Task object used on the RESTful API client side
-        when constructing task instances.
+                 requested_resources: dict, requester: Requester) -> None:
+        """This is a Task object used on the client side when constructing task instances.
 
         Args:
             task_id: job_id associated with this task
@@ -48,17 +46,17 @@ class DistributorTask:
         self.requester = requester
 
     @classmethod
-    def from_wire(cls, wire_tuple: tuple, executor_class: str, requester: Requester
-                  ) -> DistributorTask:
-        """Construct instance from wire format the JQS gives
+    def from_wire(cls: Any, wire_tuple: tuple, executor_class: str, requester: Requester) \
+            -> DistributorTask:
+        """Construct instance from wire format the JQS gives.
 
         Args:
             wire_tuple (tuple): tuple representing the wire format for this
                 task. format = serializers.SerializeTask.to_wire()
             executor_class (str): which executor class this task instance is
-                being run on
+                being run on.
             requester (Requester, shared_requester): requester for
-                communicating with central services
+                communicating with central services.
         """
         # convert wire tuple into dictionary of kwargs
         kwargs = SerializeTask.kwargs_from_wire(wire_tuple)

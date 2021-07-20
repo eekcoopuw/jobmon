@@ -1,6 +1,8 @@
 """QPID configuration for qpid specifics only."""
 from __future__ import annotations
 
+from typing import Any
+
 from jobmon.config import CLI, ParserDefaults
 
 
@@ -8,7 +10,7 @@ class QPIDConfig:
     """QPID specific configuration."""
 
     @classmethod
-    def from_defaults(cls) -> QPIDConfig:
+    def from_defaults(cls: Any) -> QPIDConfig:
         """Set up config from defaults if no alternates specified."""
         cli = CLI()
         ParserDefaults.db_host(cli.parser)
@@ -33,6 +35,7 @@ class QPIDConfig:
     def __init__(self, db_host: str, db_port: str, db_user: str, db_pass: str,
                  db_name: str, qpid_polling_interval: int, qpid_max_update_per_second: int,
                  qpid_cluster: str, qpid_uri: str) -> None:
+        """Initialization of the QPID configuration."""
         self.db_host = db_host
         self.db_port = db_port
         self.db_user = db_user

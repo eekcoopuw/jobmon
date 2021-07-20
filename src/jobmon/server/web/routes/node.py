@@ -1,13 +1,12 @@
 """Routes used by the main jobmon client."""
-import json
 from http import HTTPStatus as StatusCodes
+import json
+from typing import Any
 
 from flask import current_app as app, jsonify, request
-
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.node_arg import NodeArg
-
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import text
@@ -16,7 +15,7 @@ from . import jobmon_client
 
 
 @jobmon_client.route('/node', methods=['GET'])
-def get_node_id():
+def get_node_id() -> Any:
     """Get a node id: If a matching node isn't found, return None.
 
     Args:
@@ -43,7 +42,7 @@ def get_node_id():
 
 
 @jobmon_client.route('/node', methods=['POST'])
-def add_node():
+def add_node() -> Any:
     """Add a new node to the database.
 
     Args:
@@ -102,7 +101,7 @@ def add_node():
 
 
 @jobmon_client.route('/nodes', methods=['POST'])
-def add_nodes():
+def add_nodes() -> Any:
     """Add a chunk of nodes to the database.
 
     Args:

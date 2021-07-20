@@ -1,10 +1,10 @@
-"""A node represents an individual task within a Dag."""
+"""A node represents an individual task within a DAG."""
 from __future__ import annotations
 
 import hashlib
+from http import HTTPStatus as StatusCodes
 import json
 import logging
-from http import HTTPStatus as StatusCodes
 from typing import Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
@@ -18,7 +18,7 @@ class Node:
     """A node represents an individual task within a Dag."""
 
     def __init__(self, task_template_version_id: int, node_args: Dict,
-                 requester: Optional[Requester] = None):
+                 requester: Optional[Requester] = None) -> None:
         """A node represents an individual task within a Dag.
 
         This includes its relationship to other nodes that it is dependent upon or nodes that
@@ -30,7 +30,7 @@ class Node:
         Args:
             task_template_version_id: The associated task_template_version_id.
             node_args: key-value pairs of arg_id and a value.
-            requester_url (str): url to communicate with the flask services.
+            requester (Requester): Requester object to communicate with the flask services.
         """
         self.task_template_version_id = task_template_version_id
         self.node_args = node_args
@@ -51,8 +51,9 @@ class Node:
         return self._node_id
 
     def bind(self) -> int:
-        """Retrieve an id for a matching node from the server. If it doesn't
-        exist, first create one.
+        """Retrieve an id for a matching node from the server.
+
+        If it doesn't exist, first create one.
         """
         node_id = self._get_node_id()
         if node_id is None:
@@ -65,8 +66,10 @@ class Node:
         return self.node_id
 
     def _hash_node(self) -> int:
-        """A node_hash is a hash of the encoded result of the args and values concatenated
-        together and concatenated with the task_template_version_id.
+        """A hash of the node.
+
+        The hash is the encoded result of the args and values concatenated together and
+        concatenated with the task_template_version_id.
         """
         arg_ids = list(self.node_args.keys())
         arg_ids.sort()
@@ -146,7 +149,7 @@ class Node:
         downstream_node.upstream_nodes.add(self)
 
     def add_downstream_nodes(self, downstream_nodes: List['Node']) -> None:
-        """Add a list of nodes as this node's downstream nodes
+        """Add a list of nodes as this node's downstream nodes.
 
         Args:
             downstream_nodes: Nodes that will be dependent on this node.

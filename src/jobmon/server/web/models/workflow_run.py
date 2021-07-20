@@ -1,12 +1,10 @@
 """Workflow run database table."""
 from flask import current_app as app
-
 from jobmon.serializers import SerializeWorkflowRun
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.models.workflow_status import WorkflowStatus
-
 from sqlalchemy.sql import func
 
 
@@ -115,13 +113,13 @@ class WorkflowRun(DB.Model):
         return self.status in [WorkflowRunStatus.BOUND, WorkflowRunStatus.RUNNING]
 
     def heartbeat(self, next_report_increment: float,
-                  transition_status: str = WorkflowRunStatus.RUNNING):
+                  transition_status: str = WorkflowRunStatus.RUNNING) -> None:
         """Register a heartbeat for the Workflow Run to show it is still alive."""
         self.transition(transition_status)
         self.heartbeat_date = func.ADDTIME(func.now(), func.SEC_TO_TIME(next_report_increment))
 
-    def reap(self):
-        """Transition dead workflow runs to a terminal state"""
+    def reap(self) -> None:
+        """Transition dead workflow runs to a terminal state."""
         app.logger = app.logger.bind(workflow_run_id=self.id,
                                      workflow_id=self.workflow_id)
         app.logger.info(f"Dead wfr {self.id} will be transitted.")
@@ -136,7 +134,7 @@ class WorkflowRun(DB.Model):
             self.transition(WorkflowRunStatus.ERROR)
         app.logger.info(f"Transited wfr {self.id} to {self.status}")
 
-    def transition(self, new_state):
+    def transition(self, new_state: str) -> None:
         """Transition the Workflow Run's state."""
         app.logger = app.logger.bind(workflow_run_id=self.id,
                                      workflow_id=self.workflow_id)

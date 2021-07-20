@@ -1,11 +1,12 @@
 """The client Task Resources with the resources initiation and binding to Task ID."""
+from __future__ import annotations
+
 from http import HTTPStatus as StatusCodes
 from typing import Dict, Optional
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
-
 import structlog as logging
 
 logger = logging.getLogger(__name__)
@@ -16,7 +17,7 @@ class TaskResources:
 
     def __init__(self, queue_id: int, task_resources_type_id: str, resource_scales: Dict,
                  requested_resources: Dict, requester: Optional[Requester] = None) -> None:
-
+        """Initialize the task resource object."""
         self._queue_id = queue_id
         self._task_resources_type_id = task_resources_type_id
         self._resource_scales = resource_scales
@@ -27,7 +28,7 @@ class TaskResources:
             requester = Requester(requester_url)
         self._requester = requester
 
-    def __call__(self):
+    def __call__(self) -> TaskResources:
         """Return TaskResource object."""
         return self
 
@@ -102,7 +103,7 @@ class TaskResources:
         self._id = response
         self._task_id = task_id
 
-    def to_wire(self):
+    def to_wire(self) -> Dict:
         """Resources to dictionary."""
         return {
             "queue_id": self._queue_id,

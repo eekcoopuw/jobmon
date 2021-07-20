@@ -4,8 +4,9 @@ from jobmon.server.web.models import task_resources_type  # noqa F401
 
 
 class TaskResources(DB.Model):
-    """
-    The table in the database that holds all task specific resources:
+    """The table in the database that holds all task specific resources.
+
+    Task specific resources:
         queue_id - designated queue
         requested_resources
     """
@@ -28,6 +29,6 @@ class TaskResources(DB.Model):
     task_resources_type = DB.relationship("TaskResourcesType", # noqa F811
                                           foreign_keys=[task_resources_type_id])
 
-    def activate(self):
+    def activate(self) -> None:
         """Activate Task Resources on Task object."""
         self.task.task_resources_id = self.id

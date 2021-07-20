@@ -6,7 +6,6 @@ from typing import List, Optional, Tuple
 from jobmon.client.client_config import ClientConfig
 from jobmon.constants import TaskStatus
 from jobmon.requester import Requester
-
 import pandas as pd
 
 logger = logging.getLogger(__name__)
@@ -91,7 +90,7 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
 
 def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: bool = False,
                 requester_url: Optional[str] = None) -> Tuple[str, pd.DataFrame]:
-    """Get metadata about a task and its task instances
+    """Get metadata about a task and its task instances.
 
     Args:
         task_ids: a list of task_ids to retrieve task_instance metadata for
@@ -130,8 +129,9 @@ def concurrency_limit(workflow_id: int, max_tasks: int,
     Used to dynamically adjust the allowed number of jobs concurrently running.
 
     Args:
-        workflow_id: ID of the running workflow whose max_running value needs to be reset
-        max_tasks: new allowed value of parallel tasks
+        workflow_id (int): ID of the running workflow whose max_running value needs to be reset
+        max_tasks (int) : new allowed value of parallel tasks
+        requester_url (str): url to requester to connect to Flask service.
 
     Returns: string displaying success or failure of the update.
     """
@@ -159,6 +159,7 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
         workflow_id: The workflow to which each task belongs. Users can only self-service
             1 workflow at a time for the moment.
         new_status: the status to set tasks to
+        requester_url (str): url to requester to connect to Flask service.
     """
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url

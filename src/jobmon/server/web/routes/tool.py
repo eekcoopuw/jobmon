@@ -1,13 +1,12 @@
-"""Routes for Tools"""
+"""Routes for Tools."""
 from http import HTTPStatus as StatusCodes
+from typing import Any
 
 from flask import current_app as app, jsonify, request
-
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.tool import Tool
 from jobmon.server.web.models.tool_version import ToolVersion
 from jobmon.server.web.server_side_exception import InvalidUsage
-
 import sqlalchemy
 from sqlalchemy.sql import text
 
@@ -15,8 +14,8 @@ from . import jobmon_client
 
 
 @jobmon_client.route('/tool', methods=['POST'])
-def add_tool():
-    """Add a tool to the database"""
+def add_tool() -> Any:
+    """Add a tool to the database."""
     data = request.get_json()
     try:
         tool_name = data["name"]
@@ -48,7 +47,7 @@ def add_tool():
 
 
 @jobmon_client.route('/tool/<tool_id>/tool_versions', methods=['GET'])
-def get_tool_versions(tool_id: int):
+def get_tool_versions(tool_id: int) -> Any:
     """Get the Tool Version."""
     # check input variable
     app.logger = app.logger.bind(tool_id=tool_id)

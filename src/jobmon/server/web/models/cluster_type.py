@@ -15,6 +15,6 @@ class ClusterType(DB.Model):
     # ORM relationships
     clusters = DB.relationship("Cluster", back_populates="cluster_type")
 
-    def to_wire_as_requested_by_client(self):
+    def to_wire_as_requested_by_client(self) -> tuple:
         """Serialize cluster object."""
         return SerializeClusterType.to_wire(self.id, self.name, self.package_location)

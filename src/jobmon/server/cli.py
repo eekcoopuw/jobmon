@@ -3,7 +3,6 @@ import logging
 from typing import Optional
 
 import configargparse
-
 from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 
 logger = logging.getLogger(__name__)

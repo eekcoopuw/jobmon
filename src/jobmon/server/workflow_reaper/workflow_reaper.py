@@ -6,7 +6,8 @@ from typing import List
 from jobmon import __version__
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse
-from jobmon.requester import Requester, http_request_ok
+from jobmon.requester import http_request_ok, Requester
+from jobmon.server.workflow_reaper.notifiers import SlackNotifier
 from jobmon.server.workflow_reaper.reaper_workflow_run import ReaperWorkflowRun
 
 logger = logging.getLogger(__file__)
@@ -33,8 +34,15 @@ class WorkflowReaper(object):
     }
 
     def __init__(self, poll_interval_minutes: int, requester: Requester,
-                 wf_notification_sink=None):
+                 wf_notification_sink: SlackNotifier = None) -> None:
+        """Initializes WorkflowReaper class with specified poll interval and slack info.
 
+        Args:
+            poll_interval_minutes(int): how often the WorkflowReaper should check the
+                database and reap workflows.
+            requester (Requester): requester to communicate with Flask.
+            wf_notification_sink (SlackNotifier): Notifier to send reaper messages to Slack.
+        """
         logger.info(
             f"WorkflowReaper initializing with: poll_interval_minutes={poll_interval_minutes},"
             f"requester_url={requester.url}"
@@ -45,8 +53,10 @@ class WorkflowReaper(object):
         self._wf_notification_sink = wf_notification_sink
 
     def monitor_forever(self) -> None:
-        """The main part of the Worklow Reaper. Check if workflow runs should be in ABORTED,
-        SUSPENDED, or ERROR state. Wait and do it again.
+        """The main part of the Worklow Reaper.
+
+        Check if workflow runs should be in ABORTED, SUSPENDED, or ERROR state. Wait and do
+        it again.
         """
         logger.info("Monitoring forever...")
 
@@ -116,8 +126,10 @@ class WorkflowReaper(object):
                 self._wf_notification_sink(msg=message)
 
     def _aborted_state(self) -> None:
-        """Get all workflow runs in G state and validate if they should be in A state.
-        Get all lost wfr in L state and set it to A
+        """Find workflows that should be in aborted state.
+
+        Get all workflow runs in G state and validate if they should be in A state. Get all
+        lost wfr in L state and set it to A
         """
         # Get all lost wfr in L
         workflow_runs = self._get_lost_workflow_runs(["L"])

@@ -25,7 +25,7 @@ def register_cluster_plugin(cluster_type_name: str, plugin_module_path: str) -> 
     known_clusters[cluster_type_name] = plugin_module_path
 
 
-def _validate_plugin(module: Any):
+def _validate_plugin(module: Any) -> None:
     # TODO: Scan module to make sure import functions are implemented
     pass
 
