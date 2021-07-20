@@ -46,21 +46,8 @@ class ClientCLI(CLI):
         from jobmon.client.status_commands import workflow_status as workflow_status_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        if args.limit and len(args.limit) > 0:
-            # limit option provided
-            if args.limit[0] > 0:
-                # return given number of lines
-                df = workflow_status_cmd(args.workflow_id,
-                                         args.user,
-                                         args.json,
-                                         cc.url,
-                                         args.limit)
-            else:
-                # return all
-                df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url, -1)
-        else:
-            # limit option not provided
-            df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url)
+        limit = args.limit if args.limit is None or args.limit > 0 else -1
+        df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url, limit)
         if args.json:
             print(df)
         else:
@@ -72,21 +59,8 @@ class ClientCLI(CLI):
         from jobmon.client.status_commands import workflow_tasks as workflow_tasks_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        if args.limit and len(args.limit) > 0:
-            # limit option provided
-            if args.limit[0] > 0:
-                # return given number of lines
-                df = workflow_tasks_cmd(args.workflow_id,
-                                        args.status,
-                                        args.json,
-                                        cc.url,
-                                        args.limit)
-            else:
-                # return all
-                df = workflow_tasks_cmd(args.workflow_id, args.status, args.json, cc.url, -1)
-        else:
-            # limit option not provided
-            df = workflow_tasks_cmd(args.workflow_id, args.status, args.json, cc.url)
+        limit = args.limit if args.limit is None or args.limit > 0 else -1
+        df = workflow_tasks_cmd(args.workflow_id, args.status, args.json, cc.url, limit)
         if args.json:
             print(df)
         else:
