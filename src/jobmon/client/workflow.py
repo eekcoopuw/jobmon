@@ -410,8 +410,6 @@ class Workflow(object):
         if self.is_bound:
             return
 
-        self.default_cluster = self._get_cluster_by_name(self.default_cluster_name)
-
         self.validate()
 
         # construct task resources
