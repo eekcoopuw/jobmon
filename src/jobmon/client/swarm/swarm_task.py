@@ -56,7 +56,6 @@ class SwarmTask(object):
         self.bound_parameters: List[TaskResources] = []
         self.fallback_queues = fallback_queues
 
-
         self.num_upstreams_done: int = 0
 
     @staticmethod
@@ -126,7 +125,6 @@ class SwarmTask(object):
             resource_scales=previous_resources.resource_scales,
             expected_queue=previous_resources.queue,
             fallback_queues=self.fallback_queues)
-
         return new_resources
 
     def bind_task_resources(self, task_resources_type_id: str) -> None:

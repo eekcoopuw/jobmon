@@ -62,7 +62,7 @@ setup(
     maintainer='IHME SciComp',
     maintainer_email='gphipps@uw.edu',
     url='https://stash.ihme.washington.edu/projects/SCIC/repos/jobmon',
-    description='A dependency management utility for batch computation.',
+    description='A dependency management utility for batch computation. Iguanodon version',
     long_description=open("README.md").read(),
     long_description_content_type="text/markdown",
 
