@@ -49,8 +49,9 @@ class SwarmTask(object):
         self.requester = requester
 
         # once the callable is evaluated, the resources should be saved here
-        self.bound_parameters: list = []
+        self.bound_parameters: List[TaskResources] = []
 
+        # Pop off the fallback queues to use
         self.num_upstreams_done: int = 0
 
     @staticmethod
@@ -138,8 +139,9 @@ class SwarmTask(object):
         logger.debug(
             f"Only going to scale the following resources: {only_scale}")
         resources_adjusted = {'only_scale': only_scale}
-        exec_param_set.adjust(**resources_adjusted)
-        return exec_param_set
+        new_resources = TaskResources.adjust(exec_param_set, resources_adjusted)
+        self.task_resources = new_resources
+        return new_resources
 
     def bind_task_resources(self, task_resources_type_id: str) -> None:
         """Bind executor parameters to db."""
