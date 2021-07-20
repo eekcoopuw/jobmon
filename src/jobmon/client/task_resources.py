@@ -5,15 +5,7 @@ from http import HTTPStatus as StatusCodes
 from typing import Dict, List, Optional
 
 from jobmon.client.client_config import ClientConfig
-<<<<<<< HEAD
-<<<<<<< HEAD
 from jobmon.cluster_type.base import ClusterQueue, ConcreteResource
-=======
-from jobmon.cluster_type.base import ClusterQueue
->>>>>>> c0c77812 (pull linting changes)
-=======
-from jobmon.cluster_type.base import ClusterQueue, ConcreteResource
->>>>>>> baa835aa (move validate adjust to concrete resource class)
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 import structlog as logging
