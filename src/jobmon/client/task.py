@@ -149,6 +149,7 @@ class Task:
             self.compute_resources = compute_resources.copy()
         self.cluster_name = cluster_name
         self._errors = None
+        self.fallback_queues = fallback_queues
 
     @property
     def task_id(self) -> int:

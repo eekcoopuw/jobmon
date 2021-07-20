@@ -21,8 +21,9 @@ class SwarmTask(object):
 
     def __init__(self, task_id: int, status: str, task_args_hash: int,
                  task_resources: Optional[TaskResources] = None,
-                 max_attempts: int = 3, requester: Optional[Requester] = None) -> None:
-        """Implementing swarm behavior of tasks.
+                 max_attempts: int = 3, fallback_queues: Optional[List[str]] = None,
+                 requester: Optional[Requester] = None) -> None:
+        """Implementing swarm behavior of tasks
 
         Args:
             task_id: id of task object from bound db object
@@ -50,8 +51,8 @@ class SwarmTask(object):
 
         # once the callable is evaluated, the resources should be saved here
         self.bound_parameters: List[TaskResources] = []
+        self.fallback_queues = fallback_queues
 
-        # Pop off the fallback queues to use
         self.num_upstreams_done: int = 0
 
     @staticmethod

@@ -213,3 +213,40 @@ def test_resource_arguments(db_cfg, client_env):
     wf.add_tasks([t1])
     wfr = wf.run()
     assert wfr.status == WorkflowRunStatus.DONE
+
+
+def test_adjust_validate(db_cfg, client_env):
+    """ Test that adjust and validate work as expected.
+
+    For queue hopping, note in queries.py that all.q has a max runtime of 72 hours
+    but long.q has a max runtime of 384 hours.
+
+    """
+    from jobmon.client.task_resources import TaskResources
+    from jobmon.client.task import Task
+    from jobmon.client.swarm.swarm_task import SwarmTask
+
+    initial_queue = 'all.q'
+    fallback_queues = ['long.q']
+    t1 = Task(task_resources={'m_mem_free': '1G', 'max_runtime_seconds': 60 * 3600, 'queue': initial_queue,
+        'fallback_queues': fallback_queues})
+    t1.workflow_id = 1  # arbitrary
+    t1.bind()
+
+    st1 = SwarmTask(task_id=t1.id, status="G", task_args_hash=t1.task_args_hash, task_resources=t1.task_resources)
+
+    st1.validate(fail=True)  # Should pass validation
+    st1.adjust_resources()  # New params: m_mem_free = 1.5G, max_runtime_seconds = 60 * 3600 * 1.5, queue = long.q
+    taskresources_1 = st1.task_resources
+    assert taskresources_1.queue.queue_name == fallback_queues[0]
+
+    # Try another adjust where runtime exceeds all available queues,
+    # and check that the values are set to the right maximums
+    taskresources_1.resource_scales = {'max_runtime_seconds': 3000}
+    new_resources = TaskResources.adjust(taskresources_1, only_scale=['max_runtime_seconds'])
+
+    assert new_resources.queue.queue_name == fallback_queues[0]  # No hopping
+    # Check that runtime is maxed
+    assert new_resources.requested_resources['max_runtime_seconds'] == new_resources.queue.parameters['runtime'][1]
+    # Check that memory is unchanged
+    assert new_resources.requested_resources['m_mem_free'] == taskresources_1.requested_resources['m_mem_free']

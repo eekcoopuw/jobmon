@@ -537,7 +537,8 @@ class Workflow(object):
                 status=task.initial_status,
                 task_args_hash=task.task_args_hash,
                 task_resources=task.task_resources,
-                max_attempts=task.max_attempts
+                max_attempts=task.max_attempts,
+                fallback_queues=task.fallback_queues
             )
             swarm_tasks[task.task_id] = swarm_task
 
