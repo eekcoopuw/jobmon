@@ -25,7 +25,7 @@ class TaskResources(DB.Model):
     # ORM relationships
     task = DB.relationship("Task", foreign_keys=[task_id])
     queue = DB.relationship("Queue", foreign_keys=[queue_id])
-    task_resources_type = DB.relationship("TaskResourcesType",
+    task_resources_type = DB.relationship("TaskResourcesType", # noqa F811
                                           foreign_keys=[task_resources_type_id])
 
     def activate(self):

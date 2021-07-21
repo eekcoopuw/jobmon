@@ -1,7 +1,6 @@
 """Distributes and monitors state of Task Instances."""
 from __future__ import annotations
 
-import os
 import logging
 import multiprocessing as mp
 import sys
@@ -11,13 +10,11 @@ from typing import Dict, List, Optional
 
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
-
+from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable, ResumeSet,\
     WorkflowRunStateError
 from jobmon.requester import Requester, http_request_ok
-from jobmon.cluster_type.api import register_cluster_plugin, import_cluster
-from jobmon.client.cluster import Cluster
 
 import tblib.pickling_support
 
@@ -42,7 +39,7 @@ class DistributorService:
     task_instances.
     """
 
-    def __init__(self, workflow_id: int, workflow_run_id: int, cluster_name: str,
+    def __init__(self, workflow_id: int, workflow_run_id: int, distributor: ClusterDistributor,
                  requester: Requester, workflow_run_heartbeat_interval: int = 30,
                  task_heartbeat_interval: int = 90, heartbeat_report_by_buffer: float = 3.1,
                  n_queued: int = 100, distributor_poll_interval: int = 10,
@@ -52,13 +49,7 @@ class DistributorService:
         self.workflow_run_id = workflow_run_id
 
         # cluster_name
-        self._cluster_name = cluster_name
-        cluster = Cluster.get_cluster(self._cluster_name, requester)
-        module = import_cluster(cluster._cluster_type_name)
-
-        # distributor
-        ClusterDistributor = module.get_cluster_distributor_class()
-        self.distributor = ClusterDistributor()
+        self.distributor = distributor
 
         # operational args
         self._worker_node_entry_point = worker_node_entry_point
@@ -140,8 +131,7 @@ class DistributorService:
         """Start up the distributor."""
         try:
             # start up the worker thread and distributor
-            if not self.distributor.started:
-                self.distributor.start()
+            self.distributor.start()
             logger.info("Distributor has started")
 
             # send response back to main
@@ -341,8 +331,8 @@ class DistributorService:
                 if executing_task_instance is not None:
                     executing_task_instance.report_by_date = new_report_by_date
                 else:
-                    logger.warning(f"distributor_id {distributor_id} found in qstat but not in "
-                                   "distributor tracking for submitted or running tasks")
+                    logger.warning(f"distributor_id {distributor_id} found in qstat but not in"
+                                   " distributor tracking for submitted or running tasks")
 
         # remove task instance from tracking if they haven't logged a heartbeat in a while
         current_time = time.time()
@@ -403,7 +393,8 @@ class DistributorService:
         self._to_instantiate = tasks
         return tasks
 
-    def _create_task_instance(self, task: DistributorTask) -> Optional[DistributorTaskInstance]:
+    def _create_task_instance(self, task: DistributorTask) \
+            -> Optional[DistributorTaskInstance]:
         """
         Creates a TaskInstance based on the parameters of Task and tells the
         TaskStateManager to react accordingly.

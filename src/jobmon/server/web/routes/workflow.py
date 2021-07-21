@@ -18,9 +18,10 @@ import pandas as pd
 
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
+from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import text
 
-from . import jobmon_cli, jobmon_client, jobmon_swarm, jobmon_distributor
+from . import jobmon_cli, jobmon_client, jobmon_distributor, jobmon_swarm
 
 _cli_label_mapping = {
     "A": "PENDING",
@@ -327,6 +328,7 @@ def get_task_by_status_only(workflow_id: int):
     # get time from db
     db_time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()['t']
     str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
+    DB.session.commit()
 
     if swarm_tasks_tuples:
         # Sample swarm_tasks_tuples: [(1, 'I')]
@@ -682,37 +684,11 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int):
     # query if we aren't at the concurrency_limit
     if concurrency_limit > 0:
         concurrency_limit = min(int(concurrency_limit), int(n_queued_tasks))
-        task_query = """
-            SELECT
-                task.id AS task_id,
-                task.workflow_id AS task_workflow_id,
-                task.node_id AS task_node_id,
-                task.task_args_hash AS task_task_args_hash,
-                task.name AS task_name,
-                task.command AS task_command,
-                task.status AS task_status,
-                task_resources.queue_id AS task_resources_queue_id,
-                task_resources.task_resources_type_id AS task_resources_type_id,
-                task_resources.resource_scales AS task_resources_resource_scales,
-                task_resources.requested_resources AS task_resources_requested_resources
-            FROM
-                task
-            JOIN
-                task_resources
-                ON task.task_resources_id = task_resources.id
-            JOIN
-                workflow
-                ON task.workflow_id = workflow.id
-            WHERE
-                task.workflow_id = :workflow_id
-                AND task.status = "Q"
-            LIMIT :concurrency_limit
-        """
 
-        tasks = DB.session.query(Task).from_statement(text(task_query)).params(
-            workflow_id=workflow_id,
-            concurrency_limit=concurrency_limit
-        ).all()
+        tasks = DB.session.query(Task). \
+            options(joinedload(Task.task_resources)). \
+            filter(Task.workflow_id == workflow_id, Task.status == "Q"). \
+            limit(concurrency_limit).all()
         DB.session.commit()
         task_dcts = [t.to_wire_as_distributor_task() for t in tasks]
     else:

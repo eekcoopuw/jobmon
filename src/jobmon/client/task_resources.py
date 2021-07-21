@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 
 class TaskResources:
+    """An object representing the resources for a specific task."""
 
     def __init__(self, queue_id: int, task_resources_type_id: str, resource_scales: Dict,
                  requested_resources: Dict, requester: Optional[Requester] = None) -> None:
@@ -27,6 +28,7 @@ class TaskResources:
         self._requester = requester
 
     def __call__(self):
+        """Return TaskResource object."""
         return self
 
     @property
@@ -52,22 +54,27 @@ class TaskResources:
 
     @property
     def queue_id(self) -> int:
+        """Return the ID of the queue."""
         return self._queue_id
 
     @property
     def task_resources_type_id(self) -> str:
+        """Return the type ID of the task resource."""
         return self._task_resources_type_id
 
     @property
     def resource_scales(self) -> Dict:
+        """Return the value of how resources should scale."""
         return self._resource_scales
 
     @property
     def requested_resources(self) -> Dict:
+        """Return the requested resources dictionary."""
         return self._requested_resources
 
     @property
     def requester(self) -> Requester:
+        """Return the requester."""
         return self._requester
 
     def bind(self, task_id: int) -> None:

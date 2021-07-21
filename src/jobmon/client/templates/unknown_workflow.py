@@ -164,7 +164,8 @@ class UnknownWorkflow(Workflow):
         self._distributor = ClusterDistributor()
 
         if not hasattr(self._distributor, "submit_to_batch_distributor"):
-            raise AttributeError("Distributor must have an submit_to_batch_distributor() method")
+            raise AttributeError("Distributor must have an submit_to_batch_distributor()"
+                                 " method")
 
     def run(self) -> WorkflowRun:
         """Run this workflow

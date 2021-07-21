@@ -1,9 +1,9 @@
 """Sequential distributor that runs one task at a time."""
-from collections import OrderedDict
 import logging
 import os
 import shutil
-from typing import Optional, List, Tuple, Dict, Any
+from collections import OrderedDict
+from typing import Any, Dict, List, Optional, Tuple
 
 from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
@@ -42,16 +42,18 @@ class SequentialDistributor(ClusterDistributor):
             exit_info_queue_size: how many exit codes to retain
         """
         self.started = False
+        self._worker_node_entry_point = shutil.which("worker_node_entry_point")
         self._next_distributor_id = 1
         self._exit_info = LimitedSizeDict(size_limit=exit_info_queue_size)
 
     @property
     def worker_node_entry_point(self):
         """Path to jobmon worker_node_entry_point"""
-        return shutil.which("worker_node_entry_point")
+        return self._worker_node_entry_point
 
     @property
     def cluster_type_name(self) -> str:
+        """Return the name of the cluster type."""
         return "sequential"
 
     def start(self) -> None:
@@ -95,9 +97,7 @@ class SequentialDistributor(ClusterDistributor):
 
     def submit_to_batch_distributor(self, command: str, name: str,
                                     requested_resources: Dict[str, Any]) -> int:
-
         """Execute sequentially."""
-
         # add an executor id to the environment
         os.environ["JOB_ID"] = str(self._next_distributor_id)
         distributor_id = self._next_distributor_id
@@ -108,7 +108,6 @@ class SequentialDistributor(ClusterDistributor):
             cli = WorkerNodeCLI()
             args = cli.parse_args(command)
             exit_code = cli.run_task(args)
-            #exit_code = unwrap(**parse_arguments(command))
         except SystemExit as e:
             if e.code == 199:
                 exit_code = e.code
@@ -141,4 +140,3 @@ class SequentialWorkerNode(ClusterWorkerNode):
     def get_usage_stats(self) -> Dict:
         """Usage information specific to the exector."""
         return {}
-

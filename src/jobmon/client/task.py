@@ -172,13 +172,6 @@ class Task:
         self._task_resources = val
 
     @property
-    def compute_resources_validated(self):
-        try:
-            return self._compute_resources_validated
-        except AttributeError as e:
-            raise e("Compute resources cannot be validated and set until the task is bound")
-
-    @property
     def initial_status(self) -> str:
         """Get initial status of the task if it has been bound to the db otherwise raise
         an error.
@@ -292,9 +285,18 @@ class Task:
         return self._errors
 
     def set_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
+        """Set default compute resources from a user provided yaml file for task level.
+
+        TODO: Implement this method.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            yaml_file: the yaml file that is providing the compute resource values.
+        """
         pass
 
     def update_compute_resources(self, **kwargs):
+        """Function that allows users to update their compute resources."""
         self.compute_resources.update(kwargs)
 
     def _hash_task_args(self) -> int:

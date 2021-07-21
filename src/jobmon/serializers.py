@@ -29,7 +29,8 @@ class SerializeTask:
                 "command": wire_tuple[5],
                 "status": wire_tuple[6],
                 "queue_id": wire_tuple[7],
-                "requested_resources": {} if wire_tuple[8] is None else ast.literal_eval(wire_tuple[8])
+                "requested_resources": {} if wire_tuple[8] is None else ast.literal_eval(
+                    wire_tuple[8])
                 }
 
 

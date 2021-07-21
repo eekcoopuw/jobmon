@@ -3,12 +3,11 @@ from __future__ import annotations
 
 import logging
 from http import HTTPStatus as StatusCodes
-from typing import Callable, Dict, List, Optional, Set
+from typing import Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
-#from jobmon.client.distributor.strategies import ExecutorParameters
 from jobmon.client.task_resources import TaskResources
-from jobmon.constants import TaskStatus, TaskResourcesType
+from jobmon.constants import TaskStatus
 from jobmon.exceptions import CallableReturnedInvalidObject, InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeSwarmTask
@@ -152,10 +151,6 @@ class SwarmTask(object):
                 "return the expected TaskResources object, it is of type"
                 f"{type(task_resources)}")
         self.bound_parameters.append(task_resources)
-
-        # validate the values
-        # if task_resources_type_id == TaskResourcesType.VALIDATED:
-        #    task_resources.validate()
 
         # bind to db
         app_route = f'/swarm/task/{self.task_id}/update_resources'

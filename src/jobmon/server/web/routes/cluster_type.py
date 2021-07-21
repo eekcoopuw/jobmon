@@ -4,10 +4,10 @@ from http import HTTPStatus as StatusCodes
 from flask import jsonify
 
 from jobmon.server.web.models import DB
-from jobmon.server.web.models.cluster import Cluster
 from jobmon.server.web.models.cluster_type import ClusterType
 
 from . import jobmon_client
+
 
 @jobmon_client.route('/cluster_type/<cluster_type_name>', methods=['GET'])
 def get_cluster_type_by_name(cluster_type_name: str):

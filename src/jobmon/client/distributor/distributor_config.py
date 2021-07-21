@@ -43,11 +43,11 @@ class DistributorConfig:
             logstash_protocol=args.logstash_protocol
         )
 
-    def __init__(self, workflow_run_heartbeat_interval: int, task_instance_heartbeat_interval: int,
-                 heartbeat_report_by_buffer: float, n_queued: int,
-                 distributor_poll_interval: int, web_service_fqdn: str, web_service_port: str,
-                 worker_node_entry_point: Optional[str] = None, use_logstash: bool = False,
-                 logstash_host: str = "", logstash_port: str = "",
+    def __init__(self, workflow_run_heartbeat_interval: int,
+                 task_instance_heartbeat_interval: int, heartbeat_report_by_buffer: float,
+                 n_queued: int, distributor_poll_interval: int, web_service_fqdn: str,
+                 web_service_port: str, worker_node_entry_point: Optional[str] = None,
+                 use_logstash: bool = False, logstash_host: str = "", logstash_port: str = "",
                  logstash_protocol: str = ""):
         self.worker_node_entry_point = worker_node_entry_point
         self.workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
