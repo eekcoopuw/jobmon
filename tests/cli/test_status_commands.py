@@ -5,6 +5,28 @@ from jobmon.client.cli import ClientCLI as CLI
 
 import pytest
 
+from jobmon.client.task import Task
+from jobmon.client.tool import Tool
+
+@pytest.fixture
+def tool(db_cfg, client_env):
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
+                                                 compute_resources={"queue": "null.q"})
+    return tool
+
+
+@pytest.fixture
+def task_template(tool):
+    tt = tool.get_task_template(
+        template_name="my_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[]
+    )
+    return tt
+
 logger = logging.getLogger(__name__)
 
 
@@ -18,19 +40,18 @@ def mock_getuser():
     return "foo"
 
 
-def test_workflow_status(db_cfg, client_env, monkeypatch):
-    from jobmon.client.api import BashTask
-    from jobmon.client.api import UnknownWorkflow
+def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
     from jobmon.client.status_commands import workflow_status
 
     monkeypatch.setattr(getpass, "getuser", mock_getuser)
     user = getpass.getuser()
 
-
-    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
-    t1 = BashTask("sleep 10", executor_class="SequentialExecutor")
-    t2 = BashTask("sleep 5", upstream_tasks=[t1],
-                  executor_class="SequentialExecutor")
+    tool = Tool()
+    workflow = tool.create_workflow(
+        default_cluster_name="sequential",
+        default_compute_resources_set={"sequential": {"queue": "null.q"}})
+    t1 = task_template.create_task(arg="sleep 10")
+    t2 = task_template.create_task(arg="sleep 5", upstream_tasks=[t1])
     workflow.add_tasks([t1, t2])
     workflow.bind()
     workflow._create_workflow_run()
@@ -61,10 +82,11 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
                  ':{"0":"0 (0.0%)"},"RETRIES":{"0":0.0}}'
 
     # add a second workflow
-    t1 = BashTask("sleep 15", executor_class="SequentialExecutor")
-    t2 = BashTask("sleep 1", upstream_tasks=[t1],
-                  executor_class="SequentialExecutor")
-    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
+    t1 = task_template.create_task(arg="sleep 15")
+    t2 = task_template.create_task(arg="sleep 1", upstream_tasks=[t1])
+    workflow = tool.create_workflow(
+        default_cluster_name="sequential",
+        default_compute_resources_set={"sequential": {"queue": "null.q"}})
     workflow.add_tasks([t1, t2])
     workflow.bind()
     workflow._create_workflow_run()
@@ -92,26 +114,34 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
     assert len(df) == 2
 
     # add 4 more wf to make it 6
-    workflow1 = UnknownWorkflow(executor_class="SequentialExecutor")
-    t1 = BashTask("sleep 1", executor_class="SequentialExecutor")
+    workflow1 = tool.create_workflow(
+        default_cluster_name="sequential",
+        default_compute_resources_set={"sequential": {"queue": "null.q"}})
+    t1 = task_template.create_task(arg="sleep 1")
     workflow1.add_tasks([t1])
     workflow1.bind()
     workflow1._create_workflow_run()
 
-    workflow2 = UnknownWorkflow(executor_class="SequentialExecutor")
-    t2 = BashTask("sleep 2", executor_class="SequentialExecutor")
+    workflow2 = tool.create_workflow(
+        default_cluster_name="sequential",
+        default_compute_resources_set={"sequential": {"queue": "null.q"}})
+    t2 = task_template.create_task(arg="sleep 2")
     workflow2.add_tasks([t2])
     workflow2.bind()
     workflow2._create_workflow_run()
 
-    workflow3 = UnknownWorkflow(executor_class="SequentialExecutor")
-    t3 = BashTask("sleep 3", executor_class="SequentialExecutor")
+    workflow3 = tool.create_workflow(
+        default_cluster_name="sequential",
+        default_compute_resources_set={"sequential": {"queue": "null.q"}})
+    t3 = task_template.create_task(arg="sleep 3")
     workflow3.add_tasks([t3])
     workflow3.bind()
     workflow3._create_workflow_run()
 
-    workflow4 = UnknownWorkflow(executor_class="SequentialExecutor")
-    t4 = BashTask("sleep 4", executor_class="SequentialExecutor")
+    workflow4 = tool.create_workflow(
+        default_cluster_name="sequential",
+        default_compute_resources_set={"sequential": {"queue": "null.q"}})
+    t4 = task_template.create_task(arg="sleep 4")
     workflow4.add_tasks([t4])
     workflow4.bind()
     workflow4._create_workflow_run()
@@ -166,17 +196,18 @@ def test_workflow_status(db_cfg, client_env, monkeypatch):
     assert len(df) == 6
 
 
-def test_workflow_tasks(db_cfg, client_env):
-    from jobmon.client.api import BashTask
-    from jobmon.client.api import UnknownWorkflow
+def test_workflow_tasks(db_cfg, client_env, task_template):
     from jobmon.client.status_commands import workflow_tasks
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.requester import Requester
-    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
-    t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={})
-    t2 = BashTask("sleep 4", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={})
+    from jobmon.constants import WorkflowRunStatus
+
+    tool = Tool()
+    workflow = tool.create_workflow(
+        default_cluster_name="sequential",
+        default_compute_resources_set={"sequential": {"queue": "null.q"}})
+    t1 = task_template.create_task(arg="sleep 3")
+    t2 = task_template.create_task(arg="sleep 4")
 
     workflow.add_tasks([t1, t2])
     workflow.bind()
@@ -194,7 +225,7 @@ def test_workflow_tasks(db_cfg, client_env):
     # execute the tasks
     requester = Requester(client_env)
     distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester=requester)
+                                      "sequential", requester=requester)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockDistributorProc(),
                                   seconds_until_timeout=1)
@@ -215,6 +246,70 @@ def test_workflow_tasks(db_cfg, client_env):
     args = cli.parse_args(command_str)
     df = workflow_tasks(args.workflow_id, args.status)
     assert len(df) == 0
+
+    # limit testing
+    workflow = tool.create_workflow(name="test_100_tasks_with_limit_testing",
+                                    default_cluster_name="multiprocess",
+                                    default_compute_resources_set={"multiprocess": {"queue": "null.q"}}
+                                    )
+
+    for i in range(6):
+        t = task_template.create_task(arg=f"echo {i}", upstream_tasks=[])
+        workflow.add_task(t)
+
+    workflow.bind()
+
+    wfrs = workflow.run()
+    assert wfrs == WorkflowRunStatus.DONE
+
+    # check limit 1
+    command_str = f"workflow_tasks -w {workflow.workflow_id} -l 1"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_tasks(args.workflow_id, limit=args.limit)
+    assert len(df) == 1
+
+    # check limit 2
+    command_str = f"workflow_tasks -w {workflow.workflow_id} -l 2"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_tasks(args.workflow_id, limit=args.limit)
+    assert len(df) == 2
+
+    # check default (no limit)
+    command_str = f"workflow_tasks -w {workflow.workflow_id}"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_tasks(args.workflow_id)
+    assert len(df) == 5
+
+    # check default (limit without value)
+    command_str = f"workflow_tasks -w {workflow.workflow_id} -l"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_tasks(args.workflow_id)
+    assert len(df) == 5
+
+    # check over limit
+    command_str = f"workflow_tasks -w {workflow.workflow_id} -l 12"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_tasks(args.workflow_id, limit=args.limit)
+    assert len(df) == 6
+
+    # check 0
+    command_str = f"workflow_tasks -w {workflow.workflow_id} -l 0"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_tasks(args.workflow_id, limit=args.limit)
+    assert len(df) == 0
+
+    # check negative
+    command_str = f"workflow_tasks -w {workflow.workflow_id} -l -1"
+    cli = CLI()
+    args = cli.parse_args(command_str)
+    df = workflow_tasks(args.workflow_id, limit=args.limit)
+    assert len(df) == 6
 
 
 def test_task_status(db_cfg, client_env):
