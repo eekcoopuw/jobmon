@@ -36,6 +36,8 @@ class MockDistributorProc:
 def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
     """tests that a task can be instantiated and run and log done"""
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
     from jobmon.requester import Requester
 
     t1 = task_template.create_task(
@@ -48,13 +50,14 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
+    swarm = SwarmWorkflowRun(workflow_id=wfr.workflow_id, workflow_run_id=wfr.workflow_run_id,
+                             tasks=list(workflow.tasks.values()))
+    swarm.compute_initial_dag_state()
+    swarm.queue_tasks()
+
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             "sequential", requester=requester)
-    with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockDistributorProc(),
-                                  seconds_until_timeout=1)
-
+                                             SequentialDistributor(), requester=requester)
     distributor_service._get_tasks_queued_for_instantiation()
     distributor_service.distribute()
 
@@ -67,6 +70,8 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
         FROM task_instance
         WHERE task_id = :task_id"""
         res = DB.session.execute(sql, {"task_id": t1.task_id}).fetchone()
+        print(f"foo {res}")
+        breakpoint()
         DB.session.commit()
     assert res[0] == "D"
 
@@ -75,6 +80,7 @@ def test_n_queued(tool, db_cfg, client_env, task_template):
     """tests that we only return a subset of queued jobs based on the n_queued
     parameter"""
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.cluster_type.dummy import DummyDistributor
     from jobmon.serializers import SerializeTask
     from jobmon.requester import Requester
 
@@ -90,7 +96,7 @@ def test_n_queued(tool, db_cfg, client_env, task_template):
 
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             "dummy", requester=requester,
+                                             DummyDistributor(), requester=requester,
                                              n_queued=3)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockDistributorProc(),
@@ -161,6 +167,7 @@ def test_concurrency_limiting(tool, db_cfg, client_env, task_template):
     """tests that we only return a subset of queued jobs based on the n_queued
     parameter"""
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
     from jobmon.requester import Requester
 
     tasks = []
@@ -170,7 +177,6 @@ def test_concurrency_limiting(tool, db_cfg, client_env, task_template):
     workflow = tool.create_workflow(name="test_concurrency_limiting",
                                     max_concurrently_running=2)
     # TODO: parallelism=3
-    # workflow.set_executor(MultiprocessExecutor(parallelism=3))
     workflow.add_tasks(tasks)
 
     workflow.bind()
@@ -178,7 +184,8 @@ def test_concurrency_limiting(tool, db_cfg, client_env, task_template):
 
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             "multiprocess", requester=requester)
+                                             MultiprocessDistributor(parallelism=3),
+                                             requester=requester)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
 
@@ -208,6 +215,7 @@ def test_dynamic_concurrency_limiting(tool, db_cfg, client_env, task_template):
     """ tests that the CLI functionality to update concurrent jobs behaves as expected"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.status_commands import concurrency_limit
+    from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
     from jobmon.requester import Requester
 
     tasks = []
@@ -241,7 +249,8 @@ def test_dynamic_concurrency_limiting(tool, db_cfg, client_env, task_template):
 
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr2.workflow_run_id,
-                                             "multiprocess", requester=requester)
+                                             MultiprocessDistributor(parallelism=3),
+                                             requester=requester)
     with pytest.raises(RuntimeError):
         wfr2.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
 

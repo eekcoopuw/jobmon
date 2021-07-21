@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Callable, Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.task import Task
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.constants import TaskStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse
@@ -33,17 +34,34 @@ class WorkflowRun:
     """
 
     def __init__(self, workflow_id: int, workflow_run_id: int,
-                 swarm_tasks: Dict[int, SwarmTask], requester: Optional[Requester] = None):
+                 tasks: List[Task], fail_after_n_executions: int = 1_000_000_000,
+                 requester: Optional[Requester] = None):
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
 
-        if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
-        self.requester = requester
+        # construct SwarmTasks from Client Tasks
+        self.swarm_tasks: Dict[int, SwarmTask] = {}
+        for task in tasks:
+
+            # create swarmtasks
+            swarm_task = SwarmTask(
+                task_id=task.task_id,
+                status=task.initial_status,
+                task_args_hash=task.task_args_hash,
+                task_resources=task.task_resources,
+                max_attempts=task.max_attempts
+            )
+            self.swarm_tasks[task.task_id] = swarm_task
+
+        # create relationships on swarm task
+        for task in tasks:
+            swarm_task = self.swarm_tasks[task.task_id]
+            swarm_task.upstream_swarm_tasks = set([
+                self.swarm_tasks[t.task_id] for t in task.upstream_tasks])
+            swarm_task.downstream_swarm_tasks = set([
+                self.swarm_tasks[t.task_id] for t in task.downstream_tasks])
 
         # state tracking
-        self.swarm_tasks = swarm_tasks
         self.all_done: Set[SwarmTask] = set()
         self.all_error: Set[SwarmTask] = set()
         self.ready_to_run: List[SwarmTask] = list()
@@ -52,8 +70,14 @@ class WorkflowRun:
         self._status = WorkflowRunStatus.BOUND
 
         # test parameter to force failure
-        self._val_fail_after_n_executions = 1_000_000_000
+        self._val_fail_after_n_executions = fail_after_n_executions
         self._n_executions = 0
+
+        # requester
+        if requester is None:
+            requester_url = ClientConfig.from_defaults().url
+            requester = Requester(requester_url)
+        self.requester = requester
 
     @property
     def status(self) -> str:

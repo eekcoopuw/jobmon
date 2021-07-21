@@ -17,7 +17,6 @@ from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
-from jobmon.cluster_type.api import import_cluster
 from jobmon.constants import TaskResourcesType, WorkflowRunStatus, WorkflowStatus
 from jobmon.exceptions import (DistributorNotAlive, DistributorStartupTimeout,
                                DuplicateNodeArgsError, InvalidResponse, ResumeSet,
@@ -478,7 +477,8 @@ class Workflow(object):
         return client_wfr
 
     def _run_swarm(self, workflow_run_id: int, fail_fast: bool = False,
-                   seconds_until_timeout: int = 36000) -> str:
+                   seconds_until_timeout: int = 36000,
+                   fail_after_n_executions: int = 1_000_000_000) -> str:
         """
         Take a concrete DAG and queue al the Tasks that are not DONE.
 
@@ -510,7 +510,11 @@ class Workflow(object):
         """
 
         # set up swarm and initial DAG
-        wfr = self._create_swarm(workflow_run_id)
+        wfr = SwarmWorkflowRun(workflow_id=self.workflow_id, workflow_run_id=workflow_run_id,
+                               tasks=list(self.tasks.values()),
+                               fail_after_n_executions=fail_after_n_executions,
+                               requester=self.requester)
+
         try:
             logger.info(f"Executing Workflow Run {wfr.workflow_run_id}")
             wfr.update_status(WorkflowRunStatus.RUNNING)
@@ -602,42 +606,6 @@ class Workflow(object):
             wfr.update_status(WorkflowRunStatus.DONE)
 
         return wfr.status
-
-    def _create_swarm(self, workflow_run_id: int) -> SwarmWorkflowRun:
-
-        # create swarm workflow run
-        swarm_tasks: Dict[int, SwarmTask] = {}
-        for task in self.tasks.values():
-
-            # create swarmtasks
-            swarm_task = SwarmTask(
-                task_id=task.task_id,
-                status=task.initial_status,
-                task_args_hash=task.task_args_hash,
-                task_resources=task.task_resources,
-                max_attempts=task.max_attempts
-            )
-            swarm_tasks[task.task_id] = swarm_task
-
-        # create relationships on swarm taskf
-        for task in self.tasks.values():
-            swarm_task = swarm_tasks[task.task_id]
-            swarm_task.upstream_swarm_tasks = set([
-                swarm_tasks[t.task_id] for t in task.upstream_tasks])
-            swarm_task.downstream_swarm_tasks = set([
-                swarm_tasks[t.task_id] for t in task.downstream_tasks])
-
-        wfr = SwarmWorkflowRun(
-            workflow_id=self.workflow_id,
-            workflow_run_id=workflow_run_id,
-            swarm_tasks=swarm_tasks,
-            requester=self.requester
-        )
-
-        if hasattr(self, "_val_fail_after_n_executions"):
-            wfr._set_fail_after_n_executions(self._val_fail_after_n_executions)
-
-        return wfr
 
     def _matching_wf_args_diff_hash(self):
         """Check that an existing workflow with the same workflow_args does not have a
@@ -767,16 +735,6 @@ class Workflow(object):
                 resp.re_raise()
 
         return distributor_proc
-
-    def _set_fail_after_n_executions(self, n: int) -> None:
-        """
-        For use during testing, force the TaskDag to 'fall over' after n
-        executions, so that the resume case can be tested.
-
-        In every non-test case, self.fail_after_n_executions will be None, and
-        so the 'fall over' will not be triggered in production.
-        """
-        self._val_fail_after_n_executions = n
 
     def _distributor_alive(self, raise_error: bool = True) -> bool:
         """If the distributor process is still active."""

@@ -147,6 +147,7 @@ def test_log_distributor_report_by(tool, db_cfg, client_env, task_template, monk
     """test that jobs that are queued by an distributor but not running still log
     heartbeats"""
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
     # patch unwrap from sequential so the command doesn't execute,
     # def mock_unwrap(*args, **kwargs):
@@ -166,7 +167,7 @@ def test_log_distributor_report_by(tool, db_cfg, client_env, task_template, monk
 
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             "sequential", requester=requester)
+                                             SequentialDistributor(), requester=requester)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
 

@@ -36,6 +36,7 @@ class MockDistributorProc:
 def test_heartbeat(tool, db_cfg, client_env, task_template):
     """test that the TaskInstanceDistributor logs a heartbeat in the database"""
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
     from jobmon.requester import Requester
 
     t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
@@ -46,7 +47,7 @@ def test_heartbeat(tool, db_cfg, client_env, task_template):
 
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             "sequential", requester=requester)
+                                             SequentialDistributor(), requester=requester)
     distributor_service.heartbeat()
 
     # check the job finished
@@ -66,6 +67,7 @@ def test_heartbeat(tool, db_cfg, client_env, task_template):
 def test_heartbeat_raises_error(tool, db_cfg, client_env, task_template):
     """test that a heartbeat logged after resume will raise ResumeSet"""
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
     from jobmon.requester import Requester
 
     t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
@@ -76,7 +78,7 @@ def test_heartbeat_raises_error(tool, db_cfg, client_env, task_template):
 
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             "sequential", requester=requester)
+                                             SequentialDistributor(), requester=requester)
     # check the job finished
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -97,6 +99,7 @@ def test_heartbeat_propagate_error(tool, db_cfg, client_env, task_template):
     the message queue and can be re_raised"""
 
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
     from jobmon.requester import Requester
 
     t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
@@ -107,7 +110,7 @@ def test_heartbeat_propagate_error(tool, db_cfg, client_env, task_template):
 
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             "sequential", requester=requester)
+                                             SequentialDistributor(), requester=requester)
     # check the job finished
     app = db_cfg["app"]
     DB = db_cfg["DB"]
