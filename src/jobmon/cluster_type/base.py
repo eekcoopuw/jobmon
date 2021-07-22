@@ -155,3 +155,13 @@ class ClusterWorkerNode(Protocol):
     def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
         """Error and exit code info from the executor."""
         raise NotImplementedError
+
+class ConcreteResource(Protocol):
+
+    @abstractmethod
+    def validate(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def adjust(self):
+        raise NotImplementedError

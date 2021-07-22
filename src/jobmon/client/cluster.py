@@ -2,12 +2,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_resources import TaskResources
 from jobmon.cluster_type.api import import_cluster, register_cluster_plugin
-from jobmon.cluster_type.base import ClusterQueue
+from jobmon.cluster_type.base import ClusterQueue, ConcreteResource
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeCluster, SerializeQueue
@@ -83,6 +83,11 @@ class Cluster:
             raise AttributeError("Cannot access plugin until Cluster is bound to database")
         return import_cluster(self._cluster_type_name)
 
+    @property
+    def concrete_resource_class(self) -> type:
+        """ If the cluster is bound, access the concrete resource class"""
+        return self.plugin.get_concrete_resource_class()
+
     def get_queue(self, queue_name: str) -> ClusterQueue:
         """Get the ClusterQueue object associated with a given queue_name.
 
@@ -117,27 +122,18 @@ class Cluster:
         return queue
 
     def validate_requested_resources(self, requested_resources: Dict[str, Any],
-                                     queue: ClusterQueue) -> None:
+                                     queue: ClusterQueue,
+                                     fail: bool = False) -> ConcreteResource:
         """Validate the requested resources dict against the specified queue.
 
         Raises: ValueError
         """
         # validate it has required resources
-        full_error_msg = ""
-        missing_resources = set(queue.required_resources) - set(requested_resources.keys())
-        if missing_resources:
-            full_error_msg = (
-                f"\n  Missing required resources {list(missing_resources)} for "
-                f"'{queue.queue_name}'. Got {list(requested_resources.keys())}."
-            )
+        valid_resources: ConcreteResource = self.concrete_resource_class.validate(
+            queue=queue, requested_resources=requested_resources, fail=fail)
+        return valid_resources
 
-        for resource, resource_value in requested_resources.items():
-            msg = queue.validate_resource(resource, resource_value, fail=False)
-            full_error_msg += msg
-
-        if full_error_msg:
-            raise ValueError(full_error_msg)
-
+<<<<<<< HEAD
     def adjust_task_resource(self, task_resources: TaskResources, adjustment_func: Any) \
             -> None:
         """Adjust task resources based on the scaling factor.
@@ -149,8 +145,33 @@ class Cluster:
     def create_task_resources(self, resource_params: Dict, task_resources_type_id: str) -> \
             TaskResources:
         """Construct a TaskResources object with the specified resource parameters."""
+=======
+    def adjust_task_resource(self, initial_resources: Dict, resource_scales: Dict,
+                             expected_queue: ClusterQueue = None,
+                             fallback_queues: List[ClusterQueue] = None) -> TaskResources:
+        """Adjust task resources based on the scaling factor"""
+        adjusted_resource: ConcreteResource = self.concrete_resource_class.adjust(
+            existing_resources=initial_resources,
+            resource_scales=resource_scales,
+            expected_queue=expected_queue,
+            fallback_queues=fallback_queues)
+        return adjusted_resource
+
+    def create_task_resources(self, resource_params: Dict, task_resources_type_id: str,
+                              fail=False) -> TaskResources:
+        """Construct a TaskResources object with the specified resource parameters.
+        Validate before constructing task resources, taskResources assumed to be valid
+        """
+>>>>>>> 9193ddf5 (move validate adjust to concrete resource class)
         queue_name = resource_params.pop("queue")
         queue = self.get_queue(queue_name)
+
+        # Validate
+        concrete_resources = self.validate_requested_resources(
+            requested_resources=resource_params,
+            queue=queue,
+            fail=fail
+        )
 
         # construct resource scales
         try:
@@ -159,7 +180,7 @@ class Cluster:
             resource_scales = {}
 
         task_resource = TaskResources(queue_id=queue.queue_id,
-                                      requested_resources=resource_params,
+                                      concrete_resources=concrete_resources,
                                       resource_scales=resource_scales,
                                       task_resources_type_id=task_resources_type_id)
         return task_resource
