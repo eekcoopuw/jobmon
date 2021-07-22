@@ -2,7 +2,11 @@
 from __future__ import annotations
 
 import logging
+<<<<<<< HEAD
 from typing import Any, Dict, List, Optional, Tuple
+=======
+from typing import Any, Dict, List, Optional
+>>>>>>> baa835aa (move validate adjust to concrete resource class)
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_resources import TaskResources
