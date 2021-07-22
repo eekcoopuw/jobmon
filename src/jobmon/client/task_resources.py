@@ -28,7 +28,6 @@ class TaskResources:
             requester_url = ClientConfig.from_defaults().url
             requester = Requester(requester_url)
         self._requester = requester
-        self.fallback_queues = fallback_queues
 
     def __call__(self) -> TaskResources:
         """Return TaskResource object."""
@@ -108,40 +107,3 @@ class TaskResources:
             "resource_scales": self._resource_scales,
             "requested_resources": self._requested_resources,
         }
-
-    @classmethod
-    def adjust(cls, task_resources: TaskResources, **kwargs):
-        """ Create a new class instance of taskresources, given an existing one, with
-        adjusted resource requests"""
-
-        only_scale = kwargs.get("only_scale", [])
-        resource_scales = task_resources.resource_scales
-        unscaled_resources = task_resources._requested_resources
-
-        scale_params = {key: self.resource_scales[key] for key in only_scale}
-
-        adjusted_resources = None
-        new_queue = None
-        try:
-            adjusted_resources = task_resources.queue.adjust(unscaled_resources, scale_params)
-            new_queue = task_resources.queue
-        except ValueError:
-            # A value error is raised if the runtime adjustment fails. So iteratively try the next queue in fallback queues
-            fallback_queues = task_resources.fallback_queues
-            while fallback_queues:
-                new_queue = fallback_queues.pop(0)
-                try:
-                    adjusted_resources = new_queue.adjust(unscaled_resources, scale_params)
-                except ValueError as e:
-                    logger.warning(f"Queue {next_queue} not suitable, reason: {e}")
-
-            # If no suitable queues found, either raise an error or set to the max.
-            if not adjusted_resources:
-                raise ValueError(f"No suitable queues found. Reduce either your resource scales or your job size")
-
-        return cls(
-            queue_id=task_resources._queue_id,
-            task_resources_type_id=task_resources._task_resources_type_id,
-            resource_scales=task_resources._resource_scales,
-            requested_resources=existing_resources.update(resource_updates),
-            requester=task_resources._requester)

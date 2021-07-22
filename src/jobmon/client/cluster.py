@@ -2,7 +2,11 @@
 from __future__ import annotations
 
 import logging
+<<<<<<< HEAD
 from typing import Any, Dict, List, Optional, Tuple
+=======
+from typing import Any, Dict, List, Optional
+>>>>>>> 179f4919 (move validate adjust to concrete resource class)
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_resources import TaskResources
@@ -149,6 +153,7 @@ class Cluster:
         """Construct a TaskResources object with the specified resource parameters.
         Validate before constructing task resources, taskResources assumed to be valid
         """
+
         queue_name = resource_params.pop("queue")
         queue = self.get_queue(queue_name)
 
