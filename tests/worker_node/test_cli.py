@@ -4,7 +4,6 @@ from unittest.mock import patch
 
 from jobmon.cluster_type.sequential import seq_distributor
 from jobmon.worker_node import worker_node_task_instance
-from jobmon.cluster_type import sequential
 
 import pkg_resources
 
@@ -52,9 +51,7 @@ def test_unwrap_happy_path(client_env):
             WorkerNodeTaskInstance(task_instance_id=1,
                                    expected_jobmon_version=version,
                                    cluster_type_name="sequential")
-        r = worker_node_ti.run(
-             heartbeat_interval=1,
-             report_by_buffer=3.1)
+        r = worker_node_ti.run(heartbeat_interval=1, report_by_buffer=3.1)
         assert r == 0
 
 

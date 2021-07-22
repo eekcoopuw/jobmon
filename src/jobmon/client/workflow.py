@@ -13,15 +13,15 @@ from jobmon.client.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.distributor.api import DistributorConfig
 from jobmon.client.distributor.distributor_service import DistributorService, ExceptionWrapper
-from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
+from jobmon.client.task_resources import TaskResources
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
 from jobmon.constants import TaskResourcesType, WorkflowRunStatus, WorkflowStatus
-from jobmon.exceptions import (DistributorNotAlive, DistributorStartupTimeout,
-                               DuplicateNodeArgsError, InvalidResponse, ResumeSet,
-                               WorkflowAlreadyComplete, WorkflowAlreadyExists,
-                               WorkflowNotResumable)
+from jobmon.exceptions import (CallableReturnedInvalidObject, DistributorNotAlive,
+                               DistributorStartupTimeout, DuplicateNodeArgsError,
+                               InvalidResponse, ResumeSet, WorkflowAlreadyComplete,
+                               WorkflowAlreadyExists, WorkflowNotResumable)
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeCluster
 
@@ -532,7 +532,16 @@ class Workflow(object):
             try:
                 # TODO: calculate dynamic resources
                 for swarm_task in wfr.queue_tasks():
-                    pass
+                    task = self.tasks[swarm_task.task_id]
+                    task_resources_callable = task.task_resources
+                    task_resources = task_resources_callable()
+                    if not isinstance(task_resources, TaskResources):
+                        raise CallableReturnedInvalidObject(
+                            "The function called to return TaskResources did not "
+                            "return the expected TaskResources object, it is of type"
+                            f"{type(task_resources)}")
+                    task_resources.bind(task.task_id)
+                    swarm_task.task_resources = task_resources
 
                 # wait till we have new work
                 wfr.block_until_newly_ready_or_all_done(

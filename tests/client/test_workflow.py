@@ -156,6 +156,18 @@ def test_numpy_array_node_args(tool):
     assert workflow.workflow_id
 
 
+def test_empty_workflow(tool):
+    """
+    Create a real_dag with no Tasks. Call all the creation methods and check
+    that it raises no Exceptions.
+    """
+
+    workflow = tool.create_workflow(name="test_empty_real_dag")
+
+    with pytest.raises(RuntimeError):
+        workflow.run()
+
+
 # def test_compute_resources(db_cfg, client_env):
 #     """Test user passed cluster_resources. Need to test: 1. task with compute resources,
 #     no workflow resources 2. task with no compute resources, workflow resources 3. tasks with

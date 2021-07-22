@@ -8,7 +8,7 @@ from typing import Dict, List, Optional, Set
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_resources import TaskResources
 from jobmon.constants import TaskStatus
-from jobmon.exceptions import CallableReturnedInvalidObject, InvalidResponse
+from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeSwarmTask
 
@@ -39,7 +39,7 @@ class SwarmTask(object):
         self.upstream_swarm_tasks: Set[SwarmTask] = set()
         self.downstream_swarm_tasks: Set[SwarmTask] = set()
 
-        self.task_resources_callable = task_resources
+        self.task_resources = task_resources
         self.max_attempts = max_attempts
         self.task_args_hash = task_args_hash
 
@@ -87,10 +87,6 @@ class SwarmTask(object):
     def upstream_tasks(self) -> List[SwarmTask]:
         """Return a list of upstream tasks."""
         return list(self.upstream_swarm_tasks)
-
-    def get_task_resources(self):
-        """Return an instance of executor parameters."""
-        return self.task_resources_callable
 
     def queue_task(self) -> int:
         """Transition a task to the Queued for Instantiation status in the db."""
@@ -144,13 +140,6 @@ class SwarmTask(object):
     def bind_task_resources(self, task_resources_type_id: str) -> None:
         """Bind executor parameters to db."""
         # evaluate callable and validate it is the right type of object
-        task_resources = self.get_task_resources()
-        if not isinstance(task_resources, TaskResources):
-            raise CallableReturnedInvalidObject(
-                "The function called to return TaskResources did not "
-                "return the expected TaskResources object, it is of type"
-                f"{type(task_resources)}")
-        self.bound_parameters.append(task_resources)
 
         # bind to db
         app_route = f'/swarm/task/{self.task_id}/update_resources'

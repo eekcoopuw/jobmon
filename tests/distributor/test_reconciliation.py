@@ -148,6 +148,7 @@ def test_log_distributor_report_by(tool, db_cfg, client_env, task_template, monk
     heartbeats"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     # patch unwrap from sequential so the command doesn't execute,
     # def mock_unwrap(*args, **kwargs):
@@ -165,11 +166,14 @@ def test_log_distributor_report_by(tool, db_cfg, client_env, task_template, monk
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
+    swarm = SwarmWorkflowRun(workflow_id=wfr.workflow_id, workflow_run_id=wfr.workflow_run_id,
+                             tasks=list(workflow.tasks.values()))
+    swarm.compute_initial_dag_state()
+    list(swarm.queue_tasks())  # expand the generator
+
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
                                              SequentialDistributor(), requester=requester)
-    with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
 
     # instantiate the job and then log a report by
     distributor_service.distribute()

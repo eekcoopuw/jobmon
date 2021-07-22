@@ -1,7 +1,5 @@
 import time
 
-from jobmon.constants import WorkflowRunStatus
-
 import pytest
 
 from jobmon.client.tool import Tool
@@ -53,7 +51,7 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
     swarm = SwarmWorkflowRun(workflow_id=wfr.workflow_id, workflow_run_id=wfr.workflow_run_id,
                              tasks=list(workflow.tasks.values()))
     swarm.compute_initial_dag_state()
-    swarm.queue_tasks()
+    list(swarm.queue_tasks())  # expand the generator
 
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
@@ -71,7 +69,6 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
         WHERE task_id = :task_id"""
         res = DB.session.execute(sql, {"task_id": t1.task_id}).fetchone()
         print(f"foo {res}")
-        breakpoint()
         DB.session.commit()
     assert res[0] == "D"
 
@@ -80,6 +77,7 @@ def test_n_queued(tool, db_cfg, client_env, task_template):
     """tests that we only return a subset of queued jobs based on the n_queued
     parameter"""
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.cluster_type.dummy import DummyDistributor
     from jobmon.serializers import SerializeTask
     from jobmon.requester import Requester
@@ -98,18 +96,18 @@ def test_n_queued(tool, db_cfg, client_env, task_template):
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
                                              DummyDistributor(), requester=requester,
                                              n_queued=3)
-    with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockDistributorProc(),
-                                  seconds_until_timeout=1)
+
+    swarm = SwarmWorkflowRun(workflow_id=wfr.workflow_id, workflow_run_id=wfr.workflow_run_id,
+                             tasks=list(workflow.tasks.values()))
+    swarm.compute_initial_dag_state()
+    list(swarm.queue_tasks())  # expand the generator
 
     # comparing results and times of old query vs new query
     rc, response = workflow.requester.send_request(
         app_route=f'/distributor/workflow/{workflow.workflow_id}/queued_tasks/1000',
         message={},
         request_type='get')
-    all_jobs = [
-        SerializeTask.kwargs_from_wire(j)
-        for j in response['task_dcts']]
+    all_jobs = [SerializeTask.kwargs_from_wire(j) for j in response['task_dcts']]
 
     # now new query that should only return 3 jobs
     select_jobs = distributor_service._get_tasks_queued_for_instantiation()
@@ -167,6 +165,7 @@ def test_concurrency_limiting(tool, db_cfg, client_env, task_template):
     """tests that we only return a subset of queued jobs based on the n_queued
     parameter"""
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
     from jobmon.requester import Requester
 
@@ -186,8 +185,11 @@ def test_concurrency_limiting(tool, db_cfg, client_env, task_template):
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
                                              MultiprocessDistributor(parallelism=3),
                                              requester=requester)
-    with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
+
+    swarm = SwarmWorkflowRun(workflow_id=wfr.workflow_id, workflow_run_id=wfr.workflow_run_id,
+                             tasks=list(workflow.tasks.values()))
+    swarm.compute_initial_dag_state()
+    list(swarm.queue_tasks())  # expand the generator
 
     # now new query that should only return 2 jobs
     select_tasks = distributor_service._get_tasks_queued_for_instantiation()
@@ -214,6 +216,7 @@ def test_concurrency_limiting(tool, db_cfg, client_env, task_template):
 def test_dynamic_concurrency_limiting(tool, db_cfg, client_env, task_template):
     """ tests that the CLI functionality to update concurrent jobs behaves as expected"""
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.client.status_commands import concurrency_limit
     from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
     from jobmon.requester import Requester
@@ -233,26 +236,21 @@ def test_dynamic_concurrency_limiting(tool, db_cfg, client_env, task_template):
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
-    # Move workflow and wfr through Instantiating -> Launched
-    wfr.update_status(WorkflowRunStatus.INSTANTIATING)
-    wfr.update_status(WorkflowRunStatus.LAUNCHED)
-
-    with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
-
-    wfr.update_status(WorkflowRunStatus.ERROR)
+    # queue the tasks
+    swarm = SwarmWorkflowRun(workflow_id=wfr.workflow_id, workflow_run_id=wfr.workflow_run_id,
+                             tasks=list(workflow.tasks.values()))
+    swarm.compute_initial_dag_state()
+    list(swarm.queue_tasks())  # expand the generator
 
     # Started with a default of 2. Adjust up to 5 and try again
     concurrency_limit(workflow.workflow_id, 5)
 
-    wfr2 = workflow._create_workflow_run(resume=True)
+    # wfr2 = workflow._create_workflow_run(resume=True)
 
     requester = Requester(client_env)
-    distributor_service = DistributorService(workflow.workflow_id, wfr2.workflow_run_id,
+    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
                                              MultiprocessDistributor(parallelism=3),
                                              requester=requester)
-    with pytest.raises(RuntimeError):
-        wfr2.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
 
     # Query should return 5 jobs
     select_tasks = distributor_service._get_tasks_queued_for_instantiation()

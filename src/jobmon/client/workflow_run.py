@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Tuple
 from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
+from jobmon.client.task_resources import TaskResources
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import Requester, http_request_ok
@@ -196,7 +197,9 @@ class WorkflowRun(object):
                 task = tasks[int(k)]
                 task.task_id = return_tasks[k][0]
                 task.initial_status = return_tasks[k][1]
+
                 # Bind the task resources
-                task.task_resources.bind(task.task_id)
+                if isinstance(task.task_resources, TaskResources):
+                    task.task_resources.bind(task.task_id)
 
         return tasks
