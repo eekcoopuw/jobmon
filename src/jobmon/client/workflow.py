@@ -371,7 +371,6 @@ class Workflow(object):
         It will confirm that the workflow args are valid. It also
         will make sure no task contains up/down stream tasks that are not in the workflow.
         """
-
         # check if workflow is valid
         self._dag.validate()
         self._matching_wf_args_diff_hash()

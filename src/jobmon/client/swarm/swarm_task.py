@@ -42,6 +42,10 @@ class SwarmTask(object):
         self.upstream_swarm_tasks: Set[SwarmTask] = set()
         self.downstream_swarm_tasks: Set[SwarmTask] = set()
 
+<<<<<<< HEAD
+=======
+        # Does swarmtask have a cluster?
+>>>>>>> 3d7e9ce6 (add cluster to swarmtask)
         self.cluster = cluster
         self.task_resources_callable = task_resources
         self.max_attempts = max_attempts
