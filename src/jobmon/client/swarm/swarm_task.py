@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_resources import TaskResources
+from jobmon.client.cluster import Cluster
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import CallableReturnedInvalidObject, InvalidResponse
 from jobmon.requester import http_request_ok, Requester
@@ -20,6 +21,7 @@ class SwarmTask(object):
     """Swarm side task object."""
 
     def __init__(self, task_id: int, status: str, task_args_hash: int,
+                 cluster: Cluster,
                  task_resources: Optional[TaskResources] = None,
                  max_attempts: int = 3, fallback_queues: Optional[List[str]] = None,
                  requester: Optional[Requester] = None) -> None:
@@ -40,6 +42,8 @@ class SwarmTask(object):
         self.upstream_swarm_tasks: Set[SwarmTask] = set()
         self.downstream_swarm_tasks: Set[SwarmTask] = set()
 
+        # Does swarmtask have a cluster?
+        self.cluster = cluster
         self.task_resources_callable = task_resources
         self.max_attempts = max_attempts
         self.task_args_hash = task_args_hash
@@ -115,7 +119,7 @@ class SwarmTask(object):
         logger.debug("Job in A state, adjusting resources before queueing")
 
         # get the most recent parameter set
-        exec_param_set = self.bound_parameters[-1]
+        exec_param_set: TaskResources = self.bound_parameters[-1]
         only_scale = list(exec_param_set.resource_scales.keys())
 
         app_route = f'/worker/task/{self.task_id}/most_recent_ti_error'
@@ -131,17 +135,12 @@ class SwarmTask(object):
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
-        # check if we are only scaling runtime.
-        # TODO: this logic should be in ExecutorParameters.adjust since it is
-        # SGE specific
-        if ('max_runtime' in response['error_description'] and 'max_runtime_seconds'
-                in only_scale):
-            only_scale = ['max_runtime_seconds']
-        logger.debug(
-            f"Only going to scale the following resources: {only_scale}")
-        resources_adjusted = {'only_scale': only_scale}
-        new_resources = TaskResources.adjust(exec_param_set, resources_adjusted)
-        self.task_resources = new_resources
+        new_resources: TaskResources = self.cluster.adjust_task_resource(
+            initial_resources=exec_param_set.concrete_resources.resources,
+            resource_scales=exec_param_set.resource_scales,
+            expected_queue=exec_param_set.queue,
+            fallback_queues=self.fallback_queues)
+
         return new_resources
 
     def bind_task_resources(self, task_resources_type_id: str) -> None:

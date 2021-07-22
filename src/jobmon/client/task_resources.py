@@ -19,7 +19,8 @@ class TaskResources:
     def __init__(self, queue: ClusterQueue, task_resources_type_id: str,
                  concrete_resources: ConcreteResource, requester: Optional[Requester] = None) -> None:
         """Initialize the task resource object."""
-        self._default_queue = queue
+
+        self.queue = queue
         self._task_resources_type_id = task_resources_type_id
         self._concrete_resources = concrete_resources
 
@@ -56,7 +57,7 @@ class TaskResources:
     @property
     def queue_id(self) -> int:
         """Return the ID of the queue."""
-        return self._queue_id
+        return self.queue.id
 
     @property
     def task_resources_type_id(self) -> str:
