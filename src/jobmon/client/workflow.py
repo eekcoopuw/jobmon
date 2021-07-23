@@ -519,7 +519,7 @@ class Workflow(object):
             )
             swarm_tasks[task.task_id] = swarm_task
 
-        # create relationships on swarm taskf
+        # create relationships on swarm task
         for task in self.tasks.values():
             swarm_task = swarm_tasks[task.task_id]
             swarm_task.upstream_swarm_tasks = set([

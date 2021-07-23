@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_resources import TaskResources
@@ -133,19 +133,6 @@ class Cluster:
             queue=queue, requested_resources=requested_resources, fail=fail)
         return valid_resources
 
-<<<<<<< HEAD
-    def adjust_task_resource(self, task_resources: TaskResources, adjustment_func: Any) \
-            -> None:
-        """Adjust task resources based on the scaling factor.
-
-        TODO: Implement this function?
-        """
-        pass
-
-    def create_task_resources(self, resource_params: Dict, task_resources_type_id: str) -> \
-            TaskResources:
-        """Construct a TaskResources object with the specified resource parameters."""
-=======
     def adjust_task_resource(self, initial_resources: Dict, resource_scales: Dict,
                              expected_queue: ClusterQueue = None,
                              fallback_queues: List[ClusterQueue] = None) -> TaskResources:
@@ -157,30 +144,23 @@ class Cluster:
             fallback_queues=fallback_queues)
         return adjusted_resource
 
-    def create_task_resources(self, resource_params: Dict, task_resources_type_id: str,
-                              fail=False) -> TaskResources:
+    def create_valid_task_resources(self, resource_params: Dict, task_resources_type_id: str,
+                                    fail=False) -> TaskResources:
         """Construct a TaskResources object with the specified resource parameters.
         Validate before constructing task resources, taskResources assumed to be valid
         """
->>>>>>> 9193ddf5 (move validate adjust to concrete resource class)
         queue_name = resource_params.pop("queue")
         queue = self.get_queue(queue_name)
 
         # Validate
-        concrete_resources = self.validate_requested_resources(
+        is_valid, msg, concrete_resources = self.validate_requested_resources(
             requested_resources=resource_params,
-            queue=queue,
-            fail=fail
+            queue=queue
         )
+        if fail and not is_valid:
+            raise ValueError(f"Failed validation, reasons: {msg}")
 
-        # construct resource scales
-        try:
-            resource_scales = resource_params.pop("resource_scales")
-        except KeyError:
-            resource_scales = {}
-
-        task_resource = TaskResources(queue_id=queue.queue_id,
+        task_resource = TaskResources(queue=concrete_resources.queue,
                                       concrete_resources=concrete_resources,
-                                      resource_scales=resource_scales,
                                       task_resources_type_id=task_resources_type_id)
         return task_resource

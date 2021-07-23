@@ -23,7 +23,8 @@ class SwarmTask(object):
     def __init__(self, task_id: int, status: str, task_args_hash: int,
                  cluster: Cluster,
                  task_resources: Optional[TaskResources] = None,
-                 max_attempts: int = 3, fallback_queues: Optional[List[str]] = None,
+                 max_attempts: int = 3,
+                 fallback_queues: Optional[List[str]] = None,
                  requester: Optional[Requester] = None) -> None:
         """Implementing swarm behavior of tasks
 
@@ -42,7 +43,6 @@ class SwarmTask(object):
         self.upstream_swarm_tasks: Set[SwarmTask] = set()
         self.downstream_swarm_tasks: Set[SwarmTask] = set()
 
-        # Does swarmtask have a cluster?
         self.cluster = cluster
         self.task_resources_callable = task_resources
         self.max_attempts = max_attempts
@@ -119,26 +119,12 @@ class SwarmTask(object):
         logger.debug("Job in A state, adjusting resources before queueing")
 
         # get the most recent parameter set
-        exec_param_set: TaskResources = self.bound_parameters[-1]
-        only_scale = list(exec_param_set.resource_scales.keys())
-
-        app_route = f'/worker/task/{self.task_id}/most_recent_ti_error'
-        return_code, response = self.requester.send_request(
-            app_route=f'/worker/task/{self.task_id}/most_recent_ti_error',
-            message={},
-            request_type='get',
-            logger=logger
-        )
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+        previous_resources: TaskResources = self.bound_parameters[-1]
 
         new_resources: TaskResources = self.cluster.adjust_task_resource(
-            initial_resources=exec_param_set.concrete_resources.resources,
-            resource_scales=exec_param_set.resource_scales,
-            expected_queue=exec_param_set.queue,
+            initial_resources=previous_resources.concrete_resources.resources,
+            resource_scales=previous_resources.resource_scales,
+            expected_queue=previous_resources.queue,
             fallback_queues=self.fallback_queues)
 
         return new_resources
