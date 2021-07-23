@@ -23,7 +23,8 @@ class SwarmTask(object):
     def __init__(self, task_id: int, status: str, task_args_hash: int,
                  cluster: Cluster,
                  task_resources: Optional[TaskResources] = None,
-                 max_attempts: int = 3, fallback_queues: Optional[List[str]] = None,
+                 max_attempts: int = 3,
+                 fallback_queues: Optional[List[str]] = None,
                  requester: Optional[Requester] = None) -> None:
         """Implementing swarm behavior of tasks
 
@@ -41,11 +42,6 @@ class SwarmTask(object):
 
         self.upstream_swarm_tasks: Set[SwarmTask] = set()
         self.downstream_swarm_tasks: Set[SwarmTask] = set()
-
-<<<<<<< HEAD
-=======
-        # Does swarmtask have a cluster?
->>>>>>> 3d7e9ce6 (add cluster to swarmtask)
         self.cluster = cluster
         self.task_resources_callable = task_resources
         self.max_attempts = max_attempts
