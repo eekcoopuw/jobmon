@@ -55,8 +55,12 @@ class SwarmTask(object):
 
         # once the callable is evaluated, the resources should be saved here
         self.bound_parameters: List[TaskResources] = []
+<<<<<<< HEAD
         self.fallback_queues = fallback_queues
+=======
+>>>>>>> c0c77812 (pull linting changes)
 
+        # Pop off the fallback queues to use
         self.num_upstreams_done: int = 0
 
     @staticmethod
