@@ -225,10 +225,13 @@ def test_adjust_validate(db_cfg, client_env):
     from jobmon.client.task_resources import TaskResources
     from jobmon.client.task import Task
     from jobmon.client.swarm.swarm_task import SwarmTask
+    from jobmon.client.cluster import Cluster
+
+    seq_cluster = Cluster.get_cluster('sequential')
 
     initial_queue = 'all.q'
     fallback_queues = ['long.q']
-    t1 = Task(task_resources={'m_mem_free': '1G', 'max_runtime_seconds': 60 * 3600, 'queue': initial_queue,
+    t1 = Task(task_resources={'memory': '1G', 'runtime': 60 * 3600, 'queue': initial_queue,
         'fallback_queues': fallback_queues})
     t1.workflow_id = 1  # arbitrary
     t1.bind()

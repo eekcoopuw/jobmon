@@ -101,7 +101,7 @@ class Cluster:
         try:
             queue = self.queues[queue_name]
         except KeyError:
-            Queue = self.plugin.get_cluster_queue_class()
+            queue_class = self.plugin.get_cluster_queue_class()
             app_route = f'/client/cluster/{self.id}/queue/{queue_name}'
             return_code, response = self.requester.send_request(
                 app_route=app_route,
@@ -116,7 +116,7 @@ class Cluster:
                     f'200. Response content: {response}'
                 )
             queue_kwargs = SerializeQueue.kwargs_from_wire(response["queue"])
-            queue = Queue(**queue_kwargs)
+            queue = queue_class(**queue_kwargs)
             self.queues[queue_name] = queue
 
         return queue
@@ -153,7 +153,7 @@ class Cluster:
         queue = self.get_queue(queue_name)
 
         # Validate
-        is_valid, msg, concrete_resources = self.validate_requested_resources(
+        is_valid, msg, concrete_resources = self.concrete_resource_class.validate_and_create_concrete_resource(
             requested_resources=resource_params,
             queue=queue
         )
