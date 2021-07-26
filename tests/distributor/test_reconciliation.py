@@ -3,7 +3,10 @@ import time
 from jobmon.requester import Requester
 
 import pytest
+import random
+from typing import Any, Dict, Optional
 
+from jobmon.cluster_type.dummy import DummyDistributor
 from jobmon.client.tool import Tool
 
 
@@ -36,77 +39,52 @@ class MockDistributorProc:
         return True
 
 
-@pytest.mark.skip()
-def test_unknown_state(db_cfg, client_env, task_template, monkeypatch):
+def test_unknown_state(tool, db_cfg, client_env, task_template, monkeypatch):
     """Creates a job instance, gets an distributor id so it can be in submitted
     to the batch distributor state, and then it will never be run (it will miss
     its report by date and the reconciler will kill it)"""
     from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
-    class MockDistributorTaskInstance(DistributorTaskInstance):
-        def dummy_distributor_task_instance_run_and_done(self):
-            # do nothing so job gets marked as Batch then Unknown
-            """For all instances other than the DummyExecutor, the worker node task instance should
-            be the one logging the done status. Since the DummyExecutor doesn't actually run
-            anything, the task_instance_scheduler needs to mark it done so that execution can
-            proceed through the DAG.
+
+    class TestDummyDistributor(DummyDistributor):
+        """ a test DummyDistributor that bypasses the setting of log_running and log_done"""
+        def __init__(self):
+            """init the same way as DummyDistributor."""
+            super().__init__()
+
+        def submit_to_batch_distributor(self, command: str, name: str,
+                                        requested_resources: Dict[str, Any]) -> int:
+            """Run a fake execution of the task.
+            In a real executor, this is where qsub would happen.
+            here, since it's a dummy executor, we just get a random num
             """
-            if self.executor.__class__.__name__ != "DummyExecutor":
-                logger.error("Cannot directly log a task instance done unless using the Dummy "
-                             "Executor")
-            logger.debug("Moving the job to running, then done so that dependencies can proceed to"
-                         " mock a successful dag traversal process")
-            run_app_route = f'/worker/task_instance/{self.task_instance_id}/log_running'
-            run_message = {'process_group_id': '0', 'next_report_increment': 60}
-            return_code, response = self.requester.send_request(
-                app_route=run_app_route,
-                message=run_message,
-                request_type='post',
-                logger=logger
-            )
-            if return_code != StatusCodes.OK:
-                raise InvalidResponse(f'Unexpected status code {return_code} from POST '
-                                      f'request through route {run_app_route}. Expected '
-                                      f'code 200. Response content: {response}')
-            done_app_route = f"/worker/task_instance/{self.task_instance_id}/log_done"
-            done_message = {'nodename': 'DummyNode', 'executor_id': self.executor_id}
-            return_code, response = self.requester.send_request(
-                app_route=done_app_route,
-                message=done_message,
-                request_type='post',
-                logger=logger
-            )
-            if return_code != StatusCodes.OK:
-                raise InvalidResponse(f'Unexpected status code {return_code} from POST '
-                                      f'request through route {done_app_route}. Expected '
-                                      f'code 200. Response content: {response}')
+            distributor_id = random.randint(1, int(1e7))
 
-    monkeypatch.setattr(DistributorTaskInstance, "dummy_distributor_task_instance_run_and_done",
-                        MockDistributorTaskInstance.dummy_distributor_task_instance_run_and_done)
+            # Not setting anything up for this reconcilliation test
 
-    tool = Tool()
+            return distributor_id
 
-    # Queue a job
     task = task_template.create_task(
         arg="ls", name="dummyfbb", max_attempts=1,
-        cluster_name="dummy")
+        cluster_name="dummy", compute_resources={"queue": "null.q"})
     workflow = tool.create_workflow(name="foo")
-    workflow.add_task(task)
 
-    # add workflow info to db and then time out.
-    workflow.bind(cluster_name="dummy", compute_resources={"queue": "null.q"})
+    workflow.add_task(task)
+    workflow.bind()
     wfr = workflow._create_workflow_run()
+
+    swarm = SwarmWorkflowRun(workflow_id=wfr.workflow_id, workflow_run_id=wfr.workflow_run_id,
+                             tasks=list(workflow.tasks.values()))
+    swarm.compute_initial_dag_state()
+    list(swarm.queue_tasks())  # expand the generator
+
+    test_dummy_distributor = TestDummyDistributor()
 
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             "dummy", requester=requester,
-                                             task_heartbeat_interval=5)
-    with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
-
-    # How long we wait for a JI to report it is running before reconciler moves
-    # it to error state.
+                                             test_dummy_distributor, requester=requester)
     distributor_service.distribute()
 
     # Since we are using the 'dummy' distributor, we never actually do
@@ -136,11 +114,6 @@ def test_unknown_state(db_cfg, client_env, task_template, monkeypatch):
     res = DB.session.execute(sql, {"task_id": str(task.task_id)}).fetchone()
     DB.session.commit()
     assert res[0] == "U"
-
-    # because we only allow 1 attempt job will move to E after job instance
-    # moves to U
-    wfr._parse_adjusting_done_and_errors(wfr._task_status_updates())
-    assert len(wfr.all_error) > 0
 
 
 def test_log_distributor_report_by(tool, db_cfg, client_env, task_template, monkeypatch):
