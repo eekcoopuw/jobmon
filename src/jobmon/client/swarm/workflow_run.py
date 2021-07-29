@@ -343,7 +343,7 @@ class WorkflowRun:
             if adjusting:
                 for swarm_task in adjusting:
                     # change callable to adjustment function.
-                    swarm_task.executor_parameters_callable = swarm_task.adjust_resources
+                    swarm_task.task_resources_callable = swarm_task.adjust_resources
                     self._adjust_resources_and_queue(swarm_task)
 
             # exit if fringe is affected

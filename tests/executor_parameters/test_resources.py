@@ -1,7 +1,6 @@
 import ast
 import os
 
-from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import CallableReturnedInvalidObject
 
@@ -215,41 +214,120 @@ def test_resource_arguments(db_cfg, client_env):
     assert wfr.status == WorkflowRunStatus.DONE
 
 
-def test_adjust_validate(db_cfg, client_env):
-    """ Test that adjust and validate work as expected.
-
-    For queue hopping, note in queries.py that all.q has a max runtime of 72 hours
-    but long.q has a max runtime of 384 hours.
-
-    """
+def test_validate(db_cfg, client_env):
+    """ Test that adjust and validate work as expected."""
     from jobmon.client.task_resources import TaskResources
-    from jobmon.client.task import Task
-    from jobmon.client.swarm.swarm_task import SwarmTask
+    from jobmon.constants import TaskResourcesType
     from jobmon.client.cluster import Cluster
 
-    seq_cluster = Cluster.get_cluster('sequential')
+    cluster = Cluster.get_cluster("multiprocess")
 
-    initial_queue = 'all.q'
-    fallback_queues = ['long.q']
-    t1 = Task(task_resources={'memory': '1G', 'runtime': 60 * 3600, 'queue': initial_queue,
-        'fallback_queues': fallback_queues})
-    t1.workflow_id = 1  # arbitrary
-    t1.bind()
+    # Create a valid resource. In test_utils.db_schema, note that min/max cores for the multiprocess
+    # cluster null.q is 1/20
+    happy_resource: TaskResources = cluster.create_valid_task_resources(
+        resource_params={'cores': 10, 'queue': 'null.q'},
+        task_resources_type_id=TaskResourcesType.VALIDATED,
+        fail=False
+    )
 
-    st1 = SwarmTask(task_id=t1.id, status="G", task_args_hash=t1.task_args_hash, task_resources=t1.task_resources)
+    assert happy_resource.concrete_resources.resources['cores'] == 10
+    assert happy_resource.queue.queue_name == "null.q"
 
-    st1.validate(fail=True)  # Should pass validation
-    st1.adjust_resources()  # New params: m_mem_free = 1.5G, max_runtime_seconds = 60 * 3600 * 1.5, queue = long.q
-    taskresources_1 = st1.task_resources
-    assert taskresources_1.queue.queue_name == fallback_queues[0]
+    # Create invalid resource
+    # Try a fail call first
+    with pytest.raises(ValueError):
+        cluster.create_valid_task_resources(
+            resource_params={'cores': 100, 'queue': 'null.q'},
+            task_resources_type_id=TaskResourcesType.VALIDATED,
+            fail=True
+        )
 
-    # Try another adjust where runtime exceeds all available queues,
-    # and check that the values are set to the right maximums
-    taskresources_1.resource_scales = {'max_runtime_seconds': 3000}
-    new_resources = TaskResources.adjust(taskresources_1, only_scale=['max_runtime_seconds'])
+    # Same call but check that the resources are coerced
+    unhappy_resource: TaskResources = cluster.create_valid_task_resources(
+        resource_params={'cores': 100, 'queue': 'null.q'},
+        task_resources_type_id=TaskResourcesType.VALIDATED,
+        fail=False)
+    assert unhappy_resource.concrete_resources.resources['cores'] == 20
 
-    assert new_resources.queue.queue_name == fallback_queues[0]  # No hopping
-    # Check that runtime is maxed
-    assert new_resources.requested_resources['max_runtime_seconds'] == new_resources.queue.parameters['runtime'][1]
-    # Check that memory is unchanged
-    assert new_resources.requested_resources['m_mem_free'] == taskresources_1.requested_resources['m_mem_free']
+
+def test_swarmtask_resources_integration(db_cfg, client_env):
+    """ Check that taskresources defined in task are passed to swarmtask appropriately"""
+    from jobmon.client.swarm.swarm_task import SwarmTask
+    from jobmon.client.task import Task
+    from jobmon.client.cluster import Cluster
+    from jobmon.constants import TaskResourcesType
+    from jobmon.cluster_type.multiprocess.multiproc_concrete_resource import ConcreteMultiprocResource
+
+    # Instantiate multiproc cluster
+    cluster = Cluster.get_cluster('multiprocess')
+
+    # Create the concrete resource
+    task_resources = cluster.create_valid_task_resources(
+        {'cores': 8, 'queue': 'null.q'}, TaskResourcesType.VALIDATED)
+
+    # Spawn a swarm task
+    task = Task(
+        command='foo',
+        task_template_version_id=1,
+        node_args={},
+        task_args={},
+        cluster_name='multiprocess',
+        compute_resources={'queue': 'null.q', 'cores': 8},
+        task_attributes=[]
+    )
+    task.workflow_id = 1  # arbitrary
+    task.node.bind()
+    task.bind()
+
+    swarmtask = SwarmTask(
+        task_id=task.task_id,
+        status="G",
+        task_args_hash='123', # arbitrary
+        cluster=cluster,
+        task_resources=task_resources
+    )
+    swarmtask.bind_task_resources(task_resources_type_id=TaskResourcesType.VALIDATED)
+    assert len(swarmtask.bound_parameters) == 1
+    assert swarmtask.task_resources_callable.concrete_resources.resources['cores'] == 8
+
+    # Mock the concrete multiproc resource to implement adjust behavior
+    class MockMultiprocResource(ConcreteMultiprocResource):
+
+        class __Implementation:
+            def __init__(self, queue, resources):
+                self.queue = queue
+                self.resources = resources
+
+        @classmethod
+        def adjust(cls, existing_resources, resource_scales, expected_queue, fallback_queues):
+            # Adjust everything, no logic
+            scaled_resources = {key: val * (1 + resource_scales[key])
+                                for key, val in existing_resources.items()}
+            _, _, coerced_resources = expected_queue.validate_resource(**scaled_resources)
+            return cls.__Implementation(queue=expected_queue, resources=coerced_resources)
+
+    class MockMultiprocCluster(Cluster):
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+
+        @property
+        def concrete_resource_class(self):
+            return MockMultiprocResource
+
+    mock_cluster = MockMultiprocCluster.get_cluster('multiprocess')
+    swarmtask.cluster = mock_cluster
+
+    # Fake an adjustment
+    swarmtask.resource_scales = {'cores': 1}
+    swarmtask.task_resources_callable = swarmtask.adjust_resources
+    swarmtask.bind_task_resources(task_resources_type_id=TaskResourcesType.ADJUSTED)
+    assert len(swarmtask.bound_parameters) == 2
+    assert swarmtask.bound_parameters[-1].concrete_resources.resources['cores'] == 16
+
+    # Try an invalid adjustment
+    swarmtask.resource_scales = {'cores': 100}
+    swarmtask.bind_task_resources(task_resources_type_id=TaskResourcesType.ADJUSTED)
+    assert len(swarmtask.bound_parameters) == 3
+    breakpoint()
+    assert swarmtask.bound_parameters[-1].concrete_resources.resources['cores'] == 20

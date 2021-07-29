@@ -65,6 +65,7 @@ class Task:
                  task_args: dict,
                  cluster_name: str = '',
                  compute_resources: Optional[Dict[str, Any]] = None,
+                 resource_scales: Optional[Dict[str, float]] = None,
                  name: Optional[str] = None,
                  max_attempts: int = 3,
                  upstream_tasks: Optional[List['Task']] = None,
@@ -147,9 +148,9 @@ class Task:
             self.compute_resources = {}
         else:
             self.compute_resources = compute_resources.copy()
+        self.resource_scales = resource_scales
         self.cluster_name = cluster_name
         self._errors = None
-        self.fallback_queues = fallback_queues
 
     @property
     def task_id(self) -> int:

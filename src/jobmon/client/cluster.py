@@ -8,6 +8,7 @@ from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_resources import TaskResources
 from jobmon.cluster_type.api import import_cluster, register_cluster_plugin
 from jobmon.cluster_type.base import ClusterQueue, ConcreteResource
+from jobmon.constants import TaskResourcesType
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeCluster, SerializeQueue
@@ -137,12 +138,18 @@ class Cluster:
                              expected_queue: ClusterQueue = None,
                              fallback_queues: List[ClusterQueue] = None) -> TaskResources:
         """Adjust task resources based on the scaling factor"""
-        adjusted_resource: ConcreteResource = self.concrete_resource_class.adjust(
+        adjusted_concrete_resource: ConcreteResource = self.concrete_resource_class.adjust(
             existing_resources=initial_resources,
             resource_scales=resource_scales,
             expected_queue=expected_queue,
             fallback_queues=fallback_queues)
-        return adjusted_resource
+
+        adjusted_task_resource = TaskResources(
+            queue=adjusted_concrete_resource.queue,
+            concrete_resources=adjusted_concrete_resource,
+            task_resources_type_id=TaskResourcesType.ADJUSTED  # Always adjusted if coming through this path
+        )
+        return adjusted_task_resource
 
     def create_valid_task_resources(self, resource_params: Dict, task_resources_type_id: str,
                                     fail=False) -> TaskResources:

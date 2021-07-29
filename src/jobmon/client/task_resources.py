@@ -55,9 +55,9 @@ class TaskResources:
         return self._task_id
 
     @property
-    def queue_id(self) -> int:
-        """Return the ID of the queue."""
-        return self.queue.id
+    def queue(self) -> int:
+        """Return the queue."""
+        return self._queue
 
     @property
     def task_resources_type_id(self) -> str:
@@ -78,7 +78,7 @@ class TaskResources:
         """Bind TaskResources to the database."""
         app_route = f'/swarm/task/{task_id}/bind_resources'
         msg = {
-            "queue_id": self._queue_id,
+            "queue_id": self.queue.queue_id,
             "task_resources_type_id": self._task_resources_type_id,
             "resource_scales": self._resource_scales,
             "requested_resources": self._requested_resources,
@@ -102,8 +102,8 @@ class TaskResources:
     def to_wire(self) -> Dict:
         """Resources to dictionary."""
         return {
-            "queue_id": self._queue_id,
+            "queue_id": self.queue.queue_id,
             "task_resources_type_id": self._task_resources_type_id,
-            "resource_scales": self._resource_scales,
-            "requested_resources": self._requested_resources,
+            "resource_scales": self.resource_scales,
+            "requested_resources": self.requested_resources
         }

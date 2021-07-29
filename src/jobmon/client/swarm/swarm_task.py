@@ -23,6 +23,7 @@ class SwarmTask(object):
     def __init__(self, task_id: int, status: str, task_args_hash: int,
                  cluster: Cluster,
                  task_resources: Optional[TaskResources] = None,
+                 resource_scales: Optional[Dict] = None,
                  max_attempts: int = 3,
                  fallback_queues: Optional[List[str]] = None,
                  requester: Optional[Requester] = None) -> None:
@@ -45,6 +46,7 @@ class SwarmTask(object):
 
         self.cluster = cluster
         self.task_resources_callable = task_resources
+        self.resource_scales = resource_scales
         self.max_attempts = max_attempts
         self.task_args_hash = task_args_hash
 
@@ -96,7 +98,7 @@ class SwarmTask(object):
 
     def get_task_resources(self) -> TaskResources:
         """Return an instance of executor parameters."""
-        return self.task_resources_callable
+        return self.task_resources_callable()
 
     def queue_task(self) -> int:
         """Transition a task to the Queued for Instantiation status in the db."""
@@ -117,13 +119,12 @@ class SwarmTask(object):
         This should also incorporate resource binding if they have not yet been bound.
         """
         logger.debug("Job in A state, adjusting resources before queueing")
-
         # get the most recent parameter set
         previous_resources: TaskResources = self.bound_parameters[-1]
 
         new_resources: TaskResources = self.cluster.adjust_task_resource(
             initial_resources=previous_resources.concrete_resources.resources,
-            resource_scales=previous_resources.resource_scales,
+            resource_scales=self.resource_scales,
             expected_queue=previous_resources.queue,
             fallback_queues=self.fallback_queues)
         return new_resources
@@ -132,6 +133,7 @@ class SwarmTask(object):
         """Bind executor parameters to db."""
         # evaluate callable and validate it is the right type of object
         task_resources = self.get_task_resources()
+
         if not isinstance(task_resources, TaskResources):
             raise CallableReturnedInvalidObject(
                 "The function called to return TaskResources did not "
