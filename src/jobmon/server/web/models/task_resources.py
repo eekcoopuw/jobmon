@@ -19,8 +19,6 @@ class TaskResources(DB.Model):
     task_resources_type_id = DB.Column(
         DB.String(1), DB.ForeignKey('task_resources_type.id'))
 
-    resource_scales = DB.Column(DB.String(1000), default=None)
-
     requested_resources = DB.Column(DB.Text, default=None)
 
     # ORM relationships

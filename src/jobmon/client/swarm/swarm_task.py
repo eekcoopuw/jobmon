@@ -142,9 +142,9 @@ class SwarmTask(object):
         self.bound_parameters.append(task_resources)
 
         # bind to db
-        app_route = f'/swarm/task/{self.task_id}/update_resources'
-        msg = {'task_resources_type_id': task_resources_type_id}
-        msg.update(task_resources.to_wire())
+        app_route = f'/swarm/task/{self.task_id}/bind_resources'
+        msg = task_resources.to_wire()
+        msg.update({'task_resources_type_id': task_resources_type_id})
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message=msg,

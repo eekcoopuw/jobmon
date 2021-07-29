@@ -79,8 +79,8 @@ class TaskResources:
         app_route = f'/swarm/task/{task_id}/bind_resources'
         msg = {
             "queue_id": self.queue.queue_id,
+            "task_id": self.task_id,
             "task_resources_type_id": self._task_resources_type_id,
-            "resource_scales": self._resource_scales,
             "requested_resources": self._requested_resources,
         }
         return_code, response = self.requester.send_request(

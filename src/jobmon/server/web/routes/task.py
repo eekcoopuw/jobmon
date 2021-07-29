@@ -455,7 +455,6 @@ def bind_task_resources(task_id: int) -> Any:
         task_id=task_id_int,
         queue_id=data.get('queue_id', None),
         task_resources_type_id=data.get('task_resources_type_id', None),
-        resource_scales=data.get('resource_scales', None),
         requested_resources=data.get('requested_resources', None))
     DB.session.add(new_resources)
     DB.session.flush()  # get auto increment
@@ -463,47 +462,6 @@ def bind_task_resources(task_id: int) -> Any:
     DB.session.commit()
 
     resp = jsonify(new_resources.id)
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@jobmon_swarm.route('/task/<task_id>/update_resources', methods=['POST'])
-def update_task_resources(task_id: int) -> Any:
-    """Change the resources set for a given task.
-
-    Args:
-        task_id (int): id of the task for which resources will be changed
-        parameter_set_type (str): parameter set type for this task
-        max_runtime_seconds (int, optional): amount of time task is allowed to
-            run for
-        context_args (dict, optional): unstructured parameters to pass to
-            executor
-        resource_scales (dict): values to scale by upon resource error
-        hard_limit (bool): whether to move queues if requester resources exceed
-            queue limits
-    """
-    app.logger = app.logger.bind(task_id=task_id)
-    data = request.get_json()
-    app.logger.info(f"Update task resource for {task_id}")
-    task_resources_type_id = data.get('task_resources_type_id')
-
-    try:
-        task_id = int(task_id)
-    except ValueError:
-        resp = jsonify(msg="task_id {} is not a number".format(task_id))
-        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
-        return resp
-
-    resources = TaskResources(
-        task_id=task_id,
-        task_resources_type_id=task_resources_type_id,
-        resource_scales=data.get('resource_scales', None))
-    DB.session.add(resources)
-    DB.session.flush()  # get auto increment
-    resources.activate()
-    DB.session.commit()
-
-    resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
 
