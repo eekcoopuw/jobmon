@@ -252,82 +252,30 @@ def test_validate(db_cfg, client_env):
 
 def test_swarmtask_resources_integration(db_cfg, client_env):
     """ Check that taskresources defined in task are passed to swarmtask appropriately"""
-    from jobmon.client.swarm.swarm_task import SwarmTask
-    from jobmon.client.task import Task
-    from jobmon.client.cluster import Cluster
     from jobmon.constants import TaskResourcesType
-    from jobmon.cluster_type.multiprocess.multiproc_concrete_resource import ConcreteMultiprocResource
+    from jobmon.client.tool import Tool
 
-    # Instantiate multiproc cluster
-    cluster = Cluster.get_cluster('multiprocess')
+    tool = Tool()
+    wf = tool.create_workflow(default_cluster_name='multiprocess')
+    tt = tool.get_task_template(template_name='foo', command_template='bar')
 
-    # Create the concrete resource
-    task_resources = cluster.create_valid_task_resources(
-        {'cores': 8, 'queue': 'null.q'}, TaskResourcesType.VALIDATED)
+    # Create tasks
+    task = tt.create_task(compute_resources={'cores': 10, 'queue': 'null.q'}, resource_scales={'cores': .5}, cluster_name='multiprocess')
 
-    # Spawn a swarm task
-    task = Task(
-        command='foo',
-        task_template_version_id=1,
-        node_args={},
-        task_args={},
-        cluster_name='multiprocess',
-        compute_resources={'queue': 'null.q', 'cores': 8},
-        task_attributes=[]
-    )
-    task.workflow_id = 1  # arbitrary
-    task.node.bind()
-    task.bind()
+    # Add to workflow, bind and create wfr
+    wf.add_task(task)
+    wf.bind()
+    wfr = wf._create_workflow_run()
 
-    swarmtask = SwarmTask(
-        task_id=task.task_id,
-        status="G",
-        task_args_hash='123', # arbitrary
-        cluster=cluster,
-        task_resources=task_resources
-    )
-    swarmtask.bind_task_resources(task_resources_type_id=TaskResourcesType.VALIDATED)
-    assert len(swarmtask.bound_parameters) == 1
-    assert swarmtask.task_resources_callable.concrete_resources.resources['cores'] == 8
+    # Check swarmtask resources
+    swarmtask = wfr.swarm_tasks[task.task_id]
+    initial_resources = swarmtask.get_task_resources()
+    assert initial_resources.concrete_resources.resources == {'cores': 10}
+    assert initial_resources.task_resources_type_id == TaskResourcesType.VALIDATED
 
-    # Mock the concrete multiproc resource to implement adjust behavior
-    class MockMultiprocResource(ConcreteMultiprocResource):
-
-        class __Implementation:
-            def __init__(self, queue, resources):
-                self.queue = queue
-                self.resources = resources
-
-        @classmethod
-        def adjust(cls, existing_resources, resource_scales, expected_queue, fallback_queues):
-            # Adjust everything, no logic
-            scaled_resources = {key: val * (1 + resource_scales[key])
-                                for key, val in existing_resources.items()}
-            _, _, coerced_resources = expected_queue.validate_resource(**scaled_resources)
-            return cls.__Implementation(queue=expected_queue, resources=coerced_resources)
-
-    class MockMultiprocCluster(Cluster):
-
-        def __init__(self, *args, **kwargs):
-            super().__init__(*args, **kwargs)
-
-        @property
-        def concrete_resource_class(self):
-            return MockMultiprocResource
-
-    mock_cluster = MockMultiprocCluster.get_cluster('multiprocess')
-    swarmtask.cluster = mock_cluster
-
-    # Fake an adjustment
-    swarmtask.resource_scales = {'cores': 1}
-    swarmtask.task_resources_callable = swarmtask.adjust_resources
-    swarmtask.bind_task_resources(task_resources_type_id=TaskResourcesType.ADJUSTED)
+    # Call adjust. Multiprocess doesn't implement adjust, but the path should work and return an adjusted task resource
+    wfr._adjust_resources(swarmtask)
     assert len(swarmtask.bound_parameters) == 2
-    assert swarmtask.bound_parameters[-1].concrete_resources.resources['cores'] == 16
-
-    # Try an invalid adjustment
-    swarmtask.resource_scales = {'cores': 100}
-    swarmtask.bind_task_resources(task_resources_type_id=TaskResourcesType.ADJUSTED)
-    assert len(swarmtask.bound_parameters) == 3
-    breakpoint()
-    assert swarmtask.bound_parameters[-1].concrete_resources.resources['cores'] == 20
+    scaled_params = swarmtask.bound_parameters[-1]
+    assert scaled_params.task_resources_type_id == TaskResourcesType.ADJUSTED
+    assert scaled_params.concrete_resources.resources == {'cores': 10}  # No scaling implemented

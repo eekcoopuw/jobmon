@@ -192,7 +192,7 @@ def bind_tasks() -> Any:
     app.logger.info(f"Binding tasks for wf {workflow_id}")
     # receive from client the tasks in a format of:
     # {<hash>:[node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5),
-    # reset_if_running(6), task_args(7),task_attributes(8)]}
+    # reset_if_running(6), task_args(7),task_attributes(8),resource_scales(9)]}
 
     # Retrieve existing task_ids
     task_query = """
@@ -221,7 +221,7 @@ def bind_tasks() -> Any:
 
     for hashval, items in tasks.items():
 
-        node_id, arg_hash, name, command, max_att, reset, args, attrs = items
+        node_id, arg_hash, name, command, max_att, reset, args, attrs, resource_scales = items
 
         id_tuple = (node_id, int(arg_hash))
 
@@ -244,7 +244,8 @@ def bind_tasks() -> Any:
                 'name': name,
                 'command': command,
                 'max_attempts': max_att,
-                'status': TaskStatus.REGISTERED
+                'status': TaskStatus.REGISTERED,
+                'resource_scales': resource_scales
             }
             tasks_to_add.append(task)
 

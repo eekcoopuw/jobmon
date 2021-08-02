@@ -56,14 +56,14 @@ class SwarmTask(object):
         self.requester = requester
 
         # once the callable is evaluated, the resources should be saved here
-        self.bound_parameters: List[TaskResources] = []
+        self.bound_parameters: List[TaskResources] = [self.task_resources_callable()]
         self.fallback_queues = fallback_queues
 
         self.num_upstreams_done: int = 0
 
     @staticmethod
     def from_wire(wire_tuple: tuple, swarm_tasks_dict: Dict[int, SwarmTask]) -> SwarmTask:
-        """Return dict of swarm_task attrributes from db."""
+        """Return dict of swarm_task attributes from db."""
         kwargs = SerializeSwarmTask.kwargs_from_wire(wire_tuple)
         swarm_tasks_dict[kwargs["task_id"]].status = kwargs["status"]
         return swarm_tasks_dict[kwargs["task_id"]]
@@ -142,17 +142,5 @@ class SwarmTask(object):
         self.bound_parameters.append(task_resources)
 
         # bind to db
-        app_route = f'/swarm/task/{self.task_id}/bind_resources'
-        msg = task_resources.to_wire()
-        msg.update({'task_resources_type_id': task_resources_type_id})
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message=msg,
-            request_type='post',
-            logger=logger
-        )
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+        if not task_resources.is_bound:
+            task_resources.bind(self.task_id, task_resources_type_id)

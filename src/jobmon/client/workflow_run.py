@@ -79,6 +79,7 @@ class WorkflowRun(object):
             tasks = self._bind_tasks(tasks, reset_if_running, chunk_size)
         except Exception:
             self._update_status(WorkflowRunStatus.ABORTED)
+            raise
         else:
             self._update_status(WorkflowRunStatus.BOUND)
         return tasks
@@ -171,7 +172,8 @@ class WorkflowRun(object):
                     tasks[task_hash].node.node_id, str(tasks[task_hash].task_args_hash),
                     tasks[task_hash].name, tasks[task_hash].command,
                     tasks[task_hash].max_attempts, reset_if_running,
-                    tasks[task_hash].task_args, tasks[task_hash].task_attributes
+                    tasks[task_hash].task_args, tasks[task_hash].task_attributes,
+                    tasks[task_hash].resource_scales
                 ]
             parameters = {
                 "workflow_id": self.workflow_id,

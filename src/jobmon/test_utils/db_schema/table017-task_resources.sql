@@ -9,7 +9,6 @@ CREATE TABLE `task_resources` (
   `task_id` INTEGER NOT NULL,
   `queue_id` INTEGER NULL,
   `task_resources_type_id` varchar(1) NOT NULL,
-  `resource_scales` varchar(1000) DEFAULT NULL,
   `requested_resources` TEXT DEFAULT NULL,
   PRIMARY KEY (`id`)
   ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4

@@ -17,7 +17,8 @@ class TaskResources:
     """An object representing the resources for a specific task."""
 
     def __init__(self, queue: ClusterQueue, task_resources_type_id: str,
-                 concrete_resources: ConcreteResource, requester: Optional[Requester] = None) -> None:
+                 concrete_resources: ConcreteResource,
+                 requester: Optional[Requester] = None) -> None:
         """Initialize the task resource object."""
 
         self.queue = queue
@@ -28,6 +29,7 @@ class TaskResources:
             requester_url = ClientConfig.from_defaults().url
             requester = Requester(requester_url)
         self._requester = requester
+        self._requested_resources = concrete_resources.resources
 
     def __call__(self) -> TaskResources:
         """Return TaskResource object."""
@@ -74,13 +76,15 @@ class TaskResources:
         """Return the requester."""
         return self._requester
 
-    def bind(self, task_id: int) -> None:
+    def bind(self, task_id: int, task_resources_type_id: int = None) -> None:
         """Bind TaskResources to the database."""
         app_route = f'/swarm/task/{task_id}/bind_resources'
+        if task_resources_type_id is None:
+            task_resources_type_id = self._task_resources_type_id
         msg = {
             "queue_id": self.queue.queue_id,
-            "task_id": self.task_id,
-            "task_resources_type_id": self._task_resources_type_id,
+            "task_id": task_id,
+            "task_resources_type_id": task_resources_type_id,
             "requested_resources": self._requested_resources,
         }
         return_code, response = self.requester.send_request(
@@ -103,7 +107,7 @@ class TaskResources:
         """Resources to dictionary."""
         return {
             "queue_id": self.queue.queue_id,
+            "task_id": self.task_id,
             "task_resources_type_id": self._task_resources_type_id,
-            "resource_scales": self.resource_scales,
-            "requested_resources": self.requested_resources
+            "requested_resources": self._requested_resources
         }

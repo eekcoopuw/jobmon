@@ -222,7 +222,7 @@ class WorkflowRun:
                     logger.debug(f"Instantiating resources for newly ready  task and "
                                  f"changing it to the queued state. Task: {swarm_task},"
                                  f" id: {swarm_task.task_id}")
-                    self._adjust_resources_and_queue(swarm_task)
+                    self._queue(swarm_task)
 
             # TBD timeout?
             # An exception is raised if the runtime exceeds the timeout limit
@@ -287,15 +287,13 @@ class WorkflowRun:
                 current_fringe += [swarm_task]
         return current_fringe
 
-    def _adjust_resources_and_queue(self, swarm_task: SwarmTask) -> None:
-        task_id = swarm_task.task_id
-        # Create original and validated entries if no params are bound yet
-        if not swarm_task.bound_parameters:
-            swarm_task.bind_task_resources(TaskResourcesType.ORIGINAL)
-            swarm_task.bind_task_resources(TaskResourcesType.VALIDATED)
-        else:
-            swarm_task.bind_task_resources(TaskResourcesType.ADJUSTED)
+    def _adjust_resources(self, swarm_task: SwarmTask) -> None:
+        # change callable to adjustment function.
+        swarm_task.task_resources_callable = swarm_task.adjust_resources
+        swarm_task.bind_task_resources(TaskResourcesType.ADJUSTED)
 
+    def _queue(self, swarm_task: SwarmTask) -> None:
+        task_id = swarm_task.task_id
         logger.debug(f"Queueing task id: {task_id}")
         swarm_task.queue_task()
 
@@ -342,9 +340,8 @@ class WorkflowRun:
             # because this state change doesn't affect the fringe.
             if adjusting:
                 for swarm_task in adjusting:
-                    # change callable to adjustment function.
-                    swarm_task.task_resources_callable = swarm_task.adjust_resources
-                    self._adjust_resources_and_queue(swarm_task)
+                    self._adjust_resources(swarm_task)
+                    self._queue(swarm_task)
 
             # exit if fringe is affected
             if completed or failed:
