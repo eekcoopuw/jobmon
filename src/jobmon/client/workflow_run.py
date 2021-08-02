@@ -173,7 +173,8 @@ class WorkflowRun(object):
                     tasks[task_hash].name, tasks[task_hash].command,
                     tasks[task_hash].max_attempts, reset_if_running,
                     tasks[task_hash].task_args, tasks[task_hash].task_attributes,
-                    tasks[task_hash].resource_scales
+                    tasks[task_hash].resource_scales,
+                    tasks[task_hash].fallback_queues
                 ]
             parameters = {
                 "workflow_id": self.workflow_id,

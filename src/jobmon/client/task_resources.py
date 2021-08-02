@@ -21,7 +21,7 @@ class TaskResources:
                  requester: Optional[Requester] = None) -> None:
         """Initialize the task resource object."""
 
-        self.queue = queue
+        self._queue = queue
         self._task_resources_type_id = task_resources_type_id
         self._concrete_resources = concrete_resources
 

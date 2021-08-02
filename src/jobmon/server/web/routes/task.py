@@ -221,7 +221,9 @@ def bind_tasks() -> Any:
 
     for hashval, items in tasks.items():
 
-        node_id, arg_hash, name, command, max_att, reset, args, attrs, resource_scales = items
+        node_id, arg_hash, name, command, \
+            max_att, reset, args, attrs, \
+            resource_scales, fallback_queues = items
 
         id_tuple = (node_id, int(arg_hash))
 
@@ -245,7 +247,8 @@ def bind_tasks() -> Any:
                 'command': command,
                 'max_attempts': max_att,
                 'status': TaskStatus.REGISTERED,
-                'resource_scales': resource_scales
+                'resource_scales': resource_scales,
+                'fallback_queues': fallback_queues
             }
             tasks_to_add.append(task)
 

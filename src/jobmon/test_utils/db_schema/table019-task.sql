@@ -16,6 +16,7 @@ CREATE TABLE `task` (
   `num_attempts` INTEGER DEFAULT NULL,
   `max_attempts` INTEGER DEFAULT NULL,
   `resource_scales` varchar(1000) DEFAULT NULL,
+  `fallback_queues` varchar(1000) DEFAULT NULL,
   `status` varchar(1) NOT NULL,
   `submitted_date` datetime DEFAULT NULL,
   `status_date` datetime DEFAULT NULL,
