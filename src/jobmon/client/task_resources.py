@@ -16,12 +16,11 @@ logger = logging.getLogger(__name__)
 class TaskResources:
     """An object representing the resources for a specific task."""
 
-    def __init__(self, queue: ClusterQueue, task_resources_type_id: str,
+    def __init__(self, task_resources_type_id: str,
                  concrete_resources: ConcreteResource,
                  requester: Optional[Requester] = None) -> None:
         """Initialize the task resource object."""
 
-        self._queue = queue
         self._task_resources_type_id = task_resources_type_id
         self._concrete_resources = concrete_resources
 
@@ -59,7 +58,7 @@ class TaskResources:
     @property
     def queue(self) -> int:
         """Return the queue."""
-        return self._queue
+        return self._concrete_resources.queue
 
     @property
     def task_resources_type_id(self) -> str:

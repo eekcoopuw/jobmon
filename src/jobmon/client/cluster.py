@@ -145,7 +145,6 @@ class Cluster:
             fallback_queues=fallback_queues)
 
         adjusted_task_resource = TaskResources(
-            queue=adjusted_concrete_resource.queue,
             concrete_resources=adjusted_concrete_resource,
             task_resources_type_id=TaskResourcesType.ADJUSTED  # Always adjusted if coming through this path
         )
@@ -168,7 +167,6 @@ class Cluster:
         if fail and not is_valid:
             raise ValueError(f"Failed validation, reasons: {msg}")
 
-        task_resource = TaskResources(queue=concrete_resources.queue,
-                                      concrete_resources=concrete_resources,
+        task_resource = TaskResources(concrete_resources=concrete_resources,
                                       task_resources_type_id=task_resources_type_id)
         return task_resource
