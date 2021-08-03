@@ -3,7 +3,8 @@ from jobmon.client.tool import Tool
 from jobmon.client.workflow_run import WorkflowRun
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import (WorkflowAlreadyComplete, DuplicateNodeArgsError,
-                               WorkflowAlreadyExists)
+                               WorkflowAlreadyExists, NodeDependencyNotExistError,
+                               WorkflowNotResumable)
 
 import pytest
 
@@ -62,8 +63,8 @@ def test_wfargs_update(tool, task_template):
     wfr1.bind(wf1.tasks)
     wfr2 = WorkflowRun(wf2.workflow_id)
     wfr2.bind(wf2.tasks)
-    assert not (set([t.task_id for _, t in wf1.tasks.items()]) &
-                set([t.task_id for _, t in wf2.tasks.items()]))
+    assert not (set([t.task_id for _, t in wf1.tasks.items()])
+                & set([t.task_id for _, t in wf2.tasks.items()]))
 
 
 def test_attempt_resume_on_complete_workflow(tool, task_template):
@@ -100,6 +101,26 @@ def test_attempt_resume_on_complete_workflow(tool, task_template):
     workflow2.bind()
     with pytest.raises(WorkflowAlreadyComplete):
         workflow2._create_workflow_run()
+
+
+def test_multiple_active_race_condition(tool, task_template):
+    """test that we cannot create 2 workflow runs simultaneously"""
+
+    # create initial workflow
+    t1 = task_template.create_task(arg="sleep 1")
+    workflow1 = tool.create_workflow(name="created_race_condition")
+    workflow1.add_tasks([t1])
+    workflow1.bind()
+    workflow1._create_workflow_run()
+
+    # create identical workflow
+    t2 = task_template.create_task(arg="sleep 1")
+    workflow2 = tool.create_workflow(name=workflow1.name,
+                                     workflow_args=workflow1.workflow_args)
+    workflow2.add_tasks([t2])
+    workflow2.bind()
+    with pytest.raises(WorkflowNotResumable):
+        workflow2._create_workflow_run(resume=True, resume_timeout=1)
 
 
 def test_workflow_identical_args(tool, task_template):
@@ -154,6 +175,18 @@ def test_numpy_array_node_args(tool):
     workflow.add_tasks([task])
     workflow.bind()
     assert workflow.workflow_id
+
+
+def test_empty_workflow(tool):
+    """
+    Create a real_dag with no Tasks. Call all the creation methods and check
+    that it raises no Exceptions.
+    """
+
+    workflow = tool.create_workflow(name="test_empty_real_dag")
+
+    with pytest.raises(RuntimeError):
+        workflow.run()
 
 
 # def test_compute_resources(db_cfg, client_env):
@@ -212,3 +245,111 @@ def test_numpy_array_node_args(tool):
 #     assert res[0][0] == f"{task_compute_resource['sequential']}"
 #     assert res[1][0] == f"{wf_compute_resources['sequential']}"
 
+
+def test_workflow_attribute(db_cfg, tool, client_env, task_template):
+    """Test the workflow attributes feature"""
+    from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
+    from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
+
+    wf1 = tool.create_workflow(
+        name="test_wf_attributes",
+        workflow_attributes={'location_id': 5, 'year': 2019, 'sex': 1}
+    )
+
+    t1 = task_template.create_task(arg="exit -0")
+    wf1.add_task(t1)
+    wf1.bind()
+
+    # check database entries are populated correctly
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        wf_attributes = DB.session.query(WorkflowAttributeType.name, WorkflowAttribute.value).\
+            join(WorkflowAttribute,
+                 WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
+            filter(WorkflowAttribute.workflow_id == wf1.workflow_id).all()
+    assert set(wf_attributes) == set([('location_id', '5'), ('year', '2019'), ('sex', '1')])
+
+    # Add and update attributes
+    wf1.add_attributes({'age_group_id': 1, 'sex': 2})
+
+    with app.app_context():
+        wf_attributes = DB.session.query(WorkflowAttributeType.name, WorkflowAttribute.value).\
+            join(WorkflowAttribute,
+                 WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
+            filter(WorkflowAttribute.workflow_id == wf1.workflow_id).all()
+    assert set(wf_attributes) == set([('location_id', '5'), ('year', '2019'), ('sex', '2'),
+                                      ('age_group_id', '1')])
+
+    # Test workflow w/o attributes
+    wf2 = tool.create_workflow(
+        name="test_empty_wf_attributes",
+        default_cluster_name="sequential",
+        default_compute_resources_set={"sequential": {"queue": "null.q"}}
+    )
+    wf2.add_task(t1)
+    wf2.bind()
+
+    with app.app_context():
+        wf_attributes = DB.session.query(WorkflowAttribute).filter_by(
+            workflow_id=wf2.workflow_id).all()
+
+    assert wf_attributes == []
+
+
+def test_chunk_size(db_cfg, tool, client_env, task_template):
+
+    wf_a = tool.create_workflow(
+        name="test_wf_chunks_a",
+        chunk_size=3
+    )
+
+    task_a = task_template.create_task(
+        arg="echo a",
+        upstream_tasks=[]  # To be clear
+    )
+    wf_a.add_task(task_a)
+    wf_a.bind()
+
+    wf_b = tool.create_workflow(
+        name="test_wf_chunks_b",
+        chunk_size=10
+    )
+    task_b = task_template.create_task(
+        arg="echo b",
+        upstream_tasks=[]  # To be clear
+    )
+    wf_b.add_task(task_b)
+    wf_b.bind()
+
+    assert wf_a._chunk_size == 3
+    assert wf_b._chunk_size == 10
+
+
+def test_add_tasks_dependencynotexist(db_cfg, tool, client_env, task_template):
+
+    t1 = task_template.create_task(arg="echo 1")
+    t2 = task_template.create_task(arg="echo 2")
+    t3 = task_template.create_task(arg="echo 3")
+    t3.add_upstream(t2)
+    with pytest.raises(NodeDependencyNotExistError) as excinfo:
+        wf = tool.create_workflow(name="TestWF1")
+        wf.add_tasks([t1, t2])
+        wf.bind()
+    assert "Downstream" in str(excinfo.value)
+    with pytest.raises(NodeDependencyNotExistError) as excinfo:
+        wf = tool.create_workflow(name="TestWF2")
+        wf.add_tasks([t1, t3])
+        wf.bind()
+    assert "Upstream" in str(excinfo.value)
+    wf = tool.create_workflow(name="TestWF3")
+    wf.add_tasks([t1, t2, t3])
+    wf.bind()
+    wf.run()
+    assert len(wf.tasks) == 3
+    wf = tool.create_workflow(name="TestWF4")
+    wf.add_tasks([t1])
+    wf.add_tasks([t2])
+    wf.add_tasks([t3])
+    wf.bind()
+    assert len(wf.tasks) == 3

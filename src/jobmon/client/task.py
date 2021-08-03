@@ -12,6 +12,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
+from jobmon.cluster_type.base import ClusterQueue
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
@@ -65,6 +66,8 @@ class Task:
                  task_args: dict,
                  cluster_name: str = '',
                  compute_resources: Optional[Dict[str, Any]] = None,
+                 resource_scales: Optional[Dict[str, float]] = None,
+                 fallback_queues: Optional[List[ClusterQueue]] = None,
                  name: Optional[str] = None,
                  max_attempts: int = 3,
                  upstream_tasks: Optional[List['Task']] = None,
@@ -147,7 +150,9 @@ class Task:
             self.compute_resources = {}
         else:
             self.compute_resources = compute_resources.copy()
+        self.resource_scales = resource_scales
         self.cluster_name = cluster_name
+        self.fallback_queues = fallback_queues
         self._errors = None
 
     @property
@@ -184,6 +189,19 @@ class Task:
     @initial_status.setter
     def initial_status(self, val: int) -> None:
         self._initial_status = val
+
+    @property
+    def final_status(self) -> str:
+        """Get initial status of the task if it has been bound to the db otherwise raise
+        an error.
+        """
+        if not hasattr(self, "_final_status"):
+            raise AttributeError("final_status cannot be accessed until workflow is run")
+        return self._final_status
+
+    @final_status.setter
+    def final_status(self, val):
+        self._final_status = val
 
     @property
     def workflow_id(self) -> int:

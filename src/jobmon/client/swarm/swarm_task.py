@@ -1,14 +1,14 @@
 """Swarm side task object."""
 from __future__ import annotations
 
-from http import HTTPStatus as StatusCodes
 import logging
 from typing import Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_resources import TaskResources
+from jobmon.client.cluster import ClusterQueue
 from jobmon.constants import TaskStatus
-from jobmon.exceptions import CallableReturnedInvalidObject, InvalidResponse
+from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeSwarmTask
 
@@ -20,9 +20,13 @@ class SwarmTask(object):
     """Swarm side task object."""
 
     def __init__(self, task_id: int, status: str, task_args_hash: int,
+                 # cluster: Cluster,
                  task_resources: Optional[TaskResources] = None,
-                 max_attempts: int = 3, requester: Optional[Requester] = None) -> None:
-        """Implementing swarm behavior of tasks.
+                 resource_scales: Optional[Dict] = None,
+                 max_attempts: int = 3,
+                 fallback_queues: Optional[List[ClusterQueue]] = None,
+                 requester: Optional[Requester] = None) -> None:
+        """Implementing swarm behavior of tasks
 
         Args:
             task_id: id of task object from bound db object
@@ -39,7 +43,12 @@ class SwarmTask(object):
         self.upstream_swarm_tasks: Set[SwarmTask] = set()
         self.downstream_swarm_tasks: Set[SwarmTask] = set()
 
-        self.task_resources_callable = task_resources
+        self.task_resources = task_resources
+
+        # self.cluster = cluster
+        # self.task_resources_callable = task_resources
+        # self.resource_scales = resource_scales
+
         self.max_attempts = max_attempts
         self.task_args_hash = task_args_hash
 
@@ -49,13 +58,14 @@ class SwarmTask(object):
         self.requester = requester
 
         # once the callable is evaluated, the resources should be saved here
-        self.bound_parameters: list = []
+        # self.bound_parameters: List[TaskResources] = [self.task_resources_callable()]
+        self.fallback_queues = fallback_queues
 
         self.num_upstreams_done: int = 0
 
     @staticmethod
     def from_wire(wire_tuple: tuple, swarm_tasks_dict: Dict[int, SwarmTask]) -> SwarmTask:
-        """Return dict of swarm_task attrributes from db."""
+        """Return dict of swarm_task attributes from db."""
         kwargs = SerializeSwarmTask.kwargs_from_wire(wire_tuple)
         swarm_tasks_dict[kwargs["task_id"]].status = kwargs["status"]
         return swarm_tasks_dict[kwargs["task_id"]]
@@ -88,10 +98,6 @@ class SwarmTask(object):
         """Return a list of upstream tasks."""
         return list(self.upstream_swarm_tasks)
 
-    def get_task_resources(self) -> TaskResources:
-        """Return an instance of executor parameters."""
-        return self.task_resources_callable
-
     def queue_task(self) -> int:
         """Transition a task to the Queued for Instantiation status in the db."""
         rc, _ = self.requester.send_request(
@@ -111,59 +117,12 @@ class SwarmTask(object):
         This should also incorporate resource binding if they have not yet been bound.
         """
         logger.debug("Job in A state, adjusting resources before queueing")
-
         # get the most recent parameter set
-        exec_param_set = self.bound_parameters[-1]
-        only_scale = list(exec_param_set.resource_scales.keys())
+        previous_resources: TaskResources = self.bound_parameters[-1]
 
-        app_route = f'/worker/task/{self.task_id}/most_recent_ti_error'
-        return_code, response = self.requester.send_request(
-            app_route=f'/worker/task/{self.task_id}/most_recent_ti_error',
-            message={},
-            request_type='get',
-            logger=logger
-        )
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
-
-        # check if we are only scaling runtime.
-        # TODO: this logic should be in ExecutorParameters.adjust since it is
-        # SGE specific
-        if ('max_runtime' in response['error_description'] and 'max_runtime_seconds'
-                in only_scale):
-            only_scale = ['max_runtime_seconds']
-        logger.debug(
-            f"Only going to scale the following resources: {only_scale}")
-        resources_adjusted = {'only_scale': only_scale}
-        exec_param_set.adjust(**resources_adjusted)
-        return exec_param_set
-
-    def bind_task_resources(self, task_resources_type_id: str) -> None:
-        """Bind executor parameters to db."""
-        # evaluate callable and validate it is the right type of object
-        task_resources = self.get_task_resources()
-        if not isinstance(task_resources, TaskResources):
-            raise CallableReturnedInvalidObject(
-                "The function called to return TaskResources did not "
-                "return the expected TaskResources object, it is of type"
-                f"{type(task_resources)}")
-        self.bound_parameters.append(task_resources)
-
-        # bind to db
-        app_route = f'/swarm/task/{self.task_id}/update_resources'
-        msg = {'task_resources_type_id': task_resources_type_id}
-        msg.update(task_resources.to_wire())
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message=msg,
-            request_type='post',
-            logger=logger
-        )
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+        new_resources: TaskResources = self.cluster.adjust_task_resource(
+            initial_resources=previous_resources.concrete_resources.resources,
+            resource_scales=self.resource_scales,
+            expected_queue=previous_resources.queue,
+            fallback_queues=self.fallback_queues)
+        return new_resources

@@ -41,7 +41,7 @@ def test_error_state(db_cfg, requester_no_retry):
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
     distributor1 = DistributorService(workflow1.workflow_id, wfr1.workflow_run_id,
-                                       workflow1._executor, requester=requester_no_retry)
+                                      workflow1._executor, requester=requester_no_retry)
     distributor1.heartbeat()
 
     # Create a second workflow with one task. Don't log a heartbeat so that it can die

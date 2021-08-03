@@ -1,29 +1,28 @@
 """The overarching framework to create tasks and dependencies within."""
 import hashlib
 import logging
+import time
+import uuid
 from multiprocessing import Event, Process, Queue
 from multiprocessing import synchronize
 from queue import Empty
-import time
 from typing import Any, Dict, List, Optional, Sequence, Union
-import uuid
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.distributor.api import DistributorConfig
 from jobmon.client.distributor.distributor_service import DistributorService, ExceptionWrapper
-from jobmon.client.swarm.swarm_task import SwarmTask
-from jobmon.client.swarm.workflow_run import WorkflowRun
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
+from jobmon.client.task_resources import TaskResources
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
-from jobmon.cluster_type.api import import_cluster
-from jobmon.constants import TaskResourcesType, WorkflowRunStatus, WorkflowStatus
-from jobmon.exceptions import (DistributorNotAlive, DistributorStartupTimeout,
-                               DuplicateNodeArgsError, InvalidResponse, ResumeSet,
-                               WorkflowAlreadyComplete, WorkflowAlreadyExists,
-                               WorkflowNotResumable)
-from jobmon.requester import http_request_ok, Requester
+from jobmon.constants import TaskResourcesType, WorkflowRunStatus, WorkflowStatus, TaskStatus
+from jobmon.exceptions import (CallableReturnedInvalidObject, DistributorNotAlive,
+                               DistributorStartupTimeout, DuplicateNodeArgsError,
+                               InvalidResponse, ResumeSet, WorkflowAlreadyComplete,
+                               WorkflowAlreadyExists, WorkflowNotResumable)
+from jobmon.requester import Requester, http_request_ok
 from jobmon.serializers import SerializeCluster
 
 
@@ -71,9 +70,8 @@ class Workflow(object):
                  max_concurrently_running: int = 10_000,
                  requester: Optional[Requester] = None,
                  chunk_size: int = 500,  # TODO: should be in the config
-                 ) -> None:
-        """Initialization of Workflow object.
-
+                 ):
+        """
         Args:
             tool_version_id: id of the associated tool
             workflow_args: Unique identifier of a workflow
@@ -98,7 +96,6 @@ class Workflow(object):
         self._dag = Dag(requester)
         # hash to task object mapping. ensure only 1
         self.tasks: Dict[int, Task] = {}
-        self._swarm_tasks: dict = {}
         self._chunk_size: int = chunk_size
 
         if workflow_args:
@@ -115,10 +112,10 @@ class Workflow(object):
         self.workflow_args_hash = int(
             hashlib.sha1(self.workflow_args.encode('utf-8')).hexdigest(), 16)
 
-        self._distributor_proc: Optional[Process] = None
         self._distributor_com_queue: Queue = Queue()
         self._distributor_stop_event: synchronize.Event = Event()
-        self.workflow_attributes = {}
+
+        self.workflow_attributes: Dict[str, Any] = {}
         if workflow_attributes:
             if isinstance(workflow_attributes, List):
                 for attr in workflow_attributes:
@@ -135,13 +132,12 @@ class Workflow(object):
         # Cache for clusters
         self._clusters: Dict[str, Cluster] = {}
         self.default_cluster_name: str = ""
-        self.default_cluster: Cluster = None
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
 
-        self._last_workflowrun = None
+        self._fail_after_n_executions = 1_000_000_000
 
     @property
-    def is_bound(self) -> bool:
+    def is_bound(self):
         """If the workflow has been bound to the db."""
         if not hasattr(self, "_workflow_id"):
             return False
@@ -163,7 +159,7 @@ class Workflow(object):
         return self._dag.dag_id
 
     @property
-    def task_hash(self) -> int:
+    def task_hash(self):
         """Hash of all of the tasks."""
         hash_value = hashlib.sha1()
         tasks = sorted(self.tasks.values())
@@ -172,10 +168,14 @@ class Workflow(object):
                 hash_value.update(str(hash(task)).encode('utf-8'))
         return int(hash_value.hexdigest(), 16)
 
-    def add_attributes(self, workflow_attributes: dict) -> None:
-        """Adds or updates attributes.
+    @property
+    def task_errors(self):
+        return {task.name: task.get_errors()
+                for task in self.tasks.values()
+                if task.final_status == TaskStatus.ERROR_FATAL}
 
-        Function that users can call either to update values of existing attributes or add
+    def add_attributes(self, workflow_attributes: dict) -> None:
+        """Function that users can call either to update values of existing attributes or add
         new attributes.
 
         Args:
@@ -196,9 +196,7 @@ class Workflow(object):
                 f'200. Response content: {response}')
 
     def add_task(self, task: Task) -> Task:
-        """Add a task to the workflow to be executed.
-
-        Set semantics - add tasks once only,
+        """Add a task to the workflow to be executed. Set semantics - add tasks once only,
         based on hash name. Also creates the job. If is_no has no task_id the creates task_id
         and writes it onto object.
 
@@ -224,14 +222,13 @@ class Workflow(object):
 
         return task
 
-    def add_tasks(self, tasks: Sequence[Task]) -> None:
+    def add_tasks(self, tasks: Sequence[Task]):
         """Add a list of task to the workflow to be executed."""
         for task in tasks:
             # add the task
             self.add_task(task)
 
-    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str) \
-            -> None:
+    def set_default_compute_resources_from_yaml(self, cluster_name, yaml_file: str):
         """Set default compute resources from a user provided yaml file for workflow level.
 
         TODO: Implement this method.
@@ -243,7 +240,7 @@ class Workflow(object):
         pass
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,
-                                                dictionary: Dict[str, Any]) -> None:
+                                                dictionary: Dict[str, Any]):
         """Set default compute resources for a given cluster_name.
 
         Args:
@@ -254,7 +251,7 @@ class Workflow(object):
         # TODO: Do we need to handle the scenario where no cluster name is specified?
         self.default_compute_resources_set[cluster_name] = dictionary
 
-    def set_default_cluster_name(self, cluster_name: str) -> None:
+    def set_default_cluster_name(self, cluster_name: str):
         """Set the default cluster.
 
         Args:
@@ -266,8 +263,9 @@ class Workflow(object):
             resume: bool = ResumeStatus.DONT_RESUME, reset_running_jobs: bool = True,
             distributor_response_wait_timeout: int = 180,
             distributor_config: Optional[DistributorConfig] = None,
-            resume_timeout: int = 300) -> WorkflowRunStatus:
-        """Traverse the DAG and submit new tasks when their tasks have completed successfully.
+            resume_timeout: int = 300) -> str:
+        """Run the workflow by traversing the dag and submitting new tasks when their tasks
+        have completed successfully.
 
         Args:
             fail_fast: whether or not to break out of distributor on
@@ -285,7 +283,7 @@ class Workflow(object):
             resume_timeout: seconds to wait for a workflow to become resumable before giving up
 
         Returns:
-            object of WorkflowRunStatus
+            str of WorkflowRunStatus
         """
         # bind to database
         logger.info("Adding Workflow metadata to database")
@@ -297,66 +295,25 @@ class Workflow(object):
         wfr = self._create_workflow_run(resume, reset_running_jobs, resume_timeout)
         logger.info(f"WorkflowRun ID {wfr.workflow_run_id} assigned")
 
-        self._last_workflowrun = wfr
+        # start distributor
+        self._distributor_proc = self._start_distributor_service(
+            wfr.workflow_run_id, distributor_response_wait_timeout, distributor_config
+        )
 
-        # testing parameter
-        if hasattr(self, "_val_fail_after_n_executions"):
-            wfr._set_fail_after_n_executions(self._val_fail_after_n_executions)
+        # set up swarm and initial DAG
+        swarm = SwarmWorkflowRun(
+            workflow_id=self.workflow_id, workflow_run_id=wfr.workflow_run_id,
+            tasks=list(self.tasks.values()),
+            fail_after_n_executions=self._fail_after_n_executions,
+            requester=self.requester
+        )
 
         try:
-            # start distributor
-            distributor_proc = self._start_distributor_service(
-                wfr.workflow_run_id, distributor_response_wait_timeout,
-                self.default_cluster._cluster_type_name, distributor_config
-            )
-            # execute the workflow run
-            wfr.execute_interruptible(distributor_proc, fail_fast, seconds_until_timeout)
-            logger.info(f"WorkflowRun run finished executing. Status is: {wfr.status}")
-            return wfr.status
-
-        except KeyboardInterrupt:
-            wfr.update_status(WorkflowRunStatus.STOPPED)
-            logger.warning("Keyboard interrupt raised and Workflow Run set to Stopped")
-            return wfr.status
-
-        except DistributorNotAlive:
-            # check if we got an exception from the distributor
-            try:
-                resp = self._distributor_com_queue.get(False)
-            except Empty:
-                wfr.update_status(WorkflowRunStatus.ERROR)
-                # no response. raise distributor not alive
-                raise
-            else:
-                # re-raise error from distributor
-                if isinstance(resp, ExceptionWrapper):
-                    try:
-                        resp.re_raise()
-                    except ResumeSet:
-                        # if the exception was a resume exception we set to
-                        # terminate
-                        wfr.terminate_workflow_run()
-                        raise
-                    except Exception:
-                        wfr.update_status(WorkflowRunStatus.ERROR)
-                        raise
-                else:
-                    # response is not an exception
-                    wfr.update_status(WorkflowRunStatus.ERROR)
-                    raise
-            finally:
-                distributor_proc.terminate()
-                self._distributor_proc = None
-                return wfr.status
-
-        except Exception:
-            wfr.update_status(WorkflowRunStatus.ERROR)
-            raise
-
+            self._run_swarm(swarm, fail_fast, seconds_until_timeout)
         finally:
             # deal with task instance distributor process if it was started
-            logger.info("Terminating distributing process. This could take a few minutes.")
-            if self._distributor_proc is not None:
+            if self._distributor_alive(raise_error=False):
+                logger.info("Terminating distributing process. This could take a few minutes.")
                 self._distributor_stop_event.set()
                 try:
                     # give it some time to shut down
@@ -365,33 +322,50 @@ class Workflow(object):
                     pass
                 self._distributor_proc.terminate()
 
-    def validate(self) -> None:
+            # figure out doneness
+            num_new_completed = len(swarm.all_done) - swarm.num_previously_complete
+            if swarm.status != WorkflowRunStatus.DONE:
+                logger.info(f"WorkflowRun execution ended, num failed {len(swarm.all_error)}")
+            else:
+                logger.info(
+                    f"WorkflowRun execute finished successfully, {num_new_completed} tasks"
+                )
+
+            # update workflow tasks with final status
+            for task in self.tasks.values():
+                task.final_status = swarm.swarm_tasks[task.task_id].status
+            self._num_previously_completed = swarm.num_previously_complete
+            self._num_newly_completed = num_new_completed
+
+        return swarm.status
+
+    def validate(self):
         """Confirm that the tasks in this workflow are valid.
 
         This method will access the database to confirm the requested resources are valid for
         the specified cluster. It will also confirm that the workflow args are valid.  It also
         will make sure no task contains up/down stream tasks that are not in the workflow.
         """
-        for task in self.tasks.values():
+        # for task in self.tasks.values():
 
-            # get the cluster for this task
-            cluster_name = self._get_cluster_name(task)
-            cluster = self._get_cluster_by_name(cluster_name)
+        #     # get the cluster for this task
+        #     cluster_name = self._get_cluster_name(task)
+        #     cluster = self._get_cluster_by_name(cluster_name)
 
-            # construct the resource params by traversing from workflow to task
-            resource_params = self._get_resource_params(task, cluster_name)
+        #     # construct the resource params by traversing from workflow to task
+        #     resource_params = self._get_resource_params(task, cluster_name)
 
-            # get queue from resource params. it is cached on cluster object
-            queue_name = resource_params.pop("queue")
-            queue = cluster.get_queue(queue_name)
+        #     # get queue from resource params. it is cached on cluster object
+        #     queue_name = resource_params.pop("queue")
+        #     queue = cluster.get_queue(queue_name)
 
-            # construct resource scales
-            try:
-                resource_params.pop("resource_scales")
-            except KeyError:
-                pass
+        #     # construct resource scales
+        #     try:
+        #         resource_params.pop("resource_scales")
+        #     except KeyError:
+        #         pass
 
-            cluster.validate_requested_resources(resource_params, queue)
+        #     cluster.validate_requested_resources(resource_params, queue)
 
         # # validate by creating the object. validate is called under the hood
         # return cluster.create_task_resources(resource_params)
@@ -400,7 +374,7 @@ class Workflow(object):
         self._dag.validate()
         self._matching_wf_args_diff_hash()
 
-    def bind(self) -> None:
+    def bind(self):
         """Bind objects to the database if they haven't already been.
 
         compute_resources: A dictionary that includes the users requested resources
@@ -422,8 +396,9 @@ class Workflow(object):
             # construct the resource params by traversing from workflow to task
             resource_params = self._get_resource_params(task, cluster_name)
 
-            task.task_resources = cluster.create_task_resources(resource_params,
-                                                                TaskResourcesType.VALIDATED)
+            task.task_resources = cluster.create_valid_task_resources(
+                resource_params, TaskResourcesType.VALIDATED
+            )
 
         # bind dag
         self._dag.bind(self._chunk_size)
@@ -457,7 +432,9 @@ class Workflow(object):
         self._newly_created = response["newly_created"]
 
     def _get_cluster_by_name(self, cluster_name: str) -> Cluster:
-        """Check if the cluster is in the cache, if not create it and add to cache."""
+        """Check if the cluster that the task specified is in the cache, if not create it and
+        add to cache.
+        """
         try:
             cluster = self._clusters[cluster_name]
         except KeyError:
@@ -490,7 +467,7 @@ class Workflow(object):
                 raise ValueError("No valid cluster_name found on workflow or task")
         return cluster_name
 
-    def _get_resource_params(self, task: Task, cluster_name: str) -> Dict[str, Dict[str, Any]]:
+    def _get_resource_params(self, task: Task, cluster_name: str):
         # TODO: once we have concrete task template add ability to get cluster resources
         # from it
 
@@ -502,7 +479,7 @@ class Workflow(object):
 
     def _create_workflow_run(self, resume: bool = ResumeStatus.DONT_RESUME,
                              reset_running_jobs: bool = True,
-                             resume_timeout: int = 300) -> WorkflowRun:
+                             resume_timeout: int = 300) -> ClientWorkflowRun:
         # raise error if workflow exists and is done
         if self._status == WorkflowStatus.DONE:
             raise WorkflowAlreadyComplete(
@@ -527,41 +504,138 @@ class Workflow(object):
         client_wfr.bind(self.tasks, reset_running_jobs, self._chunk_size)
         self._status = WorkflowStatus.QUEUED
 
-        # create swarm workflow run
-        swarm_tasks: Dict[int, SwarmTask] = {}
-        for task in self.tasks.values():
+        return client_wfr
 
-            # create swarmtasks
-            swarm_task = SwarmTask(
-                task_id=task.task_id,
-                status=task.initial_status,
-                task_args_hash=task.task_args_hash,
-                task_resources=task.task_resources,
-                max_attempts=task.max_attempts
-            )
-            swarm_tasks[task.task_id] = swarm_task
+    def _run_swarm(self, swarm: SwarmWorkflowRun, fail_fast: bool = False,
+                   seconds_until_timeout: int = 36000) -> SwarmWorkflowRun:
+        """
+        Take a concrete DAG and queue al the Tasks that are not DONE.
 
-        # create relationships on swarm taskf
-        for task in self.tasks.values():
-            swarm_task = swarm_tasks[task.task_id]
-            swarm_task.upstream_swarm_tasks = set([
-                swarm_tasks[t.task_id] for t in task.upstream_tasks])
-            swarm_task.downstream_swarm_tasks = set([
-                swarm_tasks[t.task_id] for t in task.downstream_tasks])
+        Uses forward chaining from initial fringe, hence out-of-date is not
+        applied transitively backwards through the graph. It could also use
+        backward chaining from an identified goal node, the effect is
+        identical.
 
-        wfr = WorkflowRun(
-            workflow_id=client_wfr.workflow_id,
-            workflow_run_id=client_wfr.workflow_run_id,
-            swarm_tasks=swarm_tasks,
-            requester=self.requester
-        )
+        The internal data structures are lists, but might need to be changed
+        to be better at scaling.
 
-        return wfr
+        Conceptually:
+        Put all tasks w/ finished upstreams on the ready_to_run queue
+        Put tasks in Adjusting state on the ready_to_run queue
 
-    def _matching_wf_args_diff_hash(self) -> None:
-        """Check matching workflow args.
+        while there are tasks ready_to_run or currently running tasks:
+            queue all tasks that are ready_to_run
+            wait for some jobs to complete and add downstreams to the ready_to_run queue
+            rinse and repeat
 
-        Check that an existing workflow with the same workflow_args does not have a
+        Args:
+            workflow_run_id: id of the workflow_run we are running.
+            fail_fast: raise error on the first failed task.
+            seconds_until_timeout: how long to block while waiting for the next task to finish
+                before raising an error.
+
+        Return:
+            workflow_run status
+        """
+
+        try:
+            logger.info(f"Executing Workflow Run {swarm.workflow_run_id}")
+            swarm.update_status(WorkflowRunStatus.RUNNING)
+            swarm.compute_initial_dag_state()
+        except Exception:
+            swarm.update_status(WorkflowRunStatus.ERROR)
+            raise
+
+        # These are all Tasks.
+        # While there is something ready to be run, or something is running
+        while swarm.ready_to_run or swarm.active_tasks:
+
+            # queue any ready to run and then wait until active tasks change state
+            try:
+                # TODO: calculate dynamic resources
+                for swarm_task in swarm.queue_tasks():
+                    task = self.tasks[swarm_task.task_id]
+                    task_resources_callable = task.task_resources
+                    task_resources = task_resources_callable()
+                    if not isinstance(task_resources, TaskResources):
+                        raise CallableReturnedInvalidObject(
+                            "The function called to return TaskResources did not "
+                            "return the expected TaskResources object, it is of type"
+                            f"{type(task_resources)}")
+                    task_resources.bind(task.task_id)
+                    swarm_task.task_resources = task_resources
+
+                # wait till we have new work
+                swarm.block_until_newly_ready_or_all_done(
+                    fail_fast, seconds_until_timeout=seconds_until_timeout,
+                    distributor_alive_callable=self._distributor_alive
+                )
+            # user interrupt
+            except KeyboardInterrupt:
+                confirm = input("Are you sure you want to exit (y/n): ")
+                confirm = confirm.lower().strip()
+                if confirm == "y":
+                    logger.warning("Keyboard interrupt raised and Workflow Run set to Stopped")
+                    swarm.update_status(WorkflowRunStatus.STOPPED)
+                    raise
+                else:
+                    logger.info("Continuing jobmon...")
+
+            # scheduler died
+            except DistributorNotAlive:
+                # check if we got an exception from the distributor
+                try:
+                    resp = self._distributor_com_queue.get(False)
+
+                # no response. set error state and re-raise DistributorNotAlive
+                except Empty:
+                    swarm.update_status(WorkflowRunStatus.ERROR)
+                    raise
+
+                # got response. process
+                else:
+                    # if response is an exception re-raise error from distributor
+                    if isinstance(resp, ExceptionWrapper):
+                        try:
+                            resp.re_raise()
+
+                        # if it was a resume exception we set terminate state
+                        except ResumeSet:
+                            swarm.terminate_workflow_run()
+                            raise
+
+                        # otherwise set to error state
+                        except Exception:
+                            swarm.update_status(WorkflowRunStatus.ERROR)
+                            raise
+                    else:
+                        # response is not an exception
+                        swarm.update_status(WorkflowRunStatus.ERROR)
+                        raise
+
+            except Exception:
+                swarm.update_status(WorkflowRunStatus.ERROR)
+                raise
+
+        # END while fringe or all_active
+
+        # To be a dynamic-DAG tool, we must be prepared for the DAG to have
+        # changed. In general we would recompute forward from the fringe.
+        # Not efficient, but correct. A more efficient algorithm would be to
+        # check the nodes that were added to see if they should be in the
+        # fringe, or if they have potentially affected the status of Tasks
+        # that were done (error case - disallowed??)
+
+        # update status based on tasks if no error
+        if swarm.all_error:
+            swarm.update_status(WorkflowRunStatus.ERROR)
+        else:
+            swarm.update_status(WorkflowRunStatus.DONE)
+
+        return swarm
+
+    def _matching_wf_args_diff_hash(self):
+        """Check that an existing workflow with the same workflow_args does not have a
         different hash indicating that it contains different tasks.
         """
         rc, response = self.requester.send_request(
@@ -572,9 +646,8 @@ class Workflow(object):
         )
         bound_workflow_hashes = response['matching_workflows']
         for task_hash, tool_version_id, dag_hash in bound_workflow_hashes:
-            match = (self.tool_version_id == tool_version_id
-                     and (str(self.task_hash) != task_hash or str(hash(self._dag))
-                          != dag_hash))
+            match = (self.tool_version_id == tool_version_id and
+                     (str(self.task_hash) != task_hash or str(hash(self._dag)) != dag_hash))
             if match:
                 raise WorkflowAlreadyExists(
                     "The unique workflow_args already belong to a workflow "
@@ -584,7 +657,7 @@ class Workflow(object):
                     " match the workflow you are trying to resume"
                 )
 
-    def _set_workflow_resume(self, reset_running_jobs: bool = True) -> None:
+    def _set_workflow_resume(self, reset_running_jobs: bool = True):
         app_route = f'/client/workflow/{self.workflow_id}/set_resume'
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -604,7 +677,7 @@ class Workflow(object):
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
-    def _workflow_is_resumable(self, resume_timeout: int = 300) -> None:
+    def _workflow_is_resumable(self, resume_timeout: int = 300):
         # previous workflow exists but is resumable. we will wait till it terminates
         wait_start = time.time()
         workflow_is_resumable = False
@@ -633,16 +706,21 @@ class Workflow(object):
                 time.sleep(sleep_time)
 
     def _start_distributor_service(self, workflow_run_id: int,
-                                   distributor_startup_wait_timeout: int,
-                                   cluster_type_name: str,
+                                   distributor_startup_wait_timeout: int = 180,
                                    distributor_config: Optional[DistributorConfig] = None
                                    ) -> Process:
         if distributor_config is None:
             distributor_config = DistributorConfig.from_defaults()
 
-        module = import_cluster(cluster_type_name)
-        ClusterDistributor = module.get_cluster_distributor_class()
-        self._distributor = ClusterDistributor()
+        cluster_names = list(self._clusters.keys())
+        if len(cluster_names) > 1:
+            raise RuntimeError(
+                f"Workflow can only use one cluster. Found cluster_names={cluster_names}"
+            )
+        else:
+            cluster_plugin = self._clusters[cluster_names[0]].plugin
+            DistributorCls = cluster_plugin.get_cluster_distributor_class()
+            distributor = DistributorCls()
 
         logger.info("Instantiating Distributor Process")
 
@@ -651,7 +729,7 @@ class Workflow(object):
         tid = DistributorService(
             workflow_id=self.workflow_id,
             workflow_run_id=workflow_run_id,
-            cluster_name=self.default_cluster_name,
+            distributor=distributor,
             workflow_run_heartbeat_interval=distributor_config.workflow_run_heartbeat_interval,
             task_heartbeat_interval=distributor_config.task_instance_heartbeat_interval,
             heartbeat_report_by_buffer=distributor_config.heartbeat_report_by_buffer,
@@ -667,37 +745,40 @@ class Workflow(object):
         )
 
         try:
-
             # Start the distributor
             distributor_proc.start()
 
             # wait for response from distributor
             resp = self._distributor_com_queue.get(timeout=distributor_startup_wait_timeout)
         except Empty:  # mypy complains but this is correct
-            raise DistributorStartupTimeout("Distributor process did not start within the "
-                                            "alloted timeout t={"
-                                            "distributor_startup_wait_timeout}s")
+            distributor_proc.terminate()
+            raise DistributorStartupTimeout(
+                "Distributor process did not start within the alloted timeout "
+                f"t={distributor_startup_wait_timeout}s"
+            )
         else:
             # the first message can only be "ALIVE" or an ExceptionWrapper
             if isinstance(resp, ExceptionWrapper):
                 resp.re_raise()
-            else:
-                self._distributor_proc = distributor_proc
 
         return distributor_proc
 
-    def _set_fail_after_n_executions(self, n: int) -> None:
-        """For use during testing.
+    def _distributor_alive(self, raise_error: bool = True) -> bool:
+        """If the distributor process is still active."""
+        if not hasattr(self, "_distributor_proc"):
+            alive = False
+        else:
+            logger.debug(f"Distributor proc is: {self._distributor_proc.is_alive()}")
+            alive = self._distributor_proc.is_alive()
 
-        Force the TaskDag to 'fall over' after n executions, so that the resume case can be
-        tested.
+        if raise_error and not alive:
+            raise DistributorNotAlive(
+                f"Distributor process pid=({self._distributor_proc.pid}) unexpectedly died"
+                f" with exit code {self._distributor_proc.exitcode}"
+            )
+        return alive
 
-        In every non-test case, self.fail_after_n_executions will be None, and
-        so the 'fall over' will not be triggered in production.
-        """
-        self._val_fail_after_n_executions = n
-
-    def __hash__(self) -> int:
+    def __hash__(self):
         """Hash to encompass tool version id, workflow args, tasks and dag."""
         hash_value = hashlib.sha1()
         hash_value.update(str(hash(self.tool_version_id)).encode('utf-8'))

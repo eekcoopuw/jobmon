@@ -192,7 +192,7 @@ def bind_tasks() -> Any:
     app.logger.info(f"Binding tasks for wf {workflow_id}")
     # receive from client the tasks in a format of:
     # {<hash>:[node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5),
-    # reset_if_running(6), task_args(7),task_attributes(8)]}
+    # reset_if_running(6), task_args(7),task_attributes(8),resource_scales(9)]}
 
     # Retrieve existing task_ids
     task_query = """
@@ -221,7 +221,9 @@ def bind_tasks() -> Any:
 
     for hashval, items in tasks.items():
 
-        node_id, arg_hash, name, command, max_att, reset, args, attrs = items
+        node_id, arg_hash, name, command, \
+            max_att, reset, args, attrs, \
+            resource_scales, fallback_queues = items
 
         id_tuple = (node_id, int(arg_hash))
 
@@ -244,7 +246,9 @@ def bind_tasks() -> Any:
                 'name': name,
                 'command': command,
                 'max_attempts': max_att,
-                'status': TaskStatus.REGISTERED
+                'status': TaskStatus.REGISTERED,
+                'resource_scales': resource_scales,
+                'fallback_queues': fallback_queues
             }
             tasks_to_add.append(task)
 
@@ -455,7 +459,6 @@ def bind_task_resources(task_id: int) -> Any:
         task_id=task_id_int,
         queue_id=data.get('queue_id', None),
         task_resources_type_id=data.get('task_resources_type_id', None),
-        resource_scales=data.get('resource_scales', None),
         requested_resources=data.get('requested_resources', None))
     DB.session.add(new_resources)
     DB.session.flush()  # get auto increment
@@ -463,47 +466,6 @@ def bind_task_resources(task_id: int) -> Any:
     DB.session.commit()
 
     resp = jsonify(new_resources.id)
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@jobmon_swarm.route('/task/<task_id>/update_resources', methods=['POST'])
-def update_task_resources(task_id: int) -> Any:
-    """Change the resources set for a given task.
-
-    Args:
-        task_id (int): id of the task for which resources will be changed
-        parameter_set_type (str): parameter set type for this task
-        max_runtime_seconds (int, optional): amount of time task is allowed to
-            run for
-        context_args (dict, optional): unstructured parameters to pass to
-            executor
-        resource_scales (dict): values to scale by upon resource error
-        hard_limit (bool): whether to move queues if requester resources exceed
-            queue limits
-    """
-    app.logger = app.logger.bind(task_id=task_id)
-    data = request.get_json()
-    app.logger.info(f"Update task resource for {task_id}")
-    task_resources_type_id = data.get('task_resources_type_id')
-
-    try:
-        task_id = int(task_id)
-    except ValueError:
-        resp = jsonify(msg="task_id {} is not a number".format(task_id))
-        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
-        return resp
-
-    resources = TaskResources(
-        task_id=task_id,
-        task_resources_type_id=task_resources_type_id,
-        resource_scales=data.get('resource_scales', None))
-    DB.session.add(resources)
-    DB.session.flush()  # get auto increment
-    resources.activate()
-    DB.session.commit()
-
-    resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
 

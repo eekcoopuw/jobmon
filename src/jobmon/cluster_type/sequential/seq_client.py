@@ -1,5 +1,5 @@
 """The client for the Sequential Executor."""
-from typing import Any, Dict, List
+from typing import Dict, List, Tuple
 
 from jobmon.cluster_type.base import ClusterQueue
 
@@ -16,17 +16,9 @@ class SequentialQueue(ClusterQueue):
         self._queue_name = queue_name
         self._parameters = parameters
 
-    def validate_resource(self, resource: Dict, value: Any, fail: bool = False) -> str:
-        """Ensure cores requested isn't more than available on that node.
-
-        TODO: implement this method
-
-        Args:
-            resource (dict): user resources.
-            value (Any): value.
-            fail (bool): fail.
-        """
-        return ""
+    def validate_resources(self, **kwargs) -> Tuple[bool, str, Dict]:
+        """No resources defined for sequential execution. All resources valid"""
+        return True, "", kwargs
 
     @property
     def queue_id(self) -> int:

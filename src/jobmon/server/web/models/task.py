@@ -45,6 +45,8 @@ class Task(DB.Model):
         default=None)
     num_attempts = DB.Column(DB.Integer, default=0)
     max_attempts = DB.Column(DB.Integer, default=1)
+    resource_scales = DB.Column(DB.String(1000), default=None)
+    fallback_queues = DB.Column(DB.String(1000), default=None)
     status = DB.Column(DB.String(1), DB.ForeignKey('task_status.id'))
     submitted_date = DB.Column(DB.DateTime, default=func.now())
     status_date = DB.Column(DB.DateTime, default=func.now())

@@ -7,6 +7,7 @@ from typing import Dict, List, Optional, Tuple
 from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
+from jobmon.client.task_resources import TaskResources
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import http_request_ok, Requester
@@ -79,6 +80,7 @@ class WorkflowRun(object):
             tasks = self._bind_tasks(tasks, reset_if_running, chunk_size)
         except Exception:
             self._update_status(WorkflowRunStatus.ABORTED)
+            raise
         else:
             self._update_status(WorkflowRunStatus.BOUND)
         return tasks
@@ -171,7 +173,9 @@ class WorkflowRun(object):
                     tasks[task_hash].node.node_id, str(tasks[task_hash].task_args_hash),
                     tasks[task_hash].name, tasks[task_hash].command,
                     tasks[task_hash].max_attempts, reset_if_running,
-                    tasks[task_hash].task_args, tasks[task_hash].task_attributes
+                    tasks[task_hash].task_args, tasks[task_hash].task_attributes,
+                    tasks[task_hash].resource_scales,
+                    tasks[task_hash].fallback_queues
                 ]
             parameters = {
                 "workflow_id": self.workflow_id,
@@ -195,7 +199,9 @@ class WorkflowRun(object):
                 task = tasks[int(k)]
                 task.task_id = return_tasks[k][0]
                 task.initial_status = return_tasks[k][1]
+
                 # Bind the task resources
-                task.task_resources.bind(task.task_id)
+                if isinstance(task.task_resources, TaskResources):
+                    task.task_resources.bind(task.task_id)
 
         return tasks

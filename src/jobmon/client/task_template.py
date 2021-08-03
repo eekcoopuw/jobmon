@@ -327,7 +327,8 @@ class TaskTemplate:
                     upstream_tasks: List[Task] = [],
                     task_attributes: Union[List, dict] = {},
                     max_attempts: int = 3,
-                    compute_resources: Dict[str, Dict[str, Any]] = None,
+                    compute_resources: Optional[Dict[str, Any]] = None,
+                    resource_scales: Optional[Dict[str, Any]] = None,
                     cluster_name: str = "",
                     **kwargs: Any) -> Task:
         """Create an instance of a task associated with this template.
@@ -388,7 +389,8 @@ class TaskTemplate:
             task_template_version_id=self.active_task_template_version.id,
             node_args=node_args,
             task_args=task_args,
-            compute_resources=resources,
+            compute_resources=compute_resources,
+            resource_scales=resource_scales,
             cluster_name=cluster_name,
             name=name,
             max_attempts=max_attempts,

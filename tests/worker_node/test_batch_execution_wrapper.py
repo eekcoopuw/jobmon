@@ -3,8 +3,10 @@ import os
 from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.requester import Requester
 from jobmon.client.tool import Tool
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
-import pytest
+from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
@@ -31,12 +33,16 @@ def test_limited_error_log(db_cfg, client_env):
     wf.add_tasks([task])
     wf.bind()
     wfr = wf._create_workflow_run()
+
+    swarm = SwarmWorkflowRun(workflow_id=wfr.workflow_id, workflow_run_id=wfr.workflow_run_id,
+                             tasks=list(wf.tasks.values()))
+    swarm.compute_initial_dag_state()
+    list(swarm.queue_tasks())  # expand the generator
+
     requester = Requester(client_env)
     distributor = DistributorService(wf.workflow_id, wfr.workflow_run_id,
-                                     "sequential", requester=requester)
-    with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockDistributorProc(),
-                                  seconds_until_timeout=2)
+                                     SequentialDistributor(), requester=requester)
+
     distributor._get_tasks_queued_for_instantiation()
     distributor.distribute()
     # check db

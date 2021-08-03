@@ -2,8 +2,28 @@ import json
 
 from jobmon.log_config import configure_logger
 from jobmon.requester import Requester
-
+from jobmon.client.api import Tool
 import pytest
+
+
+@pytest.fixture
+def tool(db_cfg, client_env):
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
+                                                 compute_resources={"queue": "null.q"})
+    return tool
+
+
+@pytest.fixture
+def task_template(tool):
+    tt = tool.get_task_template(
+        template_name="my_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[]
+    )
+    return tt
 
 
 @pytest.fixture(scope="function")
@@ -25,24 +45,13 @@ def log_config(test_app, tmp_path):
     configure_logger("jobmon.server.web")
 
 
-def test_server_logging_format(web_server_in_memory, log_config):
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.api import BashTask
+@pytest.mark.skip()
+def test_server_logging_format(web_server_in_memory, log_config, tool, task_template):
 
-    wf = UnknownWorkflow("test_server")
-    task_a = BashTask("echo r", executor_class="SequentialExecutor")
+    wf = tool.create_workflow("test_server")
+    task_a = task_template.create_task(arg="echo r")
     wf.add_task(task_a)
     wf.bind()
-    wf.requester.send_request(
-        app_route='/client/workflow',
-        message={
-            "tool_version_id": wf.tool_version_id,
-            "dag_id": 'blah',
-            "workflow_args_hash": wf.workflow_args_hash,
-            "task_hash": wf.task_hash
-        },
-        request_type='post'
-    )
 
     with open(log_config, "r") as server_log_file:
         for line in server_log_file:

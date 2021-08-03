@@ -283,7 +283,7 @@ def get_task_instance_error_log(task_instance_id: int) -> Any:
     ).all()
     DB.session.commit()
     resp = jsonify(task_instance_error_log=[tiel.
-                   to_wire_as_distributor_task_instance_error_log() for tiel in ti_errors])
+                   to_wire() for tiel in ti_errors])
     resp.status_code = StatusCodes.OK
     return resp
 

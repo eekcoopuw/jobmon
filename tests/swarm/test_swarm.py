@@ -1,14 +1,15 @@
 import logging
-import time
 
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+from jobmon.client.distributor.distributor_service import DistributorService
+from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+from jobmon.constants import WorkflowRunStatus
 from jobmon.requester import Requester
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_status import TaskStatus
-from jobmon.constants import WorkflowRunStatus
 
 import pytest
 
-from jobmon.client.task import Task
 from jobmon.client.tool import Tool
 
 
@@ -41,29 +42,30 @@ class MockDistributorProc:
         return True
 
 
-def test_blocking_update_timeout(client_env, task_template):
+def test_blocking_update_timeout(tool, task_template):
     """This test runs a 1 task workflow and confirms that the workflow_run
-    distributor will timeout with an appropriate error message if timeout is set
+    will timeout with an appropriate error message if timeout is set
     """
 
-    tool = Tool()
-    task = task_template.create_task(
-           arg="sleep 3",
-           name="foobarbaz")
-    workflow = tool.create_workflow(name="my_simple_dag",
-                                    default_cluster_name="sequential",
-                                    default_compute_resources_set={"sequential": {"queue": "null.q"}})
+    task = task_template.create_task(arg="sleep 3", name="foobarbaz")
+    workflow = tool.create_workflow(name="my_simple_dag")
     workflow.add_tasks([task])
     workflow.bind()
+    workflow._distributor_proc = MockDistributorProc()
     wfr = workflow._create_workflow_run()
 
     # Move workflow and wfr through Instantiating -> Launched
-    wfr.update_status(WorkflowRunStatus.INSTANTIATING)
-    wfr.update_status(WorkflowRunStatus.LAUNCHED)
+    wfr._update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr._update_status(WorkflowRunStatus.LAUNCHED)
+
+    # swarm calls
+    swarm = SwarmWorkflowRun(workflow_id=workflow.workflow_id,
+                             workflow_run_id=wfr.workflow_run_id,
+                             tasks=list(workflow.tasks.values()),
+                             requester=workflow.requester)
 
     with pytest.raises(RuntimeError) as error:
-        wfr.execute_interruptible(MockDistributorProc(),
-                                  seconds_until_timeout=2)
+        workflow._run_swarm(swarm, seconds_until_timeout=2)
 
     expected_msg = ("Not all tasks completed within the given workflow "
                     "timeout length (2 seconds). Submitted tasks will still"
@@ -71,43 +73,45 @@ def test_blocking_update_timeout(client_env, task_template):
     assert expected_msg == str(error.value)
 
 
-def test_sync(client_env, task_template):
+def test_sync_statuses(client_env, tool, task_template):
     """this test executes a single task workflow where the task fails. It
     is testing to confirm that the status updates are propagated into the
     swarm objects"""
-    from jobmon.client.distributor.distributor_service import DistributorService
 
-    tool = Tool()
-    task = task_template.create_task(
-           arg="fizzbuzz", name="bar", max_attempts=1)
-
-    workflow = tool.create_workflow(name="my_simple_dag",
-                                    default_cluster_name="sequential",
-                                    default_compute_resources_set={"sequential": {"queue": "null.q"}})
+    # client calls
+    task = task_template.create_task(arg="fizzbuzz", name="bar", max_attempts=1)
+    workflow = tool.create_workflow(name="my_simple_dag")
     workflow.add_tasks([task])
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
-    now = wfr.last_sync
+    # move workflow to launched state
+    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
+                                             SequentialDistributor(),
+                                             requester=workflow.requester)
+
+    # swarm calls
+    swarm = SwarmWorkflowRun(workflow_id=workflow.workflow_id,
+                             workflow_run_id=wfr.workflow_run_id,
+                             tasks=list(workflow.tasks.values()),
+                             requester=workflow.requester)
+    swarm.update_status(WorkflowRunStatus.RUNNING)
+    swarm.compute_initial_dag_state()
+    list(swarm.queue_tasks())
+
+    # test initial dag state updates last_sync
+    now = swarm.last_sync
     assert now is not None
 
-    requester = Requester(client_env)
-    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             "sequential", requester=requester)
-
-    with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockDistributorProc(),
-                                  seconds_until_timeout=2)
-
+    # distribute the task
     distributor_service._get_tasks_queued_for_instantiation()
     distributor_service.distribute()
 
-    time.sleep(1)
-    wfr._parse_adjusting_done_and_errors(wfr._task_status_updates())
+    swarm.block_until_newly_ready_or_all_done()
 
-    new_now = wfr.last_sync
+    new_now = swarm.last_sync
     assert new_now > now
-    assert len(wfr.all_error) > 0
+    assert len(swarm.all_error) > 0
 
 
 @pytest.mark.skip(reason="need executor plugin interface")
@@ -219,7 +223,7 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg, task_template):
     execute.wedged_task_id = t2.task_id
     requester = Requester(client_env)
     distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester=requester)
+                                     workflow._executor, requester=requester)
     distributor.executor.start()
     distributor.distribute()
 
@@ -248,16 +252,13 @@ def test_wedged_dag(monkeypatch, client_env, db_cfg, task_template):
     assert list(completed)[0].task_id == t3.task_id
 
 
-def test_fail_fast(client_env, task_template):
+def test_fail_fast(tool, task_template):
     """set up a dag where a middle job fails. The fail_fast parameter should
     ensure that not all tasks finish"""
 
-    # The sleep for t3 must be long so that the executor has time to notice that t2
+    # The sleep for t3 must be long so that the swarm has time to notice that t2
     # died and react accordingly.
-    tool = Tool()
-    workflow = tool.create_workflow(name="test_fail_fast",
-                                    default_cluster_name="sequential",
-                                    default_compute_resources_set={"sequential": {"queue": "null.q"}})
+    workflow = tool.create_workflow(name="test_fail_fast")
     t1 = task_template.create_task(arg="sleep 1")
     t2 = task_template.create_task(arg="erroring_out 1", upstream_tasks=[t1])
     t3 = task_template.create_task(arg="sleep 20", upstream_tasks=[t1])
@@ -266,20 +267,21 @@ def test_fail_fast(client_env, task_template):
 
     workflow.add_tasks([t1, t2, t3, t4, t5])
     workflow.bind()
-    wfr = workflow.run(fail_fast=True)
 
-    assert len(workflow._last_workflowrun.all_error) == 1
-    assert len(workflow._last_workflowrun.all_done) >= 1
-    assert len(workflow._last_workflowrun.all_done) <= 3
+    with pytest.raises(RuntimeError):
+        workflow.run(fail_fast=True)
+
+    assert len(workflow.task_errors) == 1
+    num_done = len([task for task in workflow.tasks.values()
+                    if task.final_status == TaskStatus.DONE])
+    assert num_done >= 1
+    assert num_done <= 3
 
 
-def test_propagate_result(client_env, task_template):
+def test_propagate_result(tool, task_template):
     """set up workflow with 3 tasks on one layer and 3 tasks as dependant"""
 
-    tool = Tool()
-    workflow = tool.create_workflow(name="test_propagate_result",
-                                    default_cluster_name="sequential",
-                                    default_compute_resources_set={"sequential": {"queue": "null.q"}})
+    workflow = tool.create_workflow(name="test_propagate_result")
 
     t1 = task_template.create_task(arg="echo 1")
     t2 = task_template.create_task(arg="echo 2")
@@ -289,101 +291,23 @@ def test_propagate_result(client_env, task_template):
     t6 = task_template.create_task(arg="echo 6", upstream_tasks=[t1, t2, t3])
     workflow.add_tasks([t1, t2, t3, t4, t5, t6])
     workflow.bind()
-    wfrs = workflow.run(seconds_until_timeout=300)
-
-    assert wfrs == WorkflowRunStatus.DONE
-    assert len(workflow._last_workflowrun.all_done) == 6
-    keys = list(workflow._last_workflowrun.swarm_tasks.keys())
-    assert workflow._last_workflowrun.swarm_tasks[keys[3]].num_upstreams_done >= 3
-    assert workflow._last_workflowrun.swarm_tasks[keys[4]].num_upstreams_done >= 3
-    assert workflow._last_workflowrun.swarm_tasks[keys[5]].num_upstreams_done >= 3
-
-
-def test_instantiating_launched(db_cfg, client_env, task_template):
-    """Check that the workflow and WFR are moving through appropriate states"""
-    from jobmon.requester import Requester
-    from jobmon.client.client_config import ClientConfig
-    from jobmon.constants import WorkflowRunStatus, WorkflowStatus
-
-    tool = Tool()
-    workflow = tool.create_workflow(name="test_instantiated_launched",
-                                    default_cluster_name="sequential",
-                                    default_compute_resources_set={"sequential": {"queue": "null.q"}})
-
-    t1 = task_template.create_task(arg="echo 1")
-    workflow.add_task(t1)
-
-    # Bind, and check state
-    workflow.bind()
-
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        SELECT status
-        FROM workflow
-        WHERE id = :workflow_id"""
-        res = DB.session.execute(sql, {"workflow_id": workflow.workflow_id}).fetchone()
-        DB.session.commit()
-    assert res[0] == WorkflowStatus.REGISTERING
-
-    # Create workflow run
     wfr = workflow._create_workflow_run()
 
-    # Workflow should be queued, wfr should be bound
-    workflow_status_sql = """
-        SELECT w.status, wr.status
-        FROM workflow_run wr
-        JOIN workflow w on w.id = wr.workflow_id
-        WHERE wr.id = :workflow_run_id"""
-    with app.app_context():
-        res = DB.session.execute(
-            workflow_status_sql,
-            {"workflow_run_id": wfr.workflow_run_id}).fetchone()
-        DB.session.commit()
-    assert res == (WorkflowStatus.QUEUED, WorkflowRunStatus.BOUND)
+    # run the distributor
+    workflow._distributor_proc = workflow._start_distributor_service(wfr.workflow_run_id)
 
-    # Force some invalid state transitions
-    # Don't waste time on retries, redefine requester
-    requester_url = ClientConfig.from_defaults().url
-    req = Requester(requester_url, 1, 5)
-    wfr.requester = req
+    # swarm calls
+    swarm = SwarmWorkflowRun(workflow_id=workflow.workflow_id,
+                             workflow_run_id=wfr.workflow_run_id,
+                             tasks=list(workflow.tasks.values()),
+                             requester=workflow.requester)
+    workflow._run_swarm(swarm)
 
-    with pytest.raises(RuntimeError):
-        # Needs to be instantiating first
-        wfr.update_status(WorkflowRunStatus.LAUNCHED)
+    # stop the subprocess
+    workflow._distributor_stop_event.set()
 
-    with pytest.raises(RuntimeError):
-        # Needs to be launched first
-        wfr.update_status(WorkflowRunStatus.RUNNING)
-
-    # Something failed and the wfr errors out.
-    wfr.update_status(WorkflowRunStatus.ERROR)
-
-    with app.app_context():
-        res = DB.session.execute(
-            workflow_status_sql,
-            {"workflow_run_id": wfr.workflow_run_id}).fetchone()
-        DB.session.commit()
-    assert res == (WorkflowStatus.FAILED, WorkflowRunStatus.ERROR)
-
-    # Create a new workflow run, and resume
-    wfr2 = workflow._create_workflow_run(resume=True)
-
-    with app.app_context():
-        res = DB.session.execute(
-            workflow_status_sql,
-            {"workflow_run_id": wfr2.workflow_run_id}).fetchone()
-        DB.session.commit()
-    assert res == (WorkflowStatus.QUEUED, WorkflowRunStatus.BOUND)
-
-    # Start the distributor
-    workflow._start_distributor_service(
-        wfr2.workflow_run_id, 180, workflow.default_cluster._cluster_type_name)
-
-    with app.app_context():
-        res = DB.session.execute(
-            workflow_status_sql,
-            {"workflow_run_id": wfr2.workflow_run_id}).fetchone()
-        DB.session.commit()
-    assert res == (WorkflowStatus.RUNNING, WorkflowRunStatus.RUNNING)
+    assert swarm.status == WorkflowRunStatus.DONE
+    assert len(swarm.all_done) == 6
+    assert swarm.swarm_tasks[t4.task_id].num_upstreams_done >= 3
+    assert swarm.swarm_tasks[t5.task_id].num_upstreams_done >= 3
+    assert swarm.swarm_tasks[t6.task_id].num_upstreams_done >= 3

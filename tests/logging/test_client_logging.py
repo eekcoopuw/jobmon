@@ -1,7 +1,7 @@
-import pytest
-
 import logging
 from datetime import date
+import pytest
+
 
 def test_client_logging_default_format(client_env, capsys):
     from jobmon.client.client_logging import ClientLogging
@@ -19,9 +19,10 @@ def test_client_logging_default_format(client_env, capsys):
             assert "INFO" in log
             assert "This is a test" in log
 
+
 def test_client_logging_customized_handler(client_env, capsys):
     from jobmon.client.client_logging import ClientLogging
-    h = logging.StreamHandler() #stderr
+    h = logging.StreamHandler()  # stderr
     # This formatter logs nothing but the fixed msg.
     # Nobody would create a log like this; thus, it proves it's using my logger.
     h.setFormatter("I log this instead of your message")
@@ -37,6 +38,8 @@ def test_client_logging_customized_handler(client_env, capsys):
             assert "I log this instead of your message" in log
             assert "This is a test" not in log
 
+
+@pytest.mark.skip()
 def test_tiny_structured_logger(client_env, capsys):
     """This is to make sure our jobmon clien works with tiny_structured_logger,
        which is widely used by FHS.

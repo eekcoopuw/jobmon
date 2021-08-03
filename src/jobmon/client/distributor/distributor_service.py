@@ -8,10 +8,9 @@ import threading
 import time
 from typing import Dict, List, Optional
 
-from jobmon.client.cluster import Cluster
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
-from jobmon.cluster_type.api import import_cluster
+from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable, ResumeSet,\
     WorkflowRunStateError
@@ -38,7 +37,7 @@ class ExceptionWrapper(object):
 class DistributorService:
     """Distributes TaskInstances when they are ready and monitors the status of active TIs."""
 
-    def __init__(self, workflow_id: int, workflow_run_id: int, cluster_name: str,
+    def __init__(self, workflow_id: int, workflow_run_id: int, distributor: ClusterDistributor,
                  requester: Requester, workflow_run_heartbeat_interval: int = 30,
                  task_heartbeat_interval: int = 90, heartbeat_report_by_buffer: float = 3.1,
                  n_queued: int = 100, distributor_poll_interval: int = 10,
@@ -49,13 +48,7 @@ class DistributorService:
         self.workflow_run_id = workflow_run_id
 
         # cluster_name
-        self._cluster_name = cluster_name
-        cluster = Cluster.get_cluster(self._cluster_name, requester)
-        module = import_cluster(cluster._cluster_type_name)
-
-        # distributor
-        ClusterDistributor = module.get_cluster_distributor_class()
-        self.distributor = ClusterDistributor()
+        self.distributor = distributor
 
         # operational args
         self._worker_node_entry_point = worker_node_entry_point
@@ -137,8 +130,7 @@ class DistributorService:
         """Start up the distributor."""
         try:
             # start up the worker thread and distributor
-            if not self.distributor.started:
-                self.distributor.start()
+            self.distributor.start()
             logger.info("Distributor has started")
 
             # send response back to main
@@ -252,11 +244,14 @@ class DistributorService:
     def _keep_distributing(self, thread_stop_event: Optional[threading.Event] = None) -> bool:
         any_work_to_do = any(self._to_instantiate) or any(self._to_reconcile)
         # If we are running in a thread. This is the standard path
+
         if thread_stop_event is not None:
-            return not thread_stop_event.is_set() and any_work_to_do
+            res = not thread_stop_event.is_set() and any_work_to_do
         # If we are running in the main thread. This is a testing path
         else:
-            return any_work_to_do
+            res = any_work_to_do
+        logger.info(f"keep distributing is {res}")
+        return res
 
     def _distribute_forever(self, thread_stop_event: threading.Event, poll_interval: float = 10
                             ) -> None:
