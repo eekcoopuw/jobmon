@@ -1,12 +1,10 @@
-"""Requester object to make HTTP requests to the Jobmon Flask services"""
+"""Requester object to make HTTP requests to the Jobmon Flask services."""
 import json
 import logging
 from typing import Any, Dict, Tuple
 
 from jobmon import log_config
-
 import requests
-
 import tenacity
 
 default_logger = log_config.configure_logger(__name__)
@@ -18,20 +16,21 @@ def http_request_ok(status_code: int) -> bool:
 
 
 class Requester(object):
-    """Sends an HTTP messages via the Requests library to one of the running services, either
-    the JQS or the JSM, and returns the response from the server. A common use case is where
-    the swarm of application jobs send status messages via a Requester to the JobStateManager
-    or requests job status from the JobQueryServer.
+    """Sends an HTTP messages via the Requests library to one of the running services.
+
+    Either the JQS or the JSM, and returns the response from the server. A common use case is
+    where the swarm of application jobs send status messages via a Requester to the
+    JobStateManager or requests job status from the JobQueryServer.
     """
 
-    def __init__(self, url: str, max_retries: int = 10, stop_after_delay: int = 120):
+    def __init__(self, url: str, max_retries: int = 10, stop_after_delay: int = 120) -> None:
         """Initialize the Requester object with the url to make requests to."""
         self.url = url
         self.max_retries = max_retries
         self.stop_after_delay = stop_after_delay
         self.server_structlog_context: Dict[str, str] = {}
 
-    def add_server_structlog_context(self, **kwargs):
+    def add_server_structlog_context(self, **kwargs: Any) -> None:
         """Add the structlogging context if it has been provided."""
         for key, value in kwargs.items():
             self.server_structlog_context[key] = value
@@ -39,8 +38,7 @@ class Requester(object):
     def send_request(self, app_route: str, message: dict, request_type: str,
                      logger: logging.Logger = default_logger,
                      tenacious: bool = True) -> Tuple[int, Any]:
-        """
-        Send request to server.
+        """Send request to server.
 
         If we get a 5XX status code, we will retry for up to 2 minutes using
         exponential backoff.
@@ -99,7 +97,7 @@ class Requester(object):
                 logger.debug(f"is_5XX? status: {status}")
             return is_bad
 
-        def raise_if_exceed_retry(retry_state: tenacity.RetryCallState):
+        def raise_if_exceed_retry(retry_state: tenacity.RetryCallState) -> None:
             """If we trigger retry error, raise informative RuntimeError."""
             logger.exception(f"Retry exceeded. {retry_state}")
             status, content = retry_state.outcome.result()
@@ -110,8 +108,8 @@ class Requester(object):
         self._retry = tenacity.Retrying(
             stop=tenacity.stop_after_delay(self.stop_after_delay),
             wait=tenacity.wait_exponential(self.max_retries),
-            retry=(tenacity.retry_if_result(is_5XX) |
-                   tenacity.retry_if_exception_type(requests.ConnectionError)),
+            retry=(tenacity.retry_if_result(is_5XX)
+                   | tenacity.retry_if_exception_type(requests.ConnectionError)),
             retry_error_callback=raise_if_exceed_retry
         )
 
@@ -150,7 +148,7 @@ class Requester(object):
         return status_code, content
 
 
-def get_content(response) -> Tuple[int, Any]:
+def get_content(response: Any) -> Tuple[int, Any]:
     """Parse the response."""
     if 'application/json' in response.headers.get('Content-Type', ''):
         try:

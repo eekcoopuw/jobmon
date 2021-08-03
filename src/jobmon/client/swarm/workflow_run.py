@@ -9,7 +9,7 @@ from jobmon.client.task import Task
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.constants import TaskStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse
-from jobmon.requester import Requester, http_request_ok
+from jobmon.requester import http_request_ok, Requester
 
 
 logger = logging.getLogger(__name__)
@@ -49,6 +49,8 @@ class WorkflowRun:
                 status=task.initial_status,
                 task_args_hash=task.task_args_hash,
                 task_resources=task.task_resources,
+                resource_scales=task.resource_scales,
+                fallback_queues=task.fallback_queues,
                 max_attempts=task.max_attempts
             )
             self.swarm_tasks[task.task_id] = swarm_task

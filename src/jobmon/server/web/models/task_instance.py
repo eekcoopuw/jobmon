@@ -1,12 +1,12 @@
 """Task Instance Database Table."""
-from flask import current_app as app
+from typing import Tuple
 
+from flask import current_app as app
 from jobmon.serializers import SerializeTaskInstance
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
-
 from sqlalchemy.sql import func
 
 
@@ -15,7 +15,7 @@ class TaskInstance(DB.Model):
 
     __tablename__ = "task_instance"
 
-    def to_wire_as_distributor_task_instance(self):
+    def to_wire_as_distributor_task_instance(self) -> Tuple:
         """Serialize task instance object."""
         return SerializeTaskInstance.to_wire(self.id, self.workflow_run_id,
                                              self.distributor_id)
@@ -176,7 +176,7 @@ class TaskInstance(DB.Model):
                     TaskInstanceStatus.RESOURCE_ERROR,
                     TaskInstanceStatus.KILL_SELF]
 
-    def transition(self, new_state):
+    def transition(self, new_state: str) -> None:
         """Transition the TaskInstance status."""
         # if the transition is timely, move to new state. Otherwise do nothing
         app.logger = app.logger.bind(workflow_run_id=self.workflow_run_id,
@@ -200,7 +200,7 @@ class TaskInstance(DB.Model):
                 self.task.transition(TaskStatus.ERROR_FATAL)
         app.logger.info(f"Status of ti {self.id} is now {self.status}")
 
-    def _validate_transition(self, new_state):
+    def _validate_transition(self, new_state: str) -> None:
         """Ensure the TaskInstance status transition is valid."""
         if self.status in self.kill_self_states and \
                 new_state is TaskInstanceStatus.RUNNING:
@@ -210,7 +210,7 @@ class TaskInstance(DB.Model):
             raise InvalidStateTransition('TaskInstance', self.id, self.status,
                                          new_state)
 
-    def _is_timely_transition(self, new_state):
+    def _is_timely_transition(self, new_state: str) -> bool:
         """Check if the transition is invalid due to a race condition."""
         app.logger.bind(task_instance_id=self.id)
         if (self.status, new_state) in self.__class__.untimely_transitions:

@@ -1,4 +1,4 @@
-"""DAG Database Table"""
+"""DAG Database Table."""
 from jobmon.server.web.models import DB
 
 

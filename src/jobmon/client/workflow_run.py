@@ -1,4 +1,4 @@
-"""The workflow run is an instance of a workflow"""
+"""The workflow run is an instance of a workflow."""
 import getpass
 import logging
 import time
@@ -10,16 +10,16 @@ from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
-from jobmon.requester import Requester, http_request_ok
+from jobmon.requester import http_request_ok, Requester
 
 
 logger = logging.getLogger(__name__)
 
 
 class WorkflowRun(object):
-    """
-    WorkflowRun enables tracking for multiple runs of a single Workflow. A
-    Workflow may be started/paused/ and resumed multiple times. Each start or
+    """WorkflowRun enables tracking for multiple runs of a single Workflow.
+
+    A Workflow may be started/paused/ and resumed multiple times. Each start or
     resume represents a new WorkflowRun.
 
     In order for a Workflow can be deemed to be DONE (successfully), it
@@ -31,15 +31,16 @@ class WorkflowRun(object):
 
     def __init__(self, workflow_id: int, requester: Optional[Requester] = None,
                  workflow_run_heartbeat_interval: Optional[int] = None,
-                 heartbeat_report_by_buffer: Optional[float] = None):
+                 heartbeat_report_by_buffer: Optional[float] = None) -> None:
+        """Initialize client WorkflowRun."""
         # set attrs
         self.workflow_id = workflow_id
         self.user = getpass.getuser()
 
         # set attrs from config
-        need_client_config = (workflow_run_heartbeat_interval is None or
-                              heartbeat_report_by_buffer is None or
-                              requester is None)
+        need_client_config = (workflow_run_heartbeat_interval
+                              is None or heartbeat_report_by_buffer is None
+                              or requester is None)
         if need_client_config:
             client_config = ClientConfig.from_defaults()
         if requester is None:
@@ -79,14 +80,13 @@ class WorkflowRun(object):
             tasks = self._bind_tasks(tasks, reset_if_running, chunk_size)
         except Exception:
             self._update_status(WorkflowRunStatus.ABORTED)
+            raise
         else:
             self._update_status(WorkflowRunStatus.BOUND)
         return tasks
 
     def _update_status(self, status: str) -> None:
-        """Update the status of the workflow_run with whatever status is
-        passed
-        """
+        """Update the status of the workflow_run with whatever status is passed."""
         app_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -132,7 +132,7 @@ class WorkflowRun(object):
             )
         return response['current_wfr']
 
-    def _log_heartbeat(self, next_report_increment: float):
+    def _log_heartbeat(self, next_report_increment: float) -> None:
         app_route = f"/client/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -173,7 +173,9 @@ class WorkflowRun(object):
                     tasks[task_hash].node.node_id, str(tasks[task_hash].task_args_hash),
                     tasks[task_hash].name, tasks[task_hash].command,
                     tasks[task_hash].max_attempts, reset_if_running,
-                    tasks[task_hash].task_args, tasks[task_hash].task_attributes
+                    tasks[task_hash].task_args, tasks[task_hash].task_attributes,
+                    tasks[task_hash].resource_scales,
+                    tasks[task_hash].fallback_queues
                 ]
             parameters = {
                 "workflow_id": self.workflow_id,

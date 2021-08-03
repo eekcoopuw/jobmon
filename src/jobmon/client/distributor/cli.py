@@ -2,7 +2,6 @@
 from typing import Optional
 
 import configargparse
-
 from jobmon.cluster_type.api import import_cluster
 from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 
@@ -11,6 +10,7 @@ class DistributorCLI(CLI):
     """Command line interface for Distributor."""
 
     def __init__(self) -> None:
+        """Initialization of distributor CLI."""
         self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
         self._subparsers = self.parser.add_subparsers(
             dest='sub_command', parser_class=configargparse.ArgumentParser

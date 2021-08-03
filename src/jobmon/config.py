@@ -108,7 +108,7 @@ class ParserDefaults:
     @staticmethod
     def apm_server_name(
             parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
-        """Server name of APM"""
+        """Server name of APM."""
         parser.add_argument(
             '--apm_server_name',
             type=str,
@@ -121,7 +121,7 @@ class ParserDefaults:
     @staticmethod
     def apm_server_url(
             parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
-        """Server URL of APM"""
+        """Server URL of APM."""
         parser.add_argument(
             '--apm_server_url',
             type=str,
@@ -421,9 +421,10 @@ class CLI:
         args.func(args)
 
     def parse_args(self, argstr: Optional[str] = None) -> configargparse.Namespace:
-        """Construct a parser, parse either sys.argv (default) or the provided argstr, returns
-        a Namespace. The Namespace should have a 'func' attribute which can be used to dispatch
-         to the appropriate downstream function.
+        """Construct a parser, parse either sys.argv (default) or the provided argstr.
+
+        Returns a Namespace. The Namespace should have a 'func' attribute which can be used to
+        dispatch to the appropriate downstream function.
         """
         arglist: Optional[List[str]] = None
         if argstr is not None:

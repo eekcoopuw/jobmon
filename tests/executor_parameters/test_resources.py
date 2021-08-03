@@ -1,7 +1,6 @@
 import ast
 import os
 
-from jobmon.client.distributor.strategies.base import ExecutorParameters
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import CallableReturnedInvalidObject
 
@@ -213,3 +212,70 @@ def test_resource_arguments(db_cfg, client_env):
     wf.add_tasks([t1])
     wfr = wf.run()
     assert wfr.status == WorkflowRunStatus.DONE
+
+
+def test_validate(db_cfg, client_env):
+    """ Test that adjust and validate work as expected."""
+    from jobmon.client.task_resources import TaskResources
+    from jobmon.constants import TaskResourcesType
+    from jobmon.client.cluster import Cluster
+
+    cluster = Cluster.get_cluster("multiprocess")
+
+    # Create a valid resource. In test_utils.db_schema, note that min/max cores for the multiprocess
+    # cluster null.q is 1/20
+    happy_resource: TaskResources = cluster.create_valid_task_resources(
+        resource_params={'cores': 10, 'queue': 'null.q'},
+        task_resources_type_id=TaskResourcesType.VALIDATED,
+        fail=False
+    )
+
+    assert happy_resource.concrete_resources.resources['cores'] == 10
+    assert happy_resource.queue.queue_name == "null.q"
+
+    # Create invalid resource
+    # Try a fail call first
+    with pytest.raises(ValueError):
+        cluster.create_valid_task_resources(
+            resource_params={'cores': 100, 'queue': 'null.q'},
+            task_resources_type_id=TaskResourcesType.VALIDATED,
+            fail=True
+        )
+
+    # Same call but check that the resources are coerced
+    unhappy_resource: TaskResources = cluster.create_valid_task_resources(
+        resource_params={'cores': 100, 'queue': 'null.q'},
+        task_resources_type_id=TaskResourcesType.VALIDATED,
+        fail=False)
+    assert unhappy_resource.concrete_resources.resources['cores'] == 20
+
+
+def test_swarmtask_resources_integration(db_cfg, client_env):
+    """ Check that taskresources defined in task are passed to swarmtask appropriately"""
+    from jobmon.constants import TaskResourcesType
+    from jobmon.client.tool import Tool
+
+    tool = Tool()
+    wf = tool.create_workflow(default_cluster_name='multiprocess')
+    tt = tool.get_task_template(template_name='foo', command_template='bar')
+
+    # Create tasks
+    task = tt.create_task(compute_resources={'cores': 10, 'queue': 'null.q'}, resource_scales={'cores': .5}, cluster_name='multiprocess')
+
+    # Add to workflow, bind and create wfr
+    wf.add_task(task)
+    wf.bind()
+    wfr = wf._create_workflow_run()
+
+    # Check swarmtask resources
+    swarmtask = wfr.swarm_tasks[task.task_id]
+    initial_resources = swarmtask.get_task_resources()
+    assert initial_resources.concrete_resources.resources == {'cores': 10}
+    assert initial_resources.task_resources_type_id == TaskResourcesType.VALIDATED
+
+    # Call adjust. Multiprocess doesn't implement adjust, but the path should work and return an adjusted task resource
+    wfr._adjust_resources(swarmtask)
+    assert len(swarmtask.bound_parameters) == 2
+    scaled_params = swarmtask.bound_parameters[-1]
+    assert scaled_params.task_resources_type_id == TaskResourcesType.ADJUSTED
+    assert scaled_params.concrete_resources.resources == {'cores': 10}  # No scaling implemented

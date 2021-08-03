@@ -1,12 +1,11 @@
 """The QPID service functionality."""
 import logging
 from time import sleep, time
+from typing import Tuple
 
 from jobmon.server.qpid_integration.maxpss_queue import MaxpssQ
 from jobmon.server.qpid_integration.qpid_config import QPIDConfig
-
 import requests
-
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -17,12 +16,12 @@ logger = logging.getLogger(__name__)
 config = QPIDConfig.from_defaults()
 
 
-def _get_pulling_interval():
+def _get_pulling_interval() -> int:
     """This method returns the current app. The main purpose is for easy patch in testing."""
     return config.qpid_polling_interval
 
 
-def _update_maxpss_in_db(ex_id: int, pss: int, session: Session):
+def _update_maxpss_in_db(ex_id: int, pss: int, session: Session) -> bool:
     try:
         # Doing single update instead of batch because if a banch update failed it's harder to
         # tell which task_instance has been updated
@@ -36,7 +35,7 @@ def _update_maxpss_in_db(ex_id: int, pss: int, session: Session):
         return False
 
 
-def _get_qpid_response(ex_id: int):
+def _get_qpid_response(ex_id: int) -> Tuple:
     qpid_api_url = f"{config.qpid_uri}/{config.qpid_cluster}/jobmaxpss/{ex_id}"
     logger.info(qpid_api_url)
     resp = requests.get(qpid_api_url)
@@ -49,7 +48,7 @@ def _get_qpid_response(ex_id: int):
         return (200, maxpss)
 
 
-def _get_completed_task_instance(starttime: float, session: Session):
+def _get_completed_task_instance(starttime: float, session: Session) -> None:
     sql = "SELECT executor_id from task_instance " \
           "where status not in (\"B\", \"I\", \"R\", \"W\") " \
           "and UNIX_TIMESTAMP(status_date) > {} " \
@@ -61,10 +60,11 @@ def _get_completed_task_instance(starttime: float, session: Session):
         MaxpssQ().put(int(r[0]))
 
 
-def maxpss_forever():
-    """A never stop method running in a thread to constantly query the maxpss value from qpid
-    for completed jobmon jobs. If the maxpss is not found in qpid, put the execution id back
-    to the queue.
+def maxpss_forever() -> None:
+    """A never stop method running in a thread that queries QPID.
+
+    It constantly queries the maxpss value from qpid for completed jobmon jobs. If the maxpss
+    is not found in qpid, put the execution id back to the queue.
     """
     eng = create_engine(config.conn_str, pool_recycle=200)
     Session = sessionmaker(bind=eng)

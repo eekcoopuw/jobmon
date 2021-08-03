@@ -11,35 +11,36 @@ class ClusterQueue(Protocol):
     """The protocol class for queues on a cluster."""
 
     @abstractmethod
-    def __init__(self, queue_id: int, queue_name: str, parameters: Dict):
+    def __init__(self, queue_id: int, queue_name: str, parameters: Dict) -> None:
+        """Initialization of ClusterQueue."""
         raise NotImplementedError
 
     @abstractmethod
-    def validate_resource(self, resource: str, value: Any, fail=False) -> str:
+    def validate_resource(self, resource: str, value: Any, fail: bool = False) -> str:
         """Ensures that requested resources aren't greater than what's available."""
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def parameters(self):
+    def parameters(self) -> Dict:
         """Returns the dictionary of parameters."""
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def queue_name(self):
+    def queue_name(self) -> str:
         """Returns the name of the queue."""
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def queue_id(self):
+    def queue_id(self) -> int:
         """Returns the ID of the queue."""
         raise NotImplementedError
 
     @property
     @abstractmethod
-    def required_resources(self):
+    def required_resources(self) -> List:
         """Returns the list of resources that are required."""
         raise NotImplementedError
 
@@ -49,8 +50,8 @@ class ClusterDistributor(Protocol):
 
     @property
     @abstractmethod
-    def worker_node_entry_point(self):
-        """Path to jobmon worker_node_entry_point"""
+    def worker_node_entry_point(self) -> str:
+        """Path to jobmon worker_node_entry_point."""
         raise NotImplementedError
 
     @property
@@ -81,7 +82,9 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def terminate_task_instances(self, distributor_ids: List[int]) -> None:
-        """If implemented, return a list of (task_instance_id, hostname) tuples for any
+        """Terminate task instances.
+
+        If implemented, return a list of (task_instance_id, hostname) tuples for any
         task_instances that are terminated.
         """
         raise NotImplementedError
@@ -128,8 +131,7 @@ class ClusterDistributor(Protocol):
 
 
 class ClusterWorkerNode(Protocol):
-    """Base class defining interface for gathering executor specific info
-    in the execution_wrapper.
+    """Base class defining interface for gathering executor info in the execution_wrapper.
 
     While not required, implementing get_usage_stats() will allow collection
     of CPU/memory utilization stats for each job.
@@ -152,4 +154,14 @@ class ClusterWorkerNode(Protocol):
     @abstractmethod
     def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
         """Error and exit code info from the executor."""
+        raise NotImplementedError
+
+class ConcreteResource(Protocol):
+
+    @abstractmethod
+    def validate(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def adjust(self):
         raise NotImplementedError

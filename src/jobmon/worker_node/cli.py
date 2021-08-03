@@ -2,7 +2,6 @@
 from typing import Optional
 
 import configargparse
-
 from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 from jobmon.exceptions import ReturnCodes
 from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
@@ -12,6 +11,7 @@ class WorkerNodeCLI(CLI):
     """Command line interface for WorkderNode."""
 
     def __init__(self) -> None:
+        """Initialization of the worker node CLI."""
         self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
         self._subparsers = self.parser.add_subparsers(
             dest='sub_command', parser_class=configargparse.ArgumentParser

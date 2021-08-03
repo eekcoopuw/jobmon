@@ -91,6 +91,6 @@ class DuplicateNodeArgsError(Exception):
 
 
 class UnregisteredClusterType(Exception):
-    """cluster type has not registered as a plugin yet"""
+    """cluster type has not registered as a plugin yet."""
 
     pass

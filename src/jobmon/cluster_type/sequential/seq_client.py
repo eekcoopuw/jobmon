@@ -1,5 +1,5 @@
 """The client for the Sequential Executor."""
-from typing import Any
+from typing import Any, Dict, List, Tuple
 
 from jobmon.cluster_type.base import ClusterQueue
 
@@ -7,34 +7,35 @@ from jobmon.cluster_type.base import ClusterQueue
 class SequentialQueue(ClusterQueue):
     """Implementation of the sequential executor queue, derived from ClusterQueue."""
 
-    def __init__(self, queue_id: int, queue_name: str, parameters: dict):
-        # Get the limits from DB in client
+    def __init__(self, queue_id: int, queue_name: str, parameters: dict) -> None:
+        """Intialization of SequentialQueue.
+
+        Get the limits from database in client.
+        """
         self._queue_id = queue_id
         self._queue_name = queue_name
         self._parameters = parameters
 
-    def validate_resource(self, resource, value: Any, fail=False):
-        """Ensure cores requested isn't more than available on that
-        node.
-        """
-        return ""
+    def validate_resource(self, **kwargs) -> Tuple[bool, str, Dict]:
+        """No resources defined for sequential execution. All resources valid"""
+        return True, "", kwargs
 
     @property
-    def queue_id(self):
+    def queue_id(self) -> int:
         """Return the ID of the queue."""
         return self._queue_id
 
     @property
-    def queue_name(self):
+    def queue_name(self) -> str:
         """Return the name of the queue."""
         return self._queue_name
 
     @property
-    def parameters(self):
+    def parameters(self) -> Dict:
         """Return the dictionary of parameters."""
         return self._parameters
 
     @property
-    def required_resources(self):
+    def required_resources(self) -> List:
         """No specified required resources for sequential, return empty list."""
         return []

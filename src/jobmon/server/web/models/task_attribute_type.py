@@ -1,4 +1,6 @@
 """Task Attribute Type table."""
+from typing import Any, Dict
+
 from jobmon.server.web.models import DB
 
 
@@ -11,14 +13,14 @@ class TaskAttributeType(DB.Model):
     name = DB.Column(DB.String(255))
 
     @classmethod
-    def from_wire(cls, dct):
+    def from_wire(cls: Any, dct: Dict) -> Any:
         """Task Attribute Type object parsed from dict."""
         return cls(
             id=dct['task_attribute_type_id'],
             name=dct['name']
         )
 
-    def to_wire(self):
+    def to_wire(self) -> Dict:
         """Returns dict of TaskAttributeType attributes."""
         return {
             'task_attribute_type_id': self.id,

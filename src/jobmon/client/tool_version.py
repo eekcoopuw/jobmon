@@ -1,10 +1,8 @@
-"""Tool Version represents a logical instance of a project or model that will be run many times
-over.
-"""
+"""A logical instance of a project or model that will be run many times over."""
 from __future__ import annotations
 
-import logging
 from http import HTTPStatus as StatusCodes
+import logging
 from typing import Any, Dict, Optional, Tuple
 
 from jobmon.client.client_config import ClientConfig
@@ -18,9 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class ToolVersion:
-    """Tool Version represents a logical instance of a project or model that will be run many times
-    over.
-    """
+    """Represents a logical instance of a project or model that will be run many times over."""
 
     def __init__(self, tool_version_id: int, requester: Optional[Requester] = None) -> None:
         """Instantiate a tool version.
@@ -41,7 +37,7 @@ class ToolVersion:
         self.default_cluster_name: str = ""
 
     @classmethod
-    def get_tool_version(cls, tool_id: Optional[int] = None,
+    def get_tool_version(cls: Any, tool_id: Optional[int] = None,
                          tool_version_id: Optional[int] = None,
                          requester: Optional[Requester] = None) -> ToolVersion:
         """Get an instance of ToolVersion from the database.
@@ -82,9 +78,9 @@ class ToolVersion:
         return tool_version
 
     @classmethod
-    def from_wire(cls, wire_tuple: Tuple, requester: Optional[Requester] = None
+    def from_wire(cls: Any, wire_tuple: Tuple, requester: Optional[Requester] = None
                   ) -> ToolVersion:
-        """Convert from the wire format of ToolVersion to an instance
+        """Convert from the wire format of ToolVersion to an instance.
 
         Args:
             wire_tuple: Wire format for ToolVersion defined in jobmon.serializers.
@@ -94,7 +90,7 @@ class ToolVersion:
         tool_version = cls(tool_version_kwargs["id"], requester=requester)
         return tool_version
 
-    def load_task_templates(self):
+    def load_task_templates(self) -> None:
         """Get all task_templates associated with this tool version from the database."""
         app_route = f'/tool_version/{self.id}/task_templates'
         return_code, response = self.requester.send_request(
@@ -125,7 +121,7 @@ class ToolVersion:
             self.task_templates[template_name] = task_template
         return task_template
 
-    def update_default_compute_resources(self, cluster_name: str, **kwargs):
+    def update_default_compute_resources(self, cluster_name: str, **kwargs: Any) -> None:
         """Update default compute resources in place only overridding specified keys.
 
         If no default cluster is specified when this method is called, cluster_name will
@@ -139,7 +135,7 @@ class ToolVersion:
         self.default_compute_resources_set.update(compute_resources)
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,
-                                                compute_resources: Dict[str, Any]):
+                                                compute_resources: Dict[str, Any]) -> None:
         """Set default compute resources for a given cluster_name.
 
         If no default cluster is specified when this method is called, cluster_name will
@@ -153,7 +149,8 @@ class ToolVersion:
         """
         self.default_compute_resources_set[cluster_name] = compute_resources
 
-    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
+    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str) \
+            -> None:
         """Set default compute resources from a user provided yaml file.
 
         TODO: Implement this method.

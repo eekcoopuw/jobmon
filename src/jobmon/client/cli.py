@@ -1,9 +1,8 @@
 """Client command line interface for workflow/task status and concurrency limiting."""
 import argparse
-from typing import Optional
+from typing import Any, Optional
 
 import configargparse
-
 from jobmon.client.client_config import ClientConfig
 from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 
@@ -11,7 +10,8 @@ from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 class _HelpAction(argparse._HelpAction):
     """To show help for all subparsers in one place."""
 
-    def __call__(self, parser, namespace, values, option_string=None):
+    def __call__(self, parser: Any, namespace: str, values: Any, option_string: str = None) \
+            -> None:
         """Add subparsers' help info when jobmon --help is called."""
         print(parser.format_help())
         subparsers_actions = [action for action in parser._actions if
@@ -29,6 +29,7 @@ class ClientCLI(CLI):
     """Client command line interface for workflow/task status and concurrency limiting."""
 
     def __init__(self) -> None:
+        """Initialization of client CLI."""
         self.parser = configargparse.ArgumentParser(add_help=False, **PARSER_KWARGS)
         self.parser.add_argument('--help', action=_HelpAction, help="Help if you need Help")
         self._subparsers = self.parser.add_subparsers(
@@ -46,21 +47,8 @@ class ClientCLI(CLI):
         from jobmon.client.status_commands import workflow_status as workflow_status_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        if args.limit and len(args.limit) > 0:
-            # limit option provided
-            if args.limit[0] > 0:
-                # return given number of lines
-                df = workflow_status_cmd(args.workflow_id,
-                                         args.user,
-                                         args.json,
-                                         cc.url,
-                                         args.limit)
-            else:
-                # return all
-                df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url, -1)
-        else:
-            # limit option not provided
-            df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url)
+        limit = args.limit if args.limit is None or args.limit > 0 else -1
+        df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url, limit)
         if args.json:
             print(df)
         else:
@@ -72,7 +60,8 @@ class ClientCLI(CLI):
         from jobmon.client.status_commands import workflow_tasks as workflow_tasks_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = workflow_tasks_cmd(args.workflow_id, args.status, args.json, cc.url)
+        limit = args.limit if args.limit is None or args.limit > 0 else -1
+        df = workflow_tasks_cmd(args.workflow_id, args.status, args.json, cc.url, limit)
         if args.json:
             print(df)
         else:
@@ -122,6 +111,7 @@ class ClientCLI(CLI):
         workflow_status_parser.add_argument(
             "-l", "--limit",
             nargs="*",
+            default=5,
             help="limit the number of returning records; default is 5",
             required=False,
             type=int
@@ -144,6 +134,14 @@ class ClientCLI(CLI):
             required=False
         )
         workflow_tasks_parser.add_argument("-n", "--json", dest="json", action="store_true")
+        workflow_tasks_parser.add_argument(
+            "-l", "--limit",
+            nargs="*",
+            default=5,
+            help="limit the number of returning records; default is 5",
+            required=False,
+            type=int
+        )
         ParserDefaults.web_service_fqdn(workflow_tasks_parser)
         ParserDefaults.web_service_port(workflow_tasks_parser)
 
@@ -189,7 +187,7 @@ class ClientCLI(CLI):
             help="Workflow ID of the workflow to be adjusted")
 
         # Define a custom function to validate the user's input.
-        def _validate_ntasks(x):
+        def _validate_ntasks(x: Any) -> int:
             try:
                 x = int(x)
             except ValueError:

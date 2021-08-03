@@ -1,11 +1,9 @@
-"""A Task Template defines a framework that many tasks have in common while varying by a
-declared set of arguments.
-"""
+"""A framework that many tasks have in common while varying by a declared set of arguments."""
 from __future__ import annotations
 
 import hashlib
-import logging
 from http import HTTPStatus as StatusCodes
+import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
@@ -19,13 +17,17 @@ logger = logging.getLogger(__name__)
 
 
 class TaskTemplate:
-    """A Task Template defines a framework that many tasks have in common while varying by a
+    """Task Template outlines the structure of a Task to give it more context within the DAG.
+
+    A Task Template defines a framework that many tasks have in common while varying by a
     declared set of arguments.
     """
 
     def __init__(self, template_name: str, requester: Optional[Requester] = None) -> None:
-        """Groups tasks of a type, by declaring the concrete arguments that instances may vary
-        over either from workflow to workflow or between nodes in the stage of a dag.
+        """Groups tasks of a type.
+
+        Deeclares the concrete arguments that instances may vary over either from workflow to
+        workflow or between nodes in the stage of a dag.
 
         Args:
             template_name: the name of this task template.
@@ -43,7 +45,7 @@ class TaskTemplate:
         self.requester = requester
 
     @classmethod
-    def get_task_template(cls, tool_version_id: int, template_name: str,
+    def get_task_template(cls: Any, tool_version_id: int, template_name: str,
                           requester: Optional[Requester] = None) -> TaskTemplate:
         """Get a bound instance of TaskTemplate.
 
@@ -57,9 +59,9 @@ class TaskTemplate:
         return task_template
 
     @classmethod
-    def from_wire(cls, wire_tuple: Tuple, requester: Optional[Requester] = None
+    def from_wire(cls: Any, wire_tuple: Tuple, requester: Optional[Requester] = None
                   ) -> TaskTemplate:
-        """Get a bound instance of TaskTemplate from the http wire format
+        """Get a bound instance of TaskTemplate from the http wire format.
 
         Args:
             wire_tuple: Wire format for ToolVersion defined in jobmon.serializers.
@@ -72,7 +74,7 @@ class TaskTemplate:
         task_template.tool_version_id = task_template_kwargs["tool_version_id"]
         return task_template
 
-    def bind(self, tool_version_id: int):
+    def bind(self, tool_version_id: int) -> None:
         """Bind task template to the db.
 
         Args:
@@ -131,7 +133,7 @@ class TaskTemplate:
         return self._active_task_template_version
 
     def set_active_task_template_version_id(self, task_template_version_id: Union[str, int]
-                                            = "latest"):
+                                            = "latest") -> None:
         """The TaskTemplateVersion that is set as the active one (latest is default).
 
         Args:
@@ -165,7 +167,8 @@ class TaskTemplate:
 
         self._active_task_template_version = self.task_template_versions[version_index]
 
-    def set_active_task_template_version(self, task_template_version: TaskTemplateVersion):
+    def set_active_task_template_version(self, task_template_version: TaskTemplateVersion) \
+            -> None:
         """The TaskTemplateVersion that is set as the active one.
 
         Args:
@@ -215,7 +218,8 @@ class TaskTemplate:
             self.set_active_task_template_version_id()
 
     def get_task_template_version(self, command_template: str, node_args: List[str] = [],
-                                  task_args: List[str] = [], op_args: List[str] = []):
+                                  task_args: List[str] = [], op_args: List[str] = []) \
+            -> TaskTemplateVersion:
         """Create a task template version instance. If it already exists, activate it.
 
         Args:
@@ -257,8 +261,9 @@ class TaskTemplate:
                     task_attributes: Union[List, dict] = {},
                     max_attempts: int = 3,
                     compute_resources: Optional[Dict[str, Any]] = None,
+                    resource_scales: Optional[Dict[str, Any]] = None,
                     cluster_name: str = "",
-                    **kwargs) -> Task:
+                    **kwargs: Any) -> Task:
         """Create an instance of a task associated with this template.
 
         Args:
@@ -311,6 +316,7 @@ class TaskTemplate:
             node_args=node_args,
             task_args=task_args,
             compute_resources=compute_resources,
+            resource_scales=resource_scales,
             cluster_name=cluster_name,
             name=name,
             max_attempts=max_attempts,
@@ -320,9 +326,7 @@ class TaskTemplate:
         )
         return task
 
-    def __hash__(self):
-        """A task_template_hash is a hash of the TaskTemplate name and tool version
-        concatenated together.
-        """
+    def __hash__(self) -> int:
+        """A hash of the TaskTemplate name and tool version concatenated together."""
         hash_value = int(hashlib.sha1(self.template_name).hexdigest(), 16)
         return hash_value

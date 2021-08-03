@@ -1,13 +1,14 @@
-"""Tool represents a project or model that will be run many times over, but may evolve over
-time.
+"""Tool represents a project or model that will be run many times over.
+
+The Tool may evolve over time.
 """
 from __future__ import annotations
 
 import getpass
-import logging
-import warnings
 from http import HTTPStatus as StatusCodes
+import logging
 from typing import Any, Dict, List, Optional, Union
+import warnings
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
@@ -34,15 +35,17 @@ class InvalidToolVersionError(Exception):
 
 
 class Tool:
-    """Tool represents a project or model that will be run many times over, but may evolve over
-    time.
+    """Tool represents a project or model that will be run many times over.
+
+    The Tool may evolve over time.
     """
 
     def __init__(self, name: str = f"unknown-{getpass.getuser()}",
                  active_tool_version_id: Union[str, int] = "latest",
                  requester: Optional[Requester] = None) -> None:
-        """A tool is an application which is expected to run many times on variable inputs but
-         which will serve a certain purpose over time even as the internal pipeline may change.
+        """A tool is an application which is expected to run many times on variable inputs.
+
+         Which will serve a certain purpose over time even as the internal pipeline may change.
          Example tools are Dismod, Burdenator, Codem.
 
         Args:
@@ -91,16 +94,16 @@ class Tool:
         return self._active_tool_version
 
     @property
-    def default_compute_resources_set(self):
+    def default_compute_resources_set(self) -> Dict[str, Dict[str, Any]]:
         """Default compute resources associated with active tool version."""
         return self.active_tool_version.default_compute_resources_set
 
     @property
-    def default_cluster_name(self):
+    def default_cluster_name(self) -> str:
         """Default cluster_name associated with active tool version."""
         return self.active_tool_version.default_cluster_name
 
-    def set_active_tool_version_id(self, tool_version_id: Union[str, int]):
+    def set_active_tool_version_id(self, tool_version_id: Union[str, int]) -> None:
         """Tool version that is set as the active one (latest is default during instantiation).
 
         Args:
@@ -220,7 +223,7 @@ class Tool:
 
         return wf
 
-    def update_default_compute_resources(self, cluster_name: str, **kwargs):
+    def update_default_compute_resources(self, cluster_name: str, **kwargs: Any) -> None:
         """Update default compute resources in place only overridding specified keys.
 
         If no default cluster is specified when this method is called, cluster_name will
@@ -234,7 +237,8 @@ class Tool:
             self.active_tool_version.default_cluster_name = cluster_name
         self.active_tool_version.update_default_compute_resources(cluster_name, **kwargs)
 
-    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str):
+    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str) \
+            -> None:
         """Set default compute resources from a user provided yaml file for tool level.
 
         TODO: Implement this method.
@@ -246,7 +250,7 @@ class Tool:
         pass
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,
-                                                compute_resources: Dict[str, Any]):
+                                                compute_resources: Dict[str, Any]) -> None:
         """Set default compute resources for a given cluster_name.
 
         If no default cluster is specified when this method is called, cluster_name will
@@ -263,7 +267,7 @@ class Tool:
         self.active_tool_version.set_default_compute_resources_from_dict(cluster_name,
                                                                          compute_resources)
 
-    def set_default_cluster_name(self, cluster_name: str):
+    def set_default_cluster_name(self, cluster_name: str) -> None:
         """Set default cluster.
 
         Args:
@@ -271,7 +275,7 @@ class Tool:
         """
         self.active_tool_version.default_cluster_name = cluster_name
 
-    def _load_tool_versions(self):
+    def _load_tool_versions(self) -> None:
         app_route = f"/client/tool/{self.id}/tool_versions"
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -290,8 +294,8 @@ class Tool:
                          for wire_tuple in response["tool_versions"]]
         self.tool_versions = tool_versions
 
-    def _bind(self):
-        # call route to create tool
+    def _bind(self) -> None:
+        """Call route to create tool."""
         app_route = "/client/tool"
         return_code, response = self.requester.send_request(
             app_route=app_route,

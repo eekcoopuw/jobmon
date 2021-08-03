@@ -14,8 +14,7 @@ from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable, ResumeSet,\
     WorkflowRunStateError
-from jobmon.requester import Requester, http_request_ok
-
+from jobmon.requester import http_request_ok, Requester
 import tblib.pickling_support
 
 logger = logging.getLogger(__name__)
@@ -25,25 +24,25 @@ tblib.pickling_support.install()
 class ExceptionWrapper(object):
     """Handle exceptions."""
 
-    def __init__(self, ee):
+    def __init__(self, ee: Exception) -> None:
+        """Initialization of execution wrapper."""
         self.ee = ee
         __, __, self.tb = sys.exc_info()
 
-    def re_raise(self):
+    def re_raise(self) -> None:
         """Raise errors and add their traceback."""
         raise self.ee.with_traceback(self.tb)
 
 
 class DistributorService:
-    """Distributes Task Instances when they are ready and monitors the status of active
-    task_instances.
-    """
+    """Distributes TaskInstances when they are ready and monitors the status of active TIs."""
 
     def __init__(self, workflow_id: int, workflow_run_id: int, distributor: ClusterDistributor,
                  requester: Requester, workflow_run_heartbeat_interval: int = 30,
                  task_heartbeat_interval: int = 90, heartbeat_report_by_buffer: float = 3.1,
                  n_queued: int = 100, distributor_poll_interval: int = 10,
-                 worker_node_entry_point: Optional[str] = None):
+                 worker_node_entry_point: Optional[str] = None) -> None:
+        """Initialization of distributor service."""
         # which workflow to distribute for
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
@@ -94,8 +93,8 @@ class DistributorService:
         task_instance.error_state = error_state
         task_instance.error_msg = error_msg
 
-    def _instantiate_workflows(self):
-        """Move the workflow and workflow run to instantiating"""
+    def _instantiate_workflows(self) -> None:
+        """Move the workflow and workflow run to instantiating."""
         # Update workflow run
         wfr_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
         rc, resp = self.requester.send_request(
@@ -110,8 +109,8 @@ class DistributorService:
                 f'request through route {wfr_route}. Expected '
                 f'code 200. Response content: {resp}')
 
-    def _launch_workflows(self):
-        """Move the workflow and workflow run to launched"""
+    def _launch_workflows(self) -> None:
+        """Move the workflow and workflow run to launched."""
         # Update workflow run
         wfr_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
         rc, resp = self.requester.send_request(
@@ -127,7 +126,7 @@ class DistributorService:
                 f'code 200. Response content: {resp}')
 
     def run_distributor(self, stop_event: Optional[mp.synchronize.Event] = None,
-                        status_queue: Optional[mp.Queue] = None):
+                        status_queue: Optional[mp.Queue] = None) -> None:
         """Start up the distributor."""
         try:
             # start up the worker thread and distributor
@@ -190,9 +189,7 @@ class DistributorService:
                 status_queue.put("SHUTDOWN")
 
     def heartbeat(self) -> None:
-        """Log heartbeats to notify that distributor, and therefore workflow run are still
-        alive.
-        """
+        """Log heartbeats to notify that distributor, therefore workflow run is still alive."""
         # log heartbeats for tasks queued for batch distributor and for the
         # workflow run
         logger.debug("distributor: logging heartbeat")
@@ -273,7 +270,7 @@ class DistributorService:
             else:
                 sleep_time = 0.
 
-    def _purge_queueing_errors(self):
+    def _purge_queueing_errors(self) -> None:
         """Remove any jobs that have encountered an error in the distributor queue."""
         active_distributor_ids = list(self._submitted_or_running.keys())
         try:
@@ -398,9 +395,9 @@ class DistributorService:
 
     def _create_task_instance(self, task: DistributorTask) \
             -> Optional[DistributorTaskInstance]:
-        """
-        Creates a TaskInstance based on the parameters of Task and tells the
-        TaskStateManager to react accordingly.
+        """Creates a TaskInstance based on the parameters of Task.
+
+        Tells the TaskStateManager to react accordingly.
 
         Args:
             task (DistributorTask): A Task that we want to execute

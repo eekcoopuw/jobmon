@@ -1,4 +1,4 @@
-"""Module to create a temporary ephemeradb in a Singularity or Docker container"""
+"""Module to create a temporary ephemeradb in a Singularity or Docker container."""
 import glob
 import os
 import re
@@ -16,8 +16,7 @@ except ImportError as e:
 
 
 def create_temp_db() -> dict:
-    """
-    Boots a test ephemera database
+    """Boots a test ephemera database.
 
     Returns:
       a dictionary with connection parameters

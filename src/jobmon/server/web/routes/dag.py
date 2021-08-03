@@ -1,13 +1,12 @@
-"""Routes for DAGs"""
+"""Routes for DAGs."""
 from http import HTTPStatus as StatusCodes
+from typing import Any
 
 from flask import current_app as app, jsonify, request
-
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.dag import Dag
 from jobmon.server.web.models.edge import Edge
 from jobmon.server.web.server_side_exception import InvalidUsage
-
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import func, text
@@ -16,7 +15,7 @@ from . import jobmon_client
 
 
 @jobmon_client.route('/dag', methods=['POST'])
-def add_dag():
+def add_dag() -> Any:
     """Add a new dag to the database.
 
     Args:
@@ -56,7 +55,7 @@ def add_dag():
 
 
 @jobmon_client.route('/dag/<dag_id>/edges', methods=['POST'])
-def add_edges(dag_id):
+def add_edges(dag_id: int) -> Any:
     """Add edges to the edge table."""
     app.logger = app.logger.bind(dag_id=dag_id)
     app.logger.info(f"Add edges for dag {dag_id}")

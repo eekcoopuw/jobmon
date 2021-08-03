@@ -396,8 +396,9 @@ class Workflow(object):
             # construct the resource params by traversing from workflow to task
             resource_params = self._get_resource_params(task, cluster_name)
 
-            task.task_resources = cluster.create_task_resources(resource_params,
-                                                                TaskResourcesType.VALIDATED)
+            task.task_resources = cluster.create_valid_task_resources(
+                resource_params, TaskResourcesType.VALIDATED
+            )
 
         # bind dag
         self._dag.bind(self._chunk_size)

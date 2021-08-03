@@ -1,15 +1,16 @@
-"""Cluster objects define where a user wants their tasks run. e.g. UGE, Azure, Seq"""
+"""Cluster objects define where a user wants their tasks run. e.g. UGE, Azure, Seq."""
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_resources import TaskResources
 from jobmon.cluster_type.api import import_cluster, register_cluster_plugin
-from jobmon.cluster_type.base import ClusterQueue
+from jobmon.cluster_type.base import ClusterQueue, ConcreteResource
+from jobmon.constants import TaskResourcesType
 from jobmon.exceptions import InvalidResponse
-from jobmon.requester import Requester, http_request_ok
+from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeCluster, SerializeQueue
 
 
@@ -17,9 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 class Cluster:
-    """Cluster objects define where a user wants their tasks run. e.g. UGE, Azure, Seq"""
+    """Cluster objects define where a user wants their tasks run. e.g. UGE, Azure, Seq."""
 
     def __init__(self, cluster_name: str, requester: Optional[Requester] = None) -> None:
+        """Initialization of Cluster."""
         self.cluster_name = cluster_name
 
         if requester is None:
@@ -30,11 +32,13 @@ class Cluster:
         self.queues: Dict[str, ClusterQueue] = {}
 
     @classmethod
-    def get_cluster(cls, cluster_name: str, requester: Optional[Requester] = None) -> Cluster:
+    def get_cluster(cls: Any, cluster_name: str, requester: Optional[Requester] = None) \
+            -> Cluster:
         """Get a bound instance of a Cluster.
 
         Args:
             cluster_name: the name of the cluster
+            requester (Requester): requester object to connect to Flask service.
         """
         cluster = cls(cluster_name, requester)
         cluster.bind()
@@ -74,11 +78,16 @@ class Cluster:
         return self._cluster_id
 
     @property
-    def plugin(self):
-        """If the cluster is bound, return the cluster interface for a given type of cluster"""
+    def plugin(self) -> Any:
+        """If the cluster is bound, return the cluster interface for the type of cluster."""
         if not self.is_bound:
             raise AttributeError("Cannot access plugin until Cluster is bound to database")
         return import_cluster(self._cluster_type_name)
+
+    @property
+    def concrete_resource_class(self) -> type:
+        """ If the cluster is bound, access the concrete resource class"""
+        return self.plugin.get_concrete_resource_class()
 
     def get_queue(self, queue_name: str) -> ClusterQueue:
         """Get the ClusterQueue object associated with a given queue_name.
@@ -93,7 +102,7 @@ class Cluster:
         try:
             queue = self.queues[queue_name]
         except KeyError:
-            Queue = self.plugin.get_cluster_queue_class()
+            queue_class = self.plugin.get_cluster_queue_class()
             app_route = f'/client/cluster/{self.id}/queue/{queue_name}'
             return_code, response = self.requester.send_request(
                 app_route=app_route,
@@ -108,50 +117,56 @@ class Cluster:
                     f'200. Response content: {response}'
                 )
             queue_kwargs = SerializeQueue.kwargs_from_wire(response["queue"])
-            queue = Queue(**queue_kwargs)
+            queue = queue_class(**queue_kwargs)
             self.queues[queue_name] = queue
 
         return queue
 
     def validate_requested_resources(self, requested_resources: Dict[str, Any],
-                                     queue: ClusterQueue) -> None:
+                                     queue: ClusterQueue,
+                                     fail: bool = False) -> ConcreteResource:
         """Validate the requested resources dict against the specified queue.
 
         Raises: ValueError
         """
         # validate it has required resources
-        full_error_msg = ""
-        missing_resources = set(queue.required_resources) - set(requested_resources.keys())
-        if missing_resources:
-            full_error_msg = (
-                f"\n  Missing required resources {list(missing_resources)} for "
-                f"'{queue.queue_name}'. Got {list(requested_resources.keys())}."
-            )
+        valid_resources: ConcreteResource = self.concrete_resource_class.validate(
+            queue=queue, requested_resources=requested_resources, fail=fail)
+        return valid_resources
 
-        for resource, resource_value in requested_resources.items():
-            msg = queue.validate_resource(resource, resource_value, fail=False)
-            full_error_msg += msg
-
-        if full_error_msg:
-            raise ValueError(full_error_msg)
-
-    def adjust_task_resource(self, task_resources, adjustment_func):
+    def adjust_task_resource(self, initial_resources: Dict, resource_scales: Dict,
+                             expected_queue: ClusterQueue = None,
+                             fallback_queues: List[ClusterQueue] = None) -> TaskResources:
         """Adjust task resources based on the scaling factor"""
-        pass
+        adjusted_concrete_resource: ConcreteResource = self.concrete_resource_class.adjust(
+            existing_resources=initial_resources,
+            resource_scales=resource_scales,
+            expected_queue=expected_queue,
+            fallback_queues=fallback_queues)
 
-    def create_task_resources(self, resource_params: Dict, task_resources_type_id: str):
-        """Construct a TaskResources object with the specified resource parameters."""
+        adjusted_task_resource = TaskResources(
+            concrete_resources=adjusted_concrete_resource,
+            task_resources_type_id=TaskResourcesType.ADJUSTED  # Always adjusted if coming through this path
+        )
+        return adjusted_task_resource
+
+    def create_valid_task_resources(self, resource_params: Dict, task_resources_type_id: str,
+                                    fail=False) -> TaskResources:
+        """Construct a TaskResources object with the specified resource parameters.
+        Validate before constructing task resources, taskResources assumed to be valid
+        """
+
         queue_name = resource_params.pop("queue")
         queue = self.get_queue(queue_name)
 
-        # construct resource scales
-        try:
-            resource_scales = resource_params.pop("resource_scales")
-        except KeyError:
-            resource_scales = {}
+        # Validate
+        is_valid, msg, concrete_resources = self.concrete_resource_class.validate_and_create_concrete_resource(
+            requested_resources=resource_params,
+            queue=queue
+        )
+        if fail and not is_valid:
+            raise ValueError(f"Failed validation, reasons: {msg}")
 
-        task_resource = TaskResources(queue_id=queue.queue_id,
-                                      requested_resources=resource_params,
-                                      resource_scales=resource_scales,
+        task_resource = TaskResources(concrete_resources=concrete_resources,
                                       task_resources_type_id=task_resources_type_id)
         return task_resource

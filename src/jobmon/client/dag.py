@@ -1,14 +1,14 @@
 """The DAG captures the interconnected graph of tasks and their dependencies."""
 import hashlib
-import logging
 from http import HTTPStatus as StatusCodes
+import logging
 from typing import Dict, List, Optional, Set, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse,
                                NodeDependencyNotExistError)
-from jobmon.requester import Requester, http_request_ok
+from jobmon.requester import http_request_ok, Requester
 
 logger = logging.getLogger(__name__)
 
@@ -16,15 +16,17 @@ logger = logging.getLogger(__name__)
 class Dag(object):
     """The DAG captures the interconnected graph of tasks and their dependencies."""
 
-    def __init__(self, requester: Optional[Requester] = None):
-        """The DAG (Directed Acyclic Graph) captures the tasks (nodes) as they are
+    def __init__(self, requester: Optional[Requester] = None) -> None:
+        """Directed Acyclic Graph.
+
+        The DAG captures the tasks (nodes) as they are
         related to each other in their dependency structure. The Dag is traversed in
         the order of node dependencies so a workflow run is a single instance of
         traversing through a dag. This object stores the nodes and communicates
         with the server with regard to itself.
 
         Args:
-            requester_url (str): url to communicate with the flask services.
+            requester (str): url to communicate with the flask services.
         """
         self.nodes: Set[Node] = set()
 
@@ -42,6 +44,7 @@ class Dag(object):
 
     def add_node(self, node: Node) -> None:
         """Add a node to this dag.
+
         Args:
             node (Node): Node to add to the dag
         """
@@ -55,8 +58,9 @@ class Dag(object):
         self.nodes.add(node)
 
     def bind(self, chunk_size: int = 500) -> int:
-        """Retrieve an id for a matching dag from the server. If it doesn't exist, first
-        create one, including its edges.
+        """Retrieve an id for a matching dag from the server.
+
+        If it doesn't exist, first create one, including its edges.
         """
         if len(self.nodes) == 0:
             raise RuntimeError('No nodes were found in the dag. An empty dag '
@@ -83,7 +87,7 @@ class Dag(object):
         self._dag_id = dag_id
         return dag_id
 
-    def validate(self):
+    def validate(self) -> None:
         """Validate the nodes and their dependencies."""
         nodes_in_dag = self.nodes
         for node in nodes_in_dag:

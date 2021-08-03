@@ -1,10 +1,9 @@
-"""Routes for TaskInstances"""
-import sys
+"""Routes for TaskInstances."""
 from http import HTTPStatus as StatusCodes
-from typing import Optional
+import sys
+from typing import Any, Optional
 
 from flask import current_app as app, jsonify, request
-
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.server.web.models.task import Task
@@ -15,7 +14,6 @@ from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.server_side_exception import ServerError
-
 import sqlalchemy
 from sqlalchemy.sql import func, text
 
@@ -23,7 +21,7 @@ from . import jobmon_distributor, jobmon_worker
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/kill_self', methods=['GET'])
-def kill_self(task_instance_id: int):
+def kill_self(task_instance_id: int) -> Any:
     """Check a task instance's status to see if it needs to kill itself (state W, or L)."""
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     app.logger.debug(f"Checking whether ti {task_instance_id} should commit suicide.")
@@ -51,8 +49,9 @@ def kill_self(task_instance_id: int):
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
-def log_running(task_instance_id: int):
+def log_running(task_instance_id: int) -> Any:
     """Log a task_instance as running.
+
     Args:
         task_instance_id: id of the task_instance to log as running
     """
@@ -78,11 +77,14 @@ def log_running(task_instance_id: int):
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_report_by', methods=['POST'])
-def log_ti_report_by(task_instance_id: int):
-    """Log a task_instance as being responsive with a new report_by_date, this is done at the
-    worker node heartbeat_interval rate, so it may not happen at the same rate that the
-    reconciler updates batch submitted report_by_dates (also because it causes a lot of traffic
-    if all workers are logging report by_dates often compared to if the reconciler runs often).
+def log_ti_report_by(task_instance_id: int) -> Any:
+    """Log a task_instance as being responsive with a new report_by_date.
+
+    This is done at the worker node heartbeat_interval rate, so it may not happen at the same
+    rate that the reconciler updates batch submitted report_by_dates (also because it causes
+    a lot of traffic if all workers are logging report by_dates often compared to if the
+    reconciler runs often).
+
     Args:
         task_instance_id: id of the task_instance to log
     """
@@ -117,10 +119,10 @@ def log_ti_report_by(task_instance_id: int):
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_usage', methods=['POST'])
-def log_usage(task_instance_id: int):
-    """Log the usage stats of a task_instance
-    Args:
+def log_usage(task_instance_id: int) -> Any:
+    """Log the usage stats of a task_instance.
 
+    Args:
         task_instance_id: id of the task_instance to log done
         usage_str (str, optional): stats such as maxrss, etc
         wallclock (str, optional): wallclock of running job
@@ -162,8 +164,8 @@ def log_usage(task_instance_id: int):
 
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_done', methods=['POST'])
-def log_done(task_instance_id: int):
-    """Log a task_instance as done
+def log_done(task_instance_id: int) -> Any:
+    """Log a task_instance as done.
 
     Args:
         task_instance_id: id of the task_instance to log done
@@ -187,10 +189,10 @@ def log_done(task_instance_id: int):
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/log_error_worker_node',
                      methods=['POST'])
-def log_error_worker_node(task_instance_id: int):
-    """Log a task_instance as errored
-    Args:
+def log_error_worker_node(task_instance_id: int) -> Any:
+    """Log a task_instance as errored.
 
+    Args:
         task_instance_id (str): id of the task_instance to log done
         error_message (str): message to log as error
     """
@@ -216,11 +218,14 @@ def log_error_worker_node(task_instance_id: int):
 
 
 @jobmon_worker.route('/task/<task_id>/most_recent_ti_error', methods=['GET'])
-def get_most_recent_ti_error(task_id: int):
-    """
-    Route to determine the cause of the most recent task_instance's error
-    :param task_id:
-    :return: error message
+def get_most_recent_ti_error(task_id: int) -> Any:
+    """Route to determine the cause of the most recent task_instance's error.
+
+    Args:
+        task_id (int): the ID of the task.
+
+    Return:
+        error message
     """
     app.logger = app.logger.bind(task_id=task_id)
     app.logger.info(f"Getting most recent ji error for ti {task_id}")
@@ -253,11 +258,14 @@ def get_most_recent_ti_error(task_id: int):
 
 @jobmon_worker.route('/task_instance/<task_instance_id>/task_instance_error_log',
                      methods=['GET'])
-def get_task_instance_error_log(task_instance_id: int):
-    """
-    Route to return all task_instance_error_log entries of the task_instance_id
-    :param task_instance_id:
-    :return: jsonified task_instance_error_log result set
+def get_task_instance_error_log(task_instance_id: int) -> Any:
+    """Route to return all task_instance_error_log entries of the task_instance_id.
+
+    Args:
+        task_instance_id (int): ID of the task instance
+
+    Return:
+        jsonified task_instance_error_log result set
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     app.logger.info(f"Getting task instance error log for ti {task_instance_id}")
@@ -282,8 +290,10 @@ def get_task_instance_error_log(task_instance_id: int):
 
 @jobmon_distributor.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances',
                           methods=['GET'])
-def get_suspicious_task_instances(workflow_run_id: int):
-    """Query all task instances that are submitted to distributor or running which haven't
+def get_suspicious_task_instances(workflow_run_id: int) -> Any:
+    """Query for suspicious TIs.
+
+    Query all task instances that are submitted to distributor or running which haven't
     reported as alive in the allocated time.
     """
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
@@ -313,7 +323,7 @@ def get_suspicious_task_instances(workflow_run_id: int):
 
 @jobmon_distributor.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate',
                           methods=['GET'])
-def get_task_instances_to_terminate(workflow_run_id: int):
+def get_task_instances_to_terminate(workflow_run_id: int) -> Any:
     """Get the task instances for a given workflow run that need to be terminated."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     app.logger.info(f"Getting tis that should be terminated for wfr {workflow_run_id}")
@@ -349,11 +359,12 @@ def get_task_instances_to_terminate(workflow_run_id: int):
 
 
 @jobmon_distributor.route('/task_instance/<distributor_id>/maxpss/<maxpss>', methods=['POST'])
-def set_maxpss(distributor_id: int, maxpss: int):
-    """
-    Route to set maxpss of a job instance
-    :param distributor_id: sge distributor id
-    :return:
+def set_maxpss(distributor_id: int, maxpss: int) -> Any:
+    """Route to set maxpss of a job instance.
+
+    Args:
+        distributor_id (int): sge distributor id
+        maxpss (int): maxpss from QPID
     """
     app.logger = app.logger.bind(distributor_id=distributor_id)
     app.logger.info(f"Setting maxpss for distributor_id {distributor_id}")
@@ -374,7 +385,7 @@ def set_maxpss(distributor_id: int, maxpss: int):
 
 @jobmon_distributor.route('/workflow_run/<workflow_run_id>/log_distributor_report_by',
                           methods=['POST'])
-def log_distributor_report_by(workflow_run_id: int):
+def log_distributor_report_by(workflow_run_id: int) -> Any:
     """Log the next report by date and time."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     data = request.get_json()
@@ -400,8 +411,8 @@ def log_distributor_report_by(workflow_run_id: int):
 
 
 @jobmon_distributor.route('/task_instance', methods=['POST'])
-def add_task_instance():
-    """Add a task_instance to the database
+def add_task_instance() -> Any:
+    """Add a task_instance to the database.
 
     Args:
         task_id (int): unique id for the task
@@ -449,7 +460,7 @@ def add_task_instance():
 
 @jobmon_distributor.route('/task_instance/<task_instance_id>/log_no_distributor_id',
                           methods=['POST'])
-def log_no_distributor_id(task_instance_id: int):
+def log_no_distributor_id(task_instance_id: int) -> Any:
     """Log a task_instance_id that did not get an distributor_id upon submission."""
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     app.logger.info(f"Logging ti {task_instance_id} did not get distributor id upon "
@@ -474,10 +485,10 @@ def log_no_distributor_id(task_instance_id: int):
 
 @jobmon_distributor.route('/task_instance/<task_instance_id>/log_distributor_id',
                           methods=['POST'])
-def log_distributor_id(task_instance_id: int):
-    """Log a task_instance's distributor id
-    Args:
+def log_distributor_id(task_instance_id: int) -> Any:
+    """Log a task_instance's distributor id.
 
+    Args:
         task_instance_id: id of the task_instance to log
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
@@ -500,12 +511,11 @@ def log_distributor_id(task_instance_id: int):
 
 @jobmon_distributor.route('/task_instance/<task_instance_id>/log_known_error',
                           methods=['POST'])
-def log_known_error(task_instance_id: int):
-    """Log a task_instance as errored
+def log_known_error(task_instance_id: int) -> Any:
+    """Log a task_instance as errored.
+
     Args:
-        task_instance_id (int): id for task instance
-        data:
-        oom_killed: whether or not given job errored due to an oom-kill event
+        task_instance_id (int): id for task instance.
     """
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
     data = request.get_json()
@@ -542,8 +552,9 @@ def log_known_error(task_instance_id: int):
 
 @jobmon_distributor.route('/task_instance/<task_instance_id>/log_unknown_error',
                           methods=['POST'])
-def log_unknown_error(task_instance_id: int):
-    """Log a task_instance as errored
+def log_unknown_error(task_instance_id: int) -> Any:
+    """Log a task_instance as errored.
+
     Args:
         task_instance_id (int): id for task instance
     """
@@ -585,13 +596,13 @@ def log_unknown_error(task_instance_id: int):
 
 
 # ############################ HELPER FUNCTIONS ###############################
-def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
-    """Advance the states of task_instance and it's associated Task,
-    return any messages that should be published based on
-    the transition
+def _update_task_instance_state(task_instance: TaskInstance, status_id: int) -> Any:
+    """Advance the states of task_instance and it's associated Task.
+
+    Return any messages that should be published based on the transition.
 
     Args:
-        task_instance (obj) object of time models.TaskInstance
+        task_instance (TaskInstance): object of time models.TaskInstance
         status_id (int): id of the status to which to transition
     """
     response = ""
@@ -629,7 +640,7 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str):
 
 def _log_error(ti: TaskInstance, error_state: int, error_msg: str,
                distributor_id: Optional[int] = None,
-               nodename: Optional[str] = None):
+               nodename: Optional[str] = None) -> Any:
     if nodename is not None:
         ti.nodename = nodename
     if distributor_id is not None:

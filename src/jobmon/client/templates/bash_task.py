@@ -31,8 +31,9 @@ class BashTask(Task):
                  tool: Optional[Tool] = None,
                  task_args: Optional[Dict] = None,
                  node_args: Optional[Dict] = None,
-                 op_args: Optional[Dict] = None):
-        """
+                 op_args: Optional[Dict] = None) -> None:
+        """Initialization of the BashTask template.
+
         Bash Task object can be used by users upgrading from older versions of Jobmon
         (version < 2.0). It sets a default tool and task template for the user, however if the
         user wants to build out their objects to better classify their tasks, they should use
@@ -85,6 +86,8 @@ class BashTask(Task):
                 make this task unique within a set of task with identical command patterns
             op_args: if the user wants to supply arguments to describe the operational
                 arguments for this task
+            cluster_name: name of the cluster to run the tasks on.
+            compute_resources: the resources the user has requested to use.
         """
         if task_args is None:
             task_args = {}
@@ -162,15 +165,15 @@ class BashTask(Task):
         )
 
     @classmethod
-    def _add_tool_to_registry(cls, tool: Tool):
+    def _add_tool_to_registry(cls: Any, tool: Tool) -> None:
         cls._tool_registry[tool.name] = tool
 
     def _parse_command_to_args(self, full_command: str, node_args: Dict, task_args: Dict,
                                op_args: Dict) -> Tuple[str, Dict, Dict, Dict]:
-        """This will attempt to parse out the different types of args from a bash task or
-        python task for backwards compatibility. It will look for flags that match the arg
-        key (ex. node_arg = blah, flag = --blah) otherwise it will look for a matching value
-        and mark it with the arg in the template (ex.
+        """This will attempt to parse out the different types of args from a BashTask.
+
+        It will look for flags that match the arg key (ex. node_arg = blah, flag = --blah)
+        otherwise it will look for a matching value and mark it with the arg in the template.
         """
         cmd_list = full_command.split()
         args = {**node_args, **task_args, **op_args}  # join all args
@@ -206,7 +209,8 @@ class BashTask(Task):
         node_args, task_args, op_args = self._update_args(node_args, task_args, op_args, args)
         return cmd_template, node_args, task_args, op_args
 
-    def _update_args(self, node_args, task_args, op_args, args) -> Tuple:
+    def _update_args(self, node_args: List, task_args: List, op_args: List, args: List) \
+            -> Tuple:
         for arg in args.keys():
             if arg in node_args:
                 node_args[arg] = str(args[arg])

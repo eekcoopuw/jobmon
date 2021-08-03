@@ -19,36 +19,36 @@ logger = logging.getLogger(__name__)
 class DummyQueue(ClusterQueue):
     """Implementation of the dummy executor queue, derived from ClusterQueue."""
 
-    def __init__(self, queue_id: int, queue_name: str, parameters: dict):
+    def __init__(self, queue_id: int, queue_name: str, parameters: dict) -> None:
+        """Intialization of the the dummy processor queue.
 
-        # Get the limits from DB in client
+        Get the limits from the database in the client.
+        """
         self._queue_id = queue_id
         self._queue_name = queue_name
         self._parameters = parameters
 
-    def validate_resource(self, resource, value: Any, fail=False):
-        """Ensure cores requested isn't more than available on that
-        node.
-        """
+    def validate_resource(self, resource: Dict, value: Any, fail: bool = False) -> str:
+        """Ensure cores requested isn't more than available on that node."""
         return ""
 
     @property
-    def queue_id(self):
+    def queue_id(self) -> int:
         """Return the ID of the queue."""
         return self._queue_id
 
     @property
-    def queue_name(self):
+    def queue_name(self) -> str:
         """Return the name of the queue."""
         return self._queue_name
 
     @property
-    def parameters(self):
+    def parameters(self) -> Dict:
         """Return the dictionary of parameters."""
         return self._parameters
 
     @property
-    def required_resources(self):
+    def required_resources(self) -> List:
         """No required resources for dummy executor, return empty list."""
         return []
 
@@ -56,7 +56,8 @@ class DummyQueue(ClusterQueue):
 class DummyDistributor(ClusterDistributor):
     """The Dummy Executor fakes the execution of a Task and acts as though it succeeded."""
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initialization of the dummy distributor."""
         self.started = False
         self._worker_node_entry_point = shutil.which("worker_node_entry_point")
         # Parse the config
@@ -67,8 +68,8 @@ class DummyDistributor(ClusterDistributor):
             worker_node_config.task_instance_heartbeat_interval
 
     @property
-    def worker_node_entry_point(self):
-        """Path to jobmon worker_node_entry_point"""
+    def worker_node_entry_point(self) -> str:
+        """Path to jobmon worker_node_entry_point."""
         return self._worker_node_entry_point
 
     @property
@@ -85,7 +86,7 @@ class DummyDistributor(ClusterDistributor):
         self.started = False
 
     def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
-        """Dummy tasks never error, since they never run. So always return an empty dict"""
+        """Dummy tasks never error, since they never run. So always return an empty dict."""
         return {}
 
     def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
@@ -99,8 +100,9 @@ class DummyDistributor(ClusterDistributor):
     def submit_to_batch_distributor(self, command: str, name: str,
                                     requested_resources: Dict[str, Any]) -> int:
         """Run a fake execution of the task.
-        In a real executor, this is where qsub would happen.
-        here, since it's a dummy executor, we just get a random num
+
+        In a real executor, this is where qsub would happen. Here, since it's a dummy executor,
+        we just get a random number.
         """
         logger.debug("This is the Dummy Distributor")
         distributor_id = random.randint(1, int(1e7))
@@ -131,6 +133,7 @@ class DummyWorkerNode(ClusterWorkerNode):
     """Get Executor Info for a Task Instance."""
 
     def __init__(self) -> None:
+        """Initialization of the dummy executor worker node."""
         self._distributor_id: Optional[int] = None
 
     @property
@@ -142,7 +145,7 @@ class DummyWorkerNode(ClusterWorkerNode):
                 self._distributor_id = int(jid)
         return self._distributor_id
 
-    def get_exit_info(self, exit_code: int, error_msg: str):
+    def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[TaskInstanceStatus, str]:
         """Exit info, error message."""
         return TaskInstanceStatus.ERROR, error_msg
 

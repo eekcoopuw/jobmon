@@ -29,14 +29,14 @@ FROM cluster c
 WHERE ct.name = 'sequential';
 
 INSERT INTO `queue`(`name`, `cluster_id`, `parameters`)
-SELECT 'null.q', c.id, '{"cores": 1}'
+SELECT 'null.q', c.id, '{"cores": (1,1)}'
 AS `parameters`
 FROM cluster c
     INNER JOIN cluster_type ct ON c.cluster_type_id = ct.id
 WHERE ct.name = 'dummy';
 
 INSERT INTO `queue`(`name`, `cluster_id`, `parameters`)
-SELECT 'null.q', c.id, '{"cores": 20}'
+SELECT 'null.q', c.id, '{"cores": (1,20)}'
 AS `parameters`
 FROM cluster c
     INNER JOIN cluster_type ct ON c.cluster_type_id = ct.id

@@ -1,16 +1,15 @@
 """Multiprocess executes tasks in parallel if multiple threads are available."""
 import logging
+from multiprocessing import JoinableQueue, Process, Queue
 import os
 import queue
 import shutil
 import subprocess
-from multiprocessing import JoinableQueue, Process, Queue
 from typing import Dict, List, Optional, Tuple
 
 from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-
 import psutil
 
 logger = logging.getLogger(__name__)
@@ -19,7 +18,7 @@ logger = logging.getLogger(__name__)
 class Consumer(Process):
     """Consumes the tasks to be run."""
 
-    def __init__(self, task_queue: JoinableQueue, response_queue: Queue):
+    def __init__(self, task_queue: JoinableQueue, response_queue: Queue) -> None:
         """Consume work sent from LocalExecutor through multiprocessing queue.
 
         this class is structured based on
@@ -28,7 +27,9 @@ class Consumer(Process):
         Args:
             task_queue (multiprocessing.JoinableQueue): a JoinableQueue object
                 created by LocalExecutor used to retrieve work from the
-                distributor
+                distributor.
+            response_queue (Queue): A queue object, that will hold information on the pid and
+                the distributor class ID.
         """
         super().__init__()
 
@@ -77,15 +78,17 @@ class Consumer(Process):
 class PickableTask:
     """Object passed between processes."""
 
-    def __init__(self, distributor_id: int, command: str):
+    def __init__(self, distributor_id: int, command: str) -> None:
+        """Initialization of PickableTask."""
         self.distributor_id = distributor_id
         self.command = command
 
 
 class MultiprocessDistributor(ClusterDistributor):
-    """Executes tasks locally in parallel. It uses the multiprocessing Python
-    library and queues to parallelize the execution of tasks.
-    The subprocessing pattern looks like this.
+    """Executes tasks locally in parallel.
+
+    It uses the multiprocessing Python library and queues to parallelize the execution of
+    tasks. The subprocessing pattern looks like this:
         LocalExec
         --> consumer1
         ----> subconsumer1
@@ -94,13 +97,15 @@ class MultiprocessDistributor(ClusterDistributor):
         ...
         --> consumerN
         ----> subconsumerN
-
-    Args:
-        parallelism (int, optional): how many parallel jobs to distribute at a
-            time
     """
 
-    def __init__(self, parallelism: int = 3, *args, **kwargs) -> None:
+    def __init__(self, parallelism: int = 3) -> None:
+        """Initialization of the multiprocess distributor.
+
+        Args:
+            parallelism (int, optional): how many parallel jobs to distribute at a
+                time
+        """
         self.temp_dir: Optional[str] = None
         self.started = False
         self._worker_node_entry_point = shutil.which("worker_node_entry_point")
@@ -120,8 +125,8 @@ class MultiprocessDistributor(ClusterDistributor):
         self.consumers: List[Consumer] = []
 
     @property
-    def worker_node_entry_point(self):
-        """Path to jobmon worker_node_entry_point"""
+    def worker_node_entry_point(self) -> str:
+        """Path to jobmon worker_node_entry_point."""
         return self._worker_node_entry_point
 
     @property
@@ -130,8 +135,9 @@ class MultiprocessDistributor(ClusterDistributor):
         return "multiprocess"
 
     def start(self) -> None:
-        """Fire up N task consuming processes using Multiprocessing. number of consumers is
-        controlled by parallelism.
+        """Fire up N task consuming processes using Multiprocessing.
+
+        Number of consumers is controlled by parallelism.
         """
         # set jobmon command if provided
         if not self.started:
@@ -171,8 +177,13 @@ class MultiprocessDistributor(ClusterDistributor):
                 self._running_or_submitted.pop(distributor_id)
 
     def terminate_task_instances(self, distributor_ids: List[int]) -> None:
-        """Only terminate the task instances that are running, not going to kill the jobs that
+        """Terminate task instances.
+
+        Only terminate the task instances that are running, not going to kill the jobs that
         are actually still in a waiting or a transitioning state.
+
+        Args:
+            distributor_ids (List[int]): A list of distributor IDs.
         """
         logger.debug(f"Going to terminate: {distributor_ids}")
 
@@ -256,6 +267,7 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
     """Task instance info for an instance run with the Multiprocessing distributor."""
 
     def __init__(self) -> None:
+        """Initialization of the multiprocess distributor worker node."""
         self._distributor_id: Optional[int] = None
 
     @property

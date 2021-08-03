@@ -1,8 +1,8 @@
-"""Routes for WorkflowRuns"""
+"""Routes for WorkflowRuns."""
 from http import HTTPStatus as StatusCodes
+from typing import Any
 
 from flask import current_app as app, jsonify, request
-
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task_instance import TaskInstanceStatus
@@ -10,14 +10,13 @@ from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.server_side_exception import InvalidUsage
-
 from sqlalchemy.sql import text
 
 from . import jobmon_client, jobmon_distributor, jobmon_swarm
 
 
 @jobmon_client.route('/workflow_run', methods=['POST'])
-def add_workflow_run():
+def add_workflow_run() -> Any:
     """Add a workflow run to the db."""
     try:
         data = request.get_json()
@@ -44,7 +43,7 @@ def add_workflow_run():
 
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/link', methods=['POST'])
-def link_workflow_run(workflow_run_id: int):
+def link_workflow_run(workflow_run_id: int) -> Any:
     """Link this workflow run to a workflow."""
     try:
         data = request.get_json()
@@ -83,7 +82,7 @@ def link_workflow_run(workflow_run_id: int):
 
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
-def client_terminate_workflow_run(workflow_run_id: int):
+def client_terminate_workflow_run(workflow_run_id: int) -> Any:
     """Terminate a workflow run and get its tasks in order."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     app.logger.info(f"Client terminate wfr: {workflow_run_id}")
@@ -155,7 +154,7 @@ def client_terminate_workflow_run(workflow_run_id: int):
 
 
 @jobmon_client.route('/workflow_run_status', methods=['GET'])
-def get_active_workflow_runs():
+def get_active_workflow_runs() -> Any:
     """Return all workflow runs that are currently in the specified state."""
     query = """
         SELECT
@@ -176,10 +175,8 @@ def get_active_workflow_runs():
 
 
 @jobmon_client.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
-def client_log_workflow_run_heartbeat(workflow_run_id: int):
-    """Log a heartbeat on behalf of the workflow run to show that the client side is still
-    alive.
-    """
+def client_log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
+    """Log a heartbeat for the workflow run to show that the client side is still alive."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     data = request.get_json()
     app.logger.debug(f"WFR {workflow_run_id} heartbeat data")
@@ -202,7 +199,7 @@ def client_log_workflow_run_heartbeat(workflow_run_id: int):
 
 
 @jobmon_swarm.route('/workflow_run/<workflow_run_id>/update_status', methods=['PUT'])
-def log_workflow_run_status_update(workflow_run_id: int):
+def log_workflow_run_status_update(workflow_run_id: int) -> Any:
     """Update the status of the workflow run."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     data = request.get_json()
@@ -223,8 +220,9 @@ def log_workflow_run_status_update(workflow_run_id: int):
 
 @jobmon_swarm.route('/workflow_run/<workflow_run_id>/aborted/<aborted_seconds>',
                     methods=['PUT'])
-def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
-    """If the last task was more than 2 minutes ago, transition wfr to A state
+def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int) -> Any:
+    """If the last task was more than 2 minutes ago, transition wfr to A state.
+
     Also check WorkflowRun status_date to avoid possible race condition where reaper
     checks tasks from a different WorkflowRun with the same workflow id. Avoid setting
     while waiting for a resume (when workflow is in suspended state).
@@ -272,10 +270,10 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int):
 
 
 @jobmon_swarm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
-def log_wfr_heartbeat(workflow_run_id: int):
-    """Log a workflow_run as being responsive, with a heartbeat
-    Args:
+def log_wfr_heartbeat(workflow_run_id: int) -> Any:
+    """Log a workflow_run as being responsive, with a heartbeat.
 
+    Args:
         workflow_run_id: id of the workflow_run to log
     """
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
@@ -294,10 +292,8 @@ def log_wfr_heartbeat(workflow_run_id: int):
 
 
 @jobmon_distributor.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
-def distributor_log_workflow_run_heartbeat(workflow_run_id: int):
-    """Log a heartbeat on behalf of the workflow run to show that the client side is still
-    alive.
-    """
+def distributor_log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
+    """Log a heartbeat for the workflow run to show that the client side is still alive."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     data = request.get_json()
     app.logger.debug("Heartbeat")
@@ -319,7 +315,7 @@ def distributor_log_workflow_run_heartbeat(workflow_run_id: int):
 
 
 @jobmon_client.route('/lost_workflow_run', methods=['GET'])
-def get_lost_workflow_runs():
+def get_lost_workflow_runs() -> Any:
     """Return all workflow runs that are currently in the specified state."""
     statuses = request.args.getlist('status')
     version = request.args.get('version')
@@ -344,8 +340,9 @@ def get_lost_workflow_runs():
 
 
 @jobmon_swarm.route('/workflow_run/<workflow_run_id>/reap', methods=['PUT'])
-def reap_workflow_run(workflow_run_id: int):
-    """If the last task was more than 2 minutes ago, transition wfr to A state
+def reap_workflow_run(workflow_run_id: int) -> Any:
+    """If the last task was more than 2 minutes ago, transition wfr to A state.
+
     Also check WorkflowRun status_date to avoid possible race condition where reaper
     checks tasks from a different WorkflowRun with the same workflow id. Avoid setting
     while waiting for a resume (when workflow is in suspended state).

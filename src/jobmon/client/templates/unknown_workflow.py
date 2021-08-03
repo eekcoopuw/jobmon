@@ -1,6 +1,6 @@
 """Unknown Workflow for easy backward compatibility and testing."""
 import logging
-from typing import List, Optional, Union
+from typing import Any, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.distributor.distributor_config import DistributorConfig
@@ -22,7 +22,9 @@ class ResumeStatus(object):
 
 
 class UnknownWorkflow(Workflow):
-    """(aka Batch, aka Swarm)
+    """Unknown Workflow template.
+
+    (aka Batch, aka Swarm)
     A Workflow is a framework by which a user may define the relationship
     between tasks and define the relationship between multiple runs of the same
     set of tasks. The great benefit of the Workflow is that it's resumable.
@@ -67,7 +69,8 @@ class UnknownWorkflow(Workflow):
                  workflow_attributes: Union[List, dict] = None,
                  max_concurrently_running: int = 10_000,
                  chunk_size: int = 500) -> None:
-        """
+        """Initializationof the Unknown Workflow object.
+
         The Unknown Workflow object was created so that users of older versions
         of Jobmon (before 2.0) are able to update the imports and run their
         scripts as normal. In order to do this the Unknown Workflow associates
@@ -85,6 +88,7 @@ class UnknownWorkflow(Workflow):
             reset_running_jobs: whether or not to reset running jobs upon resume
             working_dir: the working dir that a job should be run from,
                 if run on SGE
+            cluster_name: the name of the cluster the tasks will run on.
             executor_class: name of one of Jobmon's executors
             fail_fast: whether or not to break out of distributor on
                 first failure
@@ -146,12 +150,11 @@ class UnknownWorkflow(Workflow):
         self._set_distributor(cluster_type_name=cluster._cluster_type_name)
 
     @classmethod
-    def _set_tool(cls, tool: Tool) -> None:
+    def _set_tool(cls: Any, tool: Tool) -> None:
         cls._tool = tool
 
     def _set_distributor(self, cluster_type_name: str) -> None:
-        """Set which distributor and parameters associated with that distributor to
-        use to run the tasks.
+        """Set which distributor and parameters to use to run the tasks.
 
         Args:
             cluster_type_name (str): string referring to one of the executor
@@ -168,7 +171,8 @@ class UnknownWorkflow(Workflow):
                                  " method")
 
     def run(self) -> WorkflowRun:
-        """Run this workflow
+        """Run this workflow.
+
         Returns:
             WorkflowRun
         """

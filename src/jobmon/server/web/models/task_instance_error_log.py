@@ -1,7 +1,6 @@
 """Task Instance Error Log."""
 from jobmon.serializers import SerializeTaskInstanceErrorLog
 from jobmon.server.web.models import DB
-
 from sqlalchemy.sql import func
 
 

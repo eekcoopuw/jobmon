@@ -2,10 +2,10 @@
 from __future__ import annotations
 
 import hashlib
-import logging
 from http import HTTPStatus as StatusCodes
+import logging
 from string import Formatter
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.exceptions import InvalidResponse
@@ -24,7 +24,8 @@ class TaskTemplateVersion:
                  node_args: list,
                  task_args: list,
                  op_args: list,
-                 requester: Optional[Requester] = None):
+                 requester: Optional[Requester] = None) -> None:
+        """Initialization of task template version object."""
         # id vars
         self.command_template = command_template
 
@@ -44,7 +45,7 @@ class TaskTemplateVersion:
         self.requester = requester
 
     @classmethod
-    def get_task_template_version(cls, task_template_id: int, command_template: str,
+    def get_task_template_version(cls: Any, task_template_id: int, command_template: str,
                                   node_args: List[str] = [], task_args: List[str] = [],
                                   op_args: List[str] = [],
                                   requester: Optional[Requester] = None
@@ -70,7 +71,7 @@ class TaskTemplateVersion:
         return task_template_version
 
     @classmethod
-    def from_wire(cls, wire_tuple: Tuple) -> TaskTemplateVersion:
+    def from_wire(cls: Any, wire_tuple: Tuple) -> TaskTemplateVersion:
         """Get a bound TaskTemplateVersion object from the http wire format.
 
         Args:
@@ -152,14 +153,16 @@ class TaskTemplateVersion:
 
     @property
     def node_args(self) -> set:
-        """Any named arguments in command_template that make the command unique within this
+        """Return task template version node args.
+
+        Any named arguments in command_template that make the command unique within this
         template for a given workflow run. Generally these are arguments that can be
         parallelized over.
         """
         return self._node_args
 
     @node_args.setter
-    def node_args(self, val: set):
+    def node_args(self, val: set) -> None:
         """Set the node args."""
         if self.is_bound:
             raise AttributeError("Cannot set node_args. node_args must be declared during "
@@ -175,14 +178,16 @@ class TaskTemplateVersion:
 
     @property
     def task_args(self) -> set:
-        """Any named arguments in command_template that make the command unique
+        """Task template version task args.
+
+        Any named arguments in command_template that make the command unique
         across workflows if the node args are the same as a previous workflow.
         Generally these are arguments about data moving though the task.
         """
         return self._task_args
 
     @task_args.setter
-    def task_args(self, val: set):
+    def task_args(self, val: set) -> None:
         """Set the task args."""
         if self.is_bound:
             raise AttributeError("Cannot set task_args. task_args must be declared during "
@@ -198,14 +203,16 @@ class TaskTemplateVersion:
 
     @property
     def op_args(self) -> set:
-        """Any named arguments in command_template that can change without changing the
+        """Return the the task template version OP args.
+
+        Any named arguments in command_template that can change without changing the
         identity of the task. Generally these are things like the task executable location or
         the verbosity of the script.
         """
         return self._op_args
 
     @op_args.setter
-    def op_args(self, val: set):
+    def op_args(self, val: set) -> None:
         """Setting op args."""
         if self.is_bound:
             raise AttributeError("Cannot set op_args. op_args must be declared during "
@@ -226,8 +233,8 @@ class TaskTemplateVersion:
             self.op_args))
         return int(hashlib.sha1(hashable.encode('utf-8')).hexdigest(), 16)
 
-    def __hash__(self):
-        """Unique identifier for this object"""
+    def __hash__(self) -> int:
+        """Unique identifier for this object."""
         hash_value = hashlib.sha1()
         hash_value.update(bytes(str(self.arg_mapping_hash).encode('utf-8')))
         hash_value.update(bytes(str(self.command_template).encode('utf-8')))
