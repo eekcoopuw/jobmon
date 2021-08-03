@@ -38,15 +38,15 @@ def test_add_tasks_dependencynotexist(db_cfg, client_env, task_template):
     t3.add_upstream(t2)
     with pytest.raises(NodeDependencyNotExistError) as excinfo:
         wf = tool.create_workflow(name="TestWF1",
-                                  default_cluster_name = "sequential",
-                                  default_compute_resources_set = {"sequential": {"queue": "null.q"}})
+                                  default_cluster_name="sequential",
+                                  default_compute_resources_set={"sequential": {"queue": "null.q"}})
         wf.add_tasks([t1, t2])
         wf.bind()
     assert "Downstream" in str(excinfo.value)
     with pytest.raises(NodeDependencyNotExistError) as excinfo:
         wf = tool.create_workflow(name="TestWF2",
-                                  default_cluster_name = "sequential",
-                                  default_compute_resources_set = {"sequential": {"queue": "null.q"}})
+                                  default_cluster_name="sequential",
+                                  default_compute_resources_set={"sequential": {"queue": "null.q"}})
         wf.add_tasks([t1, t3])
         wf.bind()
     assert "Upstream" in str(excinfo.value)

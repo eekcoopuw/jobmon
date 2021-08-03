@@ -2,6 +2,8 @@ import uuid
 
 import pytest
 
+from jobmon.client.task import Task
+from jobmon.client.tool import Tool
 
 @pytest.fixture(scope='function')
 def tool(client_env):
@@ -102,3 +104,34 @@ def test_invalid_args(db_cfg, client_env, tool):
             node_args=["node1"],
             task_args=["task2"],
             op_args=["op1"])
+
+
+def test_task_template_resources(db_cfg, client_env, tool):
+    """Test task/task template compute resources hierarchy."""
+    from jobmon.client.workflow_run import WorkflowRun
+
+    workflow1 = tool.create_workflow(name="test_template_resources")
+    tt_resources = {"sequential": {"queue": "null.q", "cores": 1, "max_runtime_seconds": 3}}
+    task_template = tool.get_task_template(template_name="random_template",
+                                           command_template="{arg}",
+                                           node_args=["arg"],
+                                           task_args=[],
+                                           op_args=[],
+                                           compute_resources=tt_resources)
+    task_resources = {"queue": "null.q", "cores": 1, "max_runtime_seconds": 2}
+    task1 = task_template.create_task(
+        arg="sleep 1",
+        cluster_name="sequential",
+        compute_resources=task_resources
+    )
+    task2 = task_template.create_task(
+        arg="sleep 2",
+        cluster_name="sequential"
+    )
+    workflow1.add_tasks([task1, task2])
+    workflow1.bind()
+    client_wfr = WorkflowRun(workflow1.workflow_id)
+    client_wfr.bind(workflow1.tasks)
+
+    assert task1.task_resources._requested_resources == {'cores': 1, 'max_runtime_seconds': 2}
+    assert task2.task_resources._requested_resources == {'cores': 1, 'max_runtime_seconds': 3}

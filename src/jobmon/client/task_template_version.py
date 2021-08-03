@@ -24,7 +24,9 @@ class TaskTemplateVersion:
                  node_args: list,
                  task_args: list,
                  op_args: list,
-                 requester: Optional[Requester] = None) -> None:
+                 requester: Optional[Requester] = None,
+                 compute_resources: Optional[Dict[str, Any]] = None
+                 ) -> None:
         """Initialization of task template version object."""
         # id vars
         self.command_template = command_template
@@ -39,6 +41,11 @@ class TaskTemplateVersion:
         self._task_template_version_id: int
         self._id_name_map: Dict
 
+        if compute_resources is None:
+            compute_resources = {}
+        self.default_compute_resources = compute_resources
+        self.default_cluster_name: str = ""
+
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
             requester = Requester(requester_url)
@@ -48,7 +55,8 @@ class TaskTemplateVersion:
     def get_task_template_version(cls: Any, task_template_id: int, command_template: str,
                                   node_args: List[str] = [], task_args: List[str] = [],
                                   op_args: List[str] = [],
-                                  requester: Optional[Requester] = None
+                                  requester: Optional[Requester] = None,
+                                  compute_resources: Optional[Dict[str, Any]] = None
                                   ) -> TaskTemplateVersion:
         """Get a bound TaskTemplateVersion object from parameters.
 
@@ -66,7 +74,8 @@ class TaskTemplateVersion:
             the identity of the task. Generally these are things like the task executable
             location or the verbosity of the script.
         """
-        task_template_version = cls(command_template, node_args, task_args, op_args, requester)
+        task_template_version = cls(command_template, node_args, task_args, op_args, requester,
+                                    compute_resources)
         task_template_version.bind(task_template_id)
         return task_template_version
 
@@ -233,9 +242,38 @@ class TaskTemplateVersion:
             self.op_args))
         return int(hashlib.sha1(hashable.encode('utf-8')).hexdigest(), 16)
 
+    def update_default_compute_resources(self, cluster_name: str, **kwargs: Any) -> None:
+        """Update compute resources in place only overridding specified keys.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to modify default values for.
+            **kwargs: any key/value pair you want to update specified as an argument.
+        """
+        compute_resources = {cluster_name: kwargs}
+        self.default_compute_resources.update(compute_resources)
+
+    def set_default_compute_resources_from_dict(self, cluster_name: str,
+                                                compute_resources: Dict[str, Any]) -> None:
+        """Set compute resources for a given cluster_name.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            compute_resources: dictionary of default compute resources to run tasks
+                with. Can be overridden at task template or task level.
+                dict of {resource_name: resource_value}
+        """
+        self.default_compute_resources[cluster_name] = compute_resources
+
     def __hash__(self) -> int:
         """Unique identifier for this object."""
         hash_value = hashlib.sha1()
         hash_value.update(bytes(str(self.arg_mapping_hash).encode('utf-8')))
+        hash_value.update(bytes(str(self.default_compute_resources).encode('utf-8')))
         hash_value.update(bytes(str(self.command_template).encode('utf-8')))
         return int(hash_value.hexdigest(), 16)

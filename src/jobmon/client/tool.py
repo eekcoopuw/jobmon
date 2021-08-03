@@ -161,7 +161,8 @@ class Tool:
 
     def get_task_template(self, template_name: str, command_template: str,
                           node_args: List[str] = [], task_args: List[str] = [],
-                          op_args: List[str] = []) -> TaskTemplate:
+                          op_args: List[str] = [],
+                          compute_resources: Optional[Dict[str, Any]] = None) -> TaskTemplate:
         """Create or get task a task template.
 
         Args:
@@ -178,9 +179,12 @@ class Tool:
             op_args: any named arguments in command_template that can change without changing
                 the identity of the task. Generally these are things like the task executable
                 location or the verbosity of the script.
+            compute_resources: dictionary of default compute resources to run tasks with.
+                Can be overridden at task level. dict of {resource_name: resource_value}.
         """
         tt = self.active_tool_version.get_task_template(template_name)
-        tt.get_task_template_version(command_template, node_args, task_args, op_args)
+        tt.get_task_template_version(command_template, node_args, task_args, op_args,
+                                     compute_resources)
         return tt
 
     def create_workflow(self, workflow_args: str = "", name: str = "", description: str = "",

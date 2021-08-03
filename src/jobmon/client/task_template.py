@@ -26,7 +26,7 @@ class TaskTemplate:
     def __init__(self, template_name: str, requester: Optional[Requester] = None) -> None:
         """Groups tasks of a type.
 
-        Deeclares the concrete arguments that instances may vary over either from workflow to
+        Declares the concrete arguments that instances may vary over either from workflow to
         workflow or between nodes in the stage of a dag.
 
         Args:
@@ -57,6 +57,69 @@ class TaskTemplate:
         task_template = cls(template_name, requester)
         task_template.bind(tool_version_id)
         return task_template
+
+    @property
+    def default_cluster_name(self) -> str:
+        """Default cluster_name associated with active tool version."""
+        return self.active_task_template_version.default_cluster_name
+
+    def set_default_cluster_name(self, cluster_name: str) -> None:
+        """Set default cluster.
+
+        Args:
+            cluster_name: name of cluster to set as default.
+        """
+        self.active_task_template_version.default_cluster_name = cluster_name
+
+    @property
+    def default_compute_resources(self) -> Dict[str, Dict[str, Any]]:
+        """Default compute resources associated with active tool version."""
+        return self.active_task_template_version.default_compute_resources
+
+    def update_default_compute_resources(self, cluster_name: str, **kwargs: Any) -> None:
+        """Update default compute resources in place only overridding specified keys.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to modify default values for.
+            **kwargs: any key/value pair you want to update specified as an argument.
+        """
+        if not self.default_cluster_name:
+            self.active_task_template_version.default_cluster_name = cluster_name
+        self.active_task_template_version.update_default_compute_resources(cluster_name,
+                                                                           **kwargs)
+
+    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str) \
+            -> None:
+        """Set default ComputeResources from a user provided yaml file for task template level.
+
+        TODO: Implement this method.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            yaml_file: the yaml file that is providing the compute resource values.
+        """
+        pass
+
+    def set_default_compute_resources_from_dict(self, cluster_name: str,
+                                                compute_resources: Dict[str, Any]) -> None:
+        """Set default compute resources for a given cluster_name.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            compute_resources: dictionary of default compute resources to run tasks
+                with. Can be overridden at task template or task level.
+                dict of {resource_name: resource_value}
+        """
+        if not self.default_cluster_name:
+            self.active_task_template_version.default_cluster_name = cluster_name
+        self.active_task_template_version. \
+            set_default_compute_resources_from_dict(cluster_name, compute_resources)
 
     @classmethod
     def from_wire(cls: Any, wire_tuple: Tuple, requester: Optional[Requester] = None
@@ -218,7 +281,8 @@ class TaskTemplate:
             self.set_active_task_template_version_id()
 
     def get_task_template_version(self, command_template: str, node_args: List[str] = [],
-                                  task_args: List[str] = [], op_args: List[str] = []) \
+                                  task_args: List[str] = [], op_args: List[str] = [],
+                                  compute_resources: Optional[Dict[str, Any]] = None) \
             -> TaskTemplateVersion:
         """Create a task template version instance. If it already exists, activate it.
 
@@ -235,6 +299,8 @@ class TaskTemplate:
             op_args: any named arguments in command_template that can change without changing
                 the identity of the task. Generally these are things like the task executable
                 location or the verbosity of the script.
+            compute_resources: dictionary of default compute resources to run tasks with. Can
+                be overridden at task level. dict of {resource_name: resource_value}.
         """
         if not node_args:
             node_args = []
@@ -248,7 +314,8 @@ class TaskTemplate:
             node_args=node_args,
             task_args=task_args,
             op_args=op_args,
-            requester=self.requester
+            requester=self.requester,
+            compute_resources=compute_resources
         )
 
         # now activate it
@@ -260,7 +327,7 @@ class TaskTemplate:
                     upstream_tasks: List[Task] = [],
                     task_attributes: Union[List, dict] = {},
                     max_attempts: int = 3,
-                    compute_resources: Optional[Dict[str, Any]] = None,
+                    compute_resources: Dict[str, Dict[str, Any]] = None,
                     cluster_name: str = "",
                     **kwargs: Any) -> Task:
         """Create an instance of a task associated with this template.
@@ -308,13 +375,20 @@ class TaskTemplate:
         task_args = {self.active_task_template_version.id_name_map[k]: str(v)
                      for k, v in kwargs.items()
                      if k in self.active_task_template_version.task_args}
+
+        if compute_resources is None:
+            compute_resources = {}
+        # Set compute resources, value task compute resources of tasktemplate resources
+        resources = self.default_compute_resources.get(cluster_name, {}).copy()
+        resources.update(compute_resources)
+
         # build task
         task = Task(
             command=command,
             task_template_version_id=self.active_task_template_version.id,
             node_args=node_args,
             task_args=task_args,
-            compute_resources=compute_resources,
+            compute_resources=resources,
             cluster_name=cluster_name,
             name=name,
             max_attempts=max_attempts,
