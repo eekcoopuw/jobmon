@@ -537,6 +537,23 @@ For example::
         # Run the workflow
         workflow.run()
 
+node_args, task_args, op_args
+===============================
+**node_args**
+    Any named arguments in command_template that make the command unique within this template
+    for a given workflow run. Generally these are arguments that can be parallelized over, e.g.
+    location_id.
+
+**task_args**
+    Any named arguments in command_template that make the command unique across workflows if
+    the node args are the same as a previous workflow. Generally these are arguments about
+    data moving though the task, e.g. release_id.
+
+**op_args**
+    Any named arguments in command_template that can change without changing the identity of
+    the task. Generally these are things like the task executable location or the verbosity of
+    the script.
+
 Logging
 ===============================
 To attach Jobmon's simple formatted logger use the following code.
