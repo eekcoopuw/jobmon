@@ -185,6 +185,19 @@ class Task:
         self._initial_status = val
 
     @property
+    def final_status(self) -> str:
+        """Get initial status of the task if it has been bound to the db otherwise raise
+        an error.
+        """
+        if not hasattr(self, "_final_status"):
+            raise AttributeError("final_status cannot be accessed until workflow is run")
+        return self._final_status
+
+    @final_status.setter
+    def final_status(self, val):
+        self._final_status = val
+
+    @property
     def workflow_id(self) -> int:
         """Get the workflow id if it has been bound to the db."""
         if not hasattr(self, "_workflow_id"):

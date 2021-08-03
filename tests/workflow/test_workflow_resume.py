@@ -2,7 +2,7 @@ import collections
 import os
 import sys
 import time
-from multiprocessing import Process
+from multiprocessing import Process, Event
 
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import (ResumeSet, WorkflowAlreadyExists, WorkflowNotResumable)
@@ -37,6 +37,8 @@ def task_template(tool):
 
 @pytest.fixture
 def task_template_fail_one(tool):
+    # set fail always as op args so it can be modified on resume without
+    # changing the workflow hash
     tt = tool.get_task_template(
         template_name="foo",
         command_template=(
@@ -57,18 +59,12 @@ remote_sleep_and_write = os.path.abspath(os.path.expanduser(
     f"{this_file}/../_scripts/remote_sleep_and_write.py"))
 
 
-def test_fail_one_task_resume(db_cfg, client_env, task_template_fail_one, tmpdir):
+def test_fail_one_task_resume(db_cfg, tool, task_template_fail_one, tmpdir):
     """test that a workflow with a task that fails. The workflow is resumed and
     the task then finishes successfully and the workflow runs to completion"""
 
-    tool = Tool()
-    # set fail always as op args so it can be modified on resume without
-    # changing the workflow hash
-
     # create workflow and execute
-    workflow1 = tool.create_workflow(name="fail_one_task_resume",
-                                    default_cluster_name = "sequential",
-                                    default_compute_resources_set = {"sequential": {"queue": "null.q"}})
+    workflow1 = tool.create_workflow(name="fail_one_task_resume")
     t1 = task_template_fail_one.create_task(
         name="a_task",
         max_attempts=1,
@@ -79,15 +75,13 @@ def test_fail_one_task_resume(db_cfg, client_env, task_template_fail_one, tmpdir
         fail_always="--fail_always")
     workflow1.add_tasks([t1])
     workflow1.bind()
-    wfrs1 = workflow1.run()
+    workflow_run_status = workflow1.run()
 
-    assert wfrs1 == WorkflowRunStatus.ERROR
-    assert len(workflow1._last_workflowrun.all_error) == 1
+    assert workflow_run_status == WorkflowRunStatus.ERROR
+    assert len(workflow1.task_errors) == 1
 
     # set workflow args and name to be identical to previous workflow
     workflow2 = tool.create_workflow(name=workflow1.name,
-                                     default_cluster_name="sequential",
-                                     default_compute_resources_set={"sequential": {"queue": "null.q"}},
                                      workflow_args=workflow1.workflow_args)
     t2 = task_template_fail_one.create_task(
         name="a_task",
@@ -96,46 +90,17 @@ def test_fail_one_task_resume(db_cfg, client_env, task_template_fail_one, tmpdir
         script=remote_sleep_and_write,
         sleep_secs=3,
         output_file_path=os.path.join(str(tmpdir), "a.out"),
-        fail_always="") # fail bool is not set. workflow should succeed
+        fail_always="")  # fail bool is not set. workflow should succeed
     workflow2.add_tasks([t2])
     workflow2.bind()
 
     with pytest.raises(WorkflowAlreadyExists):
         workflow2.run()
 
-    wfrs2 = workflow2.run(resume=True)
+    workflow_run_status = workflow2.run(resume=True)
 
-    assert wfrs2 == WorkflowRunStatus.DONE
+    assert workflow_run_status == WorkflowRunStatus.DONE
     assert workflow1.workflow_id == workflow2.workflow_id
-    assert workflow2._last_workflowrun.workflow_run_id != workflow1._last_workflowrun.workflow_run_id
-
-
-def test_multiple_active_race_condition(db_cfg, client_env, task_template):
-    """test that we cannot create 2 workflow runs simultaneously"""
-
-    tool = Tool()
-
-    # create initial workflow
-    t1 = task_template.create_task(
-         arg="sleep 1")
-    workflow1 = tool.create_workflow(name="created_race_condition",
-                                     default_cluster_name="sequential",
-                                     default_compute_resources_set={"sequential": {"queue": "null.q"}})
-    workflow1.add_tasks([t1])
-    workflow1.bind()
-    workflow1._create_workflow_run()
-
-    # create identical workflow
-    t2 = task_template.create_task(
-         arg="sleep 1")
-    workflow2 = tool.create_workflow(name=workflow1.name,
-                                     default_cluster_name="sequential",
-                                     default_compute_resources_set={"sequential": {"queue": "null.q"}},
-                                     workflow_args=workflow1.workflow_args)
-    workflow2.add_tasks([t2])
-    workflow2.bind()
-    with pytest.raises(WorkflowNotResumable):
-        workflow2._create_workflow_run(resume=True)
 
 
 class MockDistributorProc:
@@ -144,51 +109,62 @@ class MockDistributorProc:
         return True
 
 
-def test_cold_resume(db_cfg, client_env, task_template):
+def test_cold_resume(tool, task_template):
     """"""
     from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.requester import Requester
-
-    # set up tool and task template
-    tool = Tool()
+    from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     # prepare first workflow
-    tasks = []
-    for i in range(6):
+    workflow1 = tool.create_workflow(name="cold_resume")
+    wave_1 = []
+    for i in range(3):
         tm = 5 + i
-        t = task_template.create_task(
-                arg=f"sleep {tm}")
-        tasks.append(t)
-    workflow1 = tool.create_workflow(name="cold_resume",
-                                     default_cluster_name="multiprocess",
-                                     default_compute_resources_set={"multiprocess": {"queue": "null.q"}})
-    workflow1.add_tasks(tasks)
+        t = task_template.create_task(arg=f"sleep {tm}")
+        workflow1.add_task(t)
+        wave_1.append(t)
+    for i in range(3):
+        tm = 8 + i
+        t = task_template.create_task(arg=f"sleep {tm}", upstream_tasks=wave_1)
+        workflow1.add_task(t)
 
-    # create an in memory distributor and start up the first 3 jobs
+    # create a distributor and start up the first 3 jobs
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
-    requester = Requester(client_env)
-    distributor_service = DistributorService(workflow1.workflow_id, wfr1.workflow_run_id,
-                                      "multiprocess", requester=requester)
-    with pytest.raises(RuntimeError):
-        wfr1.execute_interruptible(MockDistributorProc(), seconds_until_timeout=1)
+    distributor_service = DistributorService(
+        workflow1.workflow_id, wfr1.workflow_run_id,
+        MultiprocessDistributor(parallelism=3),
+        requester=workflow1.requester
+    )
+    swarm = SwarmWorkflowRun(workflow_id=workflow1.workflow_id,
+                             workflow_run_id=wfr1.workflow_run_id,
+                             tasks=list(workflow1.tasks.values()),
+                             requester=workflow1.requester)
+    swarm.update_status(WorkflowRunStatus.RUNNING)
+    swarm.compute_initial_dag_state()
+    list(swarm.queue_tasks())
     distributor_service.distributor.start()
     distributor_service.heartbeat()
     distributor_service._get_tasks_queued_for_instantiation()
     distributor_service.distribute()
 
-    time.sleep(6)
-    # import pdb; pdb.set_trace()
+    swarm.block_until_newly_ready_or_all_done()
 
     # create new workflow run, causing the old one to reset. resume timeout is
     # 1 second meaning this workflow run will not actually be created
     with pytest.raises(WorkflowNotResumable):
-        workflow2 = tool.create_workflow(
-            name=workflow1.name,
-            default_cluster_name="multiprocess",
-            default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
-            workflow_args=workflow1.workflow_args)
-        workflow2.add_tasks(tasks)
+        workflow2 = tool.create_workflow(name=workflow1.name,
+                                         workflow_args=workflow1.workflow_args)
+        wave_1 = []
+        for i in range(3):
+            tm = 5 + i
+            t = task_template.create_task(arg=f"sleep {tm}")
+            workflow2.add_task(t)
+            wave_1.append(t)
+        for i in range(3):
+            tm = 8 + i
+            t = task_template.create_task(arg=f"sleep {tm}", upstream_tasks=wave_1)
+            workflow2.add_task(t)
         workflow2.bind()
         workflow2._create_workflow_run(resume=True, resume_timeout=1)
 
@@ -196,32 +172,37 @@ def test_cold_resume(db_cfg, client_env, task_template):
     with pytest.raises(ResumeSet):
         distributor_service.run_distributor()
     assert distributor_service.distributor.started is False
+
     # get internal state of workflow run. at least 1 task should have finished
-    completed, _ = wfr1._block_until_any_done_or_error()
-    assert len(completed) > 0
+    assert len(swarm.all_done) > 1
 
     # set workflow run to terminated
-    wfr1.terminate_workflow_run()
+    swarm.terminate_workflow_run()
 
     # now resume it till done
     # prepare first workflow
-    tasks = []
-    for i in range(6):
-        tm = 5 + i
-        t = task_template.create_task(
-                arg=f"sleep {tm}")
-        tasks.append(t)
     workflow3 = tool.create_workflow(
-            name=workflow1.name,
-            default_cluster_name="multiprocess",
-            default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
-            workflow_args=workflow1.workflow_args)
-    workflow3.add_tasks(tasks)
-    workflow3.bind()
-    wfrs3 = workflow3.run(resume=True)
+        name=workflow1.name,
+        default_cluster_name="multiprocess",
+        default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
+        workflow_args=workflow1.workflow_args
+    )
+    wave_1 = []
+    for i in range(3):
+        tm = 5 + i
+        t = task_template.create_task(arg=f"sleep {tm}")
+        workflow3.add_task(t)
+        wave_1.append(t)
+    for i in range(3):
+        tm = 8 + i
+        t = task_template.create_task(arg=f"sleep {tm}", upstream_tasks=wave_1)
+        workflow3.add_task(t)
 
-    assert wfrs3 == WorkflowRunStatus.DONE
-    assert workflow3._last_workflowrun.completed_report[0] > 0  # number of newly completed tasks
+    workflow_run_status = workflow3.run(resume=True)
+
+    assert workflow_run_status == WorkflowRunStatus.DONE
+    assert workflow3._num_newly_completed >= 3  # number of newly completed tasks
+
 
 def hot_resumable_workflow():
 

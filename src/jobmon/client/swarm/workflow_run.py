@@ -152,6 +152,7 @@ class WorkflowRun:
         self.last_sync = self._get_current_time()
         self._compute_initial_fringe()
         self._update_dag_state(list(self.swarm_tasks.values()))
+        self.num_previously_complete = len(self.all_done)
 
     def queue_tasks(self):
         # Everything in the to_queue should be run or skipped,

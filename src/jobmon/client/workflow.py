@@ -17,7 +17,7 @@ from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
-from jobmon.constants import TaskResourcesType, WorkflowRunStatus, WorkflowStatus
+from jobmon.constants import TaskResourcesType, WorkflowRunStatus, WorkflowStatus, TaskStatus
 from jobmon.exceptions import (CallableReturnedInvalidObject, DistributorNotAlive,
                                DistributorStartupTimeout, DuplicateNodeArgsError,
                                InvalidResponse, ResumeSet, WorkflowAlreadyComplete,
@@ -96,7 +96,6 @@ class Workflow(object):
         self._dag = Dag(requester)
         # hash to task object mapping. ensure only 1
         self.tasks: Dict[int, Task] = {}
-        self._swarm_tasks: dict = {}
         self._chunk_size: int = chunk_size
 
         if workflow_args:
@@ -116,7 +115,7 @@ class Workflow(object):
         self._distributor_com_queue: Queue = Queue()
         self._distributor_stop_event: synchronize.Event = Event()
 
-        self.workflow_attributes = {}
+        self.workflow_attributes: Dict[str, Any] = {}
         if workflow_attributes:
             if isinstance(workflow_attributes, List):
                 for attr in workflow_attributes:
@@ -168,6 +167,12 @@ class Workflow(object):
             for task in tasks:
                 hash_value.update(str(hash(task)).encode('utf-8'))
         return int(hash_value.hexdigest(), 16)
+
+    @property
+    def task_errors(self):
+        return {task.name: task.get_errors()
+                for task in self.tasks.values()
+                if task.final_status == TaskStatus.ERROR_FATAL}
 
     def add_attributes(self, workflow_attributes: dict) -> None:
         """Function that users can call either to update values of existing attributes or add
@@ -294,8 +299,16 @@ class Workflow(object):
         self._distributor_proc = self._start_distributor_service(
             wfr.workflow_run_id, distributor_response_wait_timeout, distributor_config
         )
+
+        # set up swarm and initial DAG
+        swarm = SwarmWorkflowRun(
+            workflow_id=self.workflow_id, workflow_run_id=wfr.workflow_run_id,
+            tasks=list(self.tasks.values()), fail_after_n_executions=1_000_000_000,
+            requester=self.requester
+        )
+
         try:
-            status = self._run_swarm(wfr.workflow_run_id, fail_fast, seconds_until_timeout)
+            self._run_swarm(swarm, fail_fast, seconds_until_timeout)
         finally:
             # deal with task instance distributor process if it was started
             if self._distributor_alive(raise_error=False):
@@ -308,7 +321,22 @@ class Workflow(object):
                     pass
                 self._distributor_proc.terminate()
 
-        return status
+            # figure out doneness
+            num_new_completed = len(swarm.all_done) - swarm.num_previously_complete
+            if swarm.status != WorkflowRunStatus.DONE:
+                logger.info(f"WorkflowRun execution ended, num failed {len(swarm.all_error)}")
+            else:
+                logger.info(
+                    f"WorkflowRun execute finished successfully, {num_new_completed} tasks"
+                )
+
+            # update workflow tasks with final status
+            for task in self.tasks.values():
+                task.final_status = swarm.swarm_tasks[task.task_id].status
+            self._num_previously_completed = swarm.num_previously_complete
+            self._num_newly_completed = num_new_completed
+
+        return swarm.status
 
     def validate(self):
         """Confirm that the tasks in this workflow are valid.
@@ -476,9 +504,8 @@ class Workflow(object):
 
         return client_wfr
 
-    def _run_swarm(self, workflow_run_id: int, fail_fast: bool = False,
-                   seconds_until_timeout: int = 36000,
-                   fail_after_n_executions: int = 1_000_000_000) -> str:
+    def _run_swarm(self, swarm: SwarmWorkflowRun, fail_fast: bool = False,
+                   seconds_until_timeout: int = 36000) -> SwarmWorkflowRun:
         """
         Take a concrete DAG and queue al the Tasks that are not DONE.
 
@@ -509,29 +536,22 @@ class Workflow(object):
             workflow_run status
         """
 
-        # set up swarm and initial DAG
-        wfr = SwarmWorkflowRun(workflow_id=self.workflow_id, workflow_run_id=workflow_run_id,
-                               tasks=list(self.tasks.values()),
-                               fail_after_n_executions=fail_after_n_executions,
-                               requester=self.requester)
-
         try:
-            logger.info(f"Executing Workflow Run {wfr.workflow_run_id}")
-            wfr.update_status(WorkflowRunStatus.RUNNING)
-            wfr.compute_initial_dag_state()
-            num_previously_complete = len(wfr.all_done)
+            logger.info(f"Executing Workflow Run {swarm.workflow_run_id}")
+            swarm.update_status(WorkflowRunStatus.RUNNING)
+            swarm.compute_initial_dag_state()
         except Exception:
-            wfr.update_status(WorkflowRunStatus.ERROR)
+            swarm.update_status(WorkflowRunStatus.ERROR)
             raise
 
         # These are all Tasks.
         # While there is something ready to be run, or something is running
-        while wfr.ready_to_run or wfr.active_tasks:
+        while swarm.ready_to_run or swarm.active_tasks:
 
             # queue any ready to run and then wait until active tasks change state
             try:
                 # TODO: calculate dynamic resources
-                for swarm_task in wfr.queue_tasks():
+                for swarm_task in swarm.queue_tasks():
                     task = self.tasks[swarm_task.task_id]
                     task_resources_callable = task.task_resources
                     task_resources = task_resources_callable()
@@ -544,18 +564,17 @@ class Workflow(object):
                     swarm_task.task_resources = task_resources
 
                 # wait till we have new work
-                wfr.block_until_newly_ready_or_all_done(
-                    fail_fast, seconds_until_timeout,
+                swarm.block_until_newly_ready_or_all_done(
+                    fail_fast, seconds_until_timeout=seconds_until_timeout,
                     distributor_alive_callable=self._distributor_alive
                 )
-
             # user interrupt
             except KeyboardInterrupt:
                 confirm = input("Are you sure you want to exit (y/n): ")
                 confirm = confirm.lower().strip()
                 if confirm == "y":
                     logger.warning("Keyboard interrupt raised and Workflow Run set to Stopped")
-                    wfr.update_status(WorkflowRunStatus.STOPPED)
+                    swarm.update_status(WorkflowRunStatus.STOPPED)
                     raise
                 else:
                     logger.info("Continuing jobmon...")
@@ -568,7 +587,7 @@ class Workflow(object):
 
                 # no response. set error state and re-raise DistributorNotAlive
                 except Empty:
-                    wfr.update_status(WorkflowRunStatus.ERROR)
+                    swarm.update_status(WorkflowRunStatus.ERROR)
                     raise
 
                 # got response. process
@@ -580,20 +599,20 @@ class Workflow(object):
 
                         # if it was a resume exception we set terminate state
                         except ResumeSet:
-                            wfr.terminate_workflow_run()
+                            swarm.terminate_workflow_run()
                             raise
 
                         # otherwise set to error state
                         except Exception:
-                            wfr.update_status(WorkflowRunStatus.ERROR)
+                            swarm.update_status(WorkflowRunStatus.ERROR)
                             raise
                     else:
                         # response is not an exception
-                        wfr.update_status(WorkflowRunStatus.ERROR)
+                        swarm.update_status(WorkflowRunStatus.ERROR)
                         raise
 
             except Exception:
-                wfr.update_status(WorkflowRunStatus.ERROR)
+                swarm.update_status(WorkflowRunStatus.ERROR)
                 raise
 
         # END while fringe or all_active
@@ -605,16 +624,13 @@ class Workflow(object):
         # fringe, or if they have potentially affected the status of Tasks
         # that were done (error case - disallowed??)
 
-        # figure out doneness
-        if wfr.all_error:
-            logger.info(f"WorkflowRun execution ended, num failed {len(wfr.all_error)}")
-            wfr.update_status(WorkflowRunStatus.ERROR)
+        # update status based on tasks if no error
+        if swarm.all_error:
+            swarm.update_status(WorkflowRunStatus.ERROR)
         else:
-            num_new_completed = len(wfr.all_done) - num_previously_complete
-            logger.info(f"WorkflowRun execute finished successfully, {num_new_completed} jobs")
-            wfr.update_status(WorkflowRunStatus.DONE)
+            swarm.update_status(WorkflowRunStatus.DONE)
 
-        return wfr.status
+        return swarm
 
     def _matching_wf_args_diff_hash(self):
         """Check that an existing workflow with the same workflow_args does not have a
@@ -688,7 +704,7 @@ class Workflow(object):
                 time.sleep(sleep_time)
 
     def _start_distributor_service(self, workflow_run_id: int,
-                                   distributor_startup_wait_timeout: int,
+                                   distributor_startup_wait_timeout: int = 180,
                                    distributor_config: Optional[DistributorConfig] = None
                                    ) -> Process:
         if distributor_config is None:

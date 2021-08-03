@@ -38,11 +38,11 @@ def test_one_task(tool, task_template):
     workflow = tool.create_workflow(name="test_one_task")
     t1 = task_template.create_task(arg="echo 1")
     workflow.add_tasks([t1])
-    wfrs = workflow.run()
-    assert wfrs == WorkflowRunStatus.DONE
-    assert workflow._last_workflowrun.completed_report[0] == 1
-    assert workflow._last_workflowrun.completed_report[1] == 0
-    assert len(workflow._last_workflowrun.all_error) == 0
+    workflow_run_status = workflow.run()
+    assert workflow_run_status == WorkflowRunStatus.DONE
+    assert workflow._num_newly_completed == 1
+    assert workflow._num_previously_completed == 0
+    assert len(workflow.task_errors) == 0
 
 
 def test_two_tasks_same_command_error(tool, task_template):
@@ -52,7 +52,6 @@ def test_two_tasks_same_command_error(tool, task_template):
     dag, Workflow raises a ValueError
     """
 
-    tool = Tool()
     workflow = tool.create_workflow(name="test_two_tasks_same_command_error")
     t1 = task_template.create_task(arg="echo 1")
     workflow.add_task(t1)
@@ -68,7 +67,6 @@ def test_three_linear_tasks(tool, task_template):
     a->b->c
     """
 
-    tool = Tool()
     workflow = tool.create_workflow(name="test_three_linear_tasks")
 
     task_a = task_template.create_task(
@@ -88,12 +86,12 @@ def test_three_linear_tasks(tool, task_template):
     )
     workflow.add_task(task_c)
     task_c.add_upstream(task_b)  # Exercise add_upstream post-instantiation
-    wfrs = workflow.run()
+    workflow_run_status = workflow.run()
 
-    assert wfrs == WorkflowRunStatus.DONE
-    assert workflow._last_workflowrun.completed_report[0] == 3
-    assert workflow._last_workflowrun.completed_report[1] == 0
-    assert len(workflow._last_workflowrun.all_error) == 0
+    assert workflow_run_status == WorkflowRunStatus.DONE
+    assert workflow._num_newly_completed == 3
+    assert workflow._num_previously_completed == 0
+    assert len(workflow.task_errors) == 0
 
 
 def test_fork_and_join_tasks(task_template, tmpdir):
@@ -140,24 +138,24 @@ def test_fork_and_join_tasks(task_template, tmpdir):
     )
     workflow.add_task(task_d)
 
-    wfrs = workflow.run()
+    workflow_run_status = workflow.run()
 
-    assert wfrs == WorkflowRunStatus.DONE
-    assert workflow._last_workflowrun.completed_report[0] == 1 + 3 + 3 + 1
-    assert workflow._last_workflowrun.completed_report[1] == 0
-    assert len(workflow._last_workflowrun.all_error) == 0
+    assert workflow_run_status == WorkflowRunStatus.DONE
+    assert workflow._num_newly_completed == 1 + 3 + 3 + 1
+    assert workflow._num_previously_completed == 0
+    assert len(workflow.task_errors) == 0
 
-    assert workflow._last_workflowrun.swarm_tasks[task_a.task_id].status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_a)].final_status == TaskStatus.DONE
 
-    assert workflow._last_workflowrun.swarm_tasks[task_b[0].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_b[1].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_b[2].task_id].status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_b[0])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_b[1])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_b[2])].final_status == TaskStatus.DONE
 
-    assert workflow._last_workflowrun.swarm_tasks[task_c[0].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_c[1].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_c[0])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_c[1])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_c[2])].final_status == TaskStatus.DONE
 
-    assert workflow._last_workflowrun.swarm_tasks[task_d.task_id].status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_d)].final_status == TaskStatus.DONE
 
 
 def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
@@ -215,25 +213,25 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
     )
     workflow.add_task(task_d)
 
-    wfrs = workflow.run()
+    workflow_run_status = workflow.run()
 
-    assert wfrs == WorkflowRunStatus.ERROR
+    assert workflow_run_status == WorkflowRunStatus.ERROR
     # a, b[0], b[2], c[0], c[2],  but not b[1], c[1], d
-    assert workflow._last_workflowrun.completed_report[0] == 1 + 2 + 2
-    assert workflow._last_workflowrun.completed_report[1] == 0
-    assert len(workflow._last_workflowrun.all_error) == 1  # b[1]
+    assert workflow._num_newly_completed == 1 + 2 + 2
+    assert workflow._num_previously_completed == 0
+    assert len(workflow.task_errors) == 1  # b[1]
 
-    assert workflow._last_workflowrun.swarm_tasks[task_a.task_id].status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_a)].final_status == TaskStatus.DONE
 
-    assert workflow._last_workflowrun.swarm_tasks[task_b[0].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_b[1].task_id].status == TaskStatus.ERROR_FATAL
-    assert workflow._last_workflowrun.swarm_tasks[task_b[2].task_id].status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_b[0])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_b[1])].final_status == TaskStatus.ERROR_FATAL
+    assert workflow.tasks[hash(task_b[2])].final_status == TaskStatus.DONE
 
-    assert workflow._last_workflowrun.swarm_tasks[task_c[0].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_c[1].task_id].status == TaskStatus.REGISTERED
-    assert workflow._last_workflowrun.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_c[0])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_c[1])].final_status == TaskStatus.REGISTERED
+    assert workflow.tasks[hash(task_c[2])].final_status == TaskStatus.DONE
 
-    assert workflow._last_workflowrun.swarm_tasks[task_d.task_id].status == TaskStatus.REGISTERED
+    assert workflow.tasks[hash(task_d)].final_status == TaskStatus.REGISTERED
 
 
 def test_fork_and_join_tasks_with_retryable_error(task_template, tmpdir):
@@ -295,23 +293,24 @@ def test_fork_and_join_tasks_with_retryable_error(task_template, tmpdir):
     )
     workflow.add_task(task_d)
 
-    wfrs = workflow.run()
-    assert wfrs == WorkflowRunStatus.DONE
-    assert workflow._last_workflowrun.completed_report[0] == 1 + 3 + 3 + 1
-    assert workflow._last_workflowrun.completed_report[1] == 0
-    assert len(workflow._last_workflowrun.all_error) == 0
+    workflow_run_status = workflow.run()
 
-    assert workflow._last_workflowrun.swarm_tasks[task_a.task_id].status == TaskStatus.DONE
+    assert workflow_run_status == WorkflowRunStatus.DONE
+    assert workflow._num_newly_completed == 1 + 3 + 3 + 1
+    assert workflow._num_previously_completed == 0
+    assert len(workflow.task_errors) == 0
 
-    assert workflow._last_workflowrun.swarm_tasks[task_b[0].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_b[1].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_b[2].task_id].status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_a)].final_status == TaskStatus.DONE
 
-    assert workflow._last_workflowrun.swarm_tasks[task_c[0].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_c[1].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_b[0])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_b[1])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_b[2])].final_status == TaskStatus.DONE
 
-    assert workflow._last_workflowrun.swarm_tasks[task_d.task_id].status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_c[0])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_c[1])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_c[2])].final_status == TaskStatus.DONE
+
+    assert workflow.tasks[hash(task_d)].final_status == TaskStatus.DONE
 
 
 @pytest.mark.qsubs_jobs
@@ -326,10 +325,11 @@ def test_bushy_real_dag(task_template, tmpdir):
     """
 
     tool = Tool()
-    workflow = tool.create_workflow(name="test_fork_and_join_tasks_with_fatal_error",
-                                    default_cluster_name="multiprocess",
-                                    default_compute_resources_set={"multiprocess": {"queue": "null.q"}}
-                                    )
+    workflow = tool.create_workflow(
+        name="test_fork_and_join_tasks_with_fatal_error",
+        default_cluster_name="multiprocess",
+        default_compute_resources_set={"multiprocess": {"queue": "null.q"}}
+    )
 
     a_path = os.path.join(str(tmpdir), "a.out")
     task_a = task_template.create_task(
@@ -378,7 +378,7 @@ def test_bushy_real_dag(task_template, tmpdir):
     )
     workflow.add_task(task_d)
 
-    wfrs = workflow.run()
+    workflow_run_status = workflow.run()
 
     # TODO: How to check that nothing was started before its upstream were
     # done?
@@ -386,107 +386,19 @@ def test_bushy_real_dag(task_template, tmpdir):
     # creation, not qsub status_date is date of last change.
     # Could we listen to job-instance state transitions?
 
-    assert wfrs == WorkflowRunStatus.DONE
-    assert workflow._last_workflowrun.completed_report[0] == 1 + 3 + 3 + 1
-    assert workflow._last_workflowrun.completed_report[1] == 0
-    assert len(workflow._last_workflowrun.all_error) == 0
+    assert workflow_run_status == WorkflowRunStatus.DONE
+    assert workflow._num_newly_completed == 1 + 3 + 3 + 1
+    assert workflow._num_previously_completed == 0
+    assert len(workflow.task_errors) == 0
 
-    assert workflow._last_workflowrun.swarm_tasks[task_a.task_id].status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_a)].final_status == TaskStatus.DONE
 
-    assert workflow._last_workflowrun.swarm_tasks[task_b[0].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_b[1].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_b[2].task_id].status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_b[0])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_b[1])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_b[2])].final_status == TaskStatus.DONE
 
-    assert workflow._last_workflowrun.swarm_tasks[task_c[0].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_c[1].task_id].status == TaskStatus.DONE
-    assert workflow._last_workflowrun.swarm_tasks[task_c[2].task_id].status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_c[0])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_c[1])].final_status == TaskStatus.DONE
+    assert workflow.tasks[hash(task_c[2])].final_status == TaskStatus.DONE
 
-    assert workflow._last_workflowrun.swarm_tasks[task_d.task_id].status == TaskStatus.DONE
-
-
-def test_workflow_attribute(db_cfg, client_env, task_template):
-    """Test the workflow attributes feature"""
-    from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
-    from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
-
-    tool = Tool()
-    wf1 = tool.create_workflow(
-        name="test_wf_attributes",
-        default_cluster_name="sequential",
-        default_compute_resources_set={"sequential": {"queue": "null.q"}},
-        workflow_attributes={'location_id': 5, 'year': 2019, 'sex': 1}
-    )
-
-    t1 = task_template.create_task(arg="exit -0")
-    wf1.add_task(t1)
-    wf1.run()
-
-    # check database entries are populated correctly
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        wf_attributes = DB.session.query(WorkflowAttributeType.name, WorkflowAttribute.value).\
-            join(WorkflowAttribute,
-                 WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
-            filter(WorkflowAttribute.workflow_id == wf1.workflow_id).all()
-    assert set(wf_attributes) == set([('location_id', '5'), ('year', '2019'), ('sex', '1')])
-
-    # Add and update attributes
-    wf1.add_attributes({'age_group_id': 1, 'sex': 2})
-
-    with app.app_context():
-        wf_attributes = DB.session.query(WorkflowAttributeType.name, WorkflowAttribute.value).\
-            join(WorkflowAttribute,
-                 WorkflowAttribute.workflow_attribute_type_id == WorkflowAttributeType.id).\
-            filter(WorkflowAttribute.workflow_id == wf1.workflow_id).all()
-    assert set(wf_attributes) == set([('location_id', '5'), ('year', '2019'), ('sex', '2'),
-                                      ('age_group_id', '1')])
-
-    # Test workflow w/o attributes
-    wf2 = tool.create_workflow(
-        name="test_empty_wf_attributes",
-        default_cluster_name="sequential",
-        default_compute_resources_set={"sequential": {"queue": "null.q"}}
-    )
-    wf2.add_task(t1)
-    wf2.run()
-
-    with app.app_context():
-        wf_attributes = DB.session.query(WorkflowAttribute).filter_by(
-            workflow_id=wf2.workflow_id).all()
-
-    assert wf_attributes == []
-
-
-def test_chunk_size(db_cfg, client_env, task_template):
-
-    tool = Tool()
-    wf_a = tool.create_workflow(
-        name="test_wf_chunks_a",
-        default_cluster_name="sequential",
-        default_compute_resources_set={"sequential": {"queue": "null.q"}},
-        chunk_size=3
-    )
-
-    task_a = task_template.create_task(
-        arg="echo a",
-        upstream_tasks=[]  # To be clear
-    )
-    wf_a.add_task(task_a)
-    wf_a.bind()
-
-    wf_b = tool.create_workflow(
-        name="test_wf_chunks_b",
-        default_cluster_name="sequential",
-        default_compute_resources_set={"sequential": {"queue": "null.q"}},
-        chunk_size=10
-    )
-    task_b = task_template.create_task(
-        arg="echo b",
-        upstream_tasks=[]  # To be clear
-    )
-    wf_b.add_task(task_b)
-    wf_b.bind()
-
-    assert wf_a._chunk_size == 3
-    assert wf_b._chunk_size == 10
+    assert workflow.tasks[hash(task_d)].final_status == TaskStatus.DONE

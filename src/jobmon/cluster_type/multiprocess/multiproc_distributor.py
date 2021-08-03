@@ -100,7 +100,7 @@ class MultiprocessDistributor(ClusterDistributor):
             time
     """
 
-    def __init__(self, parallelism: int = 10, *args, **kwargs) -> None:
+    def __init__(self, parallelism: int = 3, *args, **kwargs) -> None:
         self.temp_dir: Optional[str] = None
         self.started = False
         self._worker_node_entry_point = shutil.which("worker_node_entry_point")
@@ -147,6 +147,7 @@ class MultiprocessDistributor(ClusterDistributor):
 
     def stop(self, distributor_ids: List[int]) -> None:
         """Terminate consumers and call sync 1 final time."""
+        breakpoint()
         actual = self.get_actual_submitted_or_running(distributor_ids=distributor_ids)
         self.terminate_task_instances(actual)
 
