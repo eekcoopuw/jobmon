@@ -151,6 +151,8 @@ class MultiprocessDistributor(ClusterDistributor):
         actual = self.get_actual_submitted_or_running(distributor_ids=distributor_ids)
         self.terminate_task_instances(actual)
 
+        breakpoint()
+
         # Sending poison pill to all worker
         for _ in self.consumers:
             self.task_queue.put(None)

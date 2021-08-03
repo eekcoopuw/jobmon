@@ -341,6 +341,7 @@ def test_hot_resume_2(tool, task_template):
     # distributor_service._get_tasks_queued_for_instantiation()
     # distributor_service.distribute()
 
+
 def test_stopped_resume(tool, task_template):
     """test that a workflow with two task where the workflow is stopped with a
     keyboard interrupt mid stream. The workflow is resumed and
