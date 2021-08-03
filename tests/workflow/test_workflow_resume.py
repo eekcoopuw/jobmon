@@ -305,7 +305,7 @@ def test_hot_resume_2(tool, task_template):
     distributor_service1._get_tasks_queued_for_instantiation()
     distributor_service1.distribute()
 
-    # now make another and set a hot resume with a quick timeout
+    # now make another workflow and set a hot resume with a quick timeout
     workflow2 = tool.create_workflow(name="hot_resume", workflow_args=workflow1.workflow_args)
     tasks = []
     for i in range(6):
@@ -314,32 +314,29 @@ def test_hot_resume_2(tool, task_template):
     workflow2.add_tasks(tasks)
     workflow2.bind()
     with pytest.raises(WorkflowNotResumable):
-        wfr2 = workflow2._create_workflow_run(resume=True, reset_running_jobs=False,
-                                              resume_timeout=1)
+        workflow2._create_workflow_run(resume=True, reset_running_jobs=False, resume_timeout=1)
 
-    # now check that resume is set and terminate current workflow run.
+    # now check that resume is set and terminate the jobs we are supposed to for hot resume.
     with pytest.raises(ResumeSet):
-        distributor_service1.run_distributor()
+        distributor_service1.heartbeat()
+    distributor_service1._terminate_active_task_instances()
+
+    # confirm 3 tasks finish then stop the distributor and terminate the workflow run
+    num_loops = 0
+    while len(swarm1.all_done) != 3 or num_loops > 20:
+        num_loops += 1
+        try:
+            swarm1.block_until_newly_ready_or_all_done(poll_interval=1,
+                                                       seconds_until_timeout=1)
+        except RuntimeError:
+            pass
+    distributor_service1.distributor.stop([])
     swarm1.terminate_workflow_run()
 
-    breakpoint()
+    assert len(swarm1.all_done) == 3
 
-    # distributor_service = DistributorService(
-    #     workflow1.workflow_id, wfr1.workflow_run_id,
-    #     SequentialDistributor(),
-    #     requester=workflow1.requester
-    # )
-    # swarm = SwarmWorkflowRun(workflow_id=workflow1.workflow_id,
-    #                          workflow_run_id=wfr1.workflow_run_id,
-    #                          tasks=list(workflow1.tasks.values()),
-    #                          requester=workflow1.requester)
-    # swarm.update_status(WorkflowRunStatus.RUNNING)
-    # swarm.compute_initial_dag_state()
-    # list(swarm.queue_tasks())
-    # distributor_service.distributor.start()
-    # distributor_service.heartbeat()
-    # distributor_service._get_tasks_queued_for_instantiation()
-    # distributor_service.distribute()
+    workflow_run_status = workflow2.run(resume=True)
+    assert workflow_run_status == WorkflowRunStatus.DONE
 
 
 def test_stopped_resume(tool, task_template):

@@ -43,10 +43,8 @@ def test_unknown_state(tool, db_cfg, client_env, task_template, monkeypatch):
     """Creates a job instance, gets an distributor id so it can be in submitted
     to the batch distributor state, and then it will never be run (it will miss
     its report by date and the reconciler will kill it)"""
-    from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-
 
     class TestDummyDistributor(DummyDistributor):
         """ a test DummyDistributor that bypasses the setting of log_running and log_done"""
@@ -66,6 +64,8 @@ def test_unknown_state(tool, db_cfg, client_env, task_template, monkeypatch):
 
             return distributor_id
 
+    task_heartbeat_interval = 5
+
     task = task_template.create_task(
         arg="ls", name="dummyfbb", max_attempts=1,
         cluster_name="dummy", compute_resources={"queue": "null.q"})
@@ -84,7 +84,8 @@ def test_unknown_state(tool, db_cfg, client_env, task_template, monkeypatch):
 
     requester = Requester(client_env)
     distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             test_dummy_distributor, requester=requester)
+                                             test_dummy_distributor, requester=requester,
+                                             task_heartbeat_interval=task_heartbeat_interval)
     distributor_service.distribute()
 
     # Since we are using the 'dummy' distributor, we never actually do
@@ -103,7 +104,8 @@ def test_unknown_state(tool, db_cfg, client_env, task_template, monkeypatch):
     assert res[0] == "B"
 
     # sleep through the report by date
-    time.sleep(distributor_service._task_heartbeat_interval * (distributor_service._report_by_buffer + 1))
+    time.sleep(distributor_service._task_heartbeat_interval
+               * (distributor_service._report_by_buffer + 1))
 
     # job will move into lost track because it never logs a heartbeat
     distributor_service._get_lost_task_instances()

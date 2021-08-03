@@ -31,9 +31,9 @@ class DummyQueue(ClusterQueue):
         self._queue_name = queue_name
         self._parameters = parameters
 
-    def validate_resource(self, resource: Dict, value: Any, fail: bool = False) -> str:
-        """Ensure cores requested isn't more than available on that node."""
-        return ""
+    def validate_resources(self, **kwargs) -> Tuple[bool, str, Dict]:
+        """No resources defined for sequential execution. All resources valid"""
+        return True, "", kwargs
 
     @property
     def queue_id(self) -> int:

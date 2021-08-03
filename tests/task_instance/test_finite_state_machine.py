@@ -44,7 +44,7 @@ def test_ti_kill_self_state(db_cfg, client_env, ti_state):
     # launch task on executor
     requester = Requester(client_env)
     distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                      workflow._executor, requester=requester)
+                                     workflow._executor, requester=requester)
     distributor.executor.start()
     distributor.distribute()
 
