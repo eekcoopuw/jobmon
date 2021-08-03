@@ -1,4 +1,5 @@
 """Inteface definition for jobmon executor plugins."""
+from __future__ import annotations
 
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Protocol, Tuple
@@ -16,7 +17,7 @@ class ClusterQueue(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def validate_resource(self, resource: str, value: Any, fail: bool = False) -> str:
+    def validate_resources(self, **kwargs) -> Tuple[bool, str, Dict]:
         """Ensures that requested resources aren't greater than what's available."""
         raise NotImplementedError
 
@@ -156,12 +157,19 @@ class ClusterWorkerNode(Protocol):
         """Error and exit code info from the executor."""
         raise NotImplementedError
 
+
 class ConcreteResource(Protocol):
 
+    @classmethod
     @abstractmethod
-    def validate(self):
+    def validate_and_create_concrete_resource(
+            self, queue: ClusterQueue, requested_resources: Dict
+    ) -> Tuple[bool, str, ConcreteResource]:
         raise NotImplementedError
 
+    @classmethod
     @abstractmethod
-    def adjust(self):
+    def adjust_and_create_concrete_resource(
+            cls, expected_queue: ClusterQueue, existing_resources: Dict[str, Any], **kwargs
+    ) -> ConcreteResource:
         raise NotImplementedError

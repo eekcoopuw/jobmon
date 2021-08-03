@@ -1,11 +1,14 @@
 """Dummy Executor fakes execution for testing purposes."""
+from __future__ import annotations
+
 import logging
 import os
 import random
 import shutil
 from typing import Any, Dict, List, Optional, Tuple, Type
 
-from jobmon.cluster_type.base import ClusterDistributor, ClusterQueue, ClusterWorkerNode
+from jobmon.cluster_type.base import (ClusterQueue, ClusterDistributor, ClusterWorkerNode,
+                                      ConcreteResource)
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.worker_node.cli import WorkerNodeCLI
@@ -145,13 +148,42 @@ class DummyWorkerNode(ClusterWorkerNode):
                 self._distributor_id = int(jid)
         return self._distributor_id
 
-    def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[TaskInstanceStatus, str]:
+    def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
         """Exit info, error message."""
         return TaskInstanceStatus.ERROR, error_msg
 
     def get_usage_stats(self) -> Dict:
         """Usage information specific to the exector."""
         return {}
+
+
+class ConcreteDummyResource(ConcreteResource):
+    # A version of a private constructor in Python
+    # Init shouldn't be called directly, otherwise we don't know resources are valid
+    # Note that this means the return type of validate and adjust are actually
+    # ConcreteUGEResource.__Implementation. Unsure if that's bad practice
+
+    def __init__(self, queue: ClusterQueue, valid_resources: Dict):
+        """
+        Always assumed to be valid.
+        Don't call init directly, this object should be created by validate or adjust.
+        """
+        self.queue = queue
+        self.resources = valid_resources
+
+    @classmethod
+    def validate_and_create_concrete_resource(
+            cls, queue: ClusterQueue, requested_resources: Dict
+    ) -> Tuple[bool, str, ConcreteDummyResource]:
+        is_valid, msg, valid_resources = queue.validate_resources(**requested_resources)
+        return is_valid, msg, cls(queue=queue, valid_resources=valid_resources)
+
+    @classmethod
+    def adjust_and_create_concrete_resource(
+            cls, expected_queue: ClusterQueue, existing_resources: Dict, **kwargs
+    ) -> ConcreteDummyResource:
+        """No adjustment defined for dummy execution. Return original parameters"""
+        return cls(queue=expected_queue, valid_resources=existing_resources)
 
 
 def get_cluster_queue_class() -> Type[ClusterQueue]:
@@ -167,3 +199,7 @@ def get_cluster_distributor_class() -> Type[ClusterDistributor]:
 def get_cluster_worker_node_class() -> Type[ClusterWorkerNode]:
     """Return the cluster worker node class for the dummy executor."""
     return DummyWorkerNode
+
+
+def get_concrete_resource_class() -> Type[ConcreteResource]:
+    return ConcreteDummyResource

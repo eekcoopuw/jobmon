@@ -63,8 +63,8 @@ def test_wfargs_update(tool, task_template):
     wfr1.bind(wf1.tasks)
     wfr2 = WorkflowRun(wf2.workflow_id)
     wfr2.bind(wf2.tasks)
-    assert not (set([t.task_id for _, t in wf1.tasks.items()]) &
-                set([t.task_id for _, t in wf2.tasks.items()]))
+    assert not (set([t.task_id for _, t in wf1.tasks.items()])
+                & set([t.task_id for _, t in wf2.tasks.items()]))
 
 
 def test_attempt_resume_on_complete_workflow(tool, task_template):
@@ -120,7 +120,7 @@ def test_multiple_active_race_condition(tool, task_template):
     workflow2.add_tasks([t2])
     workflow2.bind()
     with pytest.raises(WorkflowNotResumable):
-        workflow2._create_workflow_run(resume=True)
+        workflow2._create_workflow_run(resume=True, resume_timeout=1)
 
 
 def test_workflow_identical_args(tool, task_template):
