@@ -1,14 +1,10 @@
-import collections
 import os
 import sys
-import time
-from multiprocessing import Process
 
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import (ResumeSet, WorkflowAlreadyExists, WorkflowNotResumable)
 from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
-from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.tool import Tool
 
@@ -192,92 +188,7 @@ def test_cold_resume(tool, task_template):
     assert workflow3._num_newly_completed >= 3  # number of newly completed tasks
 
 
-def hot_resumable_workflow():
-
-    # set up tool and task template
-    unknown_tool = Tool()
-    tt = unknown_tool.get_task_template(
-        template_name="foo",
-        command_template="sleep {time}",
-        node_args=["time"])
-
-    # prepare first workflow
-    tasks = []
-    for i in range(6):
-        t = tt.create_task(time=60 + i)
-        tasks.append(t)
-    workflow = unknown_tool.create_workflow(name="hot_resume",
-                                            default_cluster_name="sequential",
-                                            default_compute_resources_set={"sequential": {"queue": "null.q"}},
-                                            workflow_args="foo")
-    workflow.add_tasks(tasks)
-    workflow.bind()
-    return workflow
-
-
-def run_hot_resumable_workflow():
-    workflow = hot_resumable_workflow()
-    workflow.run()
-
-
-def test_hot_resume(db_cfg, client_env):
-    p1 = Process(target=run_hot_resumable_workflow)
-    p1.start()
-
-    # poll until we determine that the workflow is running
-    session = db_cfg["DB"].session
-    with db_cfg["app"].app_context():
-        status = ""
-        max_sleep = 180  # 3 min max till test fails
-        slept = 0
-
-        while status != "R" and slept <= max_sleep:
-            time.sleep(5)
-            slept += 5
-
-            q = """
-                SELECT
-                    workflow.status
-                FROM
-                    workflow
-                WHERE
-                    workflow.name = 'hot_resume'
-            """
-            status = session.execute(q).fetchone()
-            if status is not None:
-                status = status[0]
-
-    if status != "R":
-        raise Exception("Workflow never started. Test failed")
-
-    # we need to time out early because the original job will never finish
-    with pytest.raises(RuntimeError):
-        workflow = hot_resumable_workflow()
-        workflow.bind()
-        workflow.run(resume=True, reset_running_jobs=False, seconds_until_timeout=200)
-
-    session = db_cfg["DB"].session
-    with db_cfg["app"].app_context():
-        q = """
-            SELECT
-                task.*
-            FROM
-                task
-            WHERE
-                workflow_id = {}
-        """.format(workflow.workflow_id)
-        tasks = session.execute(q).fetchall()
-
-    task_dict = {}
-    for task in tasks:
-        task_dict[task[0]] = task[9]
-    tasks = list(collections.OrderedDict(sorted(task_dict.items())).values())
-
-    assert "R" in list(tuple(tasks))  # the task left hanging by hot resume
-    assert len([status for status in tasks if status == "D"]) == 5
-
-
-def test_hot_resume_2(tool, task_template):
+def test_hot_resume(tool, task_template):
     workflow1 = tool.create_workflow(name="hot_resume")
     tasks = []
     for i in range(6):
