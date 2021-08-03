@@ -346,26 +346,26 @@ class Workflow(object):
         the specified cluster. It will also confirm that the workflow args are valid.  It also
         will make sure no task contains up/down stream tasks that are not in the workflow.
         """
-        for task in self.tasks.values():
+        # for task in self.tasks.values():
 
-            # get the cluster for this task
-            cluster_name = self._get_cluster_name(task)
-            cluster = self._get_cluster_by_name(cluster_name)
+        #     # get the cluster for this task
+        #     cluster_name = self._get_cluster_name(task)
+        #     cluster = self._get_cluster_by_name(cluster_name)
 
-            # construct the resource params by traversing from workflow to task
-            resource_params = self._get_resource_params(task, cluster_name)
+        #     # construct the resource params by traversing from workflow to task
+        #     resource_params = self._get_resource_params(task, cluster_name)
 
-            # get queue from resource params. it is cached on cluster object
-            queue_name = resource_params.pop("queue")
-            queue = cluster.get_queue(queue_name)
+        #     # get queue from resource params. it is cached on cluster object
+        #     queue_name = resource_params.pop("queue")
+        #     queue = cluster.get_queue(queue_name)
 
-            # construct resource scales
-            try:
-                resource_params.pop("resource_scales")
-            except KeyError:
-                pass
+        #     # construct resource scales
+        #     try:
+        #         resource_params.pop("resource_scales")
+        #     except KeyError:
+        #         pass
 
-            cluster.validate_requested_resources(resource_params, queue)
+        #     cluster.validate_requested_resources(resource_params, queue)
 
         # # validate by creating the object. validate is called under the hood
         # return cluster.create_task_resources(resource_params)
