@@ -134,20 +134,20 @@ class MultiprocessDistributor(ClusterDistributor):
         controlled by parallelism.
         """
         # set jobmon command if provided
-        self.consumers = [
-            Consumer(task_queue=self.task_queue,
-                     response_queue=self.response_queue)
-            for i in range(self._parallelism)
-        ]
-        for w in self.consumers:
-            w.start()
+        if not self.started:
+            self.consumers = [
+                Consumer(task_queue=self.task_queue,
+                         response_queue=self.response_queue)
+                for i in range(self._parallelism)
+            ]
+            for w in self.consumers:
+                w.start()
 
-        """Start the default."""
-        self.started = True
+            """Start the default."""
+            self.started = True
 
     def stop(self, distributor_ids: List[int]) -> None:
         """Terminate consumers and call sync 1 final time."""
-        breakpoint()
         actual = self.get_actual_submitted_or_running(distributor_ids=distributor_ids)
         self.terminate_task_instances(actual)
 
@@ -158,7 +158,6 @@ class MultiprocessDistributor(ClusterDistributor):
         # Wait for commands to finish
         self.task_queue.join()
 
-        """Stop the default."""
         self.started = False
 
     def _update_internal_states(self) -> None:

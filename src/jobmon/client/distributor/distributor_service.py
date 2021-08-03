@@ -247,11 +247,14 @@ class DistributorService:
     def _keep_distributing(self, thread_stop_event: Optional[threading.Event] = None) -> bool:
         any_work_to_do = any(self._to_instantiate) or any(self._to_reconcile)
         # If we are running in a thread. This is the standard path
+
         if thread_stop_event is not None:
-            return not thread_stop_event.is_set() and any_work_to_do
+            res = not thread_stop_event.is_set() and any_work_to_do
         # If we are running in the main thread. This is a testing path
         else:
-            return any_work_to_do
+            res = any_work_to_do
+        logger.info(f"keep distributing is {res}")
+        return res
 
     def _distribute_forever(self, thread_stop_event: threading.Event, poll_interval: float = 10
                             ) -> None:

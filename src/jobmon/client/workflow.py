@@ -134,7 +134,7 @@ class Workflow(object):
         self.default_cluster_name: str = ""
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
 
-        self._last_workflow_run: Optional[SwarmWorkflowRun] = None
+        self._fail_after_n_executions = 1_000_000_000
 
     @property
     def is_bound(self):
@@ -303,7 +303,8 @@ class Workflow(object):
         # set up swarm and initial DAG
         swarm = SwarmWorkflowRun(
             workflow_id=self.workflow_id, workflow_run_id=wfr.workflow_run_id,
-            tasks=list(self.tasks.values()), fail_after_n_executions=1_000_000_000,
+            tasks=list(self.tasks.values()),
+            fail_after_n_executions=self._fail_after_n_executions,
             requester=self.requester
         )
 

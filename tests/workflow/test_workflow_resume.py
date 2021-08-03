@@ -2,17 +2,19 @@ import collections
 import os
 import sys
 import time
-from multiprocessing import Process, Event
+from multiprocessing import Process
 
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import (ResumeSet, WorkflowAlreadyExists, WorkflowNotResumable)
+from jobmon.client.distributor.distributor_service import DistributorService
+from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
+from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+from jobmon.client.tool import Tool
 
 from mock import patch
 
 import pytest
-
-from jobmon.client.task import Task
-from jobmon.client.tool import Tool
 
 
 @pytest.fixture
@@ -103,6 +105,23 @@ def test_fail_one_task_resume(db_cfg, tool, task_template_fail_one, tmpdir):
     assert workflow1.workflow_id == workflow2.workflow_id
 
 
+def get_two_wave_tasks(task_template):
+    tasks = []
+
+    wave_1 = []
+    for i in range(3):
+        tm = 5 + i
+        t = task_template.create_task(arg=f"sleep {tm}")
+        tasks.append(t)
+        wave_1.append(t)
+
+    for i in range(3):
+        tm = 8 + i
+        t = task_template.create_task(arg=f"sleep {tm}", upstream_tasks=wave_1)
+        tasks.append(t)
+    return tasks
+
+
 class MockDistributorProc:
 
     def is_alive(self):
@@ -111,22 +130,10 @@ class MockDistributorProc:
 
 def test_cold_resume(tool, task_template):
     """"""
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     # prepare first workflow
     workflow1 = tool.create_workflow(name="cold_resume")
-    wave_1 = []
-    for i in range(3):
-        tm = 5 + i
-        t = task_template.create_task(arg=f"sleep {tm}")
-        workflow1.add_task(t)
-        wave_1.append(t)
-    for i in range(3):
-        tm = 8 + i
-        t = task_template.create_task(arg=f"sleep {tm}", upstream_tasks=wave_1)
-        workflow1.add_task(t)
+    workflow1.add_tasks(get_two_wave_tasks(task_template))
 
     # create a distributor and start up the first 3 jobs
     workflow1.bind()
@@ -155,16 +162,7 @@ def test_cold_resume(tool, task_template):
     with pytest.raises(WorkflowNotResumable):
         workflow2 = tool.create_workflow(name=workflow1.name,
                                          workflow_args=workflow1.workflow_args)
-        wave_1 = []
-        for i in range(3):
-            tm = 5 + i
-            t = task_template.create_task(arg=f"sleep {tm}")
-            workflow2.add_task(t)
-            wave_1.append(t)
-        for i in range(3):
-            tm = 8 + i
-            t = task_template.create_task(arg=f"sleep {tm}", upstream_tasks=wave_1)
-            workflow2.add_task(t)
+        workflow2.add_tasks(get_two_wave_tasks(task_template))
         workflow2.bind()
         workflow2._create_workflow_run(resume=True, resume_timeout=1)
 
@@ -187,17 +185,7 @@ def test_cold_resume(tool, task_template):
         default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
         workflow_args=workflow1.workflow_args
     )
-    wave_1 = []
-    for i in range(3):
-        tm = 5 + i
-        t = task_template.create_task(arg=f"sleep {tm}")
-        workflow3.add_task(t)
-        wave_1.append(t)
-    for i in range(3):
-        tm = 8 + i
-        t = task_template.create_task(arg=f"sleep {tm}", upstream_tasks=wave_1)
-        workflow3.add_task(t)
-
+    workflow3.add_tasks(get_two_wave_tasks(task_template))
     workflow_run_status = workflow3.run(resume=True)
 
     assert workflow_run_status == WorkflowRunStatus.DONE
@@ -289,46 +277,97 @@ def test_hot_resume(db_cfg, client_env):
     assert len([status for status in tasks if status == "D"]) == 5
 
 
-def test_stopped_resume(db_cfg, client_env, task_template):
+def test_hot_resume_2(tool, task_template):
+    workflow1 = tool.create_workflow(name="hot_resume")
+    tasks = []
+    for i in range(6):
+        t = task_template.create_task(arg=f"sleep {10 + i}")
+        tasks.append(t)
+    workflow1.add_tasks(tasks)
+
+    # create a workflow and run the first 3 jobs
+    workflow1.bind()
+    wfr1 = workflow1._create_workflow_run()
+    distributor_service1 = DistributorService(
+        workflow1.workflow_id, wfr1.workflow_run_id,
+        MultiprocessDistributor(parallelism=3),
+        requester=workflow1.requester
+    )
+    swarm1 = SwarmWorkflowRun(workflow_id=workflow1.workflow_id,
+                              workflow_run_id=wfr1.workflow_run_id,
+                              tasks=list(workflow1.tasks.values()),
+                              requester=workflow1.requester)
+    swarm1.update_status(WorkflowRunStatus.RUNNING)
+    swarm1.compute_initial_dag_state()
+    list(swarm1.queue_tasks())
+    distributor_service1.distributor.start()
+    distributor_service1.heartbeat()
+    distributor_service1._get_tasks_queued_for_instantiation()
+    distributor_service1.distribute()
+
+    # now make another and set a hot resume with a quick timeout
+    workflow2 = tool.create_workflow(name="hot_resume", workflow_args=workflow1.workflow_args)
+    tasks = []
+    for i in range(6):
+        t = task_template.create_task(arg=f"sleep {10 + i}")
+        tasks.append(t)
+    workflow2.add_tasks(tasks)
+    workflow2.bind()
+    with pytest.raises(WorkflowNotResumable):
+        wfr2 = workflow2._create_workflow_run(resume=True, reset_running_jobs=False,
+                                              resume_timeout=1)
+
+    # now check that resume is set and terminate current workflow run.
+    with pytest.raises(ResumeSet):
+        distributor_service1.run_distributor()
+    swarm1.terminate_workflow_run()
+
+    breakpoint()
+
+    # distributor_service = DistributorService(
+    #     workflow1.workflow_id, wfr1.workflow_run_id,
+    #     SequentialDistributor(),
+    #     requester=workflow1.requester
+    # )
+    # swarm = SwarmWorkflowRun(workflow_id=workflow1.workflow_id,
+    #                          workflow_run_id=wfr1.workflow_run_id,
+    #                          tasks=list(workflow1.tasks.values()),
+    #                          requester=workflow1.requester)
+    # swarm.update_status(WorkflowRunStatus.RUNNING)
+    # swarm.compute_initial_dag_state()
+    # list(swarm.queue_tasks())
+    # distributor_service.distributor.start()
+    # distributor_service.heartbeat()
+    # distributor_service._get_tasks_queued_for_instantiation()
+    # distributor_service.distribute()
+
+def test_stopped_resume(tool, task_template):
     """test that a workflow with two task where the workflow is stopped with a
     keyboard interrupt mid stream. The workflow is resumed and
     the tasks then finishes successfully and the workflow runs to completion"""
 
-    tool = Tool()
-    workflow1 = tool.create_workflow(name="stopped_resume",
-                                    default_cluster_name="sequential",
-                                    default_compute_resources_set={"sequential": {"queue": "null.q"}})
-    t1 = task_template.create_task(
-                arg="echo t1")
-    t2 = task_template.create_task(
-                arg="echo t2", upstream_tasks=[t1])
+    workflow1 = tool.create_workflow(name="stopped_resume")
+    t1 = task_template.create_task(arg="echo t1")
+    t2 = task_template.create_task(arg="echo t2", upstream_tasks=[t1])
     workflow1.add_tasks([t1, t2])
-    workflow1.bind()
 
     # start up the first task. patch so that it fails with a keyboard interrupt
-    workflow1._set_fail_after_n_executions(1)
-    with patch("jobmon.client.swarm.workflow_run.ValueError") as fail_error:
-        fail_error.side_effect = KeyboardInterrupt
-        # will ask if we want to exit. answer is 'y'
-        with patch('builtins.input') as input_patch:
-            input_patch.return_value = 'y'
-            wfrs1 = workflow1.run()
-
-    assert wfrs1 == WorkflowRunStatus.STOPPED
+    workflow1._fail_after_n_executions = 1
+    with pytest.raises(KeyboardInterrupt):
+        with patch("jobmon.client.swarm.workflow_run.ValueError") as fail_error:
+            fail_error.side_effect = KeyboardInterrupt
+            # will ask if we want to exit. answer is 'y'
+            with patch('builtins.input') as input_patch:
+                input_patch.return_value = 'y'
+                workflow1.run()
 
     # now resume it
     workflow1 = tool.create_workflow(
         name="stopped_resume",
-        default_cluster_name="sequential",
-        default_compute_resources_set={"sequential": {"queue": "null.q"}},
         workflow_args=workflow1.workflow_args)
-    t1 = task_template.create_task(
-                arg="echo t1")
-    t2 = task_template.create_task(
-                arg="echo t2",
-                  upstream_tasks=[t1])
+    t1 = task_template.create_task(arg="echo t1")
+    t2 = task_template.create_task(arg="echo t2", upstream_tasks=[t1])
     workflow1.add_tasks([t1, t2])
-    workflow1.bind()
     wfrs2 = workflow1.run(resume=True)
 
     assert wfrs2 == WorkflowRunStatus.DONE
