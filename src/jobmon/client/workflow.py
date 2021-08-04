@@ -393,6 +393,9 @@ class Workflow(object):
             cluster_name = self._get_cluster_name(task)
             cluster = self._get_cluster_by_name(cluster_name)
 
+            # bind cluster to task
+            task.cluster = cluster
+
             # construct the resource params by traversing from workflow to task
             resource_params = self._get_resource_params(task, cluster_name)
 

@@ -6,7 +6,8 @@ from typing import Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_resources import TaskResources
-from jobmon.client.cluster import ClusterQueue
+from jobmon.client.cluster import Cluster
+from jobmon.cluster_type.base import ClusterQueue
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
@@ -20,7 +21,7 @@ class SwarmTask(object):
     """Swarm side task object."""
 
     def __init__(self, task_id: int, status: str, task_args_hash: int,
-                 # cluster: Cluster,
+                 cluster: Cluster,
                  task_resources: Optional[TaskResources] = None,
                  resource_scales: Optional[Dict] = None,
                  max_attempts: int = 3,
@@ -45,9 +46,8 @@ class SwarmTask(object):
 
         self.task_resources = task_resources
 
-        # self.cluster = cluster
-        # self.task_resources_callable = task_resources
-        # self.resource_scales = resource_scales
+        self.resource_scales = resource_scales
+        self.cluster = cluster
 
         self.max_attempts = max_attempts
         self.task_args_hash = task_args_hash
@@ -57,8 +57,6 @@ class SwarmTask(object):
             requester = Requester(requester_url)
         self.requester = requester
 
-        # once the callable is evaluated, the resources should be saved here
-        # self.bound_parameters: List[TaskResources] = [self.task_resources_callable()]
         self.fallback_queues = fallback_queues
 
         self.num_upstreams_done: int = 0
@@ -110,19 +108,3 @@ class SwarmTask(object):
             raise InvalidResponse(f"{rc}: Could not queue task")
         self.status = TaskStatus.QUEUED_FOR_INSTANTIATION
         return rc
-
-    def adjust_resources(self) -> TaskResources:
-        """Function from Job Instance Factory that adjusts resources and then queues them.
-
-        This should also incorporate resource binding if they have not yet been bound.
-        """
-        logger.debug("Job in A state, adjusting resources before queueing")
-        # get the most recent parameter set
-        previous_resources: TaskResources = self.bound_parameters[-1]
-
-        new_resources: TaskResources = self.cluster.adjust_task_resource(
-            initial_resources=previous_resources.concrete_resources.resources,
-            resource_scales=self.resource_scales,
-            expected_queue=previous_resources.queue,
-            fallback_queues=self.fallback_queues)
-        return new_resources

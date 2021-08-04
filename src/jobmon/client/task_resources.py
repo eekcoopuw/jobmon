@@ -75,7 +75,7 @@ class TaskResources:
         """Return the requester."""
         return self._requester
 
-    def bind(self, task_id: int, task_resources_type_id: int = None) -> None:
+    def bind(self, task_id: int, task_resources_type_id: str = None) -> None:
         """Bind TaskResources to the database."""
         app_route = f'/swarm/task/{task_id}/bind_resources'
         if task_resources_type_id is None:
