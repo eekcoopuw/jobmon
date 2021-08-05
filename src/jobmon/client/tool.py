@@ -8,7 +8,6 @@ import getpass
 from http import HTTPStatus as StatusCodes
 import logging
 from typing import Any, Dict, List, Optional, Union
-import warnings
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
@@ -64,7 +63,7 @@ class Tool:
         self._bind()
 
         # import tool versions
-        self._load_tool_versions()
+        self.tool_versions = self._load_tool_versions()
         if not self.tool_versions:
             self.get_new_tool_version()
         else:
@@ -132,37 +131,11 @@ class Tool:
         tool_version.load_task_templates()
         self._active_tool_version: ToolVersion = tool_version
 
-    def create_task_template(self, template_name: str, command_template: str,
-                             node_args: List[str] = [], task_args: List[str] = [],
-                             op_args: List[str] = []) -> TaskTemplate:
-        """Create or get task a task template.
-
-        Args:
-            template_name: the name of this task template.
-            command_template: an abstract command representing a task, where the arguments to
-                the command have defined names but the values are not assigned. eg: '{python}
-                {script} --data {data} --para {para} {verbose}'
-            node_args: any named arguments in command_template that make the command unique
-                within this template for a given workflow run. Generally these are arguments
-                that can be parallelized over.
-            task_args: any named arguments in command_template that make the command unique
-                across workflows if the node args are the same as a previous workflow.
-                Generally these are arguments about data moving though the task.
-            op_args: any named arguments in command_template that can change without changing
-                the identity of the task. Generally these are things like the task executable
-                location or the verbosity of the script.
-        """
-        warnings.warn(
-            "The create_task_template method is deprecated. Please use get_task_template.",
-            DeprecationWarning
-        )
-        return self.get_task_template(template_name, command_template, node_args, task_args,
-                                      op_args)
-
     def get_task_template(self, template_name: str, command_template: str,
                           node_args: List[str] = [], task_args: List[str] = [],
-                          op_args: List[str] = [],
-                          compute_resources: Optional[Dict[str, Any]] = None) -> TaskTemplate:
+                          op_args: List[str] = [], default_cluster_name: str = "",
+                          default_compute_resources: Optional[Dict[str, Any]] = None
+                          ) -> TaskTemplate:
         """Create or get task a task template.
 
         Args:
@@ -179,12 +152,20 @@ class Tool:
             op_args: any named arguments in command_template that can change without changing
                 the identity of the task. Generally these are things like the task executable
                 location or the verbosity of the script.
-            compute_resources: dictionary of default compute resources to run tasks with.
-                Can be overridden at task level. dict of {resource_name: resource_value}.
+            default_cluster_name: the default cluster to run each task associated with this
+                template on.
+            default_compute_resources: dictionary of default compute resources to run tasks
+                with. Can be overridden at task level. dict of {resource_name: resource_value}.
+                Must specify default_cluster_name when this option is used.
         """
+        if default_compute_resources is not None and not default_cluster_name:
+            raise ValueError(
+                "Must specify default_cluster_name when using default_compute_resources option"
+            )
+
         tt = self.active_tool_version.get_task_template(template_name)
         tt.get_task_template_version(command_template, node_args, task_args, op_args,
-                                     compute_resources)
+                                     default_cluster_name, default_compute_resources)
         return tt
 
     def create_workflow(self, workflow_args: str = "", name: str = "", description: str = "",
@@ -279,7 +260,7 @@ class Tool:
         """
         self.active_tool_version.default_cluster_name = cluster_name
 
-    def _load_tool_versions(self) -> None:
+    def _load_tool_versions(self) -> List[ToolVersion]:
         app_route = f"/client/tool/{self.id}/tool_versions"
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -296,7 +277,7 @@ class Tool:
 
         tool_versions = [ToolVersion.from_wire(wire_tuple)
                          for wire_tuple in response["tool_versions"]]
-        self.tool_versions = tool_versions
+        return tool_versions
 
     def _bind(self) -> None:
         """Call route to create tool."""

@@ -46,7 +46,7 @@ def log_config(test_app, tmp_path):
 
 
 @pytest.mark.skip()
-def test_server_logging_format(web_server_in_memory, log_config, tool, task_template):
+def test_server_logging_format(requester_in_memory, log_config, tool, task_template):
 
     wf = tool.create_workflow("test_server")
     task_a = task_template.create_task(arg="echo r")
@@ -60,7 +60,7 @@ def test_server_logging_format(web_server_in_memory, log_config, tool, task_temp
             assert "blueprint" in log_dict.keys()
 
 
-def test_add_structlog_context(web_server_in_memory, log_config):
+def test_add_structlog_context(requester_in_memory, log_config):
     requester = Requester("")
     added_context = {"foo": "bar", "baz": "qux"}
     requester.add_server_structlog_context(**added_context)
@@ -77,7 +77,7 @@ def test_add_structlog_context(web_server_in_memory, log_config):
                 assert val in log_dict.values()
 
 
-def test_error_handling(web_server_in_memory, log_config, monkeypatch):
+def test_error_handling(requester_in_memory, log_config, monkeypatch):
     from jobmon.server.web.routes.blueprints import client_routes
 
     msg = "bad luck buddy"
@@ -100,7 +100,7 @@ def test_error_handling(web_server_in_memory, log_config, monkeypatch):
     assert captured_exception
 
 
-def test_server_500(web_server_in_memory):
+def test_server_500(requester_in_memory):
     test_requester = Requester('')
     rc, resp = test_requester._send_request(
         app_route='/client/test_bad',

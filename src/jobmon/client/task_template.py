@@ -4,7 +4,7 @@ from __future__ import annotations
 import hashlib
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
@@ -63,7 +63,8 @@ class TaskTemplate:
         """Default cluster_name associated with active tool version."""
         return self.active_task_template_version.default_cluster_name
 
-    def set_default_cluster_name(self, cluster_name: str) -> None:
+    @default_cluster_name.setter
+    def default_cluster_name(self, cluster_name: str) -> None:
         """Set default cluster.
 
         Args:
@@ -72,9 +73,9 @@ class TaskTemplate:
         self.active_task_template_version.default_cluster_name = cluster_name
 
     @property
-    def default_compute_resources(self) -> Dict[str, Dict[str, Any]]:
+    def default_compute_resources_set(self) -> Dict[str, Dict[str, Any]]:
         """Default compute resources associated with active tool version."""
-        return self.active_task_template_version.default_compute_resources
+        return self.active_task_template_version.default_compute_resources_set
 
     def update_default_compute_resources(self, cluster_name: str, **kwargs: Any) -> None:
         """Update default compute resources in place only overridding specified keys.
@@ -86,8 +87,6 @@ class TaskTemplate:
             cluster_name: name of cluster to modify default values for.
             **kwargs: any key/value pair you want to update specified as an argument.
         """
-        if not self.default_cluster_name:
-            self.active_task_template_version.default_cluster_name = cluster_name
         self.active_task_template_version.update_default_compute_resources(cluster_name,
                                                                            **kwargs)
 
@@ -116,10 +115,9 @@ class TaskTemplate:
                 with. Can be overridden at task template or task level.
                 dict of {resource_name: resource_value}
         """
-        if not self.default_cluster_name:
-            self.active_task_template_version.default_cluster_name = cluster_name
-        self.active_task_template_version. \
-            set_default_compute_resources_from_dict(cluster_name, compute_resources)
+        self.active_task_template_version.set_default_compute_resources_from_dict(
+            cluster_name, compute_resources
+        )
 
     @classmethod
     def from_wire(cls: Any, wire_tuple: Tuple, requester: Optional[Requester] = None
@@ -282,8 +280,9 @@ class TaskTemplate:
 
     def get_task_template_version(self, command_template: str, node_args: List[str] = [],
                                   task_args: List[str] = [], op_args: List[str] = [],
-                                  compute_resources: Optional[Dict[str, Any]] = None) \
-            -> TaskTemplateVersion:
+                                  default_cluster_name: str = "",
+                                  default_compute_resources: Optional[Dict[str, Any]] = None
+                                  ) -> TaskTemplateVersion:
         """Create a task template version instance. If it already exists, activate it.
 
         Args:
@@ -299,9 +298,17 @@ class TaskTemplate:
             op_args: any named arguments in command_template that can change without changing
                 the identity of the task. Generally these are things like the task executable
                 location or the verbosity of the script.
-            compute_resources: dictionary of default compute resources to run tasks with. Can
-                be overridden at task level. dict of {resource_name: resource_value}.
+            default_cluster_name: the default cluster to run each task associated with this
+                template on.
+            default_compute_resources: dictionary of default compute resources to run tasks
+                with. Can be overridden at task level. dict of {resource_name: resource_value}.
+                Must specify default_cluster_name when this option is used.
         """
+        if default_compute_resources is not None and not default_cluster_name:
+            raise ValueError(
+                "Must specify default_cluster_name when using default_compute_resources option"
+            )
+
         if not node_args:
             node_args = []
         if not task_args:
@@ -314,13 +321,21 @@ class TaskTemplate:
             node_args=node_args,
             task_args=task_args,
             op_args=op_args,
-            requester=self.requester,
-            compute_resources=compute_resources
+            requester=self.requester
         )
 
         # now activate it
         self.set_active_task_template_version(task_template_version)
-        return self.active_task_template_version.bind(self.id)
+        self.active_task_template_version.bind(self.id)
+
+        # set compute resources on the newly active task template version if specified
+        self.active_task_template_version.default_cluster_name = default_cluster_name
+        if default_compute_resources:
+            self.active_task_template_version.set_default_compute_resources_from_dict(
+                default_cluster_name, default_compute_resources
+            )
+
+        return self.active_task_template_version
 
     def create_task(self,
                     name: Optional[str] = None,
@@ -328,6 +343,7 @@ class TaskTemplate:
                     task_attributes: Union[List, dict] = {},
                     max_attempts: int = 3,
                     compute_resources: Optional[Dict[str, Any]] = None,
+                    compute_resources_callable: Optional[Callable] = None,
                     resource_scales: Optional[Dict[str, Any]] = None,
                     cluster_name: str = "",
                     **kwargs: Any) -> Task:
@@ -339,6 +355,11 @@ class TaskTemplate:
             task_attributes (dict or list): attributes and their values or just the attributes
                 that will be given values later
             max_attempts: Number of attempts to try this task before giving up. Default is 3.
+            cluster_name: name of cluster to run task on.
+            compute_resources: dictionary of default compute resources to run tasks
+                with. Can be overridden at task template or task level.
+                dict of {resource_name: resource_value}
+
             **kwargs: values for each argument specified in command_template
 
         Returns:
@@ -377,10 +398,14 @@ class TaskTemplate:
                      for k, v in kwargs.items()
                      if k in self.active_task_template_version.task_args}
 
+        # set cluster_name, function level overrides default
+        if not cluster_name:
+            cluster_name = self.default_cluster_name
+
+        # Set compute resources, task compute resources override tasktemplate defaults
         if compute_resources is None:
             compute_resources = {}
-        # Set compute resources, value task compute resources of tasktemplate resources
-        resources = self.default_compute_resources.get(cluster_name, {}).copy()
+        resources = self.default_compute_resources_set.get(cluster_name, {}).copy()
         resources.update(compute_resources)
 
         # build task
@@ -389,7 +414,8 @@ class TaskTemplate:
             task_template_version_id=self.active_task_template_version.id,
             node_args=node_args,
             task_args=task_args,
-            compute_resources=compute_resources,
+            compute_resources=resources,
+            compute_resources_callable=compute_resources_callable,
             resource_scales=resource_scales,
             cluster_name=cluster_name,
             name=name,
@@ -402,5 +428,5 @@ class TaskTemplate:
 
     def __hash__(self) -> int:
         """A hash of the TaskTemplate name and tool version concatenated together."""
-        hash_value = int(hashlib.sha1(self.template_name).hexdigest(), 16)
+        hash_value = int(hashlib.sha1(self.template_name.encode('utf-8')).hexdigest(), 16)
         return hash_value

@@ -111,13 +111,14 @@ def test_task_template_resources(db_cfg, client_env, tool):
     from jobmon.client.workflow_run import WorkflowRun
 
     workflow1 = tool.create_workflow(name="test_template_resources")
-    tt_resources = {"sequential": {"queue": "null.q", "cores": 1, "max_runtime_seconds": 3}}
+    tt_resources = {"queue": "null.q", "cores": 1, "max_runtime_seconds": 3}
     task_template = tool.get_task_template(template_name="random_template",
                                            command_template="{arg}",
                                            node_args=["arg"],
                                            task_args=[],
                                            op_args=[],
-                                           compute_resources=tt_resources)
+                                           default_cluster_name="sequential",
+                                           default_compute_resources=tt_resources)
     task_resources = {"queue": "null.q", "cores": 1, "max_runtime_seconds": 2}
     task1 = task_template.create_task(
         arg="sleep 1",
@@ -128,10 +129,14 @@ def test_task_template_resources(db_cfg, client_env, tool):
         arg="sleep 2",
         cluster_name="sequential"
     )
-    workflow1.add_tasks([task1, task2])
+    task3 = task_template.create_task(
+        arg="sleep 3"
+    )
+    workflow1.add_tasks([task1, task2, task3])
     workflow1.bind()
     client_wfr = WorkflowRun(workflow1.workflow_id)
     client_wfr.bind(workflow1.tasks)
 
     assert task1.task_resources._requested_resources == {'cores': 1, 'max_runtime_seconds': 2}
     assert task2.task_resources._requested_resources == {'cores': 1, 'max_runtime_seconds': 3}
+    assert task3.task_resources._requested_resources == {'cores': 1, 'max_runtime_seconds': 3}

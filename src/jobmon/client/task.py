@@ -7,7 +7,7 @@ from __future__ import annotations
 import hashlib
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
@@ -66,6 +66,7 @@ class Task:
                  task_args: dict,
                  cluster_name: str = '',
                  compute_resources: Optional[Dict[str, Any]] = None,
+                 compute_resources_callable: Optional[Callable] = None,
                  resource_scales: Optional[Dict[str, float]] = None,
                  fallback_queues: Optional[List[ClusterQueue]] = None,
                  name: Optional[str] = None,
@@ -150,6 +151,7 @@ class Task:
             self.compute_resources = {}
         else:
             self.compute_resources = compute_resources.copy()
+        self.compute_resources_callable = compute_resources_callable
         self.resource_scales = resource_scales
         self.cluster_name = cluster_name
         self.fallback_queues = fallback_queues
@@ -187,7 +189,7 @@ class Task:
         return self._initial_status
 
     @initial_status.setter
-    def initial_status(self, val: int) -> None:
+    def initial_status(self, val: str) -> None:
         self._initial_status = val
 
     @property
@@ -200,7 +202,7 @@ class Task:
         return self._final_status
 
     @final_status.setter
-    def final_status(self, val):
+    def final_status(self, val: str):
         self._final_status = val
 
     @property
@@ -397,7 +399,7 @@ class Task:
                 f'{app_route}. Expected code 200. Response content: {response}')
         return list(response["tasks"].values())[0]
 
-    def __eq__(self, other: 'Task') -> bool:
+    def __eq__(self, other: object) -> bool:
         """Check if the hashes of two tasks are equivalent."""
         return hash(self) == hash(other)
 

@@ -1,12 +1,12 @@
 import getpass
 import logging
 
-from jobmon.client.cli import ClientCLI as CLI
 
 import pytest
 
-from jobmon.client.task import Task
+from jobmon.client.cli import ClientCLI as CLI
 from jobmon.client.tool import Tool
+
 
 @pytest.fixture
 def tool(db_cfg, client_env):
@@ -26,6 +26,7 @@ def task_template(tool):
         op_args=[]
     )
     return tt
+
 
 logger = logging.getLogger(__name__)
 
@@ -225,7 +226,7 @@ def test_workflow_tasks(db_cfg, client_env, task_template):
     # execute the tasks
     requester = Requester(client_env)
     distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                      "sequential", requester=requester)
+                                     "sequential", requester=requester)
     with pytest.raises(RuntimeError):
         wfr.execute_interruptible(MockDistributorProc(),
                                   seconds_until_timeout=1)
