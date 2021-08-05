@@ -102,7 +102,7 @@ class WorkflowReaper(object):
         # Transition workflows to HALTED
         target_status = WorkflowRunStatus.TERMINATED
         for wfr in workflow_runs:
-            status = wfr.reap(target_status)
+            status = wfr.reap()
             if status == target_status and self._wf_notification_sink is not None:
                 message = self._reaper_message[status].format(
                     __version__=self._version, workflow_id=wfr.workflow_id,
@@ -117,7 +117,7 @@ class WorkflowReaper(object):
         # Transitions workflow to FAILED state and workflow run to ERROR
         target_status = WorkflowRunStatus.ERROR
         for wfr in workflow_runs:
-            status = wfr.reap(target_status)
+            status = wfr.reap()
             if status == target_status and self._wf_notification_sink is not None:
                 message = self._reaper_message[status].format(
                     __version__=self._version, workflow_id=wfr.workflow_id,
@@ -137,7 +137,7 @@ class WorkflowReaper(object):
         # Transitions workflow to A state and workflow run to A
         target_status = WorkflowRunStatus.ABORTED
         for wfr in workflow_runs:
-            status = wfr.reap(target_status)
+            status = wfr.reap()
             if status == target_status and self._wf_notification_sink is not None:
                 message = self._reaper_message[status].format(
                     __version__=self._version, workflow_id=wfr.workflow_id,

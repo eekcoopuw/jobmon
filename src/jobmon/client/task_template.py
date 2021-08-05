@@ -389,7 +389,7 @@ class TaskTemplate:
             task_template_version_id=self.active_task_template_version.id,
             node_args=node_args,
             task_args=task_args,
-            compute_resources=compute_resources,
+            compute_resources=resources,
             resource_scales=resource_scales,
             cluster_name=cluster_name,
             name=name,
