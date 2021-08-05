@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Type
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_resources import TaskResources
@@ -85,7 +85,7 @@ class Cluster:
         return import_cluster(self._cluster_type_name)
 
     @property
-    def concrete_resource_class(self) -> type:
+    def concrete_resource_class(self) -> Type[ConcreteResource]:
         """ If the cluster is bound, access the concrete resource class"""
         return self.plugin.get_concrete_resource_class()
 
@@ -122,31 +122,20 @@ class Cluster:
 
         return queue
 
-    def validate_requested_resources(self, requested_resources: Dict[str, Any],
-                                     queue: ClusterQueue,
-                                     fail: bool = False) -> ConcreteResource:
-        """Validate the requested resources dict against the specified queue.
-
-        Raises: ValueError
-        """
-        # validate it has required resources
-        valid_resources: ConcreteResource = self.concrete_resource_class.validate(
-            queue=queue, requested_resources=requested_resources, fail=fail)
-        return valid_resources
-
     def adjust_task_resource(self, initial_resources: Dict, resource_scales: Dict,
                              expected_queue: ClusterQueue = None,
                              fallback_queues: List[ClusterQueue] = None) -> TaskResources:
         """Adjust task resources based on the scaling factor"""
-        adjusted_concrete_resource: ConcreteResource = self.concrete_resource_class.adjust(
-            existing_resources=initial_resources,
-            resource_scales=resource_scales,
-            expected_queue=expected_queue,
-            fallback_queues=fallback_queues)
+        adjusted_concrete_resource: ConcreteResource = self.concrete_resource_class.\
+            adjust_and_create_concrete_resource(
+                existing_resources=initial_resources,
+                resource_scales=resource_scales,
+                expected_queue=expected_queue,
+                fallback_queues=fallback_queues)
 
         adjusted_task_resource = TaskResources(
             concrete_resources=adjusted_concrete_resource,
-            task_resources_type_id=TaskResourcesType.ADJUSTED  # Always adjusted if coming through this path
+            task_resources_type_id=TaskResourcesType.ADJUSTED
         )
         return adjusted_task_resource
 
@@ -160,10 +149,10 @@ class Cluster:
         queue = self.get_queue(queue_name)
 
         # Validate
-        is_valid, msg, concrete_resources = self.concrete_resource_class.validate_and_create_concrete_resource(
-            requested_resources=resource_params,
-            queue=queue
-        )
+        is_valid, msg, concrete_resources = self.concrete_resource_class.\
+            validate_and_create_concrete_resource(
+                requested_resources=resource_params,
+                queue=queue)
         if fail and not is_valid:
             raise ValueError(f"Failed validation, reasons: {msg}")
 

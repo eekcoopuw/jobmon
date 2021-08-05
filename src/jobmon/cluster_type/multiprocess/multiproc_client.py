@@ -1,5 +1,5 @@
 """The client for the Multiprocess executor."""
-from typing import Any, Dict, List, Tuple
+from typing import Dict, List, Tuple
 
 from jobmon.cluster_type.base import ClusterQueue
 
@@ -18,7 +18,25 @@ class MultiprocessQueue(ClusterQueue):
 
     def validate_resources(self, **kwargs) -> Tuple[bool, str, Dict]:
         """Ensure cores requested isn't more than available on that node."""
-        return True, "", kwargs
+        msg = ""
+        cores = kwargs.get('cores')
+        min_cores, max_cores = self.parameters.get('cores')
+        if cores:
+            if cores > max_cores:
+                msg += (f"ResourceError: provided cores {cores} exceeds "
+                        f"queue limit of {max_cores} "
+                        f"for queue {self.queue_name}")
+                cores = max_cores
+            elif cores < min_cores:
+                msg += (f"ResourceError: provided cores {cores} is below "
+                        f"queue minimum of {min_cores} "
+                        f"for queue {self.queue_name}")
+                cores = min_cores
+        else:
+            # Set cores to the queue minimum
+            msg += f"Cores not provided, setting to {self.queue_name} minimum of {min_cores}"
+            cores = min_cores
+        return len(msg) == 0, msg, dict(kwargs, cores=cores)
 
     @property
     def queue_id(self) -> int:

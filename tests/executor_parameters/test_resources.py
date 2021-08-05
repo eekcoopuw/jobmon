@@ -254,6 +254,7 @@ def test_swarmtask_resources_integration(db_cfg, client_env):
     """ Check that taskresources defined in task are passed to swarmtask appropriately"""
     from jobmon.constants import TaskResourcesType
     from jobmon.client.tool import Tool
+    from jobmon.client.swarm.workflow_run import WorkflowRun
 
     tool = Tool()
     wf = tool.create_workflow(default_cluster_name='multiprocess')
@@ -266,16 +267,19 @@ def test_swarmtask_resources_integration(db_cfg, client_env):
     wf.add_task(task)
     wf.bind()
     wfr = wf._create_workflow_run()
+    swarm_wfr = WorkflowRun(workflow_id=wf.workflow_id, workflow_run_id=wfr.workflow_run_id,
+                            tasks=list(wf.tasks.values()))
 
     # Check swarmtask resources
-    swarmtask = wfr.swarm_tasks[task.task_id]
-    initial_resources = swarmtask.get_task_resources()
+    swarmtask = swarm_wfr.swarm_tasks[task.task_id]
+    initial_resources = swarmtask.task_resources
     assert initial_resources.concrete_resources.resources == {'cores': 10}
     assert initial_resources.task_resources_type_id == TaskResourcesType.VALIDATED
 
-    # Call adjust. Multiprocess doesn't implement adjust, but the path should work and return an adjusted task resource
-    wfr._adjust_resources(swarmtask)
-    assert len(swarmtask.bound_parameters) == 2
-    scaled_params = swarmtask.bound_parameters[-1]
+    # Call adjust. Multiprocess doesn't implement adjust, but the path should work
+    # and adjust task resources
+    swarm_wfr.adjust_resources(swarmtask)
+    scaled_params = swarmtask.task_resources
     assert scaled_params.task_resources_type_id == TaskResourcesType.ADJUSTED
+    assert id(scaled_params) != id(initial_resources)
     assert scaled_params.concrete_resources.resources == {'cores': 10}  # No scaling implemented
