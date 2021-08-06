@@ -27,13 +27,15 @@ def base_tool(db_cfg, client_env):
     from jobmon.client.tool import Tool
     return Tool()
 
+
 @pytest.fixture
 def sleepy_task_template(db_cfg, client_env, base_tool):
     tt = base_tool.get_task_template(
         template_name='sleepy_template',
         command_template="sleep {sleep}",
         node_args=['sleep'],
-        compute_resources={'sequential': {'queue': 'null.q'}})
+        default_cluster_name='sequential',
+        default_compute_resources={'queue': 'null.q'})
     return tt
 
 
@@ -50,7 +52,7 @@ def test_error_state(db_cfg, requester_no_retry,
 
     # Create a workflow with one task set the workflow run status to R. log a heartbeat so it
     # doesn't get reaped
-    task1 = sleepy_task_template.create_task(sleep=10, cluster_name='sequential')
+    task1 = sleepy_task_template.create_task(sleep=10)
     wf1 = base_tool.create_workflow()
     wf1.add_tasks([task1])
     wf1.bind()
@@ -62,7 +64,7 @@ def test_error_state(db_cfg, requester_no_retry,
     distributor1.heartbeat()
 
     # Create a second workflow with one task. Don't log a heartbeat so that it can die
-    task2 = sleepy_task_template.create_task(sleep=11, cluster_name='sequential')
+    task2 = sleepy_task_template.create_task(sleep=11)
     wf2 = base_tool.create_workflow()
     wf2.add_tasks([task2])
     wf2.bind()
@@ -104,7 +106,7 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
 
     # Create first WorkflowRun and leave it in running state. log a heartbeat so it doesn't
     # get reaped
-    task1 = sleepy_task_template.create_task(sleep=10, cluster_name='sequential')
+    task1 = sleepy_task_template.create_task(sleep=10)
     workflow1 = base_tool.create_workflow()
 
     workflow1.add_tasks([task1])
@@ -112,12 +114,12 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
     wfr1 = workflow1._create_workflow_run()
     seq_distributor = SequentialDistributor()
     distributor1 = DistributorService(workflow1.workflow_id, wfr1.workflow_run_id,
-                                       seq_distributor, requester=requester_no_retry)
+                                      seq_distributor, requester=requester_no_retry)
     distributor1.heartbeat()
     wfr1._update_status("R")
 
     # Create second WorkflowRun and transition to C status
-    task2 = sleepy_task_template.create_task(sleep=11, cluster_name='sequential')
+    task2 = sleepy_task_template.create_task(sleep=11)
     workflow2 = base_tool.create_workflow()
 
     workflow2.add_tasks([task2])
@@ -134,7 +136,7 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
     wfr2._update_status(WorkflowRunStatus.COLD_RESUME)
 
     # Create third WorkflowRun and transition to H status
-    task3 = sleepy_task_template.create_task(sleep=12, cluster_name='sequential')
+    task3 = sleepy_task_template.create_task(sleep=12)
     workflow3 = base_tool.create_workflow()
 
     workflow3.add_tasks([task3])
@@ -176,8 +178,8 @@ def test_aborted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templa
     from jobmon.client.workflow_run import WorkflowRun
 
     # create a workflow without binding the tasks. log a heartbeat so it doesn't get reaped
-    task = sleepy_task_template.create_task(sleep=10, cluster_name='sequential')
-    task2 = sleepy_task_template.create_task(sleep=11, cluster_name='sequential')
+    task = sleepy_task_template.create_task(sleep=10)
+    task2 = sleepy_task_template.create_task(sleep=11)
     workflow = base_tool.create_workflow()
     workflow.add_tasks([task, task2])
     workflow.bind()
@@ -217,8 +219,8 @@ def test_reaper_version(db_cfg, requester_no_retry, base_tool, sleepy_task_templ
     from jobmon.client.workflow_run import WorkflowRun
 
     # create a workflow without binding the tasks. log a heartbeat so it doesn't get reaped
-    task = sleepy_task_template.create_task(sleep=10, cluster_name='sequential')
-    task2 = sleepy_task_template.create_task(sleep=11, cluster_name='sequential')
+    task = sleepy_task_template.create_task(sleep=10)
+    task2 = sleepy_task_template.create_task(sleep=11)
     workflow = base_tool.create_workflow()
     workflow.add_tasks([task, task2])
     workflow.bind()
