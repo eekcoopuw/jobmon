@@ -5,9 +5,9 @@ from datetime import datetime
 from typing import Callable, Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.cluster import Cluster
 from jobmon.client.task import Task
 from jobmon.client.swarm.swarm_task import SwarmTask
+from jobmon.client.task_resources import TaskResources
 from jobmon.constants import TaskStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
@@ -45,13 +45,20 @@ class WorkflowRun:
         self.swarm_tasks: Dict[int, SwarmTask] = {}
         for task in tasks:
 
+            task_resources: Optional[TaskResources]
+            try:
+                task_resources = task.task_resources
+            except AttributeError:
+                task_resources = None
+
             # create swarmtasks
             swarm_task = SwarmTask(
                 task_id=task.task_id,
+                task_hash=hash(task),
                 status=task.initial_status,
                 cluster=task.cluster,
                 task_args_hash=task.task_args_hash,
-                task_resources=task.task_resources,
+                task_resources=task_resources,
                 resource_scales=task.resource_scales,
                 fallback_queues=task.fallback_queues,
                 max_attempts=task.max_attempts
@@ -180,28 +187,11 @@ class WorkflowRun:
                     yield swarm_task
                 swarm_task.queue_task()
             elif swarm_task.status == TaskStatus.ADJUSTING_RESOURCES:
-                self.adjust_resources(swarm_task)
+                swarm_task.adjust_resources()
                 swarm_task.queue_task()
             else:
                 raise RuntimeError(f"Task {swarm_task.task_id} in ready_to_run queue but "
                                    f"status is {swarm_task.status}.")
-
-    @staticmethod
-    def adjust_resources(swarm_task: SwarmTask) -> None:
-        """Adjust the swarm task's parameters.
-        Use the cluster API to generate the new resources, then bind to input swarmtask"""
-        initial_resources = swarm_task.task_resources.concrete_resources.resources
-        resource_scales = swarm_task.resource_scales
-        expected_queue = swarm_task.task_resources.queue
-        fallback_queues = swarm_task.fallback_queues
-
-        new_resources = swarm_task.cluster.adjust_task_resource(
-            initial_resources=initial_resources,
-            resource_scales=resource_scales,
-            expected_queue=expected_queue,
-            fallback_queues=fallback_queues)
-        new_resources.bind(task_id=swarm_task.task_id)
-        swarm_task.task_resources = new_resources
 
     def block_until_newly_ready_or_all_done(
             self, fail_fast: bool = False, poll_interval: int = 10,

@@ -160,6 +160,18 @@ class ClusterWorkerNode(Protocol):
 
 class ConcreteResource(Protocol):
 
+    @property
+    @abstractmethod
+    def queue(self) -> ClusterQueue:
+        """Executor specific id assigned to a task instance."""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def resources(self) -> Dict[str, Any]:
+        """Executor specific id assigned to a task instance."""
+        raise NotImplementedError
+
     @classmethod
     @abstractmethod
     def validate_and_create_concrete_resource(

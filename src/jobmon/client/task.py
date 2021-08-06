@@ -12,6 +12,7 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
+from jobmon.client.cluster import Cluster
 from jobmon.cluster_type.base import ClusterQueue
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
@@ -172,7 +173,7 @@ class Task:
     def task_resources(self) -> TaskResources:
         """Get the id of the task if it has been bound to the db otherwise raise an error."""
         if not hasattr(self, "_task_resources"):
-            raise AttributeError("task_resources cannot be accessed before task is bound")
+            raise AttributeError("task_resources cannot be accessed before workflow is bound")
         return self._task_resources
 
     @task_resources.setter
@@ -180,6 +181,19 @@ class Task:
         if not isinstance(val, TaskResources):
             raise ValueError("task_resources must be of type=TaskResources")
         self._task_resources = val
+
+    @property
+    def cluster(self) -> Cluster:
+        """Get the id of the task if it has been bound to the db otherwise raise an error."""
+        if not hasattr(self, "_cluster"):
+            raise AttributeError("cluster cannot be accessed before workflow is bound")
+        return self._cluster
+
+    @cluster.setter
+    def cluster(self, val: int) -> None:
+        if not isinstance(val, Cluster):
+            raise ValueError("cluster must be of type=Cluster")
+        self._cluster = val
 
     @property
     def initial_status(self) -> str:

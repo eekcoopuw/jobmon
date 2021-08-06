@@ -1,6 +1,8 @@
 import ast
 import os
 
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import CallableReturnedInvalidObject
 
@@ -10,11 +12,14 @@ this_dir = os.path.dirname(os.path.abspath(__file__))
 resource_file = os.path.join(this_dir, 'resources.txt')
 
 
-def test_callable_returns_exec_params(db_cfg, client_env):
+class MockDistributorProc:
+
+    def is_alive(self):
+        return True
+
+
+def test_callable_returns_valid_object(tool, task_template):
     """Test when the provided callable returns the correct parameters"""
-    from jobmon.client.distributor.strategies import sge  # noqa: F401
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.api import BashTask
 
     def resource_file_does_exist(*args, **kwargs):
         # file contains dict with
@@ -23,39 +28,32 @@ def test_callable_returns_exec_params(db_cfg, client_env):
         with open(resource_file, "r") as file:
             resources = file.read()
             resource_dict = ast.literal_eval(resources)
-        m_mem_free = resource_dict['m_mem_free']
-        max_runtime_seconds = int(resource_dict['max_runtime_seconds'])
-        num_cores = int(resource_dict['num_cores'])
-        queue = resource_dict['queue']
+        return resource_dict
 
-        params = ExecutorParameters(m_mem_free=m_mem_free, num_cores=num_cores,
-                                    queue=queue,
-                                    max_runtime_seconds=max_runtime_seconds)
-
-        return params
-
-    task = BashTask(name='good_callable_task', command='sleep 1',
-                    max_attempts=2,
-                    executor_parameters=resource_file_does_exist,
-                    executor_class="SequentialExecutor")
-    workflow = UnknownWorkflow(workflow_args='dynamic_resource_wf_good_file',
-                               executor_class="SequentialExecutor")
+    workflow = tool.create_workflow(name="dynamic_resource_wf_good_file")
+    task = task_template.create_task(arg="sleep 1", name="good_callable_task",
+                                     compute_resources={"queue": "null.q"},
+                                     compute_resources_callable=resource_file_does_exist)
     workflow.add_task(task)
-    workflow.run()
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        query = """
-                SELECT * FROM executor_parameter_set
-                JOIN task on task.id = executor_parameter_set.task_id
-                WHERE task.name = 'good_callable_task'
-                AND parameter_set_type = 'V' """
-        exec_params = DB.session.execute(query).fetchall()
-        DB.session.commit()
-        for params in exec_params:
-            assert params['max_runtime_seconds'] == 30
-            assert params['m_mem_free'] == 2
-            assert params['num_cores'] == 1
+    workflow.bind()
+    workflow._distributor_proc = MockDistributorProc()
+    wfr = workflow._create_workflow_run()
+
+    # Move workflow and wfr through Instantiating -> Launched
+    wfr._update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr._update_status(WorkflowRunStatus.LAUNCHED)
+
+    # swarm calls
+    swarm = SwarmWorkflowRun(workflow_id=workflow.workflow_id,
+                             workflow_run_id=wfr.workflow_run_id,
+                             tasks=list(workflow.tasks.values()),
+                             requester=workflow.requester)
+
+    try:
+        workflow._run_swarm(swarm, seconds_until_timeout=1)
+    except RuntimeError:
+        pass
+    assert swarm.swarm_tasks[task.task_id].task_resources.id is not None
 
 
 def test_callable_fails_bad_filepath(db_cfg, client_env):

@@ -4,7 +4,7 @@ import platform
 import pytest
 
 from jobmon.test_utils import test_server_config, WebServerProcess, ephemera_db_instance
-
+from jobmon.client.api import Tool
 
 logger = logging.getLogger(__name__)
 
@@ -119,3 +119,23 @@ def requester_in_memory(monkeypatch, test_app):
     monkeypatch.setattr(requests, 'post', post_in_mem)
     monkeypatch.setattr(requests, 'put', post_in_mem)
     monkeypatch.setattr(requester, 'get_content', get_test_content)
+
+
+@pytest.fixture
+def tool(db_cfg, client_env):
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
+                                                 compute_resources={"queue": "null.q"})
+    return tool
+
+
+@pytest.fixture
+def task_template(tool):
+    tt = tool.get_task_template(
+        template_name="my_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[]
+    )
+    return tt
