@@ -385,8 +385,9 @@ class TaskTemplate:
         # kwargs quality assurance
         if self.active_task_template_version.template_args != set(kwargs.keys()):
             raise ValueError(
-                f"unexpected kwarg. expected {self.active_task_template_version.template_args}"
-                f" -received {set(kwargs.keys())}")
+                f"Unexpected kwarg. Task Template requires "
+                f"{self.active_task_template_version.template_args}, got {set(kwargs.keys())}"
+            )
 
         command = self.active_task_template_version.command_template.format(**kwargs)
 

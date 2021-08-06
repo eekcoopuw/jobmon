@@ -62,7 +62,6 @@ class DummyDistributor(ClusterDistributor):
     def __init__(self) -> None:
         """Initialization of the dummy distributor."""
         self.started = False
-        self._worker_node_entry_point = shutil.which("worker_node_entry_point")
         # Parse the config
         worker_node_config = WorkerNodeConfig.from_defaults()
         self.heartbeat_report_by_buffer = \
@@ -73,7 +72,7 @@ class DummyDistributor(ClusterDistributor):
     @property
     def worker_node_entry_point(self) -> str:
         """Path to jobmon worker_node_entry_point."""
-        return self._worker_node_entry_point
+        return ""
 
     @property
     def cluster_type_name(self) -> str:

@@ -515,7 +515,8 @@ class Workflow(object):
         return client_wfr
 
     def _run_swarm(self, swarm: SwarmWorkflowRun, fail_fast: bool = False,
-                   seconds_until_timeout: int = 36000) -> SwarmWorkflowRun:
+                   seconds_until_timeout: int = 36000,
+                   wedged_workflow_sync_interval: int = 600) -> SwarmWorkflowRun:
         """
         Take a concrete DAG and queue al the Tasks that are not DONE.
 
@@ -570,6 +571,7 @@ class Workflow(object):
                 # wait till we have new work
                 swarm.block_until_newly_ready_or_all_done(
                     fail_fast, seconds_until_timeout=seconds_until_timeout,
+                    wedged_workflow_sync_interval=wedged_workflow_sync_interval,
                     distributor_alive_callable=self._distributor_alive
                 )
             # user interrupt

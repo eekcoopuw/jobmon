@@ -126,16 +126,16 @@ def tool(db_cfg, client_env):
     tool = Tool()
     tool.set_default_compute_resources_from_dict(cluster_name="sequential",
                                                  compute_resources={"queue": "null.q"})
-    return tool
-
-
-@pytest.fixture
-def task_template(tool):
-    tt = tool.get_task_template(
-        template_name="my_template",
+    tool.get_task_template(
+        template_name="simple_template",
         command_template="{arg}",
         node_args=["arg"],
         task_args=[],
         op_args=[]
     )
-    return tt
+    return tool
+
+
+@pytest.fixture
+def task_template(tool):
+    return tool.active_task_templates["simple_template"]
