@@ -1,6 +1,7 @@
 import ast
 import logging
 import os
+import time
 
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.distributor.distributor_service import DistributorService
@@ -64,7 +65,7 @@ def test_sync_statuses(client_env, tool, task_template):
 
     # client calls
     task = task_template.create_task(arg="fizzbuzz", name="bar", max_attempts=1)
-    workflow = tool.create_workflow(name="my_simple_dag")
+    workflow = tool.create_workflow()
     workflow.add_tasks([task])
     workflow.bind()
     wfr = workflow._create_workflow_run()
@@ -81,6 +82,7 @@ def test_sync_statuses(client_env, tool, task_template):
                              requester=workflow.requester)
     swarm.update_status(WorkflowRunStatus.RUNNING)
     swarm.compute_initial_dag_state()
+    time.sleep(1)  # make sure some time passes
     list(swarm.queue_tasks())
 
     # test initial dag state updates last_sync
