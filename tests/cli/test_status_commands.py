@@ -486,12 +486,12 @@ def test_dynamic_concurrency_limiting_cli(db_cfg, client_env):
 def test_update_task_status(db_cfg, client_env, tool, task_template):
     from jobmon.client.status_commands import update_task_status
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.constants import WorkflowRunStatus
 
     # Create a 5 task DAG. Tasks 1-3 should finish, 4 should error out and block 5
-
     def generate_workflow_and_tasks(tool, template):
 
-        wf = tool.create_workflow()
+        wf = tool.create_workflow(workflow_args='test_cli_update_workflow')
         tasks = []
         echo_str = 'echo {}'
         for i in range(5):
@@ -508,7 +508,7 @@ def test_update_task_status(db_cfg, client_env, tool, task_template):
 
     wf1, wf1_tasks = generate_workflow_and_tasks(tool, task_template)
     wf1.run()
-    wfr1_statuses = [t.status for t in wf1_tasks]
+    wfr1_statuses = [t.final_status for t in wf1_tasks]
     assert wfr1_statuses == ["D", "D", "F", "G", "G"]
 
     # Set the 'F' task to 'D' to allow progression
@@ -524,7 +524,7 @@ def test_update_task_status(db_cfg, client_env, tool, task_template):
 
     # Check that wfr2 is done, and that all tasks are "D"
     assert wfr2_status == "D"
-    assert all([t.status == "D" for t in wf2_tasks])
+    assert all([t.final_status == "D" for t in wf2_tasks])
 
     # Try a reset of a "done" workflow to "G"
     update_task_status(task_ids=[wf2_tasks[3].task_id], workflow_id=wf2.workflow_id,
@@ -533,9 +533,11 @@ def test_update_task_status(db_cfg, client_env, tool, task_template):
     wf3.bind()
     wf3._workflow_is_resumable()
     client_wfr3 = wf3._create_workflow_run(resume=True)
+
     wfr3 = SwarmWorkflowRun(
         workflow_id=wf3.workflow_id, workflow_run_id=client_wfr3.workflow_run_id,
-        tasks=wf3.tasks.values())
+        tasks=list(wf3.tasks.values()))
+    wf3._distributor_proc = wf3._start_distributor_service(wfr3.workflow_run_id)
     wfr3._compute_initial_fringe()
     assert len(wfr3.ready_to_run) == 1
     assert [t.status for t in wfr3.swarm_tasks.values()] == ["D", "D", "D", "G", "G"]
