@@ -163,20 +163,27 @@ class ConcreteResource(Protocol):
     @property
     @abstractmethod
     def queue(self) -> ClusterQueue:
-        """Executor specific id assigned to a task instance."""
+        """The queue that these resources have been validated against."""
         raise NotImplementedError
 
     @property
     @abstractmethod
     def resources(self) -> Dict[str, Any]:
-        """Executor specific id assigned to a task instance."""
+        """The resources that the task needs to run successfully on a given cluster queue."""
         raise NotImplementedError
 
     @classmethod
     @abstractmethod
     def validate_and_create_concrete_resource(
-            self, queue: ClusterQueue, requested_resources: Dict
+            self, queue: ClusterQueue, requested_resources: Dict[str, Any]
     ) -> Tuple[bool, str, ConcreteResource]:
+        """Validate that the resources are available on the queue and return an instance.
+
+        Args:
+            queue: The queue to validate the requested resources agains.
+            requested_resources: Which resources the user wants to run the task with on the
+                given queue.
+        """
         raise NotImplementedError
 
     @classmethod
@@ -184,4 +191,12 @@ class ConcreteResource(Protocol):
     def adjust_and_create_concrete_resource(
             cls, expected_queue: ClusterQueue, existing_resources: Dict[str, Any], **kwargs
     ) -> ConcreteResource:
+        """Adjust resources after a resource error is detected by the distributor.
+
+        Args:
+            expected_queue: The queue we expect to run on.
+            existing_resources: The resources the user ran with previously that failed due to
+                a resource error.
+        """
+
         raise NotImplementedError

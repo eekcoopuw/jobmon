@@ -27,16 +27,16 @@ class SwarmTask(object):
                  max_attempts: int = 3,
                  fallback_queues: Optional[List[ClusterQueue]] = None,
                  requester: Optional[Requester] = None) -> None:
-        """Implementing swarm behavior of tasks
+        """Implementing swarm behavior of tasks.
 
         Args:
             task_id: id of task object from bound db object
             status: status of task object
             task_args_hash: hash of unique task arguments
             task_resources: callable to be executed when Task is ready to be run and
-            resources can be assigned
+                resources can be assigned
             max_attempts: maximum number of task_instances before failure
-            requester (Requester): Requester object to communicate with the flask services.
+            requester: Requester object to communicate with the flask services.
         """
         self.task_id = task_id
         self.task_hash = task_hash

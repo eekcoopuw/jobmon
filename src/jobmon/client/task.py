@@ -415,9 +415,12 @@ class Task:
 
     def __eq__(self, other: object) -> bool:
         """Check if the hashes of two tasks are equivalent."""
-        return hash(self) == hash(other)
+        if not isinstance(other, Task):
+            return False
+        else:
+            return hash(self) == hash(other)
 
-    def __lt__(self, other: 'Task') -> bool:
+    def __lt__(self, other: Task) -> bool:
         """Check if one hash is less than the has of another Task."""
         return hash(self) < hash(other)
 
