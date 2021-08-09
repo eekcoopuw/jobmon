@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Dict, Tuple
+from typing import Any, Dict, Tuple
 
 from jobmon.cluster_type.base import ConcreteResource, ClusterQueue
 
@@ -15,8 +15,16 @@ class ConcreteMultiprocResource(ConcreteResource):
         Always assumed to be valid.
         Don't call init directly, this object should be created by validate or adjust.
         """
-        self.queue = queue
-        self.resources = valid_resources
+        self._queue = queue
+        self._resources = valid_resources
+
+    @property
+    def queue(self) -> ClusterQueue:
+        return self._queue
+
+    @property
+    def resources(self) -> Dict[str, Any]:
+        return self._resources
 
     @classmethod
     def validate_and_create_concrete_resource(

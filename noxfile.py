@@ -21,26 +21,9 @@ def tests(session: Session) -> None:
     session.install("-e", ".[test,server]")
 
     # pytest skips. performance tests are a separate nox target
-    skip_string = "not performance_tests and not integration_tests "
-    try:
-        os.environ['SGE_ENV']
-    except KeyError:
-        skip_string += "and not integration_sge"
-    extra_args = ['-m', skip_string]
+    extra_args = ['-m', "not performance_tests"]
 
     # pytest mproc
-    session.run("pytest", *args, *extra_args)
-
-
-@nox.session(python=python, venv_backend="conda")
-def integration(session: Session) -> None:
-    """Run integration tests that take a while."""
-    args = session.posargs or test_locations
-
-    session.conda_install("mysqlclient", "openssl")
-    session.install("-e", ".[test,server]")
-
-    extra_args = ["-m", "integration_tests"]
     session.run("pytest", *args, *extra_args)
 
 

@@ -370,6 +370,9 @@ class Workflow(object):
         # # validate by creating the object. validate is called under the hood
         # return cluster.create_task_resources(resource_params)
 
+        # TODO: confirm compute_resources has a callable or task_resources is valid.
+        # TODO: confirm we get a queue from compute_resources
+
         # check if workflow is valid
         self._dag.validate()
         self._matching_wf_args_diff_hash()
@@ -393,15 +396,17 @@ class Workflow(object):
             cluster_name = self._get_cluster_name(task)
             cluster = self._get_cluster_by_name(cluster_name)
 
-            # bind cluster to task
+            # add cluster to task
             task.cluster = cluster
 
-            # construct the resource params by traversing from workflow to task
-            resource_params = self._get_resource_params(task, cluster_name)
+            # not dynamic resource request. Construct TaskResources
+            if task.compute_resources_callable is None:
+                # construct the resource params by traversing from workflow to task
+                resource_params = self._get_resource_params(task, cluster_name)
 
-            task.task_resources = cluster.create_valid_task_resources(
-                resource_params, TaskResourcesType.VALIDATED
-            )
+                task.task_resources = cluster.create_valid_task_resources(
+                    resource_params, TaskResourcesType.VALIDATED
+                )
 
         # bind dag
         self._dag.bind(self._chunk_size)
@@ -510,7 +515,8 @@ class Workflow(object):
         return client_wfr
 
     def _run_swarm(self, swarm: SwarmWorkflowRun, fail_fast: bool = False,
-                   seconds_until_timeout: int = 36000) -> SwarmWorkflowRun:
+                   seconds_until_timeout: int = 36000,
+                   wedged_workflow_sync_interval: int = 600) -> SwarmWorkflowRun:
         """
         Take a concrete DAG and queue al the Tasks that are not DONE.
 
@@ -555,22 +561,17 @@ class Workflow(object):
 
             # queue any ready to run and then wait until active tasks change state
             try:
-                # TODO: calculate dynamic resources
+
                 for swarm_task in swarm.queue_tasks():
-                    task = self.tasks[swarm_task.task_id]
-                    task_resources_callable = task.task_resources
-                    task_resources = task_resources_callable()
-                    if not isinstance(task_resources, TaskResources):
-                        raise CallableReturnedInvalidObject(
-                            "The function called to return TaskResources did not "
-                            "return the expected TaskResources object, it is of type"
-                            f"{type(task_resources)}")
+                    task = self.tasks[swarm_task.task_hash]
+                    task_resources = self._get_dyamic_task_resources(task)
                     task_resources.bind(task.task_id)
                     swarm_task.task_resources = task_resources
 
                 # wait till we have new work
                 swarm.block_until_newly_ready_or_all_done(
                     fail_fast, seconds_until_timeout=seconds_until_timeout,
+                    wedged_workflow_sync_interval=wedged_workflow_sync_interval,
                     distributor_alive_callable=self._distributor_alive
                 )
             # user interrupt
@@ -649,8 +650,10 @@ class Workflow(object):
         )
         bound_workflow_hashes = response['matching_workflows']
         for task_hash, tool_version_id, dag_hash in bound_workflow_hashes:
-            match = (self.tool_version_id == tool_version_id and
-                     (str(self.task_hash) != task_hash or str(hash(self._dag)) != dag_hash))
+            match = (
+                self.tool_version_id == tool_version_id
+                and (str(self.task_hash) != task_hash or str(hash(self._dag)) != dag_hash)
+            )
             if match:
                 raise WorkflowAlreadyExists(
                     "The unique workflow_args already belong to a workflow "
@@ -780,6 +783,33 @@ class Workflow(object):
                 f" with exit code {self._distributor_proc.exitcode}"
             )
         return alive
+
+    def _get_dyamic_task_resources(self, task: Task) -> TaskResources:
+        # this can't be none but put a check in any case
+        func = task.compute_resources_callable
+        if func is None:
+            raise RuntimeError(
+                "Internal error. Jobmon tried to compute dynamic task resources,"
+                " but no callable was available. Please contact the maintainers "
+                "of jobmon for support."
+            )
+
+        # compute dynamic resources
+        dynamic_compute_resources = func()
+        if not isinstance(dynamic_compute_resources, dict):
+            raise CallableReturnedInvalidObject(
+                f"compute_resources_callable={func} for task_id={task.task_id} "
+                "returned an invalid type. Must return dict. got "
+                f"{type(dynamic_compute_resources)}."
+            )
+        resource_params = self._get_resource_params(
+            task, task.cluster.cluster_name
+        )
+        resource_params.update(dynamic_compute_resources)
+        task_resources = task.cluster.create_valid_task_resources(
+            resource_params, TaskResourcesType.VALIDATED
+        )
+        return task_resources
 
     def __hash__(self):
         """Hash to encompass tool version id, workflow args, tasks and dag."""

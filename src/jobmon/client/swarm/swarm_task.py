@@ -20,25 +20,26 @@ logger = logging.getLogger(__name__)
 class SwarmTask(object):
     """Swarm side task object."""
 
-    def __init__(self, task_id: int, status: str, task_args_hash: int,
+    def __init__(self, task_id: int, task_hash: int, status: str, task_args_hash: int,
                  cluster: Cluster,
                  task_resources: Optional[TaskResources] = None,
                  resource_scales: Optional[Dict] = None,
                  max_attempts: int = 3,
                  fallback_queues: Optional[List[ClusterQueue]] = None,
                  requester: Optional[Requester] = None) -> None:
-        """Implementing swarm behavior of tasks
+        """Implementing swarm behavior of tasks.
 
         Args:
             task_id: id of task object from bound db object
             status: status of task object
             task_args_hash: hash of unique task arguments
             task_resources: callable to be executed when Task is ready to be run and
-            resources can be assigned
+                resources can be assigned
             max_attempts: maximum number of task_instances before failure
-            requester (Requester): Requester object to communicate with the flask services.
+            requester: Requester object to communicate with the flask services.
         """
         self.task_id = task_id
+        self.task_hash = task_hash
         self.status = status
 
         self.upstream_swarm_tasks: Set[SwarmTask] = set()
@@ -46,6 +47,8 @@ class SwarmTask(object):
 
         self.task_resources = task_resources
 
+        if resource_scales is None:
+            resource_scales = {}
         self.resource_scales = resource_scales
         self.cluster = cluster
 
@@ -96,7 +99,7 @@ class SwarmTask(object):
         """Return a list of upstream tasks."""
         return list(self.upstream_swarm_tasks)
 
-    def queue_task(self) -> int:
+    def queue_task(self) -> None:
         """Transition a task to the Queued for Instantiation status in the db."""
         rc, _ = self.requester.send_request(
             app_route=f'/swarm/task/{self.task_id}/queue',
@@ -107,4 +110,26 @@ class SwarmTask(object):
         if http_request_ok(rc) is False:
             raise InvalidResponse(f"{rc}: Could not queue task")
         self.status = TaskStatus.QUEUED_FOR_INSTANTIATION
-        return rc
+
+    def adjust_task_resources(self) -> None:
+        """Adjust the swarm task's parameters.
+        Use the cluster API to generate the new resources, then bind to input swarmtask"""
+        if self.task_resources is None:
+            raise RuntimeError("Cannot adjust resources until workflow is bound.")
+
+        # current resources
+        initial_resources = self.task_resources.concrete_resources.resources
+        expected_queue = self.task_resources.queue
+
+        # adjustment params
+        resource_scales = self.resource_scales
+        fallback_queues = self.fallback_queues
+
+        new_task_resources = self.cluster.adjust_task_resource(
+            initial_resources=initial_resources,
+            resource_scales=resource_scales,
+            expected_queue=expected_queue,
+            fallback_queues=fallback_queues
+        )
+        new_task_resources.bind(task_id=self.task_id)
+        self.task_resources = new_task_resources

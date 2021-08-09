@@ -172,7 +172,6 @@ def test_ti_w_state(db_cfg, client_env):
         assert ti.status == TaskInstanceStatus.NO_EXECUTOR_ID
 
 
-@pytest.mark.qsubs_jobs
 def test_reset_attempts_on_resume(db_cfg, client_env):
     """test that num attempts gets reset on a resume"""
 

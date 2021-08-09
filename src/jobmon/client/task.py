@@ -7,11 +7,12 @@ from __future__ import annotations
 import hashlib
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
+from jobmon.client.cluster import Cluster
 from jobmon.cluster_type.base import ClusterQueue
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
@@ -66,6 +67,7 @@ class Task:
                  task_args: dict,
                  cluster_name: str = '',
                  compute_resources: Optional[Dict[str, Any]] = None,
+                 compute_resources_callable: Optional[Callable] = None,
                  resource_scales: Optional[Dict[str, float]] = None,
                  fallback_queues: Optional[List[ClusterQueue]] = None,
                  name: Optional[str] = None,
@@ -150,6 +152,7 @@ class Task:
             self.compute_resources = {}
         else:
             self.compute_resources = compute_resources.copy()
+        self.compute_resources_callable = compute_resources_callable
         self.resource_scales = resource_scales
         self.cluster_name = cluster_name
         self.fallback_queues = fallback_queues
@@ -170,7 +173,7 @@ class Task:
     def task_resources(self) -> TaskResources:
         """Get the id of the task if it has been bound to the db otherwise raise an error."""
         if not hasattr(self, "_task_resources"):
-            raise AttributeError("task_resources cannot be accessed before task is bound")
+            raise AttributeError("task_resources cannot be accessed before workflow is bound")
         return self._task_resources
 
     @task_resources.setter
@@ -180,6 +183,19 @@ class Task:
         self._task_resources = val
 
     @property
+    def cluster(self) -> Cluster:
+        """Get the id of the task if it has been bound to the db otherwise raise an error."""
+        if not hasattr(self, "_cluster"):
+            raise AttributeError("cluster cannot be accessed before workflow is bound")
+        return self._cluster
+
+    @cluster.setter
+    def cluster(self, val: int) -> None:
+        if not isinstance(val, Cluster):
+            raise ValueError("cluster must be of type=Cluster")
+        self._cluster = val
+
+    @property
     def initial_status(self) -> str:
         """Get initial status of the task if it has been bound to the db; else raise error."""
         if not hasattr(self, "_initial_status"):
@@ -187,7 +203,7 @@ class Task:
         return self._initial_status
 
     @initial_status.setter
-    def initial_status(self, val: int) -> None:
+    def initial_status(self, val: str) -> None:
         self._initial_status = val
 
     @property
@@ -200,7 +216,7 @@ class Task:
         return self._final_status
 
     @final_status.setter
-    def final_status(self, val):
+    def final_status(self, val: str):
         self._final_status = val
 
     @property
@@ -397,11 +413,14 @@ class Task:
                 f'{app_route}. Expected code 200. Response content: {response}')
         return list(response["tasks"].values())[0]
 
-    def __eq__(self, other: 'Task') -> bool:
+    def __eq__(self, other: object) -> bool:
         """Check if the hashes of two tasks are equivalent."""
-        return hash(self) == hash(other)
+        if not isinstance(other, Task):
+            return False
+        else:
+            return hash(self) == hash(other)
 
-    def __lt__(self, other: 'Task') -> bool:
+    def __lt__(self, other: Task) -> bool:
         """Check if one hash is less than the has of another Task."""
         return hash(self) < hash(other)
 

@@ -4,7 +4,7 @@ import platform
 import pytest
 
 from jobmon.test_utils import test_server_config, WebServerProcess, ephemera_db_instance
-
+from jobmon.client.api import Tool
 
 logger = logging.getLogger(__name__)
 
@@ -56,3 +56,86 @@ def client_env(web_server_process, monkeypatch):
 def requester_no_retry(client_env):
     from jobmon.requester import Requester
     return Requester(client_env, max_retries=0)
+
+
+@pytest.fixture(scope='session')
+def web_server_in_memory(ephemera):
+    """This sets up the JSM/JQS using the test_client which is a
+    fake server
+    """
+    from jobmon.server.web.start import create_app
+    from jobmon.server.web.web_config import WebConfig
+
+    # The create_app call sets up database connections
+    server_config = WebConfig(
+        db_host=ephemera["DB_HOST"],
+        db_port=ephemera["DB_PORT"],
+        db_user=ephemera["DB_USER"],
+        db_pass=ephemera["DB_PASS"],
+        db_name=ephemera["DB_NAME"]
+    )
+    app = create_app(server_config)
+    app.config['TESTING'] = True
+    client = app.test_client()
+    yield client
+
+
+def get_test_content(response):
+    """The function called by the no_request_jsm_jqs to query the fake
+    test_client for a response
+    """
+    if 'application/json' in response.headers.get('Content-Type'):
+        content = response.json
+    elif 'text/html' in response.headers.get('Content-Type'):
+        content = response.data
+    else:
+        content = response.content
+    return response.status_code, content
+
+
+@pytest.fixture(scope='function')
+def requester_in_memory(monkeypatch, test_app):
+    """This function monkeypatches the requests library to use the
+    test_client
+    """
+    import requests
+    from jobmon import requester
+    monkeypatch.setenv("WEB_SERVICE_FQDN", '1')
+    monkeypatch.setenv("WEB_SERVICE_PORT", '2')
+
+    def get_in_mem(url, params, data, headers):
+        url = "/" + url.split(":")[-1].split("/", 1)[1]
+        return test_app.get(path=url, query_string=params, data=data, headers=headers)
+
+    def post_in_mem(url, json, headers):
+        url = "/" + url.split(":")[-1].split("/", 1)[1]
+        return test_app.post(url, json=json, headers=headers)
+
+    def put_in_mem(url, json, headers):
+        url = "/" + url.split(":")[-1].split("/", 1)[1]
+        return test_app.put(url, json=json, headers=headers)
+
+    monkeypatch.setattr(requests, 'get', get_in_mem)
+    monkeypatch.setattr(requests, 'post', post_in_mem)
+    monkeypatch.setattr(requests, 'put', post_in_mem)
+    monkeypatch.setattr(requester, 'get_content', get_test_content)
+
+
+@pytest.fixture
+def tool(db_cfg, client_env):
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
+                                                 compute_resources={"queue": "null.q"})
+    tool.get_task_template(
+        template_name="simple_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[]
+    )
+    return tool
+
+
+@pytest.fixture
+def task_template(tool):
+    return tool.active_task_templates["simple_template"]

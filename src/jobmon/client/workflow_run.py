@@ -201,7 +201,11 @@ class WorkflowRun(object):
                 task.initial_status = return_tasks[k][1]
 
                 # Bind the task resources
-                if isinstance(task.task_resources, TaskResources):
+                try:
                     task.task_resources.bind(task.task_id)
+                except AttributeError as e:
+                    # task resources should only raise this error if callable is not None
+                    if task.compute_resources_callable is None:
+                        raise e
 
         return tasks

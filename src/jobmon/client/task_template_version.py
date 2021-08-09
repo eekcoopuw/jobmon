@@ -24,8 +24,7 @@ class TaskTemplateVersion:
                  node_args: list,
                  task_args: list,
                  op_args: list,
-                 requester: Optional[Requester] = None,
-                 compute_resources: Optional[Dict[str, Any]] = None
+                 requester: Optional[Requester] = None
                  ) -> None:
         """Initialization of task template version object."""
         # id vars
@@ -41,9 +40,7 @@ class TaskTemplateVersion:
         self._task_template_version_id: int
         self._id_name_map: Dict
 
-        if compute_resources is None:
-            compute_resources = {}
-        self.default_compute_resources = compute_resources
+        self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
         self.default_cluster_name: str = ""
 
         if requester is None:
@@ -253,7 +250,7 @@ class TaskTemplateVersion:
             **kwargs: any key/value pair you want to update specified as an argument.
         """
         compute_resources = {cluster_name: kwargs}
-        self.default_compute_resources.update(compute_resources)
+        self.default_compute_resources_set.update(compute_resources)
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,
                                                 compute_resources: Dict[str, Any]) -> None:
@@ -268,12 +265,11 @@ class TaskTemplateVersion:
                 with. Can be overridden at task template or task level.
                 dict of {resource_name: resource_value}
         """
-        self.default_compute_resources[cluster_name] = compute_resources
+        self.default_compute_resources_set[cluster_name] = compute_resources
 
     def __hash__(self) -> int:
         """Unique identifier for this object."""
         hash_value = hashlib.sha1()
         hash_value.update(bytes(str(self.arg_mapping_hash).encode('utf-8')))
-        hash_value.update(bytes(str(self.default_compute_resources).encode('utf-8')))
         hash_value.update(bytes(str(self.command_template).encode('utf-8')))
         return int(hash_value.hexdigest(), 16)

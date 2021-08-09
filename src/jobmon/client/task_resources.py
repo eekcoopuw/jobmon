@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 from http import HTTPStatus as StatusCodes
-from typing import Dict, List, Optional
+import logging
+from typing import Dict, Optional
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.cluster_type.base import ClusterQueue, ConcreteResource
+from jobmon.cluster_type.base import ConcreteResource, ClusterQueue
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
-import structlog as logging
+
 
 logger = logging.getLogger(__name__)
 
@@ -56,7 +57,7 @@ class TaskResources:
         return self._task_id
 
     @property
-    def queue(self) -> int:
+    def queue(self) -> ClusterQueue:
         """Return the queue."""
         return self._concrete_resources.queue
 
@@ -66,7 +67,7 @@ class TaskResources:
         return self._task_resources_type_id
 
     @property
-    def concrete_resources(self) -> Dict:
+    def concrete_resources(self) -> ConcreteResource:
         """Return the requested resources dictionary."""
         return self._concrete_resources
 
