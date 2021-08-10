@@ -29,6 +29,7 @@ def task_template(tool):
 
 
 logger = logging.getLogger(__name__)
+cli = CLI()
 
 
 class MockDistributorProc:
@@ -59,21 +60,18 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
 
     # we should have the column headers plus 2 tasks in pending
     command_str = f"workflow_status -u {user} -w {workflow.workflow_id}"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(args.workflow_id, args.user)
     assert df["PENDING"][0] == "2 (100.0%)"
 
     # defaults should return an identical value
     command_str = "workflow_status"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(args.workflow_id, args.user)
     assert df["PENDING"][0] == "2 (100.0%)"
 
     # Test the JSON flag
     command_str = f"workflow_status -u {user} -w {workflow.workflow_id} -n"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(args.workflow_id, args.user, args.json)
     assert df == f'{{"WF_ID":{{"0":{workflow.workflow_id}}},"WF_NAME":{{"0":""}},' \
@@ -94,14 +92,12 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
 
     # check that we get 2 rows now
     command_str = f"workflow_status -u {user}"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(args.workflow_id, args.user)
     assert len(df) == 2
 
     # check that we can get values by workflow_id
     command_str = f"workflow_status -w {workflow.workflow_id}"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(args.workflow_id, args.user)
     assert len(df) == 1
@@ -109,7 +105,6 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
 
     # check that we can get both
     command_str = "workflow_status -w 1 2"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(args.workflow_id, args.user)
     assert len(df) == 2
@@ -149,49 +144,42 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
 
     # check limit 1
     command_str = f"workflow_status -u {user}  -l 1"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(user=args.user, limit=args.limit)
     assert len(df) == 1
 
     # check limit 2
     command_str = f"workflow_status -u {user}  -l 2"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(user=args.user, limit=args.limit)
     assert len(df) == 2
 
     # check default (no limit)
     command_str = f"workflow_status -u {user}"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(user=args.user)
     assert len(df) == 5
 
     # check default (limit without value)
     command_str = f"workflow_status -u {user} -l"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(user=args.user)
     assert len(df) == 5
 
     # check over limit
     command_str = f"workflow_status -u {user}  -l 12"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(user=args.user, limit=args.limit)
     assert len(df) == 6
 
     # check 0
     command_str = f"workflow_status -u {user}  -l 0"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(user=args.user, limit=args.limit)
     assert len(df) == 0
 
     # check negative
     command_str = f"workflow_status -u {user}  -l -1"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_status(user=args.user, limit=args.limit)
     assert len(df) == 6
@@ -200,6 +188,8 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
 def test_workflow_tasks(db_cfg, client_env, task_template):
     from jobmon.client.status_commands import workflow_tasks
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
     from jobmon.requester import Requester
     from jobmon.constants import WorkflowRunStatus
 
@@ -212,11 +202,14 @@ def test_workflow_tasks(db_cfg, client_env, task_template):
 
     workflow.add_tasks([t1, t2])
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    client_wfr = workflow._create_workflow_run()
+    wfr = SwarmWorkflowRun(
+        workflow_id=workflow.workflow_id,
+        workflow_run_id=client_wfr.workflow_run_id,
+        tasks=workflow.tasks.values())
 
     # we should get 2 tasks back in pending state
     command_str = f"workflow_tasks -w {workflow.workflow_id}"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_tasks(args.workflow_id)
     assert len(df) == 2
@@ -225,25 +218,25 @@ def test_workflow_tasks(db_cfg, client_env, task_template):
 
     # execute the tasks
     requester = Requester(client_env)
+    seq_distributor = SequentialDistributor()
     distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                     "sequential", requester=requester)
+                                     seq_distributor, requester=requester)
     with pytest.raises(RuntimeError):
-        wfr.execute_interruptible(MockDistributorProc(),
-                                  seconds_until_timeout=1)
+        # Set the is_alive to always true
+        workflow._distributor_alive = lambda: True
+        workflow._run_swarm(swarm=wfr, seconds_until_timeout=1)
 
     distributor._get_tasks_queued_for_instantiation()
     distributor.distribute()
 
     # we should get 0 tasks in pending
     command_str = f"workflow_tasks -w {workflow.workflow_id} -s PENDING"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_tasks(args.workflow_id, args.status)
     assert len(df) == 0
 
     # we should get 0 tasks when requesting workflow -99
     command_str = "workflow_tasks -w -99"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_tasks(args.workflow_id, args.status)
     assert len(df) == 0
@@ -265,70 +258,59 @@ def test_workflow_tasks(db_cfg, client_env, task_template):
 
     # check limit 1
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l 1"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_tasks(args.workflow_id, limit=args.limit)
     assert len(df) == 1
 
     # check limit 2
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l 2"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_tasks(args.workflow_id, limit=args.limit)
     assert len(df) == 2
 
     # check default (no limit)
     command_str = f"workflow_tasks -w {workflow.workflow_id}"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_tasks(args.workflow_id)
     assert len(df) == 5
 
     # check default (limit without value)
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_tasks(args.workflow_id)
     assert len(df) == 5
 
     # check over limit
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l 12"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_tasks(args.workflow_id, limit=args.limit)
     assert len(df) == 6
 
     # check 0
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l 0"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_tasks(args.workflow_id, limit=args.limit)
     assert len(df) == 0
 
     # check negative
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l -1"
-    cli = CLI()
     args = cli.parse_args(command_str)
     df = workflow_tasks(args.workflow_id, limit=args.limit)
     assert len(df) == 6
 
 
-def test_task_status(db_cfg, client_env):
-    from jobmon.client.api import BashTask
-    from jobmon.client.api import UnknownWorkflow
+def test_task_status(db_cfg, client_env, tool, task_template):
     from jobmon.client.status_commands import task_status
 
-    t1 = BashTask("exit -9", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={}, max_attempts=2)
-    t2 = BashTask("exit -0", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={}, max_attempts=1)
-    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
+    t1 = task_template.create_task(arg="exit -9", max_attempts=2)
+    t2 = task_template.create_task(arg="exit -0")
+    workflow = tool.create_workflow()
     workflow.add_tasks([t1, t2])
     workflow.run()
 
     # we should get 2 failed task instances and 1 successful
     command_str = f"task_status -t {t1.task_id} {t2.task_id}"
-    cli = CLI()
+
     args = cli.parse_args(command_str)
     df = task_status(args.task_ids)
     assert len(df) == 3
@@ -347,19 +329,15 @@ def test_task_status(db_cfg, client_env):
     assert len(df_all) == 3
 
 
-def test_task_reset(db_cfg, client_env, monkeypatch):
-    from jobmon.client.api import BashTask
-    from jobmon.client.api import UnknownWorkflow
+def test_task_reset(db_cfg, client_env, tool, task_template, monkeypatch):
     from jobmon.requester import Requester
     from jobmon.client.status_commands import validate_username
 
     monkeypatch.setattr(getpass, "getuser", mock_getuser)
 
-    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
-    t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={})
-    t2 = BashTask("sleep 4", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={})
+    workflow = tool.create_workflow()
+    t1 = task_template.create_task(arg="sleep 3")
+    t2 = task_template.create_task(arg="sleep 4")
 
     workflow.add_tasks([t1, t2])
     workflow.run()
@@ -373,18 +351,14 @@ def test_task_reset(db_cfg, client_env, monkeypatch):
         validate_username(workflow.workflow_id, 'notarealuser', requester)
 
 
-def test_task_reset_wf_validation(db_cfg, client_env):
-    from jobmon.client.api import BashTask
-    from jobmon.client.api import UnknownWorkflow
+def test_task_reset_wf_validation(db_cfg, client_env, tool, task_template):
     from jobmon.requester import Requester
     from jobmon.client.status_commands import update_task_status, validate_workflow
 
-    workflow1 = UnknownWorkflow(executor_class="SequentialExecutor")
-    workflow2 = UnknownWorkflow(executor_class="SequentialExecutor")
-    t1 = BashTask("sleep 3", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={})
-    t2 = BashTask("sleep 4", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={})
+    workflow1 = tool.create_workflow()
+    workflow2 = tool.create_workflow()
+    t1 = task_template.create_task(arg='sleep 3')
+    t2 = task_template.create_task(arg="sleep 4")
 
     workflow1.add_tasks([t1])
     workflow1.run()
@@ -394,7 +368,7 @@ def test_task_reset_wf_validation(db_cfg, client_env):
     # Check that this user is allowed to update
     command_str = f"update_task_status -t {t1.task_id} {t2.task_id} " \
                   f"-w {workflow1.workflow_id} -s G"
-    cli = CLI()
+
     args = cli.parse_args(command_str)
 
     # Validation with a task not in the workflow raises an error
@@ -405,12 +379,11 @@ def test_task_reset_wf_validation(db_cfg, client_env):
     with pytest.raises(AssertionError):
         requester = Requester(client_env)
         task_ids = list(range(300))
-        validate_workflow(task_ids, requester)  # AssertionError since we have 2 workflows, but no HTTP 502 returned
+        # AssertionError since we have 2 workflows, but no HTTP 502 returned
+        validate_workflow(task_ids, requester)
 
 
-def test_sub_dag(db_cfg, client_env):
-    from jobmon.client.api import BashTask
-    from jobmon.client.api import UnknownWorkflow
+def test_sub_dag(db_cfg, client_env, tool, task_template):
     from jobmon.client.status_commands import get_sub_task_tree
 
     """
@@ -426,21 +399,14 @@ def test_sub_dag(db_cfg, client_env):
            \\     |            /
               t1_11_213_1_1
     """ # noqa W605
-    workflow = UnknownWorkflow(executor_class="SequentialExecutor")
-    t1 = BashTask("echo 1", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={})
-    t1_1 = BashTask("echo 11", executor_class="SequentialExecutor",
-                    max_runtime_seconds=10, resource_scales={})
-    t1_2 = BashTask("echo 12", executor_class="SequentialExecutor",
-                    max_runtime_seconds=10, resource_scales={})
-    t1_11_213_1_1 = BashTask("echo 121", executor_class="SequentialExecutor",
-                             max_runtime_seconds=10, resource_scales={})
-    t2 = BashTask("echo 2", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={})
-    t3 = BashTask("echo 3", executor_class="SequentialExecutor",
-                  max_runtime_seconds=10, resource_scales={})
-    t13_1 = BashTask("echo 131", executor_class="SequentialExecutor",
-                     max_runtime_seconds=10, resource_scales={})
+    workflow = tool.create_workflow()
+    t1 = task_template.create_task(arg="echo 1")
+    t1_1 = task_template.create_task(arg="echo 11")
+    t1_2 = task_template.create_task(arg="echo 12")
+    t1_11_213_1_1 = task_template.create_task(arg="echo 121")
+    t2 = task_template.create_task(arg="echo 2")
+    t3 = task_template.create_task(arg="echo 3")
+    t13_1 = task_template.create_task(arg="echo 131")
     t1_11_213_1_1.add_upstream(t1_1)
     t1_11_213_1_1.add_upstream(t1_2)
     t1_11_213_1_1.add_upstream((t13_1))
@@ -501,7 +467,7 @@ def test_dynamic_concurrency_limiting_cli(db_cfg, client_env):
     """
 
     # Check that a valid ask returns error free
-    cli = CLI()
+
     good_command = "concurrency_limit -w 5 -m 10"
     args = cli.parse_args(good_command)
 
@@ -511,24 +477,21 @@ def test_dynamic_concurrency_limiting_cli(db_cfg, client_env):
     # Check that an invalid ask will be rejected
     bad_command = "concurrency_limit -w 5 -m {}"
     with pytest.raises(SystemExit):
-        args = cli.parse_args(bad_command.format('foo'))
+        cli.parse_args(bad_command.format('foo'))
 
     with pytest.raises(SystemExit):
-        args = cli.parse_args(bad_command.format(-59))
+        cli.parse_args(bad_command.format(-59))
 
 
-def test_update_task_status(db_cfg, client_env):
-    from jobmon.client.api import BashTask
-    from jobmon.client.tool import Tool
+def test_update_task_status(db_cfg, client_env, tool, task_template):
     from jobmon.client.status_commands import update_task_status
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.constants import WorkflowRunStatus
 
     # Create a 5 task DAG. Tasks 1-3 should finish, 4 should error out and block 5
-    tool = Tool()
-
-    def generate_workflow_and_tasks(tool):
+    def generate_workflow_and_tasks(tool, template):
 
         wf = tool.create_workflow(workflow_args='test_cli_update_workflow')
-        wf.set_executor(executor_class="SequentialExecutor")
         tasks = []
         echo_str = 'echo {}'
         for i in range(5):
@@ -536,50 +499,51 @@ def test_update_task_status(db_cfg, client_env):
                 command_str = echo_str.format(i)
             else:
                 command_str = 'exit -9'
-            task = BashTask(command=command_str, name=f'task{i}',
-                            executor_class="SequentialExecutor",
-                            max_runtime_seconds=25,
-                            num_cores=1,
-                            upstream_tasks=tasks, max_attempts=1)
+            task = template.create_task(
+                arg=command_str, name=f'task{i}',
+                upstream_tasks=tasks, max_attempts=1)
             tasks.append(task)
         wf.add_tasks(tasks)
         return wf, tasks
 
-    wf1, wf1_tasks = generate_workflow_and_tasks(tool)
-    wfr1 = wf1.run()
-    wfr1_statuses = [st.status for st in wfr1.swarm_tasks.values()]
+    wf1, wf1_tasks = generate_workflow_and_tasks(tool, task_template)
+    wf1.run()
+    wfr1_statuses = [t.final_status for t in wf1_tasks]
     assert wfr1_statuses == ["D", "D", "F", "G", "G"]
 
     # Set the 'F' task to 'D' to allow progression
-    cli = CLI()
+
     update_str = f'update_task_status -w {wf1.workflow_id} -t {wf1_tasks[2].task_id} -s D'
     args = cli.parse_args(update_str)
     update_task_status(task_ids=args.task_ids, workflow_id=args.workflow_id,
                        new_status=args.new_status)
 
     # Resume the workflow
-    wf2, wf2_tasks = generate_workflow_and_tasks(tool)
-    wfr2 = wf2.run(resume=True)
+    wf2, wf2_tasks = generate_workflow_and_tasks(tool, task_template)
+    wfr2_status = wf2.run(resume=True)
 
     # Check that wfr2 is done, and that all tasks are "D"
-    assert wfr2.status == "D"
-    assert all([st.status == "D" for st in wfr2.swarm_tasks.values()])
+    assert wfr2_status == "D"
+    assert all([t.final_status == "D" for t in wf2_tasks])
 
     # Try a reset of a "done" workflow to "G"
     update_task_status(task_ids=[wf2_tasks[3].task_id], workflow_id=wf2.workflow_id,
                        new_status="G")
-    wf3, wf3_tasks = generate_workflow_and_tasks(tool)
-    wf3.set_executor(executor_class="SequentialExecutor")
+    wf3, wf3_tasks = generate_workflow_and_tasks(tool, task_template)
     wf3.bind()
     wf3._workflow_is_resumable()
-    wfr3 = wf3._create_workflow_run(resume=True)
-    assert len(wfr3._compute_fringe()) == 1
+    client_wfr3 = wf3._create_workflow_run(resume=True)
+
+    wfr3 = SwarmWorkflowRun(
+        workflow_id=wf3.workflow_id, workflow_run_id=client_wfr3.workflow_run_id,
+        tasks=list(wf3.tasks.values()))
+    wf3._distributor_proc = wf3._start_distributor_service(wfr3.workflow_run_id)
+    wfr3._compute_initial_fringe()
+    assert len(wfr3.ready_to_run) == 1
     assert [t.status for t in wfr3.swarm_tasks.values()] == ["D", "D", "D", "G", "G"]
 
     # Run the workflow
-    distributor_proc = wf3._start_distributor_service(wfr3.workflow_run_id, 180)
-    wfr3.execute_interruptible(distributor_proc, False, 360)
-    distributor_proc.terminate()
+    wf3._run_swarm(wfr3)
 
     assert wfr3.status == "D"
     assert all([st.status == "D" for st in wfr3.swarm_tasks.values()])
