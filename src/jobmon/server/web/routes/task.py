@@ -491,7 +491,7 @@ def get_task_status() -> Any:
             task.id AS TASK_ID,
             task.status AS task_status,
             task_instance.id AS TASK_INSTANCE_ID,
-            executor_id AS EXECUTOR_ID,
+            distributor_id AS DISTRIBUTOR_ID,
             task_instance_status.label AS STATUS,
             usage_str AS RESOURCE_USAGE,
             description AS ERROR_TRACE
@@ -500,8 +500,6 @@ def get_task_status() -> Any:
             ON task.id = task_instance.task_id
         JOIN task_instance_status
             ON task_instance.status = task_instance_status.id
-        JOIN executor_parameter_set
-            ON task_instance.executor_parameter_set_id = executor_parameter_set.id
         LEFT JOIN task_instance_error_log
             ON task_instance.id = task_instance_error_log.task_instance_id
         WHERE
@@ -514,13 +512,13 @@ def get_task_status() -> Any:
 
         # remap to jobmon_cli statuses
         df.STATUS.replace(to_replace=_task_instance_label_mapping, inplace=True)
-        df = df[["TASK_INSTANCE_ID", "EXECUTOR_ID", "STATUS", "RESOURCE_USAGE",
+        df = df[["TASK_INSTANCE_ID", "DISTRIBUTOR_ID", "STATUS", "RESOURCE_USAGE",
                  "ERROR_TRACE"]]
         resp = jsonify(task_instance_status=df.to_json())
     else:
         df = pd.DataFrame(
             {},
-            columns=["TASK_INSTANCE_ID", "EXECUTOR_ID", "STATUS",
+            columns=["TASK_INSTANCE_ID", "DISTRIBUTOR_ID", "STATUS",
                      "RESOURCE_USAGE", "ERROR_TRACE"])
         resp = jsonify(task_instance_status=df.to_json())
 
