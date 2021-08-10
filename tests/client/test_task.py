@@ -3,19 +3,11 @@ from sqlalchemy.sql import text
 
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool
-
-
-@pytest.fixture
-def task_template(db_cfg, client_env):
-    tool = Tool()
-    tt = tool.get_task_template(
-        template_name="my_template",
-        command_template="{arg}",
-        node_args=["arg"],
-        task_args=[],
-        op_args=[]
-    )
-    return tt
+from jobmon.client.workflow_run import WorkflowRun
+from jobmon.constants import WorkflowRunStatus, TaskStatus, TaskInstanceStatus
+from jobmon.server.web.models.task_attribute import TaskAttribute
+from jobmon.server.web.models.task_attribute_type import TaskAttributeType
+from jobmon.serializers import SerializeTaskInstanceErrorLog
 
 
 def test_good_names():
@@ -58,14 +50,11 @@ def test_hash_name_compatibility(task_template):
     assert "task_" + str(hash(a)) == a.name
 
 
-def test_task_attribute(db_cfg, task_template):
+def test_task_attribute(db_cfg, tool):
     """Test that you can add task attributes to Bash and Python tasks"""
-    from jobmon.client.workflow_run import WorkflowRun
-    from jobmon.server.web.models.task_attribute import TaskAttribute
-    from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 
-    tool = Tool()
     workflow1 = tool.create_workflow(name="test_task_attribute")
+    task_template = tool.active_task_templates["simple_template"]
     task1 = task_template.create_task(
         arg="sleep 2", task_attributes={'LOCATION_ID': 1, 'AGE_GROUP_ID': 5, 'SEX': 1},
         cluster_name="sequential",
@@ -136,3 +125,144 @@ def test_executor_parameter_copy(tool, task_template):
 
     # Ensure memory addresses are different
     assert id(task1.compute_resources) != id(task2.compute_resources)
+
+
+def test_get_errors(db_cfg, tool):
+    """test that num attempts gets reset on a resume"""
+    from jobmon.server.web.models.task import Task
+
+    # setup workflow 1
+    workflow1 = tool.create_workflow(name="test_task_instance_error_fatal")
+    task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 5")
+    workflow1.add_task(task_a)
+
+    # add workflow to database
+    workflow1.bind()
+    wfr_1 = workflow1._create_workflow_run()
+
+    # for an just initialized task, get_errors() should be None
+    assert task_a.get_errors() is None
+
+    # now set everything to error fail
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        # fake workflow run
+        DB.session.execute("""
+            UPDATE workflow_run
+            SET status ='{s}'
+            WHERE id={wfr_id}""".format(s=WorkflowRunStatus.RUNNING,
+                                        wfr_id=wfr_1.workflow_run_id))
+        DB.session.execute(
+            """
+            INSERT INTO task_instance (workflow_run_id, task_id, status)
+            VALUES ({wfr_id}, {t_id}, '{s}')
+            """.format(
+                wfr_id=wfr_1.workflow_run_id,
+                t_id=task_a.task_id,
+                s=TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR))
+        ti = DB.session.execute(
+            "SELECT max(id) from task_instance where task_id={}".format(task_a.task_id)
+        ).fetchone()
+        ti_id = ti[0]
+        DB.session.execute("""
+            UPDATE task
+            SET status ='{s}'
+            WHERE id={t_id}""".format(s=TaskStatus.RUNNING,
+                                      t_id=task_a.task_id))
+        DB.session.commit()
+
+    # log task_instance fatal error
+    app_route = f"/worker/task_instance/{ti_id}/log_error_worker_node"
+    return_code, _ = workflow1.requester.send_request(
+        app_route=app_route,
+        message={"error_state": "F", "error_message": "bla bla bla"},
+        request_type='post'
+    )
+    assert return_code == 200
+
+    # log task_instance fatal error - 2nd error
+    app_route = f"/worker/task_instance/{ti_id}/log_error_worker_node"
+    return_code, _ = workflow1.requester.send_request(
+        app_route=app_route,
+        message={"error_state": "F", "error_message": "ble ble ble"},
+        request_type='post'
+    )
+    assert return_code == 200
+
+    # Validate that the database indicates the Dag and its Jobs are complete
+    with app.app_context():
+        t = DB.session.query(Task).filter_by(id=task_a.task_id).one()
+        assert t.status == TaskStatus.ERROR_FATAL
+        DB.session.commit()
+
+    # make sure that the 2 errors logged above are counted for in the request_type='get'
+    rc, response = workflow1.requester.send_request(
+        app_route=f'/worker/task_instance/{ti_id}/task_instance_error_log',
+        message={},
+        request_type='get')
+    all_errors = [
+        SerializeTaskInstanceErrorLog.kwargs_from_wire(j)
+        for j in response['task_instance_error_log']]
+    assert len(all_errors) == 2
+
+    # make sure we see the 2 task_instance_error_log when checking
+    # on the existing task_a, which should return a dict
+    # produced in task.py
+    task_errors = task_a.get_errors()
+    assert type(task_errors) == dict
+    assert len(task_errors) == 2
+    assert task_errors['task_instance_id'] == ti_id
+    error_log = task_errors['error_log']
+    assert type(error_log) == list
+    err_1st = error_log[0]
+    err_2nd = error_log[1]
+    assert type(err_1st) == dict
+    assert type(err_2nd) == dict
+    assert err_1st['description'] == "bla bla bla"
+    assert err_2nd['description'] == "ble ble ble"
+
+
+def test_reset_attempts_on_resume(db_cfg, tool):
+    """test that num attempts gets reset on a resume"""
+    from jobmon.server.web.models.task import Task
+
+    # Manually modify the database so that some mid-dag jobs appear in
+    # error state, max-ing out the attempts
+
+    # setup workflow 1
+    workflow1 = tool.create_workflow(name="test_reset_attempts_on_resume")
+    task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 5")
+    workflow1.add_task(task_a)
+
+    # add workflow to database
+    workflow1.bind()
+    wfr_1 = workflow1._create_workflow_run()
+    wfr_1._update_status(WorkflowRunStatus.ERROR)
+
+    # now set everything to error fail
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        DB.session.execute("""
+            UPDATE task
+            SET status='{s}', num_attempts=3, max_attempts=3
+            WHERE task.id={task_id}""".format(s=TaskStatus.ERROR_FATAL,
+                                              task_id=task_a.task_id))
+        DB.session.commit()
+
+    # create a second workflow and actually run it
+    workflow2 = tool.create_workflow(name="test_reset_attempts_on_resume",
+                                     workflow_args=workflow1.workflow_args)
+    task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 5")
+    workflow2.add_task(task_a)
+    workflow2.bind()
+    workflow2._create_workflow_run(resume=True)
+
+    # Validate that the database indicates the Dag and its Jobs are complete
+    with app.app_context():
+        t = DB.session.query(Task).filter_by(id=task_a.task_id).one()
+        assert t.max_attempts == 3
+        assert t.num_attempts == 0
+        assert t.status == TaskStatus.REGISTERED
+        DB.session.commit()
