@@ -94,7 +94,7 @@ def get_test_content(response):
 
 
 @pytest.fixture(scope='function')
-def requester_in_memory(monkeypatch, test_app):
+def requester_in_memory(monkeypatch, web_server_in_memory):
     """This function monkeypatches the requests library to use the
     test_client
     """
@@ -105,15 +105,16 @@ def requester_in_memory(monkeypatch, test_app):
 
     def get_in_mem(url, params, data, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return test_app.get(path=url, query_string=params, data=data, headers=headers)
+        return web_server_in_memory.get(path=url, query_string=params, data=data,
+                                        headers=headers)
 
     def post_in_mem(url, json, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return test_app.post(url, json=json, headers=headers)
+        return web_server_in_memory.post(url, json=json, headers=headers)
 
     def put_in_mem(url, json, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return test_app.put(url, json=json, headers=headers)
+        return web_server_in_memory.put(url, json=json, headers=headers)
 
     monkeypatch.setattr(requests, 'get', get_in_mem)
     monkeypatch.setattr(requests, 'post', post_in_mem)

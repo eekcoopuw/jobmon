@@ -27,9 +27,9 @@ def task_template(tool):
 
 
 @pytest.fixture(scope="function")
-def log_config(test_app, tmp_path):
+def log_config(requester_in_memory, tmp_path):
 
-    test_app.get("/")  # trigger logging setup
+    requester_in_memory.get("/")  # trigger logging setup
     filepath = str(tmp_path) + ".log"
 
     # override base config

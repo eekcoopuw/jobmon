@@ -4,7 +4,6 @@ from __future__ import annotations
 import logging
 import os
 import random
-import shutil
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from jobmon.cluster_type.base import (ClusterQueue, ClusterDistributor, ClusterWorkerNode,
