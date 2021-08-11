@@ -257,7 +257,8 @@ class WorkflowRun:
 
             # top fringe is defined by:
             # not any unfinished upstream tasks and current task is registered
-            if not unfinished_upstreams and swarm_task.status == TaskStatus.REGISTERED:
+            if not unfinished_upstreams and swarm_task.status == TaskStatus.REGISTERED\
+                    and swarm_task not in self.ready_to_run:
                 self.ready_to_run += [swarm_task]
 
     def _update_dag_state(self, swarm_tasks: List[SwarmTask]):
@@ -286,7 +287,7 @@ class WorkflowRun:
                 newly_ready.append(swarm_task)
 
             else:
-                logger.debug(f"Got status update {status} for task_id: {swarm_task.status}."
+                logger.debug(f"Got status update {status} for task_id: {swarm_task.task_id}."
                              "No actions necessary.")
                 continue
 
