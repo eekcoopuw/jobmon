@@ -187,7 +187,7 @@ class WorkflowRun:
                     yield swarm_task
                 swarm_task.queue_task()
             elif swarm_task.status == TaskStatus.ADJUSTING_RESOURCES:
-                swarm_task.adjust_resources()
+                swarm_task.adjust_task_resources()
                 swarm_task.queue_task()
             else:
                 raise RuntimeError(f"Task {swarm_task.task_id} in ready_to_run queue but "

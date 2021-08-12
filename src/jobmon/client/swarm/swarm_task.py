@@ -47,8 +47,6 @@ class SwarmTask(object):
 
         self.task_resources = task_resources
 
-        if resource_scales is None:
-            resource_scales = {}
         self.resource_scales = resource_scales
         self.cluster = cluster
 
