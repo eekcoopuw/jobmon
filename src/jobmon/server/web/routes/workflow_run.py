@@ -269,28 +269,6 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int) -
     return resp
 
 
-@jobmon_swarm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
-def log_wfr_heartbeat(workflow_run_id: int) -> Any:
-    """Log a workflow_run as being responsive, with a heartbeat.
-
-    Args:
-        workflow_run_id: id of the workflow_run to log
-    """
-    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
-    app.logger.debug(f"Log heartbeat for wfr {workflow_run_id}")
-    params = {"workflow_run_id": int(workflow_run_id)}
-    query = """
-        UPDATE workflow_run
-        SET heartbeat_date = CURRENT_TIMESTAMP()
-        WHERE id = :workflow_run_id
-    """
-    DB.session.execute(query, params)
-    DB.session.commit()
-    resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
 @jobmon_distributor.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
 def distributor_log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
     """Log a heartbeat for the workflow run to show that the client side is still alive."""
