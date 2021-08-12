@@ -16,6 +16,7 @@ from jobmon.client.workflow import Workflow
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientTool
+import yaml
 
 
 logger = logging.getLogger(__name__)
@@ -132,10 +133,10 @@ class Tool:
         self._active_tool_version: ToolVersion = tool_version
 
     def get_task_template(self, template_name: str, command_template: str,
-                          node_args: List[str] = [], task_args: List[str] = [],
-                          op_args: List[str] = [], default_cluster_name: str = "",
-                          default_compute_resources: Optional[Dict[str, Any]] = None
-                          ) -> TaskTemplate:
+                          node_args: List[str] = None, task_args: List[str] = None,
+                          op_args: List[str] = None, default_cluster_name: str = "",
+                          default_compute_resources: Optional[Dict[str, Any]] = None,
+                          yaml_file: str = None) -> TaskTemplate:
         """Create or get task a task template.
 
         Args:
@@ -157,13 +158,33 @@ class Tool:
             default_compute_resources: dictionary of default compute resources to run tasks
                 with. Can be overridden at task level. dict of {resource_name: resource_value}.
                 Must specify default_cluster_name when this option is used.
+            yaml_file: path to YAML file that contains user-specified compute resources.
         """
+        if node_args is None:
+            node_args = []
+        if task_args is None:
+            task_args = []
+        if op_args is None:
+            op_args = []
+
         if default_compute_resources is not None and not default_cluster_name:
             raise ValueError(
                 "Must specify default_cluster_name when using default_compute_resources option"
             )
 
         tt = self.active_tool_version.get_task_template(template_name)
+
+        # Read in compute resources from YAML
+        if yaml_file and default_compute_resources is None:
+            with open(yaml_file, 'r') as stream:
+                try:
+                    default_compute_resources = yaml.safe_load(stream)
+                except yaml.YAMLException as exc:
+                    raise Exception(f"Unable to read resources from {yaml_file}. "
+                                    f"Exception: {exc}")
+            default_compute_resources = (default_compute_resources["task_template_resources"]
+                                                                  [tt.template_name]
+                                                                  [default_cluster_name])
         tt.get_task_template_version(command_template, node_args, task_args, op_args,
                                      default_cluster_name, default_compute_resources)
         return tt

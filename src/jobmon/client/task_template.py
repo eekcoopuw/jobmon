@@ -12,6 +12,7 @@ from jobmon.client.task_template_version import TaskTemplateVersion
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientTaskTemplate
+import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -90,17 +91,39 @@ class TaskTemplate:
         self.active_task_template_version.update_default_compute_resources(cluster_name,
                                                                            **kwargs)
 
-    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str) \
-            -> None:
+    def set_default_compute_resources_from_yaml(self, yaml_file: str,
+                                                default_cluster_name: str = "") -> None:
         """Set default ComputeResources from a user provided yaml file for task template level.
 
-        TODO: Implement this method.
-
         Args:
-            cluster_name: name of cluster to set default values for.
+            default_cluster_name: name of cluster to set default values for.
             yaml_file: the yaml file that is providing the compute resource values.
         """
-        pass
+        if self.default_cluster_name is None and default_cluster_name is None:
+            raise ValueError(
+                "Must specify default_cluster_name when using default_compute_resources "
+                "option. Set in tool.get_task_template() or "
+                "set_default_compute_resources_from_yaml"
+            )
+
+        # Take passed-in default_cluster_name over task_template.default_cluster_name
+        elif not default_cluster_name:
+            default_cluster_name = self.default_cluster_name
+
+        # Read in compute resources from YAML
+        with open(yaml_file, 'r') as stream:
+            try:
+                compute_resources = yaml.safe_load(stream)
+            except yaml.YAMLException as exc:
+                raise ValueError(f"Unable to read compute resources from {yaml_file}.") \
+                    from exc
+
+        self.active_task_template_version.set_default_compute_resources_from_dict(
+            self.default_cluster_name,
+            (compute_resources["task_template_resources"]
+                              [self.template_name]
+                              [default_cluster_name])
+        )
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,
                                                 compute_resources: Dict[str, Any]) -> None:
@@ -278,8 +301,8 @@ class TaskTemplate:
         if self.task_template_versions:
             self.set_active_task_template_version_id()
 
-    def get_task_template_version(self, command_template: str, node_args: List[str] = [],
-                                  task_args: List[str] = [], op_args: List[str] = [],
+    def get_task_template_version(self, command_template: str, node_args: List[str] = None,
+                                  task_args: List[str] = None, op_args: List[str] = None,
                                   default_cluster_name: str = "",
                                   default_compute_resources: Optional[Dict[str, Any]] = None
                                   ) -> TaskTemplateVersion:
