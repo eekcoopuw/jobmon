@@ -135,8 +135,7 @@ class TaskTemplate:
         Args:
             cluster_name: name of cluster to set default values for.
             compute_resources: dictionary of default compute resources to run tasks
-                with. Can be overridden at task template or task level.
-                dict of {resource_name: resource_value}
+                with. Can be overridden at task level. dict of {resource_name: resource_value}
         """
         self.active_task_template_version.set_default_compute_resources_from_dict(
             cluster_name, compute_resources

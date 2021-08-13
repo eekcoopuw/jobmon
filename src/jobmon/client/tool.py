@@ -18,7 +18,6 @@ from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientTool
 import yaml
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -243,17 +242,50 @@ class Tool:
             self.active_tool_version.default_cluster_name = cluster_name
         self.active_tool_version.update_default_compute_resources(cluster_name, **kwargs)
 
-    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str) \
-            -> None:
+    def set_default_compute_resources_from_yaml(self, default_cluster_name: str,
+                                                yaml_file: str,
+                                                set_task_templates: bool = None) -> None:
         """Set default compute resources from a user provided yaml file for tool level.
 
-        TODO: Implement this method.
-
         Args:
-            cluster_name: name of cluster to set default values for.
-            yaml_file: the yaml file that is providing the compute resource values.
+            default_cluster_name: name of cluster to set default values for.
+            yaml_file: the yaml file that is providing the default compute resource values.
+            set_task_templates: whether or not the user wants to set the default compute
+                resource values for all of the TaskTemplates associated with Tool.
         """
-        pass
+        with open(yaml_file, 'r') as stream:
+            try:
+                default_compute_resources = yaml.safe_load(stream)
+            except yaml.YAMLException as exc:
+                raise ValueError(f"Unable to read default compute resources from "
+                                 f"{yaml_file}.") from exc
+
+        # Set the Tool level compute resources
+        try:
+            compute_resources = (default_compute_resources["tool_resources"]
+                                                          [default_cluster_name])
+        except KeyError as exc:
+            raise KeyError(f"No Tool resources matching cluster name in yaml file: "
+                           f"{yaml_file}.") from exc
+
+        self.active_tool_version.set_default_compute_resources_from_dict(
+            cluster_name=default_cluster_name,
+            compute_resources=compute_resources
+        )
+
+        if not self.active_task_templates:
+            raise Exception("No TaskTemplates associated with Tool, unable to set default "
+                            "compute resources for TaskTemplates.")
+
+        if set_task_templates:
+            # Set the the compute resources for the TaskTemplates associated with the Tool
+            for tt in self.active_task_templates.values():
+                tt.set_default_compute_resources_from_dict(
+                    cluster_name=default_cluster_name,
+                    compute_resources=(default_compute_resources["task_template_resources"]
+                                                                [tt.template_name]
+                                                                [default_cluster_name])
+                )
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,
                                                 compute_resources: Dict[str, Any]) -> None:
