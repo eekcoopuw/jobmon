@@ -1,12 +1,12 @@
 """Workflow Run is an distributor instance of a declared workflow."""
+from datetime import datetime
 import logging
 import time
-from datetime import datetime
-from typing import Callable, Dict, List, Optional, Set
+from typing import Callable, Dict, Iterator, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.task import Task
 from jobmon.client.swarm.swarm_task import SwarmTask
+from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
 from jobmon.constants import TaskStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse
@@ -22,9 +22,9 @@ ValueError = ValueError
 
 
 class WorkflowRun:
-    """
-    WorkflowRun enables tracking for multiple runs of a single Workflow. A
-    Workflow may be started/paused/ and resumed multiple times. Each start or
+    """WorkflowRun enables tracking for multiple runs of a single Workflow.
+
+    A Workflow may be started/paused/ and resumed multiple times. Each start or
     resume represents a new WorkflowRun.
 
     In order for a Workflow can be deemed to be DONE (successfully), it
@@ -37,7 +37,8 @@ class WorkflowRun:
     def __init__(self, workflow_id: int, workflow_run_id: int,
                  tasks: List[Task],
                  fail_after_n_executions: int = 1_000_000_000,
-                 requester: Optional[Requester] = None):
+                 requester: Optional[Requester] = None) -> None:
+        """Initialization of the swarm WorkflowRun."""
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
 
@@ -135,9 +136,10 @@ class WorkflowRun:
                 f'code 200. Response content: {response}')
 
     def _set_fail_after_n_executions(self, n: int) -> None:
-        """
-        For use during testing, force the TaskDag to 'fall over' after n
-        executions, so that the resume case can be tested.
+        """For use during testing.
+
+        Force the TaskDag to 'fall over' after n executions, so that the resume case can be
+        tested.
 
         In every non-test case, self.fail_after_n_executions will be None, and
         so the 'fall over' will not be triggered in production.
@@ -160,16 +162,18 @@ class WorkflowRun:
                 f'code 200. Response content: {response}')
         return response["time"]
 
-    def compute_initial_dag_state(self):
+    def compute_initial_dag_state(self) -> None:
+        """Calculate the state of the original DAG."""
         self.last_sync = self._get_current_time()
         self._compute_initial_fringe()
         self._update_dag_state(list(self.swarm_tasks.values()))
         self.num_previously_complete = len(self.all_done)
 
-    def queue_tasks(self):
-        # Everything in the to_queue should be run or skipped,
-        # they either have no upstreams, or all upstreams are marked DONE
+    def queue_tasks(self) -> Iterator[SwarmTask]:
+        """Everything in the to_queue should be run or skipped.
 
+        The tasks either have no upstreams, or all upstreams are marked DONE.
+        """
         while self.ready_to_run:
             # Get the front of the queue and add it to the end.
             # That ensures breadth-first behavior, which is likely to
@@ -196,8 +200,8 @@ class WorkflowRun:
     def block_until_newly_ready_or_all_done(
             self, fail_fast: bool = False, poll_interval: int = 10,
             seconds_until_timeout: int = 36000, wedged_workflow_sync_interval: int = 600,
-            distributor_alive_callable: Optional[Callable] = None
-    ):
+            distributor_alive_callable: Optional[Callable] = None) -> None:
+        """Block until there is new work to do, or the workflow run has completed."""
         time_since_last_update = 0
         time_since_last_wedge_sync = 0
 
@@ -248,7 +252,7 @@ class WorkflowRun:
             time_since_last_update += poll_interval
             time_since_last_wedge_sync += poll_interval
 
-    def _compute_initial_fringe(self):
+    def _compute_initial_fringe(self) -> None:
         for swarm_task in self.swarm_tasks.values():
             unfinished_upstreams = []
             for u in swarm_task.upstream_swarm_tasks:
@@ -261,7 +265,7 @@ class WorkflowRun:
                     and swarm_task not in self.ready_to_run:
                 self.ready_to_run += [swarm_task]
 
-    def _update_dag_state(self, swarm_tasks: List[SwarmTask]):
+    def _update_dag_state(self, swarm_tasks: List[SwarmTask]) -> None:
         """Given a list of SwarmTasks, update all_done, all_error, and fringe attributes.
 
         Args:
@@ -338,10 +342,13 @@ class WorkflowRun:
                 logger.debug(f"Not ready yet or already queued, Status is {downstream.status}")
         return new_fringe
 
-    def _task_status_updates(self, swarm_tasks: List[SwarmTask] = []) -> List[SwarmTask]:
-        """Update internal state of tasks to match the database. If no tasks are specified,
-        get all.
+    def _task_status_updates(self, swarm_tasks: List[SwarmTask] = None) -> List[SwarmTask]:
+        """Update internal state of tasks to match the database.
+
+        If no tasks are specified, get all tasks.
         """
+        if swarm_tasks is None:
+            swarm_tasks = []
         swarm_tasks_tuples = [t.to_wire() for t in swarm_tasks]
         app_route = f'/swarm/workflow/{self.workflow_id}/task_status_updates'
         return_code, response = self.requester.send_request(

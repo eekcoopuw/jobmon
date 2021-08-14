@@ -7,7 +7,6 @@ from typing import Dict, List, Optional, Tuple
 from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
-from jobmon.client.task_resources import TaskResources
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import http_request_ok, Requester
