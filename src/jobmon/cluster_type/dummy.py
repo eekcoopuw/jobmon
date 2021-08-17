@@ -156,12 +156,7 @@ class DummyWorkerNode(ClusterWorkerNode):
 
 
 class ConcreteDummyResource(ConcreteResource):
-    """A version of a private constructor in Python.
-
-    Init shouldn't be called directly, otherwise we don't know resources are valid. Note that
-    this means the return type of validate and adjust are actually
-    ConcreteUGEResource.__Implementation. Unsure if that's bad practice.
-    """
+    """A version of a private constructor in Python."""
     def __init__(self, queue: ClusterQueue, valid_resources: Dict) -> None:
         """Always assumed to be valid.
 
