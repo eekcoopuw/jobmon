@@ -16,8 +16,8 @@ class SequentialQueue(ClusterQueue):
         self._queue_name = queue_name
         self._parameters = parameters
 
-    def validate_resources(self, **kwargs) -> Tuple[bool, str, Dict]:
-        """No resources defined for sequential execution. All resources valid"""
+    def validate_resources(self, **kwargs: dict) -> Tuple[bool, str, Dict]:
+        """No resources defined for sequential execution. All resources valid."""
         return True, "", kwargs
 
     @property
