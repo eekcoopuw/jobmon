@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any, Dict, List, Optional, Protocol, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Tuple, Union
 
 from jobmon import __version__
 from jobmon.exceptions import RemoteExitInfoNotAvailable
@@ -191,7 +191,8 @@ class ConcreteResource(Protocol):
     @abstractmethod
     def adjust_and_create_concrete_resource(
             cls: Any, expected_queue: ClusterQueue, existing_resources: Dict[str, Any],
-            **kwargs: Dict) -> ConcreteResource:
+            **kwargs: Union[Dict[Any, Any], Optional[List[ClusterQueue]]]) \
+            -> ConcreteResource:
         """Adjust resources after a resource error is detected by the distributor.
 
         Args:

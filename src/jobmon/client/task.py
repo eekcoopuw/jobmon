@@ -157,7 +157,8 @@ class Task:
         self.resource_scales = resource_scales
         self.cluster_name = cluster_name
         self.fallback_queues = fallback_queues
-        self._errors = None
+        self._errors: \
+            Union[None, Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]] = None
 
     @property
     def task_id(self) -> int:
@@ -293,7 +294,8 @@ class Task:
         if self._task_id:
             self.add_attributes({str(attribute): str(value)})
 
-    def get_errors(self) -> Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]:
+    def get_errors(self) -> \
+            Union[None, Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]]:
         """Return all errors for each task, with the recent task_instance_id actually used."""
         if self._errors is None and hasattr(self, "_task_id") and self._task_id is not None:
             return_code, response = self.requester.send_request(

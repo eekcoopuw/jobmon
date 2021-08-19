@@ -178,7 +178,7 @@ class Tool:
             with open(yaml_file, 'r') as stream:
                 try:
                     default_compute_resources = yaml.safe_load(stream)
-                except yaml.YAMLException as exc:
+                except yaml.YAMLError as exc:
                     raise Exception(f"Unable to read resources from {yaml_file}. "
                                     f"Exception: {exc}")
             default_compute_resources = (default_compute_resources["task_template_resources"]
@@ -256,7 +256,7 @@ class Tool:
         with open(yaml_file, 'r') as stream:
             try:
                 default_compute_resources = yaml.safe_load(stream)
-            except yaml.YAMLException as exc:
+            except yaml.YAMLError as exc:
                 raise ValueError(f"Unable to read default compute resources from "
                                  f"{yaml_file}.") from exc
 

@@ -738,12 +738,13 @@ class Workflow(object):
 
         # instantiate DistributorService and launch in separate proc. use event to
         # signal back when distributor is started
+        ti_hi = distributor_config.task_instance_heartbeat_interval
         tid = DistributorService(
             workflow_id=self.workflow_id,
             workflow_run_id=workflow_run_id,
             distributor=distributor,
             workflow_run_heartbeat_interval=distributor_config.workflow_run_heartbeat_interval,
-            task_heartbeat_interval=distributor_config.task_instance_heartbeat_interval,
+            task_instance_heartbeat_interval=ti_hi,
             heartbeat_report_by_buffer=distributor_config.heartbeat_report_by_buffer,
             n_queued=distributor_config.n_queued,
             distributor_poll_interval=distributor_config.distributor_poll_interval,

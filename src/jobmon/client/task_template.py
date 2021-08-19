@@ -114,7 +114,7 @@ class TaskTemplate:
         with open(yaml_file, 'r') as stream:
             try:
                 compute_resources = yaml.safe_load(stream)
-            except yaml.YAMLException as exc:
+            except yaml.YAMLError as exc:
                 raise ValueError(f"Unable to read compute resources from {yaml_file}.") \
                     from exc
 

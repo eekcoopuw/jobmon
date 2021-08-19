@@ -10,8 +10,8 @@ from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 class _HelpAction(argparse._HelpAction):
     """To show help for all subparsers in one place."""
 
-    def __call__(self, parser: Any, namespace: str, values: Any, option_string: str = None) \
-            -> None:
+    def __call__(self, parser: Any, namespace: argparse.Namespace, values: Any,
+                 option_string: str = None) -> None:
         """Add subparsers' help info when jobmon --help is called."""
         print(parser.format_help())
         subparsers_actions = [action for action in parser._actions if
@@ -191,9 +191,9 @@ class ClientCLI(CLI):
             try:
                 x = int(x)
             except ValueError:
-                raise argparse.ArgumentError(f"{x} is not coercible to an integer.")
+                raise argparse.ArgumentTypeError(f"{x} is not coercible to an integer.")
             if x < 0:
-                raise argparse.ArgumentError("Max concurrent tasks must be at least 0")
+                raise argparse.ArgumentTypeError("Max concurrent tasks must be at least 0.")
             return x
 
         concurrency_limit_parser.add_argument(

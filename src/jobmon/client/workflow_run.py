@@ -29,27 +29,17 @@ class WorkflowRun(object):
     """
 
     def __init__(self, workflow_id: int, requester: Optional[Requester] = None,
-                 workflow_run_heartbeat_interval: Optional[int] = None,
-                 heartbeat_report_by_buffer: Optional[float] = None) -> None:
+                 workflow_run_heartbeat_interval: int = 30,
+                 heartbeat_report_by_buffer: float = 3.1) -> None:
         """Initialize client WorkflowRun."""
         # set attrs
         self.workflow_id = workflow_id
         self.user = getpass.getuser()
 
-        # set attrs from config
-        need_client_config = (workflow_run_heartbeat_interval
-                              is None or heartbeat_report_by_buffer is None
-                              or requester is None)
-        if need_client_config:
-            client_config = ClientConfig.from_defaults()
         if requester is None:
-            requester = Requester(client_config.url)
+            requester = Requester(ClientConfig.from_defaults().url)
         self.requester = requester
-        if workflow_run_heartbeat_interval is None:
-            workflow_run_heartbeat_interval = client_config.workflow_run_heartbeat_interval
         self.heartbeat_interval = workflow_run_heartbeat_interval
-        if heartbeat_report_by_buffer is None:
-            heartbeat_report_by_buffer = client_config.heartbeat_report_by_buffer
         self.heartbeat_report_by_buffer = heartbeat_report_by_buffer
 
         # get an id for this workflow run

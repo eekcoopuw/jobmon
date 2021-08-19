@@ -122,7 +122,8 @@ class Cluster:
 
         return queue
 
-    def adjust_task_resource(self, initial_resources: Dict, resource_scales: Dict,
+    def adjust_task_resource(self, initial_resources: Dict,
+                             resource_scales: Optional[Dict[str, float]],
                              expected_queue: ClusterQueue,
                              fallback_queues: List[ClusterQueue] = None) -> TaskResources:
         """Adjust task resources based on the scaling factor."""

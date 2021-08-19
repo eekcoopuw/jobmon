@@ -189,7 +189,7 @@ class Dag(object):
             # split off first chunk elements from queue.
             edge_chunk, all_edges = all_edges[:chunk_size], all_edges[chunk_size:]
 
-            message = {"edges_to_add": edge_chunk}
+            message: Dict[str, Union[List[Dict], bool]] = {"edges_to_add": edge_chunk}
             # more edges to add. don't mark it created
             if all_edges:
                 message["mark_created"] = False

@@ -1,7 +1,7 @@
 """Commands to check for workflow and task status (from CLI)."""
 import getpass
 import logging
-from typing import List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.constants import TaskStatus
@@ -11,8 +11,8 @@ import pandas as pd
 logger = logging.getLogger(__name__)
 
 
-def workflow_status(workflow_id: List[int] = [],
-                    user: List[str] = [],
+def workflow_status(workflow_id: List[int] = None,
+                    user: List[str] = None,
                     json: bool = False,
                     requester_url: Optional[str] = None,
                     limit: Optional[int] = 5) -> pd.DataFrame:
@@ -30,6 +30,10 @@ def workflow_status(workflow_id: List[int] = [],
     Returns:
         dataframe of all workflows and their status
     """
+    if workflow_id is None:
+        workflow_id = []
+    if user is None:
+        user = []
     logger.debug("workflow_status workflow_id:{}".format(str(workflow_id)))
     msg: dict = {}
     if workflow_id:
@@ -58,7 +62,7 @@ def workflow_status(workflow_id: List[int] = [],
 
 def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = False,
                    requester_url: Optional[str] = None,
-                   limit: Optional[int] = 5) -> pd.DataFrame:
+                   limit: int = 5) -> pd.DataFrame:
     """Get metadata about task state for a given workflow.
 
     Args:
@@ -72,7 +76,7 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
         Dataframe of tasks for a given workflow
     """
     logger.debug("workflow id: {}".format(workflow_id))
-    msg = {}
+    msg: Dict[str, Union[List[str], int]] = {}
     if status:
         msg["status"] = [i.upper() for i in status]
     msg["limit"] = limit
@@ -98,16 +102,16 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
     """Get metadata about a task and its task instances.
 
     Args:
-        task_ids: a list of task_ids to retrieve task_instance metadata for
-        status: a list of statuses to check for
-        json: Flag to return data as JSON
+        task_ids: a list of task_ids to retrieve task_instance metadata for.
+        status: a list of statuses to check for.
+        json: Flag to return data as JSON.
+        requester_url: url to communicate with the Flask service.
 
     Returns:
         Task status and task_instance metadata
     """
     logger.debug("task_status task_ids:{}".format(str(task_ids)))
-    msg = {}
-    msg["task_ids"] = task_ids
+    msg: Dict[str, Union[List[str], List[int]]] = {"task_ids": task_ids}
     if status:
         msg["status"] = [i.upper() for i in status]
 
@@ -156,7 +160,7 @@ def concurrency_limit(workflow_id: int, max_tasks: int,
 
 
 def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
-                       requester_url: Optional[str] = None) -> None:
+                       requester_url: Optional[str] = None) -> Any:
     """Set the specified task IDs to the new status, pending validation.
 
     Args:
@@ -209,7 +213,7 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
     return
 
 
-def validate_workflow(task_ids: List[int], requester: Requester) -> None:
+def validate_workflow(task_ids: List[int], requester: Requester) -> str:
     """Validate that the task_ids provided belong to the expected workflow."""
     rc, res = requester.send_request(
         app_route="/cli/workflow_validation",
