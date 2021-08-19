@@ -204,17 +204,18 @@ deploy_jobmon_to_k8s () {
 
 
 test_k8s_deployment () {
-    WORKSPACE=$1
-    QLOGIN_ACTIVATE=$2
-    JOBMON_VERSION=$3
+    echo "Bypass for testing"
+    #WORKSPACE=$1
+    #QLOGIN_ACTIVATE=$2
+    #JOBMON_VERSION=$3
 
-    CONDA_DIR=$WORKSPACE/.conda_env/load_test
-    $QLOGIN_ACTIVATE && \
-        conda create --prefix $CONDA_DIR python==3.7
-    $QLOGIN_ACTIVATE &&
-        conda activate $CONDA_DIR && \
-        pip install jobmon==$JOBMON_VERSION && \
-        python $WORKSPACE/deployment/tests/six_job_test.py
+    #CONDA_DIR=$WORKSPACE/.conda_env/load_test
+    #$QLOGIN_ACTIVATE && \
+    #    conda create --prefix $CONDA_DIR python==3.7
+    #$QLOGIN_ACTIVATE &&
+    #    conda activate $CONDA_DIR && \
+    #    pip install jobmon==$JOBMON_VERSION && \
+    #   python $WORKSPACE/deployment/tests/six_job_test.py
 
     #$QLOGIN_ACTIVATE &&
     #    /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
