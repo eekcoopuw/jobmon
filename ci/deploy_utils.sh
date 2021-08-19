@@ -37,17 +37,29 @@ upload_python_dist () {
     REG_USERNAME=$3
     REG_PASSWORD=$4
     ACTIVATE=$5
+    JOBMON_VERSION=$6
 
     INI=$WORKSPACE/src/jobmon/.jobmon.ini
     rm $INI
     echo -e "[client]\nweb_service_fqdn=$TARGET_IP\nweb_service_port=80" > $INI
     $ACTIVATE && nox --session distribute
     PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
-    $ACTIVATE && twine upload \
+    if [[ "$JOBMON_VERSION" =~ "dev" ]]
+    then
+      $ACTIVATE && twine upload \
+        --repository-url $PYPI_URL \
+        --username $REG_USERNAME \
+        --password $REG_PASSWORD \
+        --skip-existing \
+        ./dist/*
+    else
+      $ACTIVATE && twine upload \
         --repository-url $PYPI_URL \
         --username $REG_USERNAME \
         --password $REG_PASSWORD \
         ./dist/*
+    fi
+
 }
 
 
