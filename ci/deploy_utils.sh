@@ -37,17 +37,29 @@ upload_python_dist () {
     REG_USERNAME=$3
     REG_PASSWORD=$4
     ACTIVATE=$5
+    JOBMON_VERSION=$6
 
     INI=$WORKSPACE/src/jobmon/.jobmon.ini
     rm $INI
     echo -e "[client]\nweb_service_fqdn=$TARGET_IP\nweb_service_port=80" > $INI
     $ACTIVATE && nox --session distribute
     PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
-    $ACTIVATE && twine upload \
+    if [[ "$JOBMON_VERSION" =~ "dev" ]]
+    then
+      $ACTIVATE && twine upload \
+        --repository-url $PYPI_URL \
+        --username $REG_USERNAME \
+        --password $REG_PASSWORD \
+        --skip-existing \
+        ./dist/*
+    else
+      $ACTIVATE && twine upload \
         --repository-url $PYPI_URL \
         --username $REG_USERNAME \
         --password $REG_PASSWORD \
         ./dist/*
+    fi
+
 }
 
 
@@ -202,7 +214,7 @@ test_k8s_deployment () {
     $QLOGIN_ACTIVATE &&
         conda activate $CONDA_DIR && \
         pip install jobmon==$JOBMON_VERSION && \
-        python $WORKSPACE/deployment/tests/six_job_test.py
+       python $WORKSPACE/deployment/tests/six_job_test.py
 
     $QLOGIN_ACTIVATE &&
         /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
