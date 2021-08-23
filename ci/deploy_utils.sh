@@ -204,6 +204,7 @@ deploy_jobmon_to_k8s () {
 
 
 test_k8s_deployment () {
+    echo "Skip for testing"
     #WORKSPACE=$1
     #QLOGIN_ACTIVATE=$2
     #JOBMON_VERSION=$3
