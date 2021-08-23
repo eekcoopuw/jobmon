@@ -76,7 +76,7 @@ data:
       metricsets: ["status"]
       enable: true
       period: 10s
-      hosts: ["tcp://jobmon-server:{{ .Values.ports.stats }}"]
+      hosts: ["tcp://jobmon-server:{{ .Values.ports.uwsgi-stats }}"]
     output.elasticsearch:
       hosts: ["elasticsearch:{{ .Values.ports.elasticsearch }}"]
     setup.dashboards.enabled: true
