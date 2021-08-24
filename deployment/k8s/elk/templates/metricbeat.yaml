@@ -72,11 +72,6 @@ data:
     - module: mysql
       metricsets: ["status", "performance"]
       hosts: ["${ROOT_DB_USER}:${ROOT_DB_PASSWORD}@tcp(${DB_HOST}:${DB_PORT})/"]
-    - module: uwsgi
-      metricsets: ["status"]
-      enable: true
-      period: 10s
-      hosts: ["tcp://jobmon-server:{{ .Values.ports.uwsgi-stats }}"]
     output.elasticsearch:
       hosts: ["elasticsearch:{{ .Values.ports.elasticsearch }}"]
     setup.dashboards.enabled: true
