@@ -11,10 +11,10 @@ import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import text
 
-from . import jobmon_client
+from jobmon.server.web.routes import finite_state_machine
 
 
-@jobmon_client.route('/node', methods=['GET'])
+@finite_state_machine.route('/node', methods=['GET'])
 def get_node_id() -> Any:
     """Get a node id: If a matching node isn't found, return None.
 
@@ -41,7 +41,7 @@ def get_node_id() -> Any:
     return resp
 
 
-@jobmon_client.route('/node', methods=['POST'])
+@finite_state_machine.route('/node', methods=['POST'])
 def add_node() -> Any:
     """Add a new node to the database.
 
@@ -100,7 +100,7 @@ def add_node() -> Any:
         return resp
 
 
-@jobmon_client.route('/nodes', methods=['POST'])
+@finite_state_machine.route('/nodes', methods=['POST'])
 def add_nodes() -> Any:
     """Add a chunk of nodes to the database.
 

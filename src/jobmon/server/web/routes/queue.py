@@ -8,10 +8,10 @@ from jobmon.server.web.models.cluster import Cluster
 from jobmon.server.web.models.cluster_type import ClusterType
 from jobmon.server.web.models.queue import Queue
 
-from . import jobmon_client
+from jobmon.server.web.routes import finite_state_machine
 
 
-@jobmon_client.route('/cluster/<cluster_name>/all_queues', methods=['GET'])
+@finite_state_machine.route('/cluster/<cluster_name>/all_queues', methods=['GET'])
 def get_queues_by_cluster_name(cluster_name: str) -> Any:
     """Get the id, name, cluster_name and parameters and connection_string of a Cluster."""
     result = DB.session.query(Queue)\
@@ -27,7 +27,7 @@ def get_queues_by_cluster_name(cluster_name: str) -> Any:
     return resp
 
 
-@jobmon_client.route('/cluster/<cluster_id>/queue/<queue_name>', methods=['GET'])
+@finite_state_machine.route('/cluster/<cluster_id>/queue/<queue_name>', methods=['GET'])
 def get_queue_by_cluster_queue_names(cluster_id: int, queue_name: str) -> Any:
     """Get the id, name, cluster_name and parameters of a Queue.
 

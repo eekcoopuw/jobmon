@@ -47,16 +47,10 @@ def create_app(web_config: Optional[WebConfig] = None) -> Flask:
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 200}
 
     # register blueprints
-    from .routes import jobmon_client, jobmon_distributor, jobmon_swarm, jobmon_worker, \
-        jobmon_cli
+    from jobmon.server.web.routes import finite_state_machine
 
     # default traffic to jobmon_client
-    app.register_blueprint(jobmon_client, url_prefix='/', name="")
-    app.register_blueprint(jobmon_client, url_prefix='/client', name="client")
-    app.register_blueprint(jobmon_distributor, url_prefix='/distributor')
-    app.register_blueprint(jobmon_swarm, url_prefix='/swarm')
-    app.register_blueprint(jobmon_worker, url_prefix='/worker')
-    app.register_blueprint(jobmon_cli, url_prefix='/cli')
+    app.register_blueprint(finite_state_machine, url_prefix='/')
 
     # register app with flask-sqlalchemy DB
     from jobmon.server.web.models import DB

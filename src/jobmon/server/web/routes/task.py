@@ -17,7 +17,7 @@ import pandas as pd
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import text
 
-from . import jobmon_cli, jobmon_client, jobmon_swarm
+from jobmon.server.web.routes import finite_state_machine
 
 _task_instance_label_mapping = {
     "B": "PENDING",
@@ -39,7 +39,7 @@ _reversed_task_instance_label_mapping = {
 }
 
 
-@jobmon_client.route('/task', methods=['GET'])
+@finite_state_machine.route('/task', methods=['GET'])
 def get_task_id_and_status() -> Any:
     """Get the status and id of a Task."""
     try:
@@ -80,7 +80,7 @@ def get_task_id_and_status() -> Any:
     return resp
 
 
-@jobmon_client.route('/task', methods=['POST'])
+@finite_state_machine.route('/task', methods=['POST'])
 def add_task() -> Any:
     """Add a task to the database.
 
@@ -152,7 +152,7 @@ def add_task() -> Any:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
 
-@jobmon_client.route('/task/<task_id>/update_parameters', methods=['PUT'])
+@finite_state_machine.route('/task/<task_id>/update_parameters', methods=['PUT'])
 def update_task_parameters(task_id: int) -> Any:
     """Update the parameters for a given task."""
     app.logger = app.logger.bind(task_id=task_id)
@@ -182,7 +182,7 @@ def update_task_parameters(task_id: int) -> Any:
     return resp
 
 
-@jobmon_client.route('/task/bind_tasks', methods=['PUT'])
+@finite_state_machine.route('/task/bind_tasks', methods=['PUT'])
 def bind_tasks() -> Any:
     """Bind the task objects to the database."""
     all_data = request.get_json()
@@ -362,7 +362,7 @@ def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
     return attribute.id
 
 
-@jobmon_client.route('/task/<task_id>/task_attributes', methods=['PUT'])
+@finite_state_machine.route('/task/<task_id>/task_attributes', methods=['PUT'])
 def update_task_attribute(task_id: int) -> Any:
     """Add or update attributes for a task."""
     app.logger = app.logger.bind(task_id=task_id)
@@ -383,7 +383,7 @@ def update_task_attribute(task_id: int) -> Any:
     return resp
 
 
-@jobmon_swarm.route('/task/<task_id>/queue', methods=['POST'])
+@finite_state_machine.route('/task/<task_id>/queue', methods=['POST'])
 def queue_job(task_id: int) -> Any:
     """Queue a job and change its status.
 
@@ -438,7 +438,7 @@ def _transform_mem_to_gb(mem_str: Any) -> float:
     return mem
 
 
-@jobmon_swarm.route('/task/<task_id>/bind_resources', methods=['POST'])
+@finite_state_machine.route('/task/<task_id>/bind_resources', methods=['POST'])
 def bind_task_resources(task_id: int) -> Any:
     """Add the task resources for a given task.
 
@@ -470,7 +470,7 @@ def bind_task_resources(task_id: int) -> Any:
     return resp
 
 
-@jobmon_cli.route('/task_status', methods=['GET'])
+@finite_state_machine.route('/task_status', methods=['GET'])
 def get_task_status() -> Any:
     """Get the status of a task."""
     task_ids = request.args.getlist('task_ids')
@@ -600,7 +600,7 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list) -> d
     return task_dict
 
 
-@jobmon_cli.route('/task/subdag', methods=['POST'])
+@finite_state_machine.route('/task/subdag', methods=['POST'])
 def get_task_subdag() -> Any:
     """Used to get the sub dag  of a given task.
 
@@ -648,7 +648,7 @@ def get_task_subdag() -> Any:
     return resp
 
 
-@jobmon_cli.route('/task/update_statuses', methods=['PUT'])
+@finite_state_machine.route('/task/update_statuses', methods=['PUT'])
 def update_task_statuses() -> Any:
     """Update the status of the tasks."""
     data = request.get_json()

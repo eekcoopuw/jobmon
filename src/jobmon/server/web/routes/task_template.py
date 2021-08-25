@@ -13,10 +13,10 @@ from jobmon.server.web.server_side_exception import InvalidUsage
 import sqlalchemy
 from sqlalchemy.sql import text
 
-from . import jobmon_client
+from jobmon.server.web.routes import finite_state_machine
 
 
-@jobmon_client.route('/task_template', methods=['POST'])
+@finite_state_machine.route('/task_template', methods=['POST'])
 def get_task_template() -> Any:
     """Add a task template for a given tool to the database."""
     # check input variable
@@ -54,7 +54,7 @@ def get_task_template() -> Any:
     return resp
 
 
-@jobmon_client.route('/task_template/<task_template_id>/versions', methods=['GET'])
+@finite_state_machine.route('/task_template/<task_template_id>/versions', methods=['GET'])
 def get_task_template_versions(task_template_id: int) -> Any:
     """Get the task_template_version."""
     # get task template version object
@@ -96,7 +96,7 @@ def _add_or_get_arg(name: str) -> Arg:
     return arg
 
 
-@jobmon_client.route('/task_template/<task_template_id>/add_version', methods=['POST'])
+@finite_state_machine.route('/task_template/<task_template_id>/add_version', methods=['POST'])
 def add_task_template_version(task_template_id: int) -> Any:
     """Add a tool to the database."""
     # check input variables

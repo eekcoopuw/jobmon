@@ -2,34 +2,12 @@ import json
 
 from jobmon.log_config import configure_logger
 from jobmon.requester import Requester
-from jobmon.client.api import Tool
 import pytest
 
 
-@pytest.fixture
-def tool(db_cfg, client_env):
-    tool = Tool()
-    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
-                                                 compute_resources={"queue": "null.q"})
-    return tool
-
-
-@pytest.fixture
-def task_template(tool):
-    tt = tool.get_task_template(
-        template_name="my_template",
-        command_template="{arg}",
-        node_args=["arg"],
-        task_args=[],
-        op_args=[]
-    )
-    return tt
-
-
 @pytest.fixture(scope="function")
-def log_config(requester_in_memory, tmp_path):
-
-    requester_in_memory.get("/")  # trigger logging setup
+def log_config(web_server_in_memory, tmp_path):
+    web_server_in_memory.get("/")  # trigger logging setup
     filepath = str(tmp_path) + ".log"
 
     # override base config
@@ -47,7 +25,6 @@ def log_config(requester_in_memory, tmp_path):
 
 @pytest.mark.skip()
 def test_server_logging_format(requester_in_memory, log_config, tool, task_template):
-
     wf = tool.create_workflow("test_server")
     task_a = task_template.create_task(arg="echo r")
     wf.add_task(task_a)

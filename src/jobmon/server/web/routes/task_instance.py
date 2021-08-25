@@ -17,10 +17,10 @@ from jobmon.server.web.server_side_exception import ServerError
 import sqlalchemy
 from sqlalchemy.sql import func, text
 
-from . import jobmon_distributor, jobmon_worker
+from jobmon.server.web.routes import finite_state_machine
 
 
-@jobmon_worker.route('/task_instance/<task_instance_id>/kill_self', methods=['GET'])
+@finite_state_machine.route('/task_instance/<task_instance_id>/kill_self', methods=['GET'])
 def kill_self(task_instance_id: int) -> Any:
     """Check a task instance's status to see if it needs to kill itself (state W, or L)."""
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
@@ -48,7 +48,7 @@ def kill_self(task_instance_id: int) -> Any:
     return resp
 
 
-@jobmon_worker.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
+@finite_state_machine.route('/task_instance/<task_instance_id>/log_running', methods=['POST'])
 def log_running(task_instance_id: int) -> Any:
     """Log a task_instance as running.
 
@@ -76,7 +76,8 @@ def log_running(task_instance_id: int) -> Any:
     return resp
 
 
-@jobmon_worker.route('/task_instance/<task_instance_id>/log_report_by', methods=['POST'])
+@finite_state_machine.route('/task_instance/<task_instance_id>/log_report_by', methods=['POST']
+                            )
 def log_ti_report_by(task_instance_id: int) -> Any:
     """Log a task_instance as being responsive with a new report_by_date.
 
@@ -118,7 +119,7 @@ def log_ti_report_by(task_instance_id: int) -> Any:
     return resp
 
 
-@jobmon_worker.route('/task_instance/<task_instance_id>/log_usage', methods=['POST'])
+@finite_state_machine.route('/task_instance/<task_instance_id>/log_usage', methods=['POST'])
 def log_usage(task_instance_id: int) -> Any:
     """Log the usage stats of a task_instance.
 
@@ -163,7 +164,7 @@ def log_usage(task_instance_id: int) -> Any:
     return resp
 
 
-@jobmon_worker.route('/task_instance/<task_instance_id>/log_done', methods=['POST'])
+@finite_state_machine.route('/task_instance/<task_instance_id>/log_done', methods=['POST'])
 def log_done(task_instance_id: int) -> Any:
     """Log a task_instance as done.
 
@@ -187,8 +188,8 @@ def log_done(task_instance_id: int) -> Any:
     return resp
 
 
-@jobmon_worker.route('/task_instance/<task_instance_id>/log_error_worker_node',
-                     methods=['POST'])
+@finite_state_machine.route('/task_instance/<task_instance_id>/log_error_worker_node',
+                            methods=['POST'])
 def log_error_worker_node(task_instance_id: int) -> Any:
     """Log a task_instance as errored.
 
@@ -217,7 +218,7 @@ def log_error_worker_node(task_instance_id: int) -> Any:
         return resp
 
 
-@jobmon_worker.route('/task/<task_id>/most_recent_ti_error', methods=['GET'])
+@finite_state_machine.route('/task/<task_id>/most_recent_ti_error', methods=['GET'])
 def get_most_recent_ti_error(task_id: int) -> Any:
     """Route to determine the cause of the most recent task_instance's error.
 
@@ -256,8 +257,8 @@ def get_most_recent_ti_error(task_id: int) -> Any:
     return resp
 
 
-@jobmon_worker.route('/task_instance/<task_instance_id>/task_instance_error_log',
-                     methods=['GET'])
+@finite_state_machine.route('/task_instance/<task_instance_id>/task_instance_error_log',
+                            methods=['GET'])
 def get_task_instance_error_log(task_instance_id: int) -> Any:
     """Route to return all task_instance_error_log entries of the task_instance_id.
 
@@ -288,8 +289,8 @@ def get_task_instance_error_log(task_instance_id: int) -> Any:
     return resp
 
 
-@jobmon_distributor.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances',
-                          methods=['GET'])
+@finite_state_machine.route('/workflow_run/<workflow_run_id>/get_suspicious_task_instances',
+                            methods=['GET'])
 def get_suspicious_task_instances(workflow_run_id: int) -> Any:
     """Query for suspicious TIs.
 
@@ -321,8 +322,8 @@ def get_suspicious_task_instances(workflow_run_id: int) -> Any:
     return resp
 
 
-@jobmon_distributor.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate',
-                          methods=['GET'])
+@finite_state_machine.route('/workflow_run/<workflow_run_id>/get_task_instances_to_terminate',
+                            methods=['GET'])
 def get_task_instances_to_terminate(workflow_run_id: int) -> Any:
     """Get the task instances for a given workflow run that need to be terminated."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
@@ -358,7 +359,8 @@ def get_task_instances_to_terminate(workflow_run_id: int) -> Any:
     return resp
 
 
-@jobmon_distributor.route('/task_instance/<distributor_id>/maxpss/<maxpss>', methods=['POST'])
+@finite_state_machine.route('/task_instance/<distributor_id>/maxpss/<maxpss>',
+                            methods=['POST'])
 def set_maxpss(distributor_id: int, maxpss: int) -> Any:
     """Route to set maxpss of a job instance.
 
@@ -383,8 +385,8 @@ def set_maxpss(distributor_id: int, maxpss: int) -> Any:
                           f"{request.path}", status_code=500) from e
 
 
-@jobmon_distributor.route('/workflow_run/<workflow_run_id>/log_distributor_report_by',
-                          methods=['POST'])
+@finite_state_machine.route('/workflow_run/<workflow_run_id>/log_distributor_report_by',
+                            methods=['POST'])
 def log_distributor_report_by(workflow_run_id: int) -> Any:
     """Log the next report by date and time."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
@@ -410,7 +412,7 @@ def log_distributor_report_by(workflow_run_id: int) -> Any:
     return resp
 
 
-@jobmon_distributor.route('/task_instance', methods=['POST'])
+@finite_state_machine.route('/task_instance', methods=['POST'])
 def add_task_instance() -> Any:
     """Add a task_instance to the database.
 
@@ -458,8 +460,8 @@ def add_task_instance() -> Any:
                               status_code=500) from e
 
 
-@jobmon_distributor.route('/task_instance/<task_instance_id>/log_no_distributor_id',
-                          methods=['POST'])
+@finite_state_machine.route('/task_instance/<task_instance_id>/log_no_distributor_id',
+                            methods=['POST'])
 def log_no_distributor_id(task_instance_id: int) -> Any:
     """Log a task_instance_id that did not get an distributor_id upon submission."""
     app.logger = app.logger.bind(task_instance_id=task_instance_id)
@@ -483,8 +485,8 @@ def log_no_distributor_id(task_instance_id: int) -> Any:
     return resp
 
 
-@jobmon_distributor.route('/task_instance/<task_instance_id>/log_distributor_id',
-                          methods=['POST'])
+@finite_state_machine.route('/task_instance/<task_instance_id>/log_distributor_id',
+                            methods=['POST'])
 def log_distributor_id(task_instance_id: int) -> Any:
     """Log a task_instance's distributor id.
 
@@ -509,8 +511,8 @@ def log_distributor_id(task_instance_id: int) -> Any:
     return resp
 
 
-@jobmon_distributor.route('/task_instance/<task_instance_id>/log_known_error',
-                          methods=['POST'])
+@finite_state_machine.route('/task_instance/<task_instance_id>/log_known_error',
+                            methods=['POST'])
 def log_known_error(task_instance_id: int) -> Any:
     """Log a task_instance as errored.
 
@@ -550,8 +552,8 @@ def log_known_error(task_instance_id: int) -> Any:
     return resp
 
 
-@jobmon_distributor.route('/task_instance/<task_instance_id>/log_unknown_error',
-                          methods=['POST'])
+@finite_state_machine.route('/task_instance/<task_instance_id>/log_unknown_error',
+                            methods=['POST'])
 def log_unknown_error(task_instance_id: int) -> Any:
     """Log a task_instance as errored.
 

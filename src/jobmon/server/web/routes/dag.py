@@ -11,10 +11,10 @@ import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import func, text
 
-from . import jobmon_client
+from jobmon.server.web.routes import finite_state_machine
 
 
-@jobmon_client.route('/dag', methods=['POST'])
+@finite_state_machine.route('/dag', methods=['POST'])
 def add_dag() -> Any:
     """Add a new dag to the database.
 
@@ -54,7 +54,7 @@ def add_dag() -> Any:
         return resp
 
 
-@jobmon_client.route('/dag/<dag_id>/edges', methods=['POST'])
+@finite_state_machine.route('/dag/<dag_id>/edges', methods=['POST'])
 def add_edges(dag_id: int) -> Any:
     """Add edges to the edge table."""
     app.logger = app.logger.bind(dag_id=dag_id)

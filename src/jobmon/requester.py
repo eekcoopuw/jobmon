@@ -3,11 +3,10 @@ import json
 import logging
 from typing import Any, Dict, Tuple
 
-from jobmon import log_config
 import requests
 import tenacity
 
-default_logger = log_config.configure_logger(__name__)
+default_logger = logging.getLogger(__name__)
 
 
 def http_request_ok(status_code: int) -> bool:

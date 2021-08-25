@@ -7,7 +7,6 @@ from typing import Dict, List, Optional, Tuple
 from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
-from jobmon.client.task_resources import TaskResources
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import http_request_ok, Requester
@@ -103,7 +102,7 @@ class WorkflowRun(object):
 
     def _register_workflow_run(self) -> int:
         # bind to database
-        app_route = "/client/workflow_run"
+        app_route = "/workflow_run"
         rc, response = self.requester.send_request(
             app_route=app_route,
             message={'workflow_id': self.workflow_id,
@@ -118,7 +117,7 @@ class WorkflowRun(object):
         return response['workflow_run_id']
 
     def _link_to_workflow(self, next_report_increment: float) -> Tuple[int, int]:
-        app_route = f"/client/workflow_run/{self.workflow_run_id}/link"
+        app_route = f"/workflow_run/{self.workflow_run_id}/link"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"next_report_increment": next_report_increment},
@@ -133,7 +132,7 @@ class WorkflowRun(object):
         return response['current_wfr']
 
     def _log_heartbeat(self, next_report_increment: float) -> None:
-        app_route = f"/client/workflow_run/{self.workflow_run_id}/log_heartbeat"
+        app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"next_report_increment": next_report_increment},
@@ -149,7 +148,7 @@ class WorkflowRun(object):
 
     def _bind_tasks(self, tasks: Dict[int, Task], reset_if_running: bool = True,
                     chunk_size: int = 500) -> Dict[int, Task]:
-        app_route = '/client/task/bind_tasks'
+        app_route = '/task/bind_tasks'
         parameters = {}
         remaining_task_hashes = list(tasks.keys())
 

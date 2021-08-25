@@ -49,7 +49,7 @@ def _processor_remove_data_if_not_debug(logger: logging.Logger, log_method: str,
 
 
 def configure_logger(name: str, add_handlers: Optional[Dict] = None,
-                     json_formatter_prefix: str = "") -> logging.Logger:
+                     json_formatter_prefix: str = "") -> structlog.stdlib.BoundLogger:
     """Configure logging format, handlers, etc."""
     dict_config = {
         "version": 1,

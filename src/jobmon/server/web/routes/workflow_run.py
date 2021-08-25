@@ -12,10 +12,10 @@ from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.server_side_exception import InvalidUsage
 from sqlalchemy.sql import text
 
-from . import jobmon_client, jobmon_distributor, jobmon_swarm
+from jobmon.server.web.routes import finite_state_machine
 
 
-@jobmon_client.route('/workflow_run', methods=['POST'])
+@finite_state_machine.route('/workflow_run', methods=['POST'])
 def add_workflow_run() -> Any:
     """Add a workflow run to the db."""
     try:
@@ -42,7 +42,7 @@ def add_workflow_run() -> Any:
     return resp
 
 
-@jobmon_client.route('/workflow_run/<workflow_run_id>/link', methods=['POST'])
+@finite_state_machine.route('/workflow_run/<workflow_run_id>/link', methods=['POST'])
 def link_workflow_run(workflow_run_id: int) -> Any:
     """Link this workflow run to a workflow."""
     try:
@@ -81,7 +81,7 @@ def link_workflow_run(workflow_run_id: int) -> Any:
     return resp
 
 
-@jobmon_client.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
+@finite_state_machine.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
 def client_terminate_workflow_run(workflow_run_id: int) -> Any:
     """Terminate a workflow run and get its tasks in order."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
@@ -153,7 +153,7 @@ def client_terminate_workflow_run(workflow_run_id: int) -> Any:
     return resp
 
 
-@jobmon_client.route('/workflow_run_status', methods=['GET'])
+@finite_state_machine.route('/workflow_run_status', methods=['GET'])
 def get_active_workflow_runs() -> Any:
     """Return all workflow runs that are currently in the specified state."""
     query = """
@@ -174,7 +174,7 @@ def get_active_workflow_runs() -> Any:
     return resp
 
 
-@jobmon_client.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
+@finite_state_machine.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
 def client_log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
     """Log a heartbeat for the workflow run to show that the client side is still alive."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
@@ -198,7 +198,7 @@ def client_log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
     return resp
 
 
-@jobmon_swarm.route('/workflow_run/<workflow_run_id>/update_status', methods=['PUT'])
+@finite_state_machine.route('/workflow_run/<workflow_run_id>/update_status', methods=['PUT'])
 def log_workflow_run_status_update(workflow_run_id: int) -> Any:
     """Update the status of the workflow run."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
@@ -218,8 +218,8 @@ def log_workflow_run_status_update(workflow_run_id: int) -> Any:
     return resp
 
 
-@jobmon_swarm.route('/workflow_run/<workflow_run_id>/aborted/<aborted_seconds>',
-                    methods=['PUT'])
+@finite_state_machine.route('/workflow_run/<workflow_run_id>/aborted/<aborted_seconds>',
+                            methods=['PUT'])
 def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int) -> Any:
     """If the last task was more than 2 minutes ago, transition wfr to A state.
 
@@ -269,7 +269,7 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int) -
     return resp
 
 
-@jobmon_swarm.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
+@finite_state_machine.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
 def log_wfr_heartbeat(workflow_run_id: int) -> Any:
     """Log a workflow_run as being responsive, with a heartbeat.
 
@@ -291,7 +291,7 @@ def log_wfr_heartbeat(workflow_run_id: int) -> Any:
     return resp
 
 
-@jobmon_distributor.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
+@finite_state_machine.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
 def distributor_log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
     """Log a heartbeat for the workflow run to show that the client side is still alive."""
     app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
@@ -314,7 +314,7 @@ def distributor_log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
     return resp
 
 
-@jobmon_client.route('/lost_workflow_run', methods=['GET'])
+@finite_state_machine.route('/lost_workflow_run', methods=['GET'])
 def get_lost_workflow_runs() -> Any:
     """Return all workflow runs that are currently in the specified state."""
     statuses = request.args.getlist('status')
@@ -339,7 +339,7 @@ def get_lost_workflow_runs() -> Any:
     return resp
 
 
-@jobmon_swarm.route('/workflow_run/<workflow_run_id>/reap', methods=['PUT'])
+@finite_state_machine.route('/workflow_run/<workflow_run_id>/reap', methods=['PUT'])
 def reap_workflow_run(workflow_run_id: int) -> Any:
     """If the last task was more than 2 minutes ago, transition wfr to A state.
 

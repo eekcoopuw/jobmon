@@ -10,10 +10,10 @@ from jobmon.server.web.server_side_exception import InvalidUsage
 import sqlalchemy
 from sqlalchemy.sql import text
 
-from . import jobmon_client
+from jobmon.server.web.routes import finite_state_machine
 
 
-@jobmon_client.route('/tool', methods=['POST'])
+@finite_state_machine.route('/tool', methods=['POST'])
 def add_tool() -> Any:
     """Add a tool to the database."""
     data = request.get_json()
@@ -46,7 +46,7 @@ def add_tool() -> Any:
     return resp
 
 
-@jobmon_client.route('/tool/<tool_id>/tool_versions', methods=['GET'])
+@finite_state_machine.route('/tool/<tool_id>/tool_versions', methods=['GET'])
 def get_tool_versions(tool_id: int) -> Any:
     """Get the Tool Version."""
     # check input variable
