@@ -7,7 +7,7 @@ ports:
   kibana: 5601
   logstash: 5000
   apm: 8200
-
+ 
 metricbeat:
   db_host_secret: jobmon-dev-db
   db_root_secret: jobmon-db-root-password

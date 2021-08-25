@@ -212,11 +212,11 @@ test_k8s_deployment () {
     $QLOGIN_ACTIVATE && \
         conda create --prefix $CONDA_DIR python==3.7
     $QLOGIN_ACTIVATE &&
-        conda activate $CONDA_DIR && \
-        pip install jobmon==$JOBMON_VERSION && \
+       conda activate $CONDA_DIR && \
+       pip install jobmon==$JOBMON_VERSION && \
        python $WORKSPACE/deployment/tests/six_job_test.py
 
     $QLOGIN_ACTIVATE &&
         /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
-            --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr/jobmonr
+           --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr/jobmonr
 }
