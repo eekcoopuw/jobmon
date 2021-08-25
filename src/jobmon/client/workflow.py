@@ -1,12 +1,12 @@
 """The overarching framework to create tasks and dependencies within."""
 import hashlib
 import logging
-import time
-import uuid
 from multiprocessing import Event, Process, Queue
 from multiprocessing import synchronize
 from queue import Empty
+import time
 from typing import Any, Dict, List, Optional, Sequence, Union
+import uuid
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.cluster import Cluster
@@ -17,12 +17,12 @@ from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
-from jobmon.constants import TaskResourcesType, WorkflowRunStatus, WorkflowStatus, TaskStatus
+from jobmon.constants import TaskResourcesType, TaskStatus, WorkflowRunStatus, WorkflowStatus
 from jobmon.exceptions import (CallableReturnedInvalidObject, DistributorNotAlive,
                                DistributorStartupTimeout, DuplicateNodeArgsError,
                                InvalidResponse, ResumeSet, WorkflowAlreadyComplete,
                                WorkflowAlreadyExists, WorkflowNotResumable)
-from jobmon.requester import Requester, http_request_ok
+from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeCluster
 
 
@@ -70,8 +70,9 @@ class Workflow(object):
                  max_concurrently_running: int = 10_000,
                  requester: Optional[Requester] = None,
                  chunk_size: int = 500,  # TODO: should be in the config
-                 ):
-        """
+                 ) -> None:
+        """Initialization of the client workflow.
+
         Args:
             tool_version_id: id of the associated tool
             workflow_args: Unique identifier of a workflow
@@ -137,7 +138,7 @@ class Workflow(object):
         self._fail_after_n_executions = 1_000_000_000
 
     @property
-    def is_bound(self):
+    def is_bound(self) -> bool:
         """If the workflow has been bound to the db."""
         if not hasattr(self, "_workflow_id"):
             return False
@@ -159,7 +160,7 @@ class Workflow(object):
         return self._dag.dag_id
 
     @property
-    def task_hash(self):
+    def task_hash(self) -> int:
         """Hash of all of the tasks."""
         hash_value = hashlib.sha1()
         tasks = sorted(self.tasks.values())
@@ -169,14 +170,14 @@ class Workflow(object):
         return int(hash_value.hexdigest(), 16)
 
     @property
-    def task_errors(self):
+    def task_errors(self) -> Dict:
+        """Return a dict of error associated with a task."""
         return {task.name: task.get_errors()
                 for task in self.tasks.values()
                 if task.final_status == TaskStatus.ERROR_FATAL}
 
     def add_attributes(self, workflow_attributes: dict) -> None:
-        """Function that users can call either to update values of existing attributes or add
-        new attributes.
+        """Users can call either to update values of existing attributes or add new attributes.
 
         Args:
             workflow_attributes: attributes to be bound to the db that describe
@@ -196,12 +197,13 @@ class Workflow(object):
                 f'200. Response content: {response}')
 
     def add_task(self, task: Task) -> Task:
-        """Add a task to the workflow to be executed. Set semantics - add tasks once only,
-        based on hash name. Also creates the job. If is_no has no task_id the creates task_id
-        and writes it onto object.
+        """Add a task to the workflow to be executed.
+
+        Set semantics - add tasks once only, based on hash name. Also creates the job. If
+        is_no has no task_id the creates task_id and writes it onto object.
 
         Args:
-            task: single task to add
+            task: single task to add.
         """
         logger.info(f"Adding Task {task}")
         if hash(task) in self.tasks.keys():
@@ -222,13 +224,14 @@ class Workflow(object):
 
         return task
 
-    def add_tasks(self, tasks: Sequence[Task]):
+    def add_tasks(self, tasks: Sequence[Task]) -> None:
         """Add a list of task to the workflow to be executed."""
         for task in tasks:
             # add the task
             self.add_task(task)
 
-    def set_default_compute_resources_from_yaml(self, cluster_name, yaml_file: str):
+    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str) \
+            -> None:
         """Set default compute resources from a user provided yaml file for workflow level.
 
         TODO: Implement this method.
@@ -240,7 +243,7 @@ class Workflow(object):
         pass
 
     def set_default_compute_resources_from_dict(self, cluster_name: str,
-                                                dictionary: Dict[str, Any]):
+                                                dictionary: Dict[str, Any]) -> None:
         """Set default compute resources for a given cluster_name.
 
         Args:
@@ -251,7 +254,7 @@ class Workflow(object):
         # TODO: Do we need to handle the scenario where no cluster name is specified?
         self.default_compute_resources_set[cluster_name] = dictionary
 
-    def set_default_cluster_name(self, cluster_name: str):
+    def set_default_cluster_name(self, cluster_name: str) -> None:
         """Set the default cluster.
 
         Args:
@@ -264,8 +267,9 @@ class Workflow(object):
             distributor_response_wait_timeout: int = 180,
             distributor_config: Optional[DistributorConfig] = None,
             resume_timeout: int = 300) -> str:
-        """Run the workflow by traversing the dag and submitting new tasks when their tasks
-        have completed successfully.
+        """Run the workflow.
+
+        Traverse the dag and submitting new tasks when their tasks have completed successfully.
 
         Args:
             fail_fast: whether or not to break out of distributor on
@@ -339,7 +343,7 @@ class Workflow(object):
 
         return swarm.status
 
-    def validate(self):
+    def validate(self) -> None:
         """Confirm that the tasks in this workflow are valid.
 
         This method will access the database to confirm the requested resources are valid for
@@ -377,7 +381,7 @@ class Workflow(object):
         self._dag.validate()
         self._matching_wf_args_diff_hash()
 
-    def bind(self):
+    def bind(self) -> None:
         """Bind objects to the database if they haven't already been.
 
         compute_resources: A dictionary that includes the users requested resources
@@ -440,8 +444,9 @@ class Workflow(object):
         self._newly_created = response["newly_created"]
 
     def _get_cluster_by_name(self, cluster_name: str) -> Cluster:
-        """Check if the cluster that the task specified is in the cache, if not create it and
-        add to cache.
+        """Check if the cluster that the task specified is in the cache.
+
+        If the cluster is not in the cache, create it and add to cache.
         """
         try:
             cluster = self._clusters[cluster_name]
@@ -475,7 +480,7 @@ class Workflow(object):
                 raise ValueError("No valid cluster_name found on workflow or task")
         return cluster_name
 
-    def _get_resource_params(self, task: Task, cluster_name: str):
+    def _get_resource_params(self, task: Task, cluster_name: str) -> Dict:
         # TODO: once we have concrete task template add ability to get cluster resources
         # from it
 
@@ -517,8 +522,7 @@ class Workflow(object):
     def _run_swarm(self, swarm: SwarmWorkflowRun, fail_fast: bool = False,
                    seconds_until_timeout: int = 36000,
                    wedged_workflow_sync_interval: int = 600) -> SwarmWorkflowRun:
-        """
-        Take a concrete DAG and queue al the Tasks that are not DONE.
+        """Take a concrete DAG and queue al the Tasks that are not DONE.
 
         Uses forward chaining from initial fringe, hence out-of-date is not
         applied transitively backwards through the graph. It could also use
@@ -538,15 +542,15 @@ class Workflow(object):
             rinse and repeat
 
         Args:
-            workflow_run_id: id of the workflow_run we are running.
+            swarm: the workflow run associated with the swarm.
             fail_fast: raise error on the first failed task.
             seconds_until_timeout: how long to block while waiting for the next task to finish
                 before raising an error.
+            wedged_workflow_sync_interval: the time interval to sync a workflow that is wedged.
 
         Return:
             workflow_run status
         """
-
         try:
             logger.info(f"Executing Workflow Run {swarm.workflow_run_id}")
             swarm.update_status(WorkflowRunStatus.RUNNING)
@@ -638,9 +642,11 @@ class Workflow(object):
 
         return swarm
 
-    def _matching_wf_args_diff_hash(self):
-        """Check that an existing workflow with the same workflow_args does not have a
-        different hash indicating that it contains different tasks.
+    def _matching_wf_args_diff_hash(self) -> None:
+        """Check that that an existing workflow does not contain different tasks.
+
+        Check that an existing workflow with the same workflow_args does not have a
+        different hash, this would indicate that thgat the workflow contains different tasks.
         """
         rc, response = self.requester.send_request(
             app_route=f'/client/workflow/{str(self.workflow_args_hash)}',
@@ -663,7 +669,7 @@ class Workflow(object):
                     " match the workflow you are trying to resume"
                 )
 
-    def _set_workflow_resume(self, reset_running_jobs: bool = True):
+    def _set_workflow_resume(self, reset_running_jobs: bool = True) -> None:
         app_route = f'/client/workflow/{self.workflow_id}/set_resume'
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -683,7 +689,7 @@ class Workflow(object):
                 f'request through route {app_route}. Expected '
                 f'code 200. Response content: {response}')
 
-    def _workflow_is_resumable(self, resume_timeout: int = 300):
+    def _workflow_is_resumable(self, resume_timeout: int = 300) -> None:
         # previous workflow exists but is resumable. we will wait till it terminates
         wait_start = time.time()
         workflow_is_resumable = False
@@ -732,12 +738,13 @@ class Workflow(object):
 
         # instantiate DistributorService and launch in separate proc. use event to
         # signal back when distributor is started
+        ti_hi = distributor_config.task_instance_heartbeat_interval
         tid = DistributorService(
             workflow_id=self.workflow_id,
             workflow_run_id=workflow_run_id,
             distributor=distributor,
             workflow_run_heartbeat_interval=distributor_config.workflow_run_heartbeat_interval,
-            task_heartbeat_interval=distributor_config.task_instance_heartbeat_interval,
+            task_instance_heartbeat_interval=ti_hi,
             heartbeat_report_by_buffer=distributor_config.heartbeat_report_by_buffer,
             n_queued=distributor_config.n_queued,
             distributor_poll_interval=distributor_config.distributor_poll_interval,
@@ -811,7 +818,7 @@ class Workflow(object):
         )
         return task_resources
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""
         hash_value = hashlib.sha1()
         hash_value.update(str(hash(self.tool_version_id)).encode('utf-8'))

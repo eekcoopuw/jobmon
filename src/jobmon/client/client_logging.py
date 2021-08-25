@@ -1,7 +1,7 @@
 """Configuration setting for client-side only."""
 import logging
 import sys
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 
 DEFAULT_FORMAT = "%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s: %(message)s"
@@ -15,7 +15,7 @@ class ClientLogging:
 
     def __init__(self,
                  log_format: Optional[str] = None,
-                 log_level: Optional[int] = logging.INFO) -> None:
+                 log_level: Union[int, str] = logging.INFO) -> None:
         """Initialization of client logging."""
         self._format = log_format if log_format else DEFAULT_FORMAT
         self._level = log_level

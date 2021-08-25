@@ -64,10 +64,12 @@ def lint(session: Session) -> None:
 @nox.session(python=python, venv_backend="conda")
 def typecheck(session: Session) -> None:
     """Type check code."""
-    args = session.posargs or src_locations
+    # args = session.posargs or src_locations
     session.install("-e", ".")
-    session.install("mypy")
-    session.run("mypy", *args)
+    session.install("mypy", "types-Flask", "types-requests", "types-PyMySQL", "types-filelock",
+                    "types-PyYAML", "types-setuptools", "types-tabulate")
+    # session.run("mypy", *args)
+    session.run("mypy", "src/jobmon/client/")
 
 
 @nox.session(python=python, venv_backend="conda")

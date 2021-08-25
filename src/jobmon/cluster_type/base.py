@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any, Dict, List, Optional, Protocol, Tuple
+from typing import Any, Dict, List, Optional, Protocol, Tuple, Union
 
 from jobmon import __version__
 from jobmon.exceptions import RemoteExitInfoNotAvailable
@@ -17,7 +17,7 @@ class ClusterQueue(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def validate_resources(self, **kwargs) -> Tuple[bool, str, Dict]:
+    def validate_resources(self, **kwargs: Dict) -> Tuple[bool, str, Dict]:
         """Ensures that requested resources aren't greater than what's available."""
         raise NotImplementedError
 
@@ -159,6 +159,7 @@ class ClusterWorkerNode(Protocol):
 
 
 class ConcreteResource(Protocol):
+    """The protocol class for concrete resources."""
 
     @property
     @abstractmethod
@@ -175,7 +176,7 @@ class ConcreteResource(Protocol):
     @classmethod
     @abstractmethod
     def validate_and_create_concrete_resource(
-            self, queue: ClusterQueue, requested_resources: Dict[str, Any]
+            cls: Any, queue: ClusterQueue, requested_resources: Dict[str, Any]
     ) -> Tuple[bool, str, ConcreteResource]:
         """Validate that the resources are available on the queue and return an instance.
 
@@ -189,8 +190,9 @@ class ConcreteResource(Protocol):
     @classmethod
     @abstractmethod
     def adjust_and_create_concrete_resource(
-            cls, expected_queue: ClusterQueue, existing_resources: Dict[str, Any], **kwargs
-    ) -> ConcreteResource:
+            cls: Any, expected_queue: ClusterQueue, existing_resources: Dict[str, Any],
+            **kwargs: Union[Dict[Any, Any], Optional[List[ClusterQueue]]]) \
+            -> ConcreteResource:
         """Adjust resources after a resource error is detected by the distributor.
 
         Args:
@@ -198,5 +200,4 @@ class ConcreteResource(Protocol):
             existing_resources: The resources the user ran with previously that failed due to
                 a resource error.
         """
-
         raise NotImplementedError

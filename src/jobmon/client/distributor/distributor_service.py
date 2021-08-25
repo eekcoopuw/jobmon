@@ -6,7 +6,8 @@ import multiprocessing as mp
 import sys
 import threading
 import time
-from typing import Dict, List, Optional
+from types import TracebackType
+from typing import Dict, List, Optional, Type
 
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
@@ -27,7 +28,10 @@ class ExceptionWrapper(object):
     def __init__(self, ee: Exception) -> None:
         """Initialization of execution wrapper."""
         self.ee = ee
-        __, __, self.tb = sys.exc_info()
+        self.type: Optional[Type[BaseException]]
+        self.value: Optional[BaseException]
+        self.tb: Optional[TracebackType]
+        self.type, self.value, self.tb = sys.exc_info()
 
     def re_raise(self) -> None:
         """Raise errors and add their traceback."""
@@ -39,7 +43,8 @@ class DistributorService:
 
     def __init__(self, workflow_id: int, workflow_run_id: int, distributor: ClusterDistributor,
                  requester: Requester, workflow_run_heartbeat_interval: int = 30,
-                 task_heartbeat_interval: int = 90, heartbeat_report_by_buffer: float = 3.1,
+                 task_instance_heartbeat_interval: int = 90,
+                 heartbeat_report_by_buffer: float = 3.1,
                  n_queued: int = 100, distributor_poll_interval: int = 10,
                  worker_node_entry_point: Optional[str] = None) -> None:
         """Initialization of distributor service."""
@@ -53,7 +58,7 @@ class DistributorService:
         # operational args
         self._worker_node_entry_point = worker_node_entry_point
         self._workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
-        self._task_heartbeat_interval = task_heartbeat_interval
+        self._task_instance_heartbeat_interval = task_instance_heartbeat_interval
         self._report_by_buffer = heartbeat_report_by_buffer
         self._n_queued = n_queued
         self._distributor_poll_interval = distributor_poll_interval
@@ -292,7 +297,7 @@ class DistributorService:
                            f"get_errored_jobs methods.")
 
     def _log_distributor_report_by(self) -> None:
-        next_report_increment = self._task_heartbeat_interval * self._report_by_buffer
+        next_report_increment = self._task_instance_heartbeat_interval * self._report_by_buffer
         active_distributor_ids = list(self._submitted_or_running.keys())
 
         try:
@@ -343,7 +348,8 @@ class DistributorService:
                 del(self._submitted_or_running[distributor_id])
 
     def _log_workflow_run_heartbeat(self) -> None:
-        next_report_increment = (self._task_heartbeat_interval * self._report_by_buffer)
+        next_report_increment = (self._task_instance_heartbeat_interval
+                                 * self._report_by_buffer)
         app_route = f"/distributor/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -421,7 +427,8 @@ class DistributorService:
         except Exception as e:
             task_instance.register_no_distributor_id(no_id_err_msg=str(e))
         else:
-            report_by_buffer = (self._task_heartbeat_interval * self._report_by_buffer)
+            report_by_buffer = (self._task_instance_heartbeat_interval
+                                * self._report_by_buffer)
             task_instance.register_submission_to_batch_distributor(
                 distributor_id, report_by_buffer
             )

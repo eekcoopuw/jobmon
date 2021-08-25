@@ -86,7 +86,7 @@ class Cluster:
 
     @property
     def concrete_resource_class(self) -> Type[ConcreteResource]:
-        """ If the cluster is bound, access the concrete resource class"""
+        """If the cluster is bound, access the concrete resource class."""
         return self.plugin.get_concrete_resource_class()
 
     def get_queue(self, queue_name: str) -> ClusterQueue:
@@ -122,10 +122,11 @@ class Cluster:
 
         return queue
 
-    def adjust_task_resource(self, initial_resources: Dict, resource_scales: Dict,
+    def adjust_task_resource(self, initial_resources: Dict,
+                             resource_scales: Optional[Dict[str, float]],
                              expected_queue: ClusterQueue,
                              fallback_queues: List[ClusterQueue] = None) -> TaskResources:
-        """Adjust task resources based on the scaling factor"""
+        """Adjust task resources based on the scaling factor."""
         adjusted_concrete_resource: ConcreteResource = self.concrete_resource_class.\
             adjust_and_create_concrete_resource(
                 existing_resources=initial_resources,
@@ -140,11 +141,11 @@ class Cluster:
         return adjusted_task_resource
 
     def create_valid_task_resources(self, resource_params: Dict, task_resources_type_id: str,
-                                    fail=False) -> TaskResources:
+                                    fail: bool = False) -> TaskResources:
         """Construct a TaskResources object with the specified resource parameters.
+
         Validate before constructing task resources, taskResources assumed to be valid
         """
-
         queue_name = resource_params.pop("queue")
         queue = self.get_queue(queue_name)
 

@@ -9,7 +9,7 @@ class TaskInstanceErrorLog(DB.Model):
 
     __tablename__ = 'task_instance_error_log'
 
-    def to_wire(self):
+    def to_wire(self) -> None:
         """Serialize task instance error log object."""
         return SerializeTaskInstanceErrorLog.to_wire(self.id, self.error_time,
                                                      self.description)

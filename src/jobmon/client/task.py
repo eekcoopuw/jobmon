@@ -10,9 +10,9 @@ import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.cluster import Cluster
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
-from jobmon.client.cluster import Cluster
 from jobmon.cluster_type.base import ClusterQueue
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
@@ -84,20 +84,22 @@ class Task:
             command (str): the unique command for this Task, also readable by humans. Should
                 include all parameters. Two Tasks are equal (__eq__) iff they have the same
                 command.
-            task_template_version_id (int): identifer for the associated Task Template.
+            task_template_version_id (int): identifier for the associated Task Template.
             node_args (dict): Task arguments that identify a unique node in the DAG.
             task_args (dict): Task arguments that make the command unique across workflows
                 usually pertaining to data flowing through the task.
+            cluster_name (str): the name of the cluster the user wants to run their task on.
             compute_resources (dict): A dictionary that includes the users requested resources
                 for the current run. E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
-            compute_resources_set (dict): A dictionary that includes the users requested
-                resources for a given cluster. E.g. {'buster': {cores: 1, mem: 1, runtime: 60,
-                queue: all.q}, 'slurm': {'cores: 1, mem: 1, runtime: 60, queue: long.q}}.
-            cluster_name (optional str): The specific cluster that the user wants to use.
+            compute_resources_callable (callable): callable compute resources.
+            resource_scales (dict): how much users want to scale their resource request if the
+                the initial request fails.
+            fallback_queues (List): a list of queues that a user wants to try if their original
+                queue is unable to accommodate their requested resources.
             name (str): name that will be visible in qstat for this job
-            upstream_tasks (List): Task objects that must be run prior to this
             max_attempts (int): number of attempts to allow the cluster to try before giving
                 up. Default is 3.
+            upstream_tasks (List): Task objects that must be run prior to this
             task_attributes (list or dict): dictionary of attributes and their values or list
                 of attributes that will be assigned later.
             requester (Requester): requester object to communicate with the flask services.
@@ -105,7 +107,6 @@ class Task:
         Raise:
             ValueError: If the hashed command is not allowed as an SGE job name; see
                 is_valid_job_name
-
         """
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
@@ -156,7 +157,8 @@ class Task:
         self.resource_scales = resource_scales
         self.cluster_name = cluster_name
         self.fallback_queues = fallback_queues
-        self._errors = None
+        self._errors: \
+            Union[None, Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]] = None
 
     @property
     def task_id(self) -> int:
@@ -208,15 +210,13 @@ class Task:
 
     @property
     def final_status(self) -> str:
-        """Get initial status of the task if it has been bound to the db otherwise raise
-        an error.
-        """
+        """Get initial status of the task if it has been bound, otherwise raise error."""
         if not hasattr(self, "_final_status"):
             raise AttributeError("final_status cannot be accessed until workflow is run")
         return self._final_status
 
     @final_status.setter
-    def final_status(self, val: str):
+    def final_status(self, val: str) -> None:
         self._final_status = val
 
     @property
@@ -294,7 +294,8 @@ class Task:
         if self._task_id:
             self.add_attributes({str(attribute): str(value)})
 
-    def get_errors(self) -> Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]:
+    def get_errors(self) -> \
+            Union[None, Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]]:
         """Return all errors for each task, with the recent task_instance_id actually used."""
         if self._errors is None and hasattr(self, "_task_id") and self._task_id is not None:
             return_code, response = self.requester.send_request(

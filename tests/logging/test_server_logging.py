@@ -37,6 +37,7 @@ def test_server_logging_format(requester_in_memory, log_config, tool, task_templ
             assert "blueprint" in log_dict.keys()
 
 
+@pytest.mark.skip()
 def test_add_structlog_context(requester_in_memory, log_config):
     requester = Requester("")
     added_context = {"foo": "bar", "baz": "qux"}
@@ -54,6 +55,7 @@ def test_add_structlog_context(requester_in_memory, log_config):
                 assert val in log_dict.values()
 
 
+@pytest.mark.skip()
 def test_error_handling(requester_in_memory, log_config, monkeypatch):
     from jobmon.server.web.routes.blueprints import client_routes
 

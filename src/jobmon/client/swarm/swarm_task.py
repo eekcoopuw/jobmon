@@ -5,8 +5,8 @@ import logging
 from typing import Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.task_resources import TaskResources
 from jobmon.client.cluster import Cluster
+from jobmon.client.task_resources import TaskResources
 from jobmon.cluster_type.base import ClusterQueue
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
@@ -30,12 +30,18 @@ class SwarmTask(object):
         """Implementing swarm behavior of tasks.
 
         Args:
-            task_id: id of task object from bound db object
-            status: status of task object
-            task_args_hash: hash of unique task arguments
+            task_id: id of task object from bound db object.
+            task_hash: hash(Task).
+            status: status of task object.
+            task_args_hash: hash of unique task arguments.
+            cluster: The name of the cluster that the user wants to run their tasks on.
             task_resources: callable to be executed when Task is ready to be run and
-                resources can be assigned
-            max_attempts: maximum number of task_instances before failure
+                resources can be assigned.
+            resource_scales: The rate at which a user wants to scale their requested resources
+                after failure.
+            max_attempts: maximum number of task_instances before failure.
+            fallback_queues: A list of queues that users want to try if their original queue
+                isn't able to handle their adjusted resources.
             requester: Requester object to communicate with the flask services.
         """
         self.task_id = task_id
@@ -47,8 +53,6 @@ class SwarmTask(object):
 
         self.task_resources = task_resources
 
-        if resource_scales is None:
-            resource_scales = {}
         self.resource_scales = resource_scales
         self.cluster = cluster
 
@@ -113,7 +117,9 @@ class SwarmTask(object):
 
     def adjust_task_resources(self) -> None:
         """Adjust the swarm task's parameters.
-        Use the cluster API to generate the new resources, then bind to input swarmtask"""
+
+        Use the cluster API to generate the new resources, then bind to input swarmtask.
+        """
         if self.task_resources is None:
             raise RuntimeError("Cannot adjust resources until workflow is bound.")
 

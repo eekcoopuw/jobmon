@@ -163,9 +163,12 @@ class Node:
                 f'node_args: {self.node_args}, '
                 f'node_args_hash: {self.node_args_hash}')
 
-    def __eq__(self, other: 'Node') -> bool:
+    def __eq__(self, other: object) -> bool:
         """Check if two nodes have equal hashes."""
-        return hash(self) == hash(other)
+        if not isinstance(other, Node):
+            return False
+        else:
+            return hash(self) == hash(other)
 
     def __lt__(self, other: 'Node') -> bool:
         """Check if this hash is less than anothers."""

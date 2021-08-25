@@ -6,7 +6,7 @@ import logging
 from typing import Dict, Optional
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.cluster_type.base import ConcreteResource, ClusterQueue
+from jobmon.cluster_type.base import ClusterQueue, ConcreteResource
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 
@@ -21,7 +21,6 @@ class TaskResources:
                  concrete_resources: ConcreteResource,
                  requester: Optional[Requester] = None) -> None:
         """Initialize the task resource object."""
-
         self._task_resources_type_id = task_resources_type_id
         self._concrete_resources = concrete_resources
 

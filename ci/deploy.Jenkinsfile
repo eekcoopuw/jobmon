@@ -93,7 +93,8 @@ pipeline {
                       ${TARGET_IP} \
                       $REG_USERNAME \
                       $REG_PASSWORD \
-                      "${DOCKER_ACTIVATE}"
+                      "${DOCKER_ACTIVATE}" \
+                      ${JOBMON_VERSION}
                '''
             script {
               env.JOBMON_VERSION = sh (
