@@ -13,13 +13,14 @@ from time import sleep, time
 import traceback
 from typing import Any, Dict, Optional, Tuple, Union
 
+import pkg_resources
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.cluster_type.api import import_cluster, register_cluster_plugin
 from jobmon.cluster_type.base import ClusterWorkerNode
 from jobmon.exceptions import InvalidResponse, ReturnCodes
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeClusterType
-import pkg_resources
 
 logger = logging.getLogger(__name__)
 
@@ -59,7 +60,7 @@ class WorkerNodeTaskInstance:
     def _get_worker_node(self, cluster_type_name: str, **worker_node_kwargs: Any) \
             -> ClusterWorkerNode:
         """Lookup ClusterType, getting package_location back."""
-        app_route = f'/client/cluster_type/{cluster_type_name}'
+        app_route = f'/cluster_type/{cluster_type_name}'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
@@ -112,7 +113,7 @@ class WorkerNodeTaskInstance:
         else:
             logger.debug("No executor id was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
-            app_route=f'/worker/task_instance/{self.task_instance_id}/log_done',
+            app_route=f'/task_instance/{self.task_instance_id}/log_done',
             message=message,
             request_type='post',
             logger=logger
@@ -143,7 +144,7 @@ class WorkerNodeTaskInstance:
         else:
             logger.debug("No distributor_id was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
-            app_route=f'/worker/task_instance/{self.task_instance_id}/log_error_worker_node',
+            app_route=f'/task_instance/{self.task_instance_id}/log_error_worker_node',
             message=message,
             request_type='post',
             logger=logger
@@ -159,7 +160,7 @@ class WorkerNodeTaskInstance:
                        'io']
             msg = {k: usage[k] for k in dbukeys if k in usage.keys()}
             rc, _ = self.requester.send_request(
-                app_route=f'/worker/task_instance/{self.task_instance_id}/log_usage',
+                app_route=f'/task_instance/{self.task_instance_id}/log_usage',
                 message=msg,
                 request_type='post',
                 logger=logger
@@ -188,7 +189,7 @@ class WorkerNodeTaskInstance:
         else:
             logger.info("No Task ID was found in the qsub env at this time")
         rc, resp = self.requester.send_request(
-            app_route=(f'/worker/task_instance/{self.task_instance_id}/log_running'),
+            app_route=(f'/task_instance/{self.task_instance_id}/log_running'),
             message=message,
             request_type='post',
             logger=logger
@@ -205,7 +206,7 @@ class WorkerNodeTaskInstance:
         else:
             logger.debug("No distributor_id was found in the qsub env at this time")
         rc, _ = self.requester.send_request(
-            app_route=f'/worker/task_instance/{self.task_instance_id}/log_report_by',
+            app_route=f'/task_instance/{self.task_instance_id}/log_report_by',
             message=message,
             request_type='post',
             logger=logger
@@ -219,7 +220,7 @@ class WorkerNodeTaskInstance:
         """
         logger.debug(f"checking kill_self for task_instance {self.task_instance_id}")
         rc, resp = self.requester.send_request(
-            app_route=f'/worker/task_instance/{self.task_instance_id}/kill_self',
+            app_route=f'/task_instance/{self.task_instance_id}/kill_self',
             message={},
             request_type='get',
             logger=logger

@@ -553,7 +553,7 @@ def test_400_cli_route(db_cfg, client_env):
     from jobmon.requester import Requester
     requester = Requester(client_env)
     rc, resp = requester.send_request(
-        app_route="/cli/task_status",
+        app_route="/task_status",
         message={},
         request_type='get',
         logger=logger
@@ -565,7 +565,7 @@ def test_bad_put_route(db_cfg, client_env):
     from jobmon.requester import Requester
     requester = Requester(client_env, logger)
     rc, resp = requester.send_request(
-        app_route="/cli/task/update_statuses",
+        app_route="/task/update_statuses",
         message={},
         request_type='put',
         logger=logger

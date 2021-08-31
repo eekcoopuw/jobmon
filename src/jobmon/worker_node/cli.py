@@ -2,6 +2,7 @@
 from typing import Optional
 
 import configargparse
+
 from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 from jobmon.exceptions import ReturnCodes
 from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance

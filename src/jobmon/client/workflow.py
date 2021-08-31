@@ -183,7 +183,7 @@ class Workflow(object):
             workflow_attributes: attributes to be bound to the db that describe
                 this workflow.
         """
-        app_route = f'/client/workflow/{self.workflow_id}/workflow_attributes'
+        app_route = f'/workflow/{self.workflow_id}/workflow_attributes'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"workflow_attributes": workflow_attributes},
@@ -416,7 +416,7 @@ class Workflow(object):
         self._dag.bind(self._chunk_size)
 
         # bind workflow
-        app_route = '/client/workflow'
+        app_route = '/workflow'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
@@ -451,7 +451,7 @@ class Workflow(object):
         try:
             cluster = self._clusters[cluster_name]
         except KeyError:
-            app_route = f'/client/cluster/{cluster_name}'
+            app_route = f'/cluster/{cluster_name}'
             return_code, response = self.requester.send_request(
                 app_route=app_route,
                 message={},
@@ -649,7 +649,7 @@ class Workflow(object):
         different hash, this would indicate that thgat the workflow contains different tasks.
         """
         rc, response = self.requester.send_request(
-            app_route=f'/client/workflow/{str(self.workflow_args_hash)}',
+            app_route=f'/workflow/{str(self.workflow_args_hash)}',
             message={},
             request_type='get',
             logger=logger
@@ -670,7 +670,7 @@ class Workflow(object):
                 )
 
     def _set_workflow_resume(self, reset_running_jobs: bool = True) -> None:
-        app_route = f'/client/workflow/{self.workflow_id}/set_resume'
+        app_route = f'/workflow/{self.workflow_id}/set_resume'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
@@ -696,7 +696,7 @@ class Workflow(object):
         while not workflow_is_resumable:
             logger.info(f"Waiting for resume. "
                         f"Timeout in {round(resume_timeout - (time.time() - wait_start), 1)}")
-            app_route = f'/client/workflow/{self.workflow_id}/is_resumable'
+            app_route = f'/workflow/{self.workflow_id}/is_resumable'
             return_code, response = self.requester.send_request(
                 app_route=app_route,
                 message={},

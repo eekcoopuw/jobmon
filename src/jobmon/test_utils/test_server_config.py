@@ -3,8 +3,8 @@
 Intended to be function scoped.
 """
 try:
-    from jobmon.server.web.models import DB
     from jobmon.server.web.api import WebConfig, create_app
+    from jobmon.server.web.models import DB
 except ImportError as e:
     error_msg = (
         "Only the dependencies necessary for running "

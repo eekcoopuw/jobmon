@@ -77,7 +77,7 @@ class TaskResources:
 
     def bind(self, task_id: int, task_resources_type_id: str = None) -> None:
         """Bind TaskResources to the database."""
-        app_route = f'/swarm/task/{task_id}/bind_resources'
+        app_route = f'/task/{task_id}/bind_resources'
         if task_resources_type_id is None:
             task_resources_type_id = self._task_resources_type_id
         msg = {

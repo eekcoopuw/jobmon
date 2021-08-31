@@ -3,10 +3,11 @@ import getpass
 import logging
 from typing import Any, Dict, List, Optional, Tuple, Union
 
+import pandas as pd
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.constants import TaskStatus
 from jobmon.requester import Requester
-import pandas as pd
 
 logger = logging.getLogger(__name__)
 
@@ -49,7 +50,7 @@ def workflow_status(workflow_id: List[int] = None,
     requester = Requester(requester_url)
 
     rc, res = requester.send_request(
-        app_route="/cli/workflow_status",
+        app_route="/workflow_status",
         message=msg,
         request_type="get",
         logger=logger
@@ -86,7 +87,7 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
     requester = Requester(requester_url)
 
     rc, res = requester.send_request(
-        app_route=f"/cli/workflow/{workflow_id}/workflow_tasks",
+        app_route=f"/workflow/{workflow_id}/workflow_tasks",
         message=msg,
         request_type="get",
         logger=logger
@@ -120,7 +121,7 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
     requester = Requester(requester_url)
 
     rc, res = requester.send_request(
-        app_route="/cli/task_status",
+        app_route="/task_status",
         message=msg,
         request_type="get",
         logger=logger
@@ -152,7 +153,7 @@ def concurrency_limit(workflow_id: int, max_tasks: int,
     requester = Requester(requester_url)
 
     _, resp = requester.send_request(
-        app_route=f"/cli/workflow/{workflow_id}/update_max_running",
+        app_route=f"/workflow/{workflow_id}/update_max_running",
         message=msg,
         request_type="put")
 
@@ -191,7 +192,7 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
         task_ids = task_ids + [*subdag_tasks]
 
     _, resp = requester.send_request(
-        app_route='/cli/task/update_statuses',
+        app_route='/task/update_statuses',
         message={'task_ids': task_ids,
                  'new_status': new_status,
                  'workflow_status': workflow_status,
@@ -241,7 +242,7 @@ def update_config(cc: ClientConfig) -> None:
 def validate_username(workflow_id: int, username: str, requester: Requester) -> None:
     """Validate that the user is approved to make these changes."""
     rc, res = requester.send_request(
-        app_route=f"/cli/workflow/{workflow_id}/validate_username/{username}",
+        app_route=f"/workflow/{workflow_id}/validate_username/{username}",
         message={},
         request_type="get",
         logger=logger)
@@ -253,7 +254,7 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
 def validate_workflow(task_ids: List[int], requester: Requester) -> str:
     """Validate that the task_ids provided belong to the expected workflow."""
     rc, res = requester.send_request(
-        app_route="/cli/workflow_validation",
+        app_route="/workflow_validation",
         message={'task_ids': task_ids},
         request_type="post")
 
@@ -270,7 +271,7 @@ def get_sub_task_tree(task_ids: list, task_status: list = None,
         requester = Requester(ClientConfig.from_defaults().url)
     # Valid input
     rc, res = requester.send_request(
-        app_route="/cli/task/subdag",
+        app_route="/task/subdag",
         message={'task_ids': task_ids,
                  'task_status': task_status},
         request_type="post")

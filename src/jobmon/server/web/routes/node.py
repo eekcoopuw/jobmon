@@ -1,20 +1,27 @@
 """Routes used by the main jobmon client."""
+from functools import partial
 from http import HTTPStatus as StatusCodes
 import json
 from typing import Any
 
-from flask import current_app as app, jsonify, request
-from jobmon.server.web.models import DB
-from jobmon.server.web.models.node import Node
-from jobmon.server.web.models.node_arg import NodeArg
+from flask import jsonify, request
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import text
+from werkzeug.local import LocalProxy
 
-from . import jobmon_client
+from jobmon.server.web.log_config import bind_to_logger, get_logger
+from jobmon.server.web.models import DB
+from jobmon.server.web.models.node import Node
+from jobmon.server.web.models.node_arg import NodeArg
+from jobmon.server.web.routes import finite_state_machine
 
 
-@jobmon_client.route('/node', methods=['GET'])
+# new structlog logger per flask request context. internally stored as flask.g.logger
+logger = LocalProxy(partial(get_logger, __name__))
+
+
+@finite_state_machine.route('/node', methods=['GET'])
 def get_node_id() -> Any:
     """Get a node id: If a matching node isn't found, return None.
 
@@ -41,7 +48,7 @@ def get_node_id() -> Any:
     return resp
 
 
-@jobmon_client.route('/node', methods=['POST'])
+@finite_state_machine.route('/node', methods=['POST'])
 def add_node() -> Any:
     """Add a new node to the database.
 
@@ -51,12 +58,11 @@ def add_node() -> Any:
         node_args: key-value pairs of arg_id and a value.
     """
     data = request.get_json()
-    app.logger = app.logger.bind(
+    bind_to_logger(
         task_template_version_id=data['task_template_version_id'],
         node_args_hash=str(data['node_args_hash'])
     )
-    app.logger.info(f"Add node with ttv id:{data['task_template_version_id']}, "
-                    f"node_args_hash {data['node_args_hash']}")
+    logger.info("Adding node")
     # add node
     try:
         node = Node(task_template_version_id=data['task_template_version_id'],
@@ -70,9 +76,7 @@ def add_node() -> Any:
         # add node_args
         node_args = json.loads(data['node_args'])
         for arg_id, value in node_args.items():
-            app.logger.info(
-                f'Adding node_arg with node_id: {node.id}, arg_id: {arg_id}, and val: {value}'
-            )
+            logger.debug('Adding node_arg', node_id=node.id, arg_id=arg_id, val=value)
             node_arg = NodeArg(node_id=node.id, arg_id=arg_id, val=value)
             DB.session.add(node_arg)
         DB.session.commit()
@@ -100,7 +104,7 @@ def add_node() -> Any:
         return resp
 
 
-@jobmon_client.route('/nodes', methods=['POST'])
+@finite_state_machine.route('/nodes', methods=['POST'])
 def add_nodes() -> Any:
     """Add a chunk of nodes to the database.
 
@@ -151,11 +155,10 @@ def add_nodes() -> Any:
     for node_id_tuple, arg in node_args.items():
 
         node_id = node_id_dict[node_id_tuple]
+        local_logger = logger.bind(node_id=node_id)
 
         for arg_id, val in arg.items():
-            app.logger.debug(f'Adding node_arg with node_id: {node_id}, arg_id: {arg_id}, '
-                             f'and val: {val}',
-                             node_id=node_id)
+            local_logger.debug('Adding node_arg', node_id=node_id, arg_id=arg_id, val=val)
             node_args_list.append({
                 'node_id': node_id,
                 'arg_id': arg_id,
@@ -169,8 +172,7 @@ def add_nodes() -> Any:
         DB.session.commit()
 
     # return result
-    return_nodes = {':'.join(str(i) for i in key): val for key, val in
-                    node_id_dict.items()}
+    return_nodes = {':'.join(str(i) for i in key): val for key, val in node_id_dict.items()}
     resp = jsonify(nodes=return_nodes)
     resp.status_code = StatusCodes.OK
     return resp

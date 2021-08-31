@@ -3,9 +3,9 @@ from typing import Optional
 
 from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask
-from flask_cors import CORS
-from jobmon.log_config import get_logstash_handler_config
-from jobmon.server.web.handlers import add_hooks_and_handlers
+
+from jobmon.server.web import log_config
+from jobmon.server.web.hooks_and_handlers import add_hooks_and_handlers
 from jobmon.server.web.web_config import WebConfig
 
 
@@ -33,7 +33,7 @@ def create_app(web_config: Optional[WebConfig] = None) -> Flask:
         ElasticAPM(app)
 
     if web_config.use_logstash:
-        logstash_handler_config = get_logstash_handler_config(
+        logstash_handler_config = log_config.get_logstash_handler_config(
             logstash_host=web_config.logstash_host,
             logstash_port=str(web_config.logstash_port),
             logstash_protocol=web_config.logstash_protocol,
@@ -46,26 +46,20 @@ def create_app(web_config: Optional[WebConfig] = None) -> Flask:
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
     app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {'pool_recycle': 200}
 
-    # register blueprints
-    from .routes import jobmon_client, jobmon_distributor, jobmon_swarm, jobmon_worker, \
-        jobmon_cli
+    with app.app_context():
 
-    # default traffic to jobmon_client
-    app.register_blueprint(jobmon_client, url_prefix='/', name="")
-    app.register_blueprint(jobmon_client, url_prefix='/client', name="client")
-    app.register_blueprint(jobmon_distributor, url_prefix='/distributor')
-    app.register_blueprint(jobmon_swarm, url_prefix='/swarm')
-    app.register_blueprint(jobmon_worker, url_prefix='/worker')
-    app.register_blueprint(jobmon_cli, url_prefix='/cli')
+        # register blueprints
+        from jobmon.server.web.routes import finite_state_machine
+        app.register_blueprint(finite_state_machine, url_prefix='/')
 
-    # register app with flask-sqlalchemy DB
-    from jobmon.server.web.models import DB
-    DB.init_app(app)
+        # register app with flask-sqlalchemy DB
+        from jobmon.server.web.models import DB
+        DB.init_app(app)
 
-    # enable CORS
-    CORS(app)
+        # add logger to app global context
+        log_config.configure_logger("jobmon.server.web", logstash_handler_config)
 
-    # add request logging hooks
-    add_hooks_and_handlers(app, logstash_handler_config)
+        # add request logging hooks
+        add_hooks_and_handlers(app)
 
-    return app
+        return app

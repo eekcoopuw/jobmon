@@ -3,14 +3,14 @@ from http import HTTPStatus as StatusCodes
 from typing import Any
 
 from flask import jsonify
+
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.cluster import Cluster
 from jobmon.server.web.models.cluster_type import ClusterType
+from jobmon.server.web.routes import finite_state_machine
 
-from . import jobmon_client
 
-
-@jobmon_client.route('/all_clusters', methods=['GET'])
+@finite_state_machine.route('/all_clusters', methods=['GET'])
 def get_clusters() -> Any:
     """Get the id, cluster_type_name and connection_string of a Cluster."""
     result = DB.session.query(Cluster)\
@@ -24,7 +24,7 @@ def get_clusters() -> Any:
     return resp
 
 
-@jobmon_client.route('/cluster/<cluster_name>', methods=['GET'])
+@finite_state_machine.route('/cluster/<cluster_name>', methods=['GET'])
 def get_cluster_by_name(cluster_name: str) -> Any:
     """Get the id, cluster_type_name and connection_string of a Cluster."""
     result = DB.session.query(Cluster)\

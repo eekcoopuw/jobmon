@@ -1,19 +1,26 @@
 """Routes for Tool Versions."""
+from functools import partial
 from http import HTTPStatus as StatusCodes
 from typing import Any
 
-from flask import current_app as app, jsonify, request
+from flask import jsonify, request
+import sqlalchemy
+from sqlalchemy.sql import text
+from werkzeug.local import LocalProxy
+
+from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.task_template import TaskTemplate
 from jobmon.server.web.models.tool_version import ToolVersion
+from jobmon.server.web.routes import finite_state_machine
 from jobmon.server.web.server_side_exception import InvalidUsage
-import sqlalchemy
-from sqlalchemy.sql import text
-
-from . import jobmon_client
 
 
-@jobmon_client.route('/tool_version', methods=['POST'])
+# new structlog logger per flask request context. internally stored as flask.g.logger
+logger = LocalProxy(partial(get_logger, __name__))
+
+
+@finite_state_machine.route('/tool_version', methods=['POST'])
 def add_tool_version() -> Any:
     """Add a new version for a Tool."""
     # check input variable
@@ -60,12 +67,12 @@ def add_tool_version() -> Any:
     return resp
 
 
-@jobmon_client.route('/tool_version/<tool_version_id>/task_templates', methods=['GET'])
+@finite_state_machine.route('/tool_version/<tool_version_id>/task_templates', methods=['GET'])
 def get_task_templates(tool_version_id: int) -> Any:
     """Get the Tool Version."""
     # check input variable
-    app.logger = app.logger.bind(tool_version_id=tool_version_id)
-    app.logger.info("Getting available task_templates")
+    bind_to_logger(tool_version_id=tool_version_id)
+    logger.info("Getting available task_templates")
 
     # get data from db
     query = """

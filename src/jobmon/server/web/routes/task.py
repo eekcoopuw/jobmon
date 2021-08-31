@@ -1,10 +1,17 @@
 """Routes for Tasks."""
+from functools import partial
 from http import HTTPStatus as StatusCodes
 import json
 from typing import Any, Dict, List, Set, Union
 
-from flask import current_app as app, jsonify, request
+from flask import jsonify, request
+import pandas as pd
+from sqlalchemy.dialects.mysql import insert
+from sqlalchemy.sql import text
+from werkzeug.local import LocalProxy
+
 from jobmon.constants import TaskInstanceStatus, TaskStatus, WorkflowStatus as Statuses
+from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task import Task
@@ -12,12 +19,13 @@ from jobmon.server.web.models.task_arg import TaskArg
 from jobmon.server.web.models.task_attribute import TaskAttribute
 from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 from jobmon.server.web.models.task_resources import TaskResources
+from jobmon.server.web.routes import finite_state_machine
 from jobmon.server.web.server_side_exception import InvalidUsage
-import pandas as pd
-from sqlalchemy.dialects.mysql import insert
-from sqlalchemy.sql import text
 
-from . import jobmon_cli, jobmon_client, jobmon_swarm
+
+# new structlog logger per flask request context. internally stored as flask.g.logger
+logger = LocalProxy(partial(get_logger, __name__))
+
 
 _task_instance_label_mapping = {
     "B": "PENDING",
@@ -39,7 +47,7 @@ _reversed_task_instance_label_mapping = {
 }
 
 
-@jobmon_client.route('/task', methods=['GET'])
+@finite_state_machine.route('/task', methods=['GET'])
 def get_task_id_and_status() -> Any:
     """Get the status and id of a Task."""
     try:
@@ -49,10 +57,9 @@ def get_task_id_and_status() -> Any:
         int(nid)
         h = request.args["task_args_hash"]
         int(h)
-        app.logger = app.logger.bind(workflow_id=wid, node_id=nid, task_args_hash=str(h))
+        bind_to_logger(workflow_id=wid, node_id=nid, task_args_hash=str(h))
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-
     query = """
         SELECT task.id, task.status
         FROM task
@@ -70,17 +77,16 @@ def get_task_id_and_status() -> Any:
     # send back json
     if result is None:
         resp = jsonify({'task_id': None, 'task_status': None})
-        app.logger.info(f"The task_id for wf {wid},  node_id {nid}, and task_args_hash {h} "
-                        f"is none.")
+        logger.info("No task found.")
     else:
         resp = jsonify({'task_id': result.id, 'task_status': result.status})
-        app.logger.info(f"The task_id for wf {wid},  node_id {nid}, and task_args_hash {h} "
-                        f"is {result.id}.")
+        logger.info(f"Got task_id = {result.id}.")
+
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@jobmon_client.route('/task', methods=['POST'])
+@finite_state_machine.route('/task', methods=['POST'])
 def add_task() -> Any:
     """Add a task to the database.
 
@@ -96,7 +102,7 @@ def add_task() -> Any:
     """
     try:
         data = request.get_json()
-        app.logger.debug(data)
+        logger.debug(data)
         ts = data.pop("tasks")
         # build a hash table for ts
         ts_ht = {}  # {<node_id::task_arg_hash>, task}
@@ -152,12 +158,12 @@ def add_task() -> Any:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
 
-@jobmon_client.route('/task/<task_id>/update_parameters', methods=['PUT'])
+@finite_state_machine.route('/task/<task_id>/update_parameters', methods=['PUT'])
 def update_task_parameters(task_id: int) -> Any:
     """Update the parameters for a given task."""
-    app.logger = app.logger.bind(task_id=task_id)
+    bind_to_logger(task_id=task_id)
     data = request.get_json()
-    app.logger.info(f"Update task {task_id} parameters")
+    logger.info("Updating task parameters")
 
     try:
         int(task_id)
@@ -182,14 +188,14 @@ def update_task_parameters(task_id: int) -> Any:
     return resp
 
 
-@jobmon_client.route('/task/bind_tasks', methods=['PUT'])
+@finite_state_machine.route('/task/bind_tasks', methods=['PUT'])
 def bind_tasks() -> Any:
     """Bind the task objects to the database."""
     all_data = request.get_json()
     tasks = all_data["tasks"]
     workflow_id = int(all_data["workflow_id"])
-    app.logger = app.logger.bind(workflow_id=workflow_id)
-    app.logger.info(f"Binding tasks for wf {workflow_id}")
+    bind_to_logger(workflow_id=workflow_id)
+    logger.info("Binding tasks")
     # receive from client the tasks in a format of:
     # {<hash>:[node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5),
     # reset_if_running(6), task_args(7),task_attributes(8),resource_scales(9)]}
@@ -362,17 +368,17 @@ def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
     return attribute.id
 
 
-@jobmon_client.route('/task/<task_id>/task_attributes', methods=['PUT'])
+@finite_state_machine.route('/task/<task_id>/task_attributes', methods=['PUT'])
 def update_task_attribute(task_id: int) -> Any:
     """Add or update attributes for a task."""
-    app.logger = app.logger.bind(task_id=task_id)
+    bind_to_logger(task_id=task_id)
     try:
         int(task_id)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
     data = request.get_json()
-    app.logger.info(f"Updating task attributes for task {task_id}")
+    logger.info("Updating task attributes")
     attributes = data["task_attributes"]
     # update existing attributes with their values
     for name, val in attributes.items():
@@ -383,15 +389,15 @@ def update_task_attribute(task_id: int) -> Any:
     return resp
 
 
-@jobmon_swarm.route('/task/<task_id>/queue', methods=['POST'])
+@finite_state_machine.route('/task/<task_id>/queue', methods=['POST'])
 def queue_job(task_id: int) -> Any:
     """Queue a job and change its status.
 
     Args:
         task_id: id of the job to queue
     """
-    app.logger = app.logger.bind(task_id=task_id)
-    app.logger.debug(f"Queue job {task_id}")
+    bind_to_logger(task_id=task_id)
+    logger.debug(f"Queue job {task_id}")
     task = DB.session.query(Task).filter_by(id=task_id).one()
     try:
         task.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
@@ -400,7 +406,7 @@ def queue_job(task_id: int) -> Any:
         if task.status == TaskStatus.QUEUED_FOR_INSTANTIATION:
             msg = ("Caught InvalidStateTransition. Not transitioning job "
                    f"{task_id} from Q to Q")
-            app.logger.warning(msg)
+            logger.warning(msg)
         else:
             raise
     DB.session.commit()
@@ -438,14 +444,14 @@ def _transform_mem_to_gb(mem_str: Any) -> float:
     return mem
 
 
-@jobmon_swarm.route('/task/<task_id>/bind_resources', methods=['POST'])
+@finite_state_machine.route('/task/<task_id>/bind_resources', methods=['POST'])
 def bind_task_resources(task_id: int) -> Any:
     """Add the task resources for a given task.
 
     Args:
         task_id (int): id of the task for which task resources will be added
     """
-    app.logger = app.logger.bind(task_id=task_id)
+    bind_to_logger(task_id=task_id)
     data = request.get_json()
 
     try:
@@ -470,7 +476,7 @@ def bind_task_resources(task_id: int) -> Any:
     return resp
 
 
-@jobmon_cli.route('/task_status', methods=['GET'])
+@finite_state_machine.route('/task_status', methods=['GET'])
 def get_task_status() -> Any:
     """Get the status of a task."""
     task_ids = request.args.getlist('task_ids')
@@ -600,7 +606,7 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list) -> d
     return task_dict
 
 
-@jobmon_cli.route('/task/subdag', methods=['POST'])
+@finite_state_machine.route('/task/subdag', methods=['POST'])
 def get_task_subdag() -> Any:
     """Used to get the sub dag  of a given task.
 
@@ -648,7 +654,7 @@ def get_task_subdag() -> Any:
     return resp
 
 
-@jobmon_cli.route('/task/update_statuses', methods=['PUT'])
+@finite_state_machine.route('/task/update_statuses', methods=['PUT'])
 def update_task_statuses() -> Any:
     """Update the status of the tasks."""
     data = request.get_json()

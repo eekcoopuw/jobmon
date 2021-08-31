@@ -76,7 +76,7 @@ class WorkflowRun(object):
 
     def _update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""
-        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
+        app_route = f'/workflow_run/{self.workflow_run_id}/update_status'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'status': status},
@@ -92,7 +92,7 @@ class WorkflowRun(object):
 
     def _register_workflow_run(self) -> int:
         # bind to database
-        app_route = "/client/workflow_run"
+        app_route = "/workflow_run"
         rc, response = self.requester.send_request(
             app_route=app_route,
             message={'workflow_id': self.workflow_id,
@@ -107,7 +107,7 @@ class WorkflowRun(object):
         return response['workflow_run_id']
 
     def _link_to_workflow(self, next_report_increment: float) -> Tuple[int, int]:
-        app_route = f"/client/workflow_run/{self.workflow_run_id}/link"
+        app_route = f"/workflow_run/{self.workflow_run_id}/link"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"next_report_increment": next_report_increment},
@@ -122,10 +122,11 @@ class WorkflowRun(object):
         return response['current_wfr']
 
     def _log_heartbeat(self, next_report_increment: float) -> None:
-        app_route = f"/client/workflow_run/{self.workflow_run_id}/log_heartbeat"
+        app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={"next_report_increment": next_report_increment},
+            message={"next_report_increment": next_report_increment,
+                     'status': WorkflowRunStatus.LINKING},
             request_type='post',
             logger=logger
         )
@@ -138,7 +139,7 @@ class WorkflowRun(object):
 
     def _bind_tasks(self, tasks: Dict[int, Task], reset_if_running: bool = True,
                     chunk_size: int = 500) -> Dict[int, Task]:
-        app_route = '/client/task/bind_tasks'
+        app_route = '/task/bind_tasks'
         parameters = {}
         remaining_task_hashes = list(tasks.keys())
 

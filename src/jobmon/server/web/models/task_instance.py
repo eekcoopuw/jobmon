@@ -1,13 +1,20 @@
 """Task Instance Database Table."""
+from functools import partial
 from typing import Tuple
 
-from flask import current_app as app
+from sqlalchemy.sql import func
+from werkzeug.local import LocalProxy
+
 from jobmon.serializers import SerializeTaskInstance
+from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
-from sqlalchemy.sql import func
+
+
+# new structlog logger per flask request context. internally stored as flask.g.logger
+logger = LocalProxy(partial(get_logger, __name__))
 
 
 class TaskInstance(DB.Model):
@@ -179,11 +186,10 @@ class TaskInstance(DB.Model):
     def transition(self, new_state: str) -> None:
         """Transition the TaskInstance status."""
         # if the transition is timely, move to new state. Otherwise do nothing
-        app.logger = app.logger.bind(workflow_run_id=self.workflow_run_id,
-                                     task_id=self.task_id,
-                                     task_instance_id=self.id)
-        app.logger.info(f"Transiting ti {self.id} from {self.status} "
-                        f"to {new_state}")
+        bind_to_logger(workflow_run_id=self.workflow_run_id,
+                       task_id=self.task_id,
+                       task_instance_id=self.id)
+        logger.info(f"Transitioning task_instance from {self.status} to {new_state}")
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
             self.status = new_state
@@ -198,7 +204,7 @@ class TaskInstance(DB.Model):
                 # if the task instance is F, the task status should be F too
                 self.task.transition(TaskStatus.ERROR_RECOVERABLE)
                 self.task.transition(TaskStatus.ERROR_FATAL)
-        app.logger.info(f"Status of ti {self.id} is now {self.status}")
+        logger.info(f"Status of task_instance is now {self.status}")
 
     def _validate_transition(self, new_state: str) -> None:
         """Ensure the TaskInstance status transition is valid."""
@@ -212,7 +218,6 @@ class TaskInstance(DB.Model):
 
     def _is_timely_transition(self, new_state: str) -> bool:
         """Check if the transition is invalid due to a race condition."""
-        app.logger.bind(task_instance_id=self.id)
         if (self.status, new_state) in self.__class__.untimely_transitions:
             msg = str(InvalidStateTransition(
                 'TaskInstance', self.id, self.status, new_state))
@@ -220,7 +225,7 @@ class TaskInstance(DB.Model):
                 ". This is an untimely transition likely caused by a race "
                 " condition between the UGE distributor and the task instance"
                 " factory which logs the UGE id on the task instance.")
-            app.logger.warning(msg)
+            logger.warning(msg)
             return False
         else:
             return True

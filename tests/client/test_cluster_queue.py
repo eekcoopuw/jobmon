@@ -49,7 +49,7 @@ def test_cluster_queue(db_cfg, client_env):
 
     # make sure that the 3 clusters logged above are among the all_clusters
     rc, response = requester.send_request(
-        app_route='/client/all_clusters',
+        app_route='/all_clusters',
         message={},
         request_type='get')
     all_clusters = [SerializeCluster.kwargs_from_wire(j)for j in response['clusters']]
@@ -58,7 +58,7 @@ def test_cluster_queue(db_cfg, client_env):
 
     # make sure that a single pull of one of the 3 clusters logged above gets 1 record back.
     rc, response = requester.send_request(
-        app_route='/client/cluster/zzzzCLUSTER2',
+        app_route='/cluster/zzzzCLUSTER2',
         message={},
         request_type='get')
     cluster2 = SerializeCluster.kwargs_from_wire(response['cluster'])
@@ -66,7 +66,7 @@ def test_cluster_queue(db_cfg, client_env):
 
     # make sure that the 2 queues logged above are among the all_clusters for the concerned cluster
     rc, response = requester.send_request(
-        app_route='/client/cluster/zzzzCLUSTER2/all_queues',
+        app_route='/cluster/zzzzCLUSTER2/all_queues',
         message={},
         request_type='get')
     all_queues = [SerializeQueue.kwargs_from_wire(j) for j in response['queues']]
@@ -74,7 +74,7 @@ def test_cluster_queue(db_cfg, client_env):
 
     # make sure that a single pull of one of the 2 queues logged above gets 1 record back.
     rc, response = requester.send_request(
-        app_route=f'/client/cluster/{cluster2["id"]}/queue/all.q',
+        app_route=f'/cluster/{cluster2["id"]}/queue/all.q',
         message={},
         request_type='get')
     all_q = SerializeQueue.kwargs_from_wire(response['queue'])

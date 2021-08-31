@@ -7,10 +7,11 @@ import shutil
 import subprocess
 from typing import Dict, List, Optional, Tuple
 
+import psutil
+
 from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-import psutil
 
 logger = logging.getLogger(__name__)
 

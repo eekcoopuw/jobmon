@@ -106,7 +106,7 @@ class WorkflowRun:
 
     def update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""
-        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
+        app_route = f'/workflow_run/{self.workflow_run_id}/update_status'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'status': status},
@@ -122,7 +122,7 @@ class WorkflowRun:
 
     def terminate_workflow_run(self) -> None:
         """Terminate the workflow run."""
-        app_route = f'/client/workflow_run/{self.workflow_run_id}/terminate'
+        app_route = f'/workflow_run/{self.workflow_run_id}/terminate'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
@@ -350,7 +350,7 @@ class WorkflowRun:
         if swarm_tasks is None:
             swarm_tasks = []
         swarm_tasks_tuples = [t.to_wire() for t in swarm_tasks]
-        app_route = f'/swarm/workflow/{self.workflow_id}/task_status_updates'
+        app_route = f'/workflow/{self.workflow_id}/task_status_updates'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'last_sync': str(self.last_sync),

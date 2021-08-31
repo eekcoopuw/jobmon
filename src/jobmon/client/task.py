@@ -275,7 +275,7 @@ class Task:
         Function that users can call either to update values of existing attributes or add
         new attributes.
         """
-        app_route = f'/client/task/{self.task_id}/task_attributes'
+        app_route = f'/task/{self.task_id}/task_attributes'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"task_attributes": task_attributes},
@@ -299,7 +299,7 @@ class Task:
         """Return all errors for each task, with the recent task_instance_id actually used."""
         if self._errors is None and hasattr(self, "_task_id") and self._task_id is not None:
             return_code, response = self.requester.send_request(
-                app_route=f'/worker/task/{self._task_id}/most_recent_ti_error',
+                app_route=f'/task/{self._task_id}/most_recent_ti_error',
                 message={},
                 request_type='get',
                 logger=logger
@@ -308,7 +308,7 @@ class Task:
                 task_instance_id = response['task_instance_id']
                 if task_instance_id is not None:
                     rc, response = self.requester.send_request(
-                        app_route=f'/worker/task_instance/{task_instance_id}'
+                        app_route=f'/task_instance/{task_instance_id}'
                                   f'/task_instance_error_log',
                         message={},
                         request_type='get')
@@ -349,9 +349,9 @@ class Task:
 
     def _get_task_id_and_status(self) -> Tuple[Optional[int], Optional[str]]:
         """Get the id and status for a task from the db."""
-        app_route = '/client/task'
+        app_route = '/task'
         return_code, response = self.requester.send_request(
-            app_route='/client/task',
+            app_route=app_route,
             message={
                 'workflow_id': self.workflow_id,
                 'node_id': self.node.node_id,
@@ -369,7 +369,7 @@ class Task:
 
     def _update_task_parameters(self, task_id: int, reset_if_running: bool) -> str:
         """Update the executor parameters in the db for a task."""
-        app_route = f'/client/task/{task_id}/update_parameters'
+        app_route = f'/task/{task_id}/update_parameters'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
@@ -401,7 +401,7 @@ class Task:
                 'task_attributes': self.task_attributes
                 }
         tasks.append(task)
-        app_route = '/client/task'
+        app_route = '/task'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'tasks': tasks},

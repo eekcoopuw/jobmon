@@ -6,13 +6,14 @@ from http import HTTPStatus as StatusCodes
 import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
+import yaml
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientTaskTemplate
-import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -166,7 +167,7 @@ class TaskTemplate:
         if self.is_bound:
             return
 
-        app_route = "/client/task_template"
+        app_route = "/task_template"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"tool_version_id": tool_version_id,
@@ -278,7 +279,7 @@ class TaskTemplate:
 
     def load_task_template_versions(self) -> None:
         """Load task template versions associated with this task template from the database."""
-        app_route = f"/client/task_template/{self.id}/versions"
+        app_route = f"/task_template/{self.id}/versions"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
