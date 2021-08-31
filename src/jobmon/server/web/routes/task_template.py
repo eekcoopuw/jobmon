@@ -1,19 +1,26 @@
 """Routes for Tasks."""
+from functools import partial
 from http import HTTPStatus as StatusCodes
 from typing import Any
 
-from flask import current_app as app, jsonify, request
+from flask import jsonify, request
+import sqlalchemy
+from sqlalchemy.sql import text
+from werkzeug.local import LocalProxy
+
+from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.arg import Arg
 from jobmon.server.web.models.arg_type import ArgType
 from jobmon.server.web.models.task_template import TaskTemplate
 from jobmon.server.web.models.task_template_version import TaskTemplateVersion
 from jobmon.server.web.models.template_arg_map import TemplateArgMap
-from jobmon.server.web.server_side_exception import InvalidUsage
-import sqlalchemy
-from sqlalchemy.sql import text
-
 from jobmon.server.web.routes import finite_state_machine
+from jobmon.server.web.server_side_exception import InvalidUsage
+
+
+# new structlog logger per flask request context. internally stored as flask.g.logger
+logger = LocalProxy(partial(get_logger, __name__))
 
 
 @finite_state_machine.route('/task_template', methods=['POST'])
@@ -23,8 +30,8 @@ def get_task_template() -> Any:
     data = request.get_json()
     try:
         tool_version_id = int(data["tool_version_id"])
-        app.logger = app.logger.bind(tool_version_id=tool_version_id)
-        app.logger.info(f"Add task tamplate for tool_version_id {tool_version_id} ")
+        bind_to_logger(tool_version_id=tool_version_id)
+        logger.info(f"Add task tamplate for tool_version_id {tool_version_id} ")
 
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
@@ -58,8 +65,8 @@ def get_task_template() -> Any:
 def get_task_template_versions(task_template_id: int) -> Any:
     """Get the task_template_version."""
     # get task template version object
-    app.logger = app.logger.bind(task_template_id=task_template_id)
-    app.logger.info(f"Getting task template version for task template: {task_template_id}")
+    bind_to_logger(task_template_id=task_template_id)
+    logger.info(f"Getting task template version for task template: {task_template_id}")
 
     query = """
         SELECT
@@ -100,9 +107,9 @@ def _add_or_get_arg(name: str) -> Arg:
 def add_task_template_version(task_template_id: int) -> Any:
     """Add a tool to the database."""
     # check input variables
-    app.logger = app.logger.bind(task_template_id=task_template_id)
+    bind_to_logger(task_template_id=task_template_id)
     data = request.get_json()
-    app.logger.info(f"Add tool for task_template_id {task_template_id}")
+    logger.info(f"Add tool for task_template_id {task_template_id}")
     if task_template_id is None:
         raise InvalidUsage(f"Missing variable task_template_id in {request.path}",
                            status_code=400)

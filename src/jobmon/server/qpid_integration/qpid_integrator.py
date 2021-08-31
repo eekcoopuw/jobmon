@@ -3,15 +3,14 @@ import logging
 from time import sleep, time
 from typing import Tuple
 
-from jobmon.server.qpid_integration.maxpss_queue import MaxpssQ
-from jobmon.server.qpid_integration.qpid_config import QPIDConfig
 import requests
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from jobmon.server.qpid_integration.maxpss_queue import MaxpssQ
+from jobmon.server.qpid_integration.qpid_config import QPIDConfig
 
 logger = logging.getLogger(__name__)
-
 
 config = QPIDConfig.from_defaults()
 

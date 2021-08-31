@@ -3,10 +3,10 @@ from http import HTTPStatus as StatusCodes
 from typing import Any
 
 from flask import jsonify
+
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.cluster import Cluster
 from jobmon.server.web.models.cluster_type import ClusterType
-
 from jobmon.server.web.routes import finite_state_machine
 
 

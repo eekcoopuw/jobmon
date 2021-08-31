@@ -106,7 +106,7 @@ class SwarmTask(object):
     def queue_task(self) -> None:
         """Transition a task to the Queued for Instantiation status in the db."""
         rc, _ = self.requester.send_request(
-            app_route=f'/swarm/task/{self.task_id}/queue',
+            app_route=f'/task/{self.task_id}/queue',
             message={},
             request_type='post',
             logger=logger

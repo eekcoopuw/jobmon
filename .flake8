@@ -23,3 +23,6 @@ import-order-style = google
 
 # docstrings
 docstring-convention = google
+
+# local
+application-import-names = jobmon

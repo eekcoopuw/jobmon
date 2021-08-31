@@ -61,7 +61,7 @@ class ToolVersion:
                 "get_tool_version must specify either a tool_id or a tool_version_id"
             )
 
-        app_route = "/client/tool_version"
+        app_route = "/tool_version"
         return_code, response = requester.send_request(
             app_route=app_route,
             message=message,

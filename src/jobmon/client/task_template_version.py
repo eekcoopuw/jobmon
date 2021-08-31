@@ -105,7 +105,7 @@ class TaskTemplateVersion:
         if self.is_bound:
             return
 
-        app_route = f"/client/task_template/{task_template_id}/add_version"
+        app_route = f"/task_template/{task_template_id}/add_version"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"command_template": self.command_template,

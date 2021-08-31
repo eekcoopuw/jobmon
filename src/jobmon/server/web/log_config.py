@@ -1,10 +1,12 @@
 """Configure Logging for structlogs, syslog, etc."""
 import logging.config
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
-from jobmon import __version__
+from flask import g
 from pythonjsonlogger import jsonlogger
 import structlog
+
+from jobmon import __version__
 
 
 def get_logstash_handler_config(logstash_host: str, logstash_port: str, logstash_protocol: str,
@@ -49,16 +51,18 @@ def _processor_remove_data_if_not_debug(logger: logging.Logger, log_method: str,
 
 
 def configure_logger(name: str, add_handlers: Optional[Dict] = None,
-                     json_formatter_prefix: str = "") -> structlog.stdlib.BoundLogger:
+                     json_formatter_prefix: str = "") -> None:
     """Configure logging format, handlers, etc."""
     dict_config = {
         "version": 1,
         "disable_existing_loggers": False,
         "formatters": {
-            "standard": {
-                "()": logging.Formatter,
-                "fmt": "{timestamp} [{level} - {logger}] ({jobmon_version}): {message}",
-                "style": '{'
+            # copied formatter from here: https://github.com/hynek/structlog/issues/235
+            'console': {
+                '()': structlog.stdlib.ProcessorFormatter,
+                'processor': structlog.dev.ConsoleRenderer(),
+                'keep_exc_info': True,
+                'keep_stack_info': True,
             },
             "json": {
                 "()": jsonlogger.JsonFormatter,
@@ -70,7 +74,7 @@ def configure_logger(name: str, add_handlers: Optional[Dict] = None,
             "default": {
                 "level": "INFO",
                 "class": "logging.StreamHandler",
-                "formatter": "standard",
+                "formatter": "console",
             },
         },
         "loggers": {
@@ -80,6 +84,16 @@ def configure_logger(name: str, add_handlers: Optional[Dict] = None,
                 "level": "DEBUG",
                 "propagate": True,
             },
+            'werkzeug': {
+                'level': 'WARN',
+            },
+            'sqlalchemy': {
+                'level': 'WARN',
+            }
+            # enable SQL debug
+            # 'sqlalchemy.engine': {
+            #     'level': 'INFO',
+            # }
         }
     }
 
@@ -113,8 +127,7 @@ def configure_logger(name: str, add_handlers: Optional[Dict] = None,
             # e.g log.exception() or log.warning(exc_info=True)'s behavior
             structlog.processors.format_exc_info,
             # Creates the necessary args, kwargs for log()
-            structlog.stdlib.render_to_log_kwargs,
-
+            structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         # Our "event_dict" is explicitly a dict
         # There's also structlog.threadlocal.wrap_dict(dict) in some examples
@@ -127,4 +140,33 @@ def configure_logger(name: str, add_handlers: Optional[Dict] = None,
         # Caching of our logger
         cache_logger_on_first_use=True
     )
-    return structlog.get_logger(name)
+
+
+def get_logger(name: str = "") -> structlog.stdlib.BoundLogger:
+    """Return a new structlog logger propagating context from prior loggers.
+
+    Args:
+        name: the name of the new logger. If no name is provided and a logger exists in this
+            request, use the name of the existing logger. I no name is provided and no logger
+            exists, set name to jobmon.server.web
+    """
+    if not name and "logger" in g:
+        name = g.logger.name
+    if not name:
+        name = ".".join(__name__.split(".")[:-1])  # strip off module name. keep dir name
+
+    logger = structlog.get_logger(name)
+    if "logger" in g:
+        logger = logger.bind(**structlog.get_context(g.logger))
+
+    return logger
+
+
+def set_logger(logger: structlog.stdlib.BoundLogger) -> None:
+    """Save current logger in flask request global namespace 'g'."""
+    g.logger = logger
+
+
+def bind_to_logger(**kwargs: Any) -> None:
+    """Bind key Value pairs to current logger in flask request global namespace 'g'."""
+    g.logger = g.logger.bind(**kwargs)

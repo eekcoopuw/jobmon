@@ -9,6 +9,8 @@ from http import HTTPStatus as StatusCodes
 import logging
 from typing import Any, Dict, List, Optional, Union
 
+import yaml
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
 from jobmon.client.tool_version import ToolVersion
@@ -16,7 +18,6 @@ from jobmon.client.workflow import Workflow
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientTool
-import yaml
 
 logger = logging.getLogger(__name__)
 
@@ -314,7 +315,7 @@ class Tool:
         self.active_tool_version.default_cluster_name = cluster_name
 
     def _load_tool_versions(self) -> List[ToolVersion]:
-        app_route = f"/client/tool/{self.id}/tool_versions"
+        app_route = f"/tool/{self.id}/tool_versions"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
@@ -334,7 +335,7 @@ class Tool:
 
     def _bind(self) -> None:
         """Call route to create tool."""
-        app_route = "/client/tool"
+        app_route = "/tool"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"name": self.name},

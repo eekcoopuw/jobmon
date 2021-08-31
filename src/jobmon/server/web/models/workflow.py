@@ -1,13 +1,20 @@
 """Workflow Database Table."""
+from functools import partial
 from typing import List
 
-from flask import current_app as app
+from sqlalchemy.sql import func
+from werkzeug.local import LocalProxy
+
+from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.models.workflow_status import WorkflowStatus
-from sqlalchemy.sql import func
+
+
+# new structlog logger per flask request context. internally stored as flask.g.logger
+logger = LocalProxy(partial(get_logger, __name__))
 
 
 class Workflow(DB.Model):
@@ -82,14 +89,13 @@ class Workflow(DB.Model):
 
     def transition(self, new_state: str) -> None:
         """Transition the state of the workflow."""
-        app.logger = app.logger.bind(workflow_id=self.id)
-        app.logger.info(f"Transitting wf {self.id} from {self.status} "
-                        f"to {new_state}")
+        bind_to_logger(workflow_id=self.id)
+        logger.info(f"Transitioning workflow_id from {self.status} to {new_state}")
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
             self.status = new_state
             self.status_date = func.now()
-        app.logger.info(f"WF {self.id} status is now {self.status}")
+        logger.info(f"WorkflowStatus is now {self.status}")
 
     def _validate_transition(self, new_state: str) -> None:
         """Ensure the Job state transition is valid."""
@@ -106,8 +112,8 @@ class Workflow(DB.Model):
     def link_workflow_run(self, workflow_run: WorkflowRun, next_report_increment: float) \
             -> List:
         """Link a workflow run to this workflow."""
-        app.logger = app.logger.bind(workflow_id=self.id)
-        app.logger.info(f"Linking wfr for wf {self.id}")
+        bind_to_logger(workflow_id=self.id)
+        logger.info(f"Linking WorkflowRun {workflow_run.id} to Workflow")
         linked_wfr = [wfr.status == WorkflowRunStatus.LINKING for wfr in self.workflow_runs]
         if not any(linked_wfr) and self.ready_to_link:
             workflow_run.heartbeat(next_report_increment, WorkflowRunStatus.LINKING)
@@ -123,8 +129,8 @@ class Workflow(DB.Model):
 
     def resume(self, reset_running_jobs: bool) -> None:
         """Resume a workflow."""
-        app.logger = app.logger.bind(workflow_id=self.id)
-        app.logger.info(f"Resume wf {self.id}")
+        bind_to_logger(workflow_id=self.id)
+        logger.info("Resume workflow")
         for workflow_run in self.workflow_runs:
             if workflow_run.is_active:
                 if reset_running_jobs:

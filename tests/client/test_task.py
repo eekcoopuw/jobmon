@@ -173,7 +173,7 @@ def test_get_errors(db_cfg, tool):
         DB.session.commit()
 
     # log task_instance fatal error
-    app_route = f"/worker/task_instance/{ti_id}/log_error_worker_node"
+    app_route = f"/task_instance/{ti_id}/log_error_worker_node"
     return_code, _ = workflow1.requester.send_request(
         app_route=app_route,
         message={"error_state": "F", "error_message": "bla bla bla"},
@@ -182,7 +182,7 @@ def test_get_errors(db_cfg, tool):
     assert return_code == 200
 
     # log task_instance fatal error - 2nd error
-    app_route = f"/worker/task_instance/{ti_id}/log_error_worker_node"
+    app_route = f"/task_instance/{ti_id}/log_error_worker_node"
     return_code, _ = workflow1.requester.send_request(
         app_route=app_route,
         message={"error_state": "F", "error_message": "ble ble ble"},
@@ -198,7 +198,7 @@ def test_get_errors(db_cfg, tool):
 
     # make sure that the 2 errors logged above are counted for in the request_type='get'
     rc, response = workflow1.requester.send_request(
-        app_route=f'/worker/task_instance/{ti_id}/task_instance_error_log',
+        app_route=f'/task_instance/{ti_id}/task_instance_error_log',
         message={},
         request_type='get')
     all_errors = [

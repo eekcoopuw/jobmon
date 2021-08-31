@@ -75,7 +75,7 @@ class WorkflowReaper(object):
         """Return all workflows that are in a specific state."""
         logger.info(f"Checking the database for workflow runs of status: {status}")
 
-        app_route = "/client/lost_workflow_run"
+        app_route = "/lost_workflow_run"
         return_code, result = self._requester.send_request(
             app_route=app_route,
             message={'status': status, 'version': self._version},

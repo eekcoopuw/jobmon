@@ -46,7 +46,7 @@ class Cluster:
 
     def bind(self) -> None:
         """Bind Cluster to the database, getting an id back."""
-        app_route = f'/client/cluster/{self.cluster_name}'
+        app_route = f'/cluster/{self.cluster_name}'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
@@ -103,7 +103,7 @@ class Cluster:
             queue = self.queues[queue_name]
         except KeyError:
             queue_class = self.plugin.get_cluster_queue_class()
-            app_route = f'/client/cluster/{self.id}/queue/{queue_name}'
+            app_route = f'/cluster/{self.id}/queue/{queue_name}'
             return_code, response = self.requester.send_request(
                 app_route=app_route,
                 message={},

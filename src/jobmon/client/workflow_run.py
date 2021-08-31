@@ -76,7 +76,7 @@ class WorkflowRun(object):
 
     def _update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""
-        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
+        app_route = f'/workflow_run/{self.workflow_run_id}/update_status'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'status': status},

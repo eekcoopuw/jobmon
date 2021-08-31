@@ -9,6 +9,8 @@ import time
 from types import TracebackType
 from typing import Dict, List, Optional, Type
 
+import tblib.pickling_support
+
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
@@ -16,7 +18,6 @@ from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, RemoteExitInfoNotAvailable, ResumeSet,\
     WorkflowRunStateError
 from jobmon.requester import http_request_ok, Requester
-import tblib.pickling_support
 
 logger = logging.getLogger(__name__)
 tblib.pickling_support.install()
@@ -101,7 +102,7 @@ class DistributorService:
     def _instantiate_workflows(self) -> None:
         """Move the workflow and workflow run to instantiating."""
         # Update workflow run
-        wfr_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
+        wfr_route = f'/workflow_run/{self.workflow_run_id}/update_status'
         rc, resp = self.requester.send_request(
             app_route=wfr_route,
             message={'status': WorkflowRunStatus.INSTANTIATING},
@@ -117,7 +118,7 @@ class DistributorService:
     def _launch_workflows(self) -> None:
         """Move the workflow and workflow run to launched."""
         # Update workflow run
-        wfr_route = f'/swarm/workflow_run/{self.workflow_run_id}/update_status'
+        wfr_route = f'/workflow_run/{self.workflow_run_id}/update_status'
         rc, resp = self.requester.send_request(
             app_route=wfr_route,
             message={'status': WorkflowRunStatus.LAUNCHED},
@@ -316,7 +317,7 @@ class DistributorService:
         # log heartbeat in the database and locally here in the distributor
         if actual:
             app_route = (
-                f'/distributor/workflow_run/{self.workflow_run_id}/log_distributor_report_by')
+                f'/workflow_run/{self.workflow_run_id}/log_distributor_report_by')
             return_code, response = self.requester.send_request(
                 app_route=app_route,
                 message={'distributor_ids': actual,
@@ -350,7 +351,7 @@ class DistributorService:
     def _log_workflow_run_heartbeat(self) -> None:
         next_report_increment = (self._task_instance_heartbeat_interval
                                  * self._report_by_buffer)
-        app_route = f"/distributor/workflow_run/{self.workflow_run_id}/log_heartbeat"
+        app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'next_report_increment': next_report_increment},
@@ -378,7 +379,7 @@ class DistributorService:
 
     def _get_tasks_queued_for_instantiation(self) -> List[DistributorTask]:
         app_route = (
-            f"/distributor/workflow/{self.workflow_id}/queued_tasks/{self._n_queued}"
+            f"/workflow/{self.workflow_id}/queued_tasks/{self._n_queued}"
         )
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -437,9 +438,8 @@ class DistributorService:
         return task_instance
 
     def _get_lost_task_instances(self) -> None:
-        app_route = (
-            f'/distributor/workflow_run/{self.workflow_run_id}/get_suspicious_task_instances'
-        )
+        app_route = f'/workflow_run/{self.workflow_run_id}/get_suspicious_task_instances'
+
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},
@@ -460,9 +460,7 @@ class DistributorService:
         logger.debug(f"Jobs to be reconciled: {self._to_reconcile}")
 
     def _terminate_active_task_instances(self) -> None:
-        app_route = (
-            f'/distributor/workflow_run/{self.workflow_run_id}/get_task_instances_to_terminate'
-        )
+        app_route = f'/workflow_run/{self.workflow_run_id}/get_task_instances_to_terminate'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={},

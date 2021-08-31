@@ -4,8 +4,9 @@ import os
 import re
 
 try:
-    from cluster_utils.ephemerdb import MARIADB, create_ephemerdb
     from sqlalchemy import create_engine
+
+    from cluster_utils.ephemerdb import MARIADB, create_ephemerdb
 except ImportError as e:
     error_msg = (
         "Only the dependencies necessary for running "

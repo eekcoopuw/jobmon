@@ -1,9 +1,15 @@
 """Routes for TaskInstances."""
+from functools import partial
 from http import HTTPStatus as StatusCodes
 import sys
 from typing import Any, Optional
 
-from flask import current_app as app, jsonify, request
+from flask import jsonify, request
+import sqlalchemy
+from sqlalchemy.sql import func, text
+from werkzeug.local import LocalProxy
+
+from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition, KillSelfTransition
 from jobmon.server.web.models.task import Task
@@ -13,18 +19,19 @@ from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLo
 from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
-from jobmon.server.web.server_side_exception import ServerError
-import sqlalchemy
-from sqlalchemy.sql import func, text
-
 from jobmon.server.web.routes import finite_state_machine
+from jobmon.server.web.server_side_exception import ServerError
+
+
+# new structlog logger per flask request context. internally stored as flask.g.logger
+logger = LocalProxy(partial(get_logger, __name__))
 
 
 @finite_state_machine.route('/task_instance/<task_instance_id>/kill_self', methods=['GET'])
 def kill_self(task_instance_id: int) -> Any:
     """Check a task instance's status to see if it needs to kill itself (state W, or L)."""
-    app.logger = app.logger.bind(task_instance_id=task_instance_id)
-    app.logger.debug(f"Checking whether ti {task_instance_id} should commit suicide.")
+    bind_to_logger(task_instance_id=task_instance_id)
+    logger.debug(f"Checking whether ti {task_instance_id} should commit suicide.")
     kill_statuses = TaskInstance.kill_self_states
     query = """
         SELECT
@@ -39,7 +46,7 @@ def kill_self(task_instance_id: int) -> Any:
         task_instance_id=task_instance_id,
         statuses=kill_statuses
     ).one_or_none()
-    app.logger.info(f"ti {task_instance_id} should_kill: {should_kill}")
+    logger.info(f"ti {task_instance_id} should_kill: {should_kill}")
     if should_kill is not None:
         resp = jsonify(should_kill=True)
     else:
@@ -55,9 +62,9 @@ def log_running(task_instance_id: int) -> Any:
     Args:
         task_instance_id: id of the task_instance to log as running
     """
-    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
-    app.logger.info(f"Log running for ti {task_instance_id}")
+    logger.info(f"Log running for ti {task_instance_id}")
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(ti, TaskInstanceStatus.RUNNING)
     if data.get('distributor_id', None) is not None:
@@ -89,9 +96,9 @@ def log_ti_report_by(task_instance_id: int) -> Any:
     Args:
         task_instance_id: id of the task_instance to log
     """
-    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
-    app.logger.debug(f"Log report_by for TI {task_instance_id}.")
+    logger.debug(f"Log report_by for TI {task_instance_id}.")
 
     distributor_id = data.get('distributor_id', None)
     params = {}
@@ -132,17 +139,17 @@ def log_usage(task_instance_id: int) -> Any:
         cpu (str, optional): cpu used
         io (str, optional): io used
     """
-    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
     if data.get('maxrss', None) is None:
         data['maxrss'] = '-1'
 
-    app.logger.debug(f"usage_str is {data.get('usage_str', None)}, "
-                     f"wallclock is {data.get('wallclock', None)}, "
-                     f"maxrss is {data.get('maxrss', None)}, "
-                     f"maxpss is {data.get('maxpss', None)}, "
-                     f"cpu is {data.get('cpu', None)}, "
-                     f" io is {data.get('io', None)}")
+    logger.debug(f"usage_str is {data.get('usage_str', None)}, "
+                 f"wallclock is {data.get('wallclock', None)}, "
+                 f"maxrss is {data.get('maxrss', None)}, "
+                 f"maxpss is {data.get('maxpss', None)}, "
+                 f"cpu is {data.get('cpu', None)}, "
+                 f" io is {data.get('io', None)}")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     if data.get('usage_str', None) is not None:
@@ -171,9 +178,9 @@ def log_done(task_instance_id: int) -> Any:
     Args:
         task_instance_id: id of the task_instance to log done
     """
-    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
-    app.logger.info(f"Log DONE for TI {task_instance_id}.")
+    logger.info(f"Log DONE for TI {task_instance_id}.")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     if data.get('distributor_id', None) is not None:
@@ -197,13 +204,13 @@ def log_error_worker_node(task_instance_id: int) -> Any:
         task_instance_id (str): id of the task_instance to log done
         error_message (str): message to log as error
     """
-    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
     error_state = data['error_state']
     error_message = data['error_message']
     distributor_id = data.get('distributor_id', None)
     nodename = data.get('nodename', None)
-    app.logger.info(f"Log ERROR for TI:{task_instance_id}.")
+    logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
 
@@ -228,8 +235,8 @@ def get_most_recent_ti_error(task_id: int) -> Any:
     Return:
         error message
     """
-    app.logger = app.logger.bind(task_id=task_id)
-    app.logger.info(f"Getting most recent ji error for ti {task_id}")
+    bind_to_logger(task_id=task_id)
+    logger.info(f"Getting most recent ji error for ti {task_id}")
     query = """
         SELECT
             tiel.*
@@ -268,8 +275,8 @@ def get_task_instance_error_log(task_instance_id: int) -> Any:
     Return:
         jsonified task_instance_error_log result set
     """
-    app.logger = app.logger.bind(task_instance_id=task_instance_id)
-    app.logger.info(f"Getting task instance error log for ti {task_instance_id}")
+    bind_to_logger(task_instance_id=task_instance_id)
+    logger.info(f"Getting task instance error log for ti {task_instance_id}")
     query = """
         SELECT
             tiel.id, tiel.error_time, tiel.description
@@ -297,8 +304,8 @@ def get_suspicious_task_instances(workflow_run_id: int) -> Any:
     Query all task instances that are submitted to distributor or running which haven't
     reported as alive in the allocated time.
     """
-    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
-    app.logger.info(f"Getting suspicious tis for wfi {workflow_run_id}")
+    bind_to_logger(workflow_run_id=workflow_run_id)
+    logger.info(f"Getting suspicious tis for wfi {workflow_run_id}")
     query = """
         SELECT
             task_instance.id, task_instance.workflow_run_id,
@@ -326,8 +333,8 @@ def get_suspicious_task_instances(workflow_run_id: int) -> Any:
                             methods=['GET'])
 def get_task_instances_to_terminate(workflow_run_id: int) -> Any:
     """Get the task instances for a given workflow run that need to be terminated."""
-    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
-    app.logger.info(f"Getting tis that should be terminated for wfr {workflow_run_id}")
+    bind_to_logger(workflow_run_id=workflow_run_id)
+    logger.info(f"Getting tis that should be terminated for wfr {workflow_run_id}")
     workflow_run = DB.session.query(WorkflowRun).filter_by(
         id=workflow_run_id
     ).one()
@@ -368,8 +375,8 @@ def set_maxpss(distributor_id: int, maxpss: int) -> Any:
         distributor_id (int): sge distributor id
         maxpss (int): maxpss from QPID
     """
-    app.logger = app.logger.bind(distributor_id=distributor_id)
-    app.logger.info(f"Setting maxpss for distributor_id {distributor_id}")
+    bind_to_logger(distributor_id=distributor_id)
+    logger.info(f"Setting maxpss for distributor_id {distributor_id}")
     try:
         sql = f"UPDATE task_instance SET maxpss={maxpss} WHERE distributor_id={distributor_id}"
         DB.session.execute(sql)
@@ -380,7 +387,7 @@ def set_maxpss(distributor_id: int, maxpss: int) -> Any:
     except Exception as e:
         msg = "Error updating maxpss for distributor id {eid}: {error}".format(
             eid=distributor_id, error=str(e))
-        app.logger.error(msg)
+        logger.error(msg)
         raise ServerError(f"Unexpected Jobmon Server Error {sys.exc_info()[0]} in "
                           f"{request.path}", status_code=500) from e
 
@@ -389,7 +396,6 @@ def set_maxpss(distributor_id: int, maxpss: int) -> Any:
                             methods=['POST'])
 def log_distributor_report_by(workflow_run_id: int) -> Any:
     """Log the next report by date and time."""
-    app.logger = app.logger.bind(workflow_run_id=workflow_run_id)
     data = request.get_json()
     params = {"workflow_run_id": int(workflow_run_id)}
     for key in ["next_report_increment", "distributor_ids"]:
@@ -423,8 +429,8 @@ def add_task_instance() -> Any:
     try:
         data = request.get_json()
         task_id = data['task_id']
-        app.logger = app.logger.bind(task_id=task_id)
-        app.logger.info(f"Add task instance for task {task_id}")
+        bind_to_logger(task_id=task_id)
+        logger.info(f"Add task instance for task {task_id}")
         # query task
         task = DB.session.query(Task).filter_by(id=task_id).first()
         DB.session.commit()
@@ -449,7 +455,7 @@ def add_task_instance() -> Any:
             msg = ("Caught InvalidStateTransition. Not transitioning task "
                    "{}'s task_instance_id {} from I to I"
                    .format(data['task_id'], task_instance.id))
-            app.logger.warning(msg)
+            logger.warning(msg)
             DB.session.commit()
             resp = jsonify(
                 task_instance=task_instance.to_wire_as_distributor_task_instance())
@@ -464,12 +470,10 @@ def add_task_instance() -> Any:
                             methods=['POST'])
 def log_no_distributor_id(task_instance_id: int) -> Any:
     """Log a task_instance_id that did not get an distributor_id upon submission."""
-    app.logger = app.logger.bind(task_instance_id=task_instance_id)
-    app.logger.info(f"Logging ti {task_instance_id} did not get distributor id upon "
-                    f"submission")
+    bind_to_logger(task_instance_id=task_instance_id)
+    logger.info(f"Logging ti {task_instance_id} did not get distributor id upon submission")
     data = request.get_json()
-    app.logger.debug(f"Log NO DISTRIBUTOR ID for TI {task_instance_id}."
-                     f"Data {data['no_id_err_msg']}")
+    logger.debug(f"Log NO DISTRIBUTOR ID. Data {data['no_id_err_msg']}")
 
     err_msg = data['no_id_err_msg']
 
@@ -493,9 +497,9 @@ def log_distributor_id(task_instance_id: int) -> Any:
     Args:
         task_instance_id: id of the task_instance to log
     """
-    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
-    app.logger.info(f"Log DISTRIBUTOR ID for TI {task_instance_id}.")
+    logger.info(f"Log DISTRIBUTOR ID for TI {task_instance_id}.")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(
@@ -519,13 +523,13 @@ def log_known_error(task_instance_id: int) -> Any:
     Args:
         task_instance_id (int): id for task instance.
     """
-    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
     error_state = data['error_state']
     error_message = data['error_message']
     distributor_id = data.get('distributor_id', None)
     nodename = data.get('nodename', None)
-    app.logger.info(f"Log ERROR for TI:{task_instance_id}.")
+    logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
     query = """
         SELECT
@@ -560,13 +564,13 @@ def log_unknown_error(task_instance_id: int) -> Any:
     Args:
         task_instance_id (int): id for task instance
     """
-    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
     error_state = data['error_state']
     error_message = data['error_message']
     distributor_id = data.get('distributor_id', None)
     nodename = data.get('nodename', None)
-    app.logger.info(f"Log ERROR for TI:{task_instance_id}.")
+    logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
     query = """
         SELECT
@@ -617,16 +621,16 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: int) -> 
                   f"Not transitioning task, tid= " \
                   f"{task_instance.id} from {task_instance.status} to " \
                   f"{status_id}"
-            app.logger.warning(msg)
+            logger.warning(msg)
         else:
             # Tried to move to an illegal state
             msg = f"Illegal state transition. Not transitioning task, " \
                   f"tid={task_instance.id}, from {task_instance.status} to " \
                   f"{status_id}"
-            app.logger.error(msg)
+            logger.error(msg)
     except KillSelfTransition:
         msg = f"kill self, cannot transition tid={task_instance.id}"
-        app.logger.warning(msg)
+        logger.warning(msg)
         response = "kill self"
     except Exception as e:
         msg = f"General exception in _update_task_instance_state, " \
@@ -658,7 +662,6 @@ def _log_error(ti: TaskInstance, error_state: int, error_msg: str,
         resp.status_code = StatusCodes.OK
     except Exception as e:
         DB.session.rollback()
-        app.logger.warning(str(e))
         raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
                           status_code=500) from e
 

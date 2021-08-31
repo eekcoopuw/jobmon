@@ -37,7 +37,7 @@ class ReaperWorkflowRun(object):
 
     def reap(self) -> str:
         """Transition workflow run to error."""
-        app_route = f'/swarm/workflow_run/{self.workflow_run_id}/reap'
+        app_route = f'/workflow_run/{self.workflow_run_id}/reap'
         return_code, response = self._requester.send_request(
             app_route=app_route,
             message={},

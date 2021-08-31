@@ -79,7 +79,7 @@ class DistributorTaskInstance:
             cluster_type_name (str): which Cluster to this task is on
             requester: requester for communicating with central services
         """
-        app_route = '/distributor/task_instance'
+        app_route = '/task_instance'
         return_code, response = requester.send_request(
             app_route=app_route,
             message={'task_id': task_id,
@@ -105,7 +105,7 @@ class DistributorTaskInstance:
                 id.
         """
         app_route = (
-            f'/distributor/task_instance/{self.task_instance_id}/log_no_distributor_id')
+            f'/task_instance/{self.task_instance_id}/log_no_distributor_id')
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'no_id_err_msg': no_id_err_msg},
@@ -130,7 +130,7 @@ class DistributorTaskInstance:
         """
         self.distributor_id = distributor_id
 
-        app_route = f'/distributor/task_instance/{self.task_instance_id}/log_distributor_id'
+        app_route = f'/task_instance/{self.task_instance_id}/log_distributor_id'
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={'distributor_id': str(distributor_id),
@@ -156,9 +156,9 @@ class DistributorTaskInstance:
             raise ValueError("cannot log error if self.error_state isn't set")
 
         if self.error_state == TaskInstanceStatus.UNKNOWN_ERROR:
-            app_route = f"/distributor/task_instance/{self.task_instance_id}/log_unknown_error"
+            app_route = f"/task_instance/{self.task_instance_id}/log_unknown_error"
         else:
-            app_route = f"/distributor/task_instance/{self.task_instance_id}/log_known_error"
+            app_route = f"/task_instance/{self.task_instance_id}/log_known_error"
 
         return_code, response = self.requester.send_request(
             app_route=app_route,

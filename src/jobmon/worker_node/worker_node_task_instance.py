@@ -13,13 +13,14 @@ from time import sleep, time
 import traceback
 from typing import Any, Dict, Optional, Tuple, Union
 
+import pkg_resources
+
 from jobmon.client.client_config import ClientConfig
 from jobmon.cluster_type.api import import_cluster, register_cluster_plugin
 from jobmon.cluster_type.base import ClusterWorkerNode
 from jobmon.exceptions import InvalidResponse, ReturnCodes
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeClusterType
-import pkg_resources
 
 logger = logging.getLogger(__name__)
 
