@@ -192,7 +192,7 @@ def log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
 
     try:
         workflow_run.status
-        workflow_run.heartbeat(data["next_report_increment"], WorkflowRunStatus.LINKING)
+        workflow_run.heartbeat(data["next_report_increment"], data['status'])
         DB.session.commit()
         logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
     except InvalidStateTransition as e:

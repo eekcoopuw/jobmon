@@ -354,7 +354,8 @@ class DistributorService:
         app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={'next_report_increment': next_report_increment},
+            message={'next_report_increment': next_report_increment,
+                     'status': WorkflowRunStatus.RUNNING},
             request_type='post',
             logger=logger
         )

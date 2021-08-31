@@ -80,7 +80,7 @@ def test_n_queued(tool, db_cfg, client_env, task_template):
 
     # comparing results and times of old query vs new query
     rc, response = workflow.requester.send_request(
-        app_route=f'/distributor/workflow/{workflow.workflow_id}/queued_tasks/1000',
+        app_route=f'/workflow/{workflow.workflow_id}/queued_tasks/1000',
         message={},
         request_type='get')
     all_jobs = [SerializeTask.kwargs_from_wire(j) for j in response['task_dcts']]
