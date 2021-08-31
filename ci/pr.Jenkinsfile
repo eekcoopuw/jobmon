@@ -5,6 +5,11 @@ pipeline {
   options {
     buildDiscarder(logRotator(numToKeepStr: '30'))
   } // End options
+  parameters {
+    booleanParam(defaultValue: 'false',
+     description: 'Whether or not you want to deploy Jobmon to Pypi',
+     name: 'DEPLOY_PYPI')
+  } // end parameters
   triggers {
     // This cron expression runs seldom, or never runs, but having the value set
     // allows bitbucket server to remotely trigger builds.
@@ -64,7 +69,7 @@ pipeline {
         } // End build docs stage
         stage('Tests') {
           steps {
-            sh "${ACTIVATE} && nox --session tests -- tests/ -n 3"
+//             sh "${ACTIVATE} && nox --session tests -- tests/ -n 3"
           }
           post {
             always {
@@ -87,8 +92,32 @@ pipeline {
           } // End post
         } // End step
       } // End tests stage
-      } // End parallel
-    } // End parallel stage
+      stage ('Build Python Distribution') {
+        steps {
+          // Optionally build Python package and publish to Pypi, conditioned on success of tests/lint/typecheck
+          if (params.DEPLOY_PYPI) {
+            // Artifactory user with write permissions
+            withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
+                                              usernameVariable: 'REG_USERNAME',
+                                              passwordVariable: 'REG_PASSWORD')]) {
+
+              sh '''#!/bin/bash
+                    . ${WORKSPACE}/ci/deploy_utils.sh
+                    upload_python_dist \
+                        ${WORKSPACE} \
+                        $REG_USERNAME \
+                        $REG_PASSWORD \
+                        "${ACTIVATE}" \
+                 '''
+            } // end credentials
+          } // end if params
+          else {
+            echo "Not deploying to Pypi"
+          } // end else
+        } // end steps
+      } // end Build Python Distribution stage
+    } // End parallel
+  } // End parallel stage
   post {
     always {
       // Delete the workspace directory.

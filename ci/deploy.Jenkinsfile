@@ -5,6 +5,9 @@ pipeline {
     buildDiscarder(logRotator(numToKeepStr: '20'))
   } // End Options
   parameters {
+    string(defaultValue: '',
+     description: 'The version of Jobmon to deploy',
+     name: 'JOBMON_VERSION')
     string(defaultValue: 'jobmon-dev',
      description: 'Kubernetes Namespace to deploy to',
      name: 'K8S_NAMESPACE')
@@ -78,38 +81,6 @@ pipeline {
         } // end node
       } // end steps
     } // end TARGETIP stage
-    stage ('Build Python Distribution') {
-      steps {
-        node('docker') {
-          // Artifactory user with write permissions
-          withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
-                                            usernameVariable: 'REG_USERNAME',
-                                            passwordVariable: 'REG_PASSWORD')]) {
-
-            sh '''#!/bin/bash
-                  . ${WORKSPACE}/ci/deploy_utils.sh
-                  upload_python_dist \
-                      ${WORKSPACE} \
-                      ${TARGET_IP} \
-                      $REG_USERNAME \
-                      $REG_PASSWORD \
-                      "${DOCKER_ACTIVATE}" \
-                      ${JOBMON_VERSION}
-               '''
-            script {
-              env.JOBMON_VERSION = sh (
-                script: '''
-                        basename $(find ./dist/jobmon-*.tar.gz) | \
-                        sed "s/jobmon-\\(.*\\)\\.tar\\.gz/\\1/"
-                        ''',
-                returnStdout: true
-              ).trim()
-            } // end script
-            echo "Jobmon Version=${env.JOBMON_VERSION}"
-          } // end credentials
-        } // end node
-      } // end steps
-    } // end Build Python Distribution stage
     stage ('Build Server Containers') {
       steps {
         node('docker') {
