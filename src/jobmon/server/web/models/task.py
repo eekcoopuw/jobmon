@@ -96,7 +96,7 @@ class Task(DB.Model):
     def transition(self, new_state: str) -> None:
         """Transition the Task to a new state."""
         bind_to_logger(workflow_id=self.workflow_id, task_id=self.id)
-        logger.info(f"Transiting task from {self.status} to {new_state}")
+        logger.info(f"Transitioning task from {self.status} to {new_state}")
         self._validate_transition(new_state)
         if new_state == TaskStatus.INSTANTIATED:
             self.num_attempts = self.num_attempts + 1
@@ -106,7 +106,7 @@ class Task(DB.Model):
     def transition_after_task_instance_error(self, job_instance_error_state: str) -> None:
         """Transition the task to an error state."""
         bind_to_logger(workflow_id=self.workflow_id, task_id=self.id)
-        logger.info("Transiting task to ERROR_RECOVERABLE")
+        logger.info("Transitioning task to ERROR_RECOVERABLE")
         self.transition(TaskStatus.ERROR_RECOVERABLE)
         if self.num_attempts >= self.max_attempts:
             logger.info("Giving up task after max attempts.")

@@ -147,7 +147,7 @@ def get_logger(name: str = "") -> structlog.stdlib.BoundLogger:
 
     Args:
         name: the name of the new logger. If no name is provided and a logger exists in this
-            request, use the name of the existing logger. I no name is provided and no logger
+            request, use the name of the existing logger. If no name is provided and no logger
             exists, set name to jobmon.server.web
     """
     if not name and "logger" in g:

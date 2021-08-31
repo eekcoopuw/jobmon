@@ -704,7 +704,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Any:
         task_dcts = [t.to_wire_as_distributor_task() for t in tasks]
     else:
         task_dcts = []
-    logger.debug(f"Got The following queued tasks: {task_dcts}")
+    logger.debug(f"Got the following queued tasks: {task_dcts}")
     resp = jsonify(task_dcts=task_dcts)
     resp.status_code = StatusCodes.OK
     return resp

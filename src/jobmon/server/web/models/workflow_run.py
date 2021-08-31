@@ -128,7 +128,7 @@ class WorkflowRun(DB.Model):
     def reap(self) -> None:
         """Transition dead workflow runs to a terminal state."""
         bind_to_logger(workflow_run_id=self.id, workflow_id=self.workflow_id)
-        logger.info("Dead workflo_run will be reaped.")
+        logger.info("Dead workflow_run will be reaped.")
         if self.status == WorkflowRunStatus.LINKING:
             logger.debug(f"Transitioning wfr {self.id} to ABORTED")
             self.transition(WorkflowRunStatus.ABORTED)

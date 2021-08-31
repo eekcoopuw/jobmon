@@ -34,11 +34,10 @@ def test_add_structlog_context(requester_in_memory, log_config):
         for line in server_log_file:
             stripped_line = line.strip()
             log_dict = json.loads(stripped_line)
-            # for key in added_context.keys():
-            #     assert key in log_dict.keys()
-            # for val in added_context.values():
-            #     assert val in log_dict.values()
-            print(log_dict)
+            for key in added_context.keys():
+                assert key in log_dict.keys()
+            for val in added_context.values():
+                assert val in log_dict.values()
 
 
 def test_error_handling(requester_in_memory, log_config, monkeypatch):
