@@ -216,8 +216,8 @@ def update_config(cc: ClientConfig) -> None:
         edit.read(INSTALLED_CONFIG_FILE)
         client = edit["client"]
         if client["web_service_fqdn"] == cc.host and client["web_service_port"] == cc.port:
-            print("The updated values are the same as in the config file."
-                  "No update to the config file is made.")
+            print("The new values are the same as in the config file. "
+                  "No update is made to the config file.")
             return
         else:
             client["web_service_fqdn"] = cc.host
