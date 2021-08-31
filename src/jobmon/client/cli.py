@@ -90,7 +90,11 @@ class ClientCLI(CLI):
         print(f"Response is: {response}")
 
     def update_config(self, args: configargparse.Namespace) -> None:
-        """Manually update .jobmon.ini"""
+        """Update .jobmon.ini.
+
+        Args:
+            args specified by the user.
+        """
         from jobmon.client.status_commands import update_config
         import requests
 
@@ -99,7 +103,7 @@ class ClientCLI(CLI):
         # validate the updated url is reachable
         try:
             _ = requests.get(cc.url)
-        except requests.ConnectionError as exception:
+        except requests.ConnectionError:
             raise AssertionError(f"URL {cc.url} is not reachable.")
 
         update_config(cc)

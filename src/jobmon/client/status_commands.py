@@ -202,7 +202,8 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
 
 
 def update_config(cc: ClientConfig) -> None:
-    """Update .jobmon.ini
+    """Update .jobmon.ini.
+
     Args:
         new host and port
     """
@@ -215,7 +216,8 @@ def update_config(cc: ClientConfig) -> None:
         edit.read(INSTALLED_CONFIG_FILE)
         client = edit["client"]
         if client["web_service_fqdn"] == cc.host and client["web_service_port"] == cc.port:
-            print(f"The updated values are the same as in the config file. No update to the config file is made.")
+            print("The updated values are the same as in the config file."
+                  "No update to the config file is made.")
             return
         else:
             client["web_service_fqdn"] = cc.host
