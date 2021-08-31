@@ -221,14 +221,14 @@ def update_config(cc: ClientConfig) -> None:
             return
         else:
             client["web_service_fqdn"] = cc.host
-            client["web_service_port"] = cc.port
+            client["web_service_port"] = str(cc.port)
             with open(INSTALLED_CONFIG_FILE, 'w') as configfile:
                 edit.write(configfile)
     else:
         config = configparser.ConfigParser()
         config.add_section("client")
         config.set("client", "web_service_fqdn", cc.host)
-        config.set("client", "web_service_port", cc.port)
+        config.set("client", "web_service_port", str(cc.port))
         with open(INSTALLED_CONFIG_FILE, 'w') as configfile:
             config.write(configfile)
 
