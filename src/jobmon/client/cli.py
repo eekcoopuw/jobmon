@@ -93,7 +93,7 @@ class ClientCLI(CLI):
         """Update .jobmon.ini.
 
         Args:
-            args specified by the user.
+            args: only --web_service_fqdn --web_service_port are expected.
         """
         from jobmon.client.status_commands import update_config
         import requests

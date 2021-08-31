@@ -205,7 +205,7 @@ def update_config(cc: ClientConfig) -> None:
     """Update .jobmon.ini.
 
     Args:
-        new host and port
+        cc: new ClientConfig
     """
     import os
     from jobmon.config import INSTALLED_CONFIG_FILE
