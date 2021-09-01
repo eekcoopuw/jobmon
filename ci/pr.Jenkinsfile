@@ -109,7 +109,7 @@ pipeline {
                         ${WORKSPACE} \
                         $REG_USERNAME \
                         $REG_PASSWORD \
-                        ${ACTIVATE} \
+                        ${ACTIVATE}
                  '''
             } // end credentials
           } // end if params
