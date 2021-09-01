@@ -20,7 +20,7 @@ pipeline {
   environment {
 
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
-    ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base 2&1> /dev/null"
+    ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
   } // End environment
   stages {
     stage("Notify BitBucket") {
