@@ -95,26 +95,28 @@ pipeline {
     } // End parallel stage
     stage ('Build Python Distribution') {
       steps {
-        // Optionally build Python package and publish to Pypi, conditioned on success of tests/lint/typecheck
-        if (params.DEPLOY_PYPI) {
-          // Artifactory user with write permissions
-          withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
-                                            usernameVariable: 'REG_USERNAME',
-                                            passwordVariable: 'REG_PASSWORD')]) {
+        script {
+          // Optionally build Python package and publish to Pypi, conditioned on success of tests/lint/typecheck
+          if (params.DEPLOY_PYPI) {
+            // Artifactory user with write permissions
+            withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
+                                              usernameVariable: 'REG_USERNAME',
+                                              passwordVariable: 'REG_PASSWORD')]) {
 
-            sh '''#!/bin/bash
-                  . ${WORKSPACE}/ci/deploy_utils.sh
-                  upload_python_dist \
-                      ${WORKSPACE} \
-                      $REG_USERNAME \
-                      $REG_PASSWORD \
-                      "${ACTIVATE}" \
-               '''
-          } // end credentials
-        } // end if params
-        else {
-          echo "Not deploying to Pypi"
-        } // end else
+              sh '''#!/bin/bash
+                    . ${WORKSPACE}/ci/deploy_utils.sh
+                    upload_python_dist \
+                        ${WORKSPACE} \
+                        $REG_USERNAME \
+                        $REG_PASSWORD \
+                        "${ACTIVATE}" \
+                 '''
+            } // end credentials
+          } // end if params
+          else {
+            echo "Not deploying to Pypi"
+          } // end else
+        } // end script
       } // end steps
     } // end Build Python Distribution stage
   } // end stages
