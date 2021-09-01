@@ -102,14 +102,14 @@ pipeline {
             withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                               usernameVariable: 'REG_USERNAME',
                                               passwordVariable: 'REG_PASSWORD')]) {
-
+              sh "echo '${ACTIVATE}'"
               sh '''#!/bin/bash
                     . ${WORKSPACE}/ci/deploy_utils.sh
                     upload_python_dist \
                         ${WORKSPACE} \
                         $REG_USERNAME \
                         $REG_PASSWORD \
-                        ${ACTIVATE}
+                        "${ACTIVATE}"
                  '''
             } // end credentials
           } // end if params
