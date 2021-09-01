@@ -81,6 +81,7 @@ upload_jobmon_image () {
     REG_USERNAME=$3
     REG_PASSWORD=$4
     SCICOMP_DOCKER_REG_URL=$5
+    JOBMON_CONTAINER_URI=$6
     GRAFANA_CONTAINER_URI=$7
 
 
