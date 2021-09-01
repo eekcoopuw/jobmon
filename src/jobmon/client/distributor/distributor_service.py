@@ -82,7 +82,6 @@ class DistributorService:
         # log heartbeat on startup so workflow run FSM doesn't have any races
         self.heartbeat()
 
-    @instrument
     def _infer_error(self, task_instance: DistributorTaskInstance) -> None:
         """Infer error by checking the distributor remote exit info."""
         # infer error state if we don't know it already
@@ -276,7 +275,6 @@ class DistributorService:
             else:
                 sleep_time = 0.
 
-    @instrument
     def _purge_queueing_errors(self) -> None:
         """Remove any jobs that have encountered an error in the distributor queue."""
         active_distributor_ids = list(self._submitted_or_running.keys())
@@ -298,7 +296,6 @@ class DistributorService:
             logger.warning(f"{self.distributor.__class__.__name__} does not implement "
                            f"get_errored_jobs methods.")
 
-    @instrument
     def _log_distributor_report_by(self) -> None:
         next_report_increment = self._task_instance_heartbeat_interval * self._report_by_buffer
         active_distributor_ids = list(self._submitted_or_running.keys())
@@ -402,9 +399,6 @@ class DistributorService:
         self._to_instantiate = tasks
         return tasks
 
-    # Ex. instrument the amount of time it takes to create a task instance object, build the jobmon command,
-    # and submit the job to the plugin cluster
-    @instrument
     def _create_task_instance(self, task: DistributorTask) \
             -> Optional[DistributorTaskInstance]:
         """Creates a TaskInstance based on the parameters of Task.
@@ -465,7 +459,6 @@ class DistributorService:
         self._to_reconcile = lost_task_instances
         logger.debug(f"Jobs to be reconciled: {self._to_reconcile}")
 
-    @instrument
     def _terminate_active_task_instances(self) -> None:
         app_route = (
             f'/distributor/workflow_run/{self.workflow_run_id}/get_task_instances_to_terminate'
