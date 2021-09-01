@@ -90,34 +90,34 @@ pipeline {
               ])
             } // End always
           } // End post
-        } // End step
-      } // End tests stage
-      stage ('Build Python Distribution') {
-        steps {
-          // Optionally build Python package and publish to Pypi, conditioned on success of tests/lint/typecheck
-          if (params.DEPLOY_PYPI) {
-            // Artifactory user with write permissions
-            withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
-                                              usernameVariable: 'REG_USERNAME',
-                                              passwordVariable: 'REG_PASSWORD')]) {
+        } // End tests stage
+      } // End parallel
+    } // End parallel stage
+    stage ('Build Python Distribution') {
+      steps {
+        // Optionally build Python package and publish to Pypi, conditioned on success of tests/lint/typecheck
+        if (params.DEPLOY_PYPI) {
+          // Artifactory user with write permissions
+          withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
+                                            usernameVariable: 'REG_USERNAME',
+                                            passwordVariable: 'REG_PASSWORD')]) {
 
-              sh '''#!/bin/bash
-                    . ${WORKSPACE}/ci/deploy_utils.sh
-                    upload_python_dist \
-                        ${WORKSPACE} \
-                        $REG_USERNAME \
-                        $REG_PASSWORD \
-                        "${ACTIVATE}" \
-                 '''
-            } // end credentials
-          } // end if params
-          else {
-            echo "Not deploying to Pypi"
-          } // end else
-        } // end steps
-      } // end Build Python Distribution stage
-    } // End parallel
-  } // End parallel stage
+            sh '''#!/bin/bash
+                  . ${WORKSPACE}/ci/deploy_utils.sh
+                  upload_python_dist \
+                      ${WORKSPACE} \
+                      $REG_USERNAME \
+                      $REG_PASSWORD \
+                      "${ACTIVATE}" \
+               '''
+          } // end credentials
+        } // end if params
+        else {
+          echo "Not deploying to Pypi"
+        } // end else
+      } // end steps
+    } // end Build Python Distribution stage
+  } // end stages
   post {
     always {
       // Delete the workspace directory.
