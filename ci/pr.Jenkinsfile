@@ -20,7 +20,7 @@ pipeline {
   environment {
 
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
-    ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
+    ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base 2&1> /dev/null"
   } // End environment
   stages {
     stage("Notify BitBucket") {
@@ -36,63 +36,63 @@ pipeline {
         checkout scm
       } // End step
     } // End remote checkout repo stage
-    // stage("parallel") {
-    //   parallel {
-    //     stage("Lint") {
-    //       steps {
-    //         sh "${ACTIVATE} && nox --session lint"
-    //       } // End step
-    //     } // End lint stage
-    //     stage("Typecheck") {
-    //       steps {
-    //         sh "${ACTIVATE} && nox --session typecheck"
-    //       } // End step
-    //     } // End typecheck stage
-    //     stage("Build Docs") {
-    //       steps {
-    //         sh "${ACTIVATE} && nox --session docs"
-    //       } // End step
-    //       post {
-    //         always {
-    //           // Publish the documentation.
-    //           publishHTML([
-    //             allowMissing: true,
-    //             alwaysLinkToLastBuild: false,
-    //             keepAll: true,
-    //             reportDir: 'out/_html',
-    //             reportFiles: 'index.html',
-    //             reportName: 'Documentation',
-    //             reportTitles: ''
-    //           ])
-    //         } // End always
-    //       } // End post
-    //     } // End build docs stage
-    //     stage('Tests') {
-    //       steps {
-    //         sh "${ACTIVATE} && nox --session tests -- tests/ -n 3 || true"
-    //       }
-    //       post {
-    //         always {
-    //           // Publish the coverage reports.
-    //           publishHTML([
-    //             allowMissing: true,
-    //             alwaysLinkToLastBuild: false,
-    //             keepAll: true,
-    //             reportDir: 'jobmon_coverage_html_report',
-    //             reportFiles: 'index.html',
-    //             reportName: 'Coverage Report',
-    //             reportTitles: ''
-    //           ])
-    //           // Publish the test results
-    //           junit([
-    //             testResults: "test_report.xml",
-    //             allowEmptyResults: true
-    //           ])
-    //         } // End always
-    //       } // End post
-    //     } // End tests stage
-    //   } // End parallel
-    // } // End parallel stage
+    stage("parallel") {
+      parallel {
+        stage("Lint") {
+          steps {
+            sh "${ACTIVATE} && nox --session lint"
+          } // End step
+        } // End lint stage
+        stage("Typecheck") {
+          steps {
+            sh "${ACTIVATE} && nox --session typecheck"
+          } // End step
+        } // End typecheck stage
+        stage("Build Docs") {
+          steps {
+            sh "${ACTIVATE} && nox --session docs"
+          } // End step
+          post {
+            always {
+              // Publish the documentation.
+              publishHTML([
+                allowMissing: true,
+                alwaysLinkToLastBuild: false,
+                keepAll: true,
+                reportDir: 'out/_html',
+                reportFiles: 'index.html',
+                reportName: 'Documentation',
+                reportTitles: ''
+              ])
+            } // End always
+          } // End post
+        } // End build docs stage
+        stage('Tests') {
+          steps {
+            sh "${ACTIVATE} && nox --session tests -- tests/ -n 3 || true"
+          }
+          post {
+            always {
+              // Publish the coverage reports.
+              publishHTML([
+                allowMissing: true,
+                alwaysLinkToLastBuild: false,
+                keepAll: true,
+                reportDir: 'jobmon_coverage_html_report',
+                reportFiles: 'index.html',
+                reportName: 'Coverage Report',
+                reportTitles: ''
+              ])
+              // Publish the test results
+              junit([
+                testResults: "test_report.xml",
+                allowEmptyResults: true
+              ])
+            } // End always
+          } // End post
+        } // End tests stage
+      } // End parallel
+    } // End parallel stage
     stage ('Build Python Distribution') {
       steps {
         script {
@@ -102,7 +102,6 @@ pipeline {
             withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                               usernameVariable: 'REG_USERNAME',
                                               passwordVariable: 'REG_PASSWORD')]) {
-              sh "echo '${ACTIVATE}'"
               sh '''#!/bin/bash
                     . ${WORKSPACE}/ci/deploy_utils.sh
                     upload_python_dist \
