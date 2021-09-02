@@ -32,7 +32,7 @@ class SlackNotifier(object):
             json={'channel': channel, 'text': msg})
         logger.debug(resp)
         if resp.status_code != requests.codes.OK:
-            error = "Could not send Slack message. {}".format(resp.content)
+            error = "Could not send Slack message. {!r}".format(resp.content)
             # To raise an exception here causes the docker container stop, and
             # becomes hard to restart.
             # Log the error instead. So we can enter the container to fix

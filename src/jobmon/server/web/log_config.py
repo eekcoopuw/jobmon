@@ -1,6 +1,6 @@
 """Configure Logging for structlogs, syslog, etc."""
 import logging.config
-from typing import Any, Dict, Optional
+from typing import Any, Dict, MutableMapping, Optional
 
 from flask import g
 from pythonjsonlogger import jsonlogger
@@ -37,13 +37,15 @@ def get_logstash_handler_config(logstash_host: str, logstash_port: str, logstash
     return handler_config
 
 
-def _processor_add_version(logger: logging.Logger, log_method: str, event_dict: dict) -> dict:
+def _processor_add_version(logger: logging.Logger, log_method: str,
+                           event_dict: MutableMapping[str, Any]) -> MutableMapping[str, Any]:
     event_dict["jobmon_version"] = __version__
     return event_dict
 
 
 def _processor_remove_data_if_not_debug(logger: logging.Logger, log_method: str,
-                                        event_dict: dict) -> dict:
+                                        event_dict: MutableMapping[str, Any]) \
+        -> MutableMapping[str, Any]:
     if "web" in logger.name and log_method != "debug":
         if "data" in event_dict.keys():
             event_dict.pop("data")
@@ -53,7 +55,7 @@ def _processor_remove_data_if_not_debug(logger: logging.Logger, log_method: str,
 def configure_logger(name: str, add_handlers: Optional[Dict] = None,
                      json_formatter_prefix: str = "") -> None:
     """Configure logging format, handlers, etc."""
-    dict_config = {
+    dict_config: Dict = {
         "version": 1,
         "disable_existing_loggers": False,
         "formatters": {

@@ -134,7 +134,7 @@ def add_task() -> Any:
 
             if t["task_attributes"]:
                 for name, val in t["task_attributes"].items():
-                    type_id = _add_or_get_attribute_type([name]).id
+                    type_id = _add_or_get_attribute_type([name])[0].id
                     task_attribute = TaskAttribute(task_id=task.id,
                                                    task_attribute_type_id=type_id,
                                                    value=val)
@@ -354,7 +354,7 @@ def _add_or_get_attribute_type(names: Union[List[str], Set[str]]) -> List[TaskAt
 
 
 def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
-    attribute_type = _add_or_get_attribute_type(name)
+    attribute_type = _add_or_get_attribute_type([name])
     insert_vals = insert(TaskAttribute).values(
         task_id=task_id,
         task_attribute_type_id=attribute_type,
@@ -549,8 +549,8 @@ def _get_node_downstream(nodes: set, dag_id: int) -> set:
     result = DB.session.execute(q).fetchall()
 
     if result is None or len(result) == 0:
-        return []
-    node_ids = set()
+        return set()
+    node_ids: Set = set()
     for r in result:
         if r['downstream_node_ids'] is not None:
             ids = json.loads(r['downstream_node_ids'])

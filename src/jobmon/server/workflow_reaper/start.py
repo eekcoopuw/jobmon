@@ -1,7 +1,7 @@
 """Start up workflow reaper service."""
 import logging
 import sys
-from typing import Optional
+from typing import Callable, Optional
 
 
 from jobmon.requester import Requester
@@ -23,7 +23,7 @@ def start_workflow_reaper(workflow_reaper_config: Optional[WorkflowReaperConfig]
             slack_api_url=workflow_reaper_config.slack_api_url,
             token=workflow_reaper_config.slack_token,
             default_channel=workflow_reaper_config.slack_channel_default)
-        wf_sink = wf_notifier.send
+        wf_sink: Optional[Callable[[str, Optional[str]], None]] = wf_notifier.send
     else:
         wf_sink = None
 

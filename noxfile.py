@@ -69,7 +69,7 @@ def typecheck(session: Session) -> None:
     session.install("mypy", "types-Flask", "types-requests", "types-PyMySQL", "types-filelock",
                     "types-PyYAML", "types-setuptools", "types-tabulate")
     # session.run("mypy", *args)
-    session.run("mypy", "src/jobmon/client/")
+    session.run("mypy", "src/jobmon/client/", "src/jobmon/server")
 
 
 @nox.session(python=python, venv_backend="conda")

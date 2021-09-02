@@ -48,7 +48,7 @@ def add_tool_version() -> Any:
         DB.session.commit()
     except sqlalchemy.exc.IntegrityError:
         DB.session.rollback()
-        where_clause = where_clause.join(" AND ")
+        clause = " AND ".join(where_clause)
         query = """
             SELECT
                 tool_version.*
@@ -56,13 +56,12 @@ def add_tool_version() -> Any:
                 tool_version
             WHERE
                 {where_clause}
-        """.format(where_clause=where_clause)
+        """.format(where_clause=clause)
         tool_version = DB.session.query(ToolVersion).from_statement(text(query)).params(
             **params
         ).one()
 
-    tool_version = tool_version.to_wire_as_client_tool_version()
-    resp = jsonify(tool_version=tool_version)
+    resp = jsonify(tool_version=tool_version.to_wire_as_client_tool_version())
     resp.status_code = StatusCodes.OK
     return resp
 

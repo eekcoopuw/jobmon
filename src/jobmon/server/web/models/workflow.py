@@ -1,6 +1,6 @@
 """Workflow Database Table."""
 from functools import partial
-from typing import List
+from typing import Tuple
 
 from sqlalchemy.sql import func
 from werkzeug.local import LocalProxy
@@ -110,7 +110,7 @@ class Workflow(DB.Model):
             return True
 
     def link_workflow_run(self, workflow_run: WorkflowRun, next_report_increment: float) \
-            -> List:
+            -> Tuple:
         """Link a workflow run to this workflow."""
         bind_to_logger(workflow_id=self.id)
         logger.info(f"Linking WorkflowRun {workflow_run.id} to Workflow")

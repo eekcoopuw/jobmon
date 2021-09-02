@@ -1,5 +1,5 @@
 """Start up the flask services."""
-from typing import Optional
+from typing import Dict, Optional
 
 from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask
@@ -33,7 +33,7 @@ def create_app(web_config: Optional[WebConfig] = None) -> Flask:
         ElasticAPM(app)
 
     if web_config.use_logstash:
-        logstash_handler_config = log_config.get_logstash_handler_config(
+        logstash_handler_config: Optional[Dict] = log_config.get_logstash_handler_config(
             logstash_host=web_config.logstash_host,
             logstash_port=str(web_config.logstash_port),
             logstash_protocol=web_config.logstash_protocol,

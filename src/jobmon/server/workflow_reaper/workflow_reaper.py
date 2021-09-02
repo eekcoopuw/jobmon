@@ -1,13 +1,12 @@
 """Service to monitor and reap dead workflows."""
 import logging
 from time import sleep
-from typing import List
+from typing import Callable, List
 
 from jobmon import __version__
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
-from jobmon.server.workflow_reaper.notifiers import SlackNotifier
 from jobmon.server.workflow_reaper.reaper_workflow_run import ReaperWorkflowRun
 
 logger = logging.getLogger(__file__)
@@ -34,14 +33,14 @@ class WorkflowReaper(object):
     }
 
     def __init__(self, poll_interval_minutes: int, requester: Requester,
-                 wf_notification_sink: SlackNotifier = None) -> None:
+                 wf_notification_sink: Callable[..., None] = None) -> None:
         """Initializes WorkflowReaper class with specified poll interval and slack info.
 
         Args:
             poll_interval_minutes(int): how often the WorkflowReaper should check the
                 database and reap workflows.
             requester (Requester): requester to communicate with Flask.
-            wf_notification_sink (SlackNotifier): Notifier to send reaper messages to Slack.
+            wf_notification_sink (Callable): Slack notifier send().
         """
         logger.info(
             f"WorkflowReaper initializing with: poll_interval_minutes={poll_interval_minutes},"

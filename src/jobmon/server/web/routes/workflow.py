@@ -549,7 +549,7 @@ def get_workflow_status() -> Any:
 @finite_state_machine.route('/workflow/<workflow_id>/workflow_tasks', methods=['GET'])
 def get_workflow_tasks(workflow_id: int) -> Any:
     """Get the tasks for a given workflow."""
-    params = {"workflow_id": workflow_id}
+    params: Dict = {"workflow_id": workflow_id}
     bind_to_logger(workflow_id=workflow_id)
     limit_request = request.args.getlist('limit')
     limit = None if len(limit_request) == 0 else limit_request[0]

@@ -17,7 +17,7 @@ def add_hooks_and_handlers(app: Flask) -> Flask:
     """Add logging hooks and exception handlers."""
 
     @app.errorhandler(Exception)
-    def handle_anything(error: Exception) -> Any:
+    def handle_anything(error: Any) -> Any:
         try:
             status_code = error.status_code
         except AttributeError:

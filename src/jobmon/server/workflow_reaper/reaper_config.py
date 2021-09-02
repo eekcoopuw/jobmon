@@ -36,7 +36,7 @@ class WorkflowReaperConfig:
 
     def __init__(self, poll_interval_minutes: int, host: str, port: str,
                  slack_api_url: Optional[str], slack_token: Optional[str],
-                 slack_channel_default: Optional[str], workflow_run_heartbeat_interval: int,
+                 slack_channel_default: str, workflow_run_heartbeat_interval: int,
                  heartbeat_report_by_buffer: float) -> None:
         """Initialization of workflow reaper config."""
         self.poll_interval_minutes = poll_interval_minutes

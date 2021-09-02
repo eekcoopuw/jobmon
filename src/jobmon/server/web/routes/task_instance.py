@@ -602,7 +602,7 @@ def log_unknown_error(task_instance_id: int) -> Any:
 
 
 # ############################ HELPER FUNCTIONS ###############################
-def _update_task_instance_state(task_instance: TaskInstance, status_id: int) -> Any:
+def _update_task_instance_state(task_instance: TaskInstance, status_id: str) -> Any:
     """Advance the states of task_instance and it's associated Task.
 
     Return any messages that should be published based on the transition.
@@ -644,7 +644,7 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: int) -> 
     return response
 
 
-def _log_error(ti: TaskInstance, error_state: int, error_msg: str,
+def _log_error(ti: TaskInstance, error_state: str, error_msg: str,
                distributor_id: Optional[int] = None,
                nodename: Optional[str] = None) -> Any:
     if nodename is not None:
