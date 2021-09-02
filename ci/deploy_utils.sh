@@ -33,17 +33,13 @@ get_metallb_ip_from_cfg () {
 
 upload_python_dist () {
     WORKSPACE=$1
-    TARGET_IP=$2
-    REG_USERNAME=$3
-    REG_PASSWORD=$4
-    ACTIVATE=$5
-    JOBMON_VERSION=$6
+    REG_USERNAME=$2
+    REG_PASSWORD=$3
+    ACTIVATE=$4
 
-    INI=$WORKSPACE/src/jobmon/.jobmon.ini
-    rm $INI
-    echo -e "[client]\nweb_service_fqdn=$TARGET_IP\nweb_service_port=80" > $INI
     $ACTIVATE && nox --session distribute
     PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
+    JOBMON_VERSION=$(basename $(find ./dist/jobmon-*.tar.gz) | sed "s/jobmon-\\(.*\\)\\.tar\\.gz/\\1/")
     if [[ "$JOBMON_VERSION" =~ "dev" ]]
     then
       $ACTIVATE && twine upload \
@@ -59,6 +55,7 @@ upload_python_dist () {
         --password $REG_PASSWORD \
         ./dist/*
     fi
+    echo "Jobmon v$JOBMON_VERSION deployed to Pypi"
 
 }
 
