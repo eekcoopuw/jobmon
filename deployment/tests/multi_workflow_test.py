@@ -4,9 +4,9 @@ import shlex
 import sys
 from typing import List, Optional
 from yaml import load, SafeLoader
+import uuid
 
-
-from jobmon.client.api import Tool, ExecutorParameters
+from jobmon.client.api import Tool
 from jobmon.client.swarm.workflow_run import WorkflowRun
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
@@ -25,7 +25,7 @@ def multi_workflow_test(yaml_path: str, scratch_dir: str) -> WorkflowRun:
     with open(yaml_path) as file:
         params = load(file, Loader=SafeLoader)
 
-    tool = Tool.create_tool("load_tester")
+    tool = Tool("load_tester")
     command_template = (
         "{python} {script} --yaml_path {yaml_path} --scratch_dir {scratch_dir} --wfid {wfid}"
     )
@@ -37,25 +37,27 @@ def multi_workflow_test(yaml_path: str, scratch_dir: str) -> WorkflowRun:
         op_args=["python", "script"]
     )
 
-    controller_wf = tool.create_workflow(name="controller_wf")
-    controller_wf.set_executor(
-        stderr=f"{scratch_dir}/controller_wf",
-        stdout=f"{scratch_dir}/controller_wf",
-        project="proj_scicomp"
-    )
+    controller_wf = tool.create_workflow(
+        name="controller_wf",
+        default_cluster_name='buster',
+        default_compute_resources_set={
+            'buster': {
+                'stderr': f"{scratch_dir}/controller_wf",
+                'stdout': f"{scratch_dir}/controller_wf",
+                'project': "proj_scicomp",
+                'cores': 3,
+                'memory': 120,
+                'queue': 'all.q'}
+            })
+
     for wfid in params["load_test_parameters"].keys():
-        executor_parameters = ExecutorParameters(
-            num_cores=3,
-            m_mem_free="120G",
-            queue='all.q',
-        )
+
         task = task_template.create_task(
             python=sys.executable,
             script=os.path.join(thisdir, "load_test_generator.py"),
             yaml_path=yaml_path,
             scratch_dir=scratch_dir,
-            wfid=wfid,
-            executor_parameters=executor_parameters
+            wfid=wfid
         )
         controller_wf.add_task(task)
     wfr = controller_wf.run()
@@ -91,5 +93,5 @@ if __name__ == "__main__":
 
     args = parse_arguments()
     result = multi_workflow_test(args.yaml_path, args.scratch_dir)
-    if result.status != 'D':
+    if result != 'D':
         raise RuntimeError("Workflow failed")

@@ -10,7 +10,7 @@ import sys
 from typing import Dict, List, Optional, Sequence
 from yaml import load, SafeLoader
 
-from jobmon.client.api import Tool, ExecutorParameters
+from jobmon.client.api import Tool
 from jobmon.client.task import Task
 from jobmon.client.task_template import TaskTemplate
 
@@ -91,18 +91,20 @@ class LoadTestGenerator:
             wfid: id used to identify this load test
         """
         # tool attribute
-        self.tool = Tool.create_tool("load_tester")
+        self.tool = Tool("load_tester")
         self.scratch_dir = os.path.join(scratch_dir, wfid)
         try:
             os.mkdir(self.scratch_dir)
         except FileExistsError:
             pass
-        self.workflow = self.tool.create_workflow(workflow_args=self.scratch_dir)
-        self.workflow.set_executor(
-            stderr=f"{scratch_dir}/err",
-            stdout=f"{scratch_dir}/out",
-            project="proj_scicomp"
-        )
+        self.workflow = self.tool.create_workflow(name='generated_workflow',
+            default_cluster_name='buster',
+            default_compute_resources_set={
+                'buster': {
+                    'stderr': f"{scratch_dir}/err",
+                    'stdout': f"{scratch_dir}/out",
+                    'project': "proj_scicomp"}
+                })
 
         # task_template attributes
         self.task_templates_by_phase: Dict[int, TaskTemplate] = {}
@@ -194,12 +196,12 @@ class LoadTestGenerator:
             # task args
             self.counter += 1
             sleep_time = random.randint(30, 41)
-            executor_parameters = ExecutorParameters(
-                num_cores=1,
-                m_mem_free="1G",
-                queue='all.q',
-                max_runtime_seconds=sleep_time + 20
-            )
+            compute_resources = {
+                'cores': 1,
+                'memory': 1,
+                'queue': 'all.q',
+                'runtime': sleep_time + 20
+            }
 
             # get upstreams unless in degree is 0 (initial condition)
             if in_degree_percent != 0:
@@ -240,7 +242,7 @@ class LoadTestGenerator:
                 sleep_timeout=sleep_timeout,
                 fail_always=fail_always,
                 task_attributes=attributes,
-                executor_parameters=executor_parameters,
+                compute_resources=compute_resources,
                 upstream_tasks=upstream_tasks,
                 max_attempts=2
             )
