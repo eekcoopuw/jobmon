@@ -40,6 +40,7 @@ class ClientCLI(CLI):
         self._add_workflow_tasks_subparser()
         self._add_task_status_subparser()
         self._add_update_task_status_subparser()
+        self._add_update_config_subparser()
         self._add_concurrency_limit_subparser()
 
     def workflow_status(self, args: configargparse.Namespace) -> None:
@@ -88,6 +89,25 @@ class ClientCLI(CLI):
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
         response = update_task_status(args.task_ids, args.workflow_id, args.new_status, cc.url)
         print(f"Response is: {response}")
+
+    def update_config(self, args: configargparse.Namespace) -> None:
+        """Update .jobmon.ini.
+
+        Args:
+            args: only --web_service_fqdn --web_service_port are expected.
+        """
+        from jobmon.client.status_commands import update_config
+        import requests
+
+        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
+
+        # validate the updated url is reachable
+        try:
+            _ = requests.get(cc.url)
+        except requests.ConnectionError:
+            raise AssertionError(f"URL {cc.url} is not reachable.")
+
+        update_config(cc)
 
     def concurrency_limit(self, args: configargparse.Namespace) -> None:
         """Set a limit for the number of tasks that can run concurrently."""
@@ -176,6 +196,14 @@ class ClientCLI(CLI):
             choices=["D", "G"], type=str)
         ParserDefaults.web_service_fqdn(update_task_parser)
         ParserDefaults.web_service_port(update_task_parser)
+
+    def _add_update_config_subparser(self) -> None:
+        parser_kwargs = dict(PARSER_KWARGS)
+        parser_kwargs.pop('args_for_setting_config_path')
+        update_config_parser = self._subparsers.add_parser("update_config", **parser_kwargs)
+        update_config_parser.set_defaults(func=self.update_config)
+        ParserDefaults.web_service_fqdn(update_config_parser)
+        ParserDefaults.web_service_port(update_config_parser)
 
     def _add_concurrency_limit_subparser(self) -> None:
         concurrency_limit_parser = self._subparsers.add_parser("concurrency_limit",
