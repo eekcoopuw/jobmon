@@ -1,7 +1,6 @@
 import uuid
 
-from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-from jobmon.client.templates.bash_task import BashTask
+from jobmon.client.api import Tool
 
 
 def six_job_test():
@@ -11,30 +10,67 @@ def six_job_test():
     """
     # First Tier
     # Deliberately put in on the long queue with max runtime > 1 day
-    t1 = BashTask("sleep 10", num_cores=1,
-                  queue='long.q',
-                  max_runtime_seconds=90_000)
+    tool = Tool(name="Iguanodon alpha testing")
+
+    tt = tool.get_task_template(
+        template_name='alpha_testing_template',
+        command_template="{command}",
+        node_args=['command'],
+        default_cluster_name='buster',
+        default_compute_resources={'memory': 1,
+                                   'cores': 1,
+                                   'runtime': 60,
+                                   'queue': 'all.q',
+                                   'project': 'proj_scicomp',
+                                   'stderr': "./six_job_test_stderr.log",
+                                   'stdout': "./six_job_test_stdout.log"}
+    )
+
+    t1 = tt.create_task(
+        name='t1',
+        command="sleep 10",
+        compute_resources={
+            'queue': 'long.q',
+            'runtime': 90_000})
 
     # Second Tier, both depend on first tier
-    t2 = BashTask("sleep 20", upstream_tasks=[t1], num_cores=1,
-                  queue='all.q',
-                  max_runtime_seconds=60)
-    t3 = BashTask("sleep 25", upstream_tasks=[t1], num_cores=1)
+    t2 = tt.create_task(
+        name='t2',
+        command="sleep 20",
+        upstream_tasks=[t1])
+
+    t3 = tt.create_task(
+        name='t3',
+        command="sleep 25",
+        upstream_tasks=[t1])
 
     # Third Tier, cross product dependency on second tier
-    t4 = BashTask("sleep 17", upstream_tasks=[t2, t3], num_cores=1)
-    t5 = BashTask("sleep 13", upstream_tasks=[t2, t3], num_cores=1)
+    t4 = tt.create_task(
+        name='t4',
+        command="sleep 17",
+        upstream_tasks=[t2, t3])
+
+    t5 = tt.create_task(
+        name='t5',
+        command="sleep 13",
+        upstream_tasks=[t2, t3])
 
     # Fourth Tier, ties it all back together
-    t6 = BashTask("sleep 19", upstream_tasks=[t4, t5], num_cores=1)
+    t6 = tt.create_task(
+        name='t6',
+        command="sleep 19",
+        upstream_tasks=[t4, t5])
 
-    wf = Workflow("six-job-test-{}".format(uuid.uuid4()),
-                  "./six_job_test_stderr.log",
-                  project="proj_scicomp")
+    wf = tool.create_workflow(
+        workflow_args="six-job-test-{}".format(uuid.uuid4()),
+        name='alpha_testing_')
     wf.add_tasks([t1, t2, t3, t4, t5, t6])
     print("Running the workflow, about 70 seconds minimum")
-    wf.run()
-    print("All good, dancing pixies.")
+    wfr_status = wf.run()
+    if wfr_status == 'D':
+        print("All good, dancing pixies.")
+    else:
+        raise ValueError(f"Workflow should be successful, not state {wfr_status}")
 
 
 if __name__ == "__main__":
