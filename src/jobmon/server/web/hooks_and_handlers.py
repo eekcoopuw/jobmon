@@ -22,9 +22,10 @@ def add_hooks_and_handlers(app: Flask) -> Flask:
             status_code = error.status_code
         except AttributeError:
             status_code = 500
-        logger.exception(status_code=status_code)
 
-        response_dict = {"type": str(type(error)), "exception_message": str(error)}
+        response_dict = {"type": str(type(error)), "exception_message": str(error),
+                         "status_code": str(status_code)}
+        logger.exception(status_code=status_code)
         response = jsonify(error=response_dict)
         response.content_type = "application/json"
         response.status_code = status_code

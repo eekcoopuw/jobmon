@@ -1,7 +1,7 @@
 """Config specific to web services."""
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Optional
 
 try:
     # default to mysqldb if installed. ~10x faster than pymysql
@@ -49,8 +49,10 @@ class WebConfig(object):
 
     def __init__(self, db_host: str, db_port: str, db_user: str, db_pass: str,
                  db_name: str, use_logstash: bool = False, logstash_host: str = "",
-                 logstash_port: int = None, logstash_protocol: str = "", use_apm: bool = False,
-                 apm_server_url: str = "", apm_server_name: str = "", apm_port: int = None,
+                 logstash_port: Optional[int] = None, logstash_protocol: str = "",
+                 use_apm: bool = False,
+                 apm_server_url: str = "", apm_server_name: str = "",
+                 apm_port: Optional[int] = None,
                  log_level: str = "INFO") -> None:
         """Initialize config for server."""
         self.db_host = db_host

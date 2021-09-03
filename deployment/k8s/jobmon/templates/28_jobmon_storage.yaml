@@ -1,0 +1,16 @@
+# Persistent storage for logstash sqlite, allows for storage of
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: logstash-sqlite-storage
+  namespace: {{ .Values.global.namespace }}
+  annotations:
+    volume.beta.kubernetes.io/storage-class: nfs-client
+spec:
+  accessModes:
+    - ReadWriteMany
+  resources:
+    requests:
+      # Small, because this is just for config data
+      storage: 1Gi

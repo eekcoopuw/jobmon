@@ -1,5 +1,6 @@
 """Configure Logging for structlogs, syslog, etc."""
 import logging.config
+import socket
 from typing import Any, Dict, MutableMapping, Optional
 
 from flask import g
@@ -9,7 +10,8 @@ import structlog
 from jobmon import __version__
 
 
-def get_logstash_handler_config(logstash_host: str, logstash_port: str, logstash_protocol: str,
+def get_logstash_handler_config(logstash_host: str, logstash_port: Optional[int] = None,
+                                logstash_protocol: str = '',
                                 logstash_log_level: str = "DEBUG") -> Dict:
     """If using logstash, get the right config."""
     # Define the transport mechanism
@@ -23,6 +25,7 @@ def get_logstash_handler_config(logstash_host: str, logstash_port: str, logstash
     transport_protocol = transport_protocol_map[logstash_protocol]
 
     handler_name = "logstash"
+    hostname = socket.gethostname()
     handler_config = {
         handler_name: {
             "level": logstash_log_level.upper(),
@@ -31,7 +34,7 @@ def get_logstash_handler_config(logstash_host: str, logstash_port: str, logstash
             "transport": transport_protocol,
             "host": logstash_host,
             "port": logstash_port,
-            "database_path": None
+            "database_path": f'/tmp/sqlite/logstash-{hostname}.db'
         }
     }
     return handler_config
