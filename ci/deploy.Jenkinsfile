@@ -160,7 +160,7 @@ pipeline {
                     ${WORKSPACE} \
                     "${QLOGIN_ACTIVATE}" \
                     ${JOBMON_VERSION} \
-                    ${env.TARGET_IP}
+                    "${env.TARGET_IP}"
              '''
         } // end qlogin
       } // end steps
