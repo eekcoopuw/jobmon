@@ -206,6 +206,8 @@ test_k8s_deployment () {
     JOBMON_VERSION=$3
     TARGET_IP=$4
 
+    echo "in test func = $TARGET_IP"
+
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
     $QLOGIN_ACTIVATE && \
         conda create --prefix $CONDA_DIR python==3.8
