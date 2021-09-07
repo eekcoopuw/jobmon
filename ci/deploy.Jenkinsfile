@@ -154,24 +154,13 @@ pipeline {
               sh "rm -rf jobmonr"
               sh "git clone ssh://git@stash.ihme.washington.edu:7999/scic/jobmonr.git"
            } // end sshagent
-          script {
-            // TODO: more robust parsing script
-            env.TARGET_IP = sh (
-              script: '''#!/bin/bash
-                         . ${WORKSPACE}/ci/deploy_utils.sh
-                         get_metallb_ip_from_cfg "${METALLB_IP_POOL}" ${WORKSPACE}
-                      ''',
-              returnStdout: true
-            ).trim()
-          }
-          echo 'My lookup TARGET_IP=${env.TARGET_IP}'
+          echo "My Lookup TARGET_IP=${env.TARGET_IP}"
           sh '''#!/bin/bash
                 . ${WORKSPACE}/ci/deploy_utils.sh
                 test_k8s_deployment \
                     ${WORKSPACE} \
                     "${QLOGIN_ACTIVATE}" \
-                    ${JOBMON_VERSION} \
-                    ${env.TARGET_IP}
+                    ${JOBMON_VERSION}
              '''
         } // end qlogin
       } // end steps
