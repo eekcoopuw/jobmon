@@ -204,16 +204,18 @@ test_k8s_deployment () {
     WORKSPACE=$1
     QLOGIN_ACTIVATE=$2
     JOBMON_VERSION=$3
+    TARGET_IP=$4
 
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
     $QLOGIN_ACTIVATE && \
         conda create --prefix $CONDA_DIR python==3.8
     $QLOGIN_ACTIVATE &&
        conda activate $CONDA_DIR && \
+       pip install pyyaml && \
        pip install jobmon==$JOBMON_VERSION && \
        pip install jobmon_uge && \
        pip install jobmon_slurm && \
-       jobmon update_config --web_service_fqdn 10.158.146.73 --web_service_port 80 && \
+       jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
        python $WORKSPACE/deployment/tests/six_job_test.py
 
 #    $QLOGIN_ACTIVATE &&

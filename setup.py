@@ -15,8 +15,7 @@ INSTALL_REQUIRES = [
     'structlog',
     'tabulate',
     'tenacity',
-    'tblib',
-    'pyyaml'
+    'tblib'
 ]
 
 SERVER_REQUIRES = [
