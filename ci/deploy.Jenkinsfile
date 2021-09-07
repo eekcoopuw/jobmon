@@ -161,7 +161,7 @@ pipeline {
                     ${WORKSPACE} \
                     "${QLOGIN_ACTIVATE}" \
                     ${JOBMON_VERSION}
-             ''' + ${env.TARGET_IP}
+             '' ${env.TARGET_IP}'
           sh '''#!/bin/bash
                 . ${WORKSPACE}/ci/deploy_utils.sh
                 test_k8s_deployment \
