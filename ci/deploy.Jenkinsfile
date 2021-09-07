@@ -154,21 +154,16 @@ pipeline {
               sh "rm -rf jobmonr"
               sh "git clone ssh://git@stash.ihme.washington.edu:7999/scic/jobmonr.git"
            } // end sshagent
-          echo 'MYLOOKUP TARGET_IP=${env.TARGET_IP}''
-          echo '''#!/bin/bash
-                . ${WORKSPACE}/ci/deploy_utils.sh
-                test_k8s_deployment \
-                    ${WORKSPACE} \
-                    "${QLOGIN_ACTIVATE}" \
-                    ${JOBMON_VERSION} '''
-                + '${env.TARGET_IP}'
+          TARGET_IP=${env.TARGET_IP}
+          echo 'MYLOOKUP TARGET_IP=$TARGET_IP'
           sh '''#!/bin/bash
                 . ${WORKSPACE}/ci/deploy_utils.sh
                 test_k8s_deployment \
                     ${WORKSPACE} \
                     "${QLOGIN_ACTIVATE}" \
-                    ${JOBMON_VERSION} '''
-                + '${env.TARGET_IP}'
+                    ${JOBMON_VERSION} \
+                    $TARGET_IP
+             '''
         } // end qlogin
       } // end steps
     } // end test deployment stage
