@@ -210,7 +210,6 @@ test_k8s_deployment () {
         conda create --prefix $CONDA_DIR python==3.8
     $QLOGIN_ACTIVATE &&
        conda activate $CONDA_DIR && \
-       pip install pyyaml && \
        pip install jobmon==$JOBMON_VERSION && \
        pip install jobmon_uge && \
        pip install jobmon_slurm && \
