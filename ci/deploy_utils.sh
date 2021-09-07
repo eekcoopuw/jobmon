@@ -211,6 +211,7 @@ test_k8s_deployment () {
     $QLOGIN_ACTIVATE &&
        conda activate $CONDA_DIR && \
        pip install jobmon==$JOBMON_VERSION && \
+       pip install pyyaml && \
        python $WORKSPACE/deployment/tests/six_job_test.py
 
     $QLOGIN_ACTIVATE &&
