@@ -207,7 +207,7 @@ test_k8s_deployment () {
 
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
     $QLOGIN_ACTIVATE && \
-        conda create --prefix $CONDA_DIR python==3.7
+        conda create --prefix $CONDA_DIR python==3.8
     $QLOGIN_ACTIVATE &&
        conda activate $CONDA_DIR && \
        pip install jobmon==$JOBMON_VERSION && \
