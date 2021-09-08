@@ -218,11 +218,11 @@ test_k8s_deployment () {
        jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
        python $WORKSPACE/deployment/tests/six_job_test.py
 #       srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
-       ssh_cmd = "/opt/slurm/bin/srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py"
-       sh "echo 'ssh cmd to send is $ssh_cmd'"
-       sshagent(['jenkins']) {
-         sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"$ssh_cmd\""
-       }
+#       ssh_cmd = "/opt/slurm/bin/srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py"
+#       sh "echo 'ssh cmd to send is $ssh_cmd'"
+#       sshagent(['jenkins']) {
+#         sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"$ssh_cmd\""
+#       }
 
 #    $QLOGIN_ACTIVATE &&
 #        /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
