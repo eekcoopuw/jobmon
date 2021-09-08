@@ -154,9 +154,6 @@ pipeline {
               sh "rm -rf jobmonr"
               sh "git clone ssh://git@stash.ihme.washington.edu:7999/scic/jobmonr.git"
            } // end sshagent
-
-          echo "Workspace = ${WORKSPACE}"
-
           sh '''#!/bin/bash
                 . ${WORKSPACE}/ci/deploy_utils.sh
                 test_k8s_deployment \
@@ -179,16 +176,16 @@ pipeline {
         } // end steps
       } // end create conda stage
     } // end stages
-//   post {
-//     always {
-//       node('docker') {
-//         // Delete the workspace directory.
-//         deleteDir()
-//       } // end node
-//       node('qlogin') {
-//         // Delete the workspace directory.
-//         deleteDir()
-//       } // end node
-//     } // end always
-//   } // end post
+  post {
+    always {
+      node('docker') {
+        // Delete the workspace directory.
+        deleteDir()
+      } // end node
+      node('qlogin') {
+        // Delete the workspace directory.
+        deleteDir()
+      } // end node
+    } // end always
+  } // end post
 } // end pipeline
