@@ -240,7 +240,6 @@ test_k8s_slurm_deployment () {
        # "/opt/slurm/bin/srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py"
        #python $WORKSPACE/deployment/tests/slurm/six_job_test.py
        /opt/slurm/bin/srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
-}
 
 #    $QLOGIN_ACTIVATE &&
 #        /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
