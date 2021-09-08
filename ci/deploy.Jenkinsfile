@@ -167,15 +167,15 @@ pipeline {
 //           sshagent(['jenkins']) {
 //             sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"$ssh_cmd\""
 //           }
-//           script{
-//             node('qlogin') {
-//               ssh_cmd = "/opt/slurm/bin/srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py"
-//               sh "echo 'ssh cmd to send is $ssh_cmd'"
-//               sshagent(['jenkins']) {
-//                 sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"$ssh_cmd\""
-//               }
-//             }
-//           }
+          script{
+            node('qlogin') {
+              ssh_cmd = "/opt/slurm/bin/srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py"
+              sh "echo 'ssh cmd to send is $ssh_cmd'"
+              sshagent(['jenkins']) {
+                sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"$ssh_cmd\""
+              }
+            }
+          }
         } // end qlogin
       } // end steps
     } // end test deployment stage
@@ -191,16 +191,16 @@ pipeline {
         } // end steps
       } // end create conda stage
     } // end stages
-  post {
-    always {
-      node('docker') {
-        // Delete the workspace directory.
-        deleteDir()
-      } // end node
-      node('qlogin') {
-        // Delete the workspace directory.
-        deleteDir()
-      } // end node
-    } // end always
-  } // end post
+//   post {
+//     always {
+//       node('docker') {
+//         // Delete the workspace directory.
+//         deleteDir()
+//       } // end node
+//       node('qlogin') {
+//         // Delete the workspace directory.
+//         deleteDir()
+//       } // end node
+//     } // end always
+//   } // end post
 } // end pipeline
