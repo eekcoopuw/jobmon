@@ -222,15 +222,14 @@ test_k8s_uge_deployment () {
 
 test_k8s_slurm_deployment () {
     WORKSPACE=$1
-    QLOGIN_ACTIVATE=$2
     JOBMON_VERSION=$3
     TARGET_IP=$4
 
-    JOBMON_VERSION= "2.2.2.dev460"
-    TARGET_IP="10.158.146.73"
+#    JOBMON_VERSION= "2.2.2.dev460"
+#    TARGET_IP="10.158.146.73"
 
-    echo $JOBMON_VERSION > /ihme/homes/samhu/jobmon/k8s_deployment_Jenkinsfile_3833/a.txt
-    echo $TARGET_IP > /ihme/homes/samhu/jobmon/k8s_deployment_Jenkinsfile_3833/b.txt
+    echo $JOBMON_VERSION
+    echo $TARGET_IP
 
 
     conda info --envs
@@ -243,9 +242,9 @@ test_k8s_slurm_deployment () {
     conda info --envs
     pip install pyyaml
     pip install slurm_rest
-    pip install jobmon==$JOBMON_VERSION
     pip install jobmon_uge
     pip install jobmon_slurm
+    pip install jobmon==$JOBMON_VERSION
     jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80
     # "/opt/slurm/bin/srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py"
     #python $WORKSPACE/deployment/tests/slurm/six_job_test.py
