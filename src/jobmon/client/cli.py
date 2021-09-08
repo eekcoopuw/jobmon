@@ -43,7 +43,8 @@ class ClientCLI(CLI):
         self._add_update_config_subparser()
         self._add_concurrency_limit_subparser()
 
-    def workflow_status(self, args: configargparse.Namespace) -> None:
+    @staticmethod
+    def workflow_status(args: configargparse.Namespace) -> None:
         """Workflow status checking options."""
         from tabulate import tabulate
         from jobmon.client.status_commands import workflow_status as workflow_status_cmd
@@ -56,7 +57,8 @@ class ClientCLI(CLI):
         else:
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
-    def workflow_tasks(self, args: configargparse.Namespace) -> None:
+    @staticmethod
+    def workflow_tasks(args: configargparse.Namespace) -> None:
         """Check the tasks for a given workflow."""
         from tabulate import tabulate
         from jobmon.client.status_commands import workflow_tasks as workflow_tasks_cmd
@@ -69,7 +71,8 @@ class ClientCLI(CLI):
         else:
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
-    def task_status(self, args: configargparse.Namespace) -> None:
+    @staticmethod
+    def task_status(args: configargparse.Namespace) -> None:
         """Check task status."""
         from tabulate import tabulate
         from jobmon.client.status_commands import task_status as task_status_cmd
@@ -82,7 +85,8 @@ class ClientCLI(CLI):
         else:
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
-    def update_task_status(self, args: configargparse.Namespace) -> None:
+    @staticmethod
+    def update_task_status(args: configargparse.Namespace) -> None:
         """Manually update task status for resumes, reruns, etc."""
         from jobmon.client.status_commands import update_task_status
 
@@ -90,7 +94,8 @@ class ClientCLI(CLI):
         response = update_task_status(args.task_ids, args.workflow_id, args.new_status, cc.url)
         print(f"Response is: {response}")
 
-    def update_config(self, args: configargparse.Namespace) -> None:
+    @staticmethod
+    def update_config(args: configargparse.Namespace) -> None:
         """Update .jobmon.ini.
 
         Args:
@@ -109,7 +114,8 @@ class ClientCLI(CLI):
 
         update_config(cc)
 
-    def concurrency_limit(self, args: configargparse.Namespace) -> None:
+    @staticmethod
+    def concurrency_limit(args: configargparse.Namespace) -> None:
         """Set a limit for the number of tasks that can run concurrently."""
         from jobmon.client.status_commands import concurrency_limit as concurrency_limit_cmd
 
