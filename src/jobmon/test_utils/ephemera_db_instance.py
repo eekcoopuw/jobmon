@@ -1,13 +1,14 @@
 """Creates a single instance of the test database, used for tests in multiprocessing mode."""
 import json
-from typing import Any
+from typing import Any, Callable, Union
 
 from filelock import FileLock
 
-from jobmon.test_utils import create_temp_db
+from jobmon.test_utils.create_temp_db import create_temp_db
 
 
-def ephemera_db_instance(tmp_path_factory: Any, worker_id: str = "master") -> dict:
+def ephemera_db_instance(tmp_path_factory: Any, worker_id: str = "master") \
+        -> Union[dict, Callable[[], dict]]:
     """Boots exactly one instance of the test ephemera database.
 
     If tests are run in multiprocessing mode, ensure only one database

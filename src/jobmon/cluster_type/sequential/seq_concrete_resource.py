@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, List, Tuple, Union
 
 from jobmon.cluster_type.base import ClusterQueue, ConcreteResource
 
@@ -41,7 +41,8 @@ class ConcreteSequentialResource(ConcreteResource):
 
     @classmethod
     def adjust_and_create_concrete_resource(
-            cls: Any, expected_queue: ClusterQueue, existing_resources: Dict, **kwargs: Dict
+            cls: Any, expected_queue: ClusterQueue, existing_resources: Dict,
+            **kwargs: Union[Dict[Any, Any], List[ClusterQueue], None]
     ) -> ConcreteSequentialResource:
         """No adjustment defined for sequential execution. Return original parameters."""
         return cls(queue=expected_queue, valid_resources=existing_resources)

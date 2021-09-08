@@ -42,7 +42,7 @@ class WebServerProcess:
             f'--web_service_port {self.web_port}')
 
         def run_server_with_handler(argstr: str) -> None:
-            def sigterm_handler(_signo: signal, _stack_frame: Any) -> None:
+            def sigterm_handler(_signo: int, _stack_frame: Any) -> None:
                 # catch SIGTERM and shut down with 0 so pycov finalizers are run
                 # Raises SystemExit(0):
                 sys.exit(0)
