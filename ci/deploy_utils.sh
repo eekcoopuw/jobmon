@@ -227,9 +227,9 @@ test_k8s_slurm_deployment () {
     TARGET_IP=$4
 
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
-    $QLOGIN_ACTIVATE && \
+#    $QLOGIN_ACTIVATE && \
         conda create --prefix $CONDA_DIR python==3.8
-    $QLOGIN_ACTIVATE &&
+#    $QLOGIN_ACTIVATE &&
        conda activate $CONDA_DIR && \
        pip install pyyaml && \
        pip install jobmon==$JOBMON_VERSION && \
@@ -241,7 +241,4 @@ test_k8s_slurm_deployment () {
        #python $WORKSPACE/deployment/tests/slurm/six_job_test.py
        /opt/slurm/bin/srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
 
-#    $QLOGIN_ACTIVATE &&
-#        /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
-#           --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr/jobmonr
 }
