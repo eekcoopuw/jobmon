@@ -16,12 +16,12 @@ def six_job_test():
         template_name='alpha_testing_template',
         command_template="{command}",
         node_args=['command'],
-        default_cluster_name='buster',
+        default_cluster_name='slurm',
         default_compute_resources={'memory': 1,
                                    'cores': 1,
                                    'runtime': 60,
                                    'queue': 'all.q',
-                                   'project': 'proj_scicomp',
+                                   'project': 'general',
                                    'stderr': "./six_job_test_stderr.log",
                                    'stdout': "./six_job_test_stdout.log"}
     )
