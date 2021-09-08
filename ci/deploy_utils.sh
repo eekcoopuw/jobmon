@@ -226,6 +226,7 @@ test_k8s_slurm_deployment () {
     JOBMON_VERSION=$3
     TARGET_IP=$4
 
+    conda deactivate
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
 #    $QLOGIN_ACTIVATE && \
         conda create --prefix $CONDA_DIR python==3.8
