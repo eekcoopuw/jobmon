@@ -222,8 +222,8 @@ test_k8s_uge_deployment () {
 
 test_k8s_slurm_deployment () {
     WORKSPACE=$1
-    JOBMON_VERSION=$3
-    TARGET_IP=$4
+    JOBMON_VERSION=$2
+    TARGET_IP=$3
 
 #    JOBMON_VERSION= "2.2.2.dev460"
 #    TARGET_IP="10.158.146.73"
