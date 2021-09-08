@@ -217,7 +217,7 @@ test_k8s_deployment () {
        pip install jobmon_slurm && \
        jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
        python $WORKSPACE/deployment/tests/six_job_test.py
-       python $WORKSPACE/deployment/tests/slurm/six_job_test.py
+       srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
 #    $QLOGIN_ACTIVATE &&
 #        /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
 #           --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr/jobmonr
