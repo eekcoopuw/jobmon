@@ -226,12 +226,11 @@ test_k8s_slurm_deployment () {
     JOBMON_VERSION=$3
     TARGET_IP=$4
 
-    conda deactivate
-    CONDA_DIR=$WORKSPACE/.conda_env/load_test
+    CONDA_DIR=$WORKSPACE/.conda_env/load_test_slurm
 #    $QLOGIN_ACTIVATE && \
-        conda create --prefix $CONDA_DIR python==3.8
+        conda create --prefix $CONDA_DIR_SLURM python==3.8
 #    $QLOGIN_ACTIVATE &&
-       conda activate $CONDA_DIR && \
+       conda activate $CONDA_DIR_SLURM && \
        pip install pyyaml && \
        pip install slurm_rest && \
        pip install jobmon==$JOBMON_VERSION && \
