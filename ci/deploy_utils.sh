@@ -232,6 +232,7 @@ test_k8s_slurm_deployment () {
     CONDA_DIR=$WORKSPACE/.conda_env/load_test_slurm
     conda create --prefix $CONDA_DIR_SLURM python==3.8
     conda activate $CONDA_DIR_SLURM
+    conda info --envs
     pip install pyyaml
     pip install slurm_rest
     pip install jobmon==$JOBMON_VERSION
