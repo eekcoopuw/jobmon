@@ -179,11 +179,7 @@ pipeline {
           script{
             ssh_cmd = '''#!/bin/bash
                 . ${WORKSPACE}/ci/deploy_utils.sh
-                test_k8s_slurm_deployment \
-                    ${WORKSPACE} \
-                    ${JOBMON_VERSION} \
-                    ${env.TARGET_IP} \
-                '''
+                test_k8s_slurm_deployment ${WORKSPACE} ${JOBMON_VERSION} ${env.TARGET_IP}'''
 
 //             ssh_cmd = "/opt/slurm/bin/srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py"
             sh "echo 'ssh cmd to send is $ssh_cmd'"
