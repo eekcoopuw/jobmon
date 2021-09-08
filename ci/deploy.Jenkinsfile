@@ -167,14 +167,12 @@ pipeline {
 //           sshagent(['jenkins']) {
 //             sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"$ssh_cmd\""
 //           }
-          steps{
-            script{
-              node('qlogin') {
-                ssh_cmd = "/opt/slurm/bin/scontrol --help"
-                sh "echo 'ssh cmd to send is $ssh_cmd'"
-                sshagent(['jenkins']) {
-                  sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"$ssh_cmd\""
-                }
+          script{
+            node('qlogin') {
+              ssh_cmd = "/opt/slurm/bin/scontrol --help"
+              sh "echo 'ssh cmd to send is $ssh_cmd'"
+              sshagent(['jenkins']) {
+                sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"$ssh_cmd\""
               }
             }
           }
