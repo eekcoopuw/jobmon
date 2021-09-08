@@ -144,40 +144,48 @@ pipeline {
         } // end node
       } // end steps
     } // end deploy k8s stage
-    stage ('Test UGE Deployment') {
-      steps {
-        node('qlogin') {
-          // Download jobmon
-          checkout scm
-          // Download jobmonr
-          sshagent (credentials: ['svcscicompci']) {
-              sh "rm -rf jobmonr"
-              sh "git clone ssh://git@stash.ihme.washington.edu:7999/scic/jobmonr.git"
-           } // end sshagent
-          sh '''#!/bin/bash
-                . ${WORKSPACE}/ci/deploy_utils.sh
-                test_k8s_uge_deployment \
-                    ${WORKSPACE} \
-                    "${QLOGIN_ACTIVATE}" \
-                    ${JOBMON_VERSION} \
-             ''' +  "${env.TARGET_IP}"
-        } // end qlogin
-      } // end steps
-    } // end test deployment stage
+//     stage ('Test UGE Deployment') {
+//       steps {
+//         node('qlogin') {
+//           // Download jobmon
+//           checkout scm
+//           // Download jobmonr
+//           sshagent (credentials: ['svcscicompci']) {
+//               sh "rm -rf jobmonr"
+//               sh "git clone ssh://git@stash.ihme.washington.edu:7999/scic/jobmonr.git"
+//            } // end sshagent
+//           sh '''#!/bin/bash
+//                 . ${WORKSPACE}/ci/deploy_utils.sh
+//                 test_k8s_uge_deployment \
+//                     ${WORKSPACE} \
+//                     "${QLOGIN_ACTIVATE}" \
+//                     ${JOBMON_VERSION} \
+//              ''' +  "${env.TARGET_IP}"
+//         } // end qlogin
+//       } // end steps
+//     } // end test deployment stage
     stage ('Test Slurm Deployment') {
       steps {
         node('qlogin') {
           // Download jobmon
           checkout scm
-          sh '''#!/bin/bash
+//           sh '''#!/bin/bash
+//                 . ${WORKSPACE}/ci/deploy_utils.sh
+//                 test_k8s_slurm_deployment \
+//                     ${WORKSPACE} \
+//                     "${QLOGIN_ACTIVATE}" \
+//                     ${JOBMON_VERSION} \
+//              ''' +  "${env.TARGET_IP}"
+          script{
+            ssh_cmd = '''#!/bin/bash
                 . ${WORKSPACE}/ci/deploy_utils.sh
                 test_k8s_slurm_deployment \
                     ${WORKSPACE} \
                     "${QLOGIN_ACTIVATE}" \
                     ${JOBMON_VERSION} \
              ''' +  "${env.TARGET_IP}"
-          script{
-            ssh_cmd = "/opt/slurm/bin/srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py"
+
+//             ssh_cmd = "/opt/slurm/bin/srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py"
             sh "echo 'ssh cmd to send is $ssh_cmd'"
             sshagent(['jenkins']) {
               sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"$ssh_cmd\""
