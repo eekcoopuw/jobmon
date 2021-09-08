@@ -226,8 +226,8 @@ test_k8s_slurm_deployment () {
     JOBMON_VERSION=$3
     TARGET_IP=$4
 
+    conda info --envs
     CONDA_DIR=$WORKSPACE/.conda_env/load_test_slurm
-    conda deactivate
     conda create --prefix $CONDA_DIR_SLURM python==3.8
     conda activate $CONDA_DIR_SLURM && \
     pip install pyyaml && \
