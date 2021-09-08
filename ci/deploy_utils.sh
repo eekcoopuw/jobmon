@@ -225,13 +225,6 @@ test_k8s_slurm_deployment () {
     JOBMON_VERSION=$2
     TARGET_IP=$3
 
-#    JOBMON_VERSION= "2.2.2.dev460"
-#    TARGET_IP="10.158.146.73"
-
-    echo $JOBMON_VERSION
-    echo $TARGET_IP
-
-
     conda info --envs
     conda deactivate
     conda env remove --prefix $CONDA_DIR_SLURM python==3.8
