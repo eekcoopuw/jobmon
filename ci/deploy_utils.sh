@@ -233,6 +233,7 @@ test_k8s_slurm_deployment () {
 #    $QLOGIN_ACTIVATE &&
        conda activate $CONDA_DIR && \
        pip install pyyaml && \
+       pip install slurm_rest && \
        pip install jobmon==$JOBMON_VERSION && \
        pip install jobmon_uge && \
        pip install jobmon_slurm && \
