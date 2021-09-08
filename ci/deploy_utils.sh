@@ -229,8 +229,8 @@ test_k8s_slurm_deployment () {
     JOBMON_VERSION= "2.2.2.dev460"
     TARGET_IP="10.158.146.73"
 
-    echo $JOBMON_VERSION
-    echo $TARGET_IP
+    echo $JOBMON_VERSION > /ihme/homes/samhu/jobmon/k8s_deployment_Jenkinsfile_3833/a.txt
+    echo $TARGET_IP > /ihme/homes/samhu/jobmon/k8s_deployment_Jenkinsfile_3833/b.txt
 
 
     conda info --envs
