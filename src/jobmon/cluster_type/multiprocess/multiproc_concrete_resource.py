@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple
 
 from jobmon.cluster_type.base import ClusterQueue, ConcreteResource
 
@@ -42,7 +42,7 @@ class ConcreteMultiprocResource(ConcreteResource):
     @classmethod
     def adjust_and_create_concrete_resource(
             cls: Any, expected_queue: ClusterQueue, existing_resources: Dict,
-            **kwargs: Union[Dict[Any, Any], List[ClusterQueue], None]
+            **kwargs: Optional[List[ClusterQueue]]
     ) -> ConcreteMultiprocResource:
         """No adjustment defined for multiprocess execution. Return original parameters."""
         return cls(queue=expected_queue, valid_resources=existing_resources)
