@@ -227,6 +227,7 @@ test_k8s_slurm_deployment () {
     TARGET_IP=$4
 
     conda info --envs
+    conda deactivate
     conda env remove --prefix $CONDA_DIR_SLURM python==3.8
     conda info --envs
     CONDA_DIR=$WORKSPACE/.conda_env/load_test_slurm
