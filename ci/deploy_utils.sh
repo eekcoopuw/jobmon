@@ -225,10 +225,14 @@ test_k8s_slurm_deployment () {
     JOBMON_VERSION=$2
     TARGET_IP=$3
 
+    conda info --envs
+    conda deactivate
     conda env remove --prefix $CONDA_DIR_SLURM python==3.8
+    conda info --envs
     CONDA_DIR_SLURM=$WORKSPACE/.conda_env/load_test_slurm
     conda create --prefix $CONDA_DIR_SLURM python==3.8
     conda activate $CONDA_DIR_SLURM
+    conda info --envs
     pip install pyyaml
     pip install slurm_rest
     pip install jobmon==$JOBMON_VERSION
@@ -236,7 +240,7 @@ test_k8s_slurm_deployment () {
     pip install jobmon_slurm
     PATH=$PATH:/opt/slurm/bin
 
-    jobmon --version
+    pip freeze
 
     jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80
     srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
