@@ -231,9 +231,9 @@ test_k8s_slurm_deployment () {
     conda activate $CONDA_DIR_SLURM
     pip install pyyaml
     pip install slurm_rest
-    pip install jobmon==$JOBMON_VERSION
     pip install jobmon_uge
     pip install jobmon_slurm
+    pip install jobmon==$JOBMON_VERSION
     PATH=$PATH:/opt/slurm/bin
 
     jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80
