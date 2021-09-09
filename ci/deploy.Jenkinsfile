@@ -178,13 +178,8 @@ pipeline {
                      ${env.TARGET_IP} \
             """
             sh "echo 'ssh cmd to send is $ssh_cmd'"
-            ssh_srun_cmd = """#!/bin/bash
-                 /opt/slurm/bin/srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
-            """
-            sh "echo 'ssh_srun_cmd to send is $ssh_srun_cmd'"
             sshagent(['jenkins']) {
                sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"$ssh_cmd\""
-               sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"$ssh_srun_cmd\""
             }
           }
         } // end qlogin
