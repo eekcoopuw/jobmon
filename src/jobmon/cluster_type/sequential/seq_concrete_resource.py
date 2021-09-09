@@ -42,7 +42,8 @@ class ConcreteSequentialResource(ConcreteResource):
     @classmethod
     def adjust_and_create_concrete_resource(
             cls: Any, expected_queue: ClusterQueue, existing_resources: Dict,
-            **kwargs: Optional[List[ClusterQueue]]
+            fallback_queues: Optional[List[ClusterQueue]],
+            resource_scales: Optional[Dict[str, float]]
     ) -> ConcreteSequentialResource:
         """No adjustment defined for sequential execution. Return original parameters."""
         return cls(queue=expected_queue, valid_resources=existing_resources)

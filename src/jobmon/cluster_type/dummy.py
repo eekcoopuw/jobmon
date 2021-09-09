@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import random
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from jobmon.cluster_type.base import (ClusterDistributor, ClusterQueue, ClusterWorkerNode,
                                       ConcreteResource)
@@ -192,7 +192,8 @@ class ConcreteDummyResource(ConcreteResource):
     @classmethod
     def adjust_and_create_concrete_resource(
             cls: Any, expected_queue: ClusterQueue, existing_resources: Dict,
-            **kwargs: Optional[List[ClusterQueue]]) -> ConcreteDummyResource:
+            fallback_queues: Optional[List[ClusterQueue]],
+            resource_scales: Optional[Dict[str, float]]) -> ConcreteDummyResource:
         """No adjustment defined for dummy execution. Return original parameters."""
         return cls(queue=expected_queue, valid_resources=existing_resources)
 

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from typing import Any, Dict, List, Optional, Protocol, Tuple, Union
+from typing import Any, Dict, List, Optional, Protocol, Tuple
 
 from jobmon import __version__
 from jobmon.exceptions import RemoteExitInfoNotAvailable
@@ -191,12 +191,18 @@ class ConcreteResource(Protocol):
     @abstractmethod
     def adjust_and_create_concrete_resource(
             cls: Any, expected_queue: ClusterQueue, existing_resources: Dict[str, Any],
-            **kwargs: Optional[List[ClusterQueue]]) -> ConcreteResource:
+            fallback_queues: Optional[List[ClusterQueue]],
+            resource_scales: Optional[Dict[str, float]]) -> ConcreteResource:
         """Adjust resources after a resource error is detected by the distributor.
 
         Args:
             expected_queue: The queue we expect to run on.
             existing_resources: The resources the user ran with previously that failed due to
                 a resource error.
+            fallback_queues: list of queues that users specify. If their jobs exceed the
+                resources of a given queue, Jobmon will try to run their jobs on the fallback
+                queues.
+            resource_scales: if a Task fails with a resource error, resource scales specifies
+                how much to scale the failed resource by.
         """
         raise NotImplementedError
