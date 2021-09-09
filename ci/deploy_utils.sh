@@ -247,6 +247,9 @@ test_k8s_slurm_deployment () {
 
     pip freeze
 
+    # delete pyc files https://stackoverflow.com/questions/42973666/importerror-missing-required-dependencies-numpy
+    find . -name '*.pyc' -delete
+
     jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80
     srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
 }
