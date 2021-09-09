@@ -174,6 +174,7 @@ pipeline {
                  . ${WORKSPACE}/ci/deploy_utils.sh
                  test_k8s_slurm_deployment \
                      ${WORKSPACE} \
+                     ${QLOGIN_ACTIVATE} \
                      ${JOBMON_VERSION} \
                      ${env.TARGET_IP} \
             """
