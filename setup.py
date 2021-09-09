@@ -1,6 +1,5 @@
 from glob import glob
-from os.path import basename
-from os.path import splitext
+import os
 
 from setuptools import setup
 from setuptools import find_packages
@@ -55,6 +54,10 @@ def local_scheme(version):
     return ""
 
 
+def read(read_file: str):
+    return open(os.path.join(os.path.dirname(__file__), read_file)).read()
+
+
 # TODO: consider splitting into 3 builds: jobmon_server, jobmon_client, jobmon.
 # Subclass install to accept parameters https://stackoverflow.com/questions/18725137/how-to-obtain-arguments-passed-to-setup-py-from-pip-with-install-option
 setup(
@@ -63,7 +66,7 @@ setup(
     maintainer_email='gphipps@uw.edu',
     url='https://stash.ihme.washington.edu/projects/SCIC/repos/jobmon',
     description='A dependency management utility for batch computation.',
-    long_description=open("README.md").read(),
+    long_description=read("README.md"),
     long_description_content_type="text/markdown",
 
     classifiers="""
@@ -81,7 +84,7 @@ setup(
 
     packages=find_packages('src'),
     package_dir={'': 'src'},
-    py_modules=[splitext(basename(path))[0] for path in glob('src/*.py')],
+    py_modules=[os.path.splitext(os.path.basename(path))[0] for path in glob('src/*.py')],
     include_package_data=True,
     zip_safe=False,
     package_data={"jobmon": ["py.typed"]},
