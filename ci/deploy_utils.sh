@@ -232,6 +232,7 @@ test_k8s_slurm_deployment () {
     conda info --envs
     conda deactivate
 
+    conda activate base
     pip install python=3.8
 
     conda env remove --prefix $CONDA_DIR_SLURM python==3.8
