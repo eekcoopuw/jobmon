@@ -209,8 +209,7 @@ test_k8s_uge_deployment () {
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
     $QLOGIN_ACTIVATE && \
         conda deactivate && \
-        conda activate base && \
-        pip install python==3.8 && \
+        conda install python=3.8.5 && \
         conda create --prefix $CONDA_DIR python==3.8
     $QLOGIN_ACTIVATE &&
        conda activate $CONDA_DIR && \
@@ -234,10 +233,6 @@ test_k8s_slurm_deployment () {
 
     conda info --envs
     conda deactivate
-
-    conda activate base
-    pip install python==3.8
-
     conda env remove --prefix $CONDA_DIR_SLURM python==3.8
     conda info --envs
     CONDA_DIR_SLURM=$WORKSPACE/.conda_env/load_test_slurm
