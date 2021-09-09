@@ -170,11 +170,12 @@ pipeline {
           // Download jobmon
           checkout scm
           script{
+            // Quotes on "${QLOGIN_ACTIVATE}" are needed to be taken as a whole command by Bash
             ssh_cmd = """#!/bin/bash
                  . ${WORKSPACE}/ci/deploy_utils.sh
                  test_k8s_slurm_deployment \
                      ${WORKSPACE} \
-                     ${QLOGIN_ACTIVATE} \
+                     "${QLOGIN_ACTIVATE}" \
                      ${JOBMON_VERSION} \
                      ${env.TARGET_IP} \
             """
