@@ -231,8 +231,7 @@ test_k8s_slurm_deployment () {
 
     conda info --envs
     conda deactivate
-    conda env remove --name base
-    conda create -n base python=3.8
+    conda update -n base -c defaults conda
     conda env remove --prefix $CONDA_DIR_SLURM python==3.8
     conda info --envs
     CONDA_DIR_SLURM=$WORKSPACE/.conda_env/load_test_slurm
