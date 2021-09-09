@@ -234,10 +234,10 @@ test_k8s_slurm_deployment () {
     conda activate $CONDA_DIR_SLURM
     conda info --envs
     pip install pyyaml
-    pip install slurm_rest
     pip install jobmon==$JOBMON_VERSION
     pip install jobmon_uge
     pip install jobmon_slurm
+    pip install slurm_rest
     PATH=$PATH:/opt/slurm/bin
 
     pip freeze
