@@ -236,6 +236,8 @@ test_k8s_slurm_deployment () {
     pip install jobmon_slurm
     PATH=$PATH:/opt/slurm/bin
 
+    jobmon --version
+
     jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80
     srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
 }
