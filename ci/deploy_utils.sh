@@ -208,8 +208,6 @@ test_k8s_uge_deployment () {
 
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
     $QLOGIN_ACTIVATE && \
-        conda deactivate && \
-        conda install python=3.8.5 && \
         conda create --prefix $CONDA_DIR python==3.8
     $QLOGIN_ACTIVATE &&
        conda activate $CONDA_DIR && \
