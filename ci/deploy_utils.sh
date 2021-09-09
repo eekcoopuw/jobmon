@@ -229,6 +229,8 @@ test_k8s_slurm_deployment () {
     JOBMON_VERSION=$2
     TARGET_IP=$3
 
+    PATH=$PATH:/opt/slurm/bin:/homes/svcscicompci/miniconda3/bin
+
     conda info --envs
     conda deactivate
     conda env remove --prefix $CONDA_DIR_SLURM python==3.8
@@ -242,8 +244,6 @@ test_k8s_slurm_deployment () {
     pip install slurm_rest
     pip install jobmon_uge
     pip install jobmon_slurm
-
-    PATH=$PATH:/opt/slurm/bin
 
     pip freeze
 
