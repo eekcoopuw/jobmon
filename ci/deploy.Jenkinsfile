@@ -171,7 +171,7 @@ pipeline {
           checkout scm
           script{
             // Quotes on "${QLOGIN_ACTIVATE}" are needed to be taken as a whole command by Bash
-            ssh_cmd = """#!/bin/bash
+            ssh_cmd = """/bin/bash -c
                  . ${WORKSPACE}/ci/deploy_utils.sh
                  test_k8s_slurm_deployment \
                      ${WORKSPACE} \

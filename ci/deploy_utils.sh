@@ -230,7 +230,7 @@ test_k8s_slurm_deployment () {
     JOBMON_VERSION=$3
     TARGET_IP=$4
 
-    . $QLOGIN_ACTIVATE base && \
+    source $QLOGIN_ACTIVATE base && \
       conda info --envs && \
       conda deactivate && \
       conda env remove --prefix $CONDA_DIR_SLURM python==3.8 && \
