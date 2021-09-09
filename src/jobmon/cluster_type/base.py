@@ -202,7 +202,6 @@ class ConcreteResource(Protocol):
             fallback_queues: list of queues that users specify. If their jobs exceed the
                 resources of a given queue, Jobmon will try to run their jobs on the fallback
                 queues.
-            resource_scales: if a Task fails with a resource error, resource scales specifies
-                how much to scale the failed resource by.
+            resource_scales: Specifies how much to scale the failed Task's resources by.
         """
         raise NotImplementedError
