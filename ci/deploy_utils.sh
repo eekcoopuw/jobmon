@@ -229,11 +229,12 @@ test_k8s_slurm_deployment () {
     JOBMON_VERSION=$2
     TARGET_IP=$3
 
+    CONDA_DIR_SLURM=$WORKSPACE/.conda_env/load_test_slurm
     source /homes/svcscicompci/miniconda3/bin/activate base
     PATH=$PATH:/opt/slurm/bin
     conda info --envs
     conda deactivate
-    conda env remove -n $CONDA_DIR_SLURM
+    conda env remove --prefix $CONDA_DIR_SLURM
     conda info --envs
     CONDA_DIR_SLURM=$WORKSPACE/.conda_env/load_test_slurm
     conda create --prefix $CONDA_DIR_SLURM python==3.8
