@@ -170,16 +170,17 @@ pipeline {
           // Download jobmon
           checkout scm
           script{
-            ssh_cmd = """#!/bin/bash
+            sh """echo '#!/bin/bash
                  . ${WORKSPACE}/ci/deploy_utils.sh
                  test_k8s_slurm_deployment \
                      ${WORKSPACE} \
+                     ${QLOGIN_ACTIVATE} \
                      ${JOBMON_VERSION} \
-                     ${env.TARGET_IP} \
+                     ${env.TARGET_IP}' >  ${WORKSPACE}/ssh_cmd.sh
             """
-            sh "echo 'ssh cmd to send is $ssh_cmd'"
+            sh "chmod +x ${WORKSPACE}/ssh_cmd.sh"
             sshagent(['jenkins']) {
-               sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"$ssh_cmd\""
+               sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu ${WORKSPACE}/ssh_cmd.sh"
             }
           }
         } // end qlogin

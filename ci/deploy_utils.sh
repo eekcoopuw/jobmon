@@ -226,37 +226,39 @@ test_k8s_uge_deployment () {
 
 test_k8s_slurm_deployment () {
     WORKSPACE=$1
-    JOBMON_VERSION=$2
-    TARGET_IP=$3
+    QLOGIN_ACTIVATE=$2
+    JOBMON_VERSION=$3
+    TARGET_IP=$4
 
-    CONDA_DIR_SLURM=$WORKSPACE/.conda_env/load_test_slurm
-    source /homes/svcscicompci/miniconda3/bin/activate base
-    PATH=$PATH:/opt/slurm/bin
-    conda info --envs
-    conda deactivate
-    conda env remove --prefix $CONDA_DIR_SLURM
-    conda info --envs
-    CONDA_DIR_SLURM=$WORKSPACE/.conda_env/load_test_slurm
-    conda create --prefix $CONDA_DIR_SLURM python==3.8
-    conda activate $CONDA_DIR_SLURM
-    conda info --envs
-    pip install pyyaml
-    pip install jobmon==$JOBMON_VERSION
-    var=$(jobmon update_config)
-    echo "var 1: $var"
-    pip install slurm_rest
-    var=$(jobmon update_config)
-    echo "var 2: $var"
-    pip install jobmon_uge
-    var=$(jobmon update_config)
-    echo "var 3: $var"
-    pip install jobmon_slurm
-    var=$(jobmon update_config)
-    echo "var 4: $var"
-    pip freeze
-    var=$(jobmon update_config)
-    echo "var 5: $var"
-    jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80
-    srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
+    $QLOGIN_ACTIVATE && \
+      CONDA_DIR_SLURM=$WORKSPACE/.conda_env/load_test_slurm && \
+      source /homes/svcscicompci/miniconda3/bin/activate base && \
+      PATH=$PATH:/opt/slurm/bin && \
+      conda info --envs && \
+      conda deactivate && \
+      conda env remove --prefix $CONDA_DIR_SLURM && \
+      conda info --envs && \
+      CONDA_DIR_SLURM=$WORKSPACE/.conda_env/load_test_slurm && \
+      conda create --prefix $CONDA_DIR_SLURM python==3.8 && \
+      conda activate $CONDA_DIR_SLURM && \
+      conda info --envs && \
+      pip install pyyaml && \
+      pip install jobmon==$JOBMON_VERSION && \
+      var=$(jobmon update_config) && \
+      echo "var 1: $var" && \
+      pip install slurm_rest && \
+      var=$(jobmon update_config) && \
+      echo "var 2: $var" && \
+      pip install jobmon_uge && \
+      var=$(jobmon update_config) && \
+      echo "var 3: $var" && \
+      pip install jobmon_slurm && \
+      var=$(jobmon update_config) && \
+      echo "var 4: $var" && \
+      pip freeze && \
+      var=$(jobmon update_config) && \
+      echo "var 5: $var" && \
+      jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
+      srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
 
 }
