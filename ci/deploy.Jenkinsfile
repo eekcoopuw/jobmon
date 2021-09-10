@@ -214,16 +214,16 @@ pipeline {
         } // end steps
       } // end create conda stage
     } // end stages
-//   post {
-//     always {
-//       node('docker') {
-//         // Delete the workspace directory.
-//         deleteDir()
-//       } // end node
-//       node('qlogin') {
-//         // Delete the workspace directory.
-//         deleteDir()
-//       } // end node
-//     } // end always
-//   } // end post
+  post {
+    always {
+      node('docker') {
+        // Delete the workspace directory.
+        deleteDir()
+      } // end node
+      node('qlogin') {
+        // Delete the workspace directory.
+        deleteDir()
+      } // end node
+    } // end always
+  } // end post
 } // end pipeline
