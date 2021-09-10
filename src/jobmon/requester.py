@@ -99,7 +99,7 @@ class Requester(object):
         def raise_if_exceed_retry(retry_state: tenacity.RetryCallState) -> None:
             """If we trigger retry error, raise informative RuntimeError."""
             logger.exception(f"Retry exceeded. {retry_state}")
-            status, content = retry_state.outcome.result()
+            status, content = retry_state.outcome.result()  # type: ignore
             raise RuntimeError(f'Exceeded HTTP request retry budget. Status code was {status} '
                                f'and content was {content}')
 

@@ -47,12 +47,15 @@ def create_temp_db() -> dict:
     pattern = ("mysql://(?P<user>.*):(?P<pass>.*)"
                "@(?P<host>.*):(?P<port>.*)/(?P<db>.*)")
     result = re.search(pattern, conn_str)
-    db_conn_dict = result.groupdict()
-    cfg = {
-        "DB_HOST": db_conn_dict["host"],
-        "DB_PORT": db_conn_dict["port"],
-        "DB_USER": db_conn_dict["user"],
-        "DB_PASS": db_conn_dict["pass"],
-        "DB_NAME": db_conn_dict["db"]
-    }
-    return cfg
+    if result:
+        db_conn_dict = result.groupdict()
+        cfg = {
+            "DB_HOST": db_conn_dict["host"],
+            "DB_PORT": db_conn_dict["port"],
+            "DB_USER": db_conn_dict["user"],
+            "DB_PASS": db_conn_dict["pass"],
+            "DB_NAME": db_conn_dict["db"]
+        }
+        return cfg
+    else:
+        raise ValueError("No matching conn_str pattern.")

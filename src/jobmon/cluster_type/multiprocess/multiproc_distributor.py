@@ -109,7 +109,12 @@ class MultiprocessDistributor(ClusterDistributor):
         """
         self.temp_dir: Optional[str] = None
         self.started = False
-        self._worker_node_entry_point = shutil.which("worker_node_entry_point")
+
+        worker_node_entry_point = shutil.which("worker_node_entry_point")
+        if not worker_node_entry_point:
+            raise ValueError("worker_node_entry_point can't be found.")
+        self._worker_node_entry_point = worker_node_entry_point
+
         logger.info("Initializing {}".format(self.__class__.__name__))
 
         self._parallelism = parallelism

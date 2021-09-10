@@ -3,11 +3,11 @@ from collections import OrderedDict
 import logging
 import os
 import shutil
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
-from jobmon.exceptions import RemoteExitInfoNotAvailable
+from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.worker_node.cli import WorkerNodeCLI
 
 
@@ -44,7 +44,12 @@ class SequentialDistributor(ClusterDistributor):
             exit_info_queue_size: how many exit codes to retain
         """
         self.started = False
-        self._worker_node_entry_point = shutil.which("worker_node_entry_point")
+
+        worker_node_entry_point = shutil.which("worker_node_entry_point")
+        if not worker_node_entry_point:
+            raise ValueError("worker_node_entry_point can't be found.")
+        self._worker_node_entry_point = worker_node_entry_point
+
         self._next_distributor_id = 1
         self._exit_info = LimitedSizeDict(size_limit=exit_info_queue_size)
 
@@ -111,9 +116,9 @@ class SequentialDistributor(ClusterDistributor):
         try:
             cli = WorkerNodeCLI()
             args = cli.parse_args(command)
-            exit_code = cli.run_task(args)
+            exit_code: Union[int, ReturnCodes] = cli.run_task(args)
         except SystemExit as e:
-            if e.code == 199:
+            if e.code == ReturnCodes.WORKER_NODE_CLI_FAILURE:
                 exit_code = e.code
             else:
                 raise
@@ -138,10 +143,12 @@ class SequentialWorkerNode(ClusterWorkerNode):
                 self._distributor_id = int(jid)
         return self._distributor_id
 
-    def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[TaskInstanceStatus, str]:
+    @staticmethod
+    def get_exit_info(exit_code: int, error_msg: str) -> Tuple[str, str]:
         """Exit info, error message."""
         return TaskInstanceStatus.ERROR, error_msg
 
-    def get_usage_stats(self) -> Dict:
+    @staticmethod
+    def get_usage_stats() -> Dict:
         """Usage information specific to the exector."""
         return {}

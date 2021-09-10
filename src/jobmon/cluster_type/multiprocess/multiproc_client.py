@@ -20,7 +20,13 @@ class MultiprocessQueue(ClusterQueue):
         """Ensure cores requested isn't more than available on that node."""
         msg = ""
         cores = kwargs.get('cores')
-        min_cores, max_cores = self.parameters.get('cores')
+        core_parameters = self.parameters.get('cores')
+
+        if core_parameters:
+            min_cores, max_cores = core_parameters
+        else:
+            raise ValueError("min_cores and max_cores parameters not set on queue.")
+
         if cores:
             if cores > max_cores:
                 msg += (f"ResourceError: provided cores {cores} exceeds "

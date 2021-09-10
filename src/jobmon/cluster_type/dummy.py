@@ -191,8 +191,9 @@ class ConcreteDummyResource(ConcreteResource):
 
     @classmethod
     def adjust_and_create_concrete_resource(
-            cls: Any, expected_queue: ClusterQueue, existing_resources: Dict, **kwargs: Dict
-    ) -> ConcreteDummyResource:
+            cls: Any, expected_queue: ClusterQueue, existing_resources: Dict,
+            fallback_queues: Optional[List[ClusterQueue]],
+            resource_scales: Optional[Dict[str, float]]) -> ConcreteDummyResource:
         """No adjustment defined for dummy execution. Return original parameters."""
         return cls(queue=expected_queue, valid_resources=existing_resources)
 
