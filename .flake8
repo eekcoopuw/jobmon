@@ -24,6 +24,7 @@ per-file-ignores =
     src/jobmon/server/workflow_reaper/api.py:F401
     src/jobmon/client/api.py:F401
     src/jobmon/server/web/models/task_resources.py:F811
+    src/jobmon/_version.py:BLK100
 max-line-length = 95
 
 # import order
