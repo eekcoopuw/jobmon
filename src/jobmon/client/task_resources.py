@@ -17,9 +17,12 @@ logger = logging.getLogger(__name__)
 class TaskResources:
     """An object representing the resources for a specific task."""
 
-    def __init__(self, task_resources_type_id: str,
-                 concrete_resources: ConcreteResource,
-                 requester: Optional[Requester] = None) -> None:
+    def __init__(
+        self,
+        task_resources_type_id: str,
+        concrete_resources: ConcreteResource,
+        requester: Optional[Requester] = None,
+    ) -> None:
         """Initialize the task resource object."""
         self._task_resources_type_id = task_resources_type_id
         self._concrete_resources = concrete_resources
@@ -43,7 +46,9 @@ class TaskResources:
     def id(self) -> int:
         """If the task resources has been bound to the database."""
         if not self.is_bound:
-            raise AttributeError("Cannot access id until TaskResources is bound to database")
+            raise AttributeError(
+                "Cannot access id until TaskResources is bound to database"
+            )
         return self._id
 
     @property
@@ -77,7 +82,7 @@ class TaskResources:
 
     def bind(self, task_id: int, task_resources_type_id: str = None) -> None:
         """Bind TaskResources to the database."""
-        app_route = f'/task/{task_id}/bind_resources'
+        app_route = f"/task/{task_id}/bind_resources"
         if task_resources_type_id is None:
             task_resources_type_id = self._task_resources_type_id
         msg = {
@@ -87,17 +92,15 @@ class TaskResources:
             "requested_resources": self._requested_resources,
         }
         return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message=msg,
-            request_type='post',
-            logger=logger
+            app_route=app_route, message=msg, request_type="post", logger=logger
         )
 
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
 
         self._id = response
         self._task_id = task_id
@@ -108,5 +111,5 @@ class TaskResources:
             "queue_id": self.queue.queue_id,
             "task_id": self.task_id,
             "task_resources_type_id": self._task_resources_type_id,
-            "requested_resources": self._requested_resources
+            "requested_resources": self._requested_resources,
         }

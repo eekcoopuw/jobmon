@@ -10,8 +10,9 @@ from jobmon.client.tool import Tool
 @pytest.fixture
 def tool(db_cfg, client_env):
     tool = Tool()
-    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
-                                                 compute_resources={"queue": "null.q"})
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
     return tool
 
 
@@ -22,13 +23,12 @@ def task_template(tool):
         command_template="{arg}",
         node_args=["arg"],
         task_args=[],
-        op_args=[]
+        op_args=[],
     )
     return tt
 
 
 class MockDistributorProc:
-
     def is_alive(self):
         return True
 
@@ -46,8 +46,12 @@ def test_heartbeat(tool, db_cfg, client_env, task_template):
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             SequentialDistributor(), requester=requester)
+    distributor_service = DistributorService(
+        workflow.workflow_id,
+        wfr.workflow_run_id,
+        SequentialDistributor(),
+        requester=requester,
+    )
     distributor_service.heartbeat()
 
     # check the job finished
@@ -58,8 +62,9 @@ def test_heartbeat(tool, db_cfg, client_env, task_template):
         SELECT workflow_run.heartbeat_date > CURRENT_TIMESTAMP()
         FROM workflow_run
         WHERE workflow_run.id = :workflow_run_id"""
-        res = DB.session.execute(sql, {"workflow_run_id": wfr.workflow_run_id}
-                                 ).fetchone()
+        res = DB.session.execute(
+            sql, {"workflow_run_id": wfr.workflow_run_id}
+        ).fetchone()
         DB.session.commit()
     assert res[0] == 1
 
@@ -77,8 +82,12 @@ def test_heartbeat_raises_error(tool, db_cfg, client_env, task_template):
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             SequentialDistributor(), requester=requester)
+    distributor_service = DistributorService(
+        workflow.workflow_id,
+        wfr.workflow_run_id,
+        SequentialDistributor(),
+        requester=requester,
+    )
     # check the job finished
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -109,8 +118,12 @@ def test_heartbeat_propagate_error(tool, db_cfg, client_env, task_template):
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             SequentialDistributor(), requester=requester)
+    distributor_service = DistributorService(
+        workflow.workflow_id,
+        wfr.workflow_run_id,
+        SequentialDistributor(),
+        requester=requester,
+    )
     # check the job finished
     app = db_cfg["app"]
     DB = db_cfg["DB"]

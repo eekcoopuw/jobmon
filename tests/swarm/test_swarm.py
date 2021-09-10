@@ -18,11 +18,10 @@ logger = logging.getLogger(__name__)
 
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
-resource_file = os.path.join(this_dir, 'resources.txt')
+resource_file = os.path.join(this_dir, "resources.txt")
 
 
 class MockDistributorProc:
-
     def is_alive(self):
         return True
 
@@ -44,17 +43,21 @@ def test_blocking_update_timeout(tool, task_template):
     wfr._update_status(WorkflowRunStatus.LAUNCHED)
 
     # swarm calls
-    swarm = SwarmWorkflowRun(workflow_id=workflow.workflow_id,
-                             workflow_run_id=wfr.workflow_run_id,
-                             tasks=list(workflow.tasks.values()),
-                             requester=workflow.requester)
+    swarm = SwarmWorkflowRun(
+        workflow_id=workflow.workflow_id,
+        workflow_run_id=wfr.workflow_run_id,
+        tasks=list(workflow.tasks.values()),
+        requester=workflow.requester,
+    )
 
     with pytest.raises(RuntimeError) as error:
         workflow._run_swarm(swarm, seconds_until_timeout=2)
 
-    expected_msg = ("Not all tasks completed within the given workflow "
-                    "timeout length (2 seconds). Submitted tasks will still"
-                    " run, but the workflow will need to be restarted.")
+    expected_msg = (
+        "Not all tasks completed within the given workflow "
+        "timeout length (2 seconds). Submitted tasks will still"
+        " run, but the workflow will need to be restarted."
+    )
     assert expected_msg == str(error.value)
 
 
@@ -71,15 +74,20 @@ def test_sync_statuses(client_env, tool, task_template):
     wfr = workflow._create_workflow_run()
 
     # move workflow to launched state
-    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             SequentialDistributor(),
-                                             requester=workflow.requester)
+    distributor_service = DistributorService(
+        workflow.workflow_id,
+        wfr.workflow_run_id,
+        SequentialDistributor(),
+        requester=workflow.requester,
+    )
 
     # swarm calls
-    swarm = SwarmWorkflowRun(workflow_id=workflow.workflow_id,
-                             workflow_run_id=wfr.workflow_run_id,
-                             tasks=list(workflow.tasks.values()),
-                             requester=workflow.requester)
+    swarm = SwarmWorkflowRun(
+        workflow_id=workflow.workflow_id,
+        workflow_run_id=wfr.workflow_run_id,
+        tasks=list(workflow.tasks.values()),
+        requester=workflow.requester,
+    )
     swarm.update_status(WorkflowRunStatus.RUNNING)
     swarm.compute_initial_dag_state()
     time.sleep(1)  # make sure some time passes
@@ -116,8 +124,9 @@ def test_wedged_dag(db_cfg, tool, task_template):
         app = db_cfg["app"]
         DB = db_cfg["DB"]
 
-        def submit_to_batch_distributor(self, command: str, name: str, requested_resources
-                                        ) -> int:
+        def submit_to_batch_distributor(
+            self, command: str, name: str, requested_resources
+        ) -> int:
             logger.info("Now entering WedgedExecutor execute")
 
             cli = WorkerNodeCLI()
@@ -126,25 +135,34 @@ def test_wedged_dag(db_cfg, tool, task_template):
             # need to get task id from task instance here to compare to wedged
             # task id that will be set later in the code
             with self.app.app_context():
-                task_instance = self.DB.session.query(TaskInstance).filter_by(
-                    id=args.task_instance_id).one()
+                task_instance = (
+                    self.DB.session.query(TaskInstance)
+                    .filter_by(id=args.task_instance_id)
+                    .one()
+                )
                 task_id = int(task_instance.task.id)
 
             if task_id == self.wedged_task_id:
-                logger.info(f"task instance is {self.wedged_task_id}, entering"
-                            " first if statement")
+                logger.info(
+                    f"task instance is {self.wedged_task_id}, entering"
+                    " first if statement"
+                )
                 task_inst_query = """
                     UPDATE task_instance
                     SET status = 'D'
                     WHERE task_instance.id = {task_instance_id}
-                """.format(task_instance_id=args.task_instance_id)
+                """.format(
+                    task_instance_id=args.task_instance_id
+                )
                 task_query = """
                     UPDATE task
                     SET task.status = 'D',
                         task.status_date = SUBTIME(CURRENT_TIMESTAMP(),
                                                    SEC_TO_TIME(600))
                     WHERE task.id = {task_id}
-                """.format(task_id=task_id)
+                """.format(
+                    task_id=task_id
+                )
 
                 with self.app.app_context():
                     self.DB.session.execute(task_inst_query)
@@ -154,16 +172,18 @@ def test_wedged_dag(db_cfg, tool, task_template):
 
                 exec_id = 123456789
             else:
-                exec_id = super().submit_to_batch_distributor(command, name,
-                                                              requested_resources)
+                exec_id = super().submit_to_batch_distributor(
+                    command, name, requested_resources
+                )
 
             return exec_id
 
     workflow = tool.create_workflow()
     t1 = tool.active_task_templates["simple_template"].create_task(arg="sleep 3")
     t2 = tool.active_task_templates["simple_template"].create_task(arg="sleep 5")
-    t3 = tool.active_task_templates["simple_template"].create_task(arg="sleep 7",
-                                                                   upstream_tasks=[t2])
+    t3 = tool.active_task_templates["simple_template"].create_task(
+        arg="sleep 7", upstream_tasks=[t2]
+    )
     workflow.add_tasks([t1, t2, t3])
 
     # bind workflow to db
@@ -173,14 +193,20 @@ def test_wedged_dag(db_cfg, tool, task_template):
     # create distributor with WedgedDistributor
     distributor = WedgedDistributor()
     distributor.wedged_task_id = t2.task_id
-    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             distributor, requester=workflow.requester)
+    distributor_service = DistributorService(
+        workflow.workflow_id,
+        wfr.workflow_run_id,
+        distributor,
+        requester=workflow.requester,
+    )
 
     # queue first 2 tasks
-    swarm = SwarmWorkflowRun(workflow_id=workflow.workflow_id,
-                             workflow_run_id=wfr.workflow_run_id,
-                             tasks=list(workflow.tasks.values()),
-                             requester=workflow.requester)
+    swarm = SwarmWorkflowRun(
+        workflow_id=workflow.workflow_id,
+        workflow_run_id=wfr.workflow_run_id,
+        tasks=list(workflow.tasks.values()),
+        requester=workflow.requester,
+    )
     swarm.update_status(WorkflowRunStatus.RUNNING)
     swarm.compute_initial_dag_state()
     list(swarm.queue_tasks())
@@ -192,7 +218,9 @@ def test_wedged_dag(db_cfg, tool, task_template):
     workflow._distributor_proc = MockDistributorProc()
     # run the normal workflow sync protocol. only t1 should be done
     with pytest.raises(RuntimeError):
-        swarm.block_until_newly_ready_or_all_done(poll_interval=1, seconds_until_timeout=1)
+        swarm.block_until_newly_ready_or_all_done(
+            poll_interval=1, seconds_until_timeout=1
+        )
 
     assert swarm.swarm_tasks[t1.task_id].status == TaskStatus.DONE
     assert swarm.swarm_tasks[t2.task_id].status == TaskStatus.QUEUED_FOR_INSTANTIATION
@@ -200,7 +228,9 @@ def test_wedged_dag(db_cfg, tool, task_template):
 
     # now run wedged dag route. make sure task 2 is now in done state
     with pytest.raises(RuntimeError):
-        workflow._run_swarm(swarm, seconds_until_timeout=1, wedged_workflow_sync_interval=-1)
+        workflow._run_swarm(
+            swarm, seconds_until_timeout=1, wedged_workflow_sync_interval=-1
+        )
     assert swarm.swarm_tasks[t1.task_id].status == TaskStatus.DONE
     assert swarm.swarm_tasks[t2.task_id].status == TaskStatus.DONE
 
@@ -228,8 +258,13 @@ def test_fail_fast(tool, task_template):
         workflow.run(fail_fast=True)
 
     assert len(workflow.task_errors) == 1
-    num_done = len([task for task in workflow.tasks.values()
-                    if task.final_status == TaskStatus.DONE])
+    num_done = len(
+        [
+            task
+            for task in workflow.tasks.values()
+            if task.final_status == TaskStatus.DONE
+        ]
+    )
     assert num_done >= 1
     assert num_done <= 3
 
@@ -250,13 +285,17 @@ def test_propagate_result(tool, task_template):
     wfr = workflow._create_workflow_run()
 
     # run the distributor
-    workflow._distributor_proc = workflow._start_distributor_service(wfr.workflow_run_id)
+    workflow._distributor_proc = workflow._start_distributor_service(
+        wfr.workflow_run_id
+    )
 
     # swarm calls
-    swarm = SwarmWorkflowRun(workflow_id=workflow.workflow_id,
-                             workflow_run_id=wfr.workflow_run_id,
-                             tasks=list(workflow.tasks.values()),
-                             requester=workflow.requester)
+    swarm = SwarmWorkflowRun(
+        workflow_id=workflow.workflow_id,
+        workflow_run_id=wfr.workflow_run_id,
+        tasks=list(workflow.tasks.values()),
+        requester=workflow.requester,
+    )
     workflow._run_swarm(swarm)
 
     # stop the subprocess
@@ -282,8 +321,11 @@ def test_callable_returns_valid_object(tool, task_template):
         return resource_dict
 
     workflow = tool.create_workflow(workflow_args="dynamic_resource_wf_good_file")
-    task = task_template.create_task(arg="sleep 1", name="good_callable_task",
-                                     compute_resources_callable=resource_file_does_exist)
+    task = task_template.create_task(
+        arg="sleep 1",
+        name="good_callable_task",
+        compute_resources_callable=resource_file_does_exist,
+    )
     workflow.add_task(task)
     workflow.bind()
     workflow._distributor_proc = MockDistributorProc()
@@ -294,10 +336,12 @@ def test_callable_returns_valid_object(tool, task_template):
     wfr._update_status(WorkflowRunStatus.LAUNCHED)
 
     # swarm calls
-    swarm = SwarmWorkflowRun(workflow_id=workflow.workflow_id,
-                             workflow_run_id=wfr.workflow_run_id,
-                             tasks=list(workflow.tasks.values()),
-                             requester=workflow.requester)
+    swarm = SwarmWorkflowRun(
+        workflow_id=workflow.workflow_id,
+        workflow_run_id=wfr.workflow_run_id,
+        tasks=list(workflow.tasks.values()),
+        requester=workflow.requester,
+    )
 
     try:
         workflow._run_swarm(swarm, seconds_until_timeout=1)
@@ -310,30 +354,34 @@ def test_callable_returns_wrong_object(tool, task_template):
     """test that the callable cannot return an invalid object"""
 
     def wrong_return_params(*args, **kwargs):
-        wrong_format = ['1G', 60, 1]
+        wrong_format = ["1G", 60, 1]
         return wrong_format
 
-    task = task_template.create_task(arg="sleep 1", name="good_callable_task",
-                                     compute_resources_callable=wrong_return_params)
-    wf = tool.create_workflow(workflow_args='dynamic_resource_wf_wrong_param_obj')
+    task = task_template.create_task(
+        arg="sleep 1",
+        name="good_callable_task",
+        compute_resources_callable=wrong_return_params,
+    )
+    wf = tool.create_workflow(workflow_args="dynamic_resource_wf_wrong_param_obj")
     wf.add_task(task)
     with pytest.raises(CallableReturnedInvalidObject):
         wf.run()
 
 
 def test_callable_fails_bad_filepath(tool, task_template):
-    """test that an exception in the callable gets propagated up the call stack
-    """
+    """test that an exception in the callable gets propagated up the call stack"""
 
     def resource_filepath_does_not_exist(*args, **kwargs):
-        fp = os.path.join(this_dir, 'file_that_does_not_exist.txt')
+        fp = os.path.join(this_dir, "file_that_does_not_exist.txt")
         file = open(fp, "r")
         file.read()
 
     task = task_template.create_task(
-        name='bad_callable_wrong_file', arg="sleep 1",
-        compute_resources_callable=resource_filepath_does_not_exist)
-    wf = tool.create_workflow(workflow_args='dynamic_resource_wf_bad_file')
+        name="bad_callable_wrong_file",
+        arg="sleep 1",
+        compute_resources_callable=resource_filepath_does_not_exist,
+    )
+    wf = tool.create_workflow(workflow_args="dynamic_resource_wf_bad_file")
     wf.add_task(task)
     with pytest.raises(FileNotFoundError):
         wf.run()

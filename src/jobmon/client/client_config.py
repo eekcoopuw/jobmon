@@ -21,13 +21,20 @@ class ClientConfig(object):
         # passing an empty string forces this method to ignore sys.argv
         args = cli.parse_args("")
 
-        return cls(host=args.web_service_fqdn, port=args.web_service_port,
-                   workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
-                   heartbeat_report_by_buffer=args.heartbeat_report_by_buffer)
+        return cls(
+            host=args.web_service_fqdn,
+            port=args.web_service_port,
+            workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
+            heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
+        )
 
-    def __init__(self, host: str, port: int,
-                 workflow_run_heartbeat_interval: Optional[int] = None,
-                 heartbeat_report_by_buffer: Optional[float] = None) -> None:
+    def __init__(
+        self,
+        host: str,
+        port: int,
+        workflow_run_heartbeat_interval: Optional[int] = None,
+        heartbeat_report_by_buffer: Optional[float] = None,
+    ) -> None:
         """Initialization of ClientConfig."""
         self.host = host
         self.port = port

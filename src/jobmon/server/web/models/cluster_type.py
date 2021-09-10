@@ -6,7 +6,7 @@ from jobmon.server.web.models import DB
 class ClusterType(DB.Model):
     """ClusterType table in the database."""
 
-    __tablename__ = 'cluster_type'
+    __tablename__ = "cluster_type"
 
     id = DB.Column(DB.Integer, primary_key=True)
     name = DB.Column(DB.String(255))

@@ -20,7 +20,9 @@ class InvalidUsage(ServerSideException):
     """Error caused by client mistakes (ex. bad data provided)."""
 
     # TODO: make status_code a parameter for future extension. So far we only use 400
-    def __init__(self, msg: str, status_code: int = None, payload: tuple = None) -> None:
+    def __init__(
+        self, msg: str, status_code: int = None, payload: tuple = None
+    ) -> None:
         """Initialize ServerSide exception and default to 400 if not status_code available."""
         super().__init__(msg)
         self.status_code = status_code
@@ -32,7 +34,7 @@ class InvalidUsage(ServerSideException):
     def to_dict(self) -> Dict:
         """Put exception in a dictionary."""
         rv = dict(self.payload or ())
-        rv['message'] = self.msg
+        rv["message"] = self.msg
         return rv
 
 
@@ -40,7 +42,9 @@ class ServerError(ServerSideException):
     """Use for Internal Server Error."""
 
     # TODO: make status_code a parameter for future extension. So far we only use 500
-    def __init__(self, msg: str, status_code: int = None, payload: tuple = None) -> None:
+    def __init__(
+        self, msg: str, status_code: int = None, payload: tuple = None
+    ) -> None:
         """Initialize and assign 500 status code if none provided."""
         super().__init__(msg)
         self.status_code = status_code
@@ -52,5 +56,5 @@ class ServerError(ServerSideException):
     def to_dict(self) -> Dict:
         """Return payload and message as dictionary."""
         rv = dict(self.payload or ())
-        rv['message'] = self.msg
+        rv["message"] = self.msg
         return rv

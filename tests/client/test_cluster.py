@@ -23,7 +23,7 @@ def test_get_queue(client_env):
 
 
 def test_validate(db_cfg, client_env):
-    """ Test that adjust and validate work as expected."""
+    """Test that adjust and validate work as expected."""
     from jobmon.client.task_resources import TaskResources
     from jobmon.constants import TaskResourcesType
     from jobmon.client.cluster import Cluster
@@ -33,26 +33,27 @@ def test_validate(db_cfg, client_env):
     # Create a valid resource. In test_utils.db_schema, note that min/max cores for the multiprocess
     # cluster null.q is 1/20
     happy_resource: TaskResources = cluster.create_valid_task_resources(
-        resource_params={'cores': 10, 'queue': 'null.q'},
+        resource_params={"cores": 10, "queue": "null.q"},
         task_resources_type_id=TaskResourcesType.VALIDATED,
-        fail=False
+        fail=False,
     )
 
-    assert happy_resource.concrete_resources.resources['cores'] == 10
+    assert happy_resource.concrete_resources.resources["cores"] == 10
     assert happy_resource.queue.queue_name == "null.q"
 
     # Create invalid resource
     # Try a fail call first
     with pytest.raises(ValueError):
         cluster.create_valid_task_resources(
-            resource_params={'cores': 100, 'queue': 'null.q'},
+            resource_params={"cores": 100, "queue": "null.q"},
             task_resources_type_id=TaskResourcesType.VALIDATED,
-            fail=True
+            fail=True,
         )
 
     # Same call but check that the resources are coerced
     unhappy_resource: TaskResources = cluster.create_valid_task_resources(
-        resource_params={'cores': 100, 'queue': 'null.q'},
+        resource_params={"cores": 100, "queue": "null.q"},
         task_resources_type_id=TaskResourcesType.VALIDATED,
-        fail=False)
-    assert unhappy_resource.concrete_resources.resources['cores'] == 20
+        fail=False,
+    )
+    assert unhappy_resource.concrete_resources.resources["cores"] == 20

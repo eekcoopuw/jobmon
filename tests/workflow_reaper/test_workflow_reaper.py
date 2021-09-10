@@ -25,22 +25,23 @@ def get_workflow_run_status(db_cfg, wfr_id):
 @pytest.fixture
 def base_tool(db_cfg, client_env):
     from jobmon.client.tool import Tool
+
     return Tool()
 
 
 @pytest.fixture
 def sleepy_task_template(db_cfg, client_env, base_tool):
     tt = base_tool.get_task_template(
-        template_name='sleepy_template',
+        template_name="sleepy_template",
         command_template="sleep {sleep}",
-        node_args=['sleep'],
-        default_cluster_name='sequential',
-        default_compute_resources={'queue': 'null.q'})
+        node_args=["sleep"],
+        default_cluster_name="sequential",
+        default_compute_resources={"queue": "null.q"},
+    )
     return tt
 
 
-def test_error_state(db_cfg, requester_no_retry,
-                     base_tool, sleepy_task_template):
+def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
     """Tests that the workflow reaper successfully checks for error state.
     Suspended state occurs when a workflow run has not logged a heartbeat in a
     give amount of time. The reaper will then transition the workflow to F
@@ -59,8 +60,12 @@ def test_error_state(db_cfg, requester_no_retry,
     wfr1 = wf1._create_workflow_run()
 
     seq_distributor = SequentialDistributor()
-    distributor1 = DistributorService(wf1.workflow_id, wfr1.workflow_run_id,
-                                      seq_distributor, requester=requester_no_retry)
+    distributor1 = DistributorService(
+        wf1.workflow_id,
+        wfr1.workflow_run_id,
+        seq_distributor,
+        requester=requester_no_retry,
+    )
     distributor1.heartbeat()
 
     # Create a second workflow with one task. Don't log a heartbeat so that it can die
@@ -68,10 +73,7 @@ def test_error_state(db_cfg, requester_no_retry,
     wf2 = base_tool.create_workflow()
     wf2.add_tasks([task2])
     wf2.bind()
-    wfr2 = WorkflowRun(
-        workflow_id=wf2.workflow_id,
-        requester=wf2.requester
-    )
+    wfr2 = WorkflowRun(workflow_id=wf2.workflow_id, requester=wf2.requester)
     wfr2._link_to_workflow(0)
     wfr2._update_status(WorkflowRunStatus.BOUND)
     wfr2._update_status(WorkflowRunStatus.INSTANTIATING)
@@ -113,8 +115,12 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
     seq_distributor = SequentialDistributor()
-    distributor1 = DistributorService(workflow1.workflow_id, wfr1.workflow_run_id,
-                                      seq_distributor, requester=requester_no_retry)
+    distributor1 = DistributorService(
+        workflow1.workflow_id,
+        wfr1.workflow_run_id,
+        seq_distributor,
+        requester=requester_no_retry,
+    )
     distributor1.heartbeat()
     wfr1._update_status("R")
 
@@ -124,10 +130,7 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
 
     workflow2.add_tasks([task2])
     workflow2.bind()
-    wfr2 = WorkflowRun(
-        workflow_id=workflow2.workflow_id,
-        requester=workflow2.requester
-    )
+    wfr2 = WorkflowRun(workflow_id=workflow2.workflow_id, requester=workflow2.requester)
     wfr2._link_to_workflow(0)
     wfr2._update_status(WorkflowRunStatus.BOUND)
     wfr2._update_status(WorkflowRunStatus.INSTANTIATING)
@@ -141,10 +144,7 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
 
     workflow3.add_tasks([task3])
     workflow3.bind()
-    wfr3 = WorkflowRun(
-        workflow_id=workflow3.workflow_id,
-        requester=workflow3.requester
-    )
+    wfr3 = WorkflowRun(workflow_id=workflow3.workflow_id, requester=workflow3.requester)
     wfr3._link_to_workflow(0)
     wfr3._update_status(WorkflowRunStatus.BOUND)
     wfr3._update_status(WorkflowRunStatus.INSTANTIATING)
@@ -239,7 +239,7 @@ def test_reaper_version(db_cfg, requester_no_retry, base_tool, sleepy_task_templ
     assert wfr.workflow_run_id in [wfr.workflow_run_id for wfr in reaper_wfrs]
 
     # Mock the version to some nonsense
-    with patch.object(WorkflowReaper, '_version', new_callable=PropertyMock) as mock:
+    with patch.object(WorkflowReaper, "_version", new_callable=PropertyMock) as mock:
         mock.return_value = "foobar"
 
         no_wfrs = reaper._get_lost_workflow_runs(["L", "C", "H"])

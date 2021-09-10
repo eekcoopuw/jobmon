@@ -15,7 +15,7 @@ class WorkerNodeCLI(CLI):
         """Initialization of the worker node CLI."""
         self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
         self._subparsers = self.parser.add_subparsers(
-            dest='sub_command', parser_class=configargparse.ArgumentParser
+            dest="sub_command", parser_class=configargparse.ArgumentParser
         )
 
         self._add_worker_node_parser()
@@ -28,40 +28,41 @@ class WorkerNodeCLI(CLI):
             task_instance_heartbeat_interval=args.task_instance_heartbeat_interval,
             heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
             web_service_fqdn=args.web_service_fqdn,
-            web_service_port=args.web_service_port
+            web_service_port=args.web_service_port,
         )
 
         worker_node_task_instance = WorkerNodeTaskInstance(
             task_instance_id=args.task_instance_id,
             expected_jobmon_version=args.expected_jobmon_version,
             cluster_type_name=args.cluster_type_name,
-            requester_url=worker_node_config.url
+            requester_url=worker_node_config.url,
         )
 
         return worker_node_task_instance.run(
             heartbeat_interval=worker_node_config.task_instance_heartbeat_interval,
-            report_by_buffer=worker_node_config.heartbeat_report_by_buffer)
+            report_by_buffer=worker_node_config.heartbeat_report_by_buffer,
+        )
 
     def _add_worker_node_parser(self) -> None:
-        worker_node_parser = self._subparsers.add_parser('worker_node', **PARSER_KWARGS)
+        worker_node_parser = self._subparsers.add_parser("worker_node", **PARSER_KWARGS)
         worker_node_parser.set_defaults(func=self.run_task)
         worker_node_parser.add_argument(
-            '--task_instance_id',
+            "--task_instance_id",
             type=int,
-            help='task_instance_id of the work node.',
-            required=True
+            help="task_instance_id of the work node.",
+            required=True,
         )
         worker_node_parser.add_argument(
-            '--cluster_type_name',
+            "--cluster_type_name",
             type=str,
-            help='cluster_type_name of the work node.',
-            required=True
+            help="cluster_type_name of the work node.",
+            required=True,
         )
         worker_node_parser.add_argument(
-            '--expected_jobmon_version',
+            "--expected_jobmon_version",
             type=str,
-            help='expected_jobmon_version of the work node.',
-            required=True
+            help="expected_jobmon_version of the work node.",
+            required=True,
         )
         ParserDefaults.task_instance_heartbeat_interval(worker_node_parser)
         ParserDefaults.heartbeat_report_by_buffer(worker_node_parser)

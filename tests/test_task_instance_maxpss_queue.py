@@ -65,7 +65,8 @@ def test_integration_with_mock(db_cfg, dag_factory):
 def qpidcfg(monkeypatch, db_cfg):
     """This creates a new tmp_out_dir for every module"""
     from jobmon.server.qpid_integration.qpid_config import QPIDConfig
-    db_conn = db_cfg['server_config']
+
+    db_conn = db_cfg["server_config"]
 
     def get_config():
         return QPIDConfig(
@@ -77,7 +78,7 @@ def qpidcfg(monkeypatch, db_cfg):
             qpid_polling_interval=600,
             qpid_max_update_per_second=10,
             qpid_cluster="fair",
-            qpid_uri="https://jobapi.ihme.washington.edu"
+            qpid_uri="https://jobapi.ihme.washington.edu",
         )
 
     monkeypatch.setattr(QPIDConfig, "from_defaults", get_config)
@@ -125,10 +126,11 @@ def test_worker_with_mock_200(qpidcfg):
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
     assert MaxpssQ().get_size() == 0
-    with mock.patch('jobmon.server.qpid_integration.qpid_integrator._update_maxpss_in_db') as\
-            m_db, \
-         mock.patch('jobmon.server.qpid_integration.qpid_integrator._get_qpid_response') \
-            as m_restful:
+    with mock.patch(
+        "jobmon.server.qpid_integration.qpid_integrator._update_maxpss_in_db"
+    ) as m_db, mock.patch(
+        "jobmon.server.qpid_integration.qpid_integrator._get_qpid_response"
+    ) as m_restful:
         m_db.return_value = True
         m_restful.return_value = (200, 500)
         MaxpssQ().put(1)
@@ -152,8 +154,9 @@ def test_worker_with_mock_404(qpidcfg):
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
     assert MaxpssQ().get_size() == 0
-    with mock.patch('jobmon.server.qpid_integration.qpid_integrator._get_qpid_response') as \
-            m_restful:
+    with mock.patch(
+        "jobmon.server.qpid_integration.qpid_integrator._get_qpid_response"
+    ) as m_restful:
         m_restful.return_value = (404, None)
         MaxpssQ().put(1)
         assert MaxpssQ().get_size() == 1
@@ -180,8 +183,9 @@ def test_worker_with_mock_500(qpidcfg):
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
     assert MaxpssQ().get_size() == 0
-    with mock.patch('jobmon.server.qpid_integration.qpid_integrator._get_qpid_response') as \
-            m_restful:
+    with mock.patch(
+        "jobmon.server.qpid_integration.qpid_integrator._get_qpid_response"
+    ) as m_restful:
         m_restful.return_value = (500, None)
         MaxpssQ().put(1)
         assert MaxpssQ().get_size() == 1
@@ -202,14 +206,15 @@ def test_worker_with_mock_500(qpidcfg):
 def test_route_get_maxpss_error_path(qpidcfg, client_env):
     """This is to test the restful API to get maxpss of a job instance in jobmon side"""
     from jobmon.server.qpid_integration.qpid_integrator import MaxpssQ
+
     req = Requester(client_env)
 
     MaxpssQ().empty_q()
     # test non-existing ji
     code, _ = req.send_request(
-        app_route='/distributor/task_instance/9999/maxpss',
+        app_route="/distributor/task_instance/9999/maxpss",
         message={},
-        request_type='get'
+        request_type="get",
     )
     assert code == 404
 

@@ -50,28 +50,41 @@ def test_yaml_compute_resources(db_cfg, client_env):
     """Test that we can set Tool ComputeResources via YAML file."""
     thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
     tool = Tool(name="test_resources")
-    tt_1 = tool.get_task_template(template_name="preprocess",
-                                  command_template="{arg}",
-                                  node_args=["arg"],
-                                  task_args=[],
-                                  op_args=[])
-    tt_2 = tool.get_task_template(template_name="model",
-                                  command_template="{arg}",
-                                  node_args=["arg"],
-                                  task_args=[],
-                                  op_args=[])
+    tt_1 = tool.get_task_template(
+        template_name="preprocess",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    tt_2 = tool.get_task_template(
+        template_name="model",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
     tool.set_default_compute_resources_from_yaml(
         default_cluster_name="sequential",
-        yaml_file=os.path.join(thisdir, 'cluster_resources.yaml'),
-        set_task_templates=True
+        yaml_file=os.path.join(thisdir, "cluster_resources.yaml"),
+        set_task_templates=True,
     )
 
-    assert tool.default_compute_resources_set["sequential"] == \
-           {'num_cores': 2, 'm_mem_free': '2G', 'max_runtime_seconds': '(60 * 60 * 24)',
-            'queue': 'null.q'}
-    assert tt_1.default_compute_resources_set["sequential"] == \
-           {'num_cores': 1, 'm_mem_free': '3G', 'max_runtime_seconds': '(60 * 60 * 4)',
-            'queue': 'null.q'}
-    assert tt_2.default_compute_resources_set["sequential"] == \
-           {'num_cores': 3, 'm_mem_free': '2G', 'max_runtime_seconds': '(60 * 60 * 24)',
-            'queue': 'null.q'}
+    assert tool.default_compute_resources_set["sequential"] == {
+        "num_cores": 2,
+        "m_mem_free": "2G",
+        "max_runtime_seconds": "(60 * 60 * 24)",
+        "queue": "null.q",
+    }
+    assert tt_1.default_compute_resources_set["sequential"] == {
+        "num_cores": 1,
+        "m_mem_free": "3G",
+        "max_runtime_seconds": "(60 * 60 * 4)",
+        "queue": "null.q",
+    }
+    assert tt_2.default_compute_resources_set["sequential"] == {
+        "num_cores": 3,
+        "m_mem_free": "2G",
+        "max_runtime_seconds": "(60 * 60 * 24)",
+        "queue": "null.q",
+    }

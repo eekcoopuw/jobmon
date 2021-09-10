@@ -36,30 +36,32 @@ _task_instance_label_mapping = {
     "W": "FATAL",
     "U": "FATAL",
     "K": "FATAL",
-    "D": "DONE"
+    "D": "DONE",
 }
 
 _reversed_task_instance_label_mapping = {
     "PENDING": ["B", "I"],
     "RUNNING": ["R"],
     "FATAL": ["E", "Z", "W", "U", "K"],
-    "DONE": ["D"]
+    "DONE": ["D"],
 }
 
 
-@finite_state_machine.route('/task', methods=['GET'])
+@finite_state_machine.route("/task", methods=["GET"])
 def get_task_id_and_status() -> Any:
     """Get the status and id of a Task."""
     try:
-        wid = request.args['workflow_id']
+        wid = request.args["workflow_id"]
         int(wid)
-        nid = request.args['node_id']
+        nid = request.args["node_id"]
         int(nid)
         h = request.args["task_args_hash"]
         int(h)
         bind_to_logger(workflow_id=wid, node_id=nid, task_args_hash=str(h))
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
     query = """
         SELECT task.id, task.status
         FROM task
@@ -68,25 +70,26 @@ def get_task_id_and_status() -> Any:
             AND node_id = :node_id
             AND task_args_hash = :task_args_hash
     """
-    result = DB.session.query(Task).from_statement(text(query)).params(
-        workflow_id=wid,
-        node_id=nid,
-        task_args_hash=h
-    ).one_or_none()
+    result = (
+        DB.session.query(Task)
+        .from_statement(text(query))
+        .params(workflow_id=wid, node_id=nid, task_args_hash=h)
+        .one_or_none()
+    )
 
     # send back json
     if result is None:
-        resp = jsonify({'task_id': None, 'task_status': None})
+        resp = jsonify({"task_id": None, "task_status": None})
         logger.info("No task found.")
     else:
-        resp = jsonify({'task_id': result.id, 'task_status': result.status})
+        resp = jsonify({"task_id": result.id, "task_status": result.status})
         logger.info(f"Got task_id = {result.id}.")
 
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@finite_state_machine.route('/task', methods=['POST'])
+@finite_state_machine.route("/task", methods=["POST"])
 def add_task() -> Any:
     """Add a task to the database.
 
@@ -122,7 +125,8 @@ def add_task() -> Any:
                 name=t["name"],
                 command=t["command"],
                 max_attempts=t["max_attempts"],
-                status=TaskStatus.REGISTERED)
+                status=TaskStatus.REGISTERED,
+            )
             tasks.append(task)
         DB.session.add_all(tasks)
         DB.session.flush()
@@ -135,9 +139,9 @@ def add_task() -> Any:
             if t["task_attributes"]:
                 for name, val in t["task_attributes"].items():
                     type_id = _add_or_get_attribute_type([name])[0].id
-                    task_attribute = TaskAttribute(task_id=task.id,
-                                                   task_attribute_type_id=type_id,
-                                                   value=val)
+                    task_attribute = TaskAttribute(
+                        task_id=task.id, task_attribute_type_id=type_id, value=val
+                    )
                     task_attribute_list.append(task_attribute)
         DB.session.add_all(task_args)
         DB.session.flush()
@@ -153,12 +157,16 @@ def add_task() -> Any:
         resp.status_code = StatusCodes.OK
         return resp
     except KeyError as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
     except TypeError as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
 
-@finite_state_machine.route('/task/<task_id>/update_parameters', methods=['PUT'])
+@finite_state_machine.route("/task/<task_id>/update_parameters", methods=["PUT"])
 def update_task_parameters(task_id: int) -> Any:
     """Update the parameters for a given task."""
     bind_to_logger(task_id=task_id)
@@ -168,14 +176,20 @@ def update_task_parameters(task_id: int) -> Any:
     try:
         int(task_id)
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     query = """SELECT task.* FROM task WHERE task.id = :task_id"""
-    task = DB.session.query(Task).from_statement(text(query)).params(
-        task_id=task_id).one()
-    task.reset(name=data["name"], command=data["command"],
-               max_attempts=data["max_attempts"],
-               reset_if_running=data["reset_if_running"])
+    task = (
+        DB.session.query(Task).from_statement(text(query)).params(task_id=task_id).one()
+    )
+    task.reset(
+        name=data["name"],
+        command=data["command"],
+        max_attempts=data["max_attempts"],
+        reset_if_running=data["reset_if_running"],
+    )
 
     for name, val in data["task_attributes"].items():
         _add_or_update_attribute(task_id, name, val)
@@ -188,7 +202,7 @@ def update_task_parameters(task_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route('/task/bind_tasks', methods=['PUT'])
+@finite_state_machine.route("/task/bind_tasks", methods=["PUT"])
 def bind_tasks() -> Any:
     """Bind the task objects to the database."""
     all_data = request.get_json()
@@ -208,28 +222,41 @@ def bind_tasks() -> Any:
         AND (task.node_id, task.task_args_hash) IN ({tuples})
     """
 
-    task_query_params = ','.join([f"({task[0]},{task[1]})" for task in tasks.values()])
+    task_query_params = ",".join([f"({task[0]},{task[1]})" for task in tasks.values()])
 
-    prebound_task_query = task_query.format(workflow_id=workflow_id,
-                                            tuples=task_query_params)
-    prebound_tasks = DB.session.query(Task).from_statement(text(prebound_task_query)).all()
+    prebound_task_query = task_query.format(
+        workflow_id=workflow_id, tuples=task_query_params
+    )
+    prebound_tasks = (
+        DB.session.query(Task).from_statement(text(prebound_task_query)).all()
+    )
 
     # Bind tasks not present in DB
     tasks_to_add: List[Dict] = []  # Container for tasks not yet bound to the database
     tasks_to_update = 0
     present_tasks = {
-        (task.node_id, int(task.task_args_hash)): task
-        for task in prebound_tasks
+        (task.node_id, int(task.task_args_hash)): task for task in prebound_tasks
     }  # Dictionary mapping existing Tasks to the supplied arguments
 
-    arg_attr_mapping = {}  # Dict mapping input tasks to the corresponding args/attributes
+    arg_attr_mapping = (
+        {}
+    )  # Dict mapping input tasks to the corresponding args/attributes
     task_hash_lookup = {}  # Reverse dictionary of inputs, maps hash back to values
 
     for hashval, items in tasks.items():
 
-        node_id, arg_hash, name, command, \
-            max_att, reset, args, attrs, \
-            resource_scales, fallback_queues = items
+        (
+            node_id,
+            arg_hash,
+            name,
+            command,
+            max_att,
+            reset,
+            args,
+            attrs,
+            resource_scales,
+            fallback_queues,
+        ) = items
 
         id_tuple = (node_id, int(arg_hash))
 
@@ -237,24 +264,23 @@ def bind_tasks() -> Any:
         # task status and update the args/attributes
         if id_tuple in present_tasks.keys():
             task = present_tasks[id_tuple]
-            task.reset(name=name,
-                       command=command,
-                       max_attempts=max_att,
-                       reset_if_running=reset)
+            task.reset(
+                name=name, command=command, max_attempts=max_att, reset_if_running=reset
+            )
             tasks_to_update += 1
 
         # If not, add the task
         else:
             task = {
-                'workflow_id': workflow_id,
-                'node_id': node_id,
-                'task_args_hash': arg_hash,
-                'name': name,
-                'command': command,
-                'max_attempts': max_att,
-                'status': TaskStatus.REGISTERED,
-                'resource_scales': resource_scales,
-                'fallback_queues': fallback_queues
+                "workflow_id": workflow_id,
+                "node_id": node_id,
+                "task_args_hash": arg_hash,
+                "name": name,
+                "command": command,
+                "max_attempts": max_att,
+                "status": TaskStatus.REGISTERED,
+                "resource_scales": resource_scales,
+                "fallback_queues": fallback_queues,
             }
             tasks_to_add.append(task)
 
@@ -274,10 +300,12 @@ def bind_tasks() -> Any:
         DB.session.flush()
 
         # Fetch newly bound task ids
-        new_task_params = ','.join(
+        new_task_params = ",".join(
             [f"({task['node_id']},{task['task_args_hash']})" for task in tasks_to_add]
         )
-        new_task_query = task_query.format(workflow_id=workflow_id, tuples=new_task_params)
+        new_task_query = task_query.format(
+            workflow_id=workflow_id, tuples=new_task_params
+        )
 
         new_tasks = DB.session.query(Task).from_statement(text(new_task_query)).all()
 
@@ -315,24 +343,31 @@ def bind_tasks() -> Any:
         args, attrs = arg_attr_mapping[hashval]
 
         for key, val in args.items():
-            task_arg = {'task_id': task_id, 'arg_id': key, 'val': val}
+            task_arg = {"task_id": task_id, "arg_id": key, "val": val}
             args_to_add.append(task_arg)
 
         for name, val in attrs.items():
             attr_type_id = task_attr_type_mapping[name]
             insert_vals = {
-                'task_id': task_id,
-                'task_attribute_type_id': attr_type_id,
-                'value': val}
+                "task_id": task_id,
+                "task_attribute_type_id": attr_type_id,
+                "value": val,
+            }
             attrs_to_add.append(insert_vals)
 
     if args_to_add:
-        arg_insert_stmt = insert(TaskArg).values(args_to_add).on_duplicate_key_update(
-            val=text("VALUES(val)"))
+        arg_insert_stmt = (
+            insert(TaskArg)
+            .values(args_to_add)
+            .on_duplicate_key_update(val=text("VALUES(val)"))
+        )
         DB.session.execute(arg_insert_stmt)
     if attrs_to_add:
-        attr_insert_stmt = insert(TaskAttribute).values(attrs_to_add).\
-            on_duplicate_key_update(value=text("VALUES(value)"))
+        attr_insert_stmt = (
+            insert(TaskAttribute)
+            .values(attrs_to_add)
+            .on_duplicate_key_update(value=text("VALUES(value)"))
+        )
         DB.session.execute(attr_insert_stmt)
     DB.session.commit()
 
@@ -341,24 +376,27 @@ def bind_tasks() -> Any:
     return resp
 
 
-def _add_or_get_attribute_type(names: Union[List[str], Set[str]]) -> List[TaskAttributeType]:
-    attribute_types = [{'name': name} for name in names]
+def _add_or_get_attribute_type(
+    names: Union[List[str], Set[str]]
+) -> List[TaskAttributeType]:
+    attribute_types = [{"name": name} for name in names]
     insert_stmt = insert(TaskAttributeType).prefix_with("IGNORE")
     DB.session.execute(insert_stmt, attribute_types)
     DB.session.commit()
 
     # Query the IDs
-    attribute_type_ids = DB.session.query(TaskAttributeType).filter(
-        TaskAttributeType.name.in_(names)).all()
+    attribute_type_ids = (
+        DB.session.query(TaskAttributeType)
+        .filter(TaskAttributeType.name.in_(names))
+        .all()
+    )
     return attribute_type_ids
 
 
 def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
     attribute_type = _add_or_get_attribute_type([name])
     insert_vals = insert(TaskAttribute).values(
-        task_id=task_id,
-        task_attribute_type_id=attribute_type,
-        value=value
+        task_id=task_id, task_attribute_type_id=attribute_type, value=value
     )
     update_insert = insert_vals.on_duplicate_key_update(
         value=insert_vals.inserted.value
@@ -368,14 +406,16 @@ def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
     return attribute.id
 
 
-@finite_state_machine.route('/task/<task_id>/task_attributes', methods=['PUT'])
+@finite_state_machine.route("/task/<task_id>/task_attributes", methods=["PUT"])
 def update_task_attribute(task_id: int) -> Any:
     """Add or update attributes for a task."""
     bind_to_logger(task_id=task_id)
     try:
         int(task_id)
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     data = request.get_json()
     logger.info("Updating task attributes")
@@ -389,7 +429,7 @@ def update_task_attribute(task_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route('/task/<task_id>/queue', methods=['POST'])
+@finite_state_machine.route("/task/<task_id>/queue", methods=["POST"])
 def queue_job(task_id: int) -> Any:
     """Queue a job and change its status.
 
@@ -404,8 +444,10 @@ def queue_job(task_id: int) -> Any:
     except InvalidStateTransition:
         # Handles race condition if the task has already been queued
         if task.status == TaskStatus.QUEUED_FOR_INSTANTIATION:
-            msg = ("Caught InvalidStateTransition. Not transitioning job "
-                   f"{task_id} from Q to Q")
+            msg = (
+                "Caught InvalidStateTransition. Not transitioning job "
+                f"{task_id} from Q to Q"
+            )
             logger.warning(msg)
         else:
             raise
@@ -444,7 +486,7 @@ def _transform_mem_to_gb(mem_str: Any) -> float:
     return mem
 
 
-@finite_state_machine.route('/task/<task_id>/bind_resources', methods=['POST'])
+@finite_state_machine.route("/task/<task_id>/bind_resources", methods=["POST"])
 def bind_task_resources(task_id: int) -> Any:
     """Add the task resources for a given task.
 
@@ -463,9 +505,10 @@ def bind_task_resources(task_id: int) -> Any:
 
     new_resources = TaskResources(
         task_id=task_id_int,
-        queue_id=data.get('queue_id', None),
-        task_resources_type_id=data.get('task_resources_type_id', None),
-        requested_resources=data.get('requested_resources', None))
+        queue_id=data.get("queue_id", None),
+        task_resources_type_id=data.get("task_resources_type_id", None),
+        requested_resources=data.get("requested_resources", None),
+    )
     DB.session.add(new_resources)
     DB.session.flush()  # get auto increment
     new_resources.activate()
@@ -476,21 +519,24 @@ def bind_task_resources(task_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route('/task_status', methods=['GET'])
+@finite_state_machine.route("/task_status", methods=["GET"])
 def get_task_status() -> Any:
     """Get the status of a task."""
-    task_ids = request.args.getlist('task_ids')
+    task_ids = request.args.getlist("task_ids")
     if len(task_ids) == 0:
         raise InvalidUsage(f"Missing {task_ids} in request", status_code=400)
-    params = {'task_ids': task_ids}
+    params = {"task_ids": task_ids}
     where_clause = "task.id IN :task_ids"
 
     # status is an optional arg
-    status_request = request.args.getlist('status', None)
+    status_request = request.args.getlist("status", None)
     if len(status_request) > 0:
-        status_codes = [i for arg in status_request
-                        for i in _reversed_task_instance_label_mapping[arg]]
-        params['status'] = status_codes
+        status_codes = [
+            i
+            for arg in status_request
+            for i in _reversed_task_instance_label_mapping[arg]
+        ]
+        params["status"] = status_codes
         where_clause += " AND task_instance.status IN :status"
     q = """
         SELECT
@@ -509,7 +555,9 @@ def get_task_status() -> Any:
         LEFT JOIN task_instance_error_log
             ON task_instance.id = task_instance_error_log.task_instance_id
         WHERE
-            {where_clause}""".format(where_clause=where_clause)
+            {where_clause}""".format(
+        where_clause=where_clause
+    )
     res = DB.session.execute(q, params).fetchall()
 
     if res:
@@ -518,14 +566,27 @@ def get_task_status() -> Any:
 
         # remap to jobmon_cli statuses
         df.STATUS.replace(to_replace=_task_instance_label_mapping, inplace=True)
-        df = df[["TASK_INSTANCE_ID", "DISTRIBUTOR_ID", "STATUS", "RESOURCE_USAGE",
-                 "ERROR_TRACE"]]
+        df = df[
+            [
+                "TASK_INSTANCE_ID",
+                "DISTRIBUTOR_ID",
+                "STATUS",
+                "RESOURCE_USAGE",
+                "ERROR_TRACE",
+            ]
+        ]
         resp = jsonify(task_instance_status=df.to_json())
     else:
         df = pd.DataFrame(
             {},
-            columns=["TASK_INSTANCE_ID", "DISTRIBUTOR_ID", "STATUS",
-                     "RESOURCE_USAGE", "ERROR_TRACE"])
+            columns=[
+                "TASK_INSTANCE_ID",
+                "DISTRIBUTOR_ID",
+                "STATUS",
+                "RESOURCE_USAGE",
+                "ERROR_TRACE",
+            ],
+        )
         resp = jsonify(task_instance_status=df.to_json())
 
     resp.status_code = StatusCodes.OK
@@ -552,8 +613,8 @@ def _get_node_downstream(nodes: set, dag_id: int) -> set:
         return set()
     node_ids: Set = set()
     for r in result:
-        if r['downstream_node_ids'] is not None:
-            ids = json.loads(r['downstream_node_ids'])
+        if r["downstream_node_ids"] is not None:
+            ids = json.loads(r["downstream_node_ids"])
             node_ids = node_ids.union(set(ids))
     return node_ids
 
@@ -606,7 +667,7 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list) -> d
     return task_dict
 
 
-@finite_state_machine.route('/task/subdag', methods=['POST'])
+@finite_state_machine.route("/task/subdag", methods=["POST"])
 def get_task_subdag() -> Any:
     """Used to get the sub dag  of a given task.
 
@@ -614,8 +675,8 @@ def get_task_subdag() -> Any:
     """
     # Only return sub tasks in the following status. If empty or None, return all
     data = request.get_json()
-    task_ids = data.get('task_ids', [])
-    task_status = data.get('task_status', [])
+    task_ids = data.get("task_ids", [])
+    task_status = data.get("task_status", [])
 
     if len(task_ids) == 0:
         raise InvalidUsage(f"Missing {task_ids} in request", status_code=400)
@@ -641,11 +702,11 @@ def get_task_subdag() -> Any:
 
     # Since we have validated all the tasks belong to the same wf in status_command before
     # this call, assume they all belong to the same wf.
-    workflow_id = result[0]['workflow_id']
-    dag_id = result[0]['dag_id']
+    workflow_id = result[0]["workflow_id"]
+    dag_id = result[0]["dag_id"]
     node_ids = []
     for r in result:
-        node_ids.append(r['node_id'])
+        node_ids.append(r["node_id"])
     sub_dag_tree = _get_subdag(node_ids, dag_id)
     sub_task_tree = _get_tasks_from_nodes(workflow_id, sub_dag_tree, task_status)
     resp = jsonify(workflow_id=workflow_id, sub_task=sub_task_tree)
@@ -654,30 +715,35 @@ def get_task_subdag() -> Any:
     return resp
 
 
-@finite_state_machine.route('/task/update_statuses', methods=['PUT'])
+@finite_state_machine.route("/task/update_statuses", methods=["PUT"])
 def update_task_statuses() -> Any:
     """Update the status of the tasks."""
     data = request.get_json()
     try:
-        task_ids = data['task_ids']
-        new_status = data['new_status']
-        workflow_status = data['workflow_status']
-        workflow_id = data['workflow_id']
+        task_ids = data["task_ids"]
+        new_status = data["new_status"]
+        workflow_status = data["workflow_status"]
+        workflow_id = data["workflow_id"]
     except KeyError as e:
-        raise InvalidUsage(f"problem with {str(e)} in request to {request.path}",
-                           status_code=400) from e
+        raise InvalidUsage(
+            f"problem with {str(e)} in request to {request.path}", status_code=400
+        ) from e
 
-    task_ids_str = '(' + ','.join([str(i) for i in task_ids]) + ')'
+    task_ids_str = "(" + ",".join([str(i) for i in task_ids]) + ")"
     try:
         task_q = """
             UPDATE task
             SET status = '{new_status}'
             WHERE id IN {task_ids}
-        """.format(new_status=new_status, task_ids=task_ids_str)
+        """.format(
+            new_status=new_status, task_ids=task_ids_str
+        )
 
         task_res = DB.session.execute(task_q)
     except KeyError as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     try:
         # If job is supposed to be rerun, set task instances to "K"
@@ -686,7 +752,9 @@ def update_task_statuses() -> Any:
                 UPDATE task_instance
                 SET status = '{k_code}'
                 WHERE task_id in {task_ids}
-            """.format(k_code=TaskInstanceStatus.KILL_SELF, task_ids=task_ids_str)
+            """.format(
+                k_code=TaskInstanceStatus.KILL_SELF, task_ids=task_ids_str
+            )
             DB.session.execute(task_instance_q)
 
             # If workflow is done, need to set it to an error state before resume
@@ -695,12 +763,16 @@ def update_task_statuses() -> Any:
                     UPDATE workflow
                     SET status = '{status}'
                     WHERE id = {workflow_id}
-                """.format(status=Statuses.FAILED, workflow_id=workflow_id)
+                """.format(
+                    status=Statuses.FAILED, workflow_id=workflow_id
+                )
                 DB.session.execute(workflow_q)
 
         DB.session.commit()
     except KeyError as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     message = f"{task_res.rowcount} rows updated to status {new_status}"
     resp = jsonify(message)

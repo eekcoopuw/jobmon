@@ -13,8 +13,9 @@ from jobmon.client.tool import Tool
 @pytest.fixture
 def tool(db_cfg, client_env):
     tool = Tool()
-    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
-                                                 compute_resources={"queue": "null.q"})
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
     return tool
 
 
@@ -25,13 +26,12 @@ def task_template(tool):
         command_template="{arg}",
         node_args=["arg"],
         task_args=[],
-        op_args=[]
+        op_args=[],
     )
     return tt
 
 
 class MockDistributorProc:
-
     def __init__(self):
         pass
 
@@ -47,13 +47,15 @@ def test_unknown_state(tool, db_cfg, client_env, task_template, monkeypatch):
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     class TestDummyDistributor(DummyDistributor):
-        """ a test DummyDistributor that bypasses the setting of log_running and log_done"""
+        """a test DummyDistributor that bypasses the setting of log_running and log_done"""
+
         def __init__(self):
             """init the same way as DummyDistributor."""
             super().__init__()
 
-        def submit_to_batch_distributor(self, command: str, name: str,
-                                        requested_resources: Dict[str, Any]) -> int:
+        def submit_to_batch_distributor(
+            self, command: str, name: str, requested_resources: Dict[str, Any]
+        ) -> int:
             """Run a fake execution of the task.
             In a real executor, this is where qsub would happen.
             here, since it's a dummy executor, we just get a random num
@@ -67,25 +69,36 @@ def test_unknown_state(tool, db_cfg, client_env, task_template, monkeypatch):
     task_instance_heartbeat_interval = 5
 
     task = task_template.create_task(
-        arg="ls", name="dummyfbb", max_attempts=1,
-        cluster_name="dummy", compute_resources={"queue": "null.q"})
+        arg="ls",
+        name="dummyfbb",
+        max_attempts=1,
+        cluster_name="dummy",
+        compute_resources={"queue": "null.q"},
+    )
     workflow = tool.create_workflow(name="foo")
 
     workflow.add_task(task)
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
-    swarm = SwarmWorkflowRun(workflow_id=wfr.workflow_id, workflow_run_id=wfr.workflow_run_id,
-                             tasks=list(workflow.tasks.values()))
+    swarm = SwarmWorkflowRun(
+        workflow_id=wfr.workflow_id,
+        workflow_run_id=wfr.workflow_run_id,
+        tasks=list(workflow.tasks.values()),
+    )
     swarm.compute_initial_dag_state()
     list(swarm.queue_tasks())  # expand the generator
 
     test_dummy_distributor = TestDummyDistributor()
 
     requester = Requester(client_env)
-    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             test_dummy_distributor, requester=requester,
-                                             task_instance_heartbeat_interval=task_instance_heartbeat_interval)
+    distributor_service = DistributorService(
+        workflow.workflow_id,
+        wfr.workflow_run_id,
+        test_dummy_distributor,
+        requester=requester,
+        task_instance_heartbeat_interval=task_instance_heartbeat_interval,
+    )
     distributor_service.distribute()
 
     # Since we are using the 'dummy' distributor, we never actually do
@@ -104,8 +117,10 @@ def test_unknown_state(tool, db_cfg, client_env, task_template, monkeypatch):
     assert res[0] == "B"
 
     # sleep through the report by date
-    time.sleep(distributor_service._task_instance_heartbeat_interval
-               * (distributor_service._report_by_buffer + 1))
+    time.sleep(
+        distributor_service._task_instance_heartbeat_interval
+        * (distributor_service._report_by_buffer + 1)
+    )
 
     # job will move into lost track because it never logs a heartbeat
     distributor_service._get_lost_task_instances()
@@ -118,7 +133,9 @@ def test_unknown_state(tool, db_cfg, client_env, task_template, monkeypatch):
     assert res[0] == "U"
 
 
-def test_log_distributor_report_by(tool, db_cfg, client_env, task_template, monkeypatch):
+def test_log_distributor_report_by(
+    tool, db_cfg, client_env, task_template, monkeypatch
+):
     """test that jobs that are queued by an distributor but not running still log
     heartbeats"""
     from jobmon.client.distributor.distributor_service import DistributorService
@@ -131,9 +148,11 @@ def test_log_distributor_report_by(tool, db_cfg, client_env, task_template, monk
     # monkeypatch.setattr(sequential, "unwrap", mock_unwrap)
 
     task = task_template.create_task(
-        arg="sleep 5", name="heartbeat_sleeper",
+        arg="sleep 5",
+        name="heartbeat_sleeper",
         compute_resources={"queue": "null.q", "cores": 1, "max_runtime_seconds": 500},
-        cluster_name="sequential")
+        cluster_name="sequential",
+    )
     workflow = tool.create_workflow(name="foo")
     workflow.add_task(task)
 
@@ -141,14 +160,21 @@ def test_log_distributor_report_by(tool, db_cfg, client_env, task_template, monk
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
-    swarm = SwarmWorkflowRun(workflow_id=wfr.workflow_id, workflow_run_id=wfr.workflow_run_id,
-                             tasks=list(workflow.tasks.values()))
+    swarm = SwarmWorkflowRun(
+        workflow_id=wfr.workflow_id,
+        workflow_run_id=wfr.workflow_run_id,
+        tasks=list(workflow.tasks.values()),
+    )
     swarm.compute_initial_dag_state()
     list(swarm.queue_tasks())  # expand the generator
 
     requester = Requester(client_env)
-    distributor_service = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                             SequentialDistributor(), requester=requester)
+    distributor_service = DistributorService(
+        workflow.workflow_id,
+        wfr.workflow_run_id,
+        SequentialDistributor(),
+        requester=requester,
+    )
 
     # instantiate the job and then log a report by
     distributor_service.distribute()

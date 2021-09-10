@@ -11,21 +11,23 @@ class TaskResources(DB.Model):
         requested_resources
     """
 
-    __tablename__ = 'task_resources'
+    __tablename__ = "task_resources"
 
     id = DB.Column(DB.Integer, primary_key=True)
-    task_id = DB.Column(DB.Integer, DB.ForeignKey('task.id'))
-    queue_id = DB.Column(DB.Integer, DB.ForeignKey('queue.id'))
+    task_id = DB.Column(DB.Integer, DB.ForeignKey("task.id"))
+    queue_id = DB.Column(DB.Integer, DB.ForeignKey("queue.id"))
     task_resources_type_id = DB.Column(
-        DB.String(1), DB.ForeignKey('task_resources_type.id'))
+        DB.String(1), DB.ForeignKey("task_resources_type.id")
+    )
 
     requested_resources = DB.Column(DB.Text, default=None)
 
     # ORM relationships
     task = DB.relationship("Task", foreign_keys=[task_id])
     queue = DB.relationship("Queue", foreign_keys=[queue_id])
-    task_resources_type = DB.relationship("TaskResourcesType", # noqa F811
-                                          foreign_keys=[task_resources_type_id])
+    task_resources_type = DB.relationship(
+        "TaskResourcesType", foreign_keys=[task_resources_type_id]
+    )
 
     def activate(self) -> None:
         """Activate Task Resources on Task object."""

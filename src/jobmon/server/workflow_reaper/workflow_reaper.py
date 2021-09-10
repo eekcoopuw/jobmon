@@ -29,11 +29,15 @@ class WorkflowReaper(object):
         WorkflowRunStatus.ABORTED: (
             "{__version__} Workflow Reaper transitioned Workflow #{workflow_id} to ABORTED "
             "state. Workflow Run #{workflow_run_id} transitioned to ABORTED state."
-        )
+        ),
     }
 
-    def __init__(self, poll_interval_minutes: int, requester: Requester,
-                 wf_notification_sink: Callable[..., None] = None) -> None:
+    def __init__(
+        self,
+        poll_interval_minutes: int,
+        requester: Requester,
+        wf_notification_sink: Callable[..., None] = None,
+    ) -> None:
         """Initializes WorkflowReaper class with specified poll interval and slack info.
 
         Args:
@@ -77,14 +81,16 @@ class WorkflowReaper(object):
         app_route = "/lost_workflow_run"
         return_code, result = self._requester.send_request(
             app_route=app_route,
-            message={'status': status, 'version': self._version},
-            request_type='get',
-            logger=logger
+            message={"status": status, "version": self._version},
+            request_type="get",
+            logger=logger,
         )
         if http_request_ok(return_code) is False:
-            raise InvalidResponse(f'Unexpected status code {return_code} from POST '
-                                  f'request through route {app_route}. Expected '
-                                  f'code 200. Response content: {result}')
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {result}"
+            )
         workflow_runs = []
         for wfr in result["workflow_runs"]:
             workflow_runs.append(ReaperWorkflowRun.from_wire(wfr, self._requester))
@@ -104,8 +110,9 @@ class WorkflowReaper(object):
             status = wfr.reap()
             if status == target_status and self._wf_notification_sink is not None:
                 message = self._reaper_message[status].format(
-                    __version__=self._version, workflow_id=wfr.workflow_id,
-                    workflow_run_id=wfr.workflow_run_id
+                    __version__=self._version,
+                    workflow_id=wfr.workflow_id,
+                    workflow_run_id=wfr.workflow_run_id,
                 )
                 self._wf_notification_sink(msg=message)
 
@@ -119,8 +126,9 @@ class WorkflowReaper(object):
             status = wfr.reap()
             if status == target_status and self._wf_notification_sink is not None:
                 message = self._reaper_message[status].format(
-                    __version__=self._version, workflow_id=wfr.workflow_id,
-                    workflow_run_id=wfr.workflow_run_id
+                    __version__=self._version,
+                    workflow_id=wfr.workflow_id,
+                    workflow_run_id=wfr.workflow_run_id,
                 )
                 self._wf_notification_sink(msg=message)
 
@@ -139,7 +147,8 @@ class WorkflowReaper(object):
             status = wfr.reap()
             if status == target_status and self._wf_notification_sink is not None:
                 message = self._reaper_message[status].format(
-                    __version__=self._version, workflow_id=wfr.workflow_id,
-                    workflow_run_id=wfr.workflow_run_id
+                    __version__=self._version,
+                    workflow_id=wfr.workflow_id,
+                    workflow_run_id=wfr.workflow_run_id,
                 )
                 self._wf_notification_sink(msg=message)

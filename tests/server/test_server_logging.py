@@ -15,7 +15,7 @@ def log_config(web_server_in_memory, tmp_path):
         "default": {
             "class": "logging.FileHandler",
             "formatter": "json",
-            "filename": filepath
+            "filename": filepath,
         }
     }
     configure_logger("jobmon.server.web", add_handler)
@@ -47,6 +47,7 @@ def test_error_handling(requester_in_memory, log_config, monkeypatch):
 
     def raise_error():
         raise RuntimeError(msg)
+
     monkeypatch.setattr(routes, "_get_time", raise_error)
 
     requester = Requester("")
@@ -64,11 +65,9 @@ def test_error_handling(requester_in_memory, log_config, monkeypatch):
 
 
 def test_server_500(requester_in_memory):
-    test_requester = Requester('')
+    test_requester = Requester("")
     rc, resp = test_requester._send_request(
-        app_route='/test_bad',
-        message={},
-        request_type='get'
+        app_route="/test_bad", message={}, request_type="get"
     )
     assert rc == 500
-    assert 'MySQLdb._exceptions.ProgrammingError' in resp['error']['exception_message']
+    assert "MySQLdb._exceptions.ProgrammingError" in resp["error"]["exception_message"]

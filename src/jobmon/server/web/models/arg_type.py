@@ -5,7 +5,7 @@ from jobmon.server.web.models import DB
 class ArgType(DB.Model):
     """ArgType table in the database."""
 
-    __tablename__ = 'arg_type'
+    __tablename__ = "arg_type"
 
     NODE_ARG = 1
     TASK_ARG = 2

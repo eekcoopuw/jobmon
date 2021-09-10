@@ -13,14 +13,18 @@ class ClientLogging:
     Please don't use it in our code, so that we allow users to apply their own logger.
     """
 
-    def __init__(self,
-                 log_format: Optional[str] = None,
-                 log_level: Union[int, str] = logging.INFO) -> None:
+    def __init__(
+        self,
+        log_format: Optional[str] = None,
+        log_level: Union[int, str] = logging.INFO,
+    ) -> None:
         """Initialization of client logging."""
         self._format = log_format if log_format else DEFAULT_FORMAT
         self._level = log_level
 
-    def attach(self, logger_name: Optional[str] = None, handler: Optional[Any] = None) -> None:
+    def attach(
+        self, logger_name: Optional[str] = None, handler: Optional[Any] = None
+    ) -> None:
         """A method to attach a log handler to a given log level.
 
         Args:

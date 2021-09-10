@@ -56,20 +56,23 @@ def test_task_attribute(db_cfg, tool):
     workflow1 = tool.create_workflow(name="test_task_attribute")
     task_template = tool.active_task_templates["simple_template"]
     task1 = task_template.create_task(
-        arg="sleep 2", task_attributes={'LOCATION_ID': 1, 'AGE_GROUP_ID': 5, 'SEX': 1},
+        arg="sleep 2",
+        task_attributes={"LOCATION_ID": 1, "AGE_GROUP_ID": 5, "SEX": 1},
         cluster_name="sequential",
-        compute_resources={"queue": "null.q"}
+        compute_resources={"queue": "null.q"},
     )
     task2 = task_template.create_task(
-        arg="sleep 3", task_attributes=["NUM_CORES", "NUM_YEARS"],
+        arg="sleep 3",
+        task_attributes=["NUM_CORES", "NUM_YEARS"],
         cluster_name="sequential",
-        compute_resources={"queue": "null.q"}
+        compute_resources={"queue": "null.q"},
     )
 
     task3 = task_template.create_task(
-        arg="sleep 4", task_attributes={'NUM_CORES': 3, 'NUM_YEARS': 5},
+        arg="sleep 4",
+        task_attributes={"NUM_CORES": 3, "NUM_YEARS": 5},
         cluster_name="sequential",
-        compute_resources={"queue": "null.q"}
+        compute_resources={"queue": "null.q"},
     )
     workflow1.add_tasks([task1, task2, task3])
     workflow1.bind()
@@ -87,17 +90,31 @@ def test_task_attribute(db_cfg, tool):
         WHERE task_attribute.task_id IN (:task_id_1, :task_id_2, :task_id_3)
         ORDER BY task_attribute_type.name, task_id
         """
-        resp = DB.session.query(TaskAttribute.value, TaskAttributeType.name,
-                                TaskAttributeType.id).\
-            from_statement(text(query)).params(task_id_1=task1.task_id,
-                                               task_id_2=task2.task_id,
-                                               task_id_3=task3.task_id).all()
+        resp = (
+            DB.session.query(
+                TaskAttribute.value, TaskAttributeType.name, TaskAttributeType.id
+            )
+            .from_statement(text(query))
+            .params(
+                task_id_1=task1.task_id,
+                task_id_2=task2.task_id,
+                task_id_3=task3.task_id,
+            )
+            .all()
+        )
         values = [tup[0] for tup in resp]
         names = [tup[1] for tup in resp]
         ids = [tup[2] for tup in resp]
-        expected_vals = ['5', '1', None, '3', None, '5', '1']
-        expected_names = ['AGE_GROUP_ID', 'LOCATION_ID', 'NUM_CORES', 'NUM_CORES', 'NUM_YEARS',
-                          'NUM_YEARS', 'SEX']
+        expected_vals = ["5", "1", None, "3", None, "5", "1"]
+        expected_names = [
+            "AGE_GROUP_ID",
+            "LOCATION_ID",
+            "NUM_CORES",
+            "NUM_CORES",
+            "NUM_YEARS",
+            "NUM_YEARS",
+            "SEX",
+        ]
 
         assert values == expected_vals
         assert names == expected_names
@@ -112,15 +129,17 @@ def test_executor_parameter_copy(tool, task_template):
     # Use SGEExecutor for adjust methods, but the executor is never called
     # Therefore, not an SGEIntegration test
     compute_resources = {
-        "m_mem_free": '1G', "max_runtime_seconds": 60,
-        "num_cores": 1, "queue": 'all.q'
+        "m_mem_free": "1G",
+        "max_runtime_seconds": 60,
+        "num_cores": 1,
+        "queue": "all.q",
     }
 
     task1 = task_template.create_task(
-        name='foo', arg="echo foo", compute_resources=compute_resources
+        name="foo", arg="echo foo", compute_resources=compute_resources
     )
     task2 = task_template.create_task(
-        name='bar', arg="echo bar", compute_resources=compute_resources
+        name="bar", arg="echo bar", compute_resources=compute_resources
     )
 
     # Ensure memory addresses are different
@@ -148,11 +167,14 @@ def test_get_errors(db_cfg, tool):
     DB = db_cfg["DB"]
     with app.app_context():
         # fake workflow run
-        DB.session.execute("""
+        DB.session.execute(
+            """
             UPDATE workflow_run
             SET status ='{s}'
-            WHERE id={wfr_id}""".format(s=WorkflowRunStatus.RUNNING,
-                                        wfr_id=wfr_1.workflow_run_id))
+            WHERE id={wfr_id}""".format(
+                s=WorkflowRunStatus.RUNNING, wfr_id=wfr_1.workflow_run_id
+            )
+        )
         DB.session.execute(
             """
             INSERT INTO task_instance (workflow_run_id, task_id, status)
@@ -160,16 +182,21 @@ def test_get_errors(db_cfg, tool):
             """.format(
                 wfr_id=wfr_1.workflow_run_id,
                 t_id=task_a.task_id,
-                s=TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR))
+                s=TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+            )
+        )
         ti = DB.session.execute(
             "SELECT max(id) from task_instance where task_id={}".format(task_a.task_id)
         ).fetchone()
         ti_id = ti[0]
-        DB.session.execute("""
+        DB.session.execute(
+            """
             UPDATE task
             SET status ='{s}'
-            WHERE id={t_id}""".format(s=TaskStatus.RUNNING,
-                                      t_id=task_a.task_id))
+            WHERE id={t_id}""".format(
+                s=TaskStatus.RUNNING, t_id=task_a.task_id
+            )
+        )
         DB.session.commit()
 
     # log task_instance fatal error
@@ -177,7 +204,7 @@ def test_get_errors(db_cfg, tool):
     return_code, _ = workflow1.requester.send_request(
         app_route=app_route,
         message={"error_state": "F", "error_message": "bla bla bla"},
-        request_type='post'
+        request_type="post",
     )
     assert return_code == 200
 
@@ -186,7 +213,7 @@ def test_get_errors(db_cfg, tool):
     return_code, _ = workflow1.requester.send_request(
         app_route=app_route,
         message={"error_state": "F", "error_message": "ble ble ble"},
-        request_type='post'
+        request_type="post",
     )
     assert return_code == 200
 
@@ -198,12 +225,14 @@ def test_get_errors(db_cfg, tool):
 
     # make sure that the 2 errors logged above are counted for in the request_type='get'
     rc, response = workflow1.requester.send_request(
-        app_route=f'/task_instance/{ti_id}/task_instance_error_log',
+        app_route=f"/task_instance/{ti_id}/task_instance_error_log",
         message={},
-        request_type='get')
+        request_type="get",
+    )
     all_errors = [
         SerializeTaskInstanceErrorLog.kwargs_from_wire(j)
-        for j in response['task_instance_error_log']]
+        for j in response["task_instance_error_log"]
+    ]
     assert len(all_errors) == 2
 
     # make sure we see the 2 task_instance_error_log when checking
@@ -212,15 +241,15 @@ def test_get_errors(db_cfg, tool):
     task_errors = task_a.get_errors()
     assert type(task_errors) == dict
     assert len(task_errors) == 2
-    assert task_errors['task_instance_id'] == ti_id
-    error_log = task_errors['error_log']
+    assert task_errors["task_instance_id"] == ti_id
+    error_log = task_errors["error_log"]
     assert type(error_log) == list
     err_1st = error_log[0]
     err_2nd = error_log[1]
     assert type(err_1st) == dict
     assert type(err_2nd) == dict
-    assert err_1st['description'] == "bla bla bla"
-    assert err_2nd['description'] == "ble ble ble"
+    assert err_1st["description"] == "bla bla bla"
+    assert err_2nd["description"] == "ble ble ble"
 
 
 def test_reset_attempts_on_resume(db_cfg, tool):
@@ -244,16 +273,20 @@ def test_reset_attempts_on_resume(db_cfg, tool):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        DB.session.execute("""
+        DB.session.execute(
+            """
             UPDATE task
             SET status='{s}', num_attempts=3, max_attempts=3
-            WHERE task.id={task_id}""".format(s=TaskStatus.ERROR_FATAL,
-                                              task_id=task_a.task_id))
+            WHERE task.id={task_id}""".format(
+                s=TaskStatus.ERROR_FATAL, task_id=task_a.task_id
+            )
+        )
         DB.session.commit()
 
     # create a second workflow and actually run it
-    workflow2 = tool.create_workflow(name="test_reset_attempts_on_resume",
-                                     workflow_args=workflow1.workflow_args)
+    workflow2 = tool.create_workflow(
+        name="test_reset_attempts_on_resume", workflow_args=workflow1.workflow_args
+    )
     task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 5")
     workflow2.add_task(task_a)
     workflow2.bind()

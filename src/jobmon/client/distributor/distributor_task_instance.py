@@ -17,9 +17,14 @@ logger = logging.getLogger(__name__)
 class DistributorTaskInstance:
     """Object used for communicating with JSM from the distributor node."""
 
-    def __init__(self, task_instance_id: int, workflow_run_id: int,
-                 cluster_type_name: str, requester: Requester,
-                 distributor_id: Optional[int] = None) -> None:
+    def __init__(
+        self,
+        task_instance_id: int,
+        workflow_run_id: int,
+        cluster_type_name: str,
+        requester: Requester,
+        distributor_id: Optional[int] = None,
+    ) -> None:
         """Initialization of distributor task instance.
 
         Args:
@@ -45,8 +50,9 @@ class DistributorTaskInstance:
         self.requester = requester
 
     @classmethod
-    def from_wire(cls: Any, wire_tuple: tuple, cluster_type_name: str, requester: Requester
-                  ) -> DistributorTaskInstance:
+    def from_wire(
+        cls: Any, wire_tuple: tuple, cluster_type_name: str, requester: Requester
+    ) -> DistributorTaskInstance:
         """Create an instance from json that the JQS returns.
 
         Args:
@@ -60,17 +66,23 @@ class DistributorTaskInstance:
             DistributorTaskInstance
         """
         kwargs = SerializeTaskInstance.kwargs_from_wire(wire_tuple)
-        ti = cls(task_instance_id=kwargs["task_instance_id"],
-                 workflow_run_id=kwargs["workflow_run_id"],
-                 cluster_type_name=cluster_type_name,
-                 distributor_id=kwargs["distributor_id"],
-                 requester=requester)
+        ti = cls(
+            task_instance_id=kwargs["task_instance_id"],
+            workflow_run_id=kwargs["workflow_run_id"],
+            cluster_type_name=cluster_type_name,
+            distributor_id=kwargs["distributor_id"],
+            requester=requester,
+        )
         return ti
 
     @classmethod
-    def register_task_instance(cls: Any, task_id: int, workflow_run_id: int,
-                               cluster_type_name: str, requester: Requester
-                               ) -> DistributorTaskInstance:
+    def register_task_instance(
+        cls: Any,
+        task_id: int,
+        workflow_run_id: int,
+        cluster_type_name: str,
+        requester: Requester,
+    ) -> DistributorTaskInstance:
         """Register a new task instance for an existing task_id.
 
         Args:
@@ -79,23 +91,29 @@ class DistributorTaskInstance:
             cluster_type_name (str): which Cluster to this task is on
             requester: requester for communicating with central services
         """
-        app_route = '/task_instance'
+        app_route = "/task_instance"
         return_code, response = requester.send_request(
             app_route=app_route,
-            message={'task_id': task_id,
-                     'workflow_run_id': workflow_run_id,
-                     'cluster_type_name': cluster_type_name},
-            request_type='post',
-            logger=logger
+            message={
+                "task_id": task_id,
+                "workflow_run_id": workflow_run_id,
+                "cluster_type_name": cluster_type_name,
+            },
+            request_type="post",
+            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
 
-        return cls.from_wire(response['task_instance'], cluster_type_name=cluster_type_name,
-                             requester=requester)
+        return cls.from_wire(
+            response["task_instance"],
+            cluster_type_name=cluster_type_name,
+            requester=requester,
+        )
 
     def register_no_distributor_id(self, no_id_err_msg: str) -> None:
         """Register that submission failed with the central service.
@@ -104,22 +122,23 @@ class DistributorTaskInstance:
             no_id_err_msg: The error msg from the executor when failed to obtain distributor
                 id.
         """
-        app_route = (
-            f'/task_instance/{self.task_instance_id}/log_no_distributor_id')
+        app_route = f"/task_instance/{self.task_instance_id}/log_no_distributor_id"
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={'no_id_err_msg': no_id_err_msg},
-            request_type='post',
-            logger=logger
+            message={"no_id_err_msg": no_id_err_msg},
+            request_type="post",
+            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
 
-    def register_submission_to_batch_distributor(self, distributor_id: int,
-                                                 next_report_increment: float) -> None:
+    def register_submission_to_batch_distributor(
+        self, distributor_id: int, next_report_increment: float
+    ) -> None:
         """Register the submission of a new task instance to batch distributor.
 
         Args:
@@ -130,19 +149,22 @@ class DistributorTaskInstance:
         """
         self.distributor_id = distributor_id
 
-        app_route = f'/task_instance/{self.task_instance_id}/log_distributor_id'
+        app_route = f"/task_instance/{self.task_instance_id}/log_distributor_id"
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={'distributor_id': str(distributor_id),
-                     'next_report_increment': next_report_increment},
-            request_type='post',
-            logger=logger
+            message={
+                "distributor_id": str(distributor_id),
+                "next_report_increment": next_report_increment,
+            },
+            request_type="post",
+            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
 
         self.report_by_date = time.time() + next_report_increment
 
@@ -163,15 +185,16 @@ class DistributorTaskInstance:
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
-                'error_state': self.error_state,
-                'error_message': self.error_msg,
-                'distributor_id': distributor_id,
+                "error_state": self.error_state,
+                "error_message": self.error_msg,
+                "distributor_id": distributor_id,
             },
-            request_type='post',
-            logger=logger
+            request_type="post",
+            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )

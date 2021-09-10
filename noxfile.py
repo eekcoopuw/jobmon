@@ -1,4 +1,4 @@
-"""Nox Configuration for jobmon."""
+"""Nox Configuration for Jobmon."""
 import os
 import shutil
 
@@ -51,14 +51,21 @@ def lint(session: Session) -> None:
     """
     args = session.posargs or src_locations + test_locations
     # TODO: work these in over time?
-    # "flake8-black",
     # "darglint",
     # "flake8-bandit"
     session.install("flake8",
                     "flake8-annotations",
                     "flake8-import-order",
-                    "flake8-docstrings")
+                    "flake8-docstrings",
+                    "flake8-black")
     session.run("flake8", *args)
+
+
+@nox.session(python="3.7", venv_backend="conda")
+def black(session):
+    args = session.posargs or src_locations + test_locations
+    session.install("black")
+    session.run("black", *args)
 
 
 @nox.session(python=python, venv_backend="conda")

@@ -9,12 +9,14 @@ from jobmon.server.web.models.cluster_type import ClusterType
 from jobmon.server.web.routes import finite_state_machine
 
 
-@finite_state_machine.route('/cluster_type/<cluster_type_name>', methods=['GET'])
+@finite_state_machine.route("/cluster_type/<cluster_type_name>", methods=["GET"])
 def get_cluster_type_by_name(cluster_type_name: str) -> Any:
     """Get the id, name and package_location of a ClusterType."""
-    result = DB.session.query(ClusterType)\
-        .filter(ClusterType.name == cluster_type_name)\
+    result = (
+        DB.session.query(ClusterType)
+        .filter(ClusterType.name == cluster_type_name)
         .one_or_none()
+    )
 
     # send back json
     if result is None:

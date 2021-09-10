@@ -96,8 +96,9 @@ class ClusterDistributor(Protocol):
         raise RemoteExitInfoNotAvailable
 
     @abstractmethod
-    def submit_to_batch_distributor(self, command: str, name: str,
-                                    requested_resources: Dict[str, Any]) -> int:
+    def submit_to_batch_distributor(
+        self, command: str, name: str, requested_resources: Dict[str, Any]
+    ) -> int:
         """Submit the command on the cluster technology and return a distributor_id.
 
         The distributor_id can be used to identify the associated TaskInstance, terminate
@@ -123,9 +124,12 @@ class ClusterDistributor(Protocol):
         """
         wrapped_cmd = [
             "worker_node",
-            "--task_instance_id", task_instance_id,
-            "--expected_jobmon_version", __version__,
-            "--cluster_type_name", self.cluster_type_name
+            "--task_instance_id",
+            task_instance_id,
+            "--expected_jobmon_version",
+            __version__,
+            "--cluster_type_name",
+            self.cluster_type_name,
         ]
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         return str_cmd
@@ -176,7 +180,7 @@ class ConcreteResource(Protocol):
     @classmethod
     @abstractmethod
     def validate_and_create_concrete_resource(
-            cls: Any, queue: ClusterQueue, requested_resources: Dict[str, Any]
+        cls: Any, queue: ClusterQueue, requested_resources: Dict[str, Any]
     ) -> Tuple[bool, str, ConcreteResource]:
         """Validate that the resources are available on the queue and return an instance.
 
@@ -190,9 +194,12 @@ class ConcreteResource(Protocol):
     @classmethod
     @abstractmethod
     def adjust_and_create_concrete_resource(
-            cls: Any, expected_queue: ClusterQueue, existing_resources: Dict[str, Any],
-            fallback_queues: Optional[List[ClusterQueue]],
-            resource_scales: Optional[Dict[str, float]]) -> ConcreteResource:
+        cls: Any,
+        expected_queue: ClusterQueue,
+        existing_resources: Dict[str, Any],
+        fallback_queues: Optional[List[ClusterQueue]],
+        resource_scales: Optional[Dict[str, float]],
+    ) -> ConcreteResource:
         """Adjust resources after a resource error is detected by the distributor.
 
         Args:

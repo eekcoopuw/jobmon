@@ -16,6 +16,14 @@ ignore =
     D100,   # Missing docstring in public module
     D104,   # Missing docstring in public package
     W503    # Line break before binary operator, ignore 503 and use 504
+extend-ignore =
+    # See https://github.com/PyCQA/pycodestyle/issues/373
+    E203
+
+per-file-ignores =
+    src/jobmon/server/workflow_reaper/api.py:F401
+    src/jobmon/client/api.py:F401
+    src/jobmon/server/web/models/task_resources.py:F811
 max-line-length = 95
 
 # import order
