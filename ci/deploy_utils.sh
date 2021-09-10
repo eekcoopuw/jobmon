@@ -230,9 +230,7 @@ test_k8s_slurm_deployment () {
     JOBMON_VERSION=$3
     TARGET_IP=$4
 
-    echo $QLOGIN_ACTIVATE
-
-    $QLOGIN_ACTIVATE && \
+    source /homes/svcscicompci/miniconda3/bin/activate base && \
       CONDA_DIR_SLURM=$WORKSPACE/.conda_env/load_test_slurm && \
       #source /homes/svcscicompci/miniconda3/bin/activate base && \
       PATH=$PATH:/opt/slurm/bin && \
