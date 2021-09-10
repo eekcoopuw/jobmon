@@ -170,18 +170,16 @@ pipeline {
           // Download jobmon
           checkout scm
           script{
-            // Quotes on "${QLOGIN_ACTIVATE}" are needed to be taken as a whole command by Bash
             ssh_cmd = """#!/bin/bash
-                . ${WORKSPACE}/ci/deploy_utils.sh
-                test_k8s_uge_deployment \
-                    ${WORKSPACE} \
-                    "${QLOGIN_ACTIVATE}" \
-                    ${JOBMON_VERSION} \
-                    "${env.TARGET_IP}" \
+                 . ${WORKSPACE}/ci/deploy_utils.sh
+                 test_k8s_slurm_deployment \
+                     ${WORKSPACE} \
+                     ${JOBMON_VERSION} \
+                     ${env.TARGET_IP} \
             """
             sh "echo 'ssh cmd to send is $ssh_cmd'"
             sshagent(['jenkins']) {
-               sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"${ssh_cmd}\""
+               sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu \"$ssh_cmd\""
             }
           }
         } // end qlogin

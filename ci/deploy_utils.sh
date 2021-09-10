@@ -226,9 +226,8 @@ test_k8s_uge_deployment () {
 
 test_k8s_slurm_deployment () {
     WORKSPACE=$1
-    QLOGIN_ACTIVATE=$2
-    JOBMON_VERSION=$3
-    TARGET_IP=$4
+    JOBMON_VERSION=$2
+    TARGET_IP=$3
 
     source /homes/svcscicompci/miniconda3/bin/activate base && \
       conda info --envs && \
