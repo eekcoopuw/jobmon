@@ -176,7 +176,7 @@ def test_worker_with_mock_404(qpidcfg):
 
 @pytest.mark.unittest
 def test_worker_with_mock_500(qpidcfg):
-    """This is to test the job will be put back to the Q with age increated when QPID is
+    """This is to test the job will be put back to the Q with age increased when QPID is
     down."""
     from jobmon.server.qpid_integration.qpid_integrator import MaxpssQ, maxpss_forever
 
@@ -201,6 +201,44 @@ def test_worker_with_mock_500(qpidcfg):
         r = MaxpssQ().get()
         assert r[0] == 1
         assert r[1] > 0
+
+
+@pytest.mark.unittest
+def test_uge_only(db_cfg, qpidcfg):
+    """Test that only UGE tasks will be added to the queue and updated"""
+    from jobmon.server.qpid_integration.qpid_integrator import MaxpssQ
+    from jobmon.server.qpid_integration.qpid_integrator import (
+        _get_completed_task_instance,
+    )
+    import time
+
+    # Populate database with some dirty task instances
+    heartbeat_time = time.time()  # Log a heartbeat before creating tasks
+    time.sleep(3)  # Ensure enough of a lag passes before binding tasks
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+        INSERT INTO task_instance (workflow_run_id, cluster_type_name, 
+                                   distributor_id, task_id, status, status_date)
+        VALUES 
+            (1, 'uge', 1, 1, 'D', now()),
+            (1, 'uge', 2, 2, 'D', now()),
+            (1, 'sequential', 3, 3, 'D', now()),
+            (1, 'sequential', 4, 4, 'D', now())
+        """
+        DB.session.execute(sql)
+        DB.session.commit()
+
+    # Pull some task instances using the QPID integrator.
+    # Should return 2 instances only since only UGE tasks are returned
+    # initialize the q
+    MaxpssQ()
+    with app.app_context():
+        _get_completed_task_instance(starttime=heartbeat_time, session=DB.session)
+
+    # Check that queue has 2 items
+    assert MaxpssQ._q.qsize() == 2
 
 
 def test_route_get_maxpss_error_path(qpidcfg, client_env):
