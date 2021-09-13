@@ -36,14 +36,16 @@ pipeline {
     } // End remote checkout repo stage
     stage('Get service configuration info') {
       steps {
-        // Scicomp kubernetes cluster container
-        withCredentials([file(credentialsId: 'k8s-scicomp-cluster-kubeconf',
-                              variable: 'KUBECONFIG')]) {
-          sh '''#!/bin/bash
-                . ${WORKSPACE}/ci/deploy_utils.sh
-                get_connection_info_from_namespace ${WORKSPACE} ${K8S_NAMESPACE}
-             '''
-        } // end credentials
+        script {
+          // Scicomp kubernetes cluster container
+          withCredentials([file(credentialsId: 'k8s-scicomp-cluster-kubeconf',
+                                variable: 'KUBECONFIG')]) {
+            sh '''#!/bin/bash
+                  . ${WORKSPACE}/ci/deploy_utils.sh
+                  get_connection_info_from_namespace ${WORKSPACE} ${K8S_NAMESPACE}
+               '''
+          } // end credentials
+        }
         script {
           env.JOBMON_SERVICE_FQDN = sh (
             script: '''#!/bin/bash
@@ -66,23 +68,23 @@ pipeline {
     } // end TARGETIP stage
     stage('Build Conda Distribution') {
       steps {
-        steps {
-            sh '''#!/bin/bash
-                  export PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
-                  export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
-                  export JOBMON_VERSION="${JOBMON_VERSION}"
-                  export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
-                  export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
-                  export JOBMON_SERVICE_FQDN="${env.JOBMON_SERVICE_FQDN}"
-                  export JOBMON_SERVICE_PORT="${env.JOBMON_SERVICE_PORT}"
-                  ${ACTIVATE} && nox --session conda_build
-               '''
-        } // End step
+        script {
+          sh '''#!/bin/bash
+                export PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
+                export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
+                export JOBMON_VERSION="${JOBMON_VERSION}"
+                export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
+                export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
+                export JOBMON_SERVICE_FQDN="${env.JOBMON_SERVICE_FQDN}"
+                export JOBMON_SERVICE_PORT="${env.JOBMON_SERVICE_PORT}"
+                ${ACTIVATE} && nox --session conda_build
+             '''
+        } // End script
       } // end steps
     } // end build stage
     stage('Upload Conda Distribution') {
       steps {
-        steps {
+        script {
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
                                             passwordVariable: 'REG_PASSWORD')]) {
@@ -97,7 +99,7 @@ pipeline {
                     "https://artifactory.ihme.washington.edu/artifactory/conda-scicomp/noarch/$UPLOAD_FILEPATH"
                '''
           } // end credentials
-        } // end steps
+        } // end script
       } // end steps
     } // end upload stage
   } // end stages
