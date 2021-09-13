@@ -5,11 +5,12 @@ import pytest
 
 def test_client_logging_default_format(client_env, capsys):
     from jobmon.client.client_logging import ClientLogging
+
     ClientLogging().attach(logger_name="test.test")
     logger = logging.getLogger("test.test")
     logger.info("This is a test")
     captured = capsys.readouterr()
-    logs = captured.out.split('\n')
+    logs = captured.out.split("\n")
     # should only contain two lines, one empty, one above log
     for log in logs:
         if log:
@@ -22,6 +23,7 @@ def test_client_logging_default_format(client_env, capsys):
 
 def test_client_logging_customized_handler(client_env, capsys):
     from jobmon.client.client_logging import ClientLogging
+
     h = logging.StreamHandler()  # stderr
     # This formatter logs nothing but the fixed msg.
     # Nobody would create a log like this; thus, it proves it's using my logger.
@@ -31,7 +33,7 @@ def test_client_logging_customized_handler(client_env, capsys):
     logger = logging.getLogger("test.test")
     logger.info("This is a test")
     captured = capsys.readouterr()
-    logs = captured.out.split('\n')
+    logs = captured.out.split("\n")
     # should only contain two lines, one empty, one formatter text
     for log in logs:
         if log:

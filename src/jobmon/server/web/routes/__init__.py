@@ -20,7 +20,7 @@ logger = LocalProxy(partial(get_logger, __name__))
 
 
 # ############################ LANDING ROUTES ################################################
-@finite_state_machine.route('/', methods=['GET'])
+@finite_state_machine.route("/", methods=["GET"])
 def is_alive() -> Any:
     """Action that sends a response to the requester indicating that responder is listening."""
     logger.info(
@@ -33,13 +33,13 @@ def is_alive() -> Any:
 
 def _get_time() -> str:
     time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-    time = time['time']
+    time = time["time"]
     time = time.strftime("%Y-%m-%d %H:%M:%S")
     DB.session.commit()
     return time
 
 
-@finite_state_machine.route("/time", methods=['GET'])
+@finite_state_machine.route("/time", methods=["GET"])
 def get_pst_now() -> Any:
     """Get the time from the database."""
     time = _get_time()
@@ -48,7 +48,7 @@ def get_pst_now() -> Any:
     return resp
 
 
-@finite_state_machine.route("/health", methods=['GET'])
+@finite_state_machine.route("/health", methods=["GET"])
 def health() -> Any:
     """Test connectivity to the database.
 
@@ -58,19 +58,30 @@ def health() -> Any:
     logger.info(DB.session.bind.pool.status())
     _get_time()
     # Assume that if we got this far without throwing an exception, we should be online
-    resp = jsonify(status='OK')
+    resp = jsonify(status="OK")
     resp.status_code = StatusCodes.OK
     return resp
 
 
 # ############################ TESTING ROUTES ################################################
-@finite_state_machine.route('/test_bad', methods=['GET'])
+@finite_state_machine.route("/test_bad", methods=["GET"])
 def test_bad_route():
     """Test route to force a 500 error."""
-    DB.session.execute('SELECT * FROM blip_bloop_table').all()
+    DB.session.execute("SELECT * FROM blip_bloop_table").all()
 
 
 # ############################ APPLICATION ROUTES #############################################
-from jobmon.server.web.routes import (dag, node, task, task_instance, task_template, tool,
-                                      tool_version, workflow, workflow_run, cluster_type,
-                                      cluster, queue)
+from jobmon.server.web.routes import (
+    dag,
+    node,
+    task,
+    task_instance,
+    task_template,
+    tool,
+    tool_version,
+    workflow,
+    workflow_run,
+    cluster_type,
+    cluster,
+    queue,
+)

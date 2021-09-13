@@ -39,7 +39,9 @@ def _get_qpid_response(ex_id: int) -> Tuple:
     logger.info(qpid_api_url)
     resp = requests.get(qpid_api_url)
     if resp.status_code != 200:
-        logger.info(f"The maxpss of {ex_id} is not available. Put it back to the queue.")
+        logger.info(
+            f"The maxpss of {ex_id} is not available. Put it back to the queue."
+        )
         return (resp, None)
     else:
         maxpss = resp.json()["max_pss"]
@@ -48,10 +50,12 @@ def _get_qpid_response(ex_id: int) -> Tuple:
 
 
 def _get_completed_task_instance(starttime: float, session: Session) -> None:
-    sql = "SELECT executor_id from task_instance " \
-          "where status not in (\"B\", \"I\", \"R\", \"W\") " \
-          "and UNIX_TIMESTAMP(status_date) > {} " \
-          "and maxpss is null".format(starttime)
+    sql = (
+        "SELECT executor_id from task_instance "
+        'where status not in ("B", "I", "R", "W") '
+        "and UNIX_TIMESTAMP(status_date) > {} "
+        "and maxpss is null".format(starttime)
+    )
     rs = session.execute(sql).fetchall()
     session.commit()
     session.close()
@@ -83,13 +87,17 @@ def maxpss_forever() -> None:
                 if status_code != 200:
                     # Maxpss not ready
                     MaxpssQ().put(ex_id, age + 1)
-                    logger.info("Maxpss is not ready. Put {} back to the queue.".format(ex_id))
+                    logger.info(
+                        "Maxpss is not ready. Put {} back to the queue.".format(ex_id)
+                    )
                 else:
                     if _update_maxpss_in_db(ex_id, maxpss, session):
                         logger.info(f"Updated execution id: {ex_id} maxpss: {maxpss}")
                     else:
                         MaxpssQ().put(ex_id, age + 1)
-                        logger.warning(f"Failed to update db, put {ex_id} back to the queue.")
+                        logger.warning(
+                            f"Failed to update db, put {ex_id} back to the queue."
+                        )
         # Query DB to add newly completed jobs to q and log q length every 30 minute
         current_time = time()
         if int(current_time - last_heartbeat) > _get_pulling_interval():

@@ -10,16 +10,19 @@ import structlog
 from jobmon import __version__
 
 
-def get_logstash_handler_config(logstash_host: str, logstash_port: Optional[int] = None,
-                                logstash_protocol: str = '',
-                                logstash_log_level: str = "DEBUG") -> Dict:
+def get_logstash_handler_config(
+    logstash_host: str,
+    logstash_port: Optional[int] = None,
+    logstash_protocol: str = "",
+    logstash_log_level: str = "DEBUG",
+) -> Dict:
     """If using logstash, get the right config."""
     # Define the transport mechanism
     transport_protocol_map = {
-        'TCP': 'logstash_async.transport.TcpTransport',
-        'UDP': 'logstash_async.transport.UdpTransport',
-        'Beats': 'logstash_async.transport.BeatsTransport',
-        'HTTP': 'logstash_async.transport.HttpTransport'
+        "TCP": "logstash_async.transport.TcpTransport",
+        "UDP": "logstash_async.transport.UdpTransport",
+        "Beats": "logstash_async.transport.BeatsTransport",
+        "HTTP": "logstash_async.transport.HttpTransport",
     }
 
     transport_protocol = transport_protocol_map[logstash_protocol]
@@ -34,45 +37,44 @@ def get_logstash_handler_config(logstash_host: str, logstash_port: Optional[int]
             "transport": transport_protocol,
             "host": logstash_host,
             "port": logstash_port,
-            "database_path": f'/tmp/sqlite/logstash-{hostname}.db'
+            "database_path": f"/tmp/sqlite/logstash-{hostname}.db",
         }
     }
     return handler_config
 
 
-def _processor_add_version(logger: logging.Logger, log_method: str,
-                           event_dict: MutableMapping[str, Any]) -> MutableMapping[str, Any]:
+def _processor_add_version(
+    logger: logging.Logger, log_method: str, event_dict: MutableMapping[str, Any]
+) -> MutableMapping[str, Any]:
     event_dict["jobmon_version"] = __version__
     return event_dict
 
 
-def _processor_remove_data_if_not_debug(logger: logging.Logger, log_method: str,
-                                        event_dict: MutableMapping[str, Any]) \
-        -> MutableMapping[str, Any]:
+def _processor_remove_data_if_not_debug(
+    logger: logging.Logger, log_method: str, event_dict: MutableMapping[str, Any]
+) -> MutableMapping[str, Any]:
     if "web" in logger.name and log_method != "debug":
         if "data" in event_dict.keys():
             event_dict.pop("data")
     return event_dict
 
 
-def configure_logger(name: str, add_handlers: Optional[Dict] = None,
-                     json_formatter_prefix: str = "") -> None:
+def configure_logger(
+    name: str, add_handlers: Optional[Dict] = None, json_formatter_prefix: str = ""
+) -> None:
     """Configure logging format, handlers, etc."""
     dict_config: Dict = {
         "version": 1,
         "disable_existing_loggers": False,
         "formatters": {
             # copied formatter from here: https://github.com/hynek/structlog/issues/235
-            'console': {
-                '()': structlog.stdlib.ProcessorFormatter,
-                'processor': structlog.dev.ConsoleRenderer(),
-                'keep_exc_info': True,
-                'keep_stack_info': True,
+            "console": {
+                "()": structlog.stdlib.ProcessorFormatter,
+                "processor": structlog.dev.ConsoleRenderer(),
+                "keep_exc_info": True,
+                "keep_stack_info": True,
             },
-            "json": {
-                "()": jsonlogger.JsonFormatter,
-                "prefix": json_formatter_prefix
-            },
+            "json": {"()": jsonlogger.JsonFormatter, "prefix": json_formatter_prefix},
         },
         # only stream handler by default. can add syslog using args
         "handlers": {
@@ -89,17 +91,17 @@ def configure_logger(name: str, add_handlers: Optional[Dict] = None,
                 "level": "DEBUG",
                 "propagate": True,
             },
-            'werkzeug': {
-                'level': 'WARN',
+            "werkzeug": {
+                "level": "WARN",
             },
-            'sqlalchemy': {
-                'level': 'WARN',
+            "sqlalchemy": {
+                "level": "WARN",
             }
             # enable SQL debug
             # 'sqlalchemy.engine': {
             #     'level': 'INFO',
             # }
-        }
+        },
     }
 
     if add_handlers is not None:
@@ -143,7 +145,7 @@ def configure_logger(name: str, add_handlers: Optional[Dict] = None,
         # Provides predefined methods - log.debug(), log.info(), etc.
         wrapper_class=structlog.stdlib.BoundLogger,
         # Caching of our logger
-        cache_logger_on_first_use=True
+        cache_logger_on_first_use=True,
     )
 
 
@@ -158,7 +160,9 @@ def get_logger(name: str = "") -> structlog.stdlib.BoundLogger:
     if not name and "logger" in g:
         name = g.logger.name
     if not name:
-        name = ".".join(__name__.split(".")[:-1])  # strip off module name. keep dir name
+        name = ".".join(
+            __name__.split(".")[:-1]
+        )  # strip off module name. keep dir name
 
     logger = structlog.get_logger(name)
     if "logger" in g:

@@ -8,7 +8,7 @@ from jobmon.exceptions import UnregisteredClusterType
 known_clusters: Dict[str, str] = {
     "dummy": "jobmon.cluster_type.dummy",
     "multiprocess": "jobmon.cluster_type.multiprocess",
-    "sequential": "jobmon.cluster_type.sequential"
+    "sequential": "jobmon.cluster_type.sequential",
 }
 
 

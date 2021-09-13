@@ -34,10 +34,14 @@ class WorkflowRun:
     this is not enforced via any database constraints.
     """
 
-    def __init__(self, workflow_id: int, workflow_run_id: int,
-                 tasks: List[Task],
-                 fail_after_n_executions: int = 1_000_000_000,
-                 requester: Optional[Requester] = None) -> None:
+    def __init__(
+        self,
+        workflow_id: int,
+        workflow_run_id: int,
+        tasks: List[Task],
+        fail_after_n_executions: int = 1_000_000_000,
+        requester: Optional[Requester] = None,
+    ) -> None:
         """Initialization of the swarm WorkflowRun."""
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
@@ -62,24 +66,26 @@ class WorkflowRun:
                 task_resources=task_resources,
                 resource_scales=task.resource_scales,
                 fallback_queues=task.fallback_queues,
-                max_attempts=task.max_attempts
+                max_attempts=task.max_attempts,
             )
             self.swarm_tasks[task.task_id] = swarm_task
 
         # create relationships on swarm task
         for task in tasks:
             swarm_task = self.swarm_tasks[task.task_id]
-            swarm_task.upstream_swarm_tasks = set([
-                self.swarm_tasks[t.task_id] for t in task.upstream_tasks])
-            swarm_task.downstream_swarm_tasks = set([
-                self.swarm_tasks[t.task_id] for t in task.downstream_tasks])
+            swarm_task.upstream_swarm_tasks = set(
+                [self.swarm_tasks[t.task_id] for t in task.upstream_tasks]
+            )
+            swarm_task.downstream_swarm_tasks = set(
+                [self.swarm_tasks[t.task_id] for t in task.downstream_tasks]
+            )
 
         # state tracking
         self.all_done: Set[SwarmTask] = set()
         self.all_error: Set[SwarmTask] = set()
         self.ready_to_run: List[SwarmTask] = list()
 
-        self.last_sync = datetime.strptime('2010-01-01 00:00:00', "%Y-%m-%d %H:%M:%S")
+        self.last_sync = datetime.strptime("2010-01-01 00:00:00", "%Y-%m-%d %H:%M:%S")
         self._status = WorkflowRunStatus.BOUND
 
         # test parameter to force failure
@@ -100,40 +106,45 @@ class WorkflowRun:
     @property
     def active_tasks(self) -> List[SwarmTask]:
         """List of tasks that are not currently Registered, Adjusting, Done or Error_Fatal."""
-        statuses = [TaskStatus.REGISTERED, TaskStatus.DONE, TaskStatus.ERROR_FATAL,
-                    TaskStatus.ADJUSTING_RESOURCES]
-        return [task for task in self.swarm_tasks.values() if task.status not in statuses]
+        statuses = [
+            TaskStatus.REGISTERED,
+            TaskStatus.DONE,
+            TaskStatus.ERROR_FATAL,
+            TaskStatus.ADJUSTING_RESOURCES,
+        ]
+        return [
+            task for task in self.swarm_tasks.values() if task.status not in statuses
+        ]
 
     def update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""
-        app_route = f'/workflow_run/{self.workflow_run_id}/update_status'
+        app_route = f"/workflow_run/{self.workflow_run_id}/update_status"
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={'status': status},
-            request_type='put',
-            logger=logger
+            message={"status": status},
+            request_type="put",
+            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
         self._status = status
 
     def terminate_workflow_run(self) -> None:
         """Terminate the workflow run."""
-        app_route = f'/workflow_run/{self.workflow_run_id}/terminate'
+        app_route = f"/workflow_run/{self.workflow_run_id}/terminate"
         return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={},
-            request_type='put',
-            logger=logger
+            app_route=app_route, message={}, request_type="put", logger=logger
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
 
     def _set_fail_after_n_executions(self, n: int) -> None:
         """For use during testing.
@@ -147,19 +158,17 @@ class WorkflowRun:
         self._val_fail_after_n_executions = n
 
     def _get_current_time(self) -> datetime:
-        app_route = '/time'
+        app_route = "/time"
         return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={},
-            request_type='get',
-            logger=logger
+            app_route=app_route, message={}, request_type="get", logger=logger
         )
 
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
         return response["time"]
 
     def compute_initial_dag_state(self) -> None:
@@ -184,9 +193,11 @@ class WorkflowRun:
                 raise RuntimeError("Invalid DAG. Encountered a DONE node")
 
             if swarm_task.status == TaskStatus.REGISTERED:
-                logger.debug(f"Instantiating resources for newly ready task and "
-                             f"changing it to the queued state. Task: {swarm_task},"
-                             f" id: {swarm_task.task_id}")
+                logger.debug(
+                    f"Instantiating resources for newly ready task and "
+                    f"changing it to the queued state. Task: {swarm_task},"
+                    f" id: {swarm_task.task_id}"
+                )
                 if swarm_task.task_resources is None:
                     yield swarm_task
                 swarm_task.queue_task()
@@ -194,13 +205,19 @@ class WorkflowRun:
                 swarm_task.adjust_task_resources()
                 swarm_task.queue_task()
             else:
-                raise RuntimeError(f"Task {swarm_task.task_id} in ready_to_run queue but "
-                                   f"status is {swarm_task.status}.")
+                raise RuntimeError(
+                    f"Task {swarm_task.task_id} in ready_to_run queue but "
+                    f"status is {swarm_task.status}."
+                )
 
     def block_until_newly_ready_or_all_done(
-            self, fail_fast: bool = False, poll_interval: int = 10,
-            seconds_until_timeout: int = 36000, wedged_workflow_sync_interval: int = 600,
-            distributor_alive_callable: Optional[Callable] = None) -> None:
+        self,
+        fail_fast: bool = False,
+        poll_interval: int = 10,
+        seconds_until_timeout: int = 36000,
+        wedged_workflow_sync_interval: int = 600,
+        distributor_alive_callable: Optional[Callable] = None,
+    ) -> None:
         """Block until there is new work to do, or the workflow run has completed."""
         time_since_last_update = 0
         time_since_last_wedge_sync = 0
@@ -224,8 +241,10 @@ class WorkflowRun:
                 # should get statuses from every active task that has changed
                 # state or any task that has changed state since we last got
                 # task status updates
-                logger.info(f"No state changes discovered in {time_since_last_wedge_sync}s. "
-                            f"Syncing all tasks to ensure consistency.")
+                logger.info(
+                    f"No state changes discovered in {time_since_last_wedge_sync}s. "
+                    f"Syncing all tasks to ensure consistency."
+                )
                 swarm_tasks = self._task_status_updates(self.active_tasks)
                 time_since_last_wedge_sync = 0
             else:
@@ -244,8 +263,10 @@ class WorkflowRun:
                 )
             # fail during test path
             if self._n_executions >= self._val_fail_after_n_executions:
-                raise ValueError(f"WorkflowRun asked to fail after {self._n_executions} "
-                                 f"executions. Failing now")
+                raise ValueError(
+                    f"WorkflowRun asked to fail after {self._n_executions} "
+                    f"executions. Failing now"
+                )
 
             # sleep little baby
             time.sleep(poll_interval)
@@ -261,8 +282,11 @@ class WorkflowRun:
 
             # top fringe is defined by:
             # not any unfinished upstream tasks and current task is registered
-            if not unfinished_upstreams and swarm_task.status == TaskStatus.REGISTERED\
-                    and swarm_task not in self.ready_to_run:
+            if (
+                not unfinished_upstreams
+                and swarm_task.status == TaskStatus.REGISTERED
+                and swarm_task not in self.ready_to_run
+            ):
                 self.ready_to_run += [swarm_task]
 
     def _update_dag_state(self, swarm_tasks: List[SwarmTask]) -> None:
@@ -291,8 +315,10 @@ class WorkflowRun:
                 newly_ready.append(swarm_task)
 
             else:
-                logger.debug(f"Got status update {status} for task_id: {swarm_task.task_id}."
-                             "No actions necessary.")
+                logger.debug(
+                    f"Got status update {status} for task_id: {swarm_task.task_id}."
+                    "No actions necessary."
+                )
                 continue
 
         # update completed set
@@ -325,7 +351,7 @@ class WorkflowRun:
         logger.debug(f"Propagate {swarm_task}")
         for downstream in swarm_task.downstream_swarm_tasks:
             logger.debug(f"downstream {downstream}")
-            downstream_done = (downstream.status == TaskStatus.DONE)
+            downstream_done = downstream.status == TaskStatus.DONE
             downstream.num_upstreams_done += 1
 
             # The adjusting state is not included in this branch because a task can't be in
@@ -339,10 +365,14 @@ class WorkflowRun:
                     # don't do anything, task not ready yet
                     logger.debug("Not ready yet")
             else:
-                logger.debug(f"Not ready yet or already queued, Status is {downstream.status}")
+                logger.debug(
+                    f"Not ready yet or already queued, Status is {downstream.status}"
+                )
         return new_fringe
 
-    def _task_status_updates(self, swarm_tasks: List[SwarmTask] = None) -> List[SwarmTask]:
+    def _task_status_updates(
+        self, swarm_tasks: List[SwarmTask] = None
+    ) -> List[SwarmTask]:
         """Update internal state of tasks to match the database.
 
         If no tasks are specified, get all tasks.
@@ -350,20 +380,26 @@ class WorkflowRun:
         if swarm_tasks is None:
             swarm_tasks = []
         swarm_tasks_tuples = [t.to_wire() for t in swarm_tasks]
-        app_route = f'/workflow/{self.workflow_id}/task_status_updates'
+        app_route = f"/workflow/{self.workflow_id}/task_status_updates"
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={'last_sync': str(self.last_sync),
-                     'swarm_tasks_tuples': swarm_tasks_tuples},
-            request_type='post',
-            logger=logger
+            message={
+                "last_sync": str(self.last_sync),
+                "swarm_tasks_tuples": swarm_tasks_tuples,
+            },
+            request_type="post",
+            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
 
-        self.last_sync = response['time']
+        self.last_sync = response["time"]
         # status gets updated in from_wire
-        return [SwarmTask.from_wire(task, self.swarm_tasks) for task in response['task_dcts']]
+        return [
+            SwarmTask.from_wire(task, self.swarm_tasks)
+            for task in response["task_dcts"]
+        ]

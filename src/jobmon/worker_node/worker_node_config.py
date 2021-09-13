@@ -27,9 +27,13 @@ class WorkerNodeConfig:
             web_service_port=args.web_service_port,
         )
 
-    def __init__(self, task_instance_heartbeat_interval: int,
-                 heartbeat_report_by_buffer: float,
-                 web_service_fqdn: str, web_service_port: str) -> None:
+    def __init__(
+        self,
+        task_instance_heartbeat_interval: int,
+        heartbeat_report_by_buffer: float,
+        web_service_fqdn: str,
+        web_service_port: str,
+    ) -> None:
         """Initialization of the worker node config."""
         self.task_instance_heartbeat_interval = task_instance_heartbeat_interval
         self.heartbeat_report_by_buffer = heartbeat_report_by_buffer

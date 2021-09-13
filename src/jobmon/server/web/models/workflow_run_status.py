@@ -6,7 +6,7 @@ from jobmon.server.web.models import DB
 class WorkflowRunStatus(DB.Model):
     """Workflow Run Status Database Table."""
 
-    __tablename__ = 'workflow_run_status'
+    __tablename__ = "workflow_run_status"
 
     REGISTERED = Statuses.REGISTERED
     LINKING = Statuses.LINKING

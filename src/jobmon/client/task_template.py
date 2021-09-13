@@ -25,7 +25,9 @@ class TaskTemplate:
     declared set of arguments.
     """
 
-    def __init__(self, template_name: str, requester: Optional[Requester] = None) -> None:
+    def __init__(
+        self, template_name: str, requester: Optional[Requester] = None
+    ) -> None:
         """Groups tasks of a type.
 
         Declares the concrete arguments that instances may vary over either from workflow to
@@ -47,8 +49,12 @@ class TaskTemplate:
         self.requester = requester
 
     @classmethod
-    def get_task_template(cls: Any, tool_version_id: int, template_name: str,
-                          requester: Optional[Requester] = None) -> TaskTemplate:
+    def get_task_template(
+        cls: Any,
+        tool_version_id: int,
+        template_name: str,
+        requester: Optional[Requester] = None,
+    ) -> TaskTemplate:
         """Get a bound instance of TaskTemplate.
 
         Args:
@@ -79,7 +85,9 @@ class TaskTemplate:
         """Default compute resources associated with active tool version."""
         return self.active_task_template_version.default_compute_resources_set
 
-    def update_default_compute_resources(self, cluster_name: str, **kwargs: Any) -> None:
+    def update_default_compute_resources(
+        self, cluster_name: str, **kwargs: Any
+    ) -> None:
         """Update default compute resources in place only overridding specified keys.
 
         If no default cluster is specified when this method is called, cluster_name will
@@ -89,11 +97,13 @@ class TaskTemplate:
             cluster_name: name of cluster to modify default values for.
             **kwargs: any key/value pair you want to update specified as an argument.
         """
-        self.active_task_template_version.update_default_compute_resources(cluster_name,
-                                                                           **kwargs)
+        self.active_task_template_version.update_default_compute_resources(
+            cluster_name, **kwargs
+        )
 
-    def set_default_compute_resources_from_yaml(self, yaml_file: str,
-                                                default_cluster_name: str = "") -> None:
+    def set_default_compute_resources_from_yaml(
+        self, yaml_file: str, default_cluster_name: str = ""
+    ) -> None:
         """Set default ComputeResources from a user provided yaml file for task template level.
 
         Args:
@@ -112,22 +122,26 @@ class TaskTemplate:
             default_cluster_name = self.default_cluster_name
 
         # Read in compute resources from YAML
-        with open(yaml_file, 'r') as stream:
+        with open(yaml_file, "r") as stream:
             try:
                 compute_resources = yaml.safe_load(stream)
             except yaml.YAMLError as exc:
-                raise ValueError(f"Unable to read compute resources from {yaml_file}.") \
-                    from exc
+                raise ValueError(
+                    f"Unable to read compute resources from {yaml_file}."
+                ) from exc
 
         self.active_task_template_version.set_default_compute_resources_from_dict(
             self.default_cluster_name,
-            (compute_resources["task_template_resources"]
-                              [self.template_name]
-                              [default_cluster_name])
+            (
+                compute_resources["task_template_resources"][self.template_name][
+                    default_cluster_name
+                ]
+            ),
         )
 
-    def set_default_compute_resources_from_dict(self, cluster_name: str,
-                                                compute_resources: Dict[str, Any]) -> None:
+    def set_default_compute_resources_from_dict(
+        self, cluster_name: str, compute_resources: Dict[str, Any]
+    ) -> None:
         """Set default compute resources for a given cluster_name.
 
         If no default cluster is specified when this method is called, cluster_name will
@@ -143,8 +157,9 @@ class TaskTemplate:
         )
 
     @classmethod
-    def from_wire(cls: Any, wire_tuple: Tuple, requester: Optional[Requester] = None
-                  ) -> TaskTemplate:
+    def from_wire(
+        cls: Any, wire_tuple: Tuple, requester: Optional[Requester] = None
+    ) -> TaskTemplate:
         """Get a bound instance of TaskTemplate from the http wire format.
 
         Args:
@@ -152,8 +167,9 @@ class TaskTemplate:
             requester: communicate with the flask services.
         """
         task_template_kwargs = SerializeClientTaskTemplate.kwargs_from_wire(wire_tuple)
-        task_template = cls(template_name=task_template_kwargs["template_name"],
-                            requester=requester)
+        task_template = cls(
+            template_name=task_template_kwargs["template_name"], requester=requester
+        )
         task_template._task_template_id = task_template_kwargs["id"]
         task_template.tool_version_id = task_template_kwargs["tool_version_id"]
         return task_template
@@ -170,16 +186,18 @@ class TaskTemplate:
         app_route = "/task_template"
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={"tool_version_id": tool_version_id,
-                     "task_template_name": self.template_name},
-            request_type='post',
-            logger=logger
+            message={
+                "tool_version_id": tool_version_id,
+                "task_template_name": self.template_name,
+            },
+            request_type="post",
+            logger=logger,
         )
 
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST request through route '
-                f'{app_route}. Expected code 200. Response content: {response}'
+                f"Unexpected status code {return_code} from POST request through route "
+                f"{app_route}. Expected code 200. Response content: {response}"
             )
 
         self._task_template_id = response["task_template_id"]
@@ -216,8 +234,9 @@ class TaskTemplate:
             )
         return self._active_task_template_version
 
-    def set_active_task_template_version_id(self, task_template_version_id: Union[str, int]
-                                            = "latest") -> None:
+    def set_active_task_template_version_id(
+        self, task_template_version_id: Union[str, int] = "latest"
+    ) -> None:
         """The TaskTemplateVersion that is set as the active one (latest is default).
 
         Args:
@@ -230,9 +249,11 @@ class TaskTemplate:
                 " get_task_template_version or load existing ones from the database using "
                 "load_task_template_versions."
             )
-        version_index_lookup = {self.task_template_versions[index].id: index
-                                for index in range(len(self.task_template_versions))
-                                if self.task_template_versions[index].is_bound}
+        version_index_lookup = {
+            self.task_template_versions[index].id: index
+            for index in range(len(self.task_template_versions))
+            if self.task_template_versions[index].is_bound
+        }
 
         # get the lookup value
         if task_template_version_id == "latest":
@@ -247,20 +268,24 @@ class TaskTemplate:
             raise ValueError(
                 f"task_template_version_id {task_template_version_id} is not a valid "
                 f"version for task_template_name={self.template_name} and tool_version_id="
-                f"{self.tool_version_id}. Valid versions={version_index_lookup.keys()}")
+                f"{self.tool_version_id}. Valid versions={version_index_lookup.keys()}"
+            )
 
         self._active_task_template_version = self.task_template_versions[version_index]
 
-    def set_active_task_template_version(self, task_template_version: TaskTemplateVersion) \
-            -> None:
+    def set_active_task_template_version(
+        self, task_template_version: TaskTemplateVersion
+    ) -> None:
         """The TaskTemplateVersion that is set as the active one.
 
         Args:
             task_template_version: which version to set as active on this object.
         """
         # build a lookup between the version list and the version hash
-        hash_index_lookup = {hash(self.task_template_versions[index]): index
-                             for index in range(len(self.task_template_versions))}
+        hash_index_lookup = {
+            hash(self.task_template_versions[index]): index
+            for index in range(len(self.task_template_versions))
+        }
 
         # get the lookup value
         lookup_hash = hash(task_template_version)
@@ -281,31 +306,34 @@ class TaskTemplate:
         """Load task template versions associated with this task template from the database."""
         app_route = f"/task_template/{self.id}/versions"
         return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={},
-            request_type='get',
-            logger=logger
+            app_route=app_route, message={}, request_type="get", logger=logger
         )
 
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST request through route '
-                f'{app_route}. Expected code 200. Response content: {response}'
+                f"Unexpected status code {return_code} from POST request through route "
+                f"{app_route}. Expected code 200. Response content: {response}"
             )
 
-        task_template_versions = [TaskTemplateVersion.from_wire(wire_args) for wire_args in
-                                  response["task_template_versions"]]
+        task_template_versions = [
+            TaskTemplateVersion.from_wire(wire_args)
+            for wire_args in response["task_template_versions"]
+        ]
         self._task_template_versions = task_template_versions
 
         # activate the latest version
         if self.task_template_versions:
             self.set_active_task_template_version_id()
 
-    def get_task_template_version(self, command_template: str, node_args: List[str] = None,
-                                  task_args: List[str] = None, op_args: List[str] = None,
-                                  default_cluster_name: str = "",
-                                  default_compute_resources: Optional[Dict[str, Any]] = None
-                                  ) -> TaskTemplateVersion:
+    def get_task_template_version(
+        self,
+        command_template: str,
+        node_args: List[str] = None,
+        task_args: List[str] = None,
+        op_args: List[str] = None,
+        default_cluster_name: str = "",
+        default_compute_resources: Optional[Dict[str, Any]] = None,
+    ) -> TaskTemplateVersion:
         """Create a task template version instance. If it already exists, activate it.
 
         Args:
@@ -344,7 +372,7 @@ class TaskTemplate:
             node_args=node_args,
             task_args=task_args,
             op_args=op_args,
-            requester=self.requester
+            requester=self.requester,
         )
 
         # now activate it
@@ -360,16 +388,18 @@ class TaskTemplate:
 
         return self.active_task_template_version
 
-    def create_task(self,
-                    name: Optional[str] = None,
-                    upstream_tasks: List[Task] = [],
-                    task_attributes: Union[List, dict] = {},
-                    max_attempts: int = 3,
-                    compute_resources: Optional[Dict[str, Any]] = None,
-                    compute_resources_callable: Optional[Callable] = None,
-                    resource_scales: Optional[Dict[str, Any]] = None,
-                    cluster_name: str = "",
-                    **kwargs: Any) -> Task:
+    def create_task(
+        self,
+        name: Optional[str] = None,
+        upstream_tasks: List[Task] = [],
+        task_attributes: Union[List, dict] = {},
+        max_attempts: int = 3,
+        compute_resources: Optional[Dict[str, Any]] = None,
+        compute_resources_callable: Optional[Callable] = None,
+        resource_scales: Optional[Dict[str, Any]] = None,
+        cluster_name: str = "",
+        **kwargs: Any,
+    ) -> Task:
         """Create an instance of a task associated with this template.
 
         Args:
@@ -394,8 +424,10 @@ class TaskTemplate:
         """
         # make sure task template is bound to tool version
         if not self.is_bound:
-            raise RuntimeError(f"TaskTemplate={self.template_name} must be bound to a tool "
-                               "version before tasks can be created.")
+            raise RuntimeError(
+                f"TaskTemplate={self.template_name} must be bound to a tool "
+                "version before tasks can be created."
+            )
 
         # bind task template version to task template if needed
         if not self.active_task_template_version.is_bound:
@@ -415,12 +447,16 @@ class TaskTemplate:
         command = self.active_task_template_version.command_template.format(**kwargs)
 
         # arg id name mappings
-        node_args = {self.active_task_template_version.id_name_map[k]: str(v)
-                     for k, v in kwargs.items()
-                     if k in self.active_task_template_version.node_args}
-        task_args = {self.active_task_template_version.id_name_map[k]: str(v)
-                     for k, v in kwargs.items()
-                     if k in self.active_task_template_version.task_args}
+        node_args = {
+            self.active_task_template_version.id_name_map[k]: str(v)
+            for k, v in kwargs.items()
+            if k in self.active_task_template_version.node_args
+        }
+        task_args = {
+            self.active_task_template_version.id_name_map[k]: str(v)
+            for k, v in kwargs.items()
+            if k in self.active_task_template_version.task_args
+        }
 
         # set cluster_name, function level overrides default
         if not cluster_name:
@@ -446,11 +482,13 @@ class TaskTemplate:
             max_attempts=max_attempts,
             upstream_tasks=upstream_tasks,
             task_attributes=task_attributes,
-            requester=self.requester
+            requester=self.requester,
         )
         return task
 
     def __hash__(self) -> int:
         """A hash of the TaskTemplate name and tool version concatenated together."""
-        hash_value = int(hashlib.sha1(self.template_name.encode('utf-8')).hexdigest(), 16)
+        hash_value = int(
+            hashlib.sha1(self.template_name.encode("utf-8")).hexdigest(), 16
+        )
         return hash_value

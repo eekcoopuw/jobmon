@@ -20,13 +20,19 @@ logger = logging.getLogger(__name__)
 class SwarmTask(object):
     """Swarm side task object."""
 
-    def __init__(self, task_id: int, task_hash: int, status: str, task_args_hash: int,
-                 cluster: Cluster,
-                 task_resources: Optional[TaskResources] = None,
-                 resource_scales: Optional[Dict] = None,
-                 max_attempts: int = 3,
-                 fallback_queues: Optional[List[ClusterQueue]] = None,
-                 requester: Optional[Requester] = None) -> None:
+    def __init__(
+        self,
+        task_id: int,
+        task_hash: int,
+        status: str,
+        task_args_hash: int,
+        cluster: Cluster,
+        task_resources: Optional[TaskResources] = None,
+        resource_scales: Optional[Dict] = None,
+        max_attempts: int = 3,
+        fallback_queues: Optional[List[ClusterQueue]] = None,
+        requester: Optional[Requester] = None,
+    ) -> None:
         """Implementing swarm behavior of tasks.
 
         Args:
@@ -69,7 +75,9 @@ class SwarmTask(object):
         self.num_upstreams_done: int = 0
 
     @staticmethod
-    def from_wire(wire_tuple: tuple, swarm_tasks_dict: Dict[int, SwarmTask]) -> SwarmTask:
+    def from_wire(
+        wire_tuple: tuple, swarm_tasks_dict: Dict[int, SwarmTask]
+    ) -> SwarmTask:
         """Return dict of swarm_task attributes from db."""
         kwargs = SerializeSwarmTask.kwargs_from_wire(wire_tuple)
         swarm_tasks_dict[kwargs["task_id"]].status = kwargs["status"]
@@ -82,7 +90,7 @@ class SwarmTask(object):
     @property
     def all_upstreams_done(self) -> bool:
         """Return a bool of if upstreams are done or not."""
-        if (self.num_upstreams_done >= len(self.upstream_tasks)):
+        if self.num_upstreams_done >= len(self.upstream_tasks):
             logger.debug(f"task id: {self.task_id} is checking all upstream tasks")
             return all([u.is_done for u in self.upstream_tasks])
         else:
@@ -106,10 +114,10 @@ class SwarmTask(object):
     def queue_task(self) -> None:
         """Transition a task to the Queued for Instantiation status in the db."""
         rc, _ = self.requester.send_request(
-            app_route=f'/task/{self.task_id}/queue',
+            app_route=f"/task/{self.task_id}/queue",
             message={},
-            request_type='post',
-            logger=logger
+            request_type="post",
+            logger=logger,
         )
         if http_request_ok(rc) is False:
             raise InvalidResponse(f"{rc}: Could not queue task")
@@ -135,7 +143,7 @@ class SwarmTask(object):
             initial_resources=initial_resources,
             resource_scales=resource_scales,
             expected_queue=expected_queue,
-            fallback_queues=fallback_queues
+            fallback_queues=fallback_queues,
         )
         new_task_resources.bind(task_id=self.task_id)
         self.task_resources = new_task_resources

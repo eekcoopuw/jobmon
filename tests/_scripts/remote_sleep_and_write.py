@@ -5,7 +5,7 @@ import time
 
 def happy_path(sleep_secs, output_file_path, name):
     time.sleep(sleep_secs)
-    f = open(output_file_path, 'w')
+    f = open(output_file_path, "w")
     f.write("Mock output from '{}'\n".format(name))
     f.close()
 
@@ -15,29 +15,43 @@ def main():
     The remote script that MockSleepAndWrite calls
     """
 
-    parser = argparse.ArgumentParser(description='mock job')
-    parser.add_argument('--sleep_secs',
-                        default=10,
-                        type=int, action='store',
-                        help='The number of seconds to sleep before writing '
-                             'or dying')
-    parser.add_argument('--output_file_path',
-                        default="/tmp/jobmon-test",
-                        type=str, action='store',
-                        help='Full path to output file')
-    parser.add_argument('--name',
-                        default="nameless",
-                        type=str, action='store',
-                        help='Task name, written to output file for debugging')
-    parser.add_argument('--fail_always',
-                        action='store_true', default=False,
-                        help='If true, sleep and then raise a ValueError')
-    parser.add_argument('--fail_count',
-                        type=int, default=0,
-                        action='store',
-                        help='If true, then check the a file for the count of '
-                             'previous failures (stateful!).'
-                             'If previous fails < fail_count then fail')
+    parser = argparse.ArgumentParser(description="mock job")
+    parser.add_argument(
+        "--sleep_secs",
+        default=10,
+        type=int,
+        action="store",
+        help="The number of seconds to sleep before writing " "or dying",
+    )
+    parser.add_argument(
+        "--output_file_path",
+        default="/tmp/jobmon-test",
+        type=str,
+        action="store",
+        help="Full path to output file",
+    )
+    parser.add_argument(
+        "--name",
+        default="nameless",
+        type=str,
+        action="store",
+        help="Task name, written to output file for debugging",
+    )
+    parser.add_argument(
+        "--fail_always",
+        action="store_true",
+        default=False,
+        help="If true, sleep and then raise a ValueError",
+    )
+    parser.add_argument(
+        "--fail_count",
+        type=int,
+        default=0,
+        action="store",
+        help="If true, then check the a file for the count of "
+        "previous failures (stateful!)."
+        "If previous fails < fail_count then fail",
+    )
     args = parser.parse_args()
 
     if args.fail_always:
@@ -62,8 +76,7 @@ def main():
             fp = open(counter_file, "w")
             fp.write("{}\n".format(count_so_far))
             fp.close()
-            raise ValueError("Mock task failing intermittently {}"
-                             .format(count_so_far))
+            raise ValueError("Mock task failing intermittently {}".format(count_so_far))
         else:
             # Enough failures, we should succeed this time
             happy_path(args.sleep_secs, args.output_file_path, args.name)

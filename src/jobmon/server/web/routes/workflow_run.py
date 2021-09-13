@@ -22,7 +22,7 @@ from jobmon.server.web.server_side_exception import InvalidUsage
 logger = LocalProxy(partial(get_logger, __name__))
 
 
-@finite_state_machine.route('/workflow_run', methods=['POST'])
+@finite_state_machine.route("/workflow_run", methods=["POST"])
 def add_workflow_run() -> Any:
     """Add a workflow run to the db."""
     try:
@@ -33,12 +33,14 @@ def add_workflow_run() -> Any:
         logger.info(f"Add wfr for workflow_id:{wid}.")
 
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
     workflow_run = WorkflowRun(
         workflow_id=wid,
         user=data["user"],
         jobmon_version=data["jobmon_version"],
-        status=WorkflowRunStatus.REGISTERED
+        status=WorkflowRunStatus.REGISTERED,
     )
     DB.session.add(workflow_run)
     DB.session.commit()
@@ -48,7 +50,7 @@ def add_workflow_run() -> Any:
     return resp
 
 
-@finite_state_machine.route('/workflow_run/<workflow_run_id>/link', methods=['POST'])
+@finite_state_machine.route("/workflow_run/<workflow_run_id>/link", methods=["POST"])
 def link_workflow_run(workflow_run_id: int) -> Any:
     """Link this workflow run to a workflow."""
     try:
@@ -57,7 +59,9 @@ def link_workflow_run(workflow_run_id: int) -> Any:
         logger.info("Linking workflow_run")
         next_report_increment = float(data["next_report_increment"])
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
     logger.info(f"Query wfr with {workflow_run_id}")
     query = """
         SELECT
@@ -67,9 +71,12 @@ def link_workflow_run(workflow_run_id: int) -> Any:
         WHERE
             workflow_run.id = :workflow_run_id
     """
-    workflow_run = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-        workflow_run_id=workflow_run_id
-    ).one()
+    workflow_run = (
+        DB.session.query(WorkflowRun)
+        .from_statement(text(query))
+        .params(workflow_run_id=workflow_run_id)
+        .one()
+    )
 
     # refresh with lock in case other workflow run is trying to progress
     workflow = workflow_run.workflow
@@ -87,7 +94,9 @@ def link_workflow_run(workflow_run_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
+@finite_state_machine.route(
+    "/workflow_run/<workflow_run_id>/terminate", methods=["PUT"]
+)
 def terminate_workflow_run(workflow_run_id: int) -> Any:
     """Terminate a workflow run and get its tasks in order."""
     bind_to_logger(workflow_run_id=workflow_run_id)
@@ -95,10 +104,11 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
     try:
         int(workflow_run_id)
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
-    workflow_run = DB.session.query(WorkflowRun).filter_by(
-        id=workflow_run_id).one()
+    workflow_run = DB.session.query(WorkflowRun).filter_by(id=workflow_run_id).one()
 
     if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
         logger.debug(f"HOT_RESUME {workflow_run_id}")
@@ -125,9 +135,9 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
             task_instance.workflow_run_id = :workflow_run_id
             AND task.status IN :states
     """
-    DB.session.execute(log_errors,
-                       {"workflow_run_id": int(workflow_run_id),
-                        "states": states})
+    DB.session.execute(
+        log_errors, {"workflow_run_id": int(workflow_run_id), "states": states}
+    )
     DB.session.flush()
     logger.debug(f"Error logged for {workflow_run_id}")
 
@@ -144,9 +154,9 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
             task_instance.workflow_run_id = :workflow_run_id
             AND task.status IN :states
     """
-    DB.session.execute(update_task_instance,
-                       {"workflow_run_id": workflow_run_id,
-                        "states": states})
+    DB.session.execute(
+        update_task_instance, {"workflow_run_id": workflow_run_id, "states": states}
+    )
     DB.session.flush()
     logger.debug(f"Job instance status updated for {workflow_run_id}")
     # transition to terminated
@@ -159,7 +169,7 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route('/workflow_run_status', methods=['GET'])
+@finite_state_machine.route("/workflow_run_status", methods=["GET"])
 def get_active_workflow_runs() -> Any:
     """Return all workflow runs that are currently in the specified state."""
     query = """
@@ -170,9 +180,12 @@ def get_active_workflow_runs() -> Any:
         WHERE
             workflow_run.status in :workflow_run_status
     """
-    workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-        workflow_run_status=request.args.getlist('status')
-    ).all()
+    workflow_runs = (
+        DB.session.query(WorkflowRun)
+        .from_statement(text(query))
+        .params(workflow_run_status=request.args.getlist("status"))
+        .all()
+    )
     DB.session.commit()
     workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]
     resp = jsonify(workflow_runs=workflow_runs)
@@ -180,19 +193,20 @@ def get_active_workflow_runs() -> Any:
     return resp
 
 
-@finite_state_machine.route('/workflow_run/<workflow_run_id>/log_heartbeat', methods=['POST'])
+@finite_state_machine.route(
+    "/workflow_run/<workflow_run_id>/log_heartbeat", methods=["POST"]
+)
 def log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
     """Log a heartbeat for the workflow run to show that the client side is still alive."""
     bind_to_logger(workflow_run_id=workflow_run_id)
     data = request.get_json()
     logger.debug(f"WFR {workflow_run_id} heartbeat data")
 
-    workflow_run = DB.session.query(WorkflowRun).filter_by(
-        id=workflow_run_id).one()
+    workflow_run = DB.session.query(WorkflowRun).filter_by(id=workflow_run_id).one()
 
     try:
         workflow_run.status
-        workflow_run.heartbeat(data["next_report_increment"], data['status'])
+        workflow_run.heartbeat(data["next_report_increment"], data["status"])
         DB.session.commit()
         logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
     except InvalidStateTransition as e:
@@ -204,7 +218,9 @@ def log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route('/workflow_run/<workflow_run_id>/update_status', methods=['PUT'])
+@finite_state_machine.route(
+    "/workflow_run/<workflow_run_id>/update_status", methods=["PUT"]
+)
 def log_workflow_run_status_update(workflow_run_id: int) -> Any:
     """Update the status of the workflow run."""
     bind_to_logger(workflow_run_id=workflow_run_id)
@@ -224,8 +240,9 @@ def log_workflow_run_status_update(workflow_run_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route('/workflow_run/<workflow_run_id>/aborted/<aborted_seconds>',
-                            methods=['PUT'])
+@finite_state_machine.route(
+    "/workflow_run/<workflow_run_id>/aborted/<aborted_seconds>", methods=["PUT"]
+)
 def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int) -> Any:
     """If the last task was more than 2 minutes ago, transition wfr to A state.
 
@@ -257,9 +274,12 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int) -
             )
             OR (workflow_created > :aborted_seconds and task_created is NULL)
     """
-    wfr = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-        workflow_run_id=workflow_run_id, aborted_seconds=aborted_seconds
-    ).one_or_none()
+    wfr = (
+        DB.session.query(WorkflowRun)
+        .from_statement(text(query))
+        .params(workflow_run_id=workflow_run_id, aborted_seconds=aborted_seconds)
+        .one_or_none()
+    )
     DB.session.commit()
 
     if wfr is not None:
@@ -275,11 +295,11 @@ def get_run_status_and_latest_task(workflow_run_id: int, aborted_seconds: int) -
     return resp
 
 
-@finite_state_machine.route('/lost_workflow_run', methods=['GET'])
+@finite_state_machine.route("/lost_workflow_run", methods=["GET"])
 def get_lost_workflow_runs() -> Any:
     """Return all workflow runs that are currently in the specified state."""
-    statuses = request.args.getlist('status')
-    version = request.args.get('version')
+    statuses = request.args.getlist("status")
+    version = request.args.get("version")
     query = """
         SELECT
             workflow_run.*
@@ -290,9 +310,12 @@ def get_lost_workflow_runs() -> Any:
             and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
             and workflow_run.jobmon_version = :version
     """
-    workflow_runs = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-        workflow_run_status=statuses, version=version
-    ).all()
+    workflow_runs = (
+        DB.session.query(WorkflowRun)
+        .from_statement(text(query))
+        .params(workflow_run_status=statuses, version=version)
+        .all()
+    )
     DB.session.commit()
     workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]
     resp = jsonify(workflow_runs=workflow_runs)
@@ -300,7 +323,7 @@ def get_lost_workflow_runs() -> Any:
     return resp
 
 
-@finite_state_machine.route('/workflow_run/<workflow_run_id>/reap', methods=['PUT'])
+@finite_state_machine.route("/workflow_run/<workflow_run_id>/reap", methods=["PUT"])
 def reap_workflow_run(workflow_run_id: int) -> Any:
     """If the last task was more than 2 minutes ago, transition wfr to A state.
 
@@ -318,9 +341,12 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
             workflow_run.id = :workflow_run_id
             and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
     """
-    wfr = DB.session.query(WorkflowRun).from_statement(text(query)).params(
-        workflow_run_id=workflow_run_id
-    ).one_or_none()
+    wfr = (
+        DB.session.query(WorkflowRun)
+        .from_statement(text(query))
+        .params(workflow_run_id=workflow_run_id)
+        .one_or_none()
+    )
     DB.session.commit()
 
     try:

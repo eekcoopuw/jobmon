@@ -12,7 +12,8 @@ except ImportError as e:
         "Only the dependencies necessary for running "
         "the Jobmon client are included in the requirements by default. "
         "If you are developing on Jobmon and want to run the tests, "
-        "please also install the testing and server requirements.")
+        "please also install the testing and server requirements."
+    )
     raise Exception(error_msg) from e
 
 
@@ -44,8 +45,9 @@ def create_temp_db() -> dict:
         edb.execute_sql_script(file)
 
     # get connection info
-    pattern = ("mysql://(?P<user>.*):(?P<pass>.*)"
-               "@(?P<host>.*):(?P<port>.*)/(?P<db>.*)")
+    pattern = (
+        "mysql://(?P<user>.*):(?P<pass>.*)" "@(?P<host>.*):(?P<port>.*)/(?P<db>.*)"
+    )
     result = re.search(pattern, conn_str)
     if result:
         db_conn_dict = result.groupdict()
@@ -54,7 +56,7 @@ def create_temp_db() -> dict:
             "DB_PORT": db_conn_dict["port"],
             "DB_USER": db_conn_dict["user"],
             "DB_PASS": db_conn_dict["pass"],
-            "DB_NAME": db_conn_dict["db"]
+            "DB_NAME": db_conn_dict["db"],
         }
         return cfg
     else:

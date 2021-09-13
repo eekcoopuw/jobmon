@@ -25,19 +25,28 @@ class WorkflowReaperConfig:
         # passing an empty string forces this method to ignore sys.argv
         args = cli.parse_args("")
 
-        return cls(poll_interval_minutes=args.reaper_poll_interval_minutes,
-                   host=args.web_service_fqdn,
-                   port=args.web_service_port,
-                   slack_api_url=args.slack_api_url,
-                   slack_token=args.slack_token,
-                   slack_channel_default=args.slack_channel_default,
-                   workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
-                   heartbeat_report_by_buffer=args.heartbeat_report_by_buffer)
+        return cls(
+            poll_interval_minutes=args.reaper_poll_interval_minutes,
+            host=args.web_service_fqdn,
+            port=args.web_service_port,
+            slack_api_url=args.slack_api_url,
+            slack_token=args.slack_token,
+            slack_channel_default=args.slack_channel_default,
+            workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
+            heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
+        )
 
-    def __init__(self, poll_interval_minutes: int, host: str, port: str,
-                 slack_api_url: Optional[str], slack_token: Optional[str],
-                 slack_channel_default: str, workflow_run_heartbeat_interval: int,
-                 heartbeat_report_by_buffer: float) -> None:
+    def __init__(
+        self,
+        poll_interval_minutes: int,
+        host: str,
+        port: str,
+        slack_api_url: Optional[str],
+        slack_token: Optional[str],
+        slack_channel_default: str,
+        workflow_run_heartbeat_interval: int,
+        heartbeat_report_by_buffer: float,
+    ) -> None:
         """Initialization of workflow reaper config."""
         self.poll_interval_minutes = poll_interval_minutes
         self.host = host

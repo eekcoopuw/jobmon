@@ -6,17 +6,15 @@ from jobmon.server.web.models import DB
 class Queue(DB.Model):
     """Queue Table in the Database."""
 
-    __tablename__ = 'queue'
+    __tablename__ = "queue"
 
     def to_wire_as_requested_by_client(self) -> tuple:
         """Serialize cluster object."""
-        return SerializeQueue.to_wire(self.id,
-                                      self.name,
-                                      self.parameters)
+        return SerializeQueue.to_wire(self.id, self.name, self.parameters)
 
     id = DB.Column(DB.Integer, primary_key=True)
     name = DB.Column(DB.String(255))
-    cluster_id = DB.Column(DB.Integer, DB.ForeignKey('cluster.id'))
+    cluster_id = DB.Column(DB.Integer, DB.ForeignKey("cluster.id"))
     parameters = DB.Column(DB.String(2500))
 
     # ORM relationships

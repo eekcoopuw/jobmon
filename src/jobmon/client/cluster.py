@@ -20,7 +20,9 @@ logger = logging.getLogger(__name__)
 class Cluster:
     """Cluster objects define where a user wants their tasks run. e.g. UGE, Azure, Seq."""
 
-    def __init__(self, cluster_name: str, requester: Optional[Requester] = None) -> None:
+    def __init__(
+        self, cluster_name: str, requester: Optional[Requester] = None
+    ) -> None:
         """Initialization of Cluster."""
         self.cluster_name = cluster_name
 
@@ -32,8 +34,9 @@ class Cluster:
         self.queues: Dict[str, ClusterQueue] = {}
 
     @classmethod
-    def get_cluster(cls: Any, cluster_name: str, requester: Optional[Requester] = None) \
-            -> Cluster:
+    def get_cluster(
+        cls: Any, cluster_name: str, requester: Optional[Requester] = None
+    ) -> Cluster:
         """Get a bound instance of a Cluster.
 
         Args:
@@ -46,24 +49,23 @@ class Cluster:
 
     def bind(self) -> None:
         """Bind Cluster to the database, getting an id back."""
-        app_route = f'/cluster/{self.cluster_name}'
+        app_route = f"/cluster/{self.cluster_name}"
         return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={},
-            request_type="get",
-            logger=logger
+            app_route=app_route, message={}, request_type="get", logger=logger
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected code '
-                f'200. Response content: {response}'
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected code "
+                f"200. Response content: {response}"
             )
         cluster_kwargs = SerializeCluster.kwargs_from_wire(response["cluster"])
 
         self._cluster_id = cluster_kwargs["id"]
         self._cluster_type_name = cluster_kwargs["cluster_type_name"]
-        register_cluster_plugin(self._cluster_type_name, cluster_kwargs["package_location"])
+        register_cluster_plugin(
+            self._cluster_type_name, cluster_kwargs["package_location"]
+        )
 
     @property
     def is_bound(self) -> bool:
@@ -81,7 +83,9 @@ class Cluster:
     def plugin(self) -> Any:
         """If the cluster is bound, return the cluster interface for the type of cluster."""
         if not self.is_bound:
-            raise AttributeError("Cannot access plugin until Cluster is bound to database")
+            raise AttributeError(
+                "Cannot access plugin until Cluster is bound to database"
+            )
         return import_cluster(self._cluster_type_name)
 
     @property
@@ -103,18 +107,15 @@ class Cluster:
             queue = self.queues[queue_name]
         except KeyError:
             queue_class = self.plugin.get_cluster_queue_class()
-            app_route = f'/cluster/{self.id}/queue/{queue_name}'
+            app_route = f"/cluster/{self.id}/queue/{queue_name}"
             return_code, response = self.requester.send_request(
-                app_route=app_route,
-                message={},
-                request_type="get",
-                logger=logger
+                app_route=app_route, message={}, request_type="get", logger=logger
             )
             if http_request_ok(return_code) is False:
                 raise InvalidResponse(
-                    f'Unexpected status code {return_code} from POST '
-                    f'request through route {app_route}. Expected code '
-                    f'200. Response content: {response}'
+                    f"Unexpected status code {return_code} from POST "
+                    f"request through route {app_route}. Expected code "
+                    f"200. Response content: {response}"
                 )
             queue_kwargs = SerializeQueue.kwargs_from_wire(response["queue"])
             queue = queue_class(**queue_kwargs)
@@ -122,27 +123,32 @@ class Cluster:
 
         return queue
 
-    def adjust_task_resource(self, initial_resources: Dict,
-                             resource_scales: Optional[Dict[str, float]],
-                             expected_queue: ClusterQueue,
-                             fallback_queues: Optional[List[ClusterQueue]] = None) \
-            -> TaskResources:
+    def adjust_task_resource(
+        self,
+        initial_resources: Dict,
+        resource_scales: Optional[Dict[str, float]],
+        expected_queue: ClusterQueue,
+        fallback_queues: Optional[List[ClusterQueue]] = None,
+    ) -> TaskResources:
         """Adjust task resources based on the scaling factor."""
-        adjusted_concrete_resource: ConcreteResource = self.concrete_resource_class.\
-            adjust_and_create_concrete_resource(
+        adjusted_concrete_resource: ConcreteResource = (
+            self.concrete_resource_class.adjust_and_create_concrete_resource(
                 existing_resources=initial_resources,
                 resource_scales=resource_scales,
                 expected_queue=expected_queue,
-                fallback_queues=fallback_queues)
+                fallback_queues=fallback_queues,
+            )
+        )
 
         adjusted_task_resource = TaskResources(
             concrete_resources=adjusted_concrete_resource,
-            task_resources_type_id=TaskResourcesType.ADJUSTED
+            task_resources_type_id=TaskResourcesType.ADJUSTED,
         )
         return adjusted_task_resource
 
-    def create_valid_task_resources(self, resource_params: Dict, task_resources_type_id: str,
-                                    fail: bool = False) -> TaskResources:
+    def create_valid_task_resources(
+        self, resource_params: Dict, task_resources_type_id: str, fail: bool = False
+    ) -> TaskResources:
         """Construct a TaskResources object with the specified resource parameters.
 
         Validate before constructing task resources, taskResources assumed to be valid
@@ -151,13 +157,18 @@ class Cluster:
         queue = self.get_queue(queue_name)
 
         # Validate
-        is_valid, msg, concrete_resources = self.concrete_resource_class.\
-            validate_and_create_concrete_resource(
-                requested_resources=resource_params,
-                queue=queue)
+        (
+            is_valid,
+            msg,
+            concrete_resources,
+        ) = self.concrete_resource_class.validate_and_create_concrete_resource(
+            requested_resources=resource_params, queue=queue
+        )
         if fail and not is_valid:
             raise ValueError(f"Failed validation, reasons: {msg}")
 
-        task_resource = TaskResources(concrete_resources=concrete_resources,
-                                      task_resources_type_id=task_resources_type_id)
+        task_resource = TaskResources(
+            concrete_resources=concrete_resources,
+            task_resources_type_id=task_resources_type_id,
+        )
         return task_resource

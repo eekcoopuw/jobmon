@@ -18,19 +18,16 @@ def test_server_502(client_env):
 
     err_response = (
         502,
-        b'<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body '
+        b"<html>\r\n<head><title>502 Bad Gateway</title></head>\r\n<body "
         b'bgcolor="white">\r\n<center><h1>502 Bad Gateway</h1></center>\r\n'
-        b'<hr><center>nginx/1.13.12</center>\r\n</body>\r\n</html>\r\n'
+        b"<hr><center>nginx/1.13.12</center>\r\n</body>\r\n</html>\r\n",
     )
-    good_response = (
-        200,
-        {'time': '2019-02-21 17:40:07'}
-    )
+    good_response = (200, {"time": "2019-02-21 17:40:07"})
 
     test_requester = Requester(client_env)
 
     # mock requester.get_content to return 2 502s then 200
-    with mock.patch('jobmon.requester.get_content') as m:
+    with mock.patch("jobmon.requester.get_content") as m:
         # Docs: If side_effect is an iterable then each call to the mock
         # will return the next value from the iterable
         m.side_effect = [err_response] * 2 + [good_response] + [err_response] * 2
@@ -39,10 +36,10 @@ def test_server_502(client_env):
 
         # should have retried twice + one success
         retrier = test_requester._retry
-        assert retrier.statistics['attempt_number'] == 3
+        assert retrier.statistics["attempt_number"] == 3
 
         # if we end up stopping we should get an error
-        with pytest.raises(RuntimeError, match='Status code was 502'):
+        with pytest.raises(RuntimeError, match="Status code was 502"):
             retrier.stop = stop_after_attempt(1)
             retrier.__call__(test_requester._send_request, "/time", {}, "get")
 
@@ -75,11 +72,13 @@ def test_connection_retry(client_env):
     with pytest.raises(ConnectionError):
         # Set low backoff and max time limits, to force max retries error
         failed_requester = RequesterMock(client_env, max_retries=1, stop_after_delay=2)
-        failed_requester.send_request('/time', {}, 'get')
+        failed_requester.send_request("/time", {}, "get")
 
     # Use defaults of 10 second backoff, 2 min max wait
     good_requester = RequesterMock(client_env)
-    rc, resp = good_requester.send_request("/time", {}, "get")  # No connectionerror raised
+    rc, resp = good_requester.send_request(
+        "/time", {}, "get"
+    )  # No connectionerror raised
     assert rc == 200
     retrier = good_requester._retry
-    assert retrier.statistics['attempt_number'] > 1
+    assert retrier.statistics["attempt_number"] > 1

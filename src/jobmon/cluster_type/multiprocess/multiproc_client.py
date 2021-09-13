@@ -19,8 +19,8 @@ class MultiprocessQueue(ClusterQueue):
     def validate_resources(self, **kwargs: Dict) -> Tuple[bool, str, Dict]:
         """Ensure cores requested isn't more than available on that node."""
         msg = ""
-        cores = kwargs.get('cores')
-        core_parameters = self.parameters.get('cores')
+        cores = kwargs.get("cores")
+        core_parameters = self.parameters.get("cores")
 
         if core_parameters:
             min_cores, max_cores = core_parameters
@@ -29,14 +29,18 @@ class MultiprocessQueue(ClusterQueue):
 
         if cores:
             if cores > max_cores:
-                msg += (f"ResourceError: provided cores {cores} exceeds "
-                        f"queue limit of {max_cores} "
-                        f"for queue {self.queue_name}")
+                msg += (
+                    f"ResourceError: provided cores {cores} exceeds "
+                    f"queue limit of {max_cores} "
+                    f"for queue {self.queue_name}"
+                )
                 cores = max_cores
             elif cores < min_cores:
-                msg += (f"ResourceError: provided cores {cores} is below "
-                        f"queue minimum of {min_cores} "
-                        f"for queue {self.queue_name}")
+                msg += (
+                    f"ResourceError: provided cores {cores} is below "
+                    f"queue minimum of {min_cores} "
+                    f"for queue {self.queue_name}"
+                )
                 cores = min_cores
         else:
             # Set cores to the queue minimum

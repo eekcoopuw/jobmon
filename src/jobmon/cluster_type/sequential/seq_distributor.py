@@ -101,11 +101,14 @@ class SequentialDistributor(ClusterDistributor):
         If implemented, return a list of (task_instance_id, hostname) tuples for any
         task_instances that are terminated.
         """
-        logger.warning("terminate_task_instances not implemented by ClusterDistributor: "
-                       f"{self.__class__.__name__}")
+        logger.warning(
+            "terminate_task_instances not implemented by ClusterDistributor: "
+            f"{self.__class__.__name__}"
+        )
 
-    def submit_to_batch_distributor(self, command: str, name: str,
-                                    requested_resources: Dict[str, Any]) -> int:
+    def submit_to_batch_distributor(
+        self, command: str, name: str, requested_resources: Dict[str, Any]
+    ) -> int:
         """Execute sequentially."""
         # add an executor id to the environment
         os.environ["JOB_ID"] = str(self._next_distributor_id)
@@ -138,7 +141,7 @@ class SequentialWorkerNode(ClusterWorkerNode):
     def distributor_id(self) -> Optional[int]:
         """Distributor id of the task."""
         if self._distributor_id is None:
-            jid = os.environ.get('JOB_ID')
+            jid = os.environ.get("JOB_ID")
             if jid:
                 self._distributor_id = int(jid)
         return self._distributor_id

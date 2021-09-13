@@ -12,11 +12,13 @@ from jobmon.requester import Requester
 logger = logging.getLogger(__name__)
 
 
-def workflow_status(workflow_id: List[int] = None,
-                    user: List[str] = None,
-                    json: bool = False,
-                    requester_url: Optional[str] = None,
-                    limit: Optional[int] = 5) -> pd.DataFrame:
+def workflow_status(
+    workflow_id: List[int] = None,
+    user: List[str] = None,
+    json: bool = False,
+    requester_url: Optional[str] = None,
+    limit: Optional[int] = 5,
+) -> pd.DataFrame:
     """Get metadata about workflow progress.
 
     Args:
@@ -50,10 +52,7 @@ def workflow_status(workflow_id: List[int] = None,
     requester = Requester(requester_url)
 
     rc, res = requester.send_request(
-        app_route="/workflow_status",
-        message=msg,
-        request_type="get",
-        logger=logger
+        app_route="/workflow_status", message=msg, request_type="get", logger=logger
     )
     if json:
         return res["workflows"]
@@ -61,9 +60,13 @@ def workflow_status(workflow_id: List[int] = None,
         return pd.read_json(res["workflows"])
 
 
-def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = False,
-                   requester_url: Optional[str] = None,
-                   limit: int = 5) -> pd.DataFrame:
+def workflow_tasks(
+    workflow_id: int,
+    status: List[str] = None,
+    json: bool = False,
+    requester_url: Optional[str] = None,
+    limit: int = 5,
+) -> pd.DataFrame:
     """Get metadata about task state for a given workflow.
 
     Args:
@@ -90,7 +93,7 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
         app_route=f"/workflow/{workflow_id}/workflow_tasks",
         message=msg,
         request_type="get",
-        logger=logger
+        logger=logger,
     )
     if json:
         return res["workflow_tasks"]
@@ -98,8 +101,12 @@ def workflow_tasks(workflow_id: int, status: List[str] = None, json: bool = Fals
         return pd.read_json(res["workflow_tasks"])
 
 
-def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: bool = False,
-                requester_url: Optional[str] = None) -> Tuple[str, pd.DataFrame]:
+def task_status(
+    task_ids: List[int],
+    status: Optional[List[str]] = None,
+    json: bool = False,
+    requester_url: Optional[str] = None,
+) -> Tuple[str, pd.DataFrame]:
     """Get metadata about a task and its task instances.
 
     Args:
@@ -121,10 +128,7 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
     requester = Requester(requester_url)
 
     rc, res = requester.send_request(
-        app_route="/task_status",
-        message=msg,
-        request_type="get",
-        logger=logger
+        app_route="/task_status", message=msg, request_type="get", logger=logger
     )
     if json:
         return res["task_instance_status"]
@@ -132,8 +136,9 @@ def task_status(task_ids: List[int], status: Optional[List[str]] = None, json: b
         return pd.read_json(res["task_instance_status"])
 
 
-def concurrency_limit(workflow_id: int, max_tasks: int,
-                      requester_url: Optional[str] = None) -> str:
+def concurrency_limit(
+    workflow_id: int, max_tasks: int, requester_url: Optional[str] = None
+) -> str:
     """Update a workflow's max_running_instances field in the database.
 
     Used to dynamically adjust the allowed number of jobs concurrently running.
@@ -155,13 +160,18 @@ def concurrency_limit(workflow_id: int, max_tasks: int,
     _, resp = requester.send_request(
         app_route=f"/workflow/{workflow_id}/update_max_running",
         message=msg,
-        request_type="put")
+        request_type="put",
+    )
 
-    return resp['message']
+    return resp["message"]
 
 
-def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
-                       requester_url: Optional[str] = None) -> Any:
+def update_task_status(
+    task_ids: List[int],
+    workflow_id: int,
+    new_status: str,
+    requester_url: Optional[str] = None,
+) -> Any:
     """Set the specified task IDs to the new status, pending validation.
 
     Args:
@@ -183,7 +193,9 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
 
     # Validate the allowed statuses. For now, only "D" and "G" allowed.
     allowed_statuses = [TaskStatus.REGISTERED, TaskStatus.DONE]
-    assert new_status in allowed_statuses, f"Only {allowed_statuses} allowed to be set via CLI"
+    assert (
+        new_status in allowed_statuses
+    ), f"Only {allowed_statuses} allowed to be set via CLI"
 
     # Conditional logic: If the new status is "D", only need to set task to "D"
     # Else: All downstreams must also be set to "G", and task instances set to "K"
@@ -192,12 +204,15 @@ def update_task_status(task_ids: List[int], workflow_id: int, new_status: str,
         task_ids = task_ids + [*subdag_tasks]
 
     _, resp = requester.send_request(
-        app_route='/task/update_statuses',
-        message={'task_ids': task_ids,
-                 'new_status': new_status,
-                 'workflow_status': workflow_status,
-                 'workflow_id': workflow_id},
-        request_type='put')
+        app_route="/task/update_statuses",
+        message={
+            "task_ids": task_ids,
+            "new_status": new_status,
+            "workflow_status": workflow_status,
+            "workflow_id": workflow_id,
+        },
+        request_type="put",
+    )
 
     return resp
 
@@ -216,25 +231,32 @@ def update_config(cc: ClientConfig) -> None:
         edit = configparser.ConfigParser()
         edit.read(INSTALLED_CONFIG_FILE)
         client = edit["client"]
-        if client["web_service_fqdn"] == cc.host and client["web_service_port"] == cc.port:
-            print("The new values are the same as in the config file. "
-                  "No update is made to the config file.")
+        if (
+            client["web_service_fqdn"] == cc.host
+            and client["web_service_port"] == cc.port
+        ):
+            print(
+                "The new values are the same as in the config file. "
+                "No update is made to the config file."
+            )
             return
         else:
             client["web_service_fqdn"] = cc.host
             client["web_service_port"] = str(cc.port)
-            with open(INSTALLED_CONFIG_FILE, 'w') as configfile:
+            with open(INSTALLED_CONFIG_FILE, "w") as configfile:
                 edit.write(configfile)
     else:
         config = configparser.ConfigParser()
         config.add_section("client")
         config.set("client", "web_service_fqdn", cc.host)
         config.set("client", "web_service_port", str(cc.port))
-        with open(INSTALLED_CONFIG_FILE, 'w') as configfile:
+        with open(INSTALLED_CONFIG_FILE, "w") as configfile:
             config.write(configfile)
 
-    print(f"Config file {INSTALLED_CONFIG_FILE} has been updated",
-          f"with new web_service_fqdn = {cc.host} web_service_port = {cc.port}.")
+    print(
+        f"Config file {INSTALLED_CONFIG_FILE} has been updated",
+        f"with new web_service_fqdn = {cc.host} web_service_port = {cc.port}.",
+    )
 
     return
 
@@ -245,8 +267,9 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
         app_route=f"/workflow/{workflow_id}/validate_username/{username}",
         message={},
         request_type="get",
-        logger=logger)
-    if not res['validation']:
+        logger=logger,
+    )
+    if not res["validation"]:
         raise AssertionError(f"User {username} is not allowed to reset this workflow.")
     return
 
@@ -255,16 +278,18 @@ def validate_workflow(task_ids: List[int], requester: Requester) -> str:
     """Validate that the task_ids provided belong to the expected workflow."""
     rc, res = requester.send_request(
         app_route="/workflow_validation",
-        message={'task_ids': task_ids},
-        request_type="post")
+        message={"task_ids": task_ids},
+        request_type="post",
+    )
 
     if not bool(res["validation"]):
         raise AssertionError("The give task ids belong to multiple workflow.")
-    return res['workflow_status']
+    return res["workflow_status"]
 
 
-def get_sub_task_tree(task_ids: list, task_status: list = None,
-                      requester: Requester = None) -> dict:
+def get_sub_task_tree(
+    task_ids: list, task_status: list = None, requester: Requester = None
+) -> dict:
     """Get the sub_tree from tasks to ensure that they end up in the right states."""
     # This is to make the test case happy. Otherwise, requester should not be None.
     if requester is None:
@@ -272,9 +297,9 @@ def get_sub_task_tree(task_ids: list, task_status: list = None,
     # Valid input
     rc, res = requester.send_request(
         app_route="/task/subdag",
-        message={'task_ids': task_ids,
-                 'task_status': task_status},
-        request_type="post")
+        message={"task_ids": task_ids, "task_status": task_status},
+        request_type="post",
+    )
     if rc != 200:
         raise AssertionError(f"Server return HTTP error code: {rc}")
     task_tree_dict = res["sub_task"]

@@ -32,37 +32,35 @@ class Task(DB.Model):
             command=self.command,
             status=self.status,
             queue_id=self.task_resources.queue_id,
-            requested_resources=self.task_resources.requested_resources)
+            requested_resources=self.task_resources.requested_resources,
+        )
         return serialized
 
     def to_wire_as_swarm_task(self) -> tuple:
         """Serialize swarm task."""
-        serialized = SerializeSwarmTask.to_wire(
-            task_id=self.id,
-            status=self.status)
+        serialized = SerializeSwarmTask.to_wire(task_id=self.id, status=self.status)
         return serialized
 
     id = DB.Column(DB.Integer, primary_key=True)
-    workflow_id = DB.Column(DB.Integer, DB.ForeignKey('workflow.id'))
-    node_id = DB.Column(DB.Integer, DB.ForeignKey('node.id'))
+    workflow_id = DB.Column(DB.Integer, DB.ForeignKey("workflow.id"))
+    node_id = DB.Column(DB.Integer, DB.ForeignKey("node.id"))
     task_args_hash = DB.Column(DB.Integer)
     name = DB.Column(DB.String(255))
     command = DB.Column(DB.Text)
     task_resources_id = DB.Column(
-        DB.Integer, DB.ForeignKey('task_resources.id'),
-        default=None)
+        DB.Integer, DB.ForeignKey("task_resources.id"), default=None
+    )
     num_attempts = DB.Column(DB.Integer, default=0)
     max_attempts = DB.Column(DB.Integer, default=1)
     resource_scales = DB.Column(DB.String(1000), default=None)
     fallback_queues = DB.Column(DB.String(1000), default=None)
-    status = DB.Column(DB.String(1), DB.ForeignKey('task_status.id'))
+    status = DB.Column(DB.String(1), DB.ForeignKey("task_status.id"))
     submitted_date = DB.Column(DB.DateTime, default=func.now())
     status_date = DB.Column(DB.DateTime, default=func.now())
 
     # ORM relationships
     task_instances = DB.relationship("TaskInstance", back_populates="task")
-    task_resources = DB.relationship(
-        "TaskResources", foreign_keys=[task_resources_id])
+    task_resources = DB.relationship("TaskResources", foreign_keys=[task_resources_id])
 
     # Finite state machine
     valid_transitions = [
@@ -75,10 +73,12 @@ class Task(DB.Model):
         (TaskStatus.RUNNING, TaskStatus.ERROR_RECOVERABLE),
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.ADJUSTING_RESOURCES),
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.QUEUED_FOR_INSTANTIATION),
-        (TaskStatus.ERROR_RECOVERABLE, TaskStatus.ERROR_FATAL)]
+        (TaskStatus.ERROR_RECOVERABLE, TaskStatus.ERROR_FATAL),
+    ]
 
-    def reset(self, name: str, command: str, max_attempts: int, reset_if_running: bool) \
-            -> None:
+    def reset(
+        self, name: str, command: str, max_attempts: int, reset_if_running: bool
+    ) -> None:
         """Reset status and number of attempts on a Task."""
         # only reset undone tasks
         if self.status != TaskStatus.DONE:
@@ -103,7 +103,9 @@ class Task(DB.Model):
         self.status = new_state
         self.status_date = func.now()
 
-    def transition_after_task_instance_error(self, job_instance_error_state: str) -> None:
+    def transition_after_task_instance_error(
+        self, job_instance_error_state: str
+    ) -> None:
         """Transition the task to an error state."""
         bind_to_logger(workflow_id=self.workflow_id, task_id=self.id)
         logger.info("Transitioning task to ERROR_RECOVERABLE")
@@ -122,5 +124,4 @@ class Task(DB.Model):
     def _validate_transition(self, new_state: str) -> None:
         """Ensure the task state transition is valid."""
         if (self.status, new_state) not in self.valid_transitions:
-            raise InvalidStateTransition('Task', self.id, self.status,
-                                         new_state)
+            raise InvalidStateTransition("Task", self.id, self.status, new_state)
