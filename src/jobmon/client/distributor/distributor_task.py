@@ -16,9 +16,19 @@ class DistributorTask:
 
     # this API should always match what's returned by
     # serializers.SerializeTask
-    def __init__(self, task_id: int, workflow_id: int, node_id: int, task_args_hash: int,
-                 name: str, command: str, status: str, queue_id: int,
-                 requested_resources: dict, requester: Requester) -> None:
+    def __init__(
+        self,
+        task_id: int,
+        workflow_id: int,
+        node_id: int,
+        task_args_hash: int,
+        name: str,
+        command: str,
+        status: str,
+        queue_id: int,
+        requested_resources: dict,
+        requester: Requester,
+    ) -> None:
         """This is a Task object used on the client side when constructing task instances.
 
         Args:
@@ -46,8 +56,9 @@ class DistributorTask:
         self.requester = requester
 
     @classmethod
-    def from_wire(cls: Any, wire_tuple: tuple, executor_class: str, requester: Requester) \
-            -> DistributorTask:
+    def from_wire(
+        cls: Any, wire_tuple: tuple, executor_class: str, requester: Requester
+    ) -> DistributorTask:
         """Construct instance from wire format the JQS gives.
 
         Args:
@@ -73,6 +84,6 @@ class DistributorTask:
             status=kwargs["status"],
             queue_id=kwargs["queue_id"],
             requested_resources=kwargs["requested_resources"],
-            requester=requester
+            requester=requester,
         )
         return executor_task

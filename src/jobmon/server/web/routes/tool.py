@@ -20,14 +20,16 @@ from jobmon.server.web.server_side_exception import InvalidUsage
 logger = LocalProxy(partial(get_logger, __name__))
 
 
-@finite_state_machine.route('/tool', methods=['POST'])
+@finite_state_machine.route("/tool", methods=["POST"])
 def add_tool() -> Any:
     """Add a tool to the database."""
     data = request.get_json()
     try:
         tool_name = data["name"]
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
     # add tool to db
     try:
         logger.info(f"Adding tool {tool_name}")
@@ -43,9 +45,12 @@ def add_tool() -> Any:
                 tool
             WHERE
                 name = :tool_name"""
-        tool = DB.session.query(Tool).from_statement(text(query)).params(
-            tool_name=tool_name
-        ).one()
+        tool = (
+            DB.session.query(Tool)
+            .from_statement(text(query))
+            .params(tool_name=tool_name)
+            .one()
+        )
 
     wire_format = tool.to_wire_as_client_tool()
     resp = jsonify(tool=wire_format)
@@ -53,19 +58,22 @@ def add_tool() -> Any:
     return resp
 
 
-@finite_state_machine.route('/tool/<tool_id>/tool_versions', methods=['GET'])
+@finite_state_machine.route("/tool/<tool_id>/tool_versions", methods=["GET"])
 def get_tool_versions(tool_id: int) -> Any:
     """Get the Tool Version."""
     # check input variable
     bind_to_logger(tool_id=tool_id)
     logger.info(f"Getting available tool versions for tool_id {tool_id}")
     if tool_id is None:
-        raise InvalidUsage(f"Variable tool_id is None in {request.path}", status_code=400)
+        raise InvalidUsage(
+            f"Variable tool_id is None in {request.path}", status_code=400
+        )
     try:
         int(tool_id)
     except Exception as e:
-        raise InvalidUsage(f"Variable tool_id must be an int in {request.path}",
-                           status_code=400) from e
+        raise InvalidUsage(
+            f"Variable tool_id must be an int in {request.path}", status_code=400
+        ) from e
 
     # get data from db
     query = """
@@ -75,9 +83,12 @@ def get_tool_versions(tool_id: int) -> Any:
             tool_version
         WHERE
             tool_id = :tool_id"""
-    tool_versions = DB.session.query(ToolVersion).from_statement(text(query)).params(
-        tool_id=tool_id
-    ).all()
+    tool_versions = (
+        DB.session.query(ToolVersion)
+        .from_statement(text(query))
+        .params(tool_id=tool_id)
+        .all()
+    )
     DB.session.commit()
     tool_versions = [t.to_wire_as_client_tool_version() for t in tool_versions]
     logger.info(f"Tool version for {tool_id} is {tool_versions}")

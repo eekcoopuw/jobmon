@@ -10,8 +10,9 @@ from jobmon.client.tool import Tool
 @pytest.fixture
 def tool(db_cfg, client_env):
     tool = Tool()
-    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
-                                                 compute_resources={"queue": "null.q"})
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
     return tool
 
 
@@ -22,14 +23,15 @@ def task_template(tool):
         command_template="{arg}",
         node_args=["arg"],
         task_args=[],
-        op_args=[]
+        op_args=[],
     )
     return tt
 
 
 this_file = os.path.dirname(__file__)
-remote_sleep_and_write = os.path.abspath(os.path.expanduser(
-    f"{this_file}/../_scripts/remote_sleep_and_write.py"))
+remote_sleep_and_write = os.path.abspath(
+    os.path.expanduser(f"{this_file}/../_scripts/remote_sleep_and_write.py")
+)
 
 
 def test_one_task(tool, task_template):
@@ -69,21 +71,13 @@ def test_three_linear_tasks(tool, task_template):
 
     workflow = tool.create_workflow(name="test_three_linear_tasks")
 
-    task_a = task_template.create_task(
-        arg="echo a",
-        upstream_tasks=[]  # To be clear
-    )
+    task_a = task_template.create_task(arg="echo a", upstream_tasks=[])  # To be clear
     workflow.add_task(task_a)
 
-    task_b = task_template.create_task(
-        arg="echo b",
-        upstream_tasks=[task_a]
-    )
+    task_b = task_template.create_task(arg="echo b", upstream_tasks=[task_a])
     workflow.add_task(task_b)
 
-    task_c = task_template.create_task(
-        arg="echo c"
-    )
+    task_c = task_template.create_task(arg="echo c")
     workflow.add_task(task_c)
     task_c.add_upstream(task_b)  # Exercise add_upstream post-instantiation
     workflow_run_status = workflow.run()
@@ -105,7 +99,7 @@ def test_fork_and_join_tasks(task_template, tmpdir):
     workflow = tool.create_workflow(
         name="test_fork_and_join_tasks",
         default_cluster_name="multiprocess",
-        default_compute_resources_set={"multiprocess": {"queue": "null.q"}}
+        default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
     )
     task_a = task_template.create_task(arg="sleep 1 && echo a")
     workflow.add_task(task_a)
@@ -115,8 +109,7 @@ def test_fork_and_join_tasks(task_template, tmpdir):
     for i in range(3):
         sleep_secs = 5 + i
         task_b[i] = task_template.create_task(
-            arg=f"sleep {sleep_secs} && echo b",
-            upstream_tasks=[task_a]
+            arg=f"sleep {sleep_secs} && echo b", upstream_tasks=[task_a]
         )
         workflow.add_task(task_b[i])
 
@@ -127,14 +120,12 @@ def test_fork_and_join_tasks(task_template, tmpdir):
     for i in range(3):
         sleep_secs = 5 - i
         task_c[i] = task_template.create_task(
-            arg=f"sleep {sleep_secs} && echo c",
-            upstream_tasks=[task_b[i]]
+            arg=f"sleep {sleep_secs} && echo c", upstream_tasks=[task_b[i]]
         )
         workflow.add_task(task_c[i])
 
     task_d = task_template.create_task(
-        arg="sleep 3 && echo d",
-        upstream_tasks=[task_c[i] for i in range(3)]
+        arg="sleep 3 && echo d", upstream_tasks=[task_c[i] for i in range(3)]
     )
     workflow.add_task(task_d)
 
@@ -168,13 +159,13 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
     workflow = tool.create_workflow(
         name="test_fork_and_join_tasks_with_fatal_error",
         default_cluster_name="multiprocess",
-        default_compute_resources_set={"multiprocess": {"queue": "null.q"}}
+        default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
     )
 
     a_path = os.path.join(str(tmpdir), "a.out")
     task_a = task_template.create_task(
         arg=f"python {remote_sleep_and_write} --sleep_secs 1 --output_file_path {a_path} --name {a_path}",
-        upstream_tasks=[]
+        upstream_tasks=[],
     )
     workflow.add_task(task_a)
 
@@ -189,9 +180,9 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
 
         task_b[i] = task_template.create_task(
             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-                f"--output_file_path {b_output_file_name} --name {b_output_file_name} "
-                f"{fail_always}",
-            upstream_tasks=[task_a]
+            f"--output_file_path {b_output_file_name} --name {b_output_file_name} "
+            f"{fail_always}",
+            upstream_tasks=[task_a],
         )
         workflow.add_task(task_b[i])
 
@@ -200,16 +191,16 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
         c_output_file_name = os.path.join(str(tmpdir), f"c-{i}.out")
         task_c[i] = task_template.create_task(
             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-                f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
-            upstream_tasks=[task_b[i]]
+            f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
+            upstream_tasks=[task_b[i]],
         )
         workflow.add_task(task_c[i])
 
     d_path = os.path.join(str(tmpdir), "d.out")
     task_d = task_template.create_task(
         arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-            f"--output_file_path {d_path} --name {d_path}",
-        upstream_tasks=[task_c[i] for i in range(3)]
+        f"--output_file_path {d_path} --name {d_path}",
+        upstream_tasks=[task_c[i] for i in range(3)],
     )
     workflow.add_task(task_d)
 
@@ -245,14 +236,14 @@ def test_fork_and_join_tasks_with_retryable_error(task_template, tmpdir):
     workflow = tool.create_workflow(
         name="test_fork_and_join_tasks_with_retryable_error",
         default_cluster_name="multiprocess",
-        default_compute_resources_set={"multiprocess": {"queue": "null.q"}}
+        default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
     )
 
     a_path = os.path.join(str(tmpdir), "a.out")
     task_a = task_template.create_task(
         arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-            f"--output_file_path {a_path} --name {a_path}",
-        upstream_tasks=[]
+        f"--output_file_path {a_path} --name {a_path}",
+        upstream_tasks=[],
     )
     workflow.add_task(task_a)
 
@@ -268,9 +259,9 @@ def test_fork_and_join_tasks_with_retryable_error(task_template, tmpdir):
         # task b[1] will fail
         task_b[i] = task_template.create_task(
             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-                f"--output_file_path {b_output_file_name} --name {b_output_file_name} "
-                f"--fail_count {fail_count}",
-            upstream_tasks=[task_a]
+            f"--output_file_path {b_output_file_name} --name {b_output_file_name} "
+            f"--fail_count {fail_count}",
+            upstream_tasks=[task_a],
         )
         workflow.add_task(task_b[i])
 
@@ -279,17 +270,17 @@ def test_fork_and_join_tasks_with_retryable_error(task_template, tmpdir):
         c_output_file_name = os.path.join(str(tmpdir), f"c-{i}.out")
         task_c[i] = task_template.create_task(
             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-                f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
-            upstream_tasks=[task_b[i]]
+            f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
+            upstream_tasks=[task_b[i]],
         )
         workflow.add_task(task_c[i])
 
     d_path = os.path.join(str(tmpdir), "d.out")
     task_d = task_template.create_task(
         arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-            f"--output_file_path {d_path} --name {d_path} "
-            f"--fail_count 2",
-        upstream_tasks=[task_c[i] for i in range(3)]
+        f"--output_file_path {d_path} --name {d_path} "
+        f"--fail_count 2",
+        upstream_tasks=[task_c[i] for i in range(3)],
     )
     workflow.add_task(task_d)
 
@@ -328,14 +319,14 @@ def test_bushy_real_dag(task_template, tmpdir):
     workflow = tool.create_workflow(
         name="test_fork_and_join_tasks_with_fatal_error",
         default_cluster_name="multiprocess",
-        default_compute_resources_set={"multiprocess": {"queue": "null.q"}}
+        default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
     )
 
     a_path = os.path.join(str(tmpdir), "a.out")
     task_a = task_template.create_task(
         arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-            f"--output_file_path {a_path} --name {a_path}",
-        upstream_tasks=[]
+        f"--output_file_path {a_path} --name {a_path}",
+        upstream_tasks=[],
     )
     workflow.add_task(task_a)
 
@@ -348,8 +339,8 @@ def test_bushy_real_dag(task_template, tmpdir):
         # task b[1] will fail
         task_b[i] = task_template.create_task(
             arg=f"python {remote_sleep_and_write} --sleep_secs {sleep_secs} "
-                f"--output_file_path {b_output_file_name} --name {b_output_file_name}",
-            upstream_tasks=[task_a]
+            f"--output_file_path {b_output_file_name} --name {b_output_file_name}",
+            upstream_tasks=[task_a],
         )
         workflow.add_task(task_b[i])
 
@@ -362,8 +353,8 @@ def test_bushy_real_dag(task_template, tmpdir):
         c_output_file_name = os.path.join(str(tmpdir), f"c-{i}.out")
         task_c[i] = task_template.create_task(
             arg=f"python {remote_sleep_and_write} --sleep_secs {sleep_secs} "
-                f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
-            upstream_tasks=[task_b[i], task_a]
+            f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
+            upstream_tasks=[task_b[i], task_a],
         )
         workflow.add_task(task_c[i])
 
@@ -373,8 +364,8 @@ def test_bushy_real_dag(task_template, tmpdir):
     d_path = os.path.join(str(tmpdir), "d.out")
     task_d = task_template.create_task(
         arg=f"python {remote_sleep_and_write} --sleep_secs {sleep_secs} "
-            f"--output_file_path {d_path} --name {d_path}",
-        upstream_tasks=b_and_c
+        f"--output_file_path {d_path} --name {d_path}",
+        upstream_tasks=b_and_c,
     )
     workflow.add_task(task_d)
 

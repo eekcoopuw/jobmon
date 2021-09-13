@@ -12,16 +12,31 @@ from jobmon.client.client_config import ClientConfig
 from jobmon.client.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.distributor.api import DistributorConfig
-from jobmon.client.distributor.distributor_service import DistributorService, ExceptionWrapper
+from jobmon.client.distributor.distributor_service import (
+    DistributorService,
+    ExceptionWrapper,
+)
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
-from jobmon.constants import TaskResourcesType, TaskStatus, WorkflowRunStatus, WorkflowStatus
-from jobmon.exceptions import (CallableReturnedInvalidObject, DistributorNotAlive,
-                               DistributorStartupTimeout, DuplicateNodeArgsError,
-                               InvalidResponse, ResumeSet, WorkflowAlreadyComplete,
-                               WorkflowAlreadyExists, WorkflowNotResumable)
+from jobmon.constants import (
+    TaskResourcesType,
+    TaskStatus,
+    WorkflowRunStatus,
+    WorkflowStatus,
+)
+from jobmon.exceptions import (
+    CallableReturnedInvalidObject,
+    DistributorNotAlive,
+    DistributorStartupTimeout,
+    DuplicateNodeArgsError,
+    InvalidResponse,
+    ResumeSet,
+    WorkflowAlreadyComplete,
+    WorkflowAlreadyExists,
+    WorkflowNotResumable,
+)
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeCluster
 
@@ -61,16 +76,17 @@ class Workflow(object):
         tasks must be added with the same dependencies between tasks.
     """
 
-    def __init__(self,
-                 tool_version_id: int,
-                 workflow_args: str = "",
-                 name: str = "",
-                 description: str = "",
-                 workflow_attributes: Optional[Union[List, dict]] = None,
-                 max_concurrently_running: int = 10_000,
-                 requester: Optional[Requester] = None,
-                 chunk_size: int = 500,  # TODO: should be in the config
-                 ) -> None:
+    def __init__(
+        self,
+        tool_version_id: int,
+        workflow_args: str = "",
+        name: str = "",
+        description: str = "",
+        workflow_attributes: Optional[Union[List, dict]] = None,
+        max_concurrently_running: int = 10_000,
+        requester: Optional[Requester] = None,
+        chunk_size: int = 500,  # TODO: should be in the config
+    ) -> None:
         """Initialization of the client workflow.
 
         Args:
@@ -103,15 +119,17 @@ class Workflow(object):
             self.workflow_args = workflow_args
         else:
             self.workflow_args = str(uuid.uuid4())
-            logger.info("Workflow_args defaulting to uuid {}. To resume this "
-                        "workflow, you must re-instantiate Workflow and pass "
-                        "this uuid in as the workflow_args. As a uuid is hard "
-                        "to remember, we recommend you name your workflows and"
-                        " make workflow_args a meaningful unique identifier. "
-                        "Then add the same tasks to this workflow"
-                        .format(self.workflow_args))
+            logger.info(
+                "Workflow_args defaulting to uuid {}. To resume this "
+                "workflow, you must re-instantiate Workflow and pass "
+                "this uuid in as the workflow_args. As a uuid is hard "
+                "to remember, we recommend you name your workflows and"
+                " make workflow_args a meaningful unique identifier. "
+                "Then add the same tasks to this workflow".format(self.workflow_args)
+            )
         self.workflow_args_hash = int(
-            hashlib.sha1(self.workflow_args.encode('utf-8')).hexdigest(), 16)
+            hashlib.sha1(self.workflow_args.encode("utf-8")).hexdigest(), 16
+        )
 
         self._distributor_com_queue: Queue = Queue()
         self._distributor_stop_event: synchronize.Event = Event()
@@ -149,7 +167,9 @@ class Workflow(object):
     def workflow_id(self) -> int:
         """If the workflow is bound then it will have been given an id."""
         if not self.is_bound:
-            raise AttributeError("workflow_id cannot be accessed before workflow is bound")
+            raise AttributeError(
+                "workflow_id cannot be accessed before workflow is bound"
+            )
         return self._workflow_id
 
     @property
@@ -166,15 +186,17 @@ class Workflow(object):
         tasks = sorted(self.tasks.values())
         if len(tasks) > 0:  # if there are no tasks, we want to skip this
             for task in tasks:
-                hash_value.update(str(hash(task)).encode('utf-8'))
+                hash_value.update(str(hash(task)).encode("utf-8"))
         return int(hash_value.hexdigest(), 16)
 
     @property
     def task_errors(self) -> Dict:
         """Return a dict of error associated with a task."""
-        return {task.name: task.get_errors()
-                for task in self.tasks.values()
-                if task.final_status == TaskStatus.ERROR_FATAL}
+        return {
+            task.name: task.get_errors()
+            for task in self.tasks.values()
+            if task.final_status == TaskStatus.ERROR_FATAL
+        }
 
     def add_attributes(self, workflow_attributes: dict) -> None:
         """Users can call either to update values of existing attributes or add new attributes.
@@ -183,18 +205,19 @@ class Workflow(object):
             workflow_attributes: attributes to be bound to the db that describe
                 this workflow.
         """
-        app_route = f'/workflow/{self.workflow_id}/workflow_attributes'
+        app_route = f"/workflow/{self.workflow_id}/workflow_attributes"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"workflow_attributes": workflow_attributes},
             request_type="put",
-            logger=logger
+            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected code '
-                f'200. Response content: {response}')
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected code "
+                f"200. Response content: {response}"
+            )
 
     def add_task(self, task: Task) -> Task:
         """Add a task to the workflow to be executed.
@@ -207,9 +230,11 @@ class Workflow(object):
         """
         logger.info(f"Adding Task {task}")
         if hash(task) in self.tasks.keys():
-            raise ValueError(f"A task with hash {hash(task)} already exists. "
-                             f"All tasks in a workflow must have unique "
-                             f"commands. Your command was: {task.command}")
+            raise ValueError(
+                f"A task with hash {hash(task)} already exists. "
+                f"All tasks in a workflow must have unique "
+                f"commands. Your command was: {task.command}"
+            )
         try:
             self._dag.add_node(task.node)
         except DuplicateNodeArgsError:
@@ -230,8 +255,9 @@ class Workflow(object):
             # add the task
             self.add_task(task)
 
-    def set_default_compute_resources_from_yaml(self, cluster_name: str, yaml_file: str) \
-            -> None:
+    def set_default_compute_resources_from_yaml(
+        self, cluster_name: str, yaml_file: str
+    ) -> None:
         """Set default compute resources from a user provided yaml file for workflow level.
 
         TODO: Implement this method.
@@ -242,8 +268,9 @@ class Workflow(object):
         """
         pass
 
-    def set_default_compute_resources_from_dict(self, cluster_name: str,
-                                                dictionary: Dict[str, Any]) -> None:
+    def set_default_compute_resources_from_dict(
+        self, cluster_name: str, dictionary: Dict[str, Any]
+    ) -> None:
         """Set default compute resources for a given cluster_name.
 
         Args:
@@ -262,11 +289,16 @@ class Workflow(object):
         """
         self.default_cluster_name = cluster_name
 
-    def run(self, fail_fast: bool = False, seconds_until_timeout: int = 36000,
-            resume: bool = ResumeStatus.DONT_RESUME, reset_running_jobs: bool = True,
-            distributor_response_wait_timeout: int = 180,
-            distributor_config: Optional[DistributorConfig] = None,
-            resume_timeout: int = 300) -> str:
+    def run(
+        self,
+        fail_fast: bool = False,
+        seconds_until_timeout: int = 36000,
+        resume: bool = ResumeStatus.DONT_RESUME,
+        reset_running_jobs: bool = True,
+        distributor_response_wait_timeout: int = 180,
+        distributor_config: Optional[DistributorConfig] = None,
+        resume_timeout: int = 300,
+    ) -> str:
         """Run the workflow.
 
         Traverse the dag and submitting new tasks when their tasks have completed successfully.
@@ -306,10 +338,11 @@ class Workflow(object):
 
         # set up swarm and initial DAG
         swarm = SwarmWorkflowRun(
-            workflow_id=self.workflow_id, workflow_run_id=wfr.workflow_run_id,
+            workflow_id=self.workflow_id,
+            workflow_run_id=wfr.workflow_run_id,
             tasks=list(self.tasks.values()),
             fail_after_n_executions=self._fail_after_n_executions,
-            requester=self.requester
+            requester=self.requester,
         )
 
         try:
@@ -317,11 +350,15 @@ class Workflow(object):
         finally:
             # deal with task instance distributor process if it was started
             if self._distributor_alive(raise_error=False):
-                logger.info("Terminating distributing process. This could take a few minutes.")
+                logger.info(
+                    "Terminating distributing process. This could take a few minutes."
+                )
                 self._distributor_stop_event.set()
                 try:
                     # give it some time to shut down
-                    self._distributor_com_queue.get(timeout=distributor_response_wait_timeout)
+                    self._distributor_com_queue.get(
+                        timeout=distributor_response_wait_timeout
+                    )
                 except Empty:
                     pass
                 self._distributor_proc.terminate()
@@ -329,7 +366,9 @@ class Workflow(object):
             # figure out doneness
             num_new_completed = len(swarm.all_done) - swarm.num_previously_complete
             if swarm.status != WorkflowRunStatus.DONE:
-                logger.info(f"WorkflowRun execution ended, num failed {len(swarm.all_error)}")
+                logger.info(
+                    f"WorkflowRun execution ended, num failed {len(swarm.all_error)}"
+                )
             else:
                 logger.info(
                     f"WorkflowRun execute finished successfully, {num_new_completed} tasks"
@@ -416,7 +455,7 @@ class Workflow(object):
         self._dag.bind(self._chunk_size)
 
         # bind workflow
-        app_route = '/workflow'
+        app_route = "/workflow"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
@@ -430,13 +469,13 @@ class Workflow(object):
                 "max_concurrently_running": self.max_concurrently_running,
                 "workflow_attributes": self.workflow_attributes,
             },
-            request_type='post',
-            logger=logger
+            request_type="post",
+            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST request through route '
-                f'{app_route}. Expected code 200. Response content: {response}'
+                f"Unexpected status code {return_code} from POST request through route "
+                f"{app_route}. Expected code 200. Response content: {response}"
             )
 
         self._workflow_id = response["workflow_id"]
@@ -451,18 +490,15 @@ class Workflow(object):
         try:
             cluster = self._clusters[cluster_name]
         except KeyError:
-            app_route = f'/cluster/{cluster_name}'
+            app_route = f"/cluster/{cluster_name}"
             return_code, response = self.requester.send_request(
-                app_route=app_route,
-                message={},
-                request_type="get",
-                logger=logger
+                app_route=app_route, message={}, request_type="get", logger=logger
             )
             if http_request_ok(return_code) is False:
                 raise InvalidResponse(
-                    f'Unexpected status code {return_code} from POST '
-                    f'request through route {app_route}. Expected code '
-                    f'200. Response content: {response}'
+                    f"Unexpected status code {return_code} from POST "
+                    f"request through route {app_route}. Expected code "
+                    f"200. Response content: {response}"
                 )
             cluster_kwargs = SerializeCluster.kwargs_from_wire(response["cluster"])
             cluster = Cluster(cluster_name=cluster_kwargs["name"])
@@ -486,13 +522,18 @@ class Workflow(object):
 
         # Check if there are compute resources for given task, if not set at workflow level
         # copy params for idepotent operation
-        resource_params = self.default_compute_resources_set.get(cluster_name, {}).copy()
+        resource_params = self.default_compute_resources_set.get(
+            cluster_name, {}
+        ).copy()
         resource_params.update(task.compute_resources.copy())
         return resource_params
 
-    def _create_workflow_run(self, resume: bool = ResumeStatus.DONT_RESUME,
-                             reset_running_jobs: bool = True,
-                             resume_timeout: int = 300) -> ClientWorkflowRun:
+    def _create_workflow_run(
+        self,
+        resume: bool = ResumeStatus.DONT_RESUME,
+        reset_running_jobs: bool = True,
+        resume_timeout: int = 300,
+    ) -> ClientWorkflowRun:
         # raise error if workflow exists and is done
         if self._status == WorkflowStatus.DONE:
             raise WorkflowAlreadyComplete(
@@ -511,17 +552,20 @@ class Workflow(object):
 
         # create workflow run
         client_wfr = ClientWorkflowRun(
-            workflow_id=self.workflow_id,
-            requester=self.requester
+            workflow_id=self.workflow_id, requester=self.requester
         )
         client_wfr.bind(self.tasks, reset_running_jobs, self._chunk_size)
         self._status = WorkflowStatus.QUEUED
 
         return client_wfr
 
-    def _run_swarm(self, swarm: SwarmWorkflowRun, fail_fast: bool = False,
-                   seconds_until_timeout: int = 36000,
-                   wedged_workflow_sync_interval: int = 600) -> SwarmWorkflowRun:
+    def _run_swarm(
+        self,
+        swarm: SwarmWorkflowRun,
+        fail_fast: bool = False,
+        seconds_until_timeout: int = 36000,
+        wedged_workflow_sync_interval: int = 600,
+    ) -> SwarmWorkflowRun:
         """Take a concrete DAG and queue al the Tasks that are not DONE.
 
         Uses forward chaining from initial fringe, hence out-of-date is not
@@ -574,16 +618,19 @@ class Workflow(object):
 
                 # wait till we have new work
                 swarm.block_until_newly_ready_or_all_done(
-                    fail_fast, seconds_until_timeout=seconds_until_timeout,
+                    fail_fast,
+                    seconds_until_timeout=seconds_until_timeout,
                     wedged_workflow_sync_interval=wedged_workflow_sync_interval,
-                    distributor_alive_callable=self._distributor_alive
+                    distributor_alive_callable=self._distributor_alive,
                 )
             # user interrupt
             except KeyboardInterrupt:
                 confirm = input("Are you sure you want to exit (y/n): ")
                 confirm = confirm.lower().strip()
                 if confirm == "y":
-                    logger.warning("Keyboard interrupt raised and Workflow Run set to Stopped")
+                    logger.warning(
+                        "Keyboard interrupt raised and Workflow Run set to Stopped"
+                    )
                     swarm.update_status(WorkflowRunStatus.STOPPED)
                     raise
                 else:
@@ -649,16 +696,15 @@ class Workflow(object):
         different hash, this would indicate that thgat the workflow contains different tasks.
         """
         rc, response = self.requester.send_request(
-            app_route=f'/workflow/{str(self.workflow_args_hash)}',
+            app_route=f"/workflow/{str(self.workflow_args_hash)}",
             message={},
-            request_type='get',
-            logger=logger
+            request_type="get",
+            logger=logger,
         )
-        bound_workflow_hashes = response['matching_workflows']
+        bound_workflow_hashes = response["matching_workflows"]
         for task_hash, tool_version_id, dag_hash in bound_workflow_hashes:
-            match = (
-                self.tool_version_id == tool_version_id
-                and (str(self.task_hash) != task_hash or str(hash(self._dag)) != dag_hash)
+            match = self.tool_version_id == tool_version_id and (
+                str(self.task_hash) != task_hash or str(hash(self._dag)) != dag_hash
             )
             if match:
                 raise WorkflowAlreadyExists(
@@ -670,57 +716,62 @@ class Workflow(object):
                 )
 
     def _set_workflow_resume(self, reset_running_jobs: bool = True) -> None:
-        app_route = f'/workflow/{self.workflow_id}/set_resume'
+        app_route = f"/workflow/{self.workflow_id}/set_resume"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
-                'reset_running_jobs': reset_running_jobs,
-                'description': self.description,
-                'name': self.name,
-                'max_concurrently_running': self.max_concurrently_running,
-                'workflow_attributes': self.workflow_attributes,
+                "reset_running_jobs": reset_running_jobs,
+                "description": self.description,
+                "name": self.name,
+                "max_concurrently_running": self.max_concurrently_running,
+                "workflow_attributes": self.workflow_attributes,
             },
-            request_type='post',
-            logger=logger
+            request_type="post",
+            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST '
-                f'request through route {app_route}. Expected '
-                f'code 200. Response content: {response}')
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
 
     def _workflow_is_resumable(self, resume_timeout: int = 300) -> None:
         # previous workflow exists but is resumable. we will wait till it terminates
         wait_start = time.time()
         workflow_is_resumable = False
         while not workflow_is_resumable:
-            logger.info(f"Waiting for resume. "
-                        f"Timeout in {round(resume_timeout - (time.time() - wait_start), 1)}")
-            app_route = f'/workflow/{self.workflow_id}/is_resumable'
+            logger.info(
+                f"Waiting for resume. "
+                f"Timeout in {round(resume_timeout - (time.time() - wait_start), 1)}"
+            )
+            app_route = f"/workflow/{self.workflow_id}/is_resumable"
             return_code, response = self.requester.send_request(
-                app_route=app_route,
-                message={},
-                request_type='get',
-                logger=logger
+                app_route=app_route, message={}, request_type="get", logger=logger
             )
             if http_request_ok(return_code) is False:
                 raise InvalidResponse(
-                    f'Unexpected status code {return_code} from POST '
-                    f'request through route {app_route}. Expected '
-                    f'code 200. Response content: {response}')
+                    f"Unexpected status code {return_code} from POST "
+                    f"request through route {app_route}. Expected "
+                    f"code 200. Response content: {response}"
+                )
 
             workflow_is_resumable = response.get("workflow_is_resumable")
             if (time.time() - wait_start) > resume_timeout:
-                raise WorkflowNotResumable("workflow_run timed out waiting for previous "
-                                           "workflow_run to exit. Try again in a few minutes.")
+                raise WorkflowNotResumable(
+                    "workflow_run timed out waiting for previous "
+                    "workflow_run to exit. Try again in a few minutes."
+                )
             else:
-                sleep_time = round(float(resume_timeout) / 10., 1)
+                sleep_time = round(float(resume_timeout) / 10.0, 1)
                 time.sleep(sleep_time)
 
-    def _start_distributor_service(self, workflow_run_id: int,
-                                   distributor_startup_wait_timeout: int = 180,
-                                   distributor_config: Optional[DistributorConfig] = None
-                                   ) -> Process:
+    def _start_distributor_service(
+        self,
+        workflow_run_id: int,
+        distributor_startup_wait_timeout: int = 180,
+        distributor_config: Optional[DistributorConfig] = None,
+    ) -> Process:
         if distributor_config is None:
             distributor_config = DistributorConfig.from_defaults()
 
@@ -748,13 +799,13 @@ class Workflow(object):
             heartbeat_report_by_buffer=distributor_config.heartbeat_report_by_buffer,
             n_queued=distributor_config.n_queued,
             distributor_poll_interval=distributor_config.distributor_poll_interval,
-            requester=self.requester
+            requester=self.requester,
         )
         self._status = WorkflowStatus.INSTANTIATING
 
         distributor_proc = Process(
             target=tid.run_distributor,
-            args=(self._distributor_stop_event, self._distributor_com_queue)
+            args=(self._distributor_stop_event, self._distributor_com_queue),
         )
 
         try:
@@ -762,7 +813,9 @@ class Workflow(object):
             distributor_proc.start()
 
             # wait for response from distributor
-            resp = self._distributor_com_queue.get(timeout=distributor_startup_wait_timeout)
+            resp = self._distributor_com_queue.get(
+                timeout=distributor_startup_wait_timeout
+            )
         except Empty:  # mypy complains but this is correct
             distributor_proc.terminate()
             raise DistributorStartupTimeout(
@@ -809,9 +862,7 @@ class Workflow(object):
                 "returned an invalid type. Must return dict. got "
                 f"{type(dynamic_compute_resources)}."
             )
-        resource_params = self._get_resource_params(
-            task, task.cluster.cluster_name
-        )
+        resource_params = self._get_resource_params(task, task.cluster.cluster_name)
         resource_params.update(dynamic_compute_resources)
         task_resources = task.cluster.create_valid_task_resources(
             resource_params, TaskResourcesType.VALIDATED
@@ -821,8 +872,8 @@ class Workflow(object):
     def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""
         hash_value = hashlib.sha1()
-        hash_value.update(str(hash(self.tool_version_id)).encode('utf-8'))
-        hash_value.update(str(self.workflow_args_hash).encode('utf-8'))
-        hash_value.update(str(self.task_hash).encode('utf-8'))
-        hash_value.update(str(hash(self._dag)).encode('utf-8'))
+        hash_value.update(str(hash(self.tool_version_id)).encode("utf-8"))
+        hash_value.update(str(self.workflow_args_hash).encode("utf-8"))
+        hash_value.update(str(self.task_hash).encode("utf-8"))
+        hash_value.update(str(hash(self._dag)).encode("utf-8"))
         return int(hash_value.hexdigest(), 16)

@@ -56,9 +56,7 @@ class Consumer(Process):
                     logger.debug(f"consumer received {task.command}")
                     # run the job
                     proc = subprocess.Popen(
-                        task.command,
-                        env=os.environ.copy(),
-                        shell=True
+                        task.command, env=os.environ.copy(), shell=True
                     )
 
                     # log the pid with the distributor class
@@ -148,8 +146,7 @@ class MultiprocessDistributor(ClusterDistributor):
         # set jobmon command if provided
         if not self.started:
             self.consumers = [
-                Consumer(task_queue=self.task_queue,
-                         response_queue=self.response_queue)
+                Consumer(task_queue=self.task_queue, response_queue=self.response_queue)
                 for i in range(self._parallelism)
             ]
             for w in self.consumers:
@@ -223,7 +220,8 @@ class MultiprocessDistributor(ClusterDistributor):
             elif distributor_id not in work_order.values():
                 logger.error(
                     f"distributor_id {distributor_id} was requested to be terminated"
-                    " but is not submitted or running")
+                    " but is not submitted or running"
+                )
 
         # if not running remove from queue and state tracker
         for index in sorted(work_order.keys(), reverse=True):
@@ -240,12 +238,15 @@ class MultiprocessDistributor(ClusterDistributor):
         self._update_internal_states()
         return list(self._running_or_submitted.keys())
 
-    def submit_to_batch_distributor(self, command: str, name: str, requested_resources: dict)\
-            -> int:
+    def submit_to_batch_distributor(
+        self, command: str, name: str, requested_resources: dict
+    ) -> int:
         """Execute a task instance."""
         distributor_id = self._next_distributor_id
         self._next_distributor_id += 1
-        task = PickableTask(distributor_id, self.worker_node_entry_point + " " + command)
+        task = PickableTask(
+            distributor_id, self.worker_node_entry_point + " " + command
+        )
         self.task_queue.put(task)
         self._running_or_submitted.update({distributor_id: None})
         return distributor_id
@@ -278,7 +279,7 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
     def distributor_id(self) -> Optional[int]:
         """The id from the distributor."""
         if self._distributor_id is None:
-            jid = os.environ.get('JOB_ID')
+            jid = os.environ.get("JOB_ID")
             if jid:
                 self._distributor_id = int(jid)
         return self._distributor_id

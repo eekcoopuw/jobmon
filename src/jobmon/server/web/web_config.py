@@ -6,10 +6,12 @@ from typing import Any, Optional
 try:
     # default to mysqldb if installed. ~10x faster than pymysql
     import MySQLdb  # noqa F401
+
     driver = "mysqldb"
 except (ImportError, ModuleNotFoundError):
     # otherwise use pymysql since it is pip installable
     import pymysql  # noqa F401
+
     driver = "pymysql"
 
 
@@ -40,20 +42,40 @@ class WebConfig(object):
 
         # passing an empty string forces this method to ignore sys.argv
         args = cli.parse_args("")
-        return cls(db_host=args.db_host, db_port=args.db_port, db_user=args.db_user,
-                   db_pass=args.db_pass, db_name=args.db_name, use_logstash=args.use_logstash,
-                   logstash_host=args.logstash_host, logstash_port=args.logstash_port,
-                   logstash_protocol=args.logstash_protocol, use_apm=args.use_apm,
-                   apm_server_url=args.apm_server_url, apm_server_name=args.apm_server_name,
-                   apm_port=args.apm_port, log_level=args.log_level)
+        return cls(
+            db_host=args.db_host,
+            db_port=args.db_port,
+            db_user=args.db_user,
+            db_pass=args.db_pass,
+            db_name=args.db_name,
+            use_logstash=args.use_logstash,
+            logstash_host=args.logstash_host,
+            logstash_port=args.logstash_port,
+            logstash_protocol=args.logstash_protocol,
+            use_apm=args.use_apm,
+            apm_server_url=args.apm_server_url,
+            apm_server_name=args.apm_server_name,
+            apm_port=args.apm_port,
+            log_level=args.log_level,
+        )
 
-    def __init__(self, db_host: str, db_port: str, db_user: str, db_pass: str,
-                 db_name: str, use_logstash: bool = False, logstash_host: str = "",
-                 logstash_port: Optional[int] = None, logstash_protocol: str = "",
-                 use_apm: bool = False,
-                 apm_server_url: str = "", apm_server_name: str = "",
-                 apm_port: Optional[int] = None,
-                 log_level: str = "INFO") -> None:
+    def __init__(
+        self,
+        db_host: str,
+        db_port: str,
+        db_user: str,
+        db_pass: str,
+        db_name: str,
+        use_logstash: bool = False,
+        logstash_host: str = "",
+        logstash_port: Optional[int] = None,
+        logstash_protocol: str = "",
+        use_apm: bool = False,
+        apm_server_url: str = "",
+        apm_server_name: str = "",
+        apm_port: Optional[int] = None,
+        log_level: str = "INFO",
+    ) -> None:
         """Initialize config for server."""
         self.db_host = db_host
         self.db_port = db_port
@@ -74,7 +96,11 @@ class WebConfig(object):
     def conn_str(self) -> str:
         """Database connection string."""
         conn_str = "mysql+{driver}://{user}:{pw}@{host}:{port}/{db}".format(
-            driver=driver, user=self.db_user, pw=self.db_pass, host=self.db_host,
-            port=self.db_port, db=self.db_name
+            driver=driver,
+            user=self.db_user,
+            pw=self.db_pass,
+            host=self.db_host,
+            port=self.db_port,
+            db=self.db_name,
         )
         return conn_str

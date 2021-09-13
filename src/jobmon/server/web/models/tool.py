@@ -6,7 +6,7 @@ from jobmon.server.web.models import DB
 class Tool(DB.Model):
     """Tool DB Table."""
 
-    __tablename__ = 'tool'
+    __tablename__ = "tool"
 
     def to_wire_as_client_tool(self) -> tuple:
         """Serialize tool object."""

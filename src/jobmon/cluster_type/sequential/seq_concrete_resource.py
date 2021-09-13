@@ -28,7 +28,7 @@ class ConcreteSequentialResource(ConcreteResource):
 
     @classmethod
     def validate_and_create_concrete_resource(
-            cls: Any, queue: ClusterQueue, requested_resources: Dict
+        cls: Any, queue: ClusterQueue, requested_resources: Dict
     ) -> Tuple[bool, str, ConcreteSequentialResource]:
         """Validate resources against the specified queue.
 
@@ -41,9 +41,11 @@ class ConcreteSequentialResource(ConcreteResource):
 
     @classmethod
     def adjust_and_create_concrete_resource(
-            cls: Any, expected_queue: ClusterQueue, existing_resources: Dict,
-            fallback_queues: Optional[List[ClusterQueue]],
-            resource_scales: Optional[Dict[str, float]]
+        cls: Any,
+        expected_queue: ClusterQueue,
+        existing_resources: Dict,
+        fallback_queues: Optional[List[ClusterQueue]],
+        resource_scales: Optional[Dict[str, float]],
     ) -> ConcreteSequentialResource:
         """No adjustment defined for sequential execution. Return original parameters."""
         return cls(queue=expected_queue, valid_resources=existing_resources)

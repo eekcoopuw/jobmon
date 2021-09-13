@@ -11,8 +11,9 @@ from jobmon.client.tool import Tool
 @pytest.fixture
 def tool(db_cfg, client_env):
     tool = Tool()
-    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
-                                                 compute_resources={"queue": "null.q"})
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
     return tool
 
 
@@ -23,7 +24,7 @@ def task_template(tool):
         command_template="{arg}",
         node_args=["arg"],
         task_args=[],
-        op_args=[]
+        op_args=[],
     )
     return tt
 
@@ -33,7 +34,6 @@ cli = CLI()
 
 
 class MockDistributorProc:
-
     def is_alive(self):
         return True
 
@@ -51,7 +51,8 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
     tool = Tool()
     workflow = tool.create_workflow(
         default_cluster_name="sequential",
-        default_compute_resources_set={"sequential": {"queue": "null.q"}})
+        default_compute_resources_set={"sequential": {"queue": "null.q"}},
+    )
     t1 = task_template.create_task(arg="sleep 10")
     t2 = task_template.create_task(arg="sleep 5", upstream_tasks=[t1])
     workflow.add_tasks([t1, t2])
@@ -74,18 +75,21 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
     command_str = f"workflow_status -u {user} -w {workflow.workflow_id} -n"
     args = cli.parse_args(command_str)
     df = workflow_status(args.workflow_id, args.user, args.json)
-    assert df == f'{{"WF_ID":{{"0":{workflow.workflow_id}}},"WF_NAME":{{"0":""}},' \
-                 f'"WF_STATUS":{{"0":' \
-                 '"QUEUED"},"TASKS":{"0":2},"PENDING":{"0":"2 (100.0%)"},' \
-                 '"RUNNING":{"0":"0 (0.0%)"},"DONE":{"0":"0 (0.0%)"},"FATAL"' \
-                 ':{"0":"0 (0.0%)"},"RETRIES":{"0":0.0}}'
+    assert (
+        df == f'{{"WF_ID":{{"0":{workflow.workflow_id}}},"WF_NAME":{{"0":""}},'
+        f'"WF_STATUS":{{"0":'
+        '"QUEUED"},"TASKS":{"0":2},"PENDING":{"0":"2 (100.0%)"},'
+        '"RUNNING":{"0":"0 (0.0%)"},"DONE":{"0":"0 (0.0%)"},"FATAL"'
+        ':{"0":"0 (0.0%)"},"RETRIES":{"0":0.0}}'
+    )
 
     # add a second workflow
     t1 = task_template.create_task(arg="sleep 15")
     t2 = task_template.create_task(arg="sleep 1", upstream_tasks=[t1])
     workflow = tool.create_workflow(
         default_cluster_name="sequential",
-        default_compute_resources_set={"sequential": {"queue": "null.q"}})
+        default_compute_resources_set={"sequential": {"queue": "null.q"}},
+    )
     workflow.add_tasks([t1, t2])
     workflow.bind()
     workflow._create_workflow_run()
@@ -112,7 +116,8 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
     # add 4 more wf to make it 6
     workflow1 = tool.create_workflow(
         default_cluster_name="sequential",
-        default_compute_resources_set={"sequential": {"queue": "null.q"}})
+        default_compute_resources_set={"sequential": {"queue": "null.q"}},
+    )
     t1 = task_template.create_task(arg="sleep 1")
     workflow1.add_tasks([t1])
     workflow1.bind()
@@ -120,7 +125,8 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
 
     workflow2 = tool.create_workflow(
         default_cluster_name="sequential",
-        default_compute_resources_set={"sequential": {"queue": "null.q"}})
+        default_compute_resources_set={"sequential": {"queue": "null.q"}},
+    )
     t2 = task_template.create_task(arg="sleep 2")
     workflow2.add_tasks([t2])
     workflow2.bind()
@@ -128,7 +134,8 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
 
     workflow3 = tool.create_workflow(
         default_cluster_name="sequential",
-        default_compute_resources_set={"sequential": {"queue": "null.q"}})
+        default_compute_resources_set={"sequential": {"queue": "null.q"}},
+    )
     t3 = task_template.create_task(arg="sleep 3")
     workflow3.add_tasks([t3])
     workflow3.bind()
@@ -136,7 +143,8 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
 
     workflow4 = tool.create_workflow(
         default_cluster_name="sequential",
-        default_compute_resources_set={"sequential": {"queue": "null.q"}})
+        default_compute_resources_set={"sequential": {"queue": "null.q"}},
+    )
     t4 = task_template.create_task(arg="sleep 4")
     workflow4.add_tasks([t4])
     workflow4.bind()
@@ -196,7 +204,8 @@ def test_workflow_tasks(db_cfg, client_env, task_template):
     tool = Tool()
     workflow = tool.create_workflow(
         default_cluster_name="sequential",
-        default_compute_resources_set={"sequential": {"queue": "null.q"}})
+        default_compute_resources_set={"sequential": {"queue": "null.q"}},
+    )
     t1 = task_template.create_task(arg="sleep 3")
     t2 = task_template.create_task(arg="sleep 4")
 
@@ -206,7 +215,8 @@ def test_workflow_tasks(db_cfg, client_env, task_template):
     wfr = SwarmWorkflowRun(
         workflow_id=workflow.workflow_id,
         workflow_run_id=client_wfr.workflow_run_id,
-        tasks=workflow.tasks.values())
+        tasks=workflow.tasks.values(),
+    )
 
     # we should get 2 tasks back in pending state
     command_str = f"workflow_tasks -w {workflow.workflow_id}"
@@ -219,8 +229,9 @@ def test_workflow_tasks(db_cfg, client_env, task_template):
     # execute the tasks
     requester = Requester(client_env)
     seq_distributor = SequentialDistributor()
-    distributor = DistributorService(workflow.workflow_id, wfr.workflow_run_id,
-                                     seq_distributor, requester=requester)
+    distributor = DistributorService(
+        workflow.workflow_id, wfr.workflow_run_id, seq_distributor, requester=requester
+    )
     with pytest.raises(RuntimeError):
         # Set the is_alive to always true
         workflow._distributor_alive = lambda: True
@@ -242,10 +253,11 @@ def test_workflow_tasks(db_cfg, client_env, task_template):
     assert len(df) == 0
 
     # limit testing
-    workflow = tool.create_workflow(name="test_100_tasks_with_limit_testing",
-                                    default_cluster_name="multiprocess",
-                                    default_compute_resources_set={"multiprocess": {"queue": "null.q"}}
-                                    )
+    workflow = tool.create_workflow(
+        name="test_100_tasks_with_limit_testing",
+        default_cluster_name="multiprocess",
+        default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
+    )
 
     for i in range(6):
         t = task_template.create_task(arg=f"echo {i}", upstream_tasks=[])
@@ -344,11 +356,11 @@ def test_task_reset(db_cfg, client_env, tool, task_template, monkeypatch):
 
     # Check that this user is allowed to update
     requester = Requester(client_env)
-    validate_username(workflow.workflow_id, 'foo', requester)
+    validate_username(workflow.workflow_id, "foo", requester)
 
     # Validation with a different user raises an error
     with pytest.raises(AssertionError):
-        validate_username(workflow.workflow_id, 'notarealuser', requester)
+        validate_username(workflow.workflow_id, "notarealuser", requester)
 
 
 def test_task_reset_wf_validation(db_cfg, client_env, tool, task_template):
@@ -357,7 +369,7 @@ def test_task_reset_wf_validation(db_cfg, client_env, tool, task_template):
 
     workflow1 = tool.create_workflow()
     workflow2 = tool.create_workflow()
-    t1 = task_template.create_task(arg='sleep 3')
+    t1 = task_template.create_task(arg="sleep 3")
     t2 = task_template.create_task(arg="sleep 4")
 
     workflow1.add_tasks([t1])
@@ -366,8 +378,10 @@ def test_task_reset_wf_validation(db_cfg, client_env, tool, task_template):
     workflow2.run()
 
     # Check that this user is allowed to update
-    command_str = f"update_task_status -t {t1.task_id} {t2.task_id} " \
-                  f"-w {workflow1.workflow_id} -s G"
+    command_str = (
+        f"update_task_status -t {t1.task_id} {t2.task_id} "
+        f"-w {workflow1.workflow_id} -s G"
+    )
 
     args = cli.parse_args(command_str)
 
@@ -398,7 +412,7 @@ def test_sub_dag(db_cfg, client_env, tool, task_template):
           \\      |             /
            \\     |            /
               t1_11_213_1_1
-    """ # noqa W605
+    """  # noqa W605
     workflow = tool.create_workflow()
     t1 = task_template.create_task(arg="echo 1")
     t1_1 = task_template.create_task(arg="echo 11")
@@ -461,7 +475,7 @@ def test_sub_dag(db_cfg, client_env, tool, task_template):
 
 
 def test_dynamic_concurrency_limiting_cli(db_cfg, client_env):
-    """ The server-side logic is checked in distributor/test_instantiate.
+    """The server-side logic is checked in distributor/test_instantiate.
 
     This test checks the logic of the CLI only
     """
@@ -477,7 +491,7 @@ def test_dynamic_concurrency_limiting_cli(db_cfg, client_env):
     # Check that an invalid ask will be rejected
     bad_command = "concurrency_limit -w 5 -m {}"
     with pytest.raises(SystemExit):
-        cli.parse_args(bad_command.format('foo'))
+        cli.parse_args(bad_command.format("foo"))
 
     with pytest.raises(SystemExit):
         cli.parse_args(bad_command.format(-59))
@@ -491,17 +505,17 @@ def test_update_task_status(db_cfg, client_env, tool, task_template):
     # Create a 5 task DAG. Tasks 1-3 should finish, 4 should error out and block 5
     def generate_workflow_and_tasks(tool, template):
 
-        wf = tool.create_workflow(workflow_args='test_cli_update_workflow')
+        wf = tool.create_workflow(workflow_args="test_cli_update_workflow")
         tasks = []
-        echo_str = 'echo {}'
+        echo_str = "echo {}"
         for i in range(5):
             if i != 2:
                 command_str = echo_str.format(i)
             else:
-                command_str = 'exit -9'
+                command_str = "exit -9"
             task = template.create_task(
-                arg=command_str, name=f'task{i}',
-                upstream_tasks=tasks, max_attempts=1)
+                arg=command_str, name=f"task{i}", upstream_tasks=tasks, max_attempts=1
+            )
             tasks.append(task)
         wf.add_tasks(tasks)
         return wf, tasks
@@ -513,10 +527,13 @@ def test_update_task_status(db_cfg, client_env, tool, task_template):
 
     # Set the 'F' task to 'D' to allow progression
 
-    update_str = f'update_task_status -w {wf1.workflow_id} -t {wf1_tasks[2].task_id} -s D'
+    update_str = (
+        f"update_task_status -w {wf1.workflow_id} -t {wf1_tasks[2].task_id} -s D"
+    )
     args = cli.parse_args(update_str)
-    update_task_status(task_ids=args.task_ids, workflow_id=args.workflow_id,
-                       new_status=args.new_status)
+    update_task_status(
+        task_ids=args.task_ids, workflow_id=args.workflow_id, new_status=args.new_status
+    )
 
     # Resume the workflow
     wf2, wf2_tasks = generate_workflow_and_tasks(tool, task_template)
@@ -527,16 +544,19 @@ def test_update_task_status(db_cfg, client_env, tool, task_template):
     assert all([t.final_status == "D" for t in wf2_tasks])
 
     # Try a reset of a "done" workflow to "G"
-    update_task_status(task_ids=[wf2_tasks[3].task_id], workflow_id=wf2.workflow_id,
-                       new_status="G")
+    update_task_status(
+        task_ids=[wf2_tasks[3].task_id], workflow_id=wf2.workflow_id, new_status="G"
+    )
     wf3, wf3_tasks = generate_workflow_and_tasks(tool, task_template)
     wf3.bind()
     wf3._workflow_is_resumable()
     client_wfr3 = wf3._create_workflow_run(resume=True)
 
     wfr3 = SwarmWorkflowRun(
-        workflow_id=wf3.workflow_id, workflow_run_id=client_wfr3.workflow_run_id,
-        tasks=list(wf3.tasks.values()))
+        workflow_id=wf3.workflow_id,
+        workflow_run_id=client_wfr3.workflow_run_id,
+        tasks=list(wf3.tasks.values()),
+    )
     wf3._distributor_proc = wf3._start_distributor_service(wfr3.workflow_run_id)
     wfr3._compute_initial_fringe()
     assert len(wfr3.ready_to_run) == 1
@@ -551,23 +571,19 @@ def test_update_task_status(db_cfg, client_env, tool, task_template):
 
 def test_400_cli_route(db_cfg, client_env):
     from jobmon.requester import Requester
+
     requester = Requester(client_env)
     rc, resp = requester.send_request(
-        app_route="/task_status",
-        message={},
-        request_type='get',
-        logger=logger
+        app_route="/task_status", message={}, request_type="get", logger=logger
     )
     assert rc == 400
 
 
 def test_bad_put_route(db_cfg, client_env):
     from jobmon.requester import Requester
+
     requester = Requester(client_env, logger)
     rc, resp = requester.send_request(
-        app_route="/task/update_statuses",
-        message={},
-        request_type='put',
-        logger=logger
+        app_route="/task/update_statuses", message={}, request_type="put", logger=logger
     )
     assert rc == 400

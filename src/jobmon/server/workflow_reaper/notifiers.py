@@ -28,8 +28,9 @@ class SlackNotifier(object):
             channel = self.default_channel
         resp = requests.post(
             self.slack_api_url,
-            headers={'Authorization': 'Bearer {}'.format(self._token)},
-            json={'channel': channel, 'text': msg})
+            headers={"Authorization": "Bearer {}".format(self._token)},
+            json={"channel": channel, "text": msg},
+        )
         logger.debug(resp)
         if resp.status_code != requests.codes.OK:
             error = "Could not send Slack message. {!r}".format(resp.content)

@@ -40,9 +40,12 @@ class Tool:
     The Tool may evolve over time.
     """
 
-    def __init__(self, name: str = f"unknown-{getpass.getuser()}",
-                 active_tool_version_id: Union[str, int] = "latest",
-                 requester: Optional[Requester] = None) -> None:
+    def __init__(
+        self,
+        name: str = f"unknown-{getpass.getuser()}",
+        active_tool_version_id: Union[str, int] = "latest",
+        requester: Optional[Requester] = None,
+    ) -> None:
         """A tool is an application which is expected to run many times on variable inputs.
 
          Which will serve a certain purpose over time even as the internal pipeline may change.
@@ -77,7 +80,9 @@ class Tool:
         """
         # call route to create tool version
 
-        tool_version = ToolVersion.get_tool_version(tool_id=self.id, requester=self.requester)
+        tool_version = ToolVersion.get_tool_version(
+            tool_id=self.id, requester=self.requester
+        )
         tool_version_id = tool_version.id
         self.tool_versions.append(tool_version)
         self.set_active_tool_version_id(tool_version_id)
@@ -109,8 +114,10 @@ class Tool:
         Args:
             tool_version_id: which tool version to set as active on this object.
         """
-        version_index_lookup = {self.tool_versions[index].id: index
-                                for index in range(len(self.tool_versions))}
+        version_index_lookup = {
+            self.tool_versions[index].id: index
+            for index in range(len(self.tool_versions))
+        }
 
         # get the lookup value
         if tool_version_id == "latest":
@@ -132,11 +139,17 @@ class Tool:
         tool_version.load_task_templates()
         self._active_tool_version: ToolVersion = tool_version
 
-    def get_task_template(self, template_name: str, command_template: str,
-                          node_args: List[str] = None, task_args: List[str] = None,
-                          op_args: List[str] = None, default_cluster_name: str = "",
-                          default_compute_resources: Optional[Dict[str, Any]] = None,
-                          yaml_file: str = None) -> TaskTemplate:
+    def get_task_template(
+        self,
+        template_name: str,
+        command_template: str,
+        node_args: List[str] = None,
+        task_args: List[str] = None,
+        op_args: List[str] = None,
+        default_cluster_name: str = "",
+        default_compute_resources: Optional[Dict[str, Any]] = None,
+        yaml_file: str = None,
+    ) -> TaskTemplate:
         """Create or get task a task template.
 
         Args:
@@ -176,25 +189,38 @@ class Tool:
 
         # Read in compute resources from YAML
         if yaml_file and default_compute_resources is None:
-            with open(yaml_file, 'r') as stream:
+            with open(yaml_file, "r") as stream:
                 try:
                     default_compute_resources = yaml.safe_load(stream)
                 except yaml.YAMLError as exc:
-                    raise Exception(f"Unable to read resources from {yaml_file}. "
-                                    f"Exception: {exc}")
-            default_compute_resources = (default_compute_resources["task_template_resources"]
-                                                                  [tt.template_name]
-                                                                  [default_cluster_name])
-        tt.get_task_template_version(command_template, node_args, task_args, op_args,
-                                     default_cluster_name, default_compute_resources)
+                    raise Exception(
+                        f"Unable to read resources from {yaml_file}. "
+                        f"Exception: {exc}"
+                    )
+            default_compute_resources = default_compute_resources[
+                "task_template_resources"
+            ][tt.template_name][default_cluster_name]
+        tt.get_task_template_version(
+            command_template,
+            node_args,
+            task_args,
+            op_args,
+            default_cluster_name,
+            default_compute_resources,
+        )
         return tt
 
-    def create_workflow(self, workflow_args: str = "", name: str = "", description: str = "",
-                        workflow_attributes: Optional[Union[List, dict]] = None,
-                        max_concurrently_running: int = 10_000, chunk_size: int = 500,
-                        default_cluster_name: str = "",
-                        default_compute_resources_set: Optional[Dict] = None
-                        ) -> Workflow:
+    def create_workflow(
+        self,
+        workflow_args: str = "",
+        name: str = "",
+        description: str = "",
+        workflow_attributes: Optional[Union[List, dict]] = None,
+        max_concurrently_running: int = 10_000,
+        chunk_size: int = 500,
+        default_cluster_name: str = "",
+        default_compute_resources_set: Optional[Dict] = None,
+    ) -> Workflow:
         """Create a workflow object associated with the active tool version.
 
         Args:
@@ -211,9 +237,16 @@ class Tool:
                 with. Can be overridden at task template or task level.
                 dict of {cluster_name: {resource_name: resource_value}}
         """
-        wf = Workflow(self.active_tool_version.id, workflow_args, name, description,
-                      workflow_attributes, max_concurrently_running, requester=self.requester,
-                      chunk_size=chunk_size)
+        wf = Workflow(
+            self.active_tool_version.id,
+            workflow_args,
+            name,
+            description,
+            workflow_attributes,
+            max_concurrently_running,
+            requester=self.requester,
+            chunk_size=chunk_size,
+        )
 
         # set compute resource defaults
         if default_cluster_name:
@@ -229,7 +262,9 @@ class Tool:
 
         return wf
 
-    def update_default_compute_resources(self, cluster_name: str, **kwargs: Any) -> None:
+    def update_default_compute_resources(
+        self, cluster_name: str, **kwargs: Any
+    ) -> None:
         """Update default compute resources in place only overridding specified keys.
 
         If no default cluster is specified when this method is called, cluster_name will
@@ -241,11 +276,13 @@ class Tool:
         """
         if not self.default_cluster_name:
             self.active_tool_version.default_cluster_name = cluster_name
-        self.active_tool_version.update_default_compute_resources(cluster_name, **kwargs)
+        self.active_tool_version.update_default_compute_resources(
+            cluster_name, **kwargs
+        )
 
-    def set_default_compute_resources_from_yaml(self, default_cluster_name: str,
-                                                yaml_file: str,
-                                                set_task_templates: bool = None) -> None:
+    def set_default_compute_resources_from_yaml(
+        self, default_cluster_name: str, yaml_file: str, set_task_templates: bool = None
+    ) -> None:
         """Set default compute resources from a user provided yaml file for tool level.
 
         Args:
@@ -254,42 +291,50 @@ class Tool:
             set_task_templates: whether or not the user wants to set the default compute
                 resource values for all of the TaskTemplates associated with Tool.
         """
-        with open(yaml_file, 'r') as stream:
+        with open(yaml_file, "r") as stream:
             try:
                 default_compute_resources = yaml.safe_load(stream)
             except yaml.YAMLError as exc:
-                raise ValueError(f"Unable to read default compute resources from "
-                                 f"{yaml_file}.") from exc
+                raise ValueError(
+                    f"Unable to read default compute resources from " f"{yaml_file}."
+                ) from exc
 
         # Set the Tool level compute resources
         try:
-            compute_resources = (default_compute_resources["tool_resources"]
-                                                          [default_cluster_name])
+            compute_resources = default_compute_resources["tool_resources"][
+                default_cluster_name
+            ]
         except KeyError as exc:
-            raise KeyError(f"No Tool resources matching cluster name in yaml file: "
-                           f"{yaml_file}.") from exc
+            raise KeyError(
+                f"No Tool resources matching cluster name in yaml file: "
+                f"{yaml_file}."
+            ) from exc
 
         self.active_tool_version.set_default_compute_resources_from_dict(
-            cluster_name=default_cluster_name,
-            compute_resources=compute_resources
+            cluster_name=default_cluster_name, compute_resources=compute_resources
         )
 
         if not self.active_task_templates:
-            raise Exception("No TaskTemplates associated with Tool, unable to set default "
-                            "compute resources for TaskTemplates.")
+            raise Exception(
+                "No TaskTemplates associated with Tool, unable to set default "
+                "compute resources for TaskTemplates."
+            )
 
         if set_task_templates:
             # Set the the compute resources for the TaskTemplates associated with the Tool
             for tt in self.active_task_templates.values():
                 tt.set_default_compute_resources_from_dict(
                     cluster_name=default_cluster_name,
-                    compute_resources=(default_compute_resources["task_template_resources"]
-                                                                [tt.template_name]
-                                                                [default_cluster_name])
+                    compute_resources=(
+                        default_compute_resources["task_template_resources"][
+                            tt.template_name
+                        ][default_cluster_name]
+                    ),
                 )
 
-    def set_default_compute_resources_from_dict(self, cluster_name: str,
-                                                compute_resources: Dict[str, Any]) -> None:
+    def set_default_compute_resources_from_dict(
+        self, cluster_name: str, compute_resources: Dict[str, Any]
+    ) -> None:
         """Set default compute resources for a given cluster_name.
 
         If no default cluster is specified when this method is called, cluster_name will
@@ -303,8 +348,9 @@ class Tool:
         """
         if not self.default_cluster_name:
             self.active_tool_version.default_cluster_name = cluster_name
-        self.active_tool_version.set_default_compute_resources_from_dict(cluster_name,
-                                                                         compute_resources)
+        self.active_tool_version.set_default_compute_resources_from_dict(
+            cluster_name, compute_resources
+        )
 
     def set_default_cluster_name(self, cluster_name: str) -> None:
         """Set default cluster.
@@ -317,20 +363,19 @@ class Tool:
     def _load_tool_versions(self) -> List[ToolVersion]:
         app_route = f"/tool/{self.id}/tool_versions"
         return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={},
-            request_type='get',
-            logger=logger
+            app_route=app_route, message={}, request_type="get", logger=logger
         )
 
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST request through route '
-                f'{app_route}. Expected code 200. Response content: {response}'
+                f"Unexpected status code {return_code} from POST request through route "
+                f"{app_route}. Expected code 200. Response content: {response}"
             )
 
-        tool_versions = [ToolVersion.from_wire(wire_tuple)
-                         for wire_tuple in response["tool_versions"]]
+        tool_versions = [
+            ToolVersion.from_wire(wire_tuple)
+            for wire_tuple in response["tool_versions"]
+        ]
         return tool_versions
 
     def _bind(self) -> None:
@@ -339,13 +384,13 @@ class Tool:
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"name": self.name},
-            request_type='post',
-            logger=logger
+            request_type="post",
+            logger=logger,
         )
 
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
-                f'Unexpected status code {return_code} from POST request through route '
-                f'{app_route}. Expected code 200. Response content: {response}'
+                f"Unexpected status code {return_code} from POST request through route "
+                f"{app_route}. Expected code 200. Response content: {response}"
             )
         self.id = SerializeClientTool.kwargs_from_wire(response["tool"])["id"]

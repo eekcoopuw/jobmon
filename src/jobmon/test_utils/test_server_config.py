@@ -10,7 +10,8 @@ except ImportError as e:
         "Only the dependencies necessary for running "
         "the Jobmon client are included in the requirements by default. "
         "If you are developing on Jobmon and want to run the tests, "
-        "please also install the testing and server requirements.")
+        "please also install the testing and server requirements."
+    )
     raise Exception(error_msg) from e
 
 
@@ -31,7 +32,8 @@ def test_server_config(ephemera: dict) -> dict:
         db_port=ephemera["DB_PORT"],
         db_user=ephemera["DB_USER"],
         db_pass=ephemera["DB_PASS"],
-        db_name=ephemera["DB_NAME"])
+        db_name=ephemera["DB_NAME"],
+    )
     app = create_app(web_config)
 
-    return {'app': app, 'DB': DB, "server_config": web_config}
+    return {"app": app, "DB": DB, "server_config": web_config}

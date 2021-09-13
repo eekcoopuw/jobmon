@@ -7,8 +7,9 @@ from filelock import FileLock
 from jobmon.test_utils.create_temp_db import create_temp_db
 
 
-def ephemera_db_instance(tmp_path_factory: Any, worker_id: str = "master") \
-        -> Union[dict, Callable[[], dict]]:
+def ephemera_db_instance(
+    tmp_path_factory: Any, worker_id: str = "master"
+) -> Union[dict, Callable[[], dict]]:
     """Boots exactly one instance of the test ephemera database.
 
     If tests are run in multiprocessing mode, ensure only one database

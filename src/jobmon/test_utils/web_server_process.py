@@ -33,25 +33,27 @@ class WebServerProcess:
         """Starts the web service process."""
         # jobmon_cli string
         argstr = (
-            'web_service test '
+            "web_service test "
             f'--db_host {self.ephemera["DB_HOST"]} '
             f'--db_port {self.ephemera["DB_PORT"]} '
             f'--db_user {self.ephemera["DB_USER"]} '
             f'--db_pass {self.ephemera["DB_PASS"]} '
             f'--db_name {self.ephemera["DB_NAME"]} '
-            f'--web_service_port {self.web_port}')
+            f"--web_service_port {self.web_port}"
+        )
 
         def run_server_with_handler(argstr: str) -> None:
             def sigterm_handler(_signo: int, _stack_frame: Any) -> None:
                 # catch SIGTERM and shut down with 0 so pycov finalizers are run
                 # Raises SystemExit(0):
                 sys.exit(0)
+
             from jobmon.server.cli import main
 
             signal.signal(signal.SIGTERM, sigterm_handler)
             main(argstr)
 
-        ctx = mp.get_context('fork')
+        ctx = mp.get_context("fork")
         self.p1 = ctx.Process(target=run_server_with_handler, args=(argstr,))
         self.p1.start()
 
@@ -62,7 +64,7 @@ class WebServerProcess:
         while not status == 200 and count < max_tries:
             try:
                 count += 1
-                r = requests.get(f'http://{self.web_host}:{self.web_port}/health')
+                r = requests.get(f"http://{self.web_host}:{self.web_port}/health")
                 status = r.status_code
             except Exception:
                 # Connection failures land here
@@ -74,12 +76,17 @@ class WebServerProcess:
         if count >= max_tries:
             raise TimeoutError(
                 f"Out-of-process jobmon services did not answer after "
-                f"{count} attempts, probably failed to start.")
+                f"{count} attempts, probably failed to start."
+            )
 
         return self
 
-    def __exit__(self, exc_type: Optional[BaseException], exc_value: Optional[BaseException],
-                 exc_traceback: Optional[TracebackType]) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[BaseException],
+        exc_value: Optional[BaseException],
+        exc_traceback: Optional[TracebackType],
+    ) -> None:
         """Terminate the web service process."""
         # interrupt and join for coverage
         self.p1.terminate()

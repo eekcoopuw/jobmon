@@ -10,8 +10,9 @@ from jobmon.client.distributor.distributor_service import DistributorService
 @pytest.fixture
 def tool(db_cfg, client_env):
     tool = Tool()
-    tool.set_default_compute_resources_from_dict(cluster_name="sequential",
-                                                 compute_resources={"queue": "null.q"})
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
     return tool
 
 
@@ -22,7 +23,7 @@ def task_template(tool):
         command_template="{arg}",
         node_args=["arg"],
         task_args=[],
-        op_args=[]
+        op_args=[],
     )
     return tt
 
@@ -59,8 +60,8 @@ def test_instantiating_launched(db_cfg, tool, task_template):
         WHERE wr.id = :workflow_run_id"""
     with app.app_context():
         res = DB.session.execute(
-            workflow_status_sql,
-            {"workflow_run_id": wfr.workflow_run_id}).fetchone()
+            workflow_status_sql, {"workflow_run_id": wfr.workflow_run_id}
+        ).fetchone()
         DB.session.commit()
     assert res == (WorkflowStatus.QUEUED, WorkflowRunStatus.BOUND)
 
@@ -82,8 +83,8 @@ def test_instantiating_launched(db_cfg, tool, task_template):
 
     with app.app_context():
         res = DB.session.execute(
-            workflow_status_sql,
-            {"workflow_run_id": wfr.workflow_run_id}).fetchone()
+            workflow_status_sql, {"workflow_run_id": wfr.workflow_run_id}
+        ).fetchone()
         DB.session.commit()
     assert res == (WorkflowStatus.FAILED, WorkflowRunStatus.ERROR)
 
@@ -92,17 +93,21 @@ def test_instantiating_launched(db_cfg, tool, task_template):
 
     with app.app_context():
         res = DB.session.execute(
-            workflow_status_sql,
-            {"workflow_run_id": wfr2.workflow_run_id}).fetchone()
+            workflow_status_sql, {"workflow_run_id": wfr2.workflow_run_id}
+        ).fetchone()
         DB.session.commit()
     assert res == (WorkflowStatus.QUEUED, WorkflowRunStatus.BOUND)
 
     # Start the distributor
-    DistributorService(workflow.workflow_id, wfr2.workflow_run_id, SequentialDistributor(),
-                       requester=workflow.requester)
+    DistributorService(
+        workflow.workflow_id,
+        wfr2.workflow_run_id,
+        SequentialDistributor(),
+        requester=workflow.requester,
+    )
     with app.app_context():
         res = DB.session.execute(
-            workflow_status_sql,
-            {"workflow_run_id": wfr2.workflow_run_id}).fetchone()
+            workflow_status_sql, {"workflow_run_id": wfr2.workflow_run_id}
+        ).fetchone()
         DB.session.commit()
     assert res == (WorkflowStatus.RUNNING, WorkflowRunStatus.RUNNING)

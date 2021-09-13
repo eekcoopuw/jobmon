@@ -23,7 +23,7 @@ from jobmon.server.web.server_side_exception import InvalidUsage
 logger = LocalProxy(partial(get_logger, __name__))
 
 
-@finite_state_machine.route('/task_template', methods=['POST'])
+@finite_state_machine.route("/task_template", methods=["POST"])
 def get_task_template() -> Any:
     """Add a task template for a given tool to the database."""
     # check input variable
@@ -34,12 +34,15 @@ def get_task_template() -> Any:
         logger.info(f"Add task tamplate for tool_version_id {tool_version_id} ")
 
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     # add to DB
     try:
-        tt = TaskTemplate(tool_version_id=data["tool_version_id"],
-                          name=data["task_template_name"])
+        tt = TaskTemplate(
+            tool_version_id=data["tool_version_id"], name=data["task_template_name"]
+        )
         DB.session.add(tt)
         DB.session.commit()
     except sqlalchemy.exc.IntegrityError:
@@ -51,17 +54,23 @@ def get_task_template() -> Any:
                 tool_version_id = :tool_version_id
                 AND name = :name
         """
-        tt = DB.session.query(TaskTemplate).from_statement(text(query)).params(
-            tool_version_id=data["tool_version_id"],
-            name=data["task_template_name"]
-        ).one()
+        tt = (
+            DB.session.query(TaskTemplate)
+            .from_statement(text(query))
+            .params(
+                tool_version_id=data["tool_version_id"], name=data["task_template_name"]
+            )
+            .one()
+        )
         DB.session.commit()
     resp = jsonify(task_template_id=tt.id)
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@finite_state_machine.route('/task_template/<task_template_id>/versions', methods=['GET'])
+@finite_state_machine.route(
+    "/task_template/<task_template_id>/versions", methods=["GET"]
+)
 def get_task_template_versions(task_template_id: int) -> Any:
     """Get the task_template_version."""
     # get task template version object
@@ -75,9 +84,12 @@ def get_task_template_versions(task_template_id: int) -> Any:
         WHERE
             task_template_id = :task_template_id
     """
-    ttvs = DB.session.query(TaskTemplateVersion).from_statement(text(query)).params(
-        task_template_id=task_template_id
-    ).all()
+    ttvs = (
+        DB.session.query(TaskTemplateVersion)
+        .from_statement(text(query))
+        .params(task_template_id=task_template_id)
+        .all()
+    )
 
     wire_obj = [ttv.to_wire_as_client_task_template_version() for ttv in ttvs]
 
@@ -103,7 +115,9 @@ def _add_or_get_arg(name: str) -> Arg:
     return arg
 
 
-@finite_state_machine.route('/task_template/<task_template_id>/add_version', methods=['POST'])
+@finite_state_machine.route(
+    "/task_template/<task_template_id>/add_version", methods=["POST"]
+)
 def add_task_template_version(task_template_id: int) -> Any:
     """Add a tool to the database."""
     # check input variables
@@ -111,14 +125,17 @@ def add_task_template_version(task_template_id: int) -> Any:
     data = request.get_json()
     logger.info(f"Add tool for task_template_id {task_template_id}")
     if task_template_id is None:
-        raise InvalidUsage(f"Missing variable task_template_id in {request.path}",
-                           status_code=400)
+        raise InvalidUsage(
+            f"Missing variable task_template_id in {request.path}", status_code=400
+        )
     try:
         int(task_template_id)
         # populate the argument table
-        arg_mapping_dct: dict = {ArgType.NODE_ARG: [],
-                                 ArgType.TASK_ARG: [],
-                                 ArgType.OP_ARG: []}
+        arg_mapping_dct: dict = {
+            ArgType.NODE_ARG: [],
+            ArgType.TASK_ARG: [],
+            ArgType.OP_ARG: [],
+        }
         for arg_name in data["node_args"]:
             arg_mapping_dct[ArgType.NODE_ARG].append(_add_or_get_arg(arg_name))
         for arg_name in data["task_args"]:
@@ -126,12 +143,16 @@ def add_task_template_version(task_template_id: int) -> Any:
         for arg_name in data["op_args"]:
             arg_mapping_dct[ArgType.OP_ARG].append(_add_or_get_arg(arg_name))
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     try:
-        ttv = TaskTemplateVersion(task_template_id=task_template_id,
-                                  command_template=data["command_template"],
-                                  arg_mapping_hash=data["arg_mapping_hash"])
+        ttv = TaskTemplateVersion(
+            task_template_id=task_template_id,
+            command_template=data["command_template"],
+            arg_mapping_hash=data["arg_mapping_hash"],
+        )
         DB.session.add(ttv)
         DB.session.commit()
 
@@ -143,10 +164,13 @@ def add_task_template_version(task_template_id: int) -> Any:
                 ctatm = TemplateArgMap(
                     task_template_version_id=ttv.id,
                     arg_id=arg.id,
-                    arg_type_id=arg_type_id)
+                    arg_type_id=arg_type_id,
+                )
                 DB.session.add(ctatm)
         DB.session.commit()
-        resp = jsonify(task_template_version=ttv.to_wire_as_client_task_template_version())
+        resp = jsonify(
+            task_template_version=ttv.to_wire_as_client_task_template_version()
+        )
         resp.status_code = StatusCodes.OK
         return resp
     except sqlalchemy.exc.IntegrityError:
@@ -161,11 +185,16 @@ def add_task_template_version(task_template_id: int) -> Any:
                 AND command_template = :command_template
                 AND arg_mapping_hash = :arg_mapping_hash
         """
-        ttv = DB.session.query(TaskTemplateVersion).from_statement(text(query)).params(
-            task_template_id=task_template_id,
-            command_template=data["command_template"],
-            arg_mapping_hash=data["arg_mapping_hash"]
-        ).one()
+        ttv = (
+            DB.session.query(TaskTemplateVersion)
+            .from_statement(text(query))
+            .params(
+                task_template_id=task_template_id,
+                command_template=data["command_template"],
+                arg_mapping_hash=data["arg_mapping_hash"],
+            )
+            .one()
+        )
         DB.session.commit()
         resp = jsonify(
             task_template_version=ttv.to_wire_as_client_task_template_version()

@@ -6,8 +6,12 @@ import os
 import random
 from typing import Any, Dict, List, Optional, Tuple, Type
 
-from jobmon.cluster_type.base import (ClusterDistributor, ClusterQueue, ClusterWorkerNode,
-                                      ConcreteResource)
+from jobmon.cluster_type.base import (
+    ClusterDistributor,
+    ClusterQueue,
+    ClusterWorkerNode,
+    ConcreteResource,
+)
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.worker_node.cli import WorkerNodeCLI
@@ -63,10 +67,10 @@ class DummyDistributor(ClusterDistributor):
         self.started = False
         # Parse the config
         worker_node_config = WorkerNodeConfig.from_defaults()
-        self.heartbeat_report_by_buffer = \
-            worker_node_config.heartbeat_report_by_buffer
-        self.task_instance_heartbeat_interval = \
+        self.heartbeat_report_by_buffer = worker_node_config.heartbeat_report_by_buffer
+        self.task_instance_heartbeat_interval = (
             worker_node_config.task_instance_heartbeat_interval
+        )
 
     @property
     def worker_node_entry_point(self) -> str:
@@ -98,8 +102,9 @@ class DummyDistributor(ClusterDistributor):
         """No such thing as running Dummy tasks. Therefore, nothing to terminate."""
         raise NotImplementedError
 
-    def submit_to_batch_distributor(self, command: str, name: str,
-                                    requested_resources: Dict[str, Any]) -> int:
+    def submit_to_batch_distributor(
+        self, command: str, name: str, requested_resources: Dict[str, Any]
+    ) -> int:
         """Run a fake execution of the task.
 
         In a real executor, this is where qsub would happen. Here, since it's a dummy executor,
@@ -115,12 +120,13 @@ class DummyDistributor(ClusterDistributor):
         worker_node_task_instance = WorkerNodeTaskInstance(
             task_instance_id=args.task_instance_id,
             expected_jobmon_version=args.expected_jobmon_version,
-            cluster_type_name=args.cluster_type_name
+            cluster_type_name=args.cluster_type_name,
         )
 
         # Log running, log done, and exit
         _, _, _ = worker_node_task_instance.log_running(
-            self.heartbeat_report_by_buffer * self.task_instance_heartbeat_interval)
+            self.heartbeat_report_by_buffer * self.task_instance_heartbeat_interval
+        )
         worker_node_task_instance.log_done()
 
         return distributor_id
@@ -141,7 +147,7 @@ class DummyWorkerNode(ClusterWorkerNode):
     def distributor_id(self) -> Optional[int]:
         """Executor id of the task."""
         if self._distributor_id is None:
-            jid = os.environ.get('JOB_ID')
+            jid = os.environ.get("JOB_ID")
             if jid:
                 self._distributor_id = int(jid)
         return self._distributor_id
@@ -157,6 +163,7 @@ class DummyWorkerNode(ClusterWorkerNode):
 
 class ConcreteDummyResource(ConcreteResource):
     """A version of a private constructor in Python."""
+
     def __init__(self, queue: ClusterQueue, valid_resources: Dict) -> None:
         """Always assumed to be valid.
 
@@ -177,7 +184,7 @@ class ConcreteDummyResource(ConcreteResource):
 
     @classmethod
     def validate_and_create_concrete_resource(
-            cls: Any, queue: ClusterQueue, requested_resources: Dict
+        cls: Any, queue: ClusterQueue, requested_resources: Dict
     ) -> Tuple[bool, str, ConcreteDummyResource]:
         """Validate that the resources are available on the queue and return an instance.
 
@@ -191,9 +198,12 @@ class ConcreteDummyResource(ConcreteResource):
 
     @classmethod
     def adjust_and_create_concrete_resource(
-            cls: Any, expected_queue: ClusterQueue, existing_resources: Dict,
-            fallback_queues: Optional[List[ClusterQueue]],
-            resource_scales: Optional[Dict[str, float]]) -> ConcreteDummyResource:
+        cls: Any,
+        expected_queue: ClusterQueue,
+        existing_resources: Dict,
+        fallback_queues: Optional[List[ClusterQueue]],
+        resource_scales: Optional[Dict[str, float]],
+    ) -> ConcreteDummyResource:
         """No adjustment defined for dummy execution. Return original parameters."""
         return cls(queue=expected_queue, valid_resources=existing_resources)
 

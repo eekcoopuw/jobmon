@@ -14,14 +14,17 @@ class DistributorCLI(CLI):
         """Initialization of distributor CLI."""
         self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
         self._subparsers = self.parser.add_subparsers(
-            dest='sub_command', parser_class=configargparse.ArgumentParser
+            dest="sub_command", parser_class=configargparse.ArgumentParser
         )
 
         self._add_distributor_parser()
 
     def distributor(self, args: configargparse.Namespace) -> None:
         """Configuration for the jobmon worker node."""
-        from jobmon.client.distributor.api import get_distributor_service, DistributorConfig
+        from jobmon.client.distributor.api import (
+            get_distributor_service,
+            DistributorConfig,
+        )
 
         distributor_config = DistributorConfig(
             worker_node_entry_point=args.worker_node_entry_point,
@@ -31,7 +34,7 @@ class DistributorCLI(CLI):
             n_queued=args.distributor_n_queued,
             distributor_poll_interval=args.distributor_poll_interval,
             web_service_fqdn=args.web_service_fqdn,
-            web_service_port=args.web_service_port
+            web_service_port=args.web_service_port,
         )
 
         # Minimum args: args.workflow_id, args.workflow_run_id, args.cluster_type_name
@@ -40,34 +43,34 @@ class DistributorCLI(CLI):
         distributor = ClusterDistributor()
 
         # TODO: how do we pass in executor args
-        if args.command == 'start':
-            distributor_service = \
-                get_distributor_service(args.workflow_id, args.workflow_run_id, distributor,
-                                        distributor_config)
+        if args.command == "start":
+            distributor_service = get_distributor_service(
+                args.workflow_id, args.workflow_run_id, distributor, distributor_config
+            )
             distributor_service.run_distributor()
         else:
             raise ValueError(f"Command {args.command} not supported.")
 
     def _add_distributor_parser(self) -> None:
-        distributor_parser = self._subparsers.add_parser('distributor', **PARSER_KWARGS)
+        distributor_parser = self._subparsers.add_parser("distributor", **PARSER_KWARGS)
         distributor_parser.set_defaults(func=self.distributor)
         distributor_parser.add_argument(
-            'command',
+            "command",
             type=str,
-            choices=['start'],
-            help=('The distributor sub-command to run: (start)'),
+            choices=["start"],
+            help=("The distributor sub-command to run: (start)"),
         )
         distributor_parser.add_argument(
-            '--workflow_id',
+            "--workflow_id",
             type=int,
-            help='workflow_id to distribute jobs for.',
-            required=True
+            help="workflow_id to distribute jobs for.",
+            required=True,
         )
         distributor_parser.add_argument(
-            '--workflow_run_id',
+            "--workflow_run_id",
             type=int,
-            help='workflow_run_id to distribute jobs for.',
-            required=True
+            help="workflow_run_id to distribute jobs for.",
+            required=True,
         )
         ParserDefaults.worker_node_entry_point(distributor_parser)
         ParserDefaults.workflow_run_heartbeat_interval(distributor_parser)
