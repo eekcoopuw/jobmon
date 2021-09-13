@@ -100,9 +100,29 @@ def distribute(session: Session) -> None:
 
 
 @nox.session(python=python, venv_backend="conda")
+def conda_build(session: Session) -> None:
+    session.conda_install("conda-build", "conda-verify")
+
+    # paths
+    repo_dir = os.path.dirname(__file__)
+    recipe_dir = os.path.join(repo_dir, "deployment", "conda_recipe", "ihme_client")
+    output_dir = os.path.join(repo_dir, "conda_build_output")
+
+    session.run(
+        "conda", "build", recipe_dir,  # build this recope
+        "-c", "conda-forge",  # pull build dependencies from conda-forge
+        "--no-anaconda-upload",  # don't upload
+        "--verify",  # verify build
+        "--output-folder", output_dir,  # store build artifacts relative to repo root
+        env={"WEB_SERVER_FQDN": "10.158.146.73",
+             "WEB_SERVER_PORT": "80"}
+    )
+
+
+@nox.session(python=python, venv_backend="conda")
 def clean(session: Session) -> None:
     dirs_to_remove = ['out', 'jobmon_coverage_html_report', 'dist', 'build', '.eggs',
-                      '.pytest_cache', 'docsource/api', '.mypy_cache']
+                      '.pytest_cache', 'docsource/api', '.mypy_cache', 'conda_build_output']
     for path in dirs_to_remove:
         if os.path.exists(path):
             shutil.rmtree(path)
