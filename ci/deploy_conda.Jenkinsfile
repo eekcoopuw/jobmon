@@ -27,13 +27,17 @@ pipeline {
     QLOGIN_ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
   } // end environment
   stages {
+    stage('Remote Checkout Repo') {
+      steps {
+        checkout scm
+      } // End step
+    } // End remote checkout repo stage
     stage ('Get service configuration info') {
       steps {
         node('docker') {
           // Scicomp kubernetes cluster container
           withCredentials([file(credentialsId: 'k8s-scicomp-cluster-kubeconf',
                                 variable: 'KUBECONFIG')]) {
-            checkout scm
             sh '''#!/bin/bash
                   . ${WORKSPACE}/ci/deploy_utils.sh
                   get_connection_info_from_namespace ${WORKSPACE} ${K8S_NAMESPACE}
