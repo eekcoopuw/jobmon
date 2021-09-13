@@ -20,8 +20,6 @@ pipeline {
     string(defaultValue: 'jobmon-dev',
      description: 'Kubernetes Namespace to deploy to',
      name: 'K8S_NAMESPACE')
-
-
   } // end parameters
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
@@ -65,3 +63,48 @@ pipeline {
     stage ('Build Conda Distribution') {
       steps {
         node('docker') {
+          steps {
+              sh '''#!/bin/bash
+                    export PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
+                    export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
+                    export JOBMON_VERSION="${JOBMON_VERSION}"
+                    export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
+                    export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
+                    export JOBMON_SERVICE_FQDN="${env.JOBMON_SERVICE_FQDN}"
+                    export JOBMON_SERVICE_PORT="${env.JOBMON_SERVICE_PORT}"
+                    ${ACTIVATE} && nox --session conda_build
+                 '''
+          } // End step
+        } // end node
+      } // end steps
+    } // end build stage
+    stage ('Upload Conda Distribution') {
+      steps {
+        node('docker') {
+          steps {
+            withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
+                                              usernameVariable: 'REG_USERNAME',
+                                              passwordVariable: 'REG_PASSWORD')]) {
+              sh '''#!/bin/bash
+
+                    FULL_FILEPATH=$(find "${WORKSPACE}/conda-build-output/noarch" -name "ihme_jobmon*.bz2")
+                    UPLOAD_FILEPATH=$(basename $FULL_FILEPATH)
+
+                    curl -XPUT \
+                      --user "${REG_USERNAME}:${REG_PASSWORD}" \
+                      -T ${FULL_FILEPATH} \
+                      "https://artifactory.ihme.washington.edu/artifactory/conda-scicomp/noarch/$UPLOAD_FILEPATH"
+                 '''
+            } // end credentials
+          } // end steps
+        } // end node
+      } // end steps
+    } // end upload stage
+  } // end stages
+  post {
+    always {
+      // Delete the workspace directory.
+      deleteDir()
+    } // End always
+  } // End post
+} // End pipeline

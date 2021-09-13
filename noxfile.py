@@ -1,4 +1,5 @@
 """Nox Configuration for Jobmon."""
+import argparse
 import os
 import shutil
 
@@ -110,6 +111,19 @@ def distribute(session: Session) -> None:
 def conda_build(session: Session) -> None:
     session.conda_install("conda-build", "conda-verify")
 
+    # environment variables used in meta.yaml
+    pypi_url = os.getenv(
+        "PYPI_URL", "https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
+    )
+    conda_client_version = os.getenv("CONDA_CLIENT_VERSION", "0.0")
+    jobmon_version = os.getenv("JOBMON_VERSION", "2.2.2.dev448")
+    jobmon_uge_version = os.getenv("JOBMON_UGE_VERSION", "0.1.dev53")
+    # jobmon_slurm_version = os.getenv("JOBMON_SLURM_VERSION")
+
+    # environment variables used in build script
+    web_service_fqdn = os.environ["WEB_SERVER_FQDN"]
+    web_service_port = os.environ["WEB_SERVER_PORT"]
+
     # paths
     repo_dir = os.path.dirname(__file__)
     recipe_dir = os.path.join(repo_dir, "deployment", "conda_recipe", "ihme_client")
@@ -121,8 +135,15 @@ def conda_build(session: Session) -> None:
         "--no-anaconda-upload",  # don't upload
         "--verify",  # verify build
         "--output-folder", output_dir,  # store build artifacts relative to repo root
-        env={"WEB_SERVER_FQDN": "10.158.146.73",
-             "WEB_SERVER_PORT": "80"}
+        env={
+            "PYPI_URL": pypi_url,
+            "CONDA_CLIENT_VERSION": conda_client_version,
+            "JOBMON_VERSION": jobmon_version,
+            "JOBMON_UGE_VERSION": jobmon_uge_version,
+            # "JOBMON_SLURM_VERSION": jobmon_slurm_version,
+            "WEB_SERVER_FQDN": web_service_fqdn,  # eg. 10.158.146.73
+            "WEB_SERVER_PORT": web_service_port
+        }
     )
 
 
