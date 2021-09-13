@@ -34,7 +34,7 @@ pipeline {
         checkout scm
       } // End step
     } // End remote checkout repo stage
-    stage ('Get service configuration info') {
+    stage('Get service configuration info') {
       steps {
         // Scicomp kubernetes cluster container
         withCredentials([file(credentialsId: 'k8s-scicomp-cluster-kubeconf',
@@ -64,7 +64,7 @@ pipeline {
         echo "Setting JOBMON_SERVICE_PORT=${env.JOBMON_SERVICE_PORT}"
       } // end steps
     } // end TARGETIP stage
-    stage ('Build Conda Distribution') {
+    stage('Build Conda Distribution') {
       steps {
         steps {
             sh '''#!/bin/bash
@@ -80,7 +80,7 @@ pipeline {
         } // End step
       } // end steps
     } // end build stage
-    stage ('Upload Conda Distribution') {
+    stage('Upload Conda Distribution') {
       steps {
         steps {
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
