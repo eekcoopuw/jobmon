@@ -75,8 +75,8 @@ pipeline {
                 export JOBMON_VERSION="${JOBMON_VERSION}"
                 export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
                 export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
-                export JOBMON_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
-                export JOBMON_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
+                export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
+                export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
                 ${DOCKER_ACTIVATE} && nox --session conda_build
              '''
         } // End script
