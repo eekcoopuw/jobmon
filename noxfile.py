@@ -119,10 +119,11 @@ def conda_build(session: Session) -> None:
     jobmon_version = os.getenv("JOBMON_VERSION", "2.2.2.dev448")
     jobmon_uge_version = os.getenv("JOBMON_UGE_VERSION", "0.1.dev53")
     # jobmon_slurm_version = os.getenv("JOBMON_SLURM_VERSION")
+    print(os.environ)
 
     # environment variables used in build script
-    web_service_fqdn = os.environ["WEB_SERVER_FQDN"]
-    web_service_port = os.environ["WEB_SERVER_PORT"]
+    web_service_fqdn = os.environ["WEB_SERVICE_FQDN"]
+    web_service_port = os.environ["WEB_SERVICE_PORT"]
 
     # paths
     repo_dir = os.path.dirname(__file__)
@@ -141,8 +142,8 @@ def conda_build(session: Session) -> None:
             "JOBMON_VERSION": jobmon_version,
             "JOBMON_UGE_VERSION": jobmon_uge_version,
             # "JOBMON_SLURM_VERSION": jobmon_slurm_version,
-            "WEB_SERVER_FQDN": web_service_fqdn,  # eg. 10.158.146.73
-            "WEB_SERVER_PORT": web_service_port
+            "WEB_SERVICE_FQDN": web_service_fqdn,  # eg. 10.158.146.73
+            "WEB_SERVICE_PORT": web_service_port
         }
     )
 
