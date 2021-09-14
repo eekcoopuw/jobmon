@@ -119,7 +119,6 @@ def conda_build(session: Session) -> None:
     jobmon_version = os.getenv("JOBMON_VERSION", "2.2.2.dev448")
     jobmon_uge_version = os.getenv("JOBMON_UGE_VERSION", "0.1.dev53")
     # jobmon_slurm_version = os.getenv("JOBMON_SLURM_VERSION")
-    print(os.environ)
 
     # environment variables used in build script
     web_service_fqdn = os.environ["WEB_SERVICE_FQDN"]

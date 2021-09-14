@@ -79,17 +79,10 @@ pipeline {
                 export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
                 ${DOCKER_ACTIVATE} && nox --session conda_build
              '''
-        } // End script
-      } // end steps
-    } // end build stage
-    stage('Upload Conda Distribution') {
-      steps {
-        script {
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
                                             passwordVariable: 'REG_PASSWORD')]) {
             sh '''#!/bin/bash
-
                   FULL_FILEPATH=$(find "${WORKSPACE}/conda-build-output/noarch" -name "ihme_jobmon*.bz2")
                   UPLOAD_FILEPATH=$(basename $FULL_FILEPATH)
 
@@ -99,9 +92,9 @@ pipeline {
                     "https://artifactory.ihme.washington.edu/artifactory/conda-scicomp/noarch/$UPLOAD_FILEPATH"
                '''
           } // end credentials
-        } // end script
+        } // End script
       } // end steps
-    } // end upload stage
+    } // end build stage
   } // end stages
   post {
     always {
