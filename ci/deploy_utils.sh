@@ -20,6 +20,36 @@ get_metallb_cfg () {
 }
 
 
+get_connection_info_from_namespace () {
+    WORKSPACE=$1
+    K8S_NAMESPACE=$2
+
+    # pull kubectl container
+    docker pull $KUBECTL_CONTAINER
+
+    # get ip
+    docker run \
+        -t \
+        --rm \
+        -v ${KUBECONFIG}:/root/.kube/config \
+        --mount type=bind,source="$WORKSPACE",target=/data \
+        $KUBECTL_CONTAINER  \
+            get svc traefik \
+            -n "$K8S_NAMESPACE" \
+            -o "jsonpath={.status.loadBalancer.ingress[].ip}" > $WORKSPACE/jobmon_service_fqdn.txt
+
+    docker run \
+        -t \
+        --rm \
+        -v ${KUBECONFIG}:/root/.kube/config \
+        --mount type=bind,source="$WORKSPACE",target=/data \
+        $KUBECTL_CONTAINER  \
+            get svc traefik \
+            -n "$K8S_NAMESPACE" \
+            -o 'jsonpath={.spec.ports[?(@.name=="web")].port}' > $WORKSPACE/jobmon_service_port.txt
+}
+
+
 get_metallb_ip_from_cfg () {
     METALLB_IP_POOL=$1
     WORKSPACE=$2
@@ -221,8 +251,8 @@ test_k8s_uge_deployment () {
     $QLOGIN_ACTIVATE &&
         /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
            --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr/jobmonr
-
 }
+
 
 test_k8s_slurm_deployment () {
     WORKSPACE=$1
