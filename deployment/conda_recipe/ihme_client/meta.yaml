@@ -65,7 +65,7 @@ test:
     - jobmon
     - jobmon_uge
     - jobmon_slurm
-    -
+
 about:
   home: https://scicomp-docs.ihme.washington.edu/jobmon/{{ jobmon_version }}
   summary: {{ jobmon_setup['description'] }}
