@@ -136,14 +136,17 @@ def test_task_template_resources(db_cfg, client_env, tool):
     assert task1.task_resources._requested_resources == {
         "cores": 1,
         "max_runtime_seconds": 2,
+        "queue": "null.q",
     }
     assert task2.task_resources._requested_resources == {
         "cores": 1,
         "max_runtime_seconds": 3,
+        "queue": "null.q",
     }
     assert task3.task_resources._requested_resources == {
         "cores": 1,
         "max_runtime_seconds": 3,
+        "queue": "null.q",
     }
 
 

@@ -153,7 +153,12 @@ class Cluster:
 
         Validate before constructing task resources, taskResources assumed to be valid
         """
-        queue_name = resource_params.pop("queue")
+        try:
+            queue_name: str = resource_params["queue"]
+        except KeyError:
+            raise ValueError(
+                "A queue name must be provided " "in the specified compute resources."
+            )
         queue = self.get_queue(queue_name)
 
         # Validate

@@ -35,7 +35,10 @@ def test_swarmtask_resources_integration(tool, task_template):
     # Check swarmtask resources
     swarmtask = swarm.swarm_tasks[task.task_id]
     initial_resources = swarmtask.task_resources
-    assert initial_resources.concrete_resources.resources == {"cores": 10}
+    assert initial_resources.concrete_resources.resources == {
+        "cores": 10,
+        "queue": "null.q",
+    }
     assert initial_resources.task_resources_type_id == TaskResourcesType.VALIDATED
 
     # Call adjust. Multiprocess doesn't implement adjust, but the path should work
@@ -45,5 +48,6 @@ def test_swarmtask_resources_integration(tool, task_template):
     assert scaled_params.task_resources_type_id == TaskResourcesType.ADJUSTED
     assert id(scaled_params) != id(initial_resources)
     assert scaled_params.concrete_resources.resources == {
-        "cores": 10
+        "cores": 10,
+        "queue": "null.q",
     }  # No scaling implemented
