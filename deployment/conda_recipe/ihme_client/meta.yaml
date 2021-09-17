@@ -55,11 +55,6 @@ requirements:
     - {{ req|replace("_", "-") }}
   {%- endif %}
   {% endfor %}
-  {% for req in jobmon_slurm_setup.get('install_requires', []) %}
-  {% if req != 'jobmon' -%}
-    - {{ req|replace("_", "-") }}
-  {%- endif %}
-  {% endfor %}
 test:
   imports:
     - jobmon

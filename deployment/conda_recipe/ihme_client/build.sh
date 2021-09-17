@@ -3,6 +3,9 @@
 # install all client packages
 $PYTHON -m pip install ./wheels/jobmon-*.whl
 $PYTHON -m pip install ./wheels/jobmon_uge-*.whl
+$PYTHON -m pip install ./wheels/jobmon_slurm-*.whl
+$PYTHON -m pip install slurm_rest
+$PYTHON -m pip install pyyaml
 
 # configure client
 # 10.158.146.73
