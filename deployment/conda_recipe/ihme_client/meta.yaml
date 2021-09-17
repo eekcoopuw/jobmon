@@ -3,7 +3,7 @@
 {% set version = environ.get('CONDA_CLIENT_VERSION', 1.0) %}
 {% set jobmon_version = environ.get('JOBMON_VERSION', "2.2.2.dev448") %}
 {% set jobmon_uge_version = environ.get('JOBMON_UGE_VERSION', "0.1.dev53") %}
-{% set jobmon_slurm_version = environ.get('JOBMON_SLURM_VERSION', "0.1.dev60") %}
+{% set jobmon_slurm_version = environ.get('JOBMON_SLURM_VERSION', "0.1.dev56") %}
 
 # import setup.py info
 {% set jobmon_setup = load_setup_py_data(setup_file="jobmon/setup.py") %}
@@ -51,6 +51,11 @@ requirements:
     - {{ req|replace("_", "-") }}
   {% endfor %}
   {% for req in jobmon_uge_setup.get('install_requires', []) %}
+  {% if req != 'jobmon' -%}
+    - {{ req|replace("_", "-") }}
+  {%- endif %}
+  {% endfor %}
+  {% for req in jobmon_slurm_setup.get('install_requires', []) %}
   {% if req != 'jobmon' -%}
     - {{ req|replace("_", "-") }}
   {%- endif %}
