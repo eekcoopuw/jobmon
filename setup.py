@@ -10,7 +10,6 @@ INSTALL_REQUIRES = [
     'pandas',
     'psutil',
     'python_json_logger',
-    'pyyaml',
     'requests',
     'structlog',
     'tabulate',
