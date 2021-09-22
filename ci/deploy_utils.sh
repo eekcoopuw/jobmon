@@ -116,7 +116,7 @@ upload_jobmon_image () {
 
 
     # build jobmon container
-    echo "jobmon[server]==$JOBMON_VERSION" > $WORKSPACE/requirements.txt
+    echo "'jobmon[server]==$JOBMON_VERSION'" > $WORKSPACE/requirements.txt
     docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://$SCICOMP_DOCKER_REG_URL"
     docker build --no-cache -t "$JOBMON_CONTAINER_URI" -f ./deployment/k8s/Dockerfile .
     docker push "$JOBMON_CONTAINER_URI"
