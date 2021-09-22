@@ -19,6 +19,9 @@ pipeline {
     string(defaultValue: '',
      description: 'The version of Jobmon SLURM',
      name: 'JOBMON_SLURM_VERSION')
+    string(defaultValue: '',
+     description: 'The version of Slurm Rest',
+     name: 'SLURM_REST_VERSION')
     string(defaultValue: 'jobmon-dev',
      description: 'Kubernetes Namespace to deploy to',
      name: 'K8S_NAMESPACE')
@@ -75,6 +78,7 @@ pipeline {
                 export JOBMON_VERSION="${JOBMON_VERSION}"
                 export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
                 export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
+                export SLURM_REST_VERSION="${SLURM_REST_VERSION}"
                 export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
                 export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
                 ${DOCKER_ACTIVATE} && nox --session conda_build
