@@ -81,7 +81,7 @@ pipeline {
             sh '''#!/bin/bash
                   . ${WORKSPACE}/ci/deploy_utils.sh
                   upload_jobmon_image \
-                      ${JOBMON_VERSION} \
+                      "${JOBMON_VERSION}" \
                       ${WORKSPACE} \
                       $REG_USERNAME \
                       $REG_PASSWORD \
