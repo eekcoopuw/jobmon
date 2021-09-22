@@ -281,7 +281,11 @@ class Tool:
         )
 
     def set_default_compute_resources_from_yaml(
-        self, default_cluster_name: str, yaml_file: str, set_task_templates: bool = None
+        self,
+        default_cluster_name: str,
+        yaml_file: str,
+        set_task_templates: bool = False,
+        ignore_missing_keys: bool = False,
     ) -> None:
         """Set default compute resources from a user provided yaml file for tool level.
 
@@ -290,6 +294,8 @@ class Tool:
             yaml_file: the yaml file that is providing the default compute resource values.
             set_task_templates: whether or not the user wants to set the default compute
                 resource values for all of the TaskTemplates associated with Tool.
+            ignore_missing_keys: Whether or not to raise an error if a key is missing from the
+                yaml file.
         """
         with open(yaml_file, "r") as stream:
             try:
@@ -305,14 +311,18 @@ class Tool:
                 default_cluster_name
             ]
         except KeyError as exc:
-            raise KeyError(
-                f"No Tool resources matching cluster name in yaml file: "
-                f"{yaml_file}."
-            ) from exc
+            msg = f"No Tool resources matching cluster name in yaml file: {yaml_file}."
+            if ignore_missing_keys:
+                logger.info(msg)
+            else:
+                raise KeyError(msg) from exc
 
         self.active_tool_version.set_default_compute_resources_from_dict(
             cluster_name=default_cluster_name, compute_resources=compute_resources
         )
+
+        if not set_task_templates:
+            return
 
         if not self.active_task_templates:
             raise Exception(
@@ -323,14 +333,24 @@ class Tool:
         if set_task_templates:
             # Set the the compute resources for the TaskTemplates associated with the Tool
             for tt in self.active_task_templates.values():
-                tt.set_default_compute_resources_from_dict(
-                    cluster_name=default_cluster_name,
-                    compute_resources=(
-                        default_compute_resources["task_template_resources"][
-                            tt.template_name
-                        ][default_cluster_name]
-                    ),
-                )
+                try:
+                    tt.set_default_compute_resources_from_dict(
+                        cluster_name=default_cluster_name,
+                        compute_resources=(
+                            default_compute_resources["task_template_resources"][
+                                tt.template_name
+                            ][default_cluster_name]
+                        ),
+                    )
+                except KeyError as exc:
+                    msg = (
+                        f"No compute resources discovered in yaml file {yaml_file} for"
+                        f"TaskTemplate {tt.template_name}"
+                    )
+                    if ignore_missing_keys:
+                        logger.info(msg)
+                    else:
+                        raise KeyError(msg) from exc
 
     def set_default_compute_resources_from_dict(
         self, cluster_name: str, compute_resources: Dict[str, Any]

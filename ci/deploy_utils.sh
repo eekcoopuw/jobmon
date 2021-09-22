@@ -283,3 +283,21 @@ test_k8s_slurm_deployment () {
       jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
       srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
 }
+
+
+test_server () {
+    WORKSPACE=$1
+    QLOGIN_ACTIVATE=$2
+    JOBMON_VERSION=$3
+    WEB_SERVICE_FQDN=$4
+    WEB_SERVICE_PORT=$5
+
+    CONDA_DIR=$WORKSPACE/.conda_env/load_test
+    $QLOGIN_ACTIVATE && \
+        conda create --prefix $CONDA_DIR python==3.8
+    $QLOGIN_ACTIVATE &&
+        conda activate $CONDA_DIR && \
+        pip install jobmon==$JOBMON_VERSION && \
+        jobmon update_config --web_service_fqdn $WEB_SERVICE_FQDN --web_service_port $WEB_SERVICE_PORT && \
+        python $WORKSPACE/deployment/tests/six_job_test.py sequential
+}
