@@ -46,6 +46,13 @@ pipeline {
     SCICOMP_DOCKER_REG_URL = "docker-scicomp.artifactory.ihme.washington.edu"
   } // end environment
   stages {
+    stage('Remote Checkout Repo') {
+      steps {
+        node('docker') {
+          checkout scm
+        } // end node
+      } // End step
+    } // End remote checkout repo stage
     stage ('Build Server Containers') {
       steps {
         node('docker') {
