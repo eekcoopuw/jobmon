@@ -125,34 +125,36 @@ pipeline {
     } // end deploy k8s stage
     stage('Get service configuration info') {
       steps {
-        script {
-          // Scicomp kubernetes cluster container
-          withCredentials([file(credentialsId: 'k8s-scicomp-cluster-kubeconf',
-                                variable: 'KUBECONFIG')]) {
-            sh '''#!/bin/bash
-                  . ${WORKSPACE}/ci/deploy_utils.sh
-                  get_connection_info_from_namespace ${WORKSPACE} ${K8S_NAMESPACE}
-               '''
-          } // end credentials
-        }
-        script {
-          env.JOBMON_SERVICE_FQDN = sh (
-            script: '''#!/bin/bash
-                       cat ${WORKSPACE}/jobmon_service_fqdn.txt
-                    ''',
-            returnStdout: true
-          ).trim()
-        } // end script
-        script {
-          env.JOBMON_SERVICE_PORT = sh (
-            script: '''#!/bin/bash
-                       cat ${WORKSPACE}/jobmon_service_port.txt
-                    ''',
-            returnStdout: true
-          ).trim()
-        } // end script
-        echo "Setting JOBMON_SERVICE_FQDN=${env.JOBMON_SERVICE_FQDN}"
-        echo "Setting JOBMON_SERVICE_PORT=${env.JOBMON_SERVICE_PORT}"
+        node('docker') {
+          script {
+            // Scicomp kubernetes cluster container
+            withCredentials([file(credentialsId: 'k8s-scicomp-cluster-kubeconf',
+                                  variable: 'KUBECONFIG')]) {
+              sh '''#!/bin/bash
+                    . ${WORKSPACE}/ci/deploy_utils.sh
+                    get_connection_info_from_namespace ${WORKSPACE} ${K8S_NAMESPACE}
+                 '''
+            } // end credentials
+          }
+          script {
+            env.JOBMON_SERVICE_FQDN = sh (
+              script: '''#!/bin/bash
+                         cat ${WORKSPACE}/jobmon_service_fqdn.txt
+                      ''',
+              returnStdout: true
+            ).trim()
+          } // end script
+          script {
+            env.JOBMON_SERVICE_PORT = sh (
+              script: '''#!/bin/bash
+                         cat ${WORKSPACE}/jobmon_service_port.txt
+                      ''',
+              returnStdout: true
+            ).trim()
+          } // end script
+          echo "Setting JOBMON_SERVICE_FQDN=${env.JOBMON_SERVICE_FQDN}"
+          echo "Setting JOBMON_SERVICE_PORT=${env.JOBMON_SERVICE_PORT}"
+        } // end node
       } // end steps
     } // end TARGETIP stage
     stage ('Test Deployment') {
