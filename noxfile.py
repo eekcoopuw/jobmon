@@ -118,7 +118,8 @@ def conda_build(session: Session) -> None:
     conda_client_version = os.getenv("CONDA_CLIENT_VERSION", "0.0")
     jobmon_version = os.getenv("JOBMON_VERSION", "2.2.2.dev448")
     jobmon_uge_version = os.getenv("JOBMON_UGE_VERSION", "0.1.dev53")
-    # jobmon_slurm_version = os.getenv("JOBMON_SLURM_VERSION")
+    slurm_rest_version = os.getenv("SLURM_REST_VERSION", "1.0.0")
+    jobmon_slurm_version = os.getenv("JOBMON_SLURM_VERSION", "0.1.dev57")
 
     # environment variables used in build script
     web_service_fqdn = os.environ["WEB_SERVICE_FQDN"]
@@ -140,7 +141,8 @@ def conda_build(session: Session) -> None:
             "CONDA_CLIENT_VERSION": conda_client_version,
             "JOBMON_VERSION": jobmon_version,
             "JOBMON_UGE_VERSION": jobmon_uge_version,
-            # "JOBMON_SLURM_VERSION": jobmon_slurm_version,
+            "SLURM_REST_VERSION": slurm_rest_version,
+            "JOBMON_SLURM_VERSION": jobmon_slurm_version,
             "WEB_SERVICE_FQDN": web_service_fqdn,  # eg. 10.158.146.73
             "WEB_SERVICE_PORT": web_service_port
         }
