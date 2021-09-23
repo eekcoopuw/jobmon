@@ -28,7 +28,7 @@ def six_job_test(cluster_name: str):
     )
     tool.set_default_compute_resources_from_yaml(
         default_cluster_name=cluster_name,
-        yaml_file=os.path.join(thisdir, "six_job_test_resouces.yaml"),
+        yaml_file=os.path.join(thisdir, "six_job_test_resources.yaml"),
         set_task_templates=True,
         ignore_missing_keys=True
     )
