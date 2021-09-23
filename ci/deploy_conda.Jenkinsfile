@@ -75,6 +75,7 @@ pipeline {
           sh '''#!/bin/bash
                 export PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
                 export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
+                export JENKINS_BUILD_NUMBER="${BUILD_NUMBER}"
                 export JOBMON_VERSION="${JOBMON_VERSION}"
                 export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
                 export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
