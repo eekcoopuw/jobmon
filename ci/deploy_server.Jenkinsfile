@@ -174,17 +174,6 @@ pipeline {
         } // end qlogin
       } // end steps
     } // end test deployment stage
-    // stage ('Create Shared Conda') {
-    //   steps {
-    //     node('qlogin') {
-    //       sh '''. ${WORKSPACE}/ci/share_conda_install.sh \
-    //                /mnt/team/scicomp/pub/shared_jobmon_conda \
-    //                ${JOBMON_VERSION} \
-    //                /homes/svcscicompci/miniconda3/bin/conda
-    //          '''
-    //     } // end node
-    //   } // end steps
-    // } // end create conda stage
   } // end stages
   post {
     always {

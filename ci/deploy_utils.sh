@@ -144,6 +144,7 @@ deploy_jobmon_to_k8s () {
     K8S_REAPER_NAMESPACE=${13}
     DEPLOY_JOBMON=${14}
     DEPLOY_ELK=${15}
+    echo "$METALLB_IP_POOL"
 
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
     docker pull $KUBECTL_CONTAINER
