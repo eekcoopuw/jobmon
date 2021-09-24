@@ -1,4 +1,4 @@
-FROM tiangolo/uwsgi-nginx-flask:python3.7
+FROM tiangolo/uwsgi-nginx-flask:python3.8
 RUN apt-get update && apt-get install -y mariadb-client
 
 ENV NGINX_WORKER_PROCESSES auto
@@ -16,5 +16,6 @@ RUN chmod +x /app/prestart.sh
 WORKDIR /app
 
 # PIPS
+RUN pip install --upgrade pip
 RUN pip install mysqlclient
-RUN pip install -r /app/requirements.txt --extra-index-url https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple --trusted-host artifactory.ihme.washington.edu
+RUN pip install -r /app/requirements.txt --extra-index-url https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple

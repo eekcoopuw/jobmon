@@ -1,0 +1,30 @@
+tool_resources:
+  buster:
+    memory: 1
+    cores: 1
+    project: 'general'
+    stderr: './six_job_test_stderr.log'
+    stdout: './six_job_test_stdout.log'
+  slurm-dev:
+    memory: 1
+    cores: 1
+    project: 'general'
+    stderr: './six_job_test_stderr.log'
+    stdout: './six_job_test_stdout.log'
+  sequential:
+    queue: "null.q"
+task_template_resources:
+  long_queue_test:
+    buster:
+      queue: 'long.q'
+      runtime: 90_000
+    slurm-dev:
+      queue: 'long.q'
+      runtime: 90_000
+  normal_queue_test:
+    buster:
+      queue: 'all.q'
+      runtime: 60
+    slurm-dev:
+      queue: 'long.q'
+      runtime: 60

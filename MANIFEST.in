@@ -1,4 +1,2 @@
 include README.md
 include src/jobmon/_version.py
-include src/jobmon/.jobmon.ini
-include src/jobmon/client/execution/strategies/sge/*.sh

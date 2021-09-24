@@ -1,5 +1,9 @@
 # version info for downloading source code
 {% set pypi_url = environ.get('PYPI_URL', "https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared") %}
+{% set web_service_fqdn = environ.get('WEB_SERVICE_FQDN', '10.158.146.73') %}
+{% set web_service_port = environ.get('WEB_SERVICE_PORT', '80') %}
+
+# version info for downloading source code and build
 {% set version = environ.get('CONDA_CLIENT_VERSION', 1.0) %}
 {% set jobmon_version = environ.get('JOBMON_VERSION', "2.2.2.dev448") %}
 {% set jobmon_uge_version = environ.get('JOBMON_UGE_VERSION', "0.1.dev53") %}
@@ -10,6 +14,9 @@
 {% set jobmon_setup = load_setup_py_data(setup_file="jobmon/setup.py") %}
 {% set jobmon_uge_setup = load_setup_py_data(setup_file="jobmon_uge/setup.py") %}
 {% set jobmon_slurm_setup = load_setup_py_data(setup_file="jobmon_slurm/setup.py") %}
+
+# don't install these dependencies
+{% set skip_list = ['jobmon', 'slurm_rest'] %}
 
 package:
   name: ihme_jobmon
@@ -38,8 +45,8 @@ build:
   noarch: python
   number: {{ environ.get('JENKINS_BUILD_NUMBER', 0) }}
   script_env:
-   - WEB_SERVICE_FQDN
-   - WEB_SERVICE_PORT
+   - WEB_SERVICE_FQDN={{ web_service_fqdn }}
+   - WEB_SERVICE_PORT={{ web_service_port }}
 
 requirements:
   host:
@@ -50,11 +57,19 @@ requirements:
     - requests
     - tenacity
   run:
+  # jobmon core dependencies
   {% for req in jobmon_setup.get('install_requires', []) %}
     - {{ req|replace("_", "-") }}
   {% endfor %}
+  # jobmon_uge dependencies
   {% for req in jobmon_uge_setup.get('install_requires', []) %}
-  {% if req != 'jobmon' -%}
+  {% if req not in skip_list -%}
+    - {{ req|replace("_", "-") }}
+  {%- endif %}
+  {% endfor %}
+  # jobmon_slurm dependencies
+  {% for req in jobmon_slurm_setup.get('install_requires', []) %}
+  {% if req not in skip_list -%}
     - {{ req|replace("_", "-") }}
   {%- endif %}
   {% endfor %}
