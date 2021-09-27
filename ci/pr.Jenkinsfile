@@ -69,7 +69,7 @@ pipeline {
         } // End build docs stage
         stage('Tests') {
           steps {
-            sh "${ACTIVATE} && nox --session tests -- tests/ -n 3"
+           // sh "${ACTIVATE} && nox --session tests -- tests/ -n 3"
           }
           post {
             always {
