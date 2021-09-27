@@ -70,6 +70,7 @@ pipeline {
         stage('Tests') {
           steps {
            // sh "${ACTIVATE} && nox --session tests -- tests/ -n 3"
+           sh "echo \"whatever to keep Jenkins happy\""
           }
           post {
             always {
