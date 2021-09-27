@@ -69,3 +69,21 @@ spec:
     services:
     - name: elasticsearch
       port: 9200
+
+# logstash routes
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: logstash-routes
+  namespace: {{ .Values.global.namespace }}
+spec:
+  entryPoints:
+    # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
+    - logstash
+  routes:
+  - match: PathPrefix(`/`)
+    kind: Rule
+    services:
+    - name: logstash
+      port: 5000
