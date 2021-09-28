@@ -36,6 +36,7 @@ spec:
             - --entrypoints.grafana.Address=:3000
             - --entrypoints.kibana.Address=:5601
             - --entrypoints.elasticsearch.Address=:9200
+            - --entrypoints.logstash.Address=:5000
             - --providers.kubernetescrd
             # Limit CRD to only the namespace we are running in. Fixes permissions issues
             - --providers.kubernetescrd.namespaces={{ .Values.global.namespace }}
@@ -57,6 +58,8 @@ spec:
               containerPort: 5601
             - name: elasticsearch
               containerPort: 9200
+            - name: logstash
+              containerPort: 5000
           lifecycle:
             preStop:
               exec:
