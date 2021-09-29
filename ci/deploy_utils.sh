@@ -248,9 +248,9 @@ test_k8s_uge_deployment () {
        jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
        python $WORKSPACE/deployment/tests/six_job_test.py
 
-    $QLOGIN_ACTIVATE &&
-        /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
-           --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr/jobmonr
+#    $QLOGIN_ACTIVATE &&
+#        /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
+#           --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr/jobmonr
 }
 
 
