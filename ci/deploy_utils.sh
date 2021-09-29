@@ -234,7 +234,9 @@ test_k8s_uge_deployment () {
     WORKSPACE=$1
     QLOGIN_ACTIVATE=$2
     JOBMON_VERSION=$3
-    TARGET_IP=$4
+    CLUSTER_NAME=$4
+    TARGET_IP=$5
+
 
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
     $QLOGIN_ACTIVATE && \
@@ -246,7 +248,7 @@ test_k8s_uge_deployment () {
        pip install jobmon_uge && \
        pip install jobmon_slurm && \
        jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
-       python $WORKSPACE/deployment/tests/six_job_test.py
+       python $WORKSPACE/deployment/tests/six_job_test.py $CLUSTER_NAME
 
 #    $QLOGIN_ACTIVATE &&
 #        /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
