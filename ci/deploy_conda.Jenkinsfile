@@ -122,7 +122,7 @@ pipeline {
                     ${WORKSPACE} \
                     "${QLOGIN_ACTIVATE}" \
                     ${JOBMON_VERSION} \
-             ''' +  "${env.TARGET_IP}"
+             ''' +  "${env.JOBMON_SERVICE_FQDN}"
         } // end qlogin
       } // end steps
     } // end test deployment stage
@@ -150,7 +150,7 @@ pipeline {
                      ${MINICONDA_PATH} \
                      ${CONDA_ENV_NAME} \
                      ${JOBMON_VERSION} \
-                     ${env.TARGET_IP} \
+                     ${env.JOBMON_SERVICE_FQDN} \
             """
             echo ssh_cmd
             sshagent(['jenkins']) {
