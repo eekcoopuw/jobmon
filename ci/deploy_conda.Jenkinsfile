@@ -109,23 +109,23 @@ pipeline {
         } // end script
       } // end steps
     } // end upload stage
-    stage ('Test UGE Deployment') {
-      steps {
-        node('qlogin') {
-          // Download jobmon
-          checkout scm
-          sh '''#!/bin/bash
-                . ${WORKSPACE}/ci/deploy_utils.sh
-                test_conda_client_uge \
-                    ${WORKSPACE} \
-                    "${QLOGIN_ACTIVATE}" \
-                    ${CONDA_CLIENT_VERSION} \
-                    ${JOBMON_VERSION} \
-             ''' +  "${env.JOBMON_SERVICE_FQDN}"
-        } // end qlogin
-      } // end steps
-    } // end test deployment stage
-    stage ('Test Slurm Deployment') {
+//     stage ('Test Conda Client UGE') {
+//       steps {
+//         node('qlogin') {
+//           // Download jobmon
+//           checkout scm
+//           sh '''#!/bin/bash
+//                 . ${WORKSPACE}/ci/deploy_utils.sh
+//                 test_conda_client_uge \
+//                     ${WORKSPACE} \
+//                     "${QLOGIN_ACTIVATE}" \
+//                     ${CONDA_CLIENT_VERSION} \
+//                     ${JOBMON_VERSION} \
+//              ''' +  "${env.JOBMON_SERVICE_FQDN}"
+//         } // end qlogin
+//       } // end steps
+//     } // end test deployment stage
+    stage ('Test Conda Client Slurm') {
       steps {
         node('qlogin') {
 
