@@ -293,10 +293,7 @@ test_conda_client_uge () {
 
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
     $QLOGIN_ACTIVATE && \
-        conda create --prefix $CONDA_DIR python==3.8
-    $QLOGIN_ACTIVATE &&
-       conda activate $CONDA_DIR && \
-       conda install ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge
+       conda create --prefix $CONDA_DIR ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge
        python $WORKSPACE/deployment/tests/six_job_test.py 'buster'
 }
 
@@ -308,19 +305,16 @@ test_conda_client_slurm () {
     JOBMON_VERSION=$5
     TARGET_IP=$6
 
-# Do not use the "source" command, because dash does not have it.
+# Although "Source" and "." are synonyms in many contexts, Dash does not have "Source",
+# so we are using "." here.
 # The default login shell on Ubuntu is dash.
-# "Source" and "." are synonyms for the same command.
     . ${MINICONDA_PATH} ${CONDA_ENV_NAME} && \
       conda info --envs && \
       conda deactivate && \
       conda env remove --prefix $CONDA_DIR_SLURM python==3.8 && \
       conda info --envs && \
       CONDA_DIR_SLURM=$WORKSPACE/.conda_env/load_test_slurm && \
-      conda create --prefix $CONDA_DIR_SLURM python==3.8 && \
-      conda activate $CONDA_DIR_SLURM && \
-      conda info --envs && \
-      conda install ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
+      conda create --prefix $CONDA_DIR_SLURM ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
       PATH=$PATH:/opt/slurm/bin && \
       pip freeze && \
       srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
