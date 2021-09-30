@@ -164,7 +164,6 @@ pipeline {
                     ${WORKSPACE} \
                     "${QLOGIN_ACTIVATE}" \
                     ${JOBMON_VERSION} \
-                    "buster" \
              ''' +  "${env.TARGET_IP}"
         } // end qlogin
       } // end steps
