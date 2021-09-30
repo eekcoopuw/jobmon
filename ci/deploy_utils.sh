@@ -233,18 +233,17 @@ deploy_jobmon_to_k8s () {
 test_k8s_uge_deployment () {
     WORKSPACE=$1
     QLOGIN_ACTIVATE=$2
-    JOBMON_VERSION=$3
-    TARGET_IP=$4
+    CONDA_CLIENT_VERSION=$3
+    JOBMON_VERSION=$4
+    TARGET_IP=$5
 
 
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
     $QLOGIN_ACTIVATE && \
         conda create --prefix $CONDA_DIR python==3.8
     $QLOGIN_ACTIVATE &&
-       echo "Show UGE ... "
-       echo $TARGET_IP
        conda activate $CONDA_DIR && \
-       conda install ihme_jobmon==0.8 -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge
+       conda install ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge
        python $WORKSPACE/deployment/tests/six_job_test.py 'buster'
 
 #    $QLOGIN_ACTIVATE &&
