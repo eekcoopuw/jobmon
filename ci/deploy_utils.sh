@@ -264,6 +264,10 @@ test_k8s_slurm_deployment () {
     JOBMON_VERSION=$4
     TARGET_IP=$5
 
+    echo "Show ... "
+    echo $TARGET_IP
+
+
 # Do not use the "source" command, because dash does not have it.
 # The default login shell on Ubuntu is dash.
 # "Source" and "." are synonyms for the same command.
