@@ -244,11 +244,7 @@ test_k8s_uge_deployment () {
        echo "Show UGE ... "
        echo $TARGET_IP
        conda activate $CONDA_DIR && \
-       pip install pyyaml && \
-       pip install jobmon==$JOBMON_VERSION && \
-       pip install jobmon_uge && \
-       pip install jobmon_slurm && \
-       jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
+       conda install ihme_jobmon==0.8 -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge
        python $WORKSPACE/deployment/tests/six_job_test.py 'buster'
 
 #    $QLOGIN_ACTIVATE &&
