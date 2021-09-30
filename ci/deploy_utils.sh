@@ -242,6 +242,8 @@ test_k8s_uge_deployment () {
     $QLOGIN_ACTIVATE && \
         conda create --prefix $CONDA_DIR python==3.8
     $QLOGIN_ACTIVATE &&
+       echo "Show ... "
+       echo $TARGET_IP
        conda activate $CONDA_DIR && \
        pip install pyyaml && \
        pip install jobmon==$JOBMON_VERSION && \
