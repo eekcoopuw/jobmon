@@ -30,6 +30,8 @@ pipeline {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
     DOCKER_ACTIVATE = "source /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
     QLOGIN_ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
+    MINICONDA_PATH = "/homes/svcscicompci/miniconda3/bin/activate"
+    CONDA_ENV_NAME = "base"
   } // end environment
   stages {
     stage('Remote Checkout Repo') {
