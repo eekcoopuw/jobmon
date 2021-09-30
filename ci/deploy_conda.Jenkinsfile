@@ -108,26 +108,26 @@ pipeline {
         } // end script
       } // end steps
     } // end upload stage
-//     stage ('Test UGE Deployment') {
-//       steps {
-//         node('qlogin') {
-//           // Download jobmon
-//           checkout scm
-// //           // Download jobmonr
-// //           sshagent (credentials: ['svcscicompci']) {
-// //               sh "rm -rf jobmonr"
-// //               sh "git clone ssh://git@stash.ihme.washington.edu:7999/scic/jobmonr.git"
-// //            } // end sshagent
-//           sh '''#!/bin/bash
-//                 . ${WORKSPACE}/ci/deploy_utils.sh
-//                 test_k8s_uge_deployment \
-//                     ${WORKSPACE} \
-//                     "${QLOGIN_ACTIVATE}" \
-//                     ${JOBMON_VERSION} \
-//              ''' +  "${env.JOBMON_SERVICE_FQDN}"
-//         } // end qlogin
-//       } // end steps
-//     } // end test deployment stage
+    stage ('Test UGE Deployment') {
+      steps {
+        node('qlogin') {
+          // Download jobmon
+          checkout scm
+//           // Download jobmonr
+//           sshagent (credentials: ['svcscicompci']) {
+//               sh "rm -rf jobmonr"
+//               sh "git clone ssh://git@stash.ihme.washington.edu:7999/scic/jobmonr.git"
+//            } // end sshagent
+          sh '''#!/bin/bash
+                . ${WORKSPACE}/ci/deploy_utils.sh
+                test_k8s_uge_deployment \
+                    ${WORKSPACE} \
+                    "${QLOGIN_ACTIVATE}" \
+                    ${JOBMON_VERSION} \
+             ''' +  "${env.JOBMON_SERVICE_FQDN}"
+        } // end qlogin
+      } // end steps
+    } // end test deployment stage
     stage ('Test Slurm Deployment') {
       steps {
         node('qlogin') {

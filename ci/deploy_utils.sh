@@ -241,7 +241,7 @@ test_k8s_uge_deployment () {
     $QLOGIN_ACTIVATE && \
         conda create --prefix $CONDA_DIR python==3.8
     $QLOGIN_ACTIVATE &&
-       echo "Show ... "
+       echo "Show UGE ... "
        echo $TARGET_IP
        conda activate $CONDA_DIR && \
        pip install pyyaml && \
@@ -264,7 +264,7 @@ test_k8s_slurm_deployment () {
     JOBMON_VERSION=$4
     TARGET_IP=$5
 
-    echo "Show ... "
+    echo "Show SLURM ... "
     echo $TARGET_IP
 
 
