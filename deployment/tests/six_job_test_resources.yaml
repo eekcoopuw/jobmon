@@ -3,6 +3,7 @@ tool_resources:
     memory: 1
     cores: 1
     project: 'general'
+    queue: 'all.q'
     stderr: './six_job_test_stderr'
     stdout: './six_job_test_stdout'
   slurm:
