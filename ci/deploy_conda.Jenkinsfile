@@ -30,6 +30,8 @@ pipeline {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
     DOCKER_ACTIVATE = "source /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
     QLOGIN_ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
+    MINICONDA_PATH = "/homes/svcscicompci/miniconda3/bin/activate"
+    CONDA_ENV_NAME = "base"
   } // end environment
   stages {
     stage('Remote Checkout Repo') {
@@ -76,6 +78,7 @@ pipeline {
                 export PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
                 export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
                 export JENKINS_BUILD_NUMBER="${BUILD_NUMBER}"
+                export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
                 export JOBMON_VERSION="${JOBMON_VERSION}"
                 export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
                 export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
@@ -106,6 +109,57 @@ pipeline {
         } // end script
       } // end steps
     } // end upload stage
+    stage ('Test Conda Client UGE') {
+      steps {
+        node('qlogin') {
+          // Download jobmon
+          checkout scm
+          sh '''#!/bin/bash
+                . ${WORKSPACE}/ci/deploy_utils.sh
+                test_conda_client_uge \
+                    ${WORKSPACE} \
+                    "${QLOGIN_ACTIVATE}" \
+                    ${CONDA_CLIENT_VERSION} \
+                    ${JOBMON_VERSION} \
+             ''' +  "${env.JOBMON_SERVICE_FQDN}"
+        } // end qlogin
+      } // end steps
+    } // end test deployment stage
+    stage ('Test Conda Client Slurm') {
+      steps {
+        node('qlogin') {
+
+          // Be very, very careful with nested quotes here, it is safest not to use them
+          // because ssh parses and recreates the remote string.
+          // For reference see https://unix.stackexchange.com/questions/212215/ssh-command-with-quotes
+          // Ubuntu uses dash, not bash. bash has the "source" command, dash does not.
+          // In dash you have to use the "." command instead
+          // Conceptually it would be possible to use "/bin/bash -c"
+          // but that requires quotes around the command. It is safer to just use "." rather
+          // than "source" in deploy_utils.sh and execute it with dash.
+          // Also, don't try to pass a whole command as a single argument because that also
+          // requires clever quoting. Only pass single words as arguments.
+
+          // Download jobmon
+          checkout scm
+          script {
+            ssh_cmd= """. ${WORKSPACE}/ci/deploy_utils.sh
+                 test_conda_client_slurm \
+                     ${WORKSPACE} \
+                     ${MINICONDA_PATH} \
+                     ${CONDA_ENV_NAME} \
+                     ${CONDA_CLIENT_VERSION} \
+                     ${JOBMON_VERSION} \
+                     ${env.JOBMON_SERVICE_FQDN} \
+            """
+            echo ssh_cmd
+            sshagent(['jenkins']) {
+               sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu '${ssh_cmd}'"
+            }
+          }
+        } // end qlogin
+      } // end steps
+    } // end test deployment stage
   } // end stages
   post {
     always {
