@@ -365,3 +365,44 @@ def test_add_tasks_dependencynotexist(db_cfg, tool, client_env, task_template):
     wf.add_tasks([t3])
     wf.bind()
     assert len(wf.tasks) == 3
+
+
+def test_workflow_validation(db_cfg, client_env, tool, task_template):
+    """Test the workflow.validate() function, and ensure idempotency"""
+    too_many_cores = {'cores': 1000, 'queue': 'null.q'}
+    good_resources = {'cores': 20, 'queue': 'null.q'}
+    t1 = task_template.create_task(arg="echo 1",
+                                   compute_resources=too_many_cores,
+                                   cluster_name='multiprocess')
+    wf1 = tool.create_workflow()
+    wf1.add_task(t1)
+
+    with pytest.raises(ValueError):
+        wf1.validate(fail=True)  # Max cores on multiprocess null.q is 20. Should fail
+
+    # Without fail set, validate and check coercion
+    wf1.validate()
+    assert t1.task_resources.concrete_resources.resources == good_resources
+
+    # Try again for idempotency
+    wf1.validate()
+    assert t1.task_resources.concrete_resources.resources == good_resources
+
+    # Try with valid resources
+    t2 = task_template.create_task(
+        arg='echo 1',
+        compute_resources=good_resources,
+        cluster_name='multiprocess'
+    )
+    wf2 = tool.create_workflow()
+    wf2.add_task(t2)
+
+    wf2.validate()
+    assert t2.task_resources.concrete_resources.resources == good_resources
+
+    wf2.validate()
+    assert t2.task_resources.concrete_resources.resources == good_resources
+
+    # Check the workflow can still run
+    wf2_status = wf2.run()
+    assert wf2_status == "D"
