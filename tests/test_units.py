@@ -1,6 +1,6 @@
 import pytest
 
-from jobmon.units import TimeUnit
+from jobmon.units import MemUnit, TimeUnit
 
 tu_test_data = [
     (1, 0, 0, (1, 0.02, 0.0, '0:00:01')),
@@ -16,3 +16,15 @@ def test_timedistance_v0(s, m, h, e):
     assert tu.minutes == e[1]
     assert tu.hours == e[2]
     assert tu.readable == e[3]
+
+
+mu_test_data = [
+    ("1G", "M", 1024),
+    ("1g", "M", 953),
+    ("1g", "m", 1000),
+    ("2048K", "M", 2),
+    ("2048k", "M", 2)
+]
+@pytest.mark.parametrize("i, t, e", mu_test_data)
+def test_memunit_convert(i, t, e):
+    assert MemUnit.convert(i, t) == e
