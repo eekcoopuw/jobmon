@@ -51,6 +51,7 @@ class TimeUnit:
 class MemUnit:
     """A helper class to convert memory units between B, k, K, m, M, g, G, t, T."""
 
+    
     base_chart_to_B = {"B": 1, "K": 1024, "M": 1.049e+6, "G": 1.074e+9, "T": 1.1e+12}
 
     @staticmethod

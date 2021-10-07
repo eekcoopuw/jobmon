@@ -10,7 +10,7 @@ tu_test_data = [
     (7, 5.25, 24, (86722, 1445.37, 24.09, '1 day, 0:05:22'))
 ]
 @pytest.mark.parametrize("s, m, h, e", tu_test_data)
-def test_timedistance_v0(s, m, h, e):
+def test_timeunit_convert(s, m, h, e):
     tu = TimeUnit(sec=s, min=m, hour=h)
     assert tu.seconds == e[0]
     assert tu.minutes == e[1]
