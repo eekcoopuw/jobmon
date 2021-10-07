@@ -20,10 +20,18 @@ def test_timedistance_v0(s, m, h, e):
 
 mu_test_data = [
     ("1G", "M", 1024),
-    ("1g", "M", 953),
-    ("1g", "m", 1000),
+    ("1g", "M", 1024),
+    ("1g", "m", 1024),
+    ("1gb", "m", 1024),
+    ("1Gib", "M", 1024),
+    ("2Tb", "G", 2048),
     ("2048K", "M", 2),
-    ("2048k", "M", 2)
+    ("2048k", "M", 2),
+    ("100 M", "M", 100),
+    ("1024 kitty", "M", 1),  # yes, this is valid
+    ("ilovekitty", "G", 0),  # yes, this is valid too
+    ("1z", "M", 1),  # yes, this is also valid
+    ("100B2M", "M", 100)  # yes, I went too far
 ]
 @pytest.mark.parametrize("i, t, e", mu_test_data)
 def test_memunit_convert(i, t, e):

@@ -1,4 +1,5 @@
 from datetime import timedelta
+import re
 from typing import Tuple
 
 
@@ -50,16 +51,28 @@ class TimeUnit:
 class MemUnit:
     """A helper class to convert memory units between B, k, K, m, M, g, G, t, T."""
 
-    base_chart_to_B = {"B": 1, "k": 1000, "K": 1024, "m": 1e+6, "M": 1.049e+6, "g": 1e+9,
-                       "G": 1.074e+9, "t": 1e+12, "T": 1.1e+12}
+    base_chart_to_B = {"B": 1, "K": 1024, "M": 1.049e+6, "G": 1.074e+9, "T": 1.1e+12}
 
     @staticmethod
     def _split_unit(input: str) -> Tuple[int, str]:
-        """Split the last char as the unit. Default is M."""
-        if input[-1] in MemUnit.base_chart_to_B.keys():
-            return int(input[: -1]), input[-1]
+        """Split the number and the unit. Return 0 M for invalid; use M when no unit."""
+        values = re.findall(r"^\d+", input)
+        if len(values) == 0:
+            return 0, "M"
+        value = values[0]
+        units = re.findall(r"\D+$", input)
+        if len(units) == 0:
+            unit = "M"
         else:
-            return int(input), "M"
+            unit = units[0]
+            unit = re.sub("[B|b].*", "B", unit)
+            unit = re.sub("[K|k].*", "K", unit)
+            unit = re.sub("[M|m].*", "M", unit)
+            unit = re.sub("[G|g].*", "G", unit)
+            unit = re.sub("[T|t].*", "T", unit)
+            if unit not in MemUnit.base_chart_to_B.keys():
+                unit = "M"
+        return int(value), unit
 
     @staticmethod
     def _to_B(input: str) -> int:
@@ -70,11 +83,16 @@ class MemUnit:
     def convert(input: str, to: str = "M") -> int:
         """Convert memory to different units.
 
-        input: a string in format "1G", "1g", etc
-        to: the unit to convert to; takes B, k, K, m, M, g, G, t, T.
+        input: a string in format "1G", "1g", "1Gib", "1gb",etc.
+               Any input is valid. For example, "abc" -> "0M"; "1kitty" -> "1K";
+               "100 gb"-> "100G"; "1 kitty" -> 1K; "100G00M" -> "100M".
+        to: the unit to convert to; takes B, K, M, G, T.
+        Lower case unit will be treated as capital.
         Return: an int of the memory value of your specified unit
         """
+        input = re.sub(r"\s", "", input)
         value = MemUnit._to_B(input)
+        to = to.upper()
         if to not in MemUnit.base_chart_to_B.keys():
             to = "M"
         return round(value / MemUnit.base_chart_to_B[to])
