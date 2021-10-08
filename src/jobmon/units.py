@@ -53,7 +53,7 @@ class TimeUnit:
 class MemUnit:
     """A helper class to convert memory units between B, k, K, m, M, g, G, t, T."""
 
-    base_chart_to_B = {"B": 1, "K": 1024, "M": 1.049e+6, "G": 1.074e+9, "T": 1.1e+12}
+    base_chart_to_B = {"B": 1, "K": 1024, "M": 1.049e6, "G": 1.074e9, "T": 1.1e12}
 
     @staticmethod
     def _split_unit(input: str) -> Tuple[int, str]:
@@ -96,8 +96,10 @@ class MemUnit:
         # match 100Gib, 100gib, etc
         r2 = r"^\d+[bBkKmMgGtT]i[bB]$"
         if re.search(r1, input) is None and re.search(r2, input) is None:
-            raise InvalidMemoryFormat(f"Input {input} is invalide. Please use format "
-                                      f"such as 100, 100M, 100Gb, or 100Gib.")
+            raise InvalidMemoryFormat(
+                f"Input {input} is invalide. Please use format "
+                f"such as 100, 100M, 100Gb, or 100Gib."
+            )
         value = MemUnit._to_B(input)
         # apply same input check logic to "to"
         if to.upper() in ("B", "BB", "BIB"):
@@ -111,6 +113,8 @@ class MemUnit:
         if to.upper() in ("T", "TB", "TIB"):
             to = "T"
         if to not in MemUnit.base_chart_to_B.keys():
-            raise InvalidMemoryUnit(f"Jobmon can only convert memory unit to "
-                                    f"{MemUnit.base_chart_to_B.keys()}. {to} is invalid.")
+            raise InvalidMemoryUnit(
+                f"Jobmon can only convert memory unit to "
+                f"{MemUnit.base_chart_to_B.keys()}. {to} is invalid."
+            )
         return round(value / MemUnit.base_chart_to_B[to])
