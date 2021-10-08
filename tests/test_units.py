@@ -19,20 +19,33 @@ def test_timeunit_convert(s, m, h, e):
 
 
 mu_test_data = [
-    ("1G", "M", 1024),
+    ("1G", "Mb", 1024),
     ("1g", "M", 1024),
     ("1g", "m", 1024),
     ("1gb", "m", 1024),
     ("1Gib", "M", 1024),
-    ("2Tb", "G", 2048),
+    ("2Tb", "Gib", 2048),
     ("2048K", "M", 2),
-    ("2048k", "M", 2),
-    ("100 M", "M", 100),
-    ("1024 kitty", "M", 1),  # yes, this is valid
-    ("ilovekitty", "G", 0),  # yes, this is valid too
-    ("1z", "M", 1),  # yes, this is also valid
-    ("100B2M", "M", 100)  # yes, I went too far
+    ("2048kB", "M", 2),
+    ("100mb", "M", 100),
+    ("1024kb", "M", 1),
+    ("1gib", "G", 1),
+    (100, "M", 100)
 ]
 @pytest.mark.parametrize("i, t, e", mu_test_data)
 def test_memunit_convert(i, t, e):
     assert MemUnit.convert(i, t) == e
+
+
+@pytest.mark.parametrize("input", ["a", "10 M", "1g1M"])
+def test_memunit_wrong_input(input):
+    from jobmon.exceptions import InvalidMemoryFormat
+    with pytest.raises(InvalidMemoryFormat):
+        MemUnit.convert(input)
+
+
+@pytest.mark.parametrize("to", ["a", "gg", "1g1M"])
+def test_memunit_unit(to):
+    from jobmon.exceptions import InvalidMemoryUnit
+    with pytest.raises(InvalidMemoryUnit):
+        MemUnit.convert(100, to)

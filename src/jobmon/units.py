@@ -2,6 +2,8 @@ from datetime import timedelta
 import re
 from typing import Tuple
 
+from jobmon.exceptions import InvalidMemoryFormat, InvalidMemoryUnit
+
 
 class TimeUnit:
     """A helper class provides static functions to switch among seconds, minutes, and hours.
@@ -51,7 +53,6 @@ class TimeUnit:
 class MemUnit:
     """A helper class to convert memory units between B, k, K, m, M, g, G, t, T."""
 
-    
     base_chart_to_B = {"B": 1, "K": 1024, "M": 1.049e+6, "G": 1.074e+9, "T": 1.1e+12}
 
     @staticmethod
@@ -85,15 +86,31 @@ class MemUnit:
         """Convert memory to different units.
 
         input: a string in format "1G", "1g", "1Gib", "1gb",etc.
-               Any input is valid. For example, "abc" -> "0M"; "1kitty" -> "1K";
-               "100 gb"-> "100G"; "1 kitty" -> 1K; "100G00M" -> "100M".
         to: the unit to convert to; takes B, K, M, G, T.
         Lower case unit will be treated as capital.
         Return: an int of the memory value of your specified unit
         """
-        input = re.sub(r"\s", "", input)
+        input = str(input)
+        # match 100, 100m, 100M, 100 Gbetc
+        r1 = r"^\d+[bBkKmMgGtT]?[bB]?$"
+        # match 100Gib, 100gib, etc
+        r2 = r"^\d+[bBkKmMgGtT]i[bB]$"
+        if re.search(r1, input) is None and re.search(r2, input) is None:
+            raise InvalidMemoryFormat(f"Input {input} is invalide. Please use format "
+                                      f"such as 100, 100M, 100Gb, or 100Gib.")
         value = MemUnit._to_B(input)
-        to = to.upper()
-        if to not in MemUnit.base_chart_to_B.keys():
+        # apply same input check logic to "to"
+        if to.upper() in ("B", "BB", "BIB"):
+            to = "B"
+        if to.upper() in ("K", "KB", "KIB"):
+            to = "K"
+        if to.upper() in ("M", "MB", "MIB"):
             to = "M"
+        if to.upper() in ("G", "GB", "GIB"):
+            to = "G"
+        if to.upper() in ("T", "TB", "TIB"):
+            to = "T"
+        if to not in MemUnit.base_chart_to_B.keys():
+            raise InvalidMemoryUnit(f"Jobmon can only convert memory unit to "
+                                    f"{MemUnit.base_chart_to_B.keys()}. {to} is invalid.")
         return round(value / MemUnit.base_chart_to_B[to])
