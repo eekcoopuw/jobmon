@@ -94,3 +94,15 @@ class UnregisteredClusterType(Exception):
     """cluster type has not registered as a plugin yet."""
 
     pass
+
+
+class InvalidMemoryFormat(Exception):
+    """Memory input invalid."""
+
+    pass
+
+
+class InvalidMemoryUnit(Exception):
+    """Memory convert unit invalid."""
+
+    pass
