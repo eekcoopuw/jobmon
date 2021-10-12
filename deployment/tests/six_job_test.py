@@ -15,7 +15,7 @@ def six_job_test(cluster_name: str):
     """
     # First Tier
     # Deliberately put in on the long queue with max runtime > 1 day
-    tool = Tool(name="Iguanodon alpha testing - Slurm")
+    tool = Tool(name=f"Iguanodon alpha testing - {cluster_name}")
     long_q_template = tool.get_task_template(
         template_name='long_queue_test',
         command_template="{command}",

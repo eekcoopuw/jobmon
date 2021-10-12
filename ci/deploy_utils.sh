@@ -265,14 +265,10 @@ test_k8s_slurm_deployment () {
 # The default login shell on Ubuntu is dash.
 # "Source" and "." are synonyms for the same command.
     . ${MINICONDA_PATH} ${CONDA_ENV_NAME} && \
-      conda info --envs && \
       conda deactivate && \
-      conda env remove --prefix $CONDA_DIR_SLURM python==3.8 && \
-      conda info --envs && \
-      CONDA_DIR_SLURM=$WORKSPACE/.conda_env/load_test_slurm && \
-      conda create --prefix $CONDA_DIR_SLURM python==3.8 && \
-      conda activate $CONDA_DIR_SLURM && \
-      conda info --envs && \
+      conda env remove --name slurm_k8s_env && \
+      conda create -n slurm_k8s_env python==3.8 && \
+      conda activate slurm_k8s_env && \
       pip install pyyaml && \
       pip install jobmon==$JOBMON_VERSION && \
       pip install slurm_rest && \
@@ -281,7 +277,7 @@ test_k8s_slurm_deployment () {
       PATH=$PATH:/opt/slurm/bin && \
       pip freeze && \
       jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
-      srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
+      srun -n 1 -p all.q -A general -c 1 --mem=10000 --time=100 python $WORKSPACE/deployment/tests/six_job_test.py 'slurm'
 }
 
 test_conda_client_uge () {
@@ -293,8 +289,10 @@ test_conda_client_uge () {
 
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
     $QLOGIN_ACTIVATE && \
-      conda create --prefix $CONDA_DIR ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge
-      conda activate $CONDA_DIR && \
+      conda deactivate && \
+      conda env remove --name uge_six_job_env && \
+      conda create -n uge_six_job_env ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
+      conda activate uge_six_job_env && \
       conda info --envs && \
       python $WORKSPACE/deployment/tests/six_job_test.py 'buster'
 }
@@ -311,17 +309,14 @@ test_conda_client_slurm () {
 # so we are using "." here.
 # The default login shell on Ubuntu is dash.
     . ${MINICONDA_PATH} ${CONDA_ENV_NAME} && \
-      conda info --envs && \
       conda deactivate && \
-      conda env remove --prefix $CONDA_DIR_SLURM python==3.8 && \
-      conda info --envs && \
-      CONDA_DIR_SLURM=$WORKSPACE/.conda_env/load_test_slurm && \
-      conda create --prefix $CONDA_DIR_SLURM ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
-      conda activate $CONDA_DIR_SLURM && \
+      conda env remove --name slurm_six_job_env && \
+      conda create -n slurm_six_job_env ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
+      conda activate slurm_six_job_env && \
       conda info --envs && \
       PATH=$PATH:/opt/slurm/bin && \
       pip freeze && \
-      srun -n 1 -p all.q -A general -c 1 --mem=300 --time=100 python $WORKSPACE/deployment/tests/slurm/six_job_test.py
+      srun -n 1 -p all.q -A general -c 1 --mem=10000 --time=100 python $WORKSPACE/deployment/tests/six_job_test.py 'slurm'
 }
 
 test_server () {
