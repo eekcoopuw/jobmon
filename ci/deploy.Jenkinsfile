@@ -38,7 +38,19 @@ pipeline {
     booleanParam(defaultValue: 'false',
      description: 'Whether or not you want to deploy the ELK stack',
      name: 'DEPLOY_ELK')
-  } // end parameters
+    booleanParam(defaultValue: 'false',
+     description: 'Whether or not you want to config log rotation for elasticsearch',
+     name: 'LOG_ROTATION')
+  } //end parameters
+
+  triggers {
+    // This cron expression runs seldom, or never runs, but having the value set
+    // allows bitbucket server to remotely trigger builds.
+    // Git plugin 4.x: https://mohamicorp.atlassian.net/wiki/spaces/DOC/pages/209059847/Triggering+Jenkins+on+new+Pull+Requests
+    // Git plugin 3.x: https://mohamicorp.atlassian.net/wiki/spaces/DOC/pages/955088898/Triggering+Jenkins+on+new+Pull+Requests+Git+Plugin+3.XX
+    pollSCM('0 0 1 1 0')
+  } //end triggers
+
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
     // Build up QLOGIN_ACITVATE from separate words so that the individual words can be passed
@@ -49,6 +61,7 @@ pipeline {
     QLOGIN_ACTIVATE = ". ${MINICONDA_PATH} ${CONDA_ENV_NAME}"
     SCICOMP_DOCKER_REG_URL = "docker-scicomp.artifactory.ihme.washington.edu"
   } // end environment
+
   stages {
     stage ('Get TARGET_IP address') {
       steps {
@@ -97,6 +110,7 @@ pipeline {
             ).trim()
           } // end script
           echo "Server Container Images:\nJobmon=${env.JOBMON_CONTAINER_URI}\nGrafana=${env.GRAFANA_CONTAINER_URI}"
+
           // Artifactory user with write permissions
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
@@ -111,8 +125,7 @@ pipeline {
                       $REG_USERNAME \
                       $REG_PASSWORD \
                       ${SCICOMP_DOCKER_REG_URL} \
-                      ${JOBMON_CONTAINER_URI} \
-                      ${GRAFANA_CONTAINER_URI}
+                      ${JOBMON_CONTAINER_URI}
                '''
           } // end credentials
         } // end node
@@ -133,7 +146,6 @@ pipeline {
                       ${METALLB_IP_POOL} \
                       ${K8S_NAMESPACE} \
                       ${RANCHER_PROJECT_ID} \
-                      ${GRAFANA_CONTAINER_URI} \
                       ${RANCHER_DB_SECRET} \
                       ${RANCHER_SLACK_SECRET} \
                       ${RANCHER_QPID_SECRET} \
@@ -148,72 +160,116 @@ pipeline {
         } // end node
       } // end steps
     } // end deploy k8s stage
-    stage ('Test UGE Deployment') {
-      steps {
-        node('qlogin') {
-          // Download jobmon
-          checkout scm
-          // Download jobmonr
-          sshagent (credentials: ['svcscicompci']) {
-              sh "rm -rf jobmonr"
-              sh "git clone ssh://git@stash.ihme.washington.edu:7999/scic/jobmonr.git"
-           } // end sshagent
-          sh '''#!/bin/bash
-                . ${WORKSPACE}/ci/deploy_utils.sh
-                test_k8s_uge_deployment \
-                    ${WORKSPACE} \
-                    "${QLOGIN_ACTIVATE}" \
-                    ${JOBMON_VERSION} \
-             ''' +  "${env.TARGET_IP}"
-        } // end qlogin
-      } // end steps
-    } // end test deployment stage
-    stage ('Test Slurm Deployment') {
-      steps {
-        node('qlogin') {
 
-          // Be very, very careful with nested quotes here, it is safest not to use them
-          // because ssh parses and recreates the remote string.
-          // For reference see https://unix.stackexchange.com/questions/212215/ssh-command-with-quotes
-          // Ubuntu uses dash, not bash. bash has the "source" command, dash does not.
-          // In dash you have to use the "." command instead
-          // Conceptually it would be possible to use "/bin/bash -c"
-          // but that requires quotes around the command. It is safer to just use "." rather
-          // than "source" in deploy_utils.sh and execute it with dash.
-          // Also, don't try to pass a whole command as a single argument because that also
-          // requires clever quoting. Only pass single words as arguments.
+    stage ('Create and apply log rotation ilm'){
+      steps {
+        script{
+          node('docker') {
+            if (LOG_ROTATION.toBoolean()) {
+              // chang permission
+              sh "chmod +x ${WORKSPACE}/ci/ilm/check_service_up.sh"
 
-          // Download jobmon
-          checkout scm
-          script {
-            ssh_cmd= """. ${WORKSPACE}/ci/deploy_utils.sh
-                 test_k8s_slurm_deployment \
-                     ${WORKSPACE} \
-                     ${MINICONDA_PATH} \
-                     ${CONDA_ENV_NAME} \
-                     ${JOBMON_VERSION} \
-                     ${env.TARGET_IP} \
-            """
-            echo ssh_cmd
-            sshagent(['jenkins']) {
-               sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu '${ssh_cmd}'"
+              // wait until elasticsearch is up
+              sh '''/bin/bash ${WORKSPACE}/ci/ilm/check_service_up.sh ${TARGET_IP}:9200'''
+
+              // add a new policy to delete logs older than 8 days
+              sh '''curl -XPUT "${TARGET_IP}:9200/_ilm/policy/jobmon_ilm" --header "Content-Type: application/json" \
+                 -d @${WORKSPACE}/ci/ilm/jobmon_ilm_policy.json
+                 '''
+
+              // delete index jobmon if it has been created by logstash
+              // there may still be a race condition; but unable to trigger it on dev, so I don't know what happens when logstash reaches elasticsearch before template creation
+              sh '''curl -X DELETE "${TARGET_IP}:9200/jobmon" ||true'''
+
+              // create a index template with the new policy
+              sh '''curl -X PUT "${TARGET_IP}:9200/_template/jobmon_template" --header "Content-Type: application/json" \
+                 -d @${WORKSPACE}/ci/ilm/jobmon_index_template.json
+              '''
+
+              // create the first index
+              sh '''curl -X PUT "${TARGET_IP}:9200/jobmon-000001" --header "Content-Type: application/json" -d '{"aliases": {"jobmon": {"is_write_index": true}}}'
+              '''
+              // manage it by ilm
+              sh '''curl -XPUT "${TARGET_IP}:9200/jobmon-000001/_settings" -d '{"index":{"lifecycle.name":"jobmon_ilm","lifecycle.rollover_alias": "jobmon"}}' --header "Content-Type: application/json"
+                 '''
+
+              // set all index replica to 0 to get rid of the "yellow" warning in GUI because we only have one elasticsearch node
+              sh '''curl -XPUT "${TARGET_IP}:9200/*/_settings" --header "Content-Type: application/json" -d '{"index":{"number_of_replicas":0}}'
+                 '''
             }
-          }
-        } // end qlogin
-      } // end steps
-    } // end test deployment stage
-    stage ('Create Shared Conda') {
-      steps {
-        node('qlogin') {
-          sh '''. ${WORKSPACE}/ci/share_conda_install.sh \
-                   /mnt/team/scicomp/pub/shared_jobmon_conda \
-                   ${JOBMON_VERSION} \
-                   /homes/svcscicompci/miniconda3/bin/conda
-             '''
-          } // end node
-        } // end steps
-      } // end create conda stage
-    } // end stages
+          else {
+            sh "echo \"Skip log rotation configuration.\""
+          } //else
+        } //node
+      } //script
+    } //steps
+   } //stage
+    stage ('Test UGE Deployment') {
+          steps {
+            node('qlogin') {
+              // Download jobmon
+              checkout scm
+              // Download jobmonr
+              sshagent (credentials: ['svcscicompci']) {
+                  sh "rm -rf jobmonr"
+                  sh "git clone ssh://git@stash.ihme.washington.edu:7999/scic/jobmonr.git"
+               } // end sshagent
+              sh '''#!/bin/bash
+                    . ${WORKSPACE}/ci/deploy_utils.sh
+                    test_k8s_uge_deployment \
+                        ${WORKSPACE} \
+                        "${QLOGIN_ACTIVATE}" \
+                        ${JOBMON_VERSION} \
+                 ''' +  "${env.TARGET_IP}"
+            } // end qlogin
+          } // end steps
+        } // end test deployment stage
+        stage ('Test Slurm Deployment') {
+          steps {
+            node('qlogin') {
+
+              // Be very, very careful with nested quotes here, it is safest not to use them
+              // because ssh parses and recreates the remote string.
+              // For reference see https://unix.stackexchange.com/questions/212215/ssh-command-with-quotes
+              // Ubuntu uses dash, not bash. bash has the "source" command, dash does not.
+              // In dash you have to use the "." command instead
+              // Conceptually it would be possible to use "/bin/bash -c"
+              // but that requires quotes around the command. It is safer to just use "." rather
+              // than "source" in deploy_utils.sh and execute it with dash.
+              // Also, don't try to pass a whole command as a single argument because that also
+              // requires clever quoting. Only pass single words as arguments.
+
+              // Download jobmon
+              checkout scm
+              script {
+                ssh_cmd= """. ${WORKSPACE}/ci/deploy_utils.sh
+                     test_k8s_slurm_deployment \
+                         ${WORKSPACE} \
+                         ${MINICONDA_PATH} \
+                         ${CONDA_ENV_NAME} \
+                         ${JOBMON_VERSION} \
+                         ${env.TARGET_IP} \
+                """
+                echo ssh_cmd
+                sshagent(['jenkins']) {
+                   sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu '${ssh_cmd}'"
+                }
+              }
+            } // end qlogin
+          } // end steps
+        } // end test deployment stage
+        stage ('Create Shared Conda') {
+          steps {
+            node('qlogin') {
+              sh '''. ${WORKSPACE}/ci/share_conda_install.sh \
+                       /mnt/team/scicomp/pub/shared_jobmon_conda \
+                       ${JOBMON_VERSION} \
+                       /homes/svcscicompci/miniconda3/bin/conda
+                 '''
+              } // end node
+            } // end steps
+          } // end create conda stage
+        } // end stages
   post {
     always {
       node('docker') {
