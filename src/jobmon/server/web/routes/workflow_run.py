@@ -356,7 +356,7 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
         status = wfr.status
     except (InvalidStateTransition, AttributeError) as e:
         # this branch handles race condition or case where no wfr was returned
-        app.logger.debug(f"Unable to reap workflow_run {wfr.id}: {e}")
+        logger.debug(f"Unable to reap workflow_run {wfr.id}: {e}")
         status = ""
     resp = jsonify(status=status)
     resp.status_code = StatusCodes.OK

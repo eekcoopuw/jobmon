@@ -57,12 +57,10 @@ def add_tool() -> Any:
     return resp
 
 
-@jobmon_client.route('/tool/<tool_name>', methods=['GET'])
+@finite_state_machine.route('/tool/<tool_name>', methods=['GET'])
 def get_tool(tool_name: str):
     """Get the Tool object from the database."""
     # get data from db
-    app.logger = app.logger.bind(tool_name=tool_name)
-    app.logger.info(f"Getting tool by name: {tool_name}")
     query = """
         SELECT
             tool.*
@@ -127,15 +125,13 @@ def get_tool_versions(tool_id: int) -> Any:
     return resp
 
 
-@jobmon_client.route('/tool_version', methods=['POST'])
+@finite_state_machine.route('/tool_version', methods=['POST'])
 def add_tool_version():
     """Add a new version for a Tool."""
     # check input variable
     data = request.get_json()
     try:
         tool_id = int(data["tool_id"])
-        app.logger = app.logger.bind(tool_id=tool_id)
-        app.logger.info(f"Creating tool_version for tool_id {tool_id}")
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 

@@ -32,8 +32,8 @@ def add_dag() -> Any:
 
     # add dag
     dag_hash = data.pop("dag_hash")
-    app.logger = app.logger.bind(dag_hash=str(dag_hash))
-    app.logger.info(f"Add dag:{dag_hash}")
+    bind_to_logger(dag_hash=str(dag_hash))
+    logger.info(f"Add dag:{dag_hash}")
     try:
         dag = Dag(hash=dag_hash)
         DB.session.add(dag)

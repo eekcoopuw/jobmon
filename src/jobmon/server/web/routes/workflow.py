@@ -175,7 +175,7 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int) -> Any:
     )
     DB.session.commit()
     if len(res) > 0:
-        app.logger.debug(f"Found {res} workflow for "
+        logger.debug(f"Found {res} workflow for "
                          f"workflow_args_hash {workflow_args_hash}")
     res = [(row.task_hash, row.tool_version_id, row.hash) for row in res]
     resp = jsonify(matching_workflows=res)
@@ -284,7 +284,7 @@ def set_resume(workflow_id: int) -> Any:
     # trigger resume on active workflow run
     workflow.resume(reset_running_jobs)
     DB.session.commit()
-    app.logger.info(f"Resume set for wf {workflow_id}")
+    logger.info(f"Resume set for wf {workflow_id}")
 
     # update attributes
     if workflow_attributes:
@@ -509,6 +509,7 @@ def get_workflow_status() -> Any:
     if workflow_request:
         workflow_request = [int(w) for w in workflow_request]
         params["workflow_id"] = workflow_request
+        where_clause = "WHERE workflow.id in :workflow_id "
     else:  # if we don't specify workflow then we use the users
         # convert user request into sql filter
         # directly producing workflow_ids, and thus where_clause
@@ -545,7 +546,7 @@ def get_workflow_status() -> Any:
             ON workflow.id = task.workflow_id
         JOIN workflow_status
             ON workflow_status.id = workflow.status
-        WHERE workflow.id in :workflow_id
+        {where_clause}
         GROUP BY workflow.id, task.status, workflow.name, workflow_status.label
         ORDER BY workflow.id desc
     """.format(
@@ -802,7 +803,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Any:
     resp = jsonify(task_dcts=task_dcts)
 
 
-@jobmon_cli.route('/workflow/<workflow_id>/validate_for_workflow_reset/<username>',
+@finite_state_machine.route('/workflow/<workflow_id>/validate_for_workflow_reset/<username>',
                   methods=['GET'])
 def get_workflow_run_for_workflow_reset(workflow_id: int, username: str):
     """
@@ -814,9 +815,6 @@ def get_workflow_run_for_workflow_reset(workflow_id: int, username: str):
         2. This last workflow_run must have been started by the input username.
         3. This last workflow_run is in status 'E'
     """
-    app.logger = app.logger.bind(workflow_id=workflow_id)
-    app.logger.debug(f"Validate for workflow_reset "
-                     f"- user name: {username} for wf: {workflow_id}")
     query = """
         SELECT id AS workflow_run_id, user AS username
         FROM workflow_run
@@ -835,11 +833,9 @@ def get_workflow_run_for_workflow_reset(workflow_id: int, username: str):
     return resp
 
 
-@jobmon_cli.route('workflow/<workflow_id>/reset', methods=['PUT'])
+@finite_state_machine.route('workflow/<workflow_id>/reset', methods=['PUT'])
 def reset_workflow(workflow_id):
     """Update the workflow's status, all its tasks' statuses to 'G'."""
-    app.logger = app.logger.bind(workflow_id=workflow_id)
-    app.logger.debug(f"Reset workflow wf {workflow_id}")
 
     q_workflow = """
         UPDATE workflow

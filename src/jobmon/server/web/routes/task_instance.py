@@ -9,10 +9,7 @@ import sqlalchemy
 from sqlalchemy.sql import func, text
 from werkzeug.local import LocalProxy
 
-<<<<<<< HEAD
 from jobmon.server.web.log_config import bind_to_logger, get_logger
-=======
->>>>>>> 9c6df813cf723b9193ac0daeef746f2fa037ad55
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import (
     InvalidStateTransition,

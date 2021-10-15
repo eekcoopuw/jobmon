@@ -4,8 +4,6 @@ from http import HTTPStatus as StatusCodes
 from typing import Any
 
 from flask import jsonify, request
-import sqlalchemy
-from sqlalchemy.sql import text
 from werkzeug.local import LocalProxy
 
 from jobmon.server.web.log_config import bind_to_logger, get_logger
@@ -19,9 +17,6 @@ from jobmon.server.web.models.template_arg_map import TemplateArgMap
 from jobmon.server.web.routes import finite_state_machine
 from jobmon.server.web.server_side_exception import InvalidUsage
 
-# new structlog logger per flask request context. internally stored as flask.g.logger
-logger = LocalProxy(partial(get_logger, __name__))
-
 import numpy as np
 
 import scipy.stats as st
@@ -29,7 +24,8 @@ import scipy.stats as st
 import sqlalchemy
 from sqlalchemy.sql import text
 
-from . import jobmon_cli, jobmon_client
+# new structlog logger per flask request context. internally stored as flask.g.logger
+logger = LocalProxy(partial(get_logger, __name__))
 
 
 @finite_state_machine.route("/task_template", methods=["POST"])
@@ -110,14 +106,12 @@ def get_task_template_versions(task_template_id: int) -> Any:
     return resp
 
 
-@jobmon_cli.route('/get_task_template_version', methods=['GET'])
+@finite_state_machine.route('/get_task_template_version', methods=['GET'])
 def get_task_template_version_for_tasks():
     """Get the task_template_version_ids."""
     # parse args
     t_id = request.args.get("task_id")
     wf_id = request.args.get("workflow_id")
-    app.logger.debug(f"Task ID: {t_id}; Workflow ID: {wf_id}")
-
     # This route only accept one task id or one wf id;
     # If provided both, ignor wf id
     if t_id:
@@ -147,12 +141,11 @@ def get_task_template_version_for_tasks():
     return resp
 
 
-@jobmon_cli.route('/get_requested_cores', methods=['GET'])
+@finite_state_machine.route('/get_requested_cores', methods=['GET'])
 def get_requsted_cores():
     """Get the min, max, and arg of requested cores"""
     # parse args
     ttvis = request.args.get("task_template_version_ids")
-    app.logger.debug(f"task_template_version_ids: {ttvis}")
     # null core should be treated as 1 instead of 0
     sql = f"""
            SELECT t3.id as id,
@@ -178,12 +171,11 @@ def get_requsted_cores():
     return resp
 
 
-@jobmon_cli.route('/get_most_popular_queue', methods=['GET'])
+@finite_state_machine.route('/get_most_popular_queue', methods=['GET'])
 def get_most_popular_queue():
     """Get the min, max, and arg of requested cores"""
     # parse args
     ttvis = request.args.get("task_template_version_ids")
-    app.logger.debug(f"task_template_version_ids: {ttvis}")
     sql = f"""
            SELECT task_template_version_id, queue
            FROM
@@ -210,7 +202,6 @@ def _add_or_get_arg(name: str) -> Arg:
         arg = Arg(name=name)
         DB.session.add(arg)
         DB.session.commit()
-        app.logger.debug(f"Arg {name} added for ID {arg.id}")
     except sqlalchemy.exc.IntegrityError:
         DB.session.rollback()
         query = """
@@ -220,7 +211,6 @@ def _add_or_get_arg(name: str) -> Arg:
         """
         arg = DB.session.query(Arg).from_statement(text(query)).params(name=name).one()
         DB.session.commit()
-        app.logger.debug(f"Found {name} arg in the database with ID {arg.id}")
     return arg
 
 
@@ -264,7 +254,6 @@ def add_task_template_version(task_template_id: int) -> Any:
         )
         DB.session.add(ttv)
         DB.session.commit()
-        app.logger.debug(f"TTV {ttv.id} added for task template {task_template_id}")
 
         # get a lock
         DB.session.refresh(ttv, with_for_update=True)
@@ -313,7 +302,7 @@ def add_task_template_version(task_template_id: int) -> Any:
         return resp
 
 
-@jobmon_client.route('/task_template_resource_usage', methods=["POST"])
+@finite_state_machine.route('/task_template_resource_usage', methods=["POST"])
 def get_task_template_resource_usage():
     """Return the aggregate resource usage for a give TaskTemplate."""
     data = request.get_json()
