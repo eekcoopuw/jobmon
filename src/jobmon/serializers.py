@@ -109,6 +109,26 @@ class SerializeTaskInstanceErrorLog:
         }
 
 
+class SerializeExecutorTaskInstanceErrorLog:
+    """Serialize the data to and from the database for an ExecutorTaskInstanceErrorLog."""
+
+    @staticmethod
+    def to_wire(task_instance_error_log_id: int, error_time: datetime,
+                description: str) -> tuple:
+        """
+        Submit the above args for an SerializeExecutorTaskInstanceErrorLog
+        object to the database.
+        """
+        return task_instance_error_log_id, error_time, description
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        """Retrieve the SerializeExecutorTaskInstanceErrorLog information from the database."""
+        return {"task_instance_error_log_id": int(wire_tuple[0]),
+                "error_time": str(wire_tuple[1]),
+                "description": str(wire_tuple[2])}
+
+
 class SerializeClientTool:
     """Serialize the data to and from the database for a Tool object."""
 
@@ -199,9 +219,11 @@ class SerializeWorkflowRun:
         return (id, workflow_id)
 
     @staticmethod
+    @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Get the WorkflowRun information from the database."""
-        return {"id": int(wire_tuple[0]), "workflow_id": int(wire_tuple[1])}
+        return {"id": int(wire_tuple[0]),
+                "workflow_id": int(wire_tuple[1])}
 
 
 class SerializeClusterType:
