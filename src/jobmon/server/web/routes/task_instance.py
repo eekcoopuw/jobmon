@@ -9,7 +9,10 @@ import sqlalchemy
 from sqlalchemy.sql import func, text
 from werkzeug.local import LocalProxy
 
+<<<<<<< HEAD
 from jobmon.server.web.log_config import bind_to_logger, get_logger
+=======
+>>>>>>> 9c6df813cf723b9193ac0daeef746f2fa037ad55
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import (
     InvalidStateTransition,
@@ -56,6 +59,7 @@ def kill_self(task_instance_id: int) -> Any:
     logger.info(f"ti {task_instance_id} should_kill: {should_kill}")
     if should_kill is not None:
         resp = jsonify(should_kill=True)
+        app.logger.info(f"ti {task_instance_id} should_kill: {should_kill}")
     else:
         resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -197,7 +201,6 @@ def log_done(task_instance_id: int) -> Any:
     """
     bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
-    logger.info(f"Log DONE for TI {task_instance_id}.")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     if data.get("distributor_id", None) is not None:
@@ -283,6 +286,34 @@ def get_most_recent_ti_error(task_id: int) -> Any:
         )
     else:
         resp = jsonify({"error_description": "", "task_instance_id": None})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_worker.route('/task_instance/<task_instance_id>/task_instance_error_log',
+                     methods=['GET'])
+def get_task_instance_error_log(task_instance_id: int):
+    """
+    Route to return all task_instance_error_log entries of the task_instance_id
+    :param task_instance_id:
+    :return: jsonified task_instance_error_log result set
+    """
+    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    query = """
+        SELECT
+            tiel.id, tiel.error_time, tiel.description
+        FROM
+            task_instance_error_log tiel
+        WHERE
+            tiel.task_instance_id = :task_instance_id
+        ORDER BY
+            tiel.id ASC"""
+    ti_errors = DB.session.query(TaskInstanceErrorLog).from_statement(text(query)).params(
+        task_instance_id=task_instance_id
+    ).all()
+    DB.session.commit()
+    resp = jsonify(task_instance_error_log=[tiel.to_wire_as_executor_task_instance_error_log()
+                                            for tiel in ti_errors])
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -530,9 +561,7 @@ def log_no_distributor_id(task_instance_id: int) -> Any:
     )
     data = request.get_json()
     logger.debug(f"Log NO DISTRIBUTOR ID. Data {data['no_id_err_msg']}")
-
     err_msg = data["no_id_err_msg"]
-
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(ti, TaskInstanceStatus.NO_DISTRIBUTOR_ID)
     error = TaskInstanceErrorLog(task_instance_id=ti.id, description=err_msg)
@@ -555,8 +584,6 @@ def log_distributor_id(task_instance_id: int) -> Any:
     """
     bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
-    logger.info(f"Log DISTRIBUTOR ID for TI {task_instance_id}.")
-
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(
         ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR
