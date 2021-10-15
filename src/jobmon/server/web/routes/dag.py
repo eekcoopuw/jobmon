@@ -32,8 +32,8 @@ def add_dag() -> Any:
 
     # add dag
     dag_hash = data.pop("dag_hash")
-    bind_to_logger(dag_hash=str(dag_hash))
-    logger.info(f"Add dag:{dag_hash}")
+    app.logger = app.logger.bind(dag_hash=str(dag_hash))
+    app.logger.info(f"Add dag:{dag_hash}")
     try:
         dag = Dag(hash=dag_hash)
         DB.session.add(dag)
@@ -71,7 +71,6 @@ def add_edges(dag_id: int) -> Any:
     """Add edges to the edge table."""
     bind_to_logger(dag_id=dag_id)
     logger.info(f"Add edges for dag {dag_id}")
-
     try:
         data = request.get_json()
         edges_to_add = data.pop("edges_to_add")
