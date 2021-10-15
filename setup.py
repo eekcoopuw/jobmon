@@ -26,6 +26,7 @@ SERVER_REQUIRES = [
     'pymysql',  # install MySQLdb/mysqlclient for more performance
     'python-logstash-async',
     'sqlalchemy==1.3',
+    'scipy',
 ]
 
 # pip install -e .[test]
