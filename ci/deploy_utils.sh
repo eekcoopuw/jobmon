@@ -112,6 +112,7 @@ upload_jobmon_image () {
     REG_PASSWORD=$4
     SCICOMP_DOCKER_REG_URL=$5
     JOBMON_CONTAINER_URI=$6
+    GRAFANA_CONTAINER_URI=$7
 
 
     # build jobmon container
@@ -119,6 +120,10 @@ upload_jobmon_image () {
     docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://$SCICOMP_DOCKER_REG_URL"
     docker build --no-cache -t "$JOBMON_CONTAINER_URI" -f ./deployment/k8s/Dockerfile .
     docker push "$JOBMON_CONTAINER_URI"
+
+    # build grafana container
+    docker build --no-cache -t "$GRAFANA_CONTAINER_URI" -f ./deployment/k8s/grafana/Dockerfile .
+    docker push "$GRAFANA_CONTAINER_URI"
 
 }
 
