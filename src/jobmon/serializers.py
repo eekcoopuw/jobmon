@@ -316,3 +316,46 @@ class SerializeTaskResources:
             "resource_scales": str(wire_tuple[4]),
             "requested_resources": str(wire_tuple[5]),
         }
+
+class SerializeTaskResourceUsage:
+    """Serialize the data to and from the database for Task resource usage."""
+
+    @staticmethod
+    def to_wire(num_attempts, nodename, runtime, memory) -> tuple:
+        """Submit the Task resource usage information to the database."""
+        return (num_attempts, nodename, runtime, memory)
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        """Get the Task resource usage information from the database."""
+        return {"num_attempts": wire_tuple[0],
+                "nodename": wire_tuple[1],
+                "runtime": wire_tuple[2],
+                "memory": wire_tuple[3]}
+
+
+class SerializeTaskTemplateResourceUsage:
+    """Serialize the data to and from the database for TaskTemplate resource usage."""
+
+    @staticmethod
+    def to_wire(num_tasks, min_mem, max_mem, mean_mem, min_runtime, max_runtime,
+                mean_runtime, median_mem, median_runtime, ci_mem, ci_runtime) -> tuple:
+        """Submit the TaskTemplate resource usage information to the database."""
+        return num_tasks, min_mem, max_mem, mean_mem, min_runtime, max_runtime, mean_runtime, \
+            median_mem, median_runtime, ci_mem, ci_runtime
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        """Get the TaskTemplate resource usage information from the database."""
+        return {"num_tasks": wire_tuple[0],
+                "min_mem": wire_tuple[1],
+                "max_mem": wire_tuple[2],
+                "mean_mem": wire_tuple[3],
+                "min_runtime": wire_tuple[4],
+                "max_runtime": wire_tuple[5],
+                "mean_runtime": wire_tuple[6],
+                "median_mem": wire_tuple[7],
+                "median_runtime": wire_tuple[8],
+                "ci_mem": wire_tuple[9],
+                "ci_runtime": wire_tuple[10]}
+
