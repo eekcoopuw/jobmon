@@ -56,7 +56,7 @@ def kill_self(task_instance_id: int) -> Any:
     logger.info(f"ti {task_instance_id} should_kill: {should_kill}")
     if should_kill is not None:
         resp = jsonify(should_kill=True)
-        app.logger.info(f"ti {task_instance_id} should_kill: {should_kill}")
+        logger.info(f"ti {task_instance_id} should_kill: {should_kill}")
     else:
         resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -287,7 +287,7 @@ def get_most_recent_ti_error(task_id: int) -> Any:
     return resp
 
 
-@jobmon_worker.route('/task_instance/<task_instance_id>/task_instance_error_log',
+@finite_state_machine.route('/task_instance/<task_instance_id>/task_instance_error_log',
                      methods=['GET'])
 def get_task_instance_error_log(task_instance_id: int):
     """
@@ -295,7 +295,7 @@ def get_task_instance_error_log(task_instance_id: int):
     :param task_instance_id:
     :return: jsonified task_instance_error_log result set
     """
-    app.logger = app.logger.bind(task_instance_id=task_instance_id)
+    bind_to_logger(task_instance_id=task_instance_id)
     query = """
         SELECT
             tiel.id, tiel.error_time, tiel.description
