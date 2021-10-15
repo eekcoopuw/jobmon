@@ -15,4 +15,3 @@ data:
     APM_HOST: jobmon-apm
     APM_PORT: "8200"
     LOG_LEVEL: INFO
-    DB_NAME: docker_hyrax
