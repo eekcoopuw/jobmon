@@ -43,14 +43,6 @@ pipeline {
      name: 'LOG_ROTATION')
   } //end parameters
 
-  triggers {
-    // This cron expression runs seldom, or never runs, but having the value set
-    // allows bitbucket server to remotely trigger builds.
-    // Git plugin 4.x: https://mohamicorp.atlassian.net/wiki/spaces/DOC/pages/209059847/Triggering+Jenkins+on+new+Pull+Requests
-    // Git plugin 3.x: https://mohamicorp.atlassian.net/wiki/spaces/DOC/pages/955088898/Triggering+Jenkins+on+new+Pull+Requests+Git+Plugin+3.XX
-    pollSCM('0 0 1 1 0')
-  } //end triggers
-
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
     // Build up QLOGIN_ACITVATE from separate words so that the individual words can be passed
