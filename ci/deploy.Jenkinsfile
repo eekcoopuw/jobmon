@@ -117,7 +117,8 @@ pipeline {
                       $REG_USERNAME \
                       $REG_PASSWORD \
                       ${SCICOMP_DOCKER_REG_URL} \
-                      ${JOBMON_CONTAINER_URI}
+                      ${JOBMON_CONTAINER_URI} \
+                      ${GRAFANA_CONTAINER_URI}
                '''
           } // end credentials
         } // end node
