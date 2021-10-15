@@ -62,12 +62,13 @@ def add_node() -> Any:
         task_template_version_id: version id of the task_template a node belongs to.
         node_args: key-value pairs of arg_id and a value.
     """
-    data = request.get_json()
     bind_to_logger(
         task_template_version_id=data["task_template_version_id"],
         node_args_hash=str(data["node_args_hash"]),
     )
     logger.info("Adding node")
+    logger.debug(f"Add node with ttv id:{data['task_template_version_id']}, "
+                     f"node_args_hash {data['node_args_hash']}")
     # add node
     try:
         node = Node(
