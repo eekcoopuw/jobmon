@@ -22,8 +22,8 @@ from jobmon.server.web.models.task_arg import TaskArg
 from jobmon.server.web.models.task_attribute import TaskAttribute
 from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 from jobmon.server.web.models.task_resources import TaskResources
-from jobmon.server.web.routes import finite_state_machine
 from jobmon.server.web.models.task_instance import TaskInstance
+from jobmon.server.web.routes import finite_state_machine
 from jobmon.server.web.server_side_exception import InvalidUsage
 
 
@@ -60,6 +60,7 @@ def get_task_id_and_status() -> Any:
         nid = request.args["node_id"]
         int(nid)
         h = request.args["task_args_hash"]
+        int(h)
         bind_to_logger(workflow_id=wid, node_id=nid, task_args_hash=str(h))
     except Exception as e:
         raise InvalidUsage(
@@ -696,10 +697,9 @@ def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list) -> d
 
 @finite_state_machine.route("/task/subdag", methods=["POST"])
 def get_task_subdag() -> Any:
-    """
-    Used to get the sub dag  of a given task. It returns a list of sub tasks as well as a
-    list of sub nodes.
-    :return:
+    """Used to get the sub dag  of a given task.
+
+    It returns a list of sub tasks as well as a list of sub nodes.
     """
     # Only return sub tasks in the following status. If empty or None, return all
     data = request.get_json()
@@ -822,7 +822,7 @@ def _get_dag_and_wf_id(task_id: int) -> int:
     return int(row['dag_id']), int(row['workflow_id']), int(row['node_id'])
 
 
-@jobmon_cli.route('/task_dependencies/<task_id>', methods=['GET'])
+@finite_state_machine.route('/task_dependencies/<task_id>', methods=['GET'])
 def get_task_dependencies(task_id):
     """Get task's downstream and upsteam tasks and their status"""
     dag_id, workflow_id, node_id = _get_dag_and_wf_id(task_id)
@@ -840,7 +840,7 @@ def get_task_dependencies(task_id):
     return resp
 
 
-@jobmon_cli.route('/tasks_recursive/<direction>', methods=['PUT'])
+@finite_state_machine.route('/tasks_recursive/<direction>', methods=['PUT'])
 def get_tasks_recursive(direction: str) -> {int}:
     """
     Get all input task_ids' downstream or upsteam tasks based on direction;
@@ -894,7 +894,7 @@ def _get_tasks_recursive(task_ids: Set[int], direction: Direction) -> set:
     return tasks_recursive
 
 
-@jobmon_client.route('/task_resource_usage', methods=["GET"])
+@finite_state_machine.route('/task_resource_usage', methods=["GET"])
 def get_task_resource_usage():
     """Return the resource usage for a given Task ID."""
     try:
