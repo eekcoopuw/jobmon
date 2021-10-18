@@ -76,8 +76,9 @@ class QsubAttribute:
 
 
 class Direction:
-    """
-    A generic utility class used to represent one-dimensional direction,
+    """A generic utility class.
+
+    Used to represent one-dimensional direction,
     such as upstream/downstream.
     """
 

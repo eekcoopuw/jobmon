@@ -10,19 +10,22 @@ from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import text
 from werkzeug.local import LocalProxy
 
-from jobmon.constants import TaskInstanceStatus, TaskStatus, WorkflowStatus as Statuses
-from jobmon.server.web.log_config import bind_to_logger, get_logger
-from jobmon.constants \
-    import Direction, TaskInstanceStatus, TaskStatus, WorkflowStatus as Statuses
+from jobmon.constants import (
+    Direction,
+    TaskInstanceStatus,
+    TaskStatus,
+    WorkflowStatus as Statuses,
+)
 from jobmon.serializers import SerializeTaskResourceUsage
+from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_arg import TaskArg
 from jobmon.server.web.models.task_attribute import TaskAttribute
 from jobmon.server.web.models.task_attribute_type import TaskAttributeType
-from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.models.task_instance import TaskInstance
+from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.routes import finite_state_machine
 from jobmon.server.web.server_side_exception import InvalidUsage
 
@@ -622,8 +625,8 @@ def _get_node_downstream(nodes: set, dag_id: int) -> set:
 
 
 def _get_node_uptream(nodes: set, dag_id: int) -> set:
-    """
-    Get all downstream nodes of a node
+    """Get all downstream nodes of a node.
+
     :param node_id:
     :return: a list of node_id
     """
@@ -641,8 +644,8 @@ def _get_node_uptream(nodes: set, dag_id: int) -> set:
         return []
     node_ids = set()
     for r in result:
-        if r['upstream_node_ids'] is not None:
-            ids = json.loads(r['upstream_node_ids'])
+        if r["upstream_node_ids"] is not None:
+            ids = json.loads(r["upstream_node_ids"])
             node_ids = node_ids.union(set(ids))
     return node_ids
 
@@ -703,8 +706,8 @@ def get_task_subdag() -> Any:
     """
     # Only return sub tasks in the following status. If empty or None, return all
     data = request.get_json()
-    task_ids = data.get('task_ids', [])
-    task_status = data.get('task_status', [])
+    task_ids = data.get("task_ids", [])
+    task_status = data.get("task_status", [])
 
     if len(task_ids) == 0:
         raise InvalidUsage(f"Missing {task_ids} in request", status_code=400)
@@ -819,51 +822,59 @@ def _get_dag_and_wf_id(task_id: int) -> int:
 
     if row is None:
         return None, None
-    return int(row['dag_id']), int(row['workflow_id']), int(row['node_id'])
+    return int(row["dag_id"]), int(row["workflow_id"]), int(row["node_id"])
 
 
-@finite_state_machine.route('/task_dependencies/<task_id>', methods=['GET'])
-def get_task_dependencies(task_id):
-    """Get task's downstream and upsteam tasks and their status"""
+@finite_state_machine.route("/task_dependencies/<task_id>", methods=["GET"])
+def get_task_dependencies(task_id: int) -> Any:
+    """Get task's downstream and upsteam tasks and their status."""
     dag_id, workflow_id, node_id = _get_dag_and_wf_id(task_id)
     up_nodes = _get_node_uptream({node_id}, dag_id)
     down_nodes = _get_node_downstream({node_id}, dag_id)
     up_task_dict = _get_tasks_from_nodes(workflow_id, list(up_nodes), [])
     down_task_dict = _get_tasks_from_nodes(workflow_id, list(down_nodes), [])
     # return a "standard" json format so that it can be reused by future GUI
-    up = [] if up_task_dict is None or len(up_task_dict) == 0 else \
-        [[{"id": k, "status": up_task_dict[k]}] for k in up_task_dict][0]
-    down = [] if down_task_dict is None or len(down_task_dict) == 0 else \
-        [[{"id": k, "status": down_task_dict[k]}] for k in down_task_dict][0]
+    up = (
+        []
+        if up_task_dict is None or len(up_task_dict) == 0
+        else [[{"id": k, "status": up_task_dict[k]}] for k in up_task_dict][0]
+    )
+    down = (
+        []
+        if down_task_dict is None or len(down_task_dict) == 0
+        else [[{"id": k, "status": down_task_dict[k]}] for k in down_task_dict][0]
+    )
     resp = jsonify({"up": up, "down": down})
     resp.status_code = 200
     return resp
 
 
-@finite_state_machine.route('/tasks_recursive/<direction>', methods=['PUT'])
+@finite_state_machine.route("/tasks_recursive/<direction>", methods=["PUT"])
 def get_tasks_recursive(direction: str) -> {int}:
-    """
-    Get all input task_ids' downstream or upsteam tasks based on direction;
+    """Get all input task_ids'.
+
+    Either downstream or upsteam tasks based on direction;
     return all recursive(including input set) task_ids in the defined direction.
     """
     dir: Direction = Direction.UP if direction == "up" else Direction.DOWN
     data = request.get_json()
     # define task_ids as set in order to eliminate dups
-    task_ids = set(data.get('task_ids', []))
+    task_ids = set(data.get("task_ids", []))
 
     try:
         tasks_recursive = _get_tasks_recursive(task_ids, dir)
-        resp = jsonify({'task_ids': list(tasks_recursive)})
+        resp = jsonify({"task_ids": list(tasks_recursive)})
         resp.status_code = 200
         return resp
     except InvalidUsage as e:
-        app.logger.info(f"InvalidUsage {e} is encountered!")
+        logger.info(f"InvalidUsage {e} is encountered!")
         raise e
 
 
 def _get_tasks_recursive(task_ids: Set[int], direction: Direction) -> set:
-    """
-    Get all input task_ids' downstream or upsteam tasks based on direction;
+    """Get all input task_ids'.
+
+    Either downstream or upsteam tasks based on direction;
     return all recursive(including input set) task_ids in the defined direction.
     """
     tasks_recursive = set()
@@ -873,20 +884,27 @@ def _get_tasks_recursive(task_ids: Set[int], direction: Direction) -> set:
 
     for task_id in task_ids:
         dag_id, workflow_id, node_id = _get_dag_and_wf_id(task_id)
-        next_nodes_sub = _get_node_downstream({node_id}, dag_id) \
-            if direction == Direction.DOWN \
+        next_nodes_sub = (
+            _get_node_downstream({node_id}, dag_id)
+            if direction == Direction.DOWN
             else _get_node_uptream({node_id}, dag_id)
+        )
         if workflow_id_first is None:
             workflow_id_first = workflow_id
         elif workflow_id != workflow_id_first:
-            raise InvalidUsage(f"{task_ids} in request belong to different workflow_ids"
-                               f"({workflow_id_first}, {workflow_id})", status_code=400)
+            raise InvalidUsage(
+                f"{task_ids} in request belong to different workflow_ids"
+                f"({workflow_id_first}, {workflow_id})",
+                status_code=400,
+            )
         next_nodes.update(next_nodes_sub)
 
     if len(next_nodes) > 0:
         next_task_dict = _get_tasks_from_nodes(workflow_id_first, list(next_nodes), [])
         if len(next_task_dict) > 0:
-            task_recursive_sub = _get_tasks_recursive(set(next_task_dict.keys()), direction)
+            task_recursive_sub = _get_tasks_recursive(
+                set(next_task_dict.keys()), direction
+            )
             tasks_recursive.update(task_recursive_sub)
 
     tasks_recursive.update(task_ids)
@@ -894,14 +912,15 @@ def _get_tasks_recursive(task_ids: Set[int], direction: Direction) -> set:
     return tasks_recursive
 
 
-@finite_state_machine.route('/task_resource_usage', methods=["GET"])
-def get_task_resource_usage():
+@finite_state_machine.route("/task_resource_usage", methods=["GET"])
+def get_task_resource_usage() -> Any:
     """Return the resource usage for a given Task ID."""
     try:
-        task_id = request.args['task_id']
+        task_id = request.args["task_id"]
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to /task_resource_usage", status_code=400) \
-            from e
+        raise InvalidUsage(
+            f"{str(e)} in request to /task_resource_usage", status_code=400
+        ) from e
 
     query = """
         SELECT
@@ -919,19 +938,26 @@ def get_task_resource_usage():
             task_id = :task_id AND task_instance.status = 'D'
     """
 
-    result = DB.session.query(Task.num_attempts, TaskInstance.nodename, TaskInstance.wallclock,
-                              TaskInstance.maxpss).from_statement(text(query)).params(
-        task_id=task_id
-    ).one_or_none()
+    result = (
+        DB.session.query(
+            Task.num_attempts,
+            TaskInstance.nodename,
+            TaskInstance.wallclock,
+            TaskInstance.maxpss,
+        )
+        .from_statement(text(query))
+        .params(task_id=task_id)
+        .one_or_none()
+    )
 
     DB.session.commit()
 
     if result is None:
         resource_usage = SerializeTaskResourceUsage.to_wire(None, None, None, None)
     else:
-        resource_usage = SerializeTaskResourceUsage.to_wire(result.num_attempts,
-                                                            result.nodename,
-                                                            result.wallclock, result.maxpss)
+        resource_usage = SerializeTaskResourceUsage.to_wire(
+            result.num_attempts, result.nodename, result.wallclock, result.maxpss
+        )
     resp = jsonify(resource_usage)
     resp.status_code = StatusCodes.OK
     return resp

@@ -57,8 +57,8 @@ def add_tool() -> Any:
     return resp
 
 
-@finite_state_machine.route('/tool/<tool_name>', methods=['GET'])
-def get_tool(tool_name: str):
+@finite_state_machine.route("/tool/<tool_name>", methods=["GET"])
+def get_tool(tool_name: str) -> Any:
     """Get the Tool object from the database."""
     # get data from db
     query = """
@@ -68,22 +68,23 @@ def get_tool(tool_name: str):
             tool
         WHERE
             name = :tool_name"""
-    tool = DB.session.query(Tool).from_statement(text(query)).params(
-        tool_name=tool_name
-    ).one_or_none()
+    tool = (
+        DB.session.query(Tool)
+        .from_statement(text(query))
+        .params(tool_name=tool_name)
+        .one_or_none()
+    )
     DB.session.commit()
     if tool:
-        try:
-            tool = tool.to_wire_as_client_tool()
-            resp = jsonify(tool=tool)
-            resp.status_code = StatusCodes.OK
-            return resp
-        except Exception as e:
-            raise ServerError(f"Unexpected Jobmon Server Error in {request.path}",
-                              status_code=500) from e
+        tool = tool.to_wire_as_client_tool()
+        resp = jsonify(tool=tool)
+        resp.status_code = StatusCodes.OK
+        return resp
     else:
-        raise InvalidUsage(f"Tool {tool_name} does not exist with request to {request.path}",
-                           status_code=400)
+        raise InvalidUsage(
+            f"Tool {tool_name} does not exist with request to {request.path}",
+            status_code=400,
+        )
 
 
 @finite_state_machine.route("/tool/<tool_id>/tool_versions", methods=["GET"])
@@ -123,5 +124,3 @@ def get_tool_versions(tool_id: int) -> Any:
     resp = jsonify(tool_versions=tool_versions)
     resp.status_code = StatusCodes.OK
     return resp
-
-

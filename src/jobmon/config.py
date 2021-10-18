@@ -79,10 +79,10 @@ class ParserDefaults:
         parser.add_argument(
             "--logstash_protocol",
             type=str,
-            help='logstash protocol to use',
-            default='UDP',
-            choices=['TCP', 'HTTP', 'Beats', 'UDP'],
-            env_var='LOGSTASH_PROTOCOL'
+            help="logstash protocol to use",
+            default="UDP",
+            choices=["TCP", "HTTP", "Beats", "UDP"],
+            env_var="LOGSTASH_PROTOCOL",
         )
         return parser
 

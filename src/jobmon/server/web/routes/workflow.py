@@ -175,8 +175,9 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int) -> Any:
     )
     DB.session.commit()
     if len(res) > 0:
-        logger.debug(f"Found {res} workflow for "
-                         f"workflow_args_hash {workflow_args_hash}")
+        logger.debug(
+            f"Found {res} workflow for " f"workflow_args_hash {workflow_args_hash}"
+        )
     res = [(row.task_hash, row.tool_version_id, row.hash) for row in res]
     resp = jsonify(matching_workflows=res)
     resp.status_code = StatusCodes.OK
@@ -436,7 +437,6 @@ def get_task_by_status_only(workflow_id: int) -> Any:
     resp = jsonify(task_dcts=task_dcts, time=str_time)
     resp.status_code = StatusCodes.OK
     return resp
-
 
 
 @finite_state_machine.route("/workflow_validation", methods=["POST"])
@@ -804,12 +804,11 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Any:
     return resp
 
 
-@finite_state_machine.route('/workflow/<workflow_id>/validate_for_workflow_reset/<username>',
-                  methods=['GET'])
-def get_workflow_run_for_workflow_reset(workflow_id: int, username: str):
-    """
-    Return the last workflow_run_id associated with a given workflow_id,
-    if it's started by the username .
+@finite_state_machine.route(
+    "/workflow/<workflow_id>/validate_for_workflow_reset/<username>", methods=["GET"]
+)
+def get_workflow_run_for_workflow_reset(workflow_id: int, username: str) -> Any:
+    """Last workflow_run_id associated with a given workflow_id started by the username.
 
     Used to validate for workflow_reset:
         1. The last workflow_run of the current workflow must be in error state.
@@ -822,7 +821,9 @@ def get_workflow_run_for_workflow_reset(workflow_id: int, username: str):
         WHERE workflow_run.workflow_id = {workflow_id} and workflow_run.status = 'E'
         ORDER BY created_date DESC
         LIMIT 1
-    """.format(workflow_id=workflow_id)
+    """.format(
+        workflow_id=workflow_id
+    )
 
     result = DB.session.execute(query).one_or_none()
     if result is not None and result.username == username:
@@ -834,15 +835,16 @@ def get_workflow_run_for_workflow_reset(workflow_id: int, username: str):
     return resp
 
 
-@finite_state_machine.route('workflow/<workflow_id>/reset', methods=['PUT'])
-def reset_workflow(workflow_id):
+@finite_state_machine.route("workflow/<workflow_id>/reset", methods=["PUT"])
+def reset_workflow(workflow_id: int) -> Any:
     """Update the workflow's status, all its tasks' statuses to 'G'."""
-
     q_workflow = """
         UPDATE workflow
         SET status = 'G', status_date = CURRENT_TIMESTAMP
         WHERE id = {workflow_id}
-    """.format(workflow_id=workflow_id)
+    """.format(
+        workflow_id=workflow_id
+    )
 
     DB.session.execute(q_workflow)
 
@@ -850,7 +852,9 @@ def reset_workflow(workflow_id):
         UPDATE task
         SET status = 'G', status_date = CURRENT_TIMESTAMP, num_attempts = 0
         WHERE workflow_id = {workflow_id}
-    """.format(workflow_id=workflow_id)
+    """.format(
+        workflow_id=workflow_id
+    )
 
     DB.session.execute(q_task)
 

@@ -4,10 +4,14 @@ from http import HTTPStatus as StatusCodes
 from typing import Any
 
 from flask import jsonify, request
+import numpy as np
+import scipy.stats as st
+import sqlalchemy
+from sqlalchemy.sql import text
 from werkzeug.local import LocalProxy
 
-from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
+from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.arg import Arg
 from jobmon.server.web.models.arg_type import ArgType
@@ -16,13 +20,6 @@ from jobmon.server.web.models.task_template_version import TaskTemplateVersion
 from jobmon.server.web.models.template_arg_map import TemplateArgMap
 from jobmon.server.web.routes import finite_state_machine
 from jobmon.server.web.server_side_exception import InvalidUsage
-
-import numpy as np
-
-import scipy.stats as st
-
-import sqlalchemy
-from sqlalchemy.sql import text
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
 logger = LocalProxy(partial(get_logger, __name__))
@@ -82,9 +79,6 @@ def get_task_template_versions(task_template_id: int) -> Any:
     bind_to_logger(task_template_id=task_template_id)
     logger.info(f"Getting task template version for task template: {task_template_id}")
 
-    # parse args
-    command_template = request.args.get("command_template")
-    arg_mapping_hash = request.args.get("arg_mapping_hash")
     query = """
         SELECT
             task_template_version.*
@@ -106,8 +100,8 @@ def get_task_template_versions(task_template_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route('/get_task_template_version', methods=['GET'])
-def get_task_template_version_for_tasks():
+@finite_state_machine.route("/get_task_template_version", methods=["GET"])
+def get_task_template_version_for_tasks() -> Any:
     """Get the task_template_version_ids."""
     # parse args
     t_id = request.args.get("task_id")
@@ -141,9 +135,9 @@ def get_task_template_version_for_tasks():
     return resp
 
 
-@finite_state_machine.route('/get_requested_cores', methods=['GET'])
-def get_requsted_cores():
-    """Get the min, max, and arg of requested cores"""
+@finite_state_machine.route("/get_requested_cores", methods=["GET"])
+def get_requsted_cores() -> Any:
+    """Get the min, max, and arg of requested cores."""
     # parse args
     ttvis = request.args.get("task_template_version_ids")
     # null core should be treated as 1 instead of 0
@@ -161,19 +155,27 @@ def get_requsted_cores():
     """
     rows = DB.session.execute(sql).fetchall()
     # return a "standard" json format for cli routes so that it can be reused by future GUI
-    core_info = [] if rows is None else \
-        [{"id": r["id"],
-          "min": int(r["min"]),
-          "max": int(r["max"]),
-          "avg": int(round(r["avg"]))} for r in rows]
+    core_info = (
+        []
+        if rows is None
+        else [
+            {
+                "id": r["id"],
+                "min": int(r["min"]),
+                "max": int(r["max"]),
+                "avg": int(round(r["avg"])),
+            }
+            for r in rows
+        ]
+    )
     resp = jsonify({"core_info": core_info})
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@finite_state_machine.route('/get_most_popular_queue', methods=['GET'])
-def get_most_popular_queue():
-    """Get the min, max, and arg of requested cores"""
+@finite_state_machine.route("/get_most_popular_queue", methods=["GET"])
+def get_most_popular_queue() -> Any:
+    """Get the min, max, and arg of requested cores."""
     # parse args
     ttvis = request.args.get("task_template_version_ids")
     sql = f"""
@@ -189,9 +191,11 @@ def get_most_popular_queue():
     """
     rows = DB.session.execute(sql).fetchall()
     # return a "standard" json format for cli routes
-    queue_info = [] if rows is None else \
-        [{"id": r["task_template_version_id"],
-          "queue": r["queue"]} for r in rows]
+    queue_info = (
+        []
+        if rows is None
+        else [{"id": r["task_template_version_id"], "queue": r["queue"]} for r in rows]
+    )
     resp = jsonify({"queue_info": queue_info})
     resp.status_code = StatusCodes.OK
     return resp
@@ -302,17 +306,18 @@ def add_task_template_version(task_template_id: int) -> Any:
         return resp
 
 
-@finite_state_machine.route('/task_template_resource_usage', methods=["POST"])
-def get_task_template_resource_usage():
+@finite_state_machine.route("/task_template_resource_usage", methods=["POST"])
+def get_task_template_resource_usage() -> Any:
     """Return the aggregate resource usage for a give TaskTemplate."""
     data = request.get_json()
     try:
         task_template_version_id = data.pop("task_template_version_id")
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to /task_template_resource_usage",
-                           status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to /task_template_resource_usage", status_code=400
+        ) from e
 
-    params = {'task_template_version_id': task_template_version_id}
+    params = {"task_template_version_id": task_template_version_id}
     where_clause = ""
     from_clause = ""
     workflows = data.pop("workflows", None)
@@ -320,20 +325,23 @@ def get_task_template_resource_usage():
     ci = data.pop("ci", None)
     if workflows:
         from_clause += ", workflow_run AS wfr, workflow AS wf"
-        where_clause += " AND ti.workflow_run_id = wfr.id AND wfr.workflow_id = wf.id AND " \
-                        "wf.id IN :workflows"
-        params['workflows'] = workflows
+        where_clause += (
+            " AND ti.workflow_run_id = wfr.id AND wfr.workflow_id = wf.id AND "
+            "wf.id IN :workflows"
+        )
+        params["workflows"] = workflows
 
     if node_args:
         from_clause += ", arg AS a, node_arg AS na"
         where_clause += " AND t.node_id = na.node_id AND a.id = na.arg_id AND ("
 
-        def construct_arg_list_clause(k, v):
+        def construct_arg_list_clause(k: str, v: list) -> str:
             quoted_arg_vals = ",".join(f"'{x}'" for x in v)
             return f"(a.name = '{k}' AND na.val IN ({quoted_arg_vals}))"
 
-        where_clause += " OR ".join(construct_arg_list_clause(key, value) for key, value in
-                                    node_args.items())
+        where_clause += " OR ".join(
+            construct_arg_list_clause(key, value) for key, value in node_args.items()
+        )
         where_clause += ")"
 
     query = """
@@ -352,12 +360,14 @@ def get_task_template_resource_usage():
                     AND ttv.id = n.task_template_version_id
                     AND n.id = t.node_id
                     AND t.id = ti.task_id {where_clause}
-    """.format(from_clause=from_clause, where_clause=where_clause)
+    """.format(
+        from_clause=from_clause, where_clause=where_clause
+    )
     result = DB.session.execute(query, params).fetchall()
     if result is None or len(result) == 0:
-        resource_usage = SerializeTaskTemplateResourceUsage.to_wire(None, None, None, None,
-                                                                    None, None, None, None,
-                                                                    None, None, None)
+        resource_usage = SerializeTaskTemplateResourceUsage.to_wire(
+            None, None, None, None, None, None, None, None, None, None, None
+        )
     else:
         runtimes = []
         mems = []
@@ -381,9 +391,10 @@ def get_task_template_resource_usage():
             try:
                 ci = float(ci)
 
-                def _calculate_ci(d, ci):
-                    interval = st.t.interval(alpha=ci, df=len(d) - 1,
-                                             loc=np.mean(d), scale=st.sem(d))
+                def _calculate_ci(d: list, ci: float) -> tuple:
+                    interval = st.t.interval(
+                        alpha=ci, df=len(d) - 1, loc=np.mean(d), scale=st.sem(d)
+                    )
                     # we only need the higher end
                     return round(float(interval[0]), 2), round(float(interval[1]), 2)
 
@@ -391,21 +402,23 @@ def get_task_template_resource_usage():
                 ci_runtime = _calculate_ci(runtimes, ci)
 
             except ValueError:
-                app.logger.warn(f"Unable to convert {ci} to float. Use NaN.")
+                logger.warn(f"Unable to convert {ci} to float. Use NaN.")
                 ci_mem = [float("nan"), float("nan")]
                 ci_runtime = [float("nan"), float("nan")]
 
-        resource_usage = SerializeTaskTemplateResourceUsage.to_wire(num_tasks,
-                                                                    min_mem,
-                                                                    max_mem,
-                                                                    mean_mem,
-                                                                    min_runtime,
-                                                                    max_runtime,
-                                                                    mean_runtime,
-                                                                    median_mem,
-                                                                    median_runtime,
-                                                                    ci_mem,
-                                                                    ci_runtime)
+        resource_usage = SerializeTaskTemplateResourceUsage.to_wire(
+            num_tasks,
+            min_mem,
+            max_mem,
+            mean_mem,
+            min_runtime,
+            max_runtime,
+            mean_runtime,
+            median_mem,
+            median_runtime,
+            ci_mem,
+            ci_runtime,
+        )
     resp = jsonify(resource_usage)
     resp.status_code = StatusCodes.OK
     return resp
