@@ -801,6 +801,7 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Any:
         task_dcts = []
     logger.debug(f"Got the following queued tasks: {task_dcts}")
     resp = jsonify(task_dcts=task_dcts)
+    return resp
 
 
 @finite_state_machine.route('/workflow/<workflow_id>/validate_for_workflow_reset/<username>',
