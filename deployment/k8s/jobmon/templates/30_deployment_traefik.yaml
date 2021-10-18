@@ -33,19 +33,11 @@ spec:
             - --api.insecure
             - --accesslog
             - --entrypoints.web.Address=:80
-            - --entrypoints.grafana.Address=:3000
             - --entrypoints.kibana.Address=:5601
             - --entrypoints.elasticsearch.Address=:9200
             - --providers.kubernetescrd
             # Limit CRD to only the namespace we are running in. Fixes permissions issues
             - --providers.kubernetescrd.namespaces={{ .Values.global.namespace }}
-            # Config to connect metrics to MetalLB
-            - --metrics.influxdb.protocol=http
-            - --metrics.influxdb.database=jobmon
-            - --metrics.influxdb.addEntryPointsLabels=true
-            - --metrics.influxdb.addServicesLabels=true
-            - --metrics.influxdb.address=influxdb:8086
-            - --metrics.influxdb.pushInterval=30s
           ports:
             - name: web
               containerPort: 80

@@ -94,30 +94,26 @@ class Task(DB.Model):
         """Transition the Task to a new state."""
         app.logger = app.logger.bind(workflow_id=self.workflow_id,
                                      task_id=self.id)
-        app.logger.info(f"Transiting task {self.id} from {self.status} "
-                        f"to {new_state}")
         self._validate_transition(new_state)
+        app.logger.info(f"Transitioning task {self.id} from {self.status} "
+                        f"to {new_state}")
         if new_state == TaskStatus.INSTANTIATED:
             self.num_attempts = self.num_attempts + 1
         self.status = new_state
         self.status_date = func.now()
-        app.logger.info(f"Transition task status to {new_state} at {self.status_date}")
 
     def transition_after_task_instance_error(self, job_instance_error_state):
         """Transition the task to an error state."""
         app.logger = app.logger.bind(workflow_id=self.workflow_id,
                                      task_id=self.id)
-        app.logger.info(f"Transiting task {self.id} to ERROR_RECOVERABLE")
         self.transition(TaskStatus.ERROR_RECOVERABLE)
         if self.num_attempts >= self.max_attempts:
-            app.logger.info("Giving up task {} after max attempts.".format(self.id))
             self.transition(TaskStatus.ERROR_FATAL)
         else:
             if job_instance_error_state == TaskInstanceStatus.RESOURCE_ERROR:
-                app.logger.debug(f"Adjust resource for task {self.id}")
+                app.logger.info(f"Adjust resource for task {self.id}")
                 self.transition(TaskStatus.ADJUSTING_RESOURCES)
             else:
-                app.logger.debug("Retrying Task {}".format(self.id))
                 self.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
 
     def _validate_transition(self, new_state):

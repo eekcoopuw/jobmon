@@ -183,10 +183,11 @@ class TaskInstance(DB.Model):
         app.logger = app.logger.bind(workflow_run_id=self.workflow_run_id,
                                      task_id=self.task_id,
                                      task_instance_id=self.id)
-        app.logger.info(f"Transiting ti {self.id} from {self.status} "
-                        f"to {new_state}")
+
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
+            app.logger.info(f"Transitioning ti {self.id} from {self.status} "
+                            f"to {new_state}")
             self.status = new_state
             self.status_date = func.now()
             if new_state == TaskInstanceStatus.RUNNING:
@@ -199,7 +200,6 @@ class TaskInstance(DB.Model):
                 # if the task instance is F, the task status should be F too
                 self.task.transition(TaskStatus.ERROR_RECOVERABLE)
                 self.task.transition(TaskStatus.ERROR_FATAL)
-        app.logger.info(f"Status of ti {self.id} is now {self.status}")
 
     def _validate_transition(self, new_state):
         """Ensure the TaskInstance status transition is valid."""
@@ -221,7 +221,7 @@ class TaskInstance(DB.Model):
                 ". This is an untimely transition likely caused by a race "
                 " condition between the UGE scheduler and the task instance"
                 " factory which logs the UGE id on the task instance.")
-            app.logger.warning(msg)
+            app.logger.debug(msg)
             return False
         else:
             return True

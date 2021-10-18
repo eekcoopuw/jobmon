@@ -10,6 +10,7 @@ from queue import Empty
 from typing import Dict, List, Optional, Sequence, Union
 
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.client_logging import ClientLogging
 from jobmon.client.dag import Dag
 from jobmon.client.execution.scheduler.api import SchedulerConfig
 from jobmon.client.execution.scheduler.task_instance_scheduler import \
@@ -27,8 +28,9 @@ from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse, ResumeSe
                                WorkflowNotResumable)
 from jobmon.requester import Requester, http_request_ok
 
-
+ClientLogging().attach(__name__)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class ResumeStatus(object):
@@ -193,7 +195,6 @@ class Workflow(object):
         Args:
             task: single task to add
         """
-        logger.info(f"Adding Task {task}")
         if hash(task) in self.tasks.keys():
             raise ValueError(f"A task with hash {hash(task)} already exists. "
                              f"All tasks in a workflow must have unique "
@@ -565,6 +566,28 @@ class Workflow(object):
         so the 'fall over' will not be triggered in production.
         """
         self._val_fail_after_n_executions = n
+
+    def get_errors(self, limit: int = 1000) \
+            -> Dict[int, Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]]:
+        """
+        Return a dictionary with the erring task_id as the key, and
+        the Task.get_errors content as the value.
+        When limit is specifically set as None from the client, this
+        return set will pass back all the erred tasks in the workflow.
+        """
+        errors = {}
+
+        cnt: int = 0
+        for task in self.tasks.values():
+            task_id = task.task_id
+            task_errors = task.get_errors()
+            if len(task_errors) > 0:
+                errors[task_id] = task_errors
+                cnt += 1
+                if limit is not None and cnt >= limit - 1:
+                    break
+
+        return errors
 
     def __hash__(self):
         """Hash to encompass tool version id, workflow args, tasks and dag."""

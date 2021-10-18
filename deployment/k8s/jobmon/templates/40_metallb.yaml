@@ -18,10 +18,6 @@ spec:
     name: web
     nodePort:
   - protocol: TCP
-    port: 8080
-    name: traefik-dashboard
-    nodePort:
-  - protocol: TCP
     port: 3000
     name: grafana
     nodePort:

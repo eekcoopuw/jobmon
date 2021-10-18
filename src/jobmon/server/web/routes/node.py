@@ -56,8 +56,8 @@ def add_node():
         task_template_version_id=data['task_template_version_id'],
         node_args_hash=str(data['node_args_hash'])
     )
-    app.logger.info(f"Add node with ttv id:{data['task_template_version_id']}, "
-                    f"node_args_hash {data['node_args_hash']}")
+    app.logger.debug(f"Add node with ttv id:{data['task_template_version_id']}, "
+                     f"node_args_hash {data['node_args_hash']}")
     # add node
     try:
         node = Node(task_template_version_id=data['task_template_version_id'],
@@ -71,7 +71,7 @@ def add_node():
         # add node_args
         node_args = json.loads(data['node_args'])
         for arg_id, value in node_args.items():
-            app.logger.info(
+            app.logger.debug(
                 f'Adding node_arg with node_id: {node.id}, arg_id: {arg_id}, and val: {value}'
             )
             node_arg = NodeArg(node_id=node.id, arg_id=arg_id, val=value)

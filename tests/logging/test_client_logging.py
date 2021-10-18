@@ -80,3 +80,64 @@ def test_tiny_structured_logger(client_env, capsys):
     for log in logs:
         if log:
             assert 'KeyError' not in log
+
+
+def test_scheduler_logging(client_env, caplog):
+    """Test to check that scheduler logs are sent to stdout properly."""
+    from jobmon.client.api import Tool
+    from jobmon.client.execution.scheduler.task_instance_scheduler import \
+        TaskInstanceScheduler
+    from jobmon.client.execution.strategies.base import ExecutorParameters
+    from jobmon.requester import Requester
+
+    # Pytest config sets log level at debug, but default in client config is INFO.
+    # For a representative test we need to use INFO level.
+    caplog.set_level(logging.INFO)
+
+    t = Tool.create_tool('logging_testing_tool')
+    tt = t.get_task_template(template_name='logging_tt',
+                             command_template="{command}",
+                             node_args=["command"])
+    exec_params = ExecutorParameters(
+        num_cores=1,
+        m_mem_free='1Mb',
+        max_runtime_seconds=10,
+        executor_class='SequentialExecutor'
+    )
+    t1 = tt.create_task(executor_parameters=exec_params,
+                        command='echo 10')
+    workflow = t.create_workflow()
+    workflow.set_executor(executor_class='SequentialExecutor')
+    workflow.add_tasks([t1])
+    workflow.bind()
+    wfr = workflow._create_workflow_run()
+    requester = Requester(client_env)
+
+    scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
+                                      workflow._executor, requester=requester)
+    assert "scheduler communicating at" in caplog.text  # From scheduler.__init__
+    assert "Workflow_args defaulting to uuid" in caplog.text  # From workflow.py
+    caplog.clear()  # Need to clear caplog, otherwise text persists till end of test
+
+    # Try a purge call. Should return a warning
+    scheduler._purge_queueing_errors()
+    assert "does not implement get_errored_jobs methods" in caplog.text
+    caplog.clear()
+
+    # Run the scheduler in a separate process like the workflow does,
+    # and check we get the same logs
+    scheduler_proc = workflow._start_task_instance_scheduler(
+        wfr.workflow_run_id, 180
+    )
+    wfr.execute_interruptible(scheduler_proc)
+    assert "scheduler communicating at" in caplog.text
+    assert "does not implement get_errored_jobs methods" in caplog.text
+    caplog.clear()
+
+    # Assert that log levels are implemented appropriately - no debug logs by default
+    sched_logger = logging.getLogger(
+        'jobmon.client.execution.scheduler.task_instance_scheduler')
+    sched_logger.info("Info log")
+    sched_logger.debug("Debug log")
+    assert "Info log" in caplog.text
+    assert "Debug log" not in caplog.text

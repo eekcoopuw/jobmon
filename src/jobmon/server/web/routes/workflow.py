@@ -46,8 +46,8 @@ _cli_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
 def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, str]):
     # add attribute
     app.logger = app.logger.bind(workflow_id=workflow_id)
-    app.logger.info(f"Add attributes to workflow:{workflow_id}."
-                    f"Attributes: {workflow_attributes}")
+    app.logger.debug(f"Add attributes to workflow:{workflow_id}."
+                     f"Attributes: {workflow_attributes}")
     wf_attributes_list = []
     for name, val in workflow_attributes.items():
         wf_type_id = _add_or_get_wf_attribute_type(name)
@@ -55,7 +55,6 @@ def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, st
                                          workflow_attribute_type_id=wf_type_id,
                                          value=val)
         wf_attributes_list.append(wf_attribute)
-        app.logger.debug(f"Attribute name: {name}, value: {val}, wf: {workflow_id}")
     DB.session.add_all(wf_attributes_list)
     DB.session.flush()
 
@@ -63,7 +62,6 @@ def _add_workflow_attributes(workflow_id: int, workflow_attributes: Dict[str, st
 @jobmon_client.route('/workflow', methods=['POST'])
 def bind_workflow():
     """Bind a workflow to the database."""
-    data = request.get_json()
     try:
         data = request.get_json()
         tv_id = int(data['tool_version_id'])
@@ -107,13 +105,12 @@ def bind_workflow():
                             max_concurrently_running=max_concurrently_running)
         DB.session.add(workflow)
         DB.session.commit()
-        app.logger.info(f"Created new workflow for dag_id: {dag_id}")
 
         # update attributes
         if workflow_attributes:
             _add_workflow_attributes(workflow.id, workflow_attributes)
             DB.session.commit()
-            app.logger.info(f"Add attribute for wf: {workflow.id}")
+            app.logger.info(f"Added attributes for wf: {workflow.id}")
         newly_created = True
     else:
         newly_created = False
@@ -130,7 +127,6 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
     try:
         int(workflow_args_hash)
         app.logger = app.logger.bind(workflow_args_hash=str(workflow_args_hash))
-        app.logger.info(f"Looking for wf with hash {workflow_args_hash}")
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
@@ -148,6 +144,9 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: int):
         workflow_args_hash=workflow_args_hash
     ).all()
     DB.session.commit()
+    if len(res) > 0:
+        app.logger.debug(f"Found {res} workflow for "
+                         f"workflow_args_hash {workflow_args_hash}")
     res = [(row.task_hash, row.tool_version_id, row.hash) for row in res]
     resp = jsonify(matching_workflows=res)
     resp.status_code = StatusCodes.OK
@@ -215,7 +214,6 @@ def set_resume(workflow_id: int):
     app.logger = app.logger.bind(workflow_id=workflow_id)
     try:
         data = request.get_json()
-        app.logger.info(f"Set resume for wf {workflow_id}")
         reset_running_jobs = bool(data['reset_running_jobs'])
         description = str(data['description'])
         name = str(data["name"])
@@ -235,7 +233,7 @@ def set_resume(workflow_id: int):
         workflow_id=workflow_id
     ).one()
 
-    # set mutible attribute
+    # set mutable attribute
     workflow.description = description
     workflow.name = name
     workflow.max_concurrently_running = max_concurrently_running
@@ -244,6 +242,7 @@ def set_resume(workflow_id: int):
     # trigger resume on active workflow run
     workflow.resume(reset_running_jobs)
     DB.session.commit()
+    app.logger.info(f"Resume set for wf {workflow_id}")
 
     # update attributes
     if workflow_attributes:
@@ -272,7 +271,6 @@ def workflow_is_resumable(workflow_id: int):
         workflow_id=workflow_id
     ).one()
     DB.session.commit()
-    app.logger.info(f"The wf {workflow_id} is resumable: {workflow.is_resumable}")
     resp = jsonify(workflow_is_resumable=workflow.is_resumable)
     resp.status_code = StatusCodes.OK
     return resp
@@ -319,7 +317,6 @@ def get_task_by_status_only(workflow_id: int):
     """
     app.logger = app.logger.bind(workflow_id=workflow_id)
     data = request.get_json()
-    app.logger.info(f"Get task by status only for wf {workflow_id}")
 
     last_sync = data['last_sync']
     swarm_tasks_tuples = data.get('swarm_tasks_tuples', [])
@@ -356,7 +353,6 @@ def get_task_by_status_only(workflow_id: int):
                    swarm_task_ids=swarm_task_ids,
                    tuples=query_swarm_tasks_tuples,
                    status_date=last_sync)
-        app.logger.debug(query)
         rows = DB.session.query(Task).from_statement(text(query)).all()
 
     else:
@@ -386,6 +382,7 @@ def get_workflow_validation_status():
     # initial params
     data = request.get_json()
     task_ids = data['task_ids']
+    force: bool = True if data['force'] == 'true' else False
 
     # if the given list is empty, return True
     if len(task_ids) == 0:
@@ -401,15 +398,17 @@ def get_workflow_validation_status():
     # execute query
     q = f"""
         SELECT
-            distinct workflow_id, status
-        FROM task
-        WHERE id IN ({task_list})
+            distinct t.workflow_id, wf.status
+        FROM task t
+        INNER JOIN workflow wf ON t.workflow_id = wf.id
+        WHERE t.id IN ({task_list})
     """
     res = DB.session.execute(q).fetchall()
 
     # Validate if all tasks are in the same workflow and the workflow status is dead
-    if len(res) == 1 and res[0][1] in (Statuses.FAILED, Statuses.DONE, Statuses.ABORTED,
-                                       Statuses.HALTED):
+    if len(res) == 1 and \
+        (res[0][1] in (Statuses.FAILED, Statuses.DONE, Statuses.ABORTED, Statuses.HALTED) or
+         force):
         validation = True
     else:
         validation = False
@@ -432,20 +431,12 @@ def get_workflow_status():
     app.logger.debug(f"User {user_request} query for wf {workflow_request} status.")
     if workflow_request == "all":  # specifying all is equivalent to None
         workflow_request = []
-    limit_request = request.args.getlist('limit')
-    limit = None if len(limit_request) == 0 else limit_request[0]
-    # anything less than 0 or non number will be treated as None
-    try:
-        if int(limit_request[0]) < 0:
-            limit = None
-    except ValueError:
-        limit = None
-    where_clause = ""
+    limit = request.args.get('limit')
+
     # convert workflow request into sql filter
     if workflow_request:
         workflow_request = [int(w) for w in workflow_request]
         params["workflow_id"] = workflow_request
-        where_clause = "WHERE workflow.id in :workflow_id "
     else:  # if we don't specify workflow then we use the users
         # convert user request into sql filter
         # directly producing workflow_ids, and thus where_clause
@@ -456,11 +447,12 @@ def get_workflow_status():
                 SELECT DISTINCT workflow_id
                 FROM workflow_run
                 {where_clause}
-            """.format(where_clause=where_clause_user)
+                ORDER BY workflow_id DESC
+                LIMIT {limit}
+            """.format(where_clause=where_clause_user, limit=limit)
             res_user = DB.session.execute(q_user, params).fetchall()
             workflow_ids = [int(row.workflow_id) for row in res_user]
             params["workflow_id"] = workflow_ids
-            where_clause = "WHERE workflow.id in :workflow_id "
     # execute query
     q = """
         SELECT
@@ -480,12 +472,10 @@ def get_workflow_status():
             ON workflow.id = task.workflow_id
         JOIN workflow_status
             ON workflow_status.id = workflow.status
-        {where_clause}
+        WHERE workflow.id in :workflow_id
         GROUP BY workflow.id, task.status, workflow.name, workflow_status.label
         ORDER BY workflow.id desc
-    """.format(where_clause=where_clause)
-    if limit:
-        q = f"{q}\nLIMIT {limit}"
+    """
     res = DB.session.execute(q, params).fetchall()
 
     if res:
@@ -635,5 +625,67 @@ def get_workflow_user_validation(workflow_id: int, username: str):
 
     resp = jsonify(validation=username in usernames)
 
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_cli.route('/workflow/<workflow_id>/validate_for_workflow_reset/<username>',
+                  methods=['GET'])
+def get_workflow_run_for_workflow_reset(workflow_id: int, username: str):
+    """
+    Return the last workflow_run_id associated with a given workflow_id,
+    if it's started by the username .
+
+    Used to validate for workflow_reset:
+        1. The last workflow_run of the current workflow must be in error state.
+        2. This last workflow_run must have been started by the input username.
+        3. This last workflow_run is in status 'E'
+    """
+    app.logger = app.logger.bind(workflow_id=workflow_id)
+    app.logger.debug(f"Validate for workflow_reset "
+                     f"- user name: {username} for wf: {workflow_id}")
+    query = """
+        SELECT id AS workflow_run_id, user AS username
+        FROM workflow_run
+        WHERE workflow_run.workflow_id = {workflow_id} and workflow_run.status = 'E'
+        ORDER BY created_date DESC
+        LIMIT 1
+    """.format(workflow_id=workflow_id)
+
+    result = DB.session.execute(query).one_or_none()
+    if result is not None and result.username == username:
+        resp = jsonify({"workflow_run_id": result.workflow_run_id})
+    else:
+        resp = jsonify({"workflow_run_id": None})
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@jobmon_cli.route('workflow/<workflow_id>/reset', methods=['PUT'])
+def reset_workflow(workflow_id):
+    """Update the workflow's status, all its tasks' statuses to 'G'."""
+    app.logger = app.logger.bind(workflow_id=workflow_id)
+    app.logger.debug(f"Reset workflow wf {workflow_id}")
+
+    q_workflow = """
+        UPDATE workflow
+        SET status = 'G', status_date = CURRENT_TIMESTAMP
+        WHERE id = {workflow_id}
+    """.format(workflow_id=workflow_id)
+
+    DB.session.execute(q_workflow)
+
+    q_task = """
+        UPDATE task
+        SET status = 'G', status_date = CURRENT_TIMESTAMP, num_attempts = 0
+        WHERE workflow_id = {workflow_id}
+    """.format(workflow_id=workflow_id)
+
+    DB.session.execute(q_task)
+
+    DB.session.commit()
+
+    resp = jsonify({})
     resp.status_code = StatusCodes.OK
     return resp
