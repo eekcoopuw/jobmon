@@ -191,6 +191,8 @@ deploy_jobmon_to_k8s () {
             -n "$K8S_NAMESPACE" \
             --set global.namespace="$K8S_NAMESPACE" \
             --set metricbeat.db_host_secret="$RANCHER_DB_SECRET"
+            --history-max 3 \
+            --set global.namespace="$K8S_NAMESPACE"
     fi
 
     if [[ "$DEPLOY_JOBMON" = true ]]
@@ -204,6 +206,7 @@ deploy_jobmon_to_k8s () {
             upgrade --install jobmon /apps/. \
             -n "$K8S_NAMESPACE" \
             --set global.grafana_image="$GRAFANA_CONTAINER_URI" \
+            --history-max 3 \
             --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI" \
             --set global.metallb_ip_pool="$METALLB_IP_POOL" \
             --set global.namespace="$K8S_NAMESPACE" \
@@ -221,6 +224,7 @@ deploy_jobmon_to_k8s () {
         alpine/helm \
             upgrade --install jobmon-reapers /apps/. \
             -n "$K8S_REAPER_NAMESPACE" \
+            --history-max 3 \
             --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI" \
             --set global.jobmon_version="$JOBMON_VERSION" \
             --set global.namespace="$K8S_NAMESPACE" \
@@ -334,4 +338,7 @@ test_server () {
         pip install jobmon==$JOBMON_VERSION && \
         jobmon update_config --web_service_fqdn $WEB_SERVICE_FQDN --web_service_port $WEB_SERVICE_PORT && \
         python $WORKSPACE/deployment/tests/six_job_test.py sequential
+    $QLOGIN_ACTIVATE &&
+        /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
+            --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr/jobmonr
 }

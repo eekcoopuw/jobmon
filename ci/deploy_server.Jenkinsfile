@@ -157,6 +157,49 @@ pipeline {
         } // end node
       } // end steps
     } // end TARGETIP stage
+    stage ('Create and apply log rotation ilm'){
+      steps {
+        script{
+          node('docker') {
+            if (LOG_ROTATION.toBoolean()) {
+              // chang permission
+              sh "chmod +x ${WORKSPACE}/ci/ilm/check_service_up.sh"
+
+              // wait until elasticsearch is up
+              sh '''/bin/bash ${WORKSPACE}/ci/ilm/check_service_up.sh ${JOBMON_SERVICE_FQDN}:9200'''
+
+              // add a new policy to delete logs older than 8 days
+              sh '''curl -XPUT "${JOBMON_SERVICE_FQDN}:9200/_ilm/policy/jobmon_ilm" --header "Content-Type: application/json" \
+                 -d @${WORKSPACE}/ci/ilm/jobmon_ilm_policy.json
+                 '''
+
+              // delete index jobmon if it has been created by logstash
+              // there may still be a race condition; but unable to trigger it on dev, so I don't know what happens when logstash reaches elasticsearch before template creation
+              sh '''curl -X DELETE "${JOBMON_SERVICE_FQDN}:9200/jobmon" ||true'''
+
+              // create a index template with the new policy
+              sh '''curl -X PUT "${JOBMON_SERVICE_FQDN}:9200/_template/jobmon_template" --header "Content-Type: application/json" \
+                 -d @${WORKSPACE}/ci/ilm/jobmon_index_template.json
+              '''
+
+              // create the first index
+              sh '''curl -X PUT "${JOBMON_SERVICE_FQDN}:9200/jobmon-000001" --header "Content-Type: application/json" -d '{"aliases": {"jobmon": {"is_write_index": true}}}'
+              '''
+              // manage it by ilm
+              sh '''curl -XPUT "${JOBMON_SERVICE_FQDN}:9200/jobmon-000001/_settings" -d '{"index":{"lifecycle.name":"jobmon_ilm","lifecycle.rollover_alias": "jobmon"}}' --header "Content-Type: application/json"
+                 '''
+
+              // set all index replica to 0 to get rid of the "yellow" warning in GUI because we only have one elasticsearch node
+              sh '''curl -XPUT "${JOBMON_SERVICE_FQDN}:9200/*/_settings" --header "Content-Type: application/json" -d '{"index":{"number_of_replicas":0}}'
+                 '''
+            }
+          else {
+            sh "echo \"Skip log rotation configuration.\""
+          } //else
+        } //node
+      } //script
+    } //steps
+   } //stage
     stage ('Test Deployment') {
       steps {
         node('qlogin') {
