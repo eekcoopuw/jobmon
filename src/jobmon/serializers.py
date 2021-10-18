@@ -219,7 +219,6 @@ class SerializeWorkflowRun:
         return (id, workflow_id)
 
     @staticmethod
-    @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Get the WorkflowRun information from the database."""
         return {"id": int(wire_tuple[0]),
