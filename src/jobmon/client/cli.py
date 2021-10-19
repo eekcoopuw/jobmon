@@ -1,6 +1,8 @@
 """Client command line interface for workflow/task status and concurrency limiting."""
 import argparse
 from typing import Any, Optional
+import json
+from typing import Optional
 
 import configargparse
 
@@ -51,10 +53,15 @@ class ClientCLI(CLI):
 
         self._add_workflow_status_subparser()
         self._add_workflow_tasks_subparser()
+        self._add_task_template_resources_subparser()
         self._add_task_status_subparser()
         self._add_update_task_status_subparser()
         self._add_update_config_subparser()
         self._add_concurrency_limit_subparser()
+        self._add_version_subparser()
+        self._add_task_dependencies_subparser()
+        self._add_workflow_reset_subparser()
+        self._add_create_resource_yaml_subparser()
 
     @staticmethod
     def workflow_status(args: configargparse.Namespace) -> None:
@@ -83,6 +90,16 @@ class ClientCLI(CLI):
             print(df)
         else:
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
+
+    @staticmethod
+    def task_template_resources(args: configargparse.Namespace) -> None:
+        """Aggregates the resource usage for a given TaskTemplateVersion."""
+        from jobmon.client.status_commands import task_template_resources
+
+        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
+        resources = task_template_resources(args.task_template_version, args.workflows,
+                                            args.node_args, cc.url)
+        print(resources)
 
     @staticmethod
     def task_status(args: configargparse.Namespace) -> None:
@@ -139,6 +156,77 @@ class ClientCLI(CLI):
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
         response = concurrency_limit_cmd(args.workflow_id, args.max_tasks, cc.url)
         print(response)
+
+    @staticmethod
+    def task_dependencies(args: configargparse.Namespace) -> None:
+        """Get task's upstream and downstream tasks and their status"""
+        from jobmon.client.status_commands import get_task_dependencies
+        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
+        r = get_task_dependencies(args.task_id, cc.url)
+        up = r["up"]
+        down = r["down"]
+        """Format output that should look like:
+        Upstream Tasks:
+
+             Task ID         Status
+             1               D
+
+        Downstream Tasks:
+
+            Task ID         Status
+            3               D
+            4               D
+        """
+        print('Upstream Tasks:\n')
+        print("{:<8} {:<15} {:<15}".format("", "Task ID", "Status"))
+        for item in up:
+            task_id = item['id']
+            status = item['status']
+            print("{:<8} {:<15} {:<15}".format("", task_id, status))
+        print('\nDownstream Tasks:\n')
+        print("{:<8} {:<15} {:<15}".format("", "Task ID", "Status"))
+        for item in down:
+            task_id = item['id']
+            status = item['status']
+            print("{:<8} {:<15} {:<15}".format("", task_id, status))
+
+    @staticmethod
+    def workflow_reset(args: configargparse.Namespace) -> None:
+        """Manually reset a workflow."""
+        from jobmon.client.status_commands import workflow_reset
+
+        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
+        response = workflow_reset(args.workflow_id, cc.url)
+        print(f"Response is: {response}")
+
+    @staticmethod
+    def jobmon_version(args: configargparse.Namespace) -> None:
+        """Return the jobmon version."""
+        from jobmon import _version
+        print(_version.version)
+
+    @staticmethod
+    def resource_yaml(args: configargparse.Namespace) -> None:
+        """Create resource yaml."""
+        from jobmon.client.status_commands import create_resource_yaml
+        # input check
+        if (args.workflow_id is None) ^ (args.task_id is None):
+            cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
+            r = create_resource_yaml(args.workflow_id, args.task_id, args.value_mem,
+                                     args.value_core, args.value_runtime, args.clusters,
+                                     cc.url)
+            if args.print:
+                print(r)
+            if args.file:
+                f = open(args.file, "w")
+                f.write(r)
+                f.close()
+        else:
+            print("Please provide a value for either -w or -t but not both.")
+
+    def _add_version_subparser(self) -> None:
+        version_parser = self._subparsers.add_parser("version", **PARSER_KWARGS)
+        version_parser.set_defaults(func=self.jobmon_version)
 
     def _add_workflow_status_subparser(self) -> None:
         workflow_status_parser = self._subparsers.add_parser(
@@ -214,6 +302,26 @@ class ClientCLI(CLI):
         )
         ParserDefaults.web_service_fqdn(workflow_tasks_parser)
         ParserDefaults.web_service_port(workflow_tasks_parser)
+
+    def _add_task_template_resources_subparser(self) -> None:
+        tt_resources_parser = self._subparsers.add_parser("task_template_resources",
+                                                          **PARSER_KWARGS)
+        tt_resources_parser.set_defaults(func=self.task_template_resources)
+        tt_resources_parser.add_argument(
+            "-t", "--task_template_version",
+            help="TaskTemplateVersion ID to get resource usage for",
+            required=True, type=int
+        )
+        tt_resources_parser.add_argument(
+            "-w", "--workflows", nargs="*", help="list of workflow IDs to query by",
+            required=False, type=int
+        )
+        tt_resources_parser.add_argument(
+            "-a", "--node_args", help="dictionary of node arguments to query by",
+            required=False, type=json.loads
+        )
+        ParserDefaults.web_service_fqdn(tt_resources_parser)
+        ParserDefaults.web_service_port(tt_resources_parser)
 
     def _add_task_status_subparser(self) -> None:
         task_status_parser = self._subparsers.add_parser("task_status", **PARSER_KWARGS)
@@ -319,6 +427,61 @@ class ClientCLI(CLI):
         )
         ParserDefaults.web_service_fqdn(concurrency_limit_parser)
         ParserDefaults.web_service_port(concurrency_limit_parser)
+
+    def _add_task_dependencies_subparser(self) -> None:
+        task_dependencies_parser = self._subparsers.add_parser("task_dependencies",
+                                                               **PARSER_KWARGS)
+        task_dependencies_parser.set_defaults(func=self.task_dependencies)
+        task_dependencies_parser.add_argument(
+            "-t", "--task_id",
+            help="list of task dependencies",
+            required=True,
+            type=int)
+        ParserDefaults.web_service_fqdn(task_dependencies_parser)
+        ParserDefaults.web_service_port(task_dependencies_parser)
+
+    def _add_workflow_reset_subparser(self) -> None:
+        workflow_reset_parser = \
+            self._subparsers.add_parser("workflow_reset", **PARSER_KWARGS)
+        workflow_reset_parser.set_defaults(func=self.workflow_reset)
+        workflow_reset_parser.add_argument(
+            "-w", "--workflow_id", help="workflow_id to reset",
+            required=True, type=int)
+        ParserDefaults.web_service_fqdn(workflow_reset_parser)
+        ParserDefaults.web_service_port(workflow_reset_parser)
+
+    def _add_create_resource_yaml_subparser(self) -> None:
+        create_resource_yaml_parser = \
+            self._subparsers.add_parser("create_resource_yaml", **PARSER_KWARGS)
+        create_resource_yaml_parser.set_defaults(func=self.resource_yaml)
+        create_resource_yaml_parser.add_argument(
+            "-w", "--workflow_id", help="The workflow id to generate resource YAML. "
+                                        "Must provide either -w or -t.",
+            required=False, type=int)
+        create_resource_yaml_parser.add_argument(
+            "-t", "--task_id", help="The workflow id to generate resource YAML. "
+                                    "Must provide either -w or -t.",
+            required=False, type=int)
+        create_resource_yaml_parser.add_argument(
+            "--value_mem", help="The algorithm to get memory usage. Default avg.",
+            choices=["avg", "max", "min"], required=False, default="avg", type=str)
+        create_resource_yaml_parser.add_argument(
+            "--value_core", help="The algorithm to get core requested. Default avg.",
+            choices=["avg", "max", "min"], required=False, default="avg", type=str)
+        create_resource_yaml_parser.add_argument(
+            "--value_runtime", help="The algorithm to get runtime. Default max.",
+            choices=["avg", "max", "min"], required=False, default="max", type=str)
+        create_resource_yaml_parser.add_argument(
+            "-f", "--file", help="The file to save the YAML.",
+            required=False, default=None, type=str)
+        create_resource_yaml_parser.add_argument(
+            "-p", "--print", help="Print the result YAMl to standard output.",
+            required=False, default=False, action="store_true")
+        create_resource_yaml_parser.add_argument(
+            "-c", "--clusters", nargs="+", help="The clusters for the YAML.",
+            required=False, default=["ihme_slurm"], type=str)
+        ParserDefaults.web_service_fqdn(create_resource_yaml_parser)
+        ParserDefaults.web_service_port(create_resource_yaml_parser)
 
 
 def main(argstr: Optional[str] = None) -> None:
