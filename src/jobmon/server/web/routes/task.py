@@ -2,7 +2,7 @@
 from functools import partial
 from http import HTTPStatus as StatusCodes
 import json
-from typing import Any, Dict, List, Set, Union
+from typing import Any, Dict, List, Optional, Set, Union
 
 from flask import jsonify, request
 import pandas as pd
@@ -641,8 +641,8 @@ def _get_node_uptream(nodes: set, dag_id: int) -> set:
     result = DB.session.execute(q).fetchall()
 
     if result is None or len(result) == 0:
-        return []
-    node_ids = set()
+        return set()
+    node_ids: set[int] = set()
     for r in result:
         if r["upstream_node_ids"] is not None:
             ids = json.loads(r["upstream_node_ids"])
@@ -667,7 +667,11 @@ def _get_subdag(node_ids: list, dag_id: int) -> list:
     return list(node_set)
 
 
-def _get_tasks_from_nodes(workflow_id: int, nodes: list, task_status: list) -> dict:
+def _get_tasks_from_nodes(
+    workflow_id: Optional[int] = None,
+    nodes: Optional[list] = None,
+    task_status: Optional[list] = None,
+) -> dict:
     """Get task ids of the given node ids.
 
     Args:
@@ -811,7 +815,7 @@ def update_task_statuses() -> Any:
     return resp
 
 
-def _get_dag_and_wf_id(task_id: int) -> int:
+def _get_dag_and_wf_id(task_id: int) -> tuple:
     q = f"""
             SELECT dag_id, workflow_id, node_id
             FROM task, workflow
@@ -821,7 +825,7 @@ def _get_dag_and_wf_id(task_id: int) -> int:
     row = DB.session.execute(q).fetchone()
 
     if row is None:
-        return None, None
+        return None, None, None
     return int(row["dag_id"]), int(row["workflow_id"]), int(row["node_id"])
 
 
@@ -850,13 +854,13 @@ def get_task_dependencies(task_id: int) -> Any:
 
 
 @finite_state_machine.route("/tasks_recursive/<direction>", methods=["PUT"])
-def get_tasks_recursive(direction: str) -> {int}:
+def get_tasks_recursive(direction: str) -> Any:
     """Get all input task_ids'.
 
     Either downstream or upsteam tasks based on direction;
     return all recursive(including input set) task_ids in the defined direction.
     """
-    dir: Direction = Direction.UP if direction == "up" else Direction.DOWN
+    dir: str = Direction.UP if direction == "up" else Direction.DOWN
     data = request.get_json()
     # define task_ids as set in order to eliminate dups
     task_ids = set(data.get("task_ids", []))
@@ -880,7 +884,7 @@ def _get_tasks_recursive(task_ids: Set[int], direction: Direction) -> set:
     tasks_recursive = set()
     next_nodes = set()
 
-    workflow_id_first = None
+    workflow_id_first: Optional[int] = None
 
     for task_id in task_ids:
         dag_id, workflow_id, node_id = _get_dag_and_wf_id(task_id)

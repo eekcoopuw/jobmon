@@ -1,7 +1,7 @@
 """Serializing data when going to and from the database."""
 import ast
 from datetime import datetime
-from typing import Dict, List, Tuple, Union
+from typing import Dict, List, Optional, Tuple, Union
 
 
 class SerializeTask:
@@ -324,7 +324,12 @@ class SerializeTaskResourceUsage:
     """Serialize the data to and from the database for Task resource usage."""
 
     @staticmethod
-    def to_wire(num_attempts: int, nodename: str, runtime: int, memory: int) -> tuple:
+    def to_wire(
+        num_attempts: Optional[int] = None,
+        nodename: Optional[str] = None,
+        runtime: Optional[int] = None,
+        memory: Optional[int] = None,
+    ) -> tuple:
         """Submit the Task resource usage information to the database."""
         return num_attempts, nodename, runtime, memory
 
@@ -344,17 +349,17 @@ class SerializeTaskTemplateResourceUsage:
 
     @staticmethod
     def to_wire(
-        num_tasks: int,
-        min_mem: str,
-        max_mem: str,
-        mean_mem: str,
-        min_runtime: int,
-        max_runtime: int,
-        mean_runtime: float,
-        median_mem: str,
-        median_runtime: float,
-        ci_mem: str,
-        ci_runtime: float,
+        num_tasks: Optional[int] = None,
+        min_mem: Optional[str] = None,
+        max_mem: Optional[str] = None,
+        mean_mem: Optional[str] = None,
+        min_runtime: Optional[int] = None,
+        max_runtime: Optional[int] = None,
+        mean_runtime: Optional[float] = None,
+        median_mem: Optional[str] = None,
+        median_runtime: Optional[float] = None,
+        ci_mem: Optional[list[str, str]] = None,
+        ci_runtime: Optional[list[float, float]] = None,
     ) -> tuple:
         """Submit the TaskTemplate resource usage information to the database."""
         return (
