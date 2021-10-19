@@ -68,6 +68,10 @@ def add_node() -> Any:
         node_args_hash=str(data["node_args_hash"]),
     )
     logger.info("Adding node")
+    logger.debug(
+        f"Add node with ttv id:{data['task_template_version_id']}, "
+        f"node_args_hash {data['node_args_hash']}"
+    )
     # add node
     try:
         node = Node(

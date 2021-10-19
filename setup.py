@@ -12,10 +12,11 @@ INSTALL_REQUIRES = [
     'python_json_logger',
     'pyyaml',
     'requests',
+    'scipy',
     'structlog',
     'tabulate',
     'tenacity',
-    'tblib'
+    'tblib',
 ]
 
 SERVER_REQUIRES = [

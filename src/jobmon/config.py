@@ -80,7 +80,7 @@ class ParserDefaults:
             "--logstash_protocol",
             type=str,
             help="logstash protocol to use",
-            default="TCP",
+            default="UDP",
             choices=["TCP", "HTTP", "Beats", "UDP"],
             env_var="LOGSTASH_PROTOCOL",
         )
