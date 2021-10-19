@@ -1,11 +1,11 @@
 """Routes for Tasks."""
 from functools import partial
 from http import HTTPStatus as StatusCodes
-from typing import Any
+from typing import Any, List
 
 from flask import jsonify, request
 import numpy as np
-import scipy.stats as st
+import scipy.stats as st  # type:ignore
 import sqlalchemy
 from sqlalchemy.sql import text
 from werkzeug.local import LocalProxy
@@ -391,12 +391,11 @@ def get_task_template_resource_usage() -> Any:
             try:
                 ci = float(ci)
 
-                def _calculate_ci(d: list, ci: float) -> tuple:
+                def _calculate_ci(d: List, ci: float) -> List[float]:
                     interval = st.t.interval(
                         alpha=ci, df=len(d) - 1, loc=np.mean(d), scale=st.sem(d)
                     )
-                    # we only need the higher end
-                    return round(float(interval[0]), 2), round(float(interval[1]), 2)
+                    return [round(float(interval[0]), 2), round(float(interval[1]), 2)]
 
                 ci_mem = _calculate_ci(mems, ci)
                 ci_runtime = _calculate_ci(runtimes, ci)

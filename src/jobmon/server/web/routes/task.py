@@ -2,7 +2,7 @@
 from functools import partial
 from http import HTTPStatus as StatusCodes
 import json
-from typing import Any, Dict, List, Optional, Set, Union
+from typing import Any, Dict, List, Set, Union
 
 from flask import jsonify, request
 import pandas as pd
@@ -642,7 +642,7 @@ def _get_node_uptream(nodes: set, dag_id: int) -> set:
 
     if result is None or len(result) == 0:
         return set()
-    node_ids: set[int] = set()
+    node_ids: Set[int] = set()
     for r in result:
         if r["upstream_node_ids"] is not None:
             ids = json.loads(r["upstream_node_ids"])
@@ -668,9 +668,9 @@ def _get_subdag(node_ids: list, dag_id: int) -> list:
 
 
 def _get_tasks_from_nodes(
-    workflow_id: Optional[int] = None,
-    nodes: Optional[list] = None,
-    task_status: Optional[list] = None,
+    workflow_id: int,
+    nodes: List,
+    task_status: List,
 ) -> dict:
     """Get task ids of the given node ids.
 
@@ -860,7 +860,7 @@ def get_tasks_recursive(direction: str) -> Any:
     Either downstream or upsteam tasks based on direction;
     return all recursive(including input set) task_ids in the defined direction.
     """
-    dir: str = Direction.UP if direction == "up" else Direction.DOWN
+    dir = Direction.UP if direction == "up" else Direction.DOWN
     data = request.get_json()
     # define task_ids as set in order to eliminate dups
     task_ids = set(data.get("task_ids", []))
@@ -875,7 +875,7 @@ def get_tasks_recursive(direction: str) -> Any:
         raise e
 
 
-def _get_tasks_recursive(task_ids: Set[int], direction: Direction) -> set:
+def _get_tasks_recursive(task_ids: Set[int], direction: str) -> set:
     """Get all input task_ids'.
 
     Either downstream or upsteam tasks based on direction;
@@ -883,9 +883,7 @@ def _get_tasks_recursive(task_ids: Set[int], direction: Direction) -> set:
     """
     tasks_recursive = set()
     next_nodes = set()
-
-    workflow_id_first: Optional[int] = None
-
+    _workflow_id_first = None
     for task_id in task_ids:
         dag_id, workflow_id, node_id = _get_dag_and_wf_id(task_id)
         next_nodes_sub = (
@@ -893,7 +891,7 @@ def _get_tasks_recursive(task_ids: Set[int], direction: Direction) -> set:
             if direction == Direction.DOWN
             else _get_node_uptream({node_id}, dag_id)
         )
-        if workflow_id_first is None:
+        if _workflow_id_first is None:
             workflow_id_first = workflow_id
         elif workflow_id != workflow_id_first:
             raise InvalidUsage(

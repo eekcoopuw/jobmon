@@ -12,10 +12,11 @@ INSTALL_REQUIRES = [
     'python_json_logger',
     'pyyaml',
     'requests',
+    'scipy',
     'structlog',
     'tabulate',
     'tenacity',
-    'tblib'
+    'tblib',
 ]
 
 SERVER_REQUIRES = [
@@ -26,7 +27,6 @@ SERVER_REQUIRES = [
     'pymysql',  # install MySQLdb/mysqlclient for more performance
     'python-logstash-async',
     'sqlalchemy==1.3',
-    'scipy',
 ]
 
 # pip install -e .[test]

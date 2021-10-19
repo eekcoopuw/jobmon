@@ -350,16 +350,16 @@ class SerializeTaskTemplateResourceUsage:
     @staticmethod
     def to_wire(
         num_tasks: Optional[int] = None,
-        min_mem: Optional[str] = None,
-        max_mem: Optional[str] = None,
-        mean_mem: Optional[str] = None,
+        min_mem: Optional[int] = None,
+        max_mem: Optional[int] = None,
+        mean_mem: Optional[float] = None,
         min_runtime: Optional[int] = None,
         max_runtime: Optional[int] = None,
         mean_runtime: Optional[float] = None,
-        median_mem: Optional[str] = None,
+        median_mem: Optional[float] = None,
         median_runtime: Optional[float] = None,
-        ci_mem: Optional[list[str, str]] = None,
-        ci_runtime: Optional[list[float, float]] = None,
+        ci_mem: Optional[List[float]] = None,
+        ci_runtime: Optional[List[float]] = None,
     ) -> tuple:
         """Submit the TaskTemplate resource usage information to the database."""
         return (
