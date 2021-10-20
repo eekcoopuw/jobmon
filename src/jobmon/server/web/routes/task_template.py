@@ -157,7 +157,7 @@ def get_requsted_cores() -> Any:
         result_dir = dict()
         for r in rows:
             # json loads hates single quotes
-            j_str = r["rr"].replace("\'", "\"")
+            j_str = r["rr"].replace("'", '"')
             j_dir = json.loads(j_str)
             core = 1 if "num_cores" not in j_dir.keys() else int(j_dir["num_cores"])
             if r["id"] in result_dir.keys():
@@ -168,7 +168,9 @@ def get_requsted_cores() -> Any:
             item_min = int(np.min(result_dir[k]))
             item_max = int(np.max(result_dir[k]))
             item_mean = round(np.mean(result_dir[k]))
-            core_info.append({"id": k, "min": item_min, "max": item_max, "avg":item_mean})
+            core_info.append(
+                {"id": k, "min": item_min, "max": item_max, "avg": item_mean}
+            )
 
     resp = jsonify({"core_info": core_info})
     resp.status_code = StatusCodes.OK
@@ -196,7 +198,7 @@ def get_most_popular_queue() -> Any:
         for r in rows:
             ttvi = r["id"]
             # json loads hates single quotes
-            j_str = r["rr"].replace("\'", "\"")
+            j_str = r["rr"].replace("'", '"')
             j_dir = json.loads(j_str)
             # Ignore rows without queue info
             if "queue" in j_dir.keys():
@@ -216,7 +218,7 @@ def get_most_popular_queue() -> Any:
                 if result_dir[ttvi][q] > max_usage:
                     popular_q = q
                     max_usage = result_dir[ttvi][q]
-            queue_info.append({'id': ttvi, 'queue': popular_q})
+            queue_info.append({"id": ttvi, "queue": popular_q})
 
     resp = jsonify({"queue_info": queue_info})
     resp.status_code = StatusCodes.OK
