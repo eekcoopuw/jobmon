@@ -156,6 +156,7 @@ def get_requsted_cores() -> Any:
     if rows:
         result_dir = dict()
         for r in rows:
+            # json loads hates single quotes
             j_str = r["rr"].replace("\'", "\"")
             j_dir = json.loads(j_str)
             core = 1 if "num_cores" not in j_dir.keys() else int(j_dir["num_cores"])
@@ -180,23 +181,43 @@ def get_most_popular_queue() -> Any:
     # parse args
     ttvis = request.args.get("task_template_version_ids")
     sql = f"""
-           SELECT task_template_version_id, queue
-           FROM
-                (SELECT t3.id as task_template_version_id, queue, count(*) as c
-                FROM task t1, node t2, task_template_version t3, executor_parameter_set t4
-                WHERE t3.id in {ttvis}
-                AND t2.task_template_version_id=t3.id
-                AND t1.node_id=t2.id
-                AND t4.task_id=t1.id GROUP BY t3.id, queue ORDER BY c desc) as t
-           GROUP BY t.task_template_version_id
+           SELECT t3.id as id, t4.requested_resources as rr
+           FROM task t1, node t2, task_template_version t3, task_resources t4
+           WHERE t3.id in {ttvis}
+           AND t2.task_template_version_id=t3.id
+           AND t1.node_id=t2.id
+           AND t4.task_id=t1.id 
     """
     rows = DB.session.execute(sql).fetchall()
     # return a "standard" json format for cli routes
-    queue_info = (
-        []
-        if rows is None
-        else [{"id": r["task_template_version_id"], "queue": r["queue"]} for r in rows]
-    )
+    queue_info = []
+    if rows:
+        result_dir = dict()
+        for r in rows:
+            ttvi = r["id"]
+            # json loads hates single quotes
+            j_str = r["rr"].replace("\'", "\"")
+            j_dir = json.loads(j_str)
+            # Ignore rows without queue info
+            if "queue" in j_dir.keys():
+                q = j_dir["queue"]
+                if ttvi in result_dir.keys():
+                    if q in result_dir[ttvi].keys():
+                        result_dir[ttvi][q] += 1
+                    else:
+                        result_dir[ttvi][q] = 1
+                else:
+                    result_dir[ttvi] = dict()
+                    result_dir[ttvi][q] = 1
+        for ttvi in result_dir.keys():
+            # assign to a variable to keep typecheck happy
+            max_usage = 0
+            for q in result_dir[ttvi].keys():
+                if result_dir[ttvi][q] > max_usage:
+                    popular_q = q
+                    max_usage = result_dir[ttvi][q]
+            queue_info.append({'id': ttvi, 'queue': popular_q})
+
     resp = jsonify({"queue_info": queue_info})
     resp.status_code = StatusCodes.OK
     return resp

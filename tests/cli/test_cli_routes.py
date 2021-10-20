@@ -143,42 +143,41 @@ def test_get_requested_cores(db_cfg, client_env):
 
 
 def test_most_popular_queue(db_cfg, client_env):
-    import uuid
-    from jobmon.client.execution.strategies.base import ExecutorParameters
-    from jobmon.client.tool import Tool
-
-    t = Tool.create_tool(name=str(uuid.uuid4()))
+    t = Tool()
     wf = t.create_workflow(name="i_am_a_fake_wf")
-    wf.set_executor(executor_class="SequentialExecutor")
     tt1 = t.get_task_template(
-          template_name="tt1",
-          command_template="sleep {arg}",
-          node_args=["arg"])
+        template_name="tt_q_1",
+        command_template="echo {arg}",
+        node_args=["arg"])
     tt2 = t.get_task_template(
-          template_name="tt2",
-          command_template="echo {arg}",
-          node_args=["arg"])
-    ep1 = ExecutorParameters(executor_class="SequentialExecutor",
-                             queue="all.q")
-    ep2 = ExecutorParameters(executor_class="SequentialExecutor",
-                             queue="long.q")
-    task_1 = tt1.create_task(executor_parameters=ep1, arg=1)
-    task_2 = tt1.create_task(executor_parameters=ep1, arg=2)
-    task_3 = tt2.create_task(executor_parameters=ep1, arg=3)
-    task_4 = tt2.create_task(executor_parameters=ep2, arg=1)
-    task_5 = tt2.create_task(executor_parameters=ep2, arg=2)
-    wf.add_tasks([task_1, task_2, task_3, task_4, task_5])
+        template_name="tt_q_2",
+        command_template="echo {arg}",
+        node_args=["arg"])
+    t1 = tt1.create_task(arg=1, cluster_name="sequential",
+                         compute_resources={"queue": "null.q"})
+    t2 = tt1.create_task(arg=2, cluster_name="sequential",
+                         compute_resources={"queue": "null.q"})
+    t3 = tt2.create_task(arg=3, cluster_name="sequential",
+                         compute_resources={"queue": "null.q"})
+    t4 = tt2.create_task(arg=4, cluster_name="sequential",
+                         compute_resources={"queue": "null2.q"})
+    t5 = tt2.create_task(arg=5, cluster_name="sequential",
+                         compute_resources={"queue": "null2.q"})
+    wf.add_tasks([t1, t2, t3, t4, t5])
     wf.run()
-    app_route = "/cli/get_most_popular_queue"
+
+
+    app_route = "/get_most_popular_queue"
     return_code, msg = wf.requester.send_request(
         app_route=app_route,
-        message={"task_template_version_ids": f"({tt1.task_template_version.id}, {tt2.task_template_version.id})"},
+        message={"task_template_version_ids": f"({tt1._active_task_template_version.id}, "
+                                              f"{tt2._active_task_template_version.id})"},
         request_type='get'
     )
     # msg = {'queue_info': [{'id': 1, 'queue': 'all.q'}, {'id': 2, 'queue': 'long.q'}]}
     assert len(msg["queue_info"]) == 2
     for i in msg["queue_info"]:
-        if i["id"] == tt1.task_template_version.id:
-            assert i["queue"] == "all.q"
+        if i["id"] == tt1._active_task_template_version.id:
+            assert i["queue"] == "null.q"
         else:
-            assert i["queue"] == "long.q"
+            assert i["queue"] == "null2.q"
