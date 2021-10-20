@@ -457,6 +457,20 @@ There are two supported:
 
     As an example, if we plan on running 100,000 tasks at once and don't specify a default, Jobmon will ensure only 10,000 tasks at once will be queued and run. If the cluster is particularly free, the user can use ``jobmon concurrency_limit -w <workflow_id> -n 100000`` to run all 100,000 tasks simultaneously without interrupting the current workflow execution. If cluster usage starts to pick back up and we need to make space for others, we can use ``jobmon concurrency_limit -w <workflow_id> -n 100`` to ensure that only 100 tasks at once will be queued and that we can make space for others.
 
+**update_task_status**
+
+    Entering ``jobmon update_task_status`` allows the user to set the status of tasks in their workflow. This is helpful for either rerunning portions of a workflow that have already completed, or allowing a workflow to progress past a blocking error. The usage is ``jobmon update_task_status -t [task_ids] -w [workflow_id] -s [status]``
+
+    There are 2 allowed statuses - "D" and "F". Specifying status "D" will mark only the listed task_ids as "D", and leave the rest of the DAG unchanged. When the workflow is resumed, the DAG executes as if the listed task_ids have finished successfully.
+
+    If status "F" is specified, the listed task IDs will be set to "F" as well as all downstream dependents of those tasks. When the workflow is resumed, the specified tasks will be rerun and subsequently their downstream tasks as well. If the workflow has successfully completed, and is marked with status "D", the workflow status will be amended to status "E" in order to allow a resume.
+
+    .. note::
+        1. All status changes are propagated to the database.
+        2. Only inactive workflows can have task statuses updated
+        3. The updating user must have at least 1 workflow run associated with the requested workflow.
+        4. The requested tasks must all belong to the specified workflow ID
+
 
 A Workflow that retries Tasks if they fail
 ******************************************
