@@ -484,7 +484,7 @@ def add_task_instance() -> Any:
         # create task_instance from task parameters
         task_instance = TaskInstance(
             workflow_run_id=data["workflow_run_id"],
-            cluster_type_name=data["cluster_type_name"],
+            cluster_type_id=data["cluster_type_id"],
             task_id=data["task_id"],
             task_resources_id=task.task_resources_id,
         )
