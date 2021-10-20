@@ -18,7 +18,7 @@ def tests(session: Session) -> None:
     args = session.posargs or test_locations
 
     session.conda_install("mysqlclient", "openssl")
-    session.install("-e", ".[test]")
+    session.install("-e", ".[test,server]")
 
     # pytest skips. performance tests are a separate nox target
     skip_string = "not performance_tests and not integration_tests "
@@ -38,7 +38,7 @@ def integration(session: Session) -> None:
     args = session.posargs or test_locations
 
     session.conda_install("mysqlclient", "openssl")
-    session.install("-e", ".[test]")
+    session.install("-e", ".[test,server]")
 
     extra_args = ["-m", "integration_tests"]
     session.run("pytest", *args, *extra_args)
@@ -50,7 +50,7 @@ def performance(session: Session) -> None:
     args = session.posargs or test_locations
 
     session.conda_install("mysqlclient", "openssl")
-    session.install("-e", ".[test]")
+    session.install("-e", ".[test,server]")
 
     extra_args = ["-m", "performance_tests"]
     session.run("pytest", *args, *extra_args)

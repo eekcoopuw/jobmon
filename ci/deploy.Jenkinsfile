@@ -163,7 +163,8 @@ pipeline {
                       ${RANCHER_QPID_SECRET} \
                       "${INFRA_PUB_REG_URL}/kubectl:latest" \
                       ${KUBECONFIG} \
-                      ${USE_LOGSTASH}
+                      ${USE_LOGSTASH} \
+                      ${JOBMON_VERSION}
                '''
           }
         }

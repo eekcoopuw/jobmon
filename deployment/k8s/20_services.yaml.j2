@@ -1,11 +1,11 @@
 # jobmon_client cluster IP. Used for communication between k8s deployments.
-# Eg traefik -> jobmon_client
-# Allows hostname "jobmon-client" to resolve inside k8s containers
+# Eg traefik -> jobmon-server
+# Allows hostname "jobmon-server" to resolve inside k8s containers
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: jobmon-client
+  name: jobmon-server
 spec:
   type: ClusterIP
   ports:
@@ -13,75 +13,7 @@ spec:
       name: web
       port: 80
   selector:
-    app: jobmon-client
-
-# jobmon_scheduler cluster IP. Used for communication between k8s deployments.
-# Eg traefik -> jobmon_scheduler
-# Allows hostname "jobmon-scheduler" to resolve inside k8s containers
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: jobmon-scheduler
-spec:
-  type: ClusterIP
-  ports:
-    - protocol: TCP
-      name: web
-      port: 80
-  selector:
-    app: jobmon-scheduler
-
-# jobmon_swarm cluster IP. Used for communication between k8s deployments.
-# Eg traefik -> jobmon_swarm
-# Allows hostname "jobmon-swarm" to resolve inside k8s containers
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: jobmon-swarm
-spec:
-  type: ClusterIP
-  ports:
-    - protocol: TCP
-      name: web
-      port: 80
-  selector:
-    app: jobmon-swarm
-
-# jobmon_worker cluster IP. Used for communication between k8s deployments.
-# Eg traefik -> jobmon_worker
-# Allows hostname "jobmon-worker" to resolve inside k8s containers
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: jobmon-worker
-spec:
-  type: ClusterIP
-  ports:
-    - protocol: TCP
-      name: web
-      port: 80
-  selector:
-    app: jobmon-worker
-
-# Viz Server cluster IP. Used for communication between k8s deployments.
-# Eg traefik -> viz server
-# Allows hostname "jobmon-cli" to resolve inside k8s containers
----
-apiVersion: v1
-kind: Service
-metadata:
-  name: jobmon-cli
-spec:
-  type: ClusterIP
-  ports:
-    - protocol: TCP
-      name: web
-      port: 80
-  selector:
-    app: jobmon-cli
+    app: jobmon-server
 
 # Influxdb cluster IP. Used for communication between k8s deployments.
 # Eg traefik -> influxdb and grafana -> influxdb

@@ -6,14 +6,15 @@
 Jobmon
 ######
 
-Jobmon is a Scientific Workflow Management system developed at IHME< specifically for IHME's
-needs. Jobmon aims to reduce human pain by providing :
-- an easy to use Python API that matches existing code patterns
-- centralized monitoring of jobs, their status and errors
-- automatic retries to protect against random cluster failures
-- automatic retries following a resource failures, e.g. re-running a job with increased memory
-- whole-of-application resumes to handle missing data or inflight code fixes
-- fine-grained job dependencies
+Jobmon is a Scientific Workflow Management system developed at IHME specifically for the
+institute's needs. Jobmon aims to reduce human pain by providing:
+
+- An easy to use Python API that matches existing code patterns.
+- Centralized monitoring of jobs, including the job's status and errors.
+- Automatic retries to protect against random cluster failures.
+- Automatic retries following a resource failures, e.g. re-running a job with increased memory.
+- Whole-of-application resumes to handle missing data or in-flight code fixes.
+- Fine-grained job dependencies.
 
 
 
