@@ -454,8 +454,10 @@ def workflow_reset(workflow_id: int, requester_url: Optional[str] = None) -> str
 
     Return:
         A string to indicate the workflow_reset result.
+
     Args:
         workflow_id: the workflow id to be reset.
+        requester_url: the url.
     """
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url

@@ -122,8 +122,14 @@ class ClientCLI(CLI):
         from jobmon.client.status_commands import update_task_status
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        response = update_task_status(args.task_ids, args.workflow_id, args.new_status,
-                                      args.force, args.recursive, cc.url)
+        response = update_task_status(
+            args.task_ids,
+            args.workflow_id,
+            args.new_status,
+            args.force,
+            args.recursive,
+            cc.url,
+        )
         print(f"Response is: {response}")
 
     @staticmethod
