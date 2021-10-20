@@ -1,11 +1,13 @@
-from typing import Optional, List, Dict, Callable, Union
+"""Bash Task object for backward compatibility with jobmon 1.* series."""
+from typing import Callable, Dict, List, Optional, Union
 
+from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool
-from jobmon.client.execution.strategies.base import ExecutorParameters
 
 
 class BashTask(Task):
+    """Task to execute a Bash command (for backward compatibility with Jobmon 1.* series)."""
 
     _bash_task_template_registry: Dict = {}
 
@@ -83,7 +85,7 @@ class BashTask(Task):
                 make this task unique within a set of task with identical command patterns
             op_args: if the user wants to supply arguments to describe the operational
                 arguments for this task
-            """
+        """
         if task_args is None:
             task_args = {}
         if node_args is None:

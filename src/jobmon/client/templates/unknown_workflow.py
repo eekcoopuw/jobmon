@@ -1,6 +1,5 @@
-from typing import Optional, Union, List
-
-import structlog as logging
+"""Unknown Workflow for easy backward compatibility and testing."""
+from typing import List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.scheduler.scheduler_config import SchedulerConfig
@@ -9,11 +8,15 @@ from jobmon.client.tool import Tool
 from jobmon.client.workflow import Workflow
 from jobmon.requester import Requester
 
+import structlog as logging
+
 
 logger = logging.getLogger(__name__)
 
 
 class ResumeStatus(object):
+    """Resume constants."""
+
     RESUME = True
     DONT_RESUME = False
 
@@ -41,6 +44,7 @@ class UnknownWorkflow(Workflow):
         using Workflow.add_task(). In order to resume a Workflow, all the same
         tasks must be added with the same dependencies between tasks.
     """
+
     _tool: Optional[Tool] = None
 
     def __init__(self,
@@ -114,7 +118,7 @@ class UnknownWorkflow(Workflow):
         if heartbeat_interval is not None:
             cfg.heartbeat_interval = heartbeat_interval
         if report_by_buffer is not None:
-            cfg.report_by_buffer = report_by_buffer
+            cfg.heartbeat_report_by_buffer = report_by_buffer
         self._execution_config = cfg
 
         # run params
@@ -177,6 +181,5 @@ class UnknownWorkflow(Workflow):
         Returns:
             WorkflowRun
         """
-
         return super().run(self._fail_fast, self._seconds_until_timeout,
                            self._resume, self._reset_running_jobs)

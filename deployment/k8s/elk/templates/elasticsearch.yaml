@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: elasticsearch
+  labels:
+    name: elasticsearch
+  namespace: {{ .Values.global.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: elasticsearch
+  template:
+    metadata:
+      labels:
+        name: elasticsearch
+        app: elasticsearch
+    spec:
+      containers:
+        - image: docker.elastic.co/elasticsearch/elasticsearch:7.11.1
+          name: elasticsearch
+          ports:
+          - name: http
+            containerPort: 9200
+          env:
+          - name: discovery.type
+            value: single-node
+          resources:
+            limits:
+              memory: 800Mi
+              cpu: 2
+            requests:
+              cpu: 300m
+              memory: 600Mi
+      volumes:
+        - name: elasticsearch-storage
+          persistentVolumeClaim:
+            claimName: elasticsearch-storage

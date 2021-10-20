@@ -1,8 +1,8 @@
 import os
 
-import pytest
+from jobmon.constants import TaskStatus, WorkflowRunStatus
 
-from jobmon.constants import WorkflowRunStatus, TaskStatus
+import pytest
 
 this_file = os.path.dirname(__file__)
 remote_sleep_and_write = os.path.abspath(os.path.expanduser(

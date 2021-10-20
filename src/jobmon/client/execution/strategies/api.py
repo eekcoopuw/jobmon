@@ -1,3 +1,4 @@
+"""Mapping to different executors depending on which is being used."""
 from typing import Optional
 
 from jobmon.client.execution.strategies.base import Executor, TaskInstanceExecutorInfo
@@ -5,12 +6,11 @@ from jobmon.client.execution.strategies.base import Executor, TaskInstanceExecut
 
 def get_scheduling_executor_by_name(executor_class: Optional[str] = None, *args,
                                     **kwargs) -> Executor:
-    """Return an instance of the scheduling executor
+    """Return an instance of the scheduling executor.
 
     Args:
         executor_class: Name of executor class run your tasks on.
     """
-
     if executor_class == "SequentialExecutor":
         from jobmon.client.execution.strategies.sequential import \
             SequentialExecutor as SchedulingExecutor
@@ -29,7 +29,7 @@ def get_scheduling_executor_by_name(executor_class: Optional[str] = None, *args,
 
 
 def get_task_instance_executor_by_name(executor_class: str) -> TaskInstanceExecutorInfo:
-    """Return an instance of the task instance executor
+    """Return an instance of the task instance executor.
 
     Args:
         executor_class: Name of executor class run your tasks on.

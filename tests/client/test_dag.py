@@ -1,8 +1,8 @@
-import pytest
-
-from jobmon.client.node import Node
 from jobmon.client.dag import Dag
+from jobmon.client.node import Node
 from jobmon.exceptions import DuplicateNodeArgsError
+
+import pytest
 
 
 def test_dag(client_env, db_cfg):

@@ -20,6 +20,7 @@ spec:
       terminationGracePeriodSeconds: 60
       containers:
       - image: {{jobmon_container_uri}}
+        imagePullPolicy: Always
         name: jobmon-swarm
         env:
         - name: DB_HOST
@@ -42,6 +43,9 @@ spec:
             secretKeyRef:
               key: DB_PASS
               name: {{rancher_db_secret}}
+        envFrom:
+        - configMapRef:
+            name: jobmon-config
         ports:
         - name: http
           containerPort: 80
@@ -52,6 +56,10 @@ spec:
           requests:
             cpu: 300m # m = mhz
             memory: 400Mi
+        lifecycle:
+          preStop:
+            exec:
+              command: ["sleep", "15"]
 ---
 # https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
 apiVersion: autoscaling/v2beta2

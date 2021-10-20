@@ -20,4 +20,4 @@ CREATE TABLE `workflow_run` (
 ;
 
 ALTER TABLE `workflow_run` ADD INDEX `ix_workflow_id` (`workflow_id`);
-ALTER TABLE `workflow_run` ADD INDEX `ix_status` (`status`);
+ALTER TABLE `workflow_run` ADD INDEX `ix_status_version` (`status`, `jobmon_version`);

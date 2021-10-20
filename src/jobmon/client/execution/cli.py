@@ -1,12 +1,13 @@
-import configargparse
-
+"""Command line interface for Execution."""
 from typing import Optional
 
+import configargparse
 
-from jobmon.config import PARSER_KWARGS, ParserDefaults, CLI
+from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 
 
 class ExecutorCLI(CLI):
+    """Command line interface for Execution."""
 
     def __init__(self) -> None:
         self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
@@ -14,14 +15,17 @@ class ExecutorCLI(CLI):
             dest='sub_command', parser_class=configargparse.ArgumentParser
         )
 
+        self._add_scheduler_parser()
+
     def scheduler(self, args: configargparse.Namespace) -> None:
+        """Configuration for the jobmon scheduler."""
         from jobmon.client.execution.scheduler.api import get_scheduler, SchedulerConfig
 
         scheduler_config = SchedulerConfig(
             jobmon_command=args.worker_node_entry_point,
             workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
             task_heartbeat_interval=args.task_instance_heartbeat_interval,
-            report_by_buffer=args.task_instance_report_by_buffer,
+            heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
             n_queued=args.scheduler_n_queued,
             scheduler_poll_interval=args.scheduler_poll_interval,
             web_service_fqdn=args.web_service_fqdn,
@@ -42,19 +46,16 @@ class ExecutorCLI(CLI):
             'command',
             type=str,
             choices=['start'],
-            help=('The web_server sub-command to run: (start, test). Start is not currently '
-                  'supported. Test creates a test instance of the jobmon Flask app using the '
-                  'Flask dev server and should not be used for production'),
-            required=True
+            help=('The scheduler sub-command to run: (start)'),
         )
         scheduler_parser.add_argument(
-            'workflow_id',
+            '--workflow_id',
             type=int,
             help='workflow_id to schedule jobs for.',
             required=True
         )
         scheduler_parser.add_argument(
-            'workflow_run_id',
+            '--workflow_run_id',
             type=int,
             help='workflow_run_id to schedule jobs for.',
             required=True
@@ -62,7 +63,7 @@ class ExecutorCLI(CLI):
         ParserDefaults.worker_node_entry_point(scheduler_parser)
         ParserDefaults.workflow_run_heartbeat_interval(scheduler_parser)
         ParserDefaults.task_instance_heartbeat_interval(scheduler_parser)
-        ParserDefaults.task_instance_report_by_buffer(scheduler_parser)
+        ParserDefaults.heartbeat_report_by_buffer(scheduler_parser)
         ParserDefaults.scheduler_n_queued(scheduler_parser)
         ParserDefaults.scheduler_poll_interval(scheduler_parser)
         ParserDefaults.web_service_fqdn(scheduler_parser)
@@ -70,5 +71,6 @@ class ExecutorCLI(CLI):
 
 
 def main(argstr: Optional[str] = None) -> None:
+    """Entrypoint to create Executor CLI."""
     cli = ExecutorCLI()
     cli.main(argstr)

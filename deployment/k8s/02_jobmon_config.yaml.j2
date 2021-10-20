@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+    name: jobmon-config
+    namespace: {{namespace}}
+data:
+    # Behavior is store_true, so to turn off delete the USE_LOGSTASH key-value pair.
+    # Can be done either here, or in Rancher (under configmap)
+    USE_LOGSTASH: "{{use_logstash}}"
+    LOGSTASH_HOST: logstash
+    LOGSTASH_PORT: "5000"
+    LOGSTASH_PROTOCOL: TCP
+    # Same comment as USE_LOGSTASH, turn off by deleting USE_APM
+    USE_APM: "true"
+    APM_HOST: jobmon-apm
+    APM_PORT: "8200"
+    LOG_LEVEL: INFO

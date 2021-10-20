@@ -1,35 +1,38 @@
+"""Requester object to make HTTP requests to the Jobmon Flask services"""
 import json
 import logging
-import requests
-from typing import Tuple, Any, Dict
-
-import tenacity
+from typing import Any, Dict, Tuple
 
 from jobmon import log_config
 
+import requests
+
+import tenacity
 
 default_logger = log_config.configure_logger(__name__)
 
 
 def http_request_ok(status_code: int) -> bool:
+    """Return True if HTTP return codes that are deemed ok."""
     return status_code in (200, 302, 307)
 
 
 class Requester(object):
-    """Sends an HTTP messages via the Requests library to one of the running
-    services, either the JQS or the JSM, and returns the response from the
-    server. A common use case is where the swarm of application jobs send
-    status messages via a Requester
-    to the JobStateManager or requests job status from the JobQueryServer
+    """Sends an HTTP messages via the Requests library to one of the running services, either
+    the JQS or the JSM, and returns the response from the server. A common use case is where
+    the swarm of application jobs send status messages via a Requester to the JobStateManager
+    or requests job status from the JobQueryServer.
     """
 
     def __init__(self, url: str, max_retries: int = 10, stop_after_delay: int = 120):
+        """Initialize the Requester object with the url to make requests to."""
         self.url = url
         self.max_retries = max_retries
         self.stop_after_delay = stop_after_delay
         self.server_structlog_context: Dict[str, str] = {}
 
     def add_server_structlog_context(self, **kwargs):
+        """Add the structlogging context if it has been provided."""
         for key, value in kwargs.items():
             self.server_structlog_context[key] = value
 
@@ -84,9 +87,10 @@ class Requester(object):
 
     def _tenacious_send_request(self, app_route: str, message: dict, request_type: str,
                                 logger: logging.Logger = default_logger) -> Tuple[int, Any]:
+        """Use tenacity to retry requests if they get an unsatisfactory return code."""
 
         def is_5XX(result: Tuple[int, dict]) -> bool:
-            '''return True if get_content result has 5XX status '''
+            """Return True if get_content result has 5XX status."""
             status = result[0]
             is_bad = status > 499 and status < 600
             if is_bad:
@@ -96,7 +100,7 @@ class Requester(object):
             return is_bad
 
         def raise_if_exceed_retry(retry_state: tenacity.RetryCallState):
-            '''if we trigger retry error, raise informative RuntimeError'''
+            """If we trigger retry error, raise informative RuntimeError."""
             logger.exception(f"Retry exceeded. {retry_state}")
             status, content = retry_state.outcome.result()
             raise RuntimeError(f'Exceeded HTTP request retry budget. Status code was {status} '
@@ -147,7 +151,7 @@ class Requester(object):
 
 
 def get_content(response) -> Tuple[int, Any]:
-    # parse reponse
+    """Parse the response."""
     if 'application/json' in response.headers.get('Content-Type', ''):
         try:
             content = response.json()

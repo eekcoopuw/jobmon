@@ -1,6 +1,6 @@
-import pytest
-
 from jobmon.exceptions import NodeDependencyNotExistError
+
+import pytest
 
 
 def test_add_tasks_dependencynotexist(db_cfg, client_env):
@@ -15,20 +15,20 @@ def test_add_tasks_dependencynotexist(db_cfg, client_env):
     with pytest.raises(NodeDependencyNotExistError) as excinfo:
         wf = UnknownWorkflow("wf1", name="TestWF1")
         wf.add_tasks([t1, t2])
-        wf._bind()
+        wf.bind()
     assert "Downstream" in str(excinfo.value)
     with pytest.raises(NodeDependencyNotExistError) as excinfo:
         wf = UnknownWorkflow("wf2", name="TestWF2")
         wf.add_tasks([t1, t3])
-        wf._bind()
+        wf.bind()
     assert "Upstream" in str(excinfo.value)
-    wf = UnknownWorkflow("wf3", name="TestWF3")
+    wf = UnknownWorkflow("wf3", name="TestWF3", executor_class="SequentialExecutor")
     wf.add_tasks([t1, t2, t3])
     wf.run()
     assert len(wf.tasks) == 3
-    wf = UnknownWorkflow("wf4", name="TestWF4")
+    wf = UnknownWorkflow("wf4", name="TestWF4", executor_class="SequentialExecutor")
     wf.add_tasks([t1])
     wf.add_tasks([t2])
     wf.add_tasks([t3])
-    wf._bind()
+    wf.bind()
     assert len(wf.tasks) == 3

@@ -1,11 +1,11 @@
 import ast
 import os
-import pytest
 
 from jobmon.client.execution.strategies.base import ExecutorParameters
-from jobmon.exceptions import CallableReturnedInvalidObject
 from jobmon.constants import WorkflowRunStatus
+from jobmon.exceptions import CallableReturnedInvalidObject
 
+import pytest
 
 this_dir = os.path.dirname(os.path.abspath(__file__))
 resource_file = os.path.join(this_dir, 'resources.txt')

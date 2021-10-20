@@ -1,7 +1,8 @@
 import time
-import pytest
 
 from jobmon.requester import Requester
+
+import pytest
 
 
 class MockSchedulerProc:
@@ -36,7 +37,7 @@ def test_unknown_state(db_cfg, client_env, monkeypatch):
     workflow.add_task(task)
 
     # add workflow info to db and then time out.
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
@@ -104,7 +105,7 @@ def test_log_executor_report_by(db_cfg, client_env, monkeypatch):
     workflow.add_task(task)
 
     # add workflow info to db and then time out.
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,

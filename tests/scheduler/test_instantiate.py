@@ -1,7 +1,8 @@
 import time
-import pytest
 
 from jobmon.constants import QsubAttribute
+
+import pytest
 
 
 class MockSchedulerProc:
@@ -23,7 +24,7 @@ def test_instantiate_queued_jobs(db_cfg, client_env):
                                executor_class="SequentialExecutor",
                                seconds_until_timeout=1)
     workflow.add_tasks([t1])
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
@@ -67,7 +68,7 @@ def test_n_queued(db_cfg, client_env):
                                executor_class="DummyExecutor")
     workflow.set_executor(executor_class="DummyExecutor")
     workflow.add_tasks(tasks)
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
@@ -109,7 +110,7 @@ def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
                                executor_class="DummyExecutor",
                                seconds_until_timeout=1)
     workflow.add_task(t1)
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
@@ -119,7 +120,7 @@ def test_no_executor_id(db_cfg, client_env, monkeypatch, sge):
                                   seconds_until_timeout=1)
 
     def mock_execute(*args, **kwargs):
-        return sge, {sge: 0}
+        return sge
     monkeypatch.setattr(scheduler.executor, "execute", mock_execute)
 
     scheduler._get_tasks_queued_for_instantiation()
@@ -157,7 +158,7 @@ def test_concurrency_limiting(db_cfg, client_env):
     workflow.set_executor(MultiprocessExecutor(parallelism=3))
     workflow.add_tasks(tasks)
 
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
     scheduler = TaskInstanceScheduler(workflow.workflow_id, wfr.workflow_run_id,
@@ -184,7 +185,7 @@ def test_concurrency_limiting(db_cfg, client_env):
     select_tasks = scheduler._get_tasks_queued_for_instantiation()
     assert len(select_tasks) == 0
 
-    scheduler.executor.stop(scheduler.executor_ids, scheduler._report_by_buffer)
+    scheduler.executor.stop(list(scheduler._submitted_or_running.keys()))
 
 
 def test_dynamic_concurrency_limiting(db_cfg, client_env):
@@ -207,7 +208,7 @@ def test_dynamic_concurrency_limiting(db_cfg, client_env):
     workflow.set_executor(MultiprocessExecutor(parallelism=3))
     workflow.add_tasks(tasks)
 
-    workflow._bind()
+    workflow.bind()
     wfr = workflow._create_workflow_run()
 
     with pytest.raises(RuntimeError):
@@ -228,3 +229,5 @@ def test_dynamic_concurrency_limiting(db_cfg, client_env):
     # Query should return 5 jobs
     select_tasks = scheduler._get_tasks_queued_for_instantiation()
     assert len(select_tasks) == 5
+
+    scheduler.executor.stop(list(scheduler._submitted_or_running.keys()))

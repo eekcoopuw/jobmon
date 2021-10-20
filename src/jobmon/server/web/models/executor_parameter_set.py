@@ -1,9 +1,10 @@
+"""Executor Parameter Set Database Table."""
 from jobmon.server.web.models import DB
 from jobmon.server.web.models import executor_parameter_set_type  # noqa F401
 
 
 class ExecutorParameterSet(DB.Model):
-    """The table in the database that holds all executor specific parameters"""
+    """The table in the database that holds all executor specific parameters."""
 
     __tablename__ = 'executor_parameter_set'
 
@@ -30,4 +31,5 @@ class ExecutorParameterSet(DB.Model):
     task = DB.relationship("Task", foreign_keys=[task_id])
 
     def activate(self):
+        """Activate an Executor Parameter Set."""
         self.task.executor_parameter_set_id = self.id

@@ -1,15 +1,17 @@
+"""Task object used by scheduler to create Task Instances from."""
 from __future__ import annotations
-
-import structlog as logging
 
 from jobmon.client.execution.strategies.base import ExecutorParameters
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeExecutorTask
 
+import structlog as logging
+
 logger = logging.getLogger(__name__)
 
 
 class ExecutorTask:
+    """Task object used by scheduler to create Task Instances from."""
 
     # this API should always match what's returned by
     # serializers.SerializeExecutorTask
@@ -47,7 +49,7 @@ class ExecutorTask:
     @classmethod
     def from_wire(cls, wire_tuple: tuple, executor_class: str, requester: Requester
                   ) -> ExecutorTask:
-        """construct instance from wire format the JQS gives
+        """Construct instance from wire format the JQS gives
 
         Args:
             wire_tuple (tuple): tuple representing the wire format for this
@@ -57,7 +59,6 @@ class ExecutorTask:
             requester (Requester, shared_requester): requester for
                 communicating with central services
         """
-
         # convert wire tuple into dictionary of kwargs
         kwargs = SerializeExecutorTask.kwargs_from_wire(wire_tuple)
 

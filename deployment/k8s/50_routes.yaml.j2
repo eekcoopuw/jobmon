@@ -110,3 +110,39 @@ spec:
     services:
     - name: grafana
       port: 3000
+
+# Kibana routes
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: kibana-routes
+  namespace: {{namespace}}
+spec:
+  entryPoints:
+    # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
+    - kibana
+  routes:
+  - match: PathPrefix(`/`)
+    kind: Rule
+    services:
+    - name: kibana
+      port: 5601
+
+# Elasticsearch routes
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: elasticsearch-routes
+  namespace: {{namespace}}
+spec:
+  entryPoints:
+    # EntryPoints defined in 30_deployment_traefik.yaml.j2 (ports and traefik arguments)
+    - elasticsearch
+  routes:
+  - match: PathPrefix(`/`)
+    kind: Rule
+    services:
+    - name: elasticsearch
+      port: 9200

@@ -1,18 +1,22 @@
+"""The DAG captures the interconnected graph of tasks and their dependencies."""
 import hashlib
-from typing import Optional, Set, Dict, List, Union
-
-import structlog as logging
+from http import HTTPStatus as StatusCodes
+from typing import Dict, List, Optional, Set, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
+from jobmon.exceptions import (DuplicateNodeArgsError, InvalidResponse,
+                               NodeDependencyNotExistError)
 from jobmon.requester import Requester, http_request_ok
-from jobmon.exceptions import NodeDependencyNotExistError, DuplicateNodeArgsError
+
+import structlog as logging
 
 
 logger = logging.getLogger(__name__)
 
 
 class Dag(object):
+    """The DAG captures the interconnected graph of tasks and their dependencies."""
 
     def __init__(self, requester: Optional[Requester] = None):
         """The DAG (Directed Acyclic Graph) captures the tasks (nodes) as they are
@@ -24,7 +28,6 @@ class Dag(object):
         Args:
             requester_url (str): url to communicate with the flask services.
         """
-
         self.nodes: Set[Node] = set()
 
         if requester is None:
@@ -34,7 +37,7 @@ class Dag(object):
 
     @property
     def dag_id(self) -> int:
-        """Database unique ID of this DAG"""
+        """Database unique ID of this DAG."""
         if not hasattr(self, "_dag_id"):
             raise AttributeError("_dag_id cannot be accessed before dag is bound")
         return self._dag_id
@@ -53,16 +56,17 @@ class Dag(object):
         # wf.add_task should call ClientNode.add_node() + pass the tasks' node
         self.nodes.add(node)
 
-    def bind(self) -> int:
-        """Retrieve an id for a matching dag from the server. If it doesn't
-        exist, first create one, including its edges."""
-
+    def bind(self, chunk_size: int = 500) -> int:
+        """Retrieve an id for a matching dag from the server. If it doesn't exist, first
+        create one, including its edges.
+        """
         if len(self.nodes) == 0:
             raise RuntimeError('No nodes were found in the dag. An empty dag '
                                'cannot be bound.')
 
-        dag_hash = hash(self)
+        self._bulk_bind_nodes(chunk_size)
 
+        dag_hash = hash(self)
         return_code, response = self.requester.send_request(
             app_route='/client/dag',
             message={"dag_hash": dag_hash},
@@ -82,19 +86,88 @@ class Dag(object):
         return dag_id
 
     def validate(self):
+        """Validate the nodes and their dependencies."""
         nodes_in_dag = self.nodes
         for node in nodes_in_dag:
             # Make sure no task contains up/down stream tasks that are not in the workflow
             for n in node.upstream_nodes:
                 if n not in nodes_in_dag:
-                    raise NodeDependencyNotExistError("Upstream node, {hash(n)}, for node, "
-                                                      "{hash(node)}, does not exist in the "
-                                                      "dag.")
+                    raise NodeDependencyNotExistError(
+                        f"Upstream node, {hash(n)}, for node, {hash(node)},"
+                        "does not exist in the dag."
+                    )
             for n in node.downstream_nodes:
                 if n not in nodes_in_dag:
-                    raise NodeDependencyNotExistError("Downstream node, {hash(n)}, for node, "
-                                                      "{hash(node)}, does not exist in the "
-                                                      "dag.")
+                    raise NodeDependencyNotExistError(
+                        f"Downstream node, {hash(n)}, for node, {hash(node)},"
+                        "does not exist in the dag."
+                    )
+
+    def _bulk_bind_nodes(self, chunk_size: int) -> None:
+
+        def get_chunk(total_nodes: int, chunk_number: int) -> Optional[Tuple[int, int]]:
+            # This function is created for unit testing
+            if (chunk_number - 1) * chunk_size >= total_nodes:
+                return None
+            return ((chunk_number - 1) * chunk_size,
+                    min(total_nodes - 1, chunk_number * chunk_size - 1))
+
+        nodes_in_dag = list(self.nodes)
+        nodes_received = {}
+        total_nodes = len(self.nodes)
+        chunk_number = 1
+        chunk_boarder = get_chunk(total_nodes, chunk_number)
+        while chunk_boarder is not None:
+            # do something to bind
+            nodes_to_send = []
+            for i in range(chunk_boarder[0], chunk_boarder[1] + 1):
+                node = nodes_in_dag[i]
+                n = {"task_template_version_id": node.task_template_version_id,
+                     "node_args_hash": str(node.node_args_hash),
+                     "node_args": node.node_args}
+                nodes_to_send.append(n)
+            rc, response = self.requester.send_request(
+                app_route='/client/nodes',
+                message={'nodes': nodes_to_send},
+                request_type='post',
+                logger=logger
+            )
+            if http_request_ok(rc) is False:
+                raise InvalidResponse(
+                    f'Unexpected status code {rc} from GET '
+                    f'request through route /client/workflow. Expected code '
+                    f'200. Response content: {response}')
+            else:
+                nodes_received.update(response['nodes'])
+            chunk_number += 1
+            chunk_boarder = get_chunk(total_nodes, chunk_number)
+
+        for node in nodes_in_dag:
+            k = f"{node.task_template_version_id}:{node.node_args_hash}"
+            if k in nodes_received.keys():
+                node._node_id = int(nodes_received[k])
+            else:
+                raise InvalidResponse(
+                    f"Fail to find node_id in HTTP response for node_args_hash "
+                    f"{node.node_args_hash} and task_template_version_id "
+                    f"{node.task_template_version_id} HTTP Response:\n {response}")
+
+    def _get_dag_id(self) -> Optional[int]:
+        dag_hash = hash(self)
+        logger.info(f'Querying for dag with hash: {dag_hash}')
+        return_code, response = self.requester.send_request(
+            app_route='/client/dag',
+            message={"dag_hash": dag_hash},
+            request_type='get',
+            logger=logger
+        )
+        if return_code == StatusCodes.OK:
+            return response['dag_id']
+        else:
+            raise ValueError(f'Unexpected status code {return_code} from GET '
+                             f'request through route /client/dag/{dag_hash} . '
+                             f'Expected code 200. Response content: '
+                             f'{response}')
 
     def _bulk_insert_edges(self, dag_id: int, chunk_size: int = 500) -> None:
         # compile full list of edges
@@ -134,7 +207,7 @@ class Dag(object):
                                  f'content: {response}')
 
     def __hash__(self) -> int:
-        """Determined by hashing all sorted node hashes and their downstream"""
+        """Determined by hashing all sorted node hashes and their downstream."""
         hash_value = hashlib.sha1()
         if len(self.nodes) > 0:  # if the dag is empty, we want to skip this
             for node in sorted(self.nodes):

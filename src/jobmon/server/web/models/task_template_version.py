@@ -1,13 +1,15 @@
-from jobmon.server.web.models import DB
-
+"""Database Table for Task Template Versions."""
 from jobmon.serializers import SerializeClientTaskTemplateVersion
+from jobmon.server.web.models import DB
 
 
 class TaskTemplateVersion(DB.Model):
+    """Database Table for Task Template Versions."""
 
     __tablename__ = 'task_template_version'
 
     def to_wire_as_client_task_template_version(self) -> tuple:
+        """Serialized Task Template Version objects."""
         # serialized = SerializeClientTool.to_wire(id=self.id, name=self.name)
         # return serialized
         id_name_map = {}

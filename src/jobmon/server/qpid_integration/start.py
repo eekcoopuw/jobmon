@@ -1,3 +1,4 @@
+"""Start the qpid integration service."""
 import logging
 import sys
 

@@ -1,12 +1,11 @@
-from sqlalchemy.sql import func
-
+"""Task Instance Error Log."""
 from jobmon.server.web.models import DB
+
+from sqlalchemy.sql import func
 
 
 class TaskInstanceErrorLog(DB.Model):
-    """The table in the database that logs the error messages for
-    task_instances
-    """
+    """The table in the database that logs the error messages for task_instances."""
 
     __tablename__ = 'task_instance_error_log'
 

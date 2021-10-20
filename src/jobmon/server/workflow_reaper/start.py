@@ -1,18 +1,18 @@
+"""Start up workflow reaper service."""
 import logging
 import sys
 from typing import Optional
 
 
-from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
-from jobmon.server.workflow_reaper.notifiers import SlackNotifier
-from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
 from jobmon.requester import Requester
+from jobmon.server.workflow_reaper.notifiers import SlackNotifier
+from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
+from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
 
 
 def start_workflow_reaper(workflow_reaper_config: Optional[WorkflowReaperConfig] = None
                           ) -> None:
-    """Start monitoring for lost workflow runs"""
-
+    """Start monitoring for lost workflow runs."""
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
     if workflow_reaper_config is None:
@@ -30,7 +30,6 @@ def start_workflow_reaper(workflow_reaper_config: Optional[WorkflowReaperConfig]
     requester = Requester(workflow_reaper_config.url)
     reaper = WorkflowReaper(
         poll_interval_minutes=workflow_reaper_config.poll_interval_minutes,
-        loss_threshold=workflow_reaper_config.loss_threshold,
         requester=requester,
         wf_notification_sink=wf_sink)
     reaper.monitor_forever()
