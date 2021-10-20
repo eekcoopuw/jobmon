@@ -1,11 +1,11 @@
 """Routes for Tasks."""
 from functools import partial
 from http import HTTPStatus as StatusCodes
-from typing import Any, List
+import json
+from typing import Any, Dict, List
 
 from flask import jsonify, request
 import numpy as np
-import json
 import scipy.stats as st  # type:ignore
 import sqlalchemy
 from sqlalchemy.sql import text
@@ -154,7 +154,7 @@ def get_requsted_cores() -> Any:
     # return a "standard" json format for cli routes so that it can be reused by future GUI
     core_info = []
     if rows:
-        result_dir = dict()
+        result_dir: Dict = dict()
         for r in rows:
             # json loads hates single quotes
             j_str = r["rr"].replace("'", '"')
@@ -188,13 +188,13 @@ def get_most_popular_queue() -> Any:
            WHERE t3.id in {ttvis}
            AND t2.task_template_version_id=t3.id
            AND t1.node_id=t2.id
-           AND t4.task_id=t1.id 
+           AND t4.task_id=t1.id
     """
     rows = DB.session.execute(sql).fetchall()
     # return a "standard" json format for cli routes
     queue_info = []
     if rows:
-        result_dir = dict()
+        result_dir: Dict = dict()
         for r in rows:
             ttvi = r["id"]
             # json loads hates single quotes

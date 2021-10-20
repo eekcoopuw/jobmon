@@ -1,12 +1,12 @@
 """Client command line interface for workflow/task status and concurrency limiting."""
 import argparse
-from typing import Any, Optional
 import json
-from typing import Optional
+from typing import Any, Optional
 
 import configargparse
 
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.status_commands import get_task_dependencies
 from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 
 
@@ -122,9 +122,8 @@ class ClientCLI(CLI):
         from jobmon.client.status_commands import update_task_status
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        response = update_task_status(
-            args.task_ids, args.workflow_id, args.new_status, cc.url
-        )
+        response = update_task_status(args.task_ids, args.workflow_id, args.new_status,
+                                      args.force, args.recursive, cc.url)
         print(f"Response is: {response}")
 
     @staticmethod
@@ -160,9 +159,7 @@ class ClientCLI(CLI):
 
     @staticmethod
     def task_dependencies(args: configargparse.Namespace) -> None:
-        """Get task's upstream and downstream tasks and their status"""
-        from jobmon.client.status_commands import get_task_dependencies
-
+        """Get task's upstream and downstream tasks and their status."""
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
         r = get_task_dependencies(args.task_id, cc.url)
         up = r["up"]

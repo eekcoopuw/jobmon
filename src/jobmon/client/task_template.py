@@ -503,7 +503,8 @@ class TaskTemplate:
         ci: float = None,
     ) -> dict:
         """Get the aggregate resource usage for a TaskTemplate."""
-        message = {"task_template_version_id": self._active_task_template_version.id}
+        message: Dict[Any, Any] = dict()
+        message["task_template_version_id"] = self._active_task_template_version.id
         if workflows:
             message["workflows"] = workflows
         if node_args:
@@ -521,7 +522,7 @@ class TaskTemplate:
                 f"200. Response content: {response}"
             )
 
-        def format_bytes(value):
+        def format_bytes(value: Any) -> Optional[str]:
             if value is not None:
                 return str(value) + "B"
             else:

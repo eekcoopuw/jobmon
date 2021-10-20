@@ -109,7 +109,7 @@ def task_template_resources(
     node_args: Optional[Dict] = None,
     requester_url: Optional[str] = None,
     ci: Optional[float] = None,
-) -> Tuple:
+) -> Dict:
     """Get aggregate resource usage data for a given TaskTemplateVersion.
 
     Args:
@@ -123,7 +123,8 @@ def task_template_resources(
     Returns:
         Dataframe of TaskTemplate resource usage
     """
-    message = {"task_template_version_id": task_template_version}
+    message: Dict[Any, Any] = dict()
+    message["task_template_version_id"] = task_template_version
     if workflows:
         message["workflows"] = workflows
     if node_args:
@@ -140,7 +141,7 @@ def task_template_resources(
         app_route=app_route, message=message, request_type="post", logger=logger
     )
 
-    def format_bytes(value):
+    def format_bytes(value: Any) -> Optional[str]:
         if value is not None:
             return str(value) + "B"
         else:
@@ -229,8 +230,8 @@ def concurrency_limit(
     return resp["message"]
 
 
-def _chunk_ids(ids: List[int], chunk_size=100) -> List[List[int]]:
-    """Chunk the ids into a list of 100 ids list
+def _chunk_ids(ids: List[int], chunk_size: int = 100) -> List[List[int]]:
+    """Chunk the ids into a list of 100 ids list.
 
     Args:
         ids: list of ids
@@ -255,7 +256,7 @@ def update_task_status(
     force: bool = False,
     recursive: bool = False,
     requester_url: Optional[str] = None,
-) -> None:
+) -> Any:
     """Set the specified task IDs to the new status, pending validation.
 
     Args:
@@ -267,6 +268,7 @@ def update_task_status(
         recursive: if true and force, apply recursive update_status downstream
             or upstream depending on new_status
             (upstream if new_status == 'D'; downstream if new_status == 'G').
+        requester_url: optional.
     """
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url
@@ -385,8 +387,9 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
 def validate_workflow(
     task_ids: List[int], requester: Requester, force: bool = False
 ) -> WorkflowStatus:
-    """
-    Validate that the task_ids provided belong to the expected workflow,
+    """Validate workflow.
+
+    The task_ids provided belong to the expected workflow,
     and the workflow status is in expected status unless we want to force
     it through.
     """
@@ -426,7 +429,7 @@ def get_sub_task_tree(
 
 
 def get_task_dependencies(task_id: int, requester_url: Optional[str] = None) -> dict:
-    """Get the upstream and down stream of a task"""
+    """Get the upstream and down stream of a task."""
     # This is to make the test case happy. Otherwise, requester should not be None.
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url
@@ -446,13 +449,18 @@ def get_task_dependencies(task_id: int, requester_url: Optional[str] = None) -> 
     return res
 
 
-def workflow_reset(workflow_id: int, requester: Requester) -> str:
+def workflow_reset(workflow_id: int, requester_url: Optional[str] = None) -> str:
     """Workflow reset.
+
     Return:
         A string to indicate the workflow_reset result.
     Args:
         workflow_id: the workflow id to be reset.
     """
+    if requester_url is None:
+        requester_url = ClientConfig.from_defaults().url
+    requester = Requester(requester_url)
+
     username = getpass.getuser()
 
     rc, res = requester.send_request(
@@ -485,7 +493,7 @@ def workflow_reset(workflow_id: int, requester: Requester) -> str:
 
 def _get_yaml_data(
     wfid: int, tid: int, v_mem: str, v_core: str, v_runtime: str, requester: Requester
-):
+) -> Dict:
 
     key_map_m = {"avg": "mean_mem", "min": "min_mem", "max": "max_mem"}
     key_map_r = {"avg": "mean_runtime", "min": "min_runtime", "max": "max_runtime"}
@@ -552,7 +560,7 @@ def _get_yaml_data(
     return ttvis_dic
 
 
-def _create_yaml(data: Dict = None, clusters: List = []):
+def _create_yaml(data: Dict = None, clusters: List = []) -> str:
     yaml = "task_template_resources:\n"
     if data is None or clusters is None or len(clusters) == 0:
         return yaml
