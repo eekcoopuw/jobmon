@@ -86,6 +86,7 @@ class Task(DB.Model):
                 self.name = name
                 self.command = command
                 self.max_attempts = max_attempts
+                self.status_date = func.now()
 
     def transition(self, new_state):
         """Transition the Task to a new state"""
