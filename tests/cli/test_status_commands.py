@@ -587,3 +587,79 @@ def test_bad_put_route(db_cfg, client_env):
         app_route="/task/update_statuses", message={}, request_type="put", logger=logger
     )
     assert rc == 400
+
+
+
+def test_get_yaml_data(db_cfg, client_env):
+    t = Tool()
+    wf = t.create_workflow(name="i_am_a_fake_wf")
+    tt1 = t.get_task_template(
+        template_name="tt1",
+        command_template="echo {arg}",
+        node_args=["arg"])
+    tt2 = t.get_task_template(
+        template_name="tt2",
+        command_template="sleep {arg}",
+        node_args=["arg"])
+    t1 = tt1.create_task(arg=1, cluster_name="sequential",
+                         compute_resources={"queue": "null.q"})
+    t2 = tt2.create_task(arg=2, cluster_name="sequential",
+                         compute_resources={"queue": "null2.q"})
+
+    wf.add_tasks([t1, t2])
+    wf.run()
+
+    # manipulate data
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query_1 = """
+            UPDATE task_instance
+            SET wallclock = 10, maxpss = 400
+            WHERE task_id = :task_id"""
+        DB.session.execute(query_1, {"task_id": t1.task_id})
+
+        query_2 = """
+            UPDATE task_instance
+            SET wallclock = 20, maxpss = 600
+            WHERE task_id = :task_id"""
+        DB.session.execute(query_2, {"task_id": t2.task_id})
+        DB.session.commit()
+    # get data for the resource yaml
+    from jobmon.client.status_commands import _get_yaml_data
+    result = _get_yaml_data(wf.workflow_id, None, "avg", "avg", "max", wf.requester)
+    assert len(result) == 2
+    assert result[tt1._active_task_template_version.id] == ['tt1', 1, 400, 10, "null.q"]
+    assert result[tt2._active_task_template_version.id] == ['tt2', 1, 600, 20, "null2.q"]
+
+
+def test_create_yaml():
+    expected = """task_template_resources:
+  tt1:
+    ihme_slurm:
+      num_cores: 1
+      m_mem_free: "400B"
+      max_runtime_seconds: 10
+      queue: "all.q"
+    ihme_uge:
+      num_cores: 1
+      m_mem_free: "400B"
+      max_runtime_seconds: 10
+      queue: "all.q"
+  tt2:
+    ihme_slurm:
+      num_cores: 1
+      m_mem_free: "600B"
+      max_runtime_seconds: 20
+      queue: "long.q"
+    ihme_uge:
+      num_cores: 1
+      m_mem_free: "600B"
+      max_runtime_seconds: 20
+      queue: "long.q"
+"""
+    from jobmon.client.status_commands import _create_yaml
+    input = {1: ['tt1', 1, 400, 10, "all.q"],
+             2: ['tt2', 1, 600, 20, "long.q"]}
+    result = _create_yaml(input, ["ihme_slurm", "ihme_uge"])
+    assert result == expected

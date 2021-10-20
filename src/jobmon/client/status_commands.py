@@ -495,7 +495,7 @@ def _get_yaml_data(wfid: int, tid: int, v_mem: str, v_core: str, v_runtime: str,
     # Get actually mem and runtime for each ttvi
     for ttv in ttvis_dic.keys():
         rc, res = requester.send_request(
-            app_route="/client/task_template_resource_usage",
+            app_route="/task_template_resource_usage",
             message={"task_template_version_id": ttv},
             request_type='post'
         )
