@@ -50,29 +50,31 @@ def test_get_tasks_dependencynotexist(db_cfg, client_env):
 
 
 def test_get_task_template_version(db_cfg, client_env):
-    t = Tool.create_tool(name=str(uuid.uuid4()))
+    t = Tool()
     wf = t.create_workflow(name="i_am_a_fake_wf")
-    wf.set_executor(executor_class="SequentialExecutor")
     tt1 = t.get_task_template(
         template_name="tt1",
         command_template="sleep {arg}",
-        node_args=["arg"])
+        node_args=["arg"],
+        default_compute_resources={"queue": "null.q"},
+        default_cluster_name="sequential")
     tt2 = t.get_task_template(
         template_name="tt2",
         command_template="echo {arg}",
-        node_args=["arg"])
-    ep1 = ExecutorParameters(executor_class="SequentialExecutor",
-                             queue="all.q")
-    ep2 = ExecutorParameters(executor_class="SequentialExecutor",
-                             queue="long.q")
-    task_1 = tt1.create_task(executor_parameters=ep1, arg=1)
-    task_2 = tt1.create_task(executor_parameters=ep1, arg=2)
-    task_3 = tt2.create_task(executor_parameters=ep2, arg=3)
+        node_args=["arg"],
+        default_compute_resources={"queue": "null.q"},
+        default_cluster_name="sequential")
+
+    task_1 = tt1.create_task(arg=1)
+    task_2 = tt1.create_task(arg=2)
+    task_3 = tt2.create_task(arg=3)
     wf.add_tasks([task_1, task_2, task_3])
     wf.run()
+    tt1.load_task_template_versions()
+    tt2.load_task_template_versions()
 
     # Test getting task template for task
-    app_route = "/cli/get_task_template_version"
+    app_route = "/get_task_template_version"
     return_code, msg = wf.requester.send_request(
         app_route=app_route,
         message={"task_id": task_1.task_id},
@@ -86,7 +88,7 @@ def test_get_task_template_version(db_cfg, client_env):
     assert msg['task_template_version_ids'][0]['name'] == 'tt1'
 
     # Test getting task template for workflow
-    app_route = "/cli/get_task_template_version"
+    app_route = "/get_task_template_version"
     return_code, msg = wf.requester.send_request(
         app_route=app_route,
         message={"workflow_id": wf.workflow_id},
@@ -97,37 +99,28 @@ def test_get_task_template_version(db_cfg, client_env):
     assert 'task_template_version_ids' in msg.keys()
     assert len(msg['task_template_version_ids']) == 2
     for i in msg['task_template_version_ids']:
-        if i["id"] == tt1.task_template_version.id:
+        if i["id"] == tt1._active_task_template_version.id:
             assert i["name"] == "tt1"
         else:
             assert i["name"] == "tt2"
 
 
 def test_get_requested_cores(db_cfg, client_env):
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.client.api import BashTask
-    # Create a test workflow with tasks
-    import uuid
-    from jobmon.client.execution.strategies.base import ExecutorParameters
-    from jobmon.client.tool import Tool
-    t = Tool.create_tool(name=str(uuid.uuid4()))
+    t = Tool()
     wf = t.create_workflow(name="i_am_a_fake_wf")
-    wf.set_executor(executor_class="SequentialExecutor")
     tt1 = t.get_task_template(
         template_name="tt_core",
-        command_template="sleep {arg}",
+        command_template="echo {arg}",
         node_args=["arg"])
-    ep1 = ExecutorParameters(executor_class="SequentialExecutor",
-                             queue="all.q", num_cores=2)
-    ep2 = ExecutorParameters(executor_class="SequentialExecutor",
-                             queue="all.q", num_cores=4)
-    t1 = tt1.create_task(executor_parameters=ep1, arg=1)
-    t2 = tt1.create_task(executor_parameters=ep2, arg=2)
+    t1 = tt1.create_task(arg=1, cluster_name="sequential",
+                         compute_resources={"queue": "null.q", "num_cores": 2})
+    t2 = tt1.create_task(arg=2, cluster_name="sequential",
+                         compute_resources={"queue": "null.q", "num_cores": 4})
     wf.add_tasks([t1, t2])
     wf.run()
 
     # Get task template for workflow
-    app_route = "/cli/get_task_template_version"
+    app_route = "/get_task_template_version"
     return_code, msg = wf.requester.send_request(
         app_route=app_route,
         message={"workflow_id": wf.workflow_id},
@@ -135,7 +128,7 @@ def test_get_requested_cores(db_cfg, client_env):
     )
     ttvis = msg['task_template_version_ids'][0]['id']
     # Test getting requested cores
-    app_route = "/cli/get_requested_cores"
+    app_route = "/get_requested_cores"
     return_code, msg = wf.requester.send_request(
         app_route=app_route,
         message={"task_template_version_ids": f"({ttvis})"},
