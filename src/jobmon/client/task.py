@@ -16,7 +16,8 @@ from jobmon.client.node import Node
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
-from jobmon.serializers import SerializeExecutorTaskInstanceErrorLog
+from jobmon.serializers import SerializeExecutorTaskInstanceErrorLog, \
+    SerializeTaskResourceUsage
 
 logger = logging.getLogger(__name__)
 
@@ -429,3 +430,20 @@ class Task:
                                     'error_log': errors_ti}
 
         return self._errors
+
+    def resource_usage(self) -> dict:
+        """Get the resource usage for the successful TaskInstance of a Task."""
+        app_route = "/client/task_resource_usage"
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={'task_id': self.task_id},
+            request_type='get',
+            logger=logger
+        )
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from GET '
+                f'request through route {app_route}. Expected code '
+                f'200. Response content: {response}'
+            )
+        return SerializeTaskResourceUsage.kwargs_from_wire(response)

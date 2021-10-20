@@ -1,0 +1,53 @@
+{
+  "policy": {
+             "phases": {
+                       "hot": {
+                        "min_age": "0ms",
+                        "actions": {
+                          "readonly": {},
+                          "rollover": {
+                            "max_size": "3gb",
+                            "max_age": "1d"
+                          },
+                          "forcemerge": {
+                            "max_num_segments": 1000,
+                            "index_codec": "best_compression"
+                          },
+                          "set_priority": {
+                            "priority": 100
+                          }
+                        }
+                      },
+                      "warm": {
+                        "actions": {
+                          "shrink": {
+                            "number_of_shards": 1
+                          },
+                          "forcemerge": {
+                            "max_num_segments": 1,
+                            "index_codec": "best_compression"
+                          },
+                          "set_priority": {
+                            "priority": 50
+                          }
+                        }
+                      },
+                      "cold": {
+                        "min_age": "3d",
+                        "actions": {
+                          "set_priority": {
+                            "priority": 0
+                          }
+                        }
+                      },
+                      "delete": {
+                        "min_age": "8d",
+                        "actions": {
+                          "delete": {
+                            "delete_searchable_snapshot": true
+                          }
+                        }
+                      }
+                    }
+             }
+}

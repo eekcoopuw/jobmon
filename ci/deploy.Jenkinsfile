@@ -29,13 +29,15 @@ pipeline {
     string(defaultValue: 'c-99499:p-4h54h',
      description: 'Rancher project must be created in the rancher web ui before running this job. Get this from the URL after you select the project in the rancher UI. Shouldnt change often',
      name: 'RANCHER_PROJECT_ID')
-    booleanParam(defaultValue: 'false',
+    booleanParam(defaultValue: 'true',
      description: 'Whether or not you want to deploy Jobmon',
      name: 'DEPLOY_JOBMON')
     booleanParam(defaultValue: 'false',
      description: 'Whether or not you want to deploy the ELK stack',
      name: 'DEPLOY_ELK')
-
+    booleanParam(defaultValue: 'false',
+     description: 'Whether or not you want to config log rotation for elasticsearch',
+     name: 'LOG_ROTATION')
   }
   triggers {
     // This cron expression runs seldom, or never runs, but having the value set
@@ -123,12 +125,8 @@ pipeline {
                       ''',
               returnStdout: true
             ).trim()
-            env.GRAFANA_CONTAINER_URI = sh (
-              script: 'echo ${SCICOMP_DOCKER_REG_URL}/${K8S_NAMESPACE}-grafana:${BUILD_NUMBER}',
-              returnStdout: true
-            ).trim()
           }
-          echo "Server Container Images:\nJobmon=${env.JOBMON_CONTAINER_URI}\nGrafana=${env.GRAFANA_CONTAINER_URI}"
+          echo "Server Container Images:\nJobmon=${env.JOBMON_CONTAINER_URI}"
           // Artifactory user with write permissions
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
@@ -143,8 +141,7 @@ pipeline {
                       $REG_USERNAME \
                       $REG_PASSWORD \
                       ${SCICOMP_DOCKER_REG_URL} \
-                      ${JOBMON_CONTAINER_URI} \
-                      ${GRAFANA_CONTAINER_URI}
+                      ${JOBMON_CONTAINER_URI}
                '''
           }
         }
@@ -165,7 +162,6 @@ pipeline {
                       ${METALLB_IP_POOL} \
                       ${K8S_NAMESPACE} \
                       ${RANCHER_PROJECT_ID} \
-                      ${GRAFANA_CONTAINER_URI} \
                       ${RANCHER_DB_SECRET} \
                       ${RANCHER_SLACK_SECRET} \
                       ${RANCHER_QPID_SECRET} \
@@ -180,7 +176,50 @@ pipeline {
         }
       }
     }
-    stage ('Test Deployment') {
+    stage ('Create and apply log rotation ilm'){
+      steps {
+        script{
+          node('docker') {
+            if (LOG_ROTATION.toBoolean()) {
+              // chang permission
+              sh "chmod +x ${WORKSPACE}/ci/ilm/check_service_up.sh"
+
+              // wait until elasticsearch is up
+              sh '''/bin/bash ${WORKSPACE}/ci/ilm/check_service_up.sh ${TARGET_IP}:9200'''
+
+              // add a new policy to delete logs older than 8 days
+              sh '''curl -XPUT "${TARGET_IP}:9200/_ilm/policy/jobmon_ilm" --header "Content-Type: application/json" \
+                 -d @${WORKSPACE}/ci/ilm/jobmon_ilm_policy.json
+                 '''
+
+              // delete index jobmon if it has been created by logstash
+              // there may still be a race condition; but unable to trigger it on dev, so I don't know what happens when logstash reaches elasticsearch before template creation
+              sh '''curl -X DELETE "${TARGET_IP}:9200/jobmon" ||true'''
+
+              // create a index template with the new policy
+              sh '''curl -X PUT "${TARGET_IP}:9200/_template/jobmon_template" --header "Content-Type: application/json" \
+                 -d @${WORKSPACE}/ci/ilm/jobmon_index_template.json
+              '''
+
+              // create the first index
+              sh '''curl -X PUT "${TARGET_IP}:9200/jobmon-000001" --header "Content-Type: application/json" -d '{"aliases": {"jobmon": {"is_write_index": true}}}'
+              '''
+              // manage it by ilm
+              sh '''curl -XPUT "${TARGET_IP}:9200/jobmon-000001/_settings" -d '{"index":{"lifecycle.name":"jobmon_ilm","lifecycle.rollover_alias": "jobmon"}}' --header "Content-Type: application/json"
+                 '''
+
+              // set all index replica to 0 to get rid of the "yellow" warning in GUI because we only have one elasticsearch node
+              sh '''curl -XPUT "${TARGET_IP}:9200/*/_settings" --header "Content-Type: application/json" -d '{"index":{"number_of_replicas":0}}'
+                 '''
+            }
+          else {
+            sh "echo \"Skip log rotation configuration.\""
+          } //else
+        } //node
+      } //script
+    } //steps
+   } //stage
+   stage ('Test Deployment') {
       steps {
         node('qlogin') {
           // Download jobmon
@@ -211,7 +250,7 @@ pipeline {
           }
         }
       }
-    }
+  }
   post {
     always {
       node('docker') {

@@ -6,7 +6,9 @@ from typing import Any, Dict, List, Set, Union
 
 from flask import current_app as app, jsonify, request
 
-from jobmon.constants import TaskInstanceStatus, TaskStatus, WorkflowStatus as Statuses
+from jobmon.constants \
+    import Direction, TaskInstanceStatus, TaskStatus, WorkflowStatus as Statuses
+from jobmon.serializers import SerializeTaskResourceUsage
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.executor_parameter_set import ExecutorParameterSet
@@ -14,6 +16,7 @@ from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_arg import TaskArg
 from jobmon.server.web.models.task_attribute import TaskAttribute
 from jobmon.server.web.models.task_attribute_type import TaskAttributeType
+from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.server_side_exception import InvalidUsage
 
 import pandas as pd
@@ -74,8 +77,7 @@ def get_task_id_and_status():
     # send back json
     if result is None:
         resp = jsonify({'task_id': None, 'task_status': None})
-        app.logger.info(f"The task_id for wf {wid},  node_id {nid}, and task_args_hash {h} "
-                        f"is none.")
+        app.logger.debug(f"No task found for wf {wid}, node_id {nid}, and task_args_hash {h}.")
     else:
         resp = jsonify({'task_id': result.id, 'task_status': result.status})
         app.logger.info(f"The task_id for wf {wid},  node_id {nid}, and task_args_hash {h} "
@@ -151,9 +153,7 @@ def add_task():
         resp = jsonify(tasks=return_dict)
         resp.status_code = StatusCodes.OK
         return resp
-    except KeyError as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
-    except TypeError as e:
+    except (KeyError, TypeError) as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
 
@@ -460,7 +460,7 @@ def update_task_resources(task_id: int):
     """
     app.logger = app.logger.bind(task_id=task_id)
     data = request.get_json()
-    app.logger.info("Update task resource for {task_id}")
+    app.logger.info(f"Update task resource for {task_id}")
     parameter_set_type = data["parameter_set_type"]
 
     try:
@@ -563,13 +563,38 @@ def _get_node_downstream(nodes: set, dag_id: int) -> set:
         AND node_id in {nodes_str}
     """
     result = DB.session.execute(q).fetchall()
-
     if result is None or len(result) == 0:
         return []
     node_ids = set()
     for r in result:
         if r['downstream_node_ids'] is not None:
             ids = json.loads(r['downstream_node_ids'])
+            node_ids = node_ids.union(set(ids))
+    return node_ids
+
+
+def _get_node_uptream(nodes: set, dag_id: int) -> set:
+    """
+    Get all downstream nodes of a node
+    :param node_id:
+    :return: a list of node_id
+    """
+    nodes_str = str((tuple(nodes))).replace(",)", ")")
+    q = f"""
+        SELECT upstream_node_ids
+        FROM edge
+        WHERE dag_id = {dag_id}
+        AND node_id in {nodes_str}
+    """
+
+    result = DB.session.execute(q).fetchall()
+
+    if result is None or len(result) == 0:
+        return []
+    node_ids = set()
+    for r in result:
+        if r['upstream_node_ids'] is not None:
+            ids = json.loads(r['upstream_node_ids'])
             node_ids = node_ids.union(set(ids))
     return node_ids
 
@@ -718,5 +743,134 @@ def update_task_statuses():
 
     message = f"{task_res.rowcount} rows updated to status {new_status}"
     resp = jsonify(message)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+def _get_dag_and_wf_id(task_id: int) -> int:
+    q = f"""
+            SELECT dag_id, workflow_id, node_id
+            FROM task, workflow
+            WHERE task.workflow_id = workflow.id
+            AND task.id = {task_id}
+        """
+    row = DB.session.execute(q).fetchone()
+
+    if row is None:
+        return None, None
+    return int(row['dag_id']), int(row['workflow_id']), int(row['node_id'])
+
+
+@jobmon_cli.route('/task_dependencies/<task_id>', methods=['GET'])
+def get_task_dependencies(task_id):
+    """Get task's downstream and upsteam tasks and their status"""
+    dag_id, workflow_id, node_id = _get_dag_and_wf_id(task_id)
+    up_nodes = _get_node_uptream({node_id}, dag_id)
+    down_nodes = _get_node_downstream({node_id}, dag_id)
+    up_task_dict = _get_tasks_from_nodes(workflow_id, list(up_nodes), [])
+    down_task_dict = _get_tasks_from_nodes(workflow_id, list(down_nodes), [])
+    # return a "standard" json format so that it can be reused by future GUI
+    up = [] if up_task_dict is None or len(up_task_dict) == 0 else \
+        [[{"id": k, "status": up_task_dict[k]}] for k in up_task_dict][0]
+    down = [] if down_task_dict is None or len(down_task_dict) == 0 else \
+        [[{"id": k, "status": down_task_dict[k]}] for k in down_task_dict][0]
+    resp = jsonify({"up": up, "down": down})
+    resp.status_code = 200
+    return resp
+
+
+@jobmon_cli.route('/tasks_recursive/<direction>', methods=['PUT'])
+def get_tasks_recursive(direction: str) -> {int}:
+    """
+    Get all input task_ids' downstream or upsteam tasks based on direction;
+    return all recursive(including input set) task_ids in the defined direction.
+    """
+    dir: Direction = Direction.UP if direction == "up" else Direction.DOWN
+    data = request.get_json()
+    # define task_ids as set in order to eliminate dups
+    task_ids = set(data.get('task_ids', []))
+
+    try:
+        tasks_recursive = _get_tasks_recursive(task_ids, dir)
+        resp = jsonify({'task_ids': list(tasks_recursive)})
+        resp.status_code = 200
+        return resp
+    except InvalidUsage as e:
+        app.logger.info(f"InvalidUsage {e} is encountered!")
+        raise e
+
+
+def _get_tasks_recursive(task_ids: Set[int], direction: Direction) -> set:
+    """
+    Get all input task_ids' downstream or upsteam tasks based on direction;
+    return all recursive(including input set) task_ids in the defined direction.
+    """
+    tasks_recursive = set()
+    next_nodes = set()
+
+    workflow_id_first = None
+
+    for task_id in task_ids:
+        dag_id, workflow_id, node_id = _get_dag_and_wf_id(task_id)
+        next_nodes_sub = _get_node_downstream({node_id}, dag_id) \
+            if direction == Direction.DOWN \
+            else _get_node_uptream({node_id}, dag_id)
+        if workflow_id_first is None:
+            workflow_id_first = workflow_id
+        elif workflow_id != workflow_id_first:
+            raise InvalidUsage(f"{task_ids} in request belong to different workflow_ids"
+                               f"({workflow_id_first}, {workflow_id})", status_code=400)
+        next_nodes.update(next_nodes_sub)
+
+    if len(next_nodes) > 0:
+        next_task_dict = _get_tasks_from_nodes(workflow_id_first, list(next_nodes), [])
+        if len(next_task_dict) > 0:
+            task_recursive_sub = _get_tasks_recursive(set(next_task_dict.keys()), direction)
+            tasks_recursive.update(task_recursive_sub)
+
+    tasks_recursive.update(task_ids)
+
+    return tasks_recursive
+
+
+@jobmon_client.route('/task_resource_usage', methods=["GET"])
+def get_task_resource_usage():
+    """Return the resource usage for a given Task ID."""
+    try:
+        task_id = request.args['task_id']
+    except Exception as e:
+        raise InvalidUsage(f"{str(e)} in request to /task_resource_usage", status_code=400) \
+            from e
+
+    query = """
+        SELECT
+            task.num_attempts,
+            task_instance.nodename,
+            task_instance.wallclock,
+            task_instance.maxpss
+        FROM
+            task
+        JOIN
+            task_instance
+        ON
+            task.id = task_instance.task_id
+        WHERE
+            task_id = :task_id AND task_instance.status = 'D'
+    """
+
+    result = DB.session.query(Task.num_attempts, TaskInstance.nodename, TaskInstance.wallclock,
+                              TaskInstance.maxpss).from_statement(text(query)).params(
+        task_id=task_id
+    ).one_or_none()
+
+    DB.session.commit()
+
+    if result is None:
+        resource_usage = SerializeTaskResourceUsage.to_wire(None, None, None, None)
+    else:
+        resource_usage = SerializeTaskResourceUsage.to_wire(result.num_attempts,
+                                                            result.nodename,
+                                                            result.wallclock, result.maxpss)
+    resp = jsonify(resource_usage)
     resp.status_code = StatusCodes.OK
     return resp

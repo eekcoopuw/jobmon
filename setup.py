@@ -25,7 +25,8 @@ SERVER_REQUIRES = [
     'elastic-apm[flask]',
     'pymysql',  # install MySQLdb/mysqlclient for more performance
     'python-logstash-async',
-    'sqlalchemy==1.3',
+    'sqlalchemy==1.4',
+    'scipy',
 ]
 
 # pip install -e .[test]

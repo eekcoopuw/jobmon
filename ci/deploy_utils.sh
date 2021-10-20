@@ -73,7 +73,6 @@ upload_jobmon_image () {
     REG_PASSWORD=$4
     SCICOMP_DOCKER_REG_URL=$5
     JOBMON_CONTAINER_URI=$6
-    GRAFANA_CONTAINER_URI=$7
 
 
     # build jobmon container
@@ -81,10 +80,6 @@ upload_jobmon_image () {
     docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://$SCICOMP_DOCKER_REG_URL"
     docker build --no-cache -t "$JOBMON_CONTAINER_URI" -f ./deployment/k8s/Dockerfile .
     docker push "$JOBMON_CONTAINER_URI"
-
-    # build grafana container
-    docker build --no-cache -t "$GRAFANA_CONTAINER_URI" -f ./deployment/k8s/grafana/Dockerfile .
-    docker push "$GRAFANA_CONTAINER_URI"
 
 }
 
@@ -95,16 +90,15 @@ deploy_jobmon_to_k8s () {
     METALLB_IP_POOL=${3}
     K8S_NAMESPACE=${4}
     RANCHER_PROJECT_ID=${5}
-    GRAFANA_CONTAINER_URI=${6}
-    RANCHER_DB_SECRET=${7}
-    RANCHER_SLACK_SECRET=${8}
-    RANCHER_QPID_SECRET=${9}
-    KUBECONFIG=${10}
-    USE_LOGSTASH=${11}
-    JOBMON_VERSION=${12}
-    K8S_REAPER_NAMESPACE=${13}
-    DEPLOY_JOBMON=${14}
-    DEPLOY_ELK=${15}
+    RANCHER_DB_SECRET=${6}
+    RANCHER_SLACK_SECRET=${7}
+    RANCHER_QPID_SECRET=${8}
+    KUBECONFIG=${9}
+    USE_LOGSTASH=${10}
+    JOBMON_VERSION=${11}
+    K8S_REAPER_NAMESPACE=${12}
+    DEPLOY_JOBMON=${13}
+    DEPLOY_ELK=${14}
 
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
     docker pull $KUBECTL_CONTAINER
@@ -150,6 +144,7 @@ deploy_jobmon_to_k8s () {
         alpine/helm \
             upgrade --install jobmon-elk /apps/. \
             -n "$K8S_NAMESPACE" \
+            --history-max 3 \
             --set global.namespace="$K8S_NAMESPACE"
     fi
 
@@ -163,7 +158,7 @@ deploy_jobmon_to_k8s () {
         alpine/helm \
             upgrade --install jobmon /apps/. \
             -n "$K8S_NAMESPACE" \
-            --set global.grafana_image="$GRAFANA_CONTAINER_URI" \
+            --history-max 3 \
             --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI" \
             --set global.metallb_ip_pool="$METALLB_IP_POOL" \
             --set global.namespace="$K8S_NAMESPACE" \
@@ -181,6 +176,7 @@ deploy_jobmon_to_k8s () {
         alpine/helm \
             upgrade --install jobmon-reapers /apps/. \
             -n "$K8S_REAPER_NAMESPACE" \
+            --history-max 3 \
             --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI" \
             --set global.jobmon_version="$JOBMON_VERSION" \
             --set global.namespace="$K8S_NAMESPACE" \

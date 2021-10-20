@@ -60,8 +60,19 @@ def test_equality(task_template):
 
 def test_hash_name_compatibility(task_template):
     """test that name based on hash"""
-    params = ExecutorParameters(executor_class="DummyExecutor")
-    a = task_template.create_task(arg="a", executor_parameters=params)
+    executor_parameters = ExecutorParameters(executor_class="DummyExecutor")
+    a = Task(
+            command="whatever",
+            task_template_version_id=1,
+            node_args={},
+            task_args={},
+            executor_parameters=executor_parameters,
+            name=None,
+            max_attempts=1,
+            upstream_tasks=[],
+            task_attributes=[],
+            requester=None
+        )
     assert "task_" + str(hash(a)) == a.name
 
 
@@ -119,6 +130,29 @@ def test_bash_task_bind(db_cfg, client_env):
         assert task.max_attempts == bound_task.max_attempts
 
         DB.session.commit()
+
+
+def test_long_name_task_bind(db_cfg, client_env):
+    """test that all task information gets propagated appropriately into the db
+    """
+    from jobmon.client.templates.bash_task import BashTask
+    from jobmon.server.web.models.task import Task
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+
+    workflow1 = UnknownWorkflow(name="test_bash_task_bind",
+                                executor_class="SequentialExecutor")
+
+    task1 = BashTask(name="a"*256,
+                     command="echo 'Hello Jobmon'",
+                     max_attempts=1,
+                     executor_class="DummyExecutor")
+    workflow1.add_tasks([task1])
+    workflow1.bind()
+    with pytest.raises(RuntimeError) as e:
+        workflow1._create_workflow_run()
+        assert "Data too long for column" in str(e)
 
 
 def test_bash_task_command_parsing(db_cfg, client_env):
@@ -266,3 +300,36 @@ def test_task_attribute(db_cfg, client_env):
         assert names == expected_names
         assert ids[2] == ids[3]  # will fail if adding non-unique task_attribute_types
         assert ids[4] == ids[5]
+
+
+def test_resource_usage(db_cfg, client_env):
+    """Test Task resource usage method."""
+    from jobmon.client.tool import Tool
+    tool = Tool.create_tool(name="usage_test_tool")
+    workflow = tool.create_workflow(name="resource_usage_test_wf")
+    workflow.set_executor(executor_class="SequentialExecutor")
+    template = tool.get_task_template(
+        template_name="resource_usage_test_template",
+        command_template="echo a",
+    )
+    executor_parameters = ExecutorParameters(executor_class="SequentialExecutor",
+                                             max_runtime_seconds=30)
+    task = template.create_task(
+        executor_parameters=executor_parameters
+    )
+    workflow.add_tasks([task])
+    workflow.run()
+
+    # Add fake resource usage to the TaskInstance
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+        UPDATE task_instance
+        SET nodename = 'SequentialNode', wallclock = 12, maxpss = 1234
+        WHERE task_id = :task_id"""
+        DB.session.execute(sql, {"task_id": task.task_id})
+        DB.session.commit()
+    used_task_resources = task.resource_usage()
+    assert used_task_resources == {'memory': '1234', 'nodename': 'SequentialNode',
+                                   'num_attempts': 1, 'runtime': '12'}

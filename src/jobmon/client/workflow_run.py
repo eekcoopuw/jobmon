@@ -80,6 +80,7 @@ class WorkflowRun(object):
             tasks = self._bind_tasks(tasks, reset_if_running, chunk_size)
         except Exception:
             self._update_status(WorkflowRunStatus.ABORTED)
+            raise
         else:
             self._update_status(WorkflowRunStatus.BOUND)
         return tasks

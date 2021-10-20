@@ -29,11 +29,11 @@ def create_app(web_config: Optional[WebConfig] = None):
             'SERVER_URL': f"http://{web_config.apm_server_url}:{web_config.apm_port}",
 
             # Set the service environment
-            'ENVIRONMENT': 'development',
-
-            'DEBUG': True
+            'ENVIRONMENT': 'development'
         }
-        ElasticAPM(app)
+        apm = ElasticAPM(app)
+    else:
+        apm = None
 
     if web_config.use_logstash:
         logstash_handler_config = get_logstash_handler_config(
@@ -68,6 +68,6 @@ def create_app(web_config: Optional[WebConfig] = None):
     CORS(app)
 
     # add request logging hooks
-    add_hooks_and_handlers(app, logstash_handler_config)
+    add_hooks_and_handlers(app, logstash_handler_config, apm)
 
     return app

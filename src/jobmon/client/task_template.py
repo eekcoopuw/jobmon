@@ -6,7 +6,7 @@ from __future__ import annotations
 import hashlib
 import logging
 from http import HTTPStatus as StatusCodes
-from typing import Callable, List, Optional, Union
+from typing import Any, Callable, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.execution.strategies.base import ExecutorParameters
@@ -14,6 +14,7 @@ from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
+from jobmon.serializers import SerializeTaskTemplateResourceUsage
 
 logger = logging.getLogger(__name__)
 
@@ -128,6 +129,19 @@ class TaskTemplate:
             ValueError: if the args that are supplied do not match the args in the command
                 template.
         """
+        # arg id name mappings
+        node_args = {self.task_template_version.id_name_map[k]: str(v)
+                     for k, v in kwargs.items() if k in self.task_template_version.node_args}
+        task_args = {self.task_template_version.id_name_map[k]: str(v)
+                     for k, v in kwargs.items() if k in self.task_template_version.task_args}
+
+        # use a default name when not provided
+        if name is None:
+            name = self.template_name + "_" + \
+                '_'.join([str(k) + "-" + str(node_args[k]) for k in node_args.keys()])
+            # long name protection
+            name = name if len(name) < 256 else name[0:254]
+
         # if we have argument overlap
         if "name" in self.task_template_version.template_args:
             kwargs["name"] = name
@@ -140,11 +154,6 @@ class TaskTemplate:
 
         command = self.task_template_version.command_template.format(**kwargs)
 
-        # arg id name mappings
-        node_args = {self.task_template_version.id_name_map[k]: str(v)
-                     for k, v in kwargs.items() if k in self.task_template_version.node_args}
-        task_args = {self.task_template_version.id_name_map[k]: str(v)
-                     for k, v in kwargs.items() if k in self.task_template_version.task_args}
         # build task
         task = Task(
             command=command,
@@ -204,3 +213,48 @@ class TaskTemplate:
             ''.join(self.template_name + str(self.tool_version_id)).encode(
                 'utf-8')).hexdigest(), 16)
         return hash_value
+
+    def resource_usage(self, workflows: List[int] = None,
+                       node_args: dict[str, Any] = None,
+                       ci: float = None) -> dict:
+        """Get the aggregate resource usage for a TaskTemplate."""
+        message = {'task_template_version_id': self.task_template_version.id}
+        if workflows:
+            message['workflows'] = workflows
+        if node_args:
+            message["node_args"] = node_args
+        if ci:
+            message["ci"] = ci
+        app_route = "/client/task_template_resource_usage"
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message=message,
+            request_type='post',
+            logger=logger
+        )
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f'Unexpected status code {return_code} from GET '
+                f'request through route {app_route}. Expected code '
+                f'200. Response content: {response}'
+            )
+
+        def format_bytes(value):
+            if value is not None:
+                return str(value) + "B"
+            else:
+                return value
+
+        kwargs = SerializeTaskTemplateResourceUsage.kwargs_from_wire(response)
+        resources = {'num_tasks': kwargs["num_tasks"],
+                     'min_mem': format_bytes(kwargs["min_mem"]),
+                     'max_mem': format_bytes(kwargs["max_mem"]),
+                     'mean_mem': format_bytes(kwargs["mean_mem"]),
+                     'min_runtime': kwargs["min_runtime"],
+                     'max_runtime': kwargs["max_runtime"],
+                     'mean_runtime': kwargs["mean_runtime"],
+                     "median_mem": format_bytes(kwargs['median_mem']),
+                     "median_runtime": kwargs['median_runtime'],
+                     'ci_mem': kwargs['ci_mem'],
+                     'ci_runtime': kwargs['ci_runtime']}
+        return resources

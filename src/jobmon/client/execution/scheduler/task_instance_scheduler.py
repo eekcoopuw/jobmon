@@ -8,6 +8,7 @@ import threading
 import time
 from typing import Dict, List, Optional
 
+from jobmon.client.client_logging import ClientLogging
 from jobmon.client.execution.scheduler.executor_task import ExecutorTask
 from jobmon.client.execution.scheduler.executor_task_instance import ExecutorTaskInstance
 from jobmon.client.execution.strategies.base import Executor
@@ -17,7 +18,10 @@ from jobmon.requester import Requester, http_request_ok
 
 import tblib.pickling_support
 
+ClientLogging().attach(__name__)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+
 tblib.pickling_support.install()
 
 
@@ -236,6 +240,9 @@ class TaskInstanceScheduler:
         except NotImplementedError:
             logger.warning(f"{self.executor.__class__.__name__} does not implement "
                            f"get_errored_jobs methods.")
+
+        except Exception as e:
+            logger.warning(str(e))
 
     def _log_executor_report_by(self) -> None:
         next_report_increment = self._task_heartbeat_interval * self._report_by_buffer

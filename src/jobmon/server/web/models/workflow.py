@@ -74,13 +74,13 @@ class Workflow(DB.Model):
     def transition(self, new_state: str):
         """Transition the state of the workflow."""
         app.logger = app.logger.bind(workflow_id=self.id)
-        app.logger.info(f"Transitting wf {self.id} from {self.status} "
-                        f"to {new_state}")
+
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
+            app.logger.info(f"Transitioning wf {self.id} from {self.status} "
+                            f"to {new_state}")
             self.status = new_state
             self.status_date = func.now()
-        app.logger.info(f"WF {self.id} status is now {self.status}")
 
     def _validate_transition(self, new_state: str):
         """Ensure the Job state transition is valid."""
@@ -90,6 +90,8 @@ class Workflow(DB.Model):
     def _is_timely_transition(self, new_state):
         """Check if the transition is invalid due to a race condition."""
         if (self.status, new_state) in self.untimely_transitions:
+            app.logger.bind(workflow_id=self.id)
+            app.logger.debug(f"Untimely transition from {self.status} to {new_state}")
             return False
         else:
             return True
@@ -114,7 +116,6 @@ class Workflow(DB.Model):
     def resume(self, reset_running_jobs: bool) -> None:
         """Resume a workflow."""
         app.logger = app.logger.bind(workflow_id=self.id)
-        app.logger.info(f"Resume wf {self.id}")
         for workflow_run in self.workflow_runs:
             if workflow_run.is_active:
                 if reset_running_jobs:
