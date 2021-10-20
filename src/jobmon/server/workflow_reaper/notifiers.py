@@ -22,7 +22,7 @@ class SlackNotifier(object):
 
     def send(self, msg: str, channel: Optional[str] = None):
         """Send message to Slack using requests.post."""
-        if channel is not None:
+        if channel is None:
             channel = self.default_channel
         resp = requests.post(
             self.slack_api_url,

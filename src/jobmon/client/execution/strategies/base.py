@@ -1,4 +1,5 @@
 """Base Executor for which all Executors are built off of."""
+import logging
 import os
 import shutil
 from typing import Dict, List, Optional, Tuple, Type, Union
@@ -6,9 +7,6 @@ from typing import Dict, List, Optional, Tuple, Type, Union
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 import pkg_resources
-
-import structlog as logging
-
 
 logger = logging.getLogger(__name__)
 

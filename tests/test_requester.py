@@ -44,7 +44,7 @@ def test_server_502(client_env):
         # if we end up stopping we should get an error
         with pytest.raises(RuntimeError, match='Status code was 502'):
             retrier.stop = stop_after_attempt(1)
-            retrier.call(test_requester._send_request, "/time", {}, "get")
+            retrier.__call__(test_requester._send_request, "/time", {}, "get")
 
 
 def test_connection_retry(client_env):

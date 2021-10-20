@@ -1,10 +1,10 @@
-# Persistent storage for influxdb,
+# Persistent storage for elasticsearch
 ---
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: influxdb-storage
-  namespace: {{ namespace }}
+  name: elasticsearch-storage
+  namespace: {{ .Values.global.namespace }}
   annotations:
     volume.beta.kubernetes.io/storage-class: nfs-client
 spec:
@@ -12,5 +12,5 @@ spec:
     - ReadWriteMany
   resources:
     requests:
-      # Max size of the influxdb database
-      storage: 50Gi
+      # Max size of the elastic database
+      storage: 30Gi

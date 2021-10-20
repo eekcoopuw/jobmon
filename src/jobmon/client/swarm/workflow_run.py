@@ -1,5 +1,6 @@
 """Workflow Run is an execution instance of a declared workflow."""
 import copy
+import logging
 import time
 from datetime import datetime
 from multiprocessing import Process
@@ -11,7 +12,6 @@ from jobmon.constants import ExecutorParameterSetType, TaskStatus, WorkflowRunSt
 from jobmon.exceptions import InvalidResponse, SchedulerNotAlive
 from jobmon.requester import Requester, http_request_ok
 
-import structlog as logging
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +19,6 @@ logger = logging.getLogger(__name__)
 # This is re-defined into the global namespace of the module so it can be
 # safely patched
 ValueError = ValueError
-
-
-class WorkflowRunExecutionStatus(object):
-    """Enumerate possible exit statuses for WorkflowRun._execute()"""
-
-    SUCCEEDED = 0
-    FAILED = 1
-    STOPPED_BY_USER = 2
 
 
 class WorkflowRun(object):
