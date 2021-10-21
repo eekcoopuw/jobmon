@@ -304,6 +304,7 @@ def test_reset_attempts_on_resume(db_cfg, tool):
 def test_resource_usage(db_cfg, client_env):
     """Test Task resource usage method."""
     from jobmon.client.tool import Tool
+
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
@@ -328,13 +329,16 @@ def test_resource_usage(db_cfg, client_env):
         DB.session.execute(sql, {"task_id": task.task_id})
         DB.session.commit()
     used_task_resources = task.resource_usage()
-    assert used_task_resources == {'memory': '1234', 'nodename': 'SequentialNode',
-                                   'num_attempts': 1, 'runtime': '12'}
+    assert used_task_resources == {
+        "memory": "1234",
+        "nodename": "SequentialNode",
+        "num_attempts": 1,
+        "runtime": "12",
+    }
 
 
 def test_long_name_task_bind(db_cfg, client_env):
-    """test that all task information gets propagated appropriately into the db
-    """
+    """test that all task information gets propagated appropriately into the db"""
     from jobmon.client.tool import Tool
 
     app = db_cfg["app"]
@@ -350,7 +354,7 @@ def test_long_name_task_bind(db_cfg, client_env):
     )
     workflow1 = tool.create_workflow(name="test_bash_task_bind")
 
-    task1 = template.create_task(name="a"*256)
+    task1 = template.create_task(name="a" * 256)
     workflow1.add_tasks([task1])
     workflow1.bind()
     with pytest.raises(RuntimeError) as e:
