@@ -13,8 +13,7 @@ from time import sleep, time
 import traceback
 from typing import Any, Dict, Optional, Tuple, Union
 
-import pkg_resources
-
+from jobmon import __version__ as version
 from jobmon.client.client_config import ClientConfig
 from jobmon.cluster_type.api import import_cluster, register_cluster_plugin
 from jobmon.cluster_type.base import ClusterWorkerNode
@@ -261,7 +260,6 @@ class WorkerNodeTaskInstance:
         """
         os.environ["JOBMON_JOB_INSTANCE_ID"] = str(self.task_instance_id)
 
-        version = pkg_resources.get_distribution("jobmon").version
         if version != self.expected_jobmon_version:
             msg = (
                 f"Your expected Jobmon version is {self.expected_jobmon_version} and your "
