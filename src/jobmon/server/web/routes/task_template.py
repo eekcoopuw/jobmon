@@ -1,7 +1,8 @@
 """Routes for Tasks."""
 from functools import partial
 from http import HTTPStatus as StatusCodes
-from typing import Any, List
+import json
+from typing import Any, Dict, List
 
 from flask import jsonify, request
 import numpy as np
@@ -142,32 +143,35 @@ def get_requsted_cores() -> Any:
     ttvis = request.args.get("task_template_version_ids")
     # null core should be treated as 1 instead of 0
     sql = f"""
-           SELECT t3.id as id,
-                  min(IFNULL(num_cores, 1)) as min,
-                  max(IFNULL(num_cores, 1)) as max,
-                  avg(IFNULL(num_cores, 1)) as avg
-           FROM task t1, node t2, task_template_version t3,  executor_parameter_set t4
+           SELECT t3.id as id, t4.requested_resources as rr
+           FROM task t1, node t2, task_template_version t3,  task_resources t4
            WHERE t3.id in {ttvis}
            AND t2.task_template_version_id=t3.id
            AND t1.node_id=t2.id
-           AND t4.task_id=t1.id
-           GROUP BY t3.id;
+           AND t4.task_id=t1.id;
     """
     rows = DB.session.execute(sql).fetchall()
     # return a "standard" json format for cli routes so that it can be reused by future GUI
-    core_info = (
-        []
-        if rows is None
-        else [
-            {
-                "id": r["id"],
-                "min": int(r["min"]),
-                "max": int(r["max"]),
-                "avg": int(round(r["avg"])),
-            }
-            for r in rows
-        ]
-    )
+    core_info = []
+    if rows:
+        result_dir: Dict = dict()
+        for r in rows:
+            # json loads hates single quotes
+            j_str = r["rr"].replace("'", '"')
+            j_dir = json.loads(j_str)
+            core = 1 if "num_cores" not in j_dir.keys() else int(j_dir["num_cores"])
+            if r["id"] in result_dir.keys():
+                result_dir[r["id"]].append(core)
+            else:
+                result_dir[r["id"]] = [core]
+        for k in result_dir.keys():
+            item_min = int(np.min(result_dir[k]))
+            item_max = int(np.max(result_dir[k]))
+            item_mean = round(np.mean(result_dir[k]))
+            core_info.append(
+                {"id": k, "min": item_min, "max": item_max, "avg": item_mean}
+            )
+
     resp = jsonify({"core_info": core_info})
     resp.status_code = StatusCodes.OK
     return resp
@@ -179,23 +183,43 @@ def get_most_popular_queue() -> Any:
     # parse args
     ttvis = request.args.get("task_template_version_ids")
     sql = f"""
-           SELECT task_template_version_id, queue
-           FROM
-                (SELECT t3.id as task_template_version_id, queue, count(*) as c
-                FROM task t1, node t2, task_template_version t3, executor_parameter_set t4
-                WHERE t3.id in {ttvis}
-                AND t2.task_template_version_id=t3.id
-                AND t1.node_id=t2.id
-                AND t4.task_id=t1.id GROUP BY t3.id, queue ORDER BY c desc) as t
-           GROUP BY t.task_template_version_id
+           SELECT t3.id as id, t4.requested_resources as rr
+           FROM task t1, node t2, task_template_version t3, task_resources t4
+           WHERE t3.id in {ttvis}
+           AND t2.task_template_version_id=t3.id
+           AND t1.node_id=t2.id
+           AND t4.task_id=t1.id
     """
     rows = DB.session.execute(sql).fetchall()
     # return a "standard" json format for cli routes
-    queue_info = (
-        []
-        if rows is None
-        else [{"id": r["task_template_version_id"], "queue": r["queue"]} for r in rows]
-    )
+    queue_info = []
+    if rows:
+        result_dir: Dict = dict()
+        for r in rows:
+            ttvi = r["id"]
+            # json loads hates single quotes
+            j_str = r["rr"].replace("'", '"')
+            j_dir = json.loads(j_str)
+            # Ignore rows without queue info
+            if "queue" in j_dir.keys():
+                q = j_dir["queue"]
+                if ttvi in result_dir.keys():
+                    if q in result_dir[ttvi].keys():
+                        result_dir[ttvi][q] += 1
+                    else:
+                        result_dir[ttvi][q] = 1
+                else:
+                    result_dir[ttvi] = dict()
+                    result_dir[ttvi][q] = 1
+        for ttvi in result_dir.keys():
+            # assign to a variable to keep typecheck happy
+            max_usage = 0
+            for q in result_dir[ttvi].keys():
+                if result_dir[ttvi][q] > max_usage:
+                    popular_q = q
+                    max_usage = result_dir[ttvi][q]
+            queue_info.append({"id": ttvi, "queue": popular_q})
+
     resp = jsonify({"queue_info": queue_info})
     resp.status_code = StatusCodes.OK
     return resp
