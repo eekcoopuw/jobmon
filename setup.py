@@ -94,7 +94,8 @@ setup(
     setup_requires=["setuptools_scm"],
     use_scm_version={'local_scheme': local_scheme,
                      'write_to': 'src/jobmon/_version.py',
-                     'fallback_version': '0.0.0'},
+                     'fallback_version': '0.0.0',
+                     'version_scheme': 'release-branch-semver'},
 
     entry_points={
         'console_scripts': [

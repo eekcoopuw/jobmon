@@ -21,7 +21,7 @@ class DistributorTaskInstance:
         self,
         task_instance_id: int,
         workflow_run_id: int,
-        cluster_type_name: str,
+        cluster_type_id: int,
         requester: Requester,
         distributor_id: Optional[int] = None,
     ) -> None:
@@ -30,7 +30,7 @@ class DistributorTaskInstance:
         Args:
             task_instance_id (int): a task_instance_id
             workflow_run_id (int): a workflow_run_id
-            cluster_type_name (str): the type of Cluster
+            cluster_type_id (int): the type of Cluster
             distributor_id (int, optional): the distributor_id associated with this
                 task_instance
             requester (Requester, optional): a requester to communicate with
@@ -45,20 +45,20 @@ class DistributorTaskInstance:
         self.error_state = ""
         self.error_msg = ""
 
-        self.cluster_type_name = cluster_type_name
+        self.cluster_type_id = cluster_type_id
 
         self.requester = requester
 
     @classmethod
     def from_wire(
-        cls: Any, wire_tuple: tuple, cluster_type_name: str, requester: Requester
+        cls: Any, wire_tuple: tuple, cluster_type_id: str, requester: Requester
     ) -> DistributorTaskInstance:
         """Create an instance from json that the JQS returns.
 
         Args:
             wire_tuple: tuple representing the wire format for this
                 task. format = serializers.SerializeTask.to_wire()
-            cluster_type_name: which cluster type this task instance is
+            cluster_type_id: which cluster type this task instance is
                 being run on
             requester: requester for communicating with central services
 
@@ -69,7 +69,7 @@ class DistributorTaskInstance:
         ti = cls(
             task_instance_id=kwargs["task_instance_id"],
             workflow_run_id=kwargs["workflow_run_id"],
-            cluster_type_name=cluster_type_name,
+            cluster_type_id=cluster_type_id,
             distributor_id=kwargs["distributor_id"],
             requester=requester,
         )
@@ -80,7 +80,7 @@ class DistributorTaskInstance:
         cls: Any,
         task_id: int,
         workflow_run_id: int,
-        cluster_type_name: str,
+        cluster_type_id: int,
         requester: Requester,
     ) -> DistributorTaskInstance:
         """Register a new task instance for an existing task_id.
@@ -88,7 +88,7 @@ class DistributorTaskInstance:
         Args:
             task_id (int): the task_id to register this instance with
             workflow_run_id (int): the workflow run id
-            cluster_type_name (str): which Cluster to this task is on
+            cluster_type_id (int): which Cluster to this task is on
             requester: requester for communicating with central services
         """
         app_route = "/task_instance"
@@ -97,7 +97,7 @@ class DistributorTaskInstance:
             message={
                 "task_id": task_id,
                 "workflow_run_id": workflow_run_id,
-                "cluster_type_name": cluster_type_name,
+                "cluster_type_id": cluster_type_id,
             },
             request_type="post",
             logger=logger,
@@ -111,7 +111,7 @@ class DistributorTaskInstance:
 
         return cls.from_wire(
             response["task_instance"],
-            cluster_type_name=cluster_type_name,
+            cluster_type_id=cluster_type_id,
             requester=requester,
         )
 
