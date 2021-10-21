@@ -404,3 +404,119 @@ def test_workflow_validation(db_cfg, client_env, tool, task_template):
     # Check the workflow can still run
     wf2_status = wf2.run()
     assert wf2_status == "D"
+
+
+def test_workflow_get_errors(db_cfg, client_env):
+    """test that num attempts gets reset on a resume."""
+
+    from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
+    from jobmon.server.web.models.task_status import TaskStatus
+    from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
+    # setup workflow 1
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
+    task_template = tool.get_task_template(
+        template_name="cli_template_1",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    workflow1 = tool.create_workflow(name="test_workflow_get_errors")
+    task_a = task_template.create_task(arg="sleep 5")
+    workflow1.add_task(task_a)
+    task_b = task_template.create_task(arg="sleep 6")
+    workflow1.add_task(task_b)
+
+    # add workflow to database
+    workflow1.bind()
+    wfr_1 = workflow1._create_workflow_run()
+
+    # for an just initialized task, get_errors() should be None
+    assert task_a.get_errors() is None
+
+    # now set everything to error fail
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        # fake workflow run
+        DB.session.execute("""
+            UPDATE workflow_run
+            SET status ='{s}'
+            WHERE id={wfr_id}""".format(s=WorkflowRunStatus.RUNNING,
+                                        wfr_id=wfr_1.workflow_run_id))
+        DB.session.execute("""
+            INSERT INTO task_instance (workflow_run_id, task_id, status)
+            VALUES ({wfr_id}, {t_id}, '{s}')""".format(
+                wfr_id=wfr_1.workflow_run_id,
+                t_id=task_a.task_id,
+                s=TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR))
+        ti = DB.session.execute(
+            "SELECT max(id) from task_instance where task_id={}".format(task_a.task_id)
+        ).fetchone()
+        ti_id_a = ti[0]
+        DB.session.execute("""
+            UPDATE task
+            SET status ='{s}'
+            WHERE id={t_id}""".format(s=TaskStatus.RUNNING,
+                                      t_id=task_a.task_id))
+        DB.session.execute("""
+            INSERT INTO task_instance (workflow_run_id, task_id, status)
+            VALUES ({wfr_id}, {t_id}, '{s}')""".format(
+                wfr_id=wfr_1.workflow_run_id,
+                t_id=task_b.task_id,
+                s=TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR))
+        ti = DB.session.execute(
+            "SELECT max(id) from task_instance where task_id={}".format(task_b.task_id)
+        ).fetchone()
+        ti_id_b = ti[0]
+        DB.session.execute("""
+            UPDATE task
+            SET status ='{s}'
+            WHERE id={t_id}""".format(s=TaskStatus.RUNNING,
+                                      t_id=task_b.task_id))
+        DB.session.commit()
+
+    # log task_instance fatal error for task_a
+    app_route = f"/task_instance/{ti_id_a}/log_error_worker_node"
+    return_code, _ = workflow1.requester.send_request(
+        app_route=app_route,
+        message={"error_state": "F", "error_message": "bla bla bla"},
+        request_type='post'
+    )
+    assert return_code == 200
+
+    # log task_instance fatal error - 2nd error for task_a
+    app_route = f"/task_instance/{ti_id_a}/log_error_worker_node"
+    return_code, _ = workflow1.requester.send_request(
+        app_route=app_route,
+        message={"error_state": "F", "error_message": "ble ble ble"},
+        request_type='post'
+    )
+    assert return_code == 200
+
+    # log task_instance fatal error for task_b
+    app_route = f"/task_instance/{ti_id_b}/log_error_worker_node"
+    return_code, _ = workflow1.requester.send_request(
+        app_route=app_route,
+        message={"error_state": "F", "error_message": "cla cla cla"},
+        request_type='post'
+    )
+    assert return_code == 200
+
+    # make sure we see the 2 tasks in the workflow_errors(task_a and task_b)
+    # and task_b one has 1 task_instance_error_log
+    workflow_errors = workflow1.get_errors()
+    assert type(workflow_errors) == dict
+    assert len(workflow_errors) == 2
+    task_b_errors = workflow_errors[task_b.task_id]
+    assert task_b_errors['task_instance_id'] == ti_id_b
+    error_log_b = task_b_errors['error_log']
+    assert type(error_log_b) == list
+    assert len(error_log_b) == 1
+    err_1st_b = error_log_b[0]
+    assert type(err_1st_b) == dict
+    assert err_1st_b['description'] == "cla cla cla"
+
