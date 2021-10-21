@@ -71,7 +71,6 @@ def add_edges(dag_id: int) -> Any:
     """Add edges to the edge table."""
     bind_to_logger(dag_id=dag_id)
     logger.info(f"Add edges for dag {dag_id}")
-
     try:
         data = request.get_json()
         edges_to_add = data.pop("edges_to_add")

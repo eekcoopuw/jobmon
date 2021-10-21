@@ -355,6 +355,8 @@ class DistributorService:
                 f"{self.distributor.__class__.__name__} does not implement "
                 f"get_errored_jobs methods."
             )
+        except Exception as e:
+            logger.warning(str(e))
 
     def _log_distributor_report_by(self) -> None:
         next_report_increment = (

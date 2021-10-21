@@ -850,3 +850,27 @@ class Workflow(object):
         hash_value.update(str(self.task_hash).encode("utf-8"))
         hash_value.update(str(hash(self._dag)).encode("utf-8"))
         return int(hash_value.hexdigest(), 16)
+
+    def get_errors(
+        self, limit: int = 1000
+    ) -> Optional[Dict[int, Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]]]:
+        """Method to get all errors.
+
+        Return a dictionary with the erring task_id as the key, and
+        the Task.get_errors content as the value.
+        When limit is specifically set as None from the client, this
+        return set will pass back all the erred tasks in the workflow.
+        """
+        errors = {}
+
+        cnt: int = 0
+        for task in self.tasks.values():
+            task_id = task.task_id
+            task_errors = task.get_errors()
+            if task_errors is not None and len(task_errors) > 0:
+                errors[task_id] = task_errors
+                cnt += 1
+                if limit is not None and cnt >= limit - 1:
+                    break
+
+        return errors

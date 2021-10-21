@@ -158,6 +158,7 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
         update_task_instance, {"workflow_run_id": workflow_run_id, "states": states}
     )
     DB.session.flush()
+
     logger.debug(f"Job instance status updated for {workflow_run_id}")
     # transition to terminated
     workflow_run.transition(WorkflowRunStatus.TERMINATED)
@@ -353,8 +354,9 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
         wfr.reap()
         DB.session.commit()
         status = wfr.status
-    except (InvalidStateTransition, AttributeError):
+    except (InvalidStateTransition, AttributeError) as e:
         # this branch handles race condition or case where no wfr was returned
+        logger.debug(f"Unable to reap workflow_run {wfr.id}: {e}")
         status = ""
     resp = jsonify(status=status)
     resp.status_code = StatusCodes.OK

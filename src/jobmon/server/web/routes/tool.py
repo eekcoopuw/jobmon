@@ -51,11 +51,40 @@ def add_tool() -> Any:
             .params(tool_name=tool_name)
             .one()
         )
-
     wire_format = tool.to_wire_as_client_tool()
     resp = jsonify(tool=wire_format)
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@finite_state_machine.route("/tool/<tool_name>", methods=["GET"])
+def get_tool(tool_name: str) -> Any:
+    """Get the Tool object from the database."""
+    # get data from db
+    query = """
+        SELECT
+            tool.*
+        FROM
+            tool
+        WHERE
+            name = :tool_name"""
+    tool = (
+        DB.session.query(Tool)
+        .from_statement(text(query))
+        .params(tool_name=tool_name)
+        .one_or_none()
+    )
+    DB.session.commit()
+    if tool:
+        tool = tool.to_wire_as_client_tool()
+        resp = jsonify(tool=tool)
+        resp.status_code = StatusCodes.OK
+        return resp
+    else:
+        raise InvalidUsage(
+            f"Tool {tool_name} does not exist with request to {request.path}",
+            status_code=400,
+        )
 
 
 @finite_state_machine.route("/tool/<tool_id>/tool_versions", methods=["GET"])

@@ -9,9 +9,10 @@ data:
     USE_LOGSTASH: "{{ .Values.global.use_logstash }}"
     LOGSTASH_HOST: logstash
     LOGSTASH_PORT: "5000"
-    LOGSTASH_PROTOCOL: TCP
+    LOGSTASH_PROTOCOL: UDP
     # Same comment as USE_LOGSTASH, turn off by deleting USE_APM
     USE_APM: "True"
     APM_HOST: jobmon-apm
     APM_PORT: "8200"
     LOG_LEVEL: INFO
+    DB_NAME: docker
