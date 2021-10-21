@@ -219,13 +219,13 @@ def test_uge_only(db_cfg, qpidcfg):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-        INSERT INTO task_instance (workflow_run_id, cluster_type_name, 
+        INSERT INTO task_instance (workflow_run_id, cluster_type_id, 
                                    distributor_id, task_id, status, status_date)
         VALUES 
-            (1, 'uge', 1, 1, 'D', now()),
-            (1, 'uge', 2, 2, 'D', now()),
-            (1, 'sequential', 3, 3, 'D', now()),
-            (1, 'sequential', 4, 4, 'D', now())
+            (1, 4, 1, 1, 'D', now()),
+            (1, 4, 2, 2, 'D', now()),
+            (1, 2, 3, 3, 'D', now()),
+            (1, 2, 4, 4, 'D', now())
         """
         DB.session.execute(sql)
         DB.session.commit()

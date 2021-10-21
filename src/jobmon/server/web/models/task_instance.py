@@ -33,7 +33,7 @@ class TaskInstance(DB.Model):
 
     id = DB.Column(DB.Integer, primary_key=True)
     workflow_run_id = DB.Column(DB.Integer)
-    cluster_type_name = DB.Column(DB.String(50))
+    cluster_type_id = DB.Column(DB.Integer, DB.ForeignKey("cluster_type.id"))
     distributor_id = DB.Column(DB.Integer, index=True)
     task_id = DB.Column(DB.Integer, DB.ForeignKey("task.id"))
     task_resources_id = DB.Column(DB.Integer, DB.ForeignKey("task_resources.id"))
