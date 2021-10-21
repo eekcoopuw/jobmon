@@ -50,12 +50,6 @@ DOCS_REQUIRES = [
 ]
 
 
-def local_scheme(version):
-    """Skip the local version (eg. +xyz of 0.6.1.dev4+gdf99fe2)
-    to be able to upload to Test PyPI"""
-    return ""
-
-
 def read(read_file: str):
     return open(os.path.join(os.path.dirname(__file__), read_file)).read()
 
@@ -92,7 +86,7 @@ setup(
     package_data={"jobmon": ["py.typed"]},
 
     setup_requires=["setuptools_scm"],
-    use_scm_version={'local_scheme': local_scheme,
+    use_scm_version={'local_scheme': 'no-local-version',
                      'write_to': 'src/jobmon/_version.py',
                      'fallback_version': '0.0.0',
                      'version_scheme': 'release-branch-semver'},
