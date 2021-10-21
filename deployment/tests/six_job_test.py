@@ -1,41 +1,88 @@
+import os
+import sys
 import uuid
 
-from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-from jobmon.client.templates.bash_task import BashTask
+from jobmon.client.api import Tool
 
 
-def six_job_test():
+thisdir = os.path.dirname(os.path.realpath(__file__))
+
+
+def six_job_test(cluster_name: str):
     """
     Creates and runs one workflow with six jobs. Used to 'smoke test' a
     new deployment of jobmon.
     """
     # First Tier
     # Deliberately put in on the long queue with max runtime > 1 day
-    t1 = BashTask("sleep 10", num_cores=1,
-                  queue='long.q',
-                  max_runtime_seconds=90_000)
+    tool = Tool(name=f"Iguanodon alpha testing - {cluster_name}")
+    long_q_template = tool.get_task_template(
+        template_name='long_queue_test',
+        command_template="{command}",
+        node_args=['command']
+    )
+    normal_q_template = tool.get_task_template(
+        template_name='normal_queue_test',
+        command_template="{command}",
+        node_args=['command']
+    )
+    tool.set_default_compute_resources_from_yaml(
+        default_cluster_name=cluster_name,
+        yaml_file=os.path.join(thisdir, "six_job_test_resources.yaml"),
+        set_task_templates=True,
+        ignore_missing_keys=True
+    )
+
+    t1 = long_q_template.create_task(
+        name='t1',
+        command="sleep 10"
+    )
 
     # Second Tier, both depend on first tier
-    t2 = BashTask("sleep 20", upstream_tasks=[t1], num_cores=1,
-                  queue='all.q',
-                  max_runtime_seconds=60)
-    t3 = BashTask("sleep 25", upstream_tasks=[t1], num_cores=1)
+    t2 = normal_q_template.create_task(
+        name='t2',
+        command="sleep 20",
+        upstream_tasks=[t1]
+    )
+
+    t3 = normal_q_template.create_task(
+        name='t3',
+        command="sleep 25",
+        upstream_tasks=[t1]
+    )
 
     # Third Tier, cross product dependency on second tier
-    t4 = BashTask("sleep 17", upstream_tasks=[t2, t3], num_cores=1)
-    t5 = BashTask("sleep 13", upstream_tasks=[t2, t3], num_cores=1)
+    t4 = normal_q_template.create_task(
+        name='t4',
+        command="sleep 17",
+        upstream_tasks=[t2, t3]
+    )
+
+    t5 = normal_q_template.create_task(
+        name='t5',
+        command="sleep 13",
+        upstream_tasks=[t2, t3]
+    )
 
     # Fourth Tier, ties it all back together
-    t6 = BashTask("sleep 19", upstream_tasks=[t4, t5], num_cores=1)
+    t6 = normal_q_template.create_task(
+        name='t6',
+        command="sleep 19",
+        upstream_tasks=[t4, t5]
+    )
 
-    wf = Workflow("six-job-test-{}".format(uuid.uuid4()),
-                  "./six_job_test_stderr.log",
-                  project="proj_scicomp")
+    wf = tool.create_workflow(
+        workflow_args="six-job-test-{}".format(uuid.uuid4()),
+        name='six_job_test')
     wf.add_tasks([t1, t2, t3, t4, t5, t6])
     print("Running the workflow, about 70 seconds minimum")
-    wf.run()
-    print("All good, dancing pixies.")
+    wfr_status = wf.run()
+    if wfr_status == 'D':
+        print("All good, dancing pixies.")
+    else:
+        raise ValueError(f"Workflow should be successful, not state {wfr_status}")
 
 
 if __name__ == "__main__":
-    six_job_test()
+    cluster_name = sys.argv[1]
+    six_job_test(cluster_name)

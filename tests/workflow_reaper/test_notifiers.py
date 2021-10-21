@@ -4,9 +4,11 @@ import pytest
 
 
 def test_no_raise():
-    notifier = SlackNotifier(token='fake_token',
-                             default_channel='jobmon-alerts',
-                             slack_api_url='https://slack.com/apis/chat.postMessage')
+    notifier = SlackNotifier(
+        token="fake_token",
+        default_channel="jobmon-alerts",
+        slack_api_url="https://slack.com/apis/chat.postMessage",
+    )
     try:
         notifier.send(msg="This should fail because of fake link")
     except Exception as e:

@@ -6,7 +6,7 @@ import logging
 import sys
 
 from jobmon.client.api import Tool, ExecutorParameters
-from jobmon.client.execution.strategies.sge.sge_executor import SGEExecutor
+from jobmon.client.distributor.strategies.sge.sge_executor import SGEExecutor
 
 """
 This script creates workflows with random tasks and random task dependencies,

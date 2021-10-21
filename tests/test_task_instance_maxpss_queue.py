@@ -53,7 +53,7 @@ def test_integration_with_mock(db_cfg, dag_factory):
         MaxpssQ.keep_running = False
         assert MaxpssQ().get_size() == 0
         code, response = req.send_request(
-            app_route='/scheduler/task_instance/1/maxpss',
+            app_route='/distributor/task_instance/1/maxpss',
             message={},
             request_type='get')
         assert code == 200
@@ -65,7 +65,8 @@ def test_integration_with_mock(db_cfg, dag_factory):
 def qpidcfg(monkeypatch, db_cfg):
     """This creates a new tmp_out_dir for every module"""
     from jobmon.server.qpid_integration.qpid_config import QPIDConfig
-    db_conn = db_cfg['server_config']
+
+    db_conn = db_cfg["server_config"]
 
     def get_config():
         return QPIDConfig(
@@ -77,7 +78,7 @@ def qpidcfg(monkeypatch, db_cfg):
             qpid_polling_interval=600,
             qpid_max_update_per_second=10,
             qpid_cluster="fair",
-            qpid_uri="https://jobapi.ihme.washington.edu"
+            qpid_uri="https://jobapi.ihme.washington.edu",
         )
 
     monkeypatch.setattr(QPIDConfig, "from_defaults", get_config)
@@ -125,10 +126,11 @@ def test_worker_with_mock_200(qpidcfg):
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
     assert MaxpssQ().get_size() == 0
-    with mock.patch('jobmon.server.qpid_integration.qpid_integrator._update_maxpss_in_db') as\
-            m_db, \
-         mock.patch('jobmon.server.qpid_integration.qpid_integrator._get_qpid_response') \
-            as m_restful:
+    with mock.patch(
+        "jobmon.server.qpid_integration.qpid_integrator._update_maxpss_in_db"
+    ) as m_db, mock.patch(
+        "jobmon.server.qpid_integration.qpid_integrator._get_qpid_response"
+    ) as m_restful:
         m_db.return_value = True
         m_restful.return_value = (200, 500)
         MaxpssQ().put(1)
@@ -152,8 +154,9 @@ def test_worker_with_mock_404(qpidcfg):
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
     assert MaxpssQ().get_size() == 0
-    with mock.patch('jobmon.server.qpid_integration.qpid_integrator._get_qpid_response') as \
-            m_restful:
+    with mock.patch(
+        "jobmon.server.qpid_integration.qpid_integrator._get_qpid_response"
+    ) as m_restful:
         m_restful.return_value = (404, None)
         MaxpssQ().put(1)
         assert MaxpssQ().get_size() == 1
@@ -173,15 +176,16 @@ def test_worker_with_mock_404(qpidcfg):
 
 @pytest.mark.unittest
 def test_worker_with_mock_500(qpidcfg):
-    """This is to test the job will be put back to the Q with age increated when QPID is
+    """This is to test the job will be put back to the Q with age increased when QPID is
     down."""
     from jobmon.server.qpid_integration.qpid_integrator import MaxpssQ, maxpss_forever
 
     MaxpssQ().empty_q()
     MaxpssQ.keep_running = True
     assert MaxpssQ().get_size() == 0
-    with mock.patch('jobmon.server.qpid_integration.qpid_integrator._get_qpid_response') as \
-            m_restful:
+    with mock.patch(
+        "jobmon.server.qpid_integration.qpid_integrator._get_qpid_response"
+    ) as m_restful:
         m_restful.return_value = (500, None)
         MaxpssQ().put(1)
         assert MaxpssQ().get_size() == 1
@@ -199,17 +203,56 @@ def test_worker_with_mock_500(qpidcfg):
         assert r[1] > 0
 
 
+@pytest.mark.unittest
+def test_uge_only(db_cfg, qpidcfg):
+    """Test that only UGE tasks will be added to the queue and updated"""
+    from jobmon.server.qpid_integration.qpid_integrator import MaxpssQ
+    from jobmon.server.qpid_integration.qpid_integrator import (
+        _get_completed_task_instance,
+    )
+    import time
+
+    # Populate database with some dirty task instances
+    heartbeat_time = time.time()  # Log a heartbeat before creating tasks
+    time.sleep(3)  # Ensure enough of a lag passes before binding tasks
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+        INSERT INTO task_instance (workflow_run_id, cluster_type_id, 
+                                   distributor_id, task_id, status, status_date)
+        VALUES 
+            (1, 4, 1, 1, 'D', now()),
+            (1, 4, 2, 2, 'D', now()),
+            (1, 2, 3, 3, 'D', now()),
+            (1, 2, 4, 4, 'D', now())
+        """
+        DB.session.execute(sql)
+        DB.session.commit()
+
+    # Pull some task instances using the QPID integrator.
+    # Should return 2 instances only since only UGE tasks are returned
+    # initialize the q
+    MaxpssQ()
+    with app.app_context():
+        _get_completed_task_instance(starttime=heartbeat_time, session=DB.session)
+
+    # Check that queue has 2 items
+    assert MaxpssQ._q.qsize() == 2
+
+
 def test_route_get_maxpss_error_path(qpidcfg, client_env):
     """This is to test the restful API to get maxpss of a job instance in jobmon side"""
     from jobmon.server.qpid_integration.qpid_integrator import MaxpssQ
+
     req = Requester(client_env)
 
     MaxpssQ().empty_q()
     # test non-existing ji
     code, _ = req.send_request(
-        app_route='/scheduler/task_instance/9999/maxpss',
+        app_route="/distributor/task_instance/9999/maxpss",
         message={},
-        request_type='get'
+        request_type="get",
     )
     assert code == 404
 

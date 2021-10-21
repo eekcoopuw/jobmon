@@ -18,3 +18,7 @@ while [ "$r" != "200" ] &&  (( $num<100 )); do
     num=$((num+1))
     r=$(curl -LI $1 -o /dev/null -w '%{http_code}\n' -s)
 done;
+
+if (( $num==100 )); then
+    echo "Server failed to start"
+fi

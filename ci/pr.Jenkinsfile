@@ -5,6 +5,11 @@ pipeline {
   options {
     buildDiscarder(logRotator(numToKeepStr: '30'))
   } // End options
+  parameters {
+    booleanParam(defaultValue: 'true',
+     description: 'Whether or not you want to deploy Jobmon to Pypi',
+     name: 'DEPLOY_PYPI')
+  } // end parameters
   triggers {
     // This cron expression runs seldom, or never runs, but having the value set
     // allows bitbucket server to remotely trigger builds.
@@ -40,7 +45,7 @@ pipeline {
         } // End lint stage
         stage("Typecheck") {
           steps {
-            sh "${ACTIVATE} && nox --session typecheck || true"
+            sh "${ACTIVATE} && nox --session typecheck"
           } // End step
         } // End typecheck stage
         stage("Build Docs") {
@@ -88,7 +93,32 @@ pipeline {
         } // End tests stage
       } // End parallel
     } // End parallel stage
-  } // End stages
+    stage ('Build Python Distribution') {
+      steps {
+        script {
+          // Optionally build Python package and publish to Pypi, conditioned on success of tests/lint/typecheck
+          if (params.DEPLOY_PYPI) {
+            // Artifactory user with write permissions
+            withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
+                                              usernameVariable: 'REG_USERNAME',
+                                              passwordVariable: 'REG_PASSWORD')]) {
+              sh '''#!/bin/bash
+                    . ${WORKSPACE}/ci/deploy_utils.sh
+                    upload_python_dist \
+                        ${WORKSPACE} \
+                        $REG_USERNAME \
+                        $REG_PASSWORD \
+                        "${ACTIVATE}"
+                 '''
+            } // end credentials
+          } // end if params
+          else {
+            echo "Not deploying to Pypi"
+          } // end else
+        } // end script
+      } // end steps
+    } // end Build Python Distribution stage
+  } // end stages
   post {
     always {
       // Delete the workspace directory.

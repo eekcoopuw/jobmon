@@ -29,4 +29,8 @@ spec:
     port: 9200
     name: elasticsearch
     nodePort:
+  - protocol: TCP
+    port: 5000
+    name: logstash
+    nodePort:
   type: LoadBalancer

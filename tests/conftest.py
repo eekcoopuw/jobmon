@@ -1,82 +1,22 @@
-import glob
-import json
 import logging
-import os
 import platform
-import pwd
-import re
-import shutil
-import socket
-import sys
-import uuid
-from time import sleep
-
-from cluster_utils.ephemerdb import MARIADB, create_ephemerdb
-
-from filelock import FileLock
 
 import pytest
 
-import requests
-
-from sqlalchemy import create_engine
-
+from jobmon.test_utils import test_server_config, WebServerProcess, ephemera_db_instance
+from jobmon.client.api import Tool
 
 logger = logging.getLogger(__name__)
 
 
-@pytest.fixture(scope='session', autouse=True)
+@pytest.fixture(scope="session", autouse=True)
 def set_mac_to_fork():
     """necessary for running tests on a mac with python 3.8 see:
     https://github.com/pytest-dev/pytest-flask/issues/104"""
-    if platform.system() == 'Darwin':
+    if platform.system() == "Darwin":
         import multiprocessing
+
         multiprocessing.set_start_method("fork")
-
-
-def boot_db() -> dict:
-    """
-    Boots a test ephemera database
-
-    Returns:
-      a dictionary with connection parameters
-    """
-    edb = create_ephemerdb(elevated_privileges=True, database_type=MARIADB)
-    edb.db_name = "docker"
-    conn_str = edb.start()
-
-    # Set the time zone
-    eng = create_engine(edb.root_conn_str)
-    with eng.connect() as conn:
-        conn.execute("SET GLOBAL time_zone = 'America/Los_Angeles'")
-
-    # use the ephemera db root privileges (root: singularity_root) otherwise
-    # you will not see changes to the database
-    logger.info(f"Database connection {conn_str}")
-    print(f"****** Database connection {conn_str}")
-
-    # load schema
-    here = os.path.dirname(__file__)
-    create_dir = os.path.join(here, "..", "deployment/config/db")
-
-    create_files = glob.glob(os.path.join(create_dir, "*.sql"))
-
-    for file in sorted(create_files):
-        edb.execute_sql_script(file)
-
-    # get connection info
-    pattern = ("mysql://(?P<user>.*):(?P<pass>.*)"
-               "@(?P<host>.*):(?P<port>.*)/(?P<db>.*)")
-    result = re.search(pattern, conn_str)
-    db_conn_dict = result.groupdict()
-    cfg = {
-        "DB_HOST": db_conn_dict["host"],
-        "DB_PORT": db_conn_dict["port"],
-        "DB_USER": db_conn_dict["user"],
-        "DB_PASS": db_conn_dict["pass"],
-        "DB_NAME": db_conn_dict["db"]
-    }
-    return cfg
 
 
 @pytest.fixture(scope="session")
@@ -87,145 +27,123 @@ def ephemera(tmp_path_factory, worker_id) -> dict:
     Returns:
       a dictionary with connection parameters
     """
-    if worker_id == "master":
-        # not executing with multiple workers, just produce the data and let
-        # pytest's fixture caching do its job
-        return boot_db()
-
-    # get the temp directory shared by all workers
-    root_tmp_dir = tmp_path_factory.getbasetemp().parent
-
-    # Only want one instance of the database
-    fn = root_tmp_dir / "data.json"
-    with FileLock(str(fn) + ".lock"):
-        if fn.is_file():
-            connection_information = json.loads(fn.read_text())
-        else:
-            connection_information = boot_db()
-            fn.write_text(json.dumps(connection_information))
-    return connection_information
+    return ephemera_db_instance(tmp_path_factory, worker_id)
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def web_server_process(ephemera):
     """This starts the flask dev server in separate processes"""
-    import multiprocessing as mp
-    import signal
-
-    # host info for connecting to web service
-    # spawn ensures that no attributes are copied to the new process. Python
-    # starts from scratch
-    # The Jobmon server and ephemera can communicate via localhost,
-    # But the worker node needs the FQDN of the jobmon server
-    if sys.platform == "darwin":
-        web_host = ephemera["DB_HOST"]
-    else:
-        web_host = socket.getfqdn()
-    web_port = str(10_000 + os.getpid() % 30_000)
-
-    # jobmon_cli string
-    argstr = (
-        'web_service test '
-        f'--db_host {ephemera["DB_HOST"]} '
-        f'--db_port {ephemera["DB_PORT"]} '
-        f'--db_user {ephemera["DB_USER"]} '
-        f'--db_pass {ephemera["DB_PASS"]} '
-        f'--db_name {ephemera["DB_NAME"]} '
-        f'--web_service_port {web_port}')
-
-    def run_server_with_handler(argstr):
-        def sigterm_handler(_signo, _stack_frame):
-            # catch SIGTERM and shut down with 0 so pycov finalizers are run
-            # Raises SystemExit(0):
-            import sys
-            sys.exit(0)
-        from jobmon.server.cli import main
-
-        signal.signal(signal.SIGTERM, sigterm_handler)
-        main(argstr)
-
-    ctx = mp.get_context('fork')
-    p1 = ctx.Process(target=run_server_with_handler, args=(argstr,))
-    p1.start()
-
-    # Wait for it to be up
-    status = 404
-    count = 0
-    max_tries = 60
-    while not status == 200 and count < max_tries:
-        try:
-            count += 1
-            r = requests.get(f'http://{web_host}:{web_port}/health')
-            status = r.status_code
-        except Exception:
-            # Connection failures land here
-            # Safe to catch all because there is a max retry
-            pass
-        # sleep outside of try block!
-        sleep(3)
-
-    if count >= max_tries:
-        raise TimeoutError(
-            f"Out-of-process jobmon services did not answer after "
-            f"{count} attempts, probably failed to start.")
-
-    yield {"JOBMON_HOST": web_host, "JOBMON_PORT": web_port}
-
-    # interrupt and join for coverage
-    p1.terminate()
-    p1.join()
+    with WebServerProcess(ephemera) as web:
+        yield {"JOBMON_HOST": web.web_host, "JOBMON_PORT": web.web_port}
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def db_cfg(ephemera) -> dict:
+    return test_server_config(ephemera)
+
+
+@pytest.fixture(scope="function")
+def client_env(web_server_process, monkeypatch):
+    from jobmon.client.client_config import ClientConfig
+
+    monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
+    monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
+
+    cc = ClientConfig(
+        web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"], 30, 3.1
+    )
+    yield cc.url
+
+
+@pytest.fixture(scope="function")
+def requester_no_retry(client_env):
+    from jobmon.requester import Requester
+
+    return Requester(client_env, max_retries=0)
+
+
+@pytest.fixture(scope="session")
+def web_server_in_memory(ephemera):
+    """This sets up the JSM/JQS using the test_client which is a
+    fake server
     """
-    This is run at the beginning of every test function to:
-      1. tear down the db of the previous test and restart it fresh, and
-      2. plus it starts all the services in this process
-
-      HOWEVER, this flask application is ignored, we are forced to start it to get the
-      database connection. This fixture is used to start the database, the services are
-      ignored.
-
-      Returns:
-          A dictionary with the database connection parameters
-      """
-    from jobmon.server.web.models import DB
-    from jobmon.server.web.api import WebConfig, create_app
+    from jobmon.server.web.start import create_app
+    from jobmon.server.web.web_config import WebConfig
 
     # The create_app call sets up database connections
-    web_config = WebConfig(
+    server_config = WebConfig(
         db_host=ephemera["DB_HOST"],
         db_port=ephemera["DB_PORT"],
         db_user=ephemera["DB_USER"],
         db_pass=ephemera["DB_PASS"],
-        db_name=ephemera["DB_NAME"])
-    app = create_app(web_config)
-
-    yield {'app': app, 'DB': DB, "server_config": web_config}
-
-
-@pytest.fixture(scope='function')
-def client_env(web_server_process, monkeypatch):
-    from jobmon.client.client_config import ClientConfig
-    monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
-    monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
-
-    cc = ClientConfig(web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"],
-                      30, 3.1)
-    yield cc.url
+        db_name=ephemera["DB_NAME"],
+    )
+    app = create_app(server_config)
+    app.config["TESTING"] = True
+    client = app.test_client()
+    yield client
 
 
-@pytest.fixture(scope='function')
-def requester_no_retry(client_env):
-    from jobmon.requester import Requester
-    return Requester(client_env, max_retries=0)
+def get_test_content(response):
+    """The function called by the no_request_jsm_jqs to query the fake
+    test_client for a response
+    """
+    if "application/json" in response.headers.get("Content-Type"):
+        content = response.json
+    elif "text/html" in response.headers.get("Content-Type"):
+        content = response.data
+    else:
+        content = response.content
+    return response.status_code, content
 
 
-@pytest.fixture(scope='module')
-def tmp_out_dir():
-    """This creates a new tmp_out_dir for every module"""
-    user = pwd.getpwuid(os.getuid()).pw_name
-    output_root = f'/ihme/scratch/users/{user}/tests/jobmon/{uuid.uuid4()}'
-    yield output_root
-    shutil.rmtree(output_root, ignore_errors=True)
+@pytest.fixture(scope="function")
+def requester_in_memory(monkeypatch, web_server_in_memory):
+    """This function monkeypatches the requests library to use the
+    test_client
+    """
+    import requests
+    from jobmon import requester
+
+    monkeypatch.setenv("WEB_SERVICE_FQDN", "1")
+    monkeypatch.setenv("WEB_SERVICE_PORT", "2")
+
+    def get_in_mem(url, params, data, headers):
+        url = "/" + url.split(":")[-1].split("/", 1)[1]
+        return web_server_in_memory.get(
+            path=url, query_string=params, data=data, headers=headers
+        )
+
+    def post_in_mem(url, json, headers):
+        url = "/" + url.split(":")[-1].split("/", 1)[1]
+        return web_server_in_memory.post(url, json=json, headers=headers)
+
+    def put_in_mem(url, json, headers):
+        url = "/" + url.split(":")[-1].split("/", 1)[1]
+        return web_server_in_memory.put(url, json=json, headers=headers)
+
+    monkeypatch.setattr(requests, "get", get_in_mem)
+    monkeypatch.setattr(requests, "post", post_in_mem)
+    monkeypatch.setattr(requests, "put", post_in_mem)
+    monkeypatch.setattr(requester, "get_content", get_test_content)
+
+
+@pytest.fixture
+def tool(db_cfg, client_env):
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
+    tool.get_task_template(
+        template_name="simple_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    return tool
+
+
+@pytest.fixture
+def task_template(tool):
+    return tool.active_task_templates["simple_template"]

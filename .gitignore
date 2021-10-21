@@ -51,3 +51,6 @@ htmlcov
 # ignore auto generated docs
 docsource/api
 /out
+
+# ignore conda build
+conda_build_output/*

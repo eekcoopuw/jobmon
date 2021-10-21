@@ -1,22 +1,28 @@
 """Routes used by the main jobmon client."""
-import json
+from functools import partial
 from http import HTTPStatus as StatusCodes
+import json
+from typing import Any
 
-from flask import current_app as app, jsonify, request
-
-from jobmon.server.web.models import DB
-from jobmon.server.web.models.node import Node
-from jobmon.server.web.models.node_arg import NodeArg
-
+from flask import jsonify, request
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
 from sqlalchemy.sql import text
+from werkzeug.local import LocalProxy
 
-from . import jobmon_client
+from jobmon.server.web.log_config import bind_to_logger, get_logger
+from jobmon.server.web.models import DB
+from jobmon.server.web.models.node import Node
+from jobmon.server.web.models.node_arg import NodeArg
+from jobmon.server.web.routes import finite_state_machine
 
 
-@jobmon_client.route('/node', methods=['GET'])
-def get_node_id():
+# new structlog logger per flask request context. internally stored as flask.g.logger
+logger = LocalProxy(partial(get_logger, __name__))
+
+
+@finite_state_machine.route("/node", methods=["GET"])
+def get_node_id() -> Any:
     """Get a node id: If a matching node isn't found, return None.
 
     Args:
@@ -29,21 +35,26 @@ def get_node_id():
         WHERE
             node_args_hash = :node_args_hash
             AND task_template_version_id = :task_template_version_id"""
-    result = DB.session.query(Node).from_statement(text(query)).params(
-        node_args_hash=request.args['node_args_hash'],
-        task_template_version_id=request.args['task_template_version_id']
-    ).one_or_none()
+    result = (
+        DB.session.query(Node)
+        .from_statement(text(query))
+        .params(
+            node_args_hash=request.args["node_args_hash"],
+            task_template_version_id=request.args["task_template_version_id"],
+        )
+        .one_or_none()
+    )
 
     if result is None:
-        resp = jsonify({'node_id': None})
+        resp = jsonify({"node_id": None})
     else:
-        resp = jsonify({'node_id': result.id})
+        resp = jsonify({"node_id": result.id})
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@jobmon_client.route('/node', methods=['POST'])
-def add_node():
+@finite_state_machine.route("/node", methods=["POST"])
+def add_node() -> Any:
     """Add a new node to the database.
 
     Args:
@@ -52,16 +63,21 @@ def add_node():
         node_args: key-value pairs of arg_id and a value.
     """
     data = request.get_json()
-    app.logger = app.logger.bind(
-        task_template_version_id=data['task_template_version_id'],
-        node_args_hash=str(data['node_args_hash'])
+    bind_to_logger(
+        task_template_version_id=data["task_template_version_id"],
+        node_args_hash=str(data["node_args_hash"]),
     )
-    app.logger.debug(f"Add node with ttv id:{data['task_template_version_id']}, "
-                     f"node_args_hash {data['node_args_hash']}")
+    logger.info("Adding node")
+    logger.debug(
+        f"Add node with ttv id:{data['task_template_version_id']}, "
+        f"node_args_hash {data['node_args_hash']}"
+    )
     # add node
     try:
-        node = Node(task_template_version_id=data['task_template_version_id'],
-                    node_args_hash=data['node_args_hash'])
+        node = Node(
+            task_template_version_id=data["task_template_version_id"],
+            node_args_hash=data["node_args_hash"],
+        )
         DB.session.add(node)
         DB.session.commit()
 
@@ -69,11 +85,9 @@ def add_node():
         DB.session.refresh(node, with_for_update=True)
 
         # add node_args
-        node_args = json.loads(data['node_args'])
+        node_args = json.loads(data["node_args"])
         for arg_id, value in node_args.items():
-            app.logger.debug(
-                f'Adding node_arg with node_id: {node.id}, arg_id: {arg_id}, and val: {value}'
-            )
+            logger.debug("Adding node_arg", node_id=node.id, arg_id=arg_id, val=value)
             node_arg = NodeArg(node_id=node.id, arg_id=arg_id, val=value)
             DB.session.add(node_arg)
         DB.session.commit()
@@ -90,10 +104,15 @@ def add_node():
                 task_template_version_id = :task_template_version_id
                 AND node_args_hash = :node_args_hash
         """
-        node = DB.session.query(Node).from_statement(text(query)).params(
-            task_template_version_id=data['task_template_version_id'],
-            node_args_hash=data['node_args_hash']
-        ).one()
+        node = (
+            DB.session.query(Node)
+            .from_statement(text(query))
+            .params(
+                task_template_version_id=data["task_template_version_id"],
+                node_args_hash=data["node_args_hash"],
+            )
+            .one()
+        )
         DB.session.commit()
         # return result
         resp = jsonify(node_id=node.id)
@@ -101,8 +120,8 @@ def add_node():
         return resp
 
 
-@jobmon_client.route('/nodes', methods=['POST'])
-def add_nodes():
+@finite_state_machine.route("/nodes", methods=["POST"])
+def add_nodes() -> Any:
     """Add a chunk of nodes to the database.
 
     Args:
@@ -113,12 +132,14 @@ def add_nodes():
     """
     data = request.get_json()
     # Extract node and node_args
-    nodes = [(n['task_template_version_id'], n['node_args_hash']) for n in data['nodes']]
+    nodes = [
+        (n["task_template_version_id"], n["node_args_hash"]) for n in data["nodes"]
+    ]
 
     # Bulk insert the nodes and node args with raw SQL, for performance. Ignore duplicate
     # keys
     nodes_to_add = [
-        {'task_template_version_id': ttv, 'node_args_hash': arghash}
+        {"task_template_version_id": ttv, "node_args_hash": arghash}
         for ttv, arghash in nodes
     ]
     node_insert_stmt = insert(Node).prefix_with("IGNORE")
@@ -134,34 +155,34 @@ def add_nodes():
             task_template_version_id IN :task_template_version_id
             AND node_args_hash IN :node_args_hash
     """
-    node_ids = DB.session.query(Node).from_statement(text(node_ids_query)).params(
-        task_template_version_id=ttvids,
-        node_args_hash=node_arg_hashes
-    ).all()
+    node_ids = (
+        DB.session.query(Node)
+        .from_statement(text(node_ids_query))
+        .params(task_template_version_id=ttvids, node_args_hash=node_arg_hashes)
+        .all()
+    )
 
     node_id_dict = {
-        (n.task_template_version_id, str(n.node_args_hash)): n.id
-        for n in node_ids
+        (n.task_template_version_id, str(n.node_args_hash)): n.id for n in node_ids
     }
 
     # Add node args. Cast hash to string to match DB schema
-    node_args = {(n['task_template_version_id'], str(n['node_args_hash'])): n['node_args']
-                 for n in data['nodes']}
+    node_args = {
+        (n["task_template_version_id"], str(n["node_args_hash"])): n["node_args"]
+        for n in data["nodes"]
+    }
 
     node_args_list = []
     for node_id_tuple, arg in node_args.items():
 
         node_id = node_id_dict[node_id_tuple]
+        local_logger = logger.bind(node_id=node_id)
 
         for arg_id, val in arg.items():
-            app.logger.debug(f'Adding node_arg with node_id: {node_id}, arg_id: {arg_id}, '
-                             f'and val: {val}',
-                             node_id=node_id)
-            node_args_list.append({
-                'node_id': node_id,
-                'arg_id': arg_id,
-                'val': val
-            })
+            local_logger.debug(
+                "Adding node_arg", node_id=node_id, arg_id=arg_id, val=val
+            )
+            node_args_list.append({"node_id": node_id, "arg_id": arg_id, "val": val})
 
     # Bulk insert again with raw SQL
     if node_args_list:
@@ -170,8 +191,9 @@ def add_nodes():
         DB.session.commit()
 
     # return result
-    return_nodes = {':'.join(str(i) for i in key): val for key, val in
-                    node_id_dict.items()}
+    return_nodes = {
+        ":".join(str(i) for i in key): val for key, val in node_id_dict.items()
+    }
     resp = jsonify(nodes=return_nodes)
     resp.status_code = StatusCodes.OK
     return resp

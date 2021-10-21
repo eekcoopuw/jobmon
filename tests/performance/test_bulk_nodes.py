@@ -19,14 +19,17 @@ def create_node(requester_url, starter=0):
 
     nodes = []
     for i in range(0, TOTAL_NODES):
-        node = {'task_template_version_id': 2, 'node_args_hash': i+starter, 'node_args': {}}
+        node = {
+            "task_template_version_id": 2,
+            "node_args_hash": i + starter,
+            "node_args": {},
+        }
         nodes.append(node)
     rc, r = requester.send_request(
-        app_route='/nodes',
-        message={'nodes': nodes},
-        request_type='post')
+        app_route="/nodes", message={"nodes": nodes}, request_type="post"
+    )
     assert rc == 200
-    assert len(r['nodes']) == TOTAL_NODES
+    assert len(r["nodes"]) == TOTAL_NODES
 
 
 @pytest.mark.performance_tests

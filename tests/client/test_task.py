@@ -1,25 +1,13 @@
-import os
-
-from jobmon.client.execution.strategies.base import ExecutorParameters
-from jobmon.client.task import Task
-from jobmon.client.tool import Tool
-
 import pytest
-
 from sqlalchemy.sql import text
 
-
-@pytest.fixture
-def task_template(db_cfg, client_env):
-    tool = Tool.create_tool(name="unknown")
-    tt = tool.get_task_template(
-        template_name="my_template",
-        command_template="{arg}",
-        node_args=["arg"],
-        task_args=[],
-        op_args=[]
-    )
-    return tt
+from jobmon.client.task import Task
+from jobmon.client.tool import Tool
+from jobmon.client.workflow_run import WorkflowRun
+from jobmon.constants import WorkflowRunStatus, TaskStatus, TaskInstanceStatus
+from jobmon.server.web.models.task_attribute import TaskAttribute
+from jobmon.server.web.models.task_attribute_type import TaskAttributeType
+from jobmon.serializers import SerializeTaskInstanceErrorLog
 
 
 def test_good_names():
@@ -47,231 +35,49 @@ def test_bad_names():
 def test_equality(task_template):
     """tests that 2 identical tasks are equal and that non-identical tasks
     are not equal"""
-    params = ExecutorParameters(executor_class="DummyExecutor")
-    a = task_template.create_task(arg="a", executor_parameters=params)
-    a_again = task_template.create_task(arg="a", executor_parameters=params)
+    a = task_template.create_task(arg="a")
+    a_again = task_template.create_task(arg="a")
     assert a == a_again
 
-    b = task_template.create_task(arg="b", upstream_tasks=[a, a_again],
-                                  executor_parameters=params)
+    b = task_template.create_task(arg="b", upstream_tasks=[a, a_again])
     assert b != a
     assert len(b.node.upstream_nodes) == 1
 
 
 def test_hash_name_compatibility(task_template):
     """test that name based on hash"""
-    executor_parameters = ExecutorParameters(executor_class="DummyExecutor")
-    a = Task(
-            command="whatever",
-            task_template_version_id=1,
-            node_args={},
-            task_args={},
-            executor_parameters=executor_parameters,
-            name=None,
-            max_attempts=1,
-            upstream_tasks=[],
-            task_attributes=[],
-            requester=None
-        )
+    a = task_template.create_task(arg="a")
     assert "task_" + str(hash(a)) == a.name
 
 
-def test_bash_task_equality(client_env):
-    """test that two bash tasks with the same command are equal"""
-
-    from jobmon.client.templates.bash_task import BashTask
-
-    a = BashTask(command="echo Hello World")
-    a_again = BashTask(command="echo Hello World")
-
-    b = BashTask(command="echo Hello Jobmon", upstream_tasks=[a, a_again])
-
-    assert a == a_again
-    assert b != a
-    assert len(b.node.upstream_nodes) == 1
-
-
-def test_hashing_bash_characters(client_env):
-    """test that bash characters can be hashed"""
-    from jobmon.client.templates.bash_task import BashTask
-
-    a = BashTask(command="touch ~/mytestfile")
-    assert a.is_valid_job_name(a.name)
-
-
-def test_bash_task_bind(db_cfg, client_env):
-    """test that all task information gets propagated appropriately into the db
-    """
-    from jobmon.client.templates.bash_task import BashTask
-    from jobmon.server.web.models.task import Task
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-
-    workflow1 = UnknownWorkflow(name="test_bash_task_bind",
-                                executor_class="SequentialExecutor")
-
-    task1 = BashTask(command="echo 'Hello Jobmon'", max_attempts=1,
-                     executor_class="DummyExecutor")
-    workflow1.add_tasks([task1])
-    workflow1.bind()
-    workflow1._create_workflow_run()
-    bound_task = workflow1.tasks[hash(task1)]
-
-    with app.app_context():
-        task = DB.session.query(Task).filter_by(id=task1.task_id).one()
-
-        # check all task args
-        assert task.workflow_id == workflow1.workflow_id
-        assert task.node_id == bound_task.node.node_id
-        assert task.name == bound_task.name
-        assert task.command == bound_task.command
-        assert task.num_attempts == 0
-        assert task.max_attempts == bound_task.max_attempts
-
-        DB.session.commit()
-
-
-def test_long_name_task_bind(db_cfg, client_env):
-    """test that all task information gets propagated appropriately into the db
-    """
-    from jobmon.client.templates.bash_task import BashTask
-    from jobmon.server.web.models.task import Task
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-
-    workflow1 = UnknownWorkflow(name="test_bash_task_bind",
-                                executor_class="SequentialExecutor")
-
-    task1 = BashTask(name="a"*256,
-                     command="echo 'Hello Jobmon'",
-                     max_attempts=1,
-                     executor_class="DummyExecutor")
-    workflow1.add_tasks([task1])
-    workflow1.bind()
-    with pytest.raises(RuntimeError) as e:
-        workflow1._create_workflow_run()
-        assert "Data too long for column" in str(e)
-
-
-def test_bash_task_command_parsing(db_cfg, client_env):
-    from jobmon.client.api import BashTask, UnknownWorkflow
-    bash_wf = UnknownWorkflow(name="test_bash_task_parsing", executor_class="DummyExecutor")
-    bash_a = BashTask('OP_NUM_THREADS 1 echo hi && sleep 3', task_args={'echo_str': 'hi'},
-                      node_args={'sleep': 3})
-    bash_b = BashTask('OP_NUM_THREADS 1 echo boo && sleep 5', task_args={'echo_str': 'boo'},
-                      node_args={'sleep': 5})
-    bash_c = BashTask('echo blah && sleep 6', task_args={'echo_str': 'blah'},
-                      node_args={'sleep': 6}, env_variables={'OP_NUM_THREADS': '1'})
-    bash_wf.add_tasks([bash_a, bash_b, bash_c])
-    bash_wf.bind()
-    bash_wf._create_workflow_run()
-
-    bound_a = bash_wf.tasks[hash(bash_a)]
-    bound_b = bash_wf.tasks[hash(bash_b)]
-    bound_c = bash_wf.tasks[hash(bash_c)]
-    assert bound_a.task_id != bound_b.task_id
-    assert bound_a.node.task_template_version_id == bound_b.node.task_template_version_id
-    assert list(bound_a.task_args.values())[0] == 'hi'
-    assert list(bound_b.task_args.values())[0] == 'boo'
-    assert bound_c.command == 'OP_NUM_THREADS=1 echo blah && sleep 6'
-
-
-def test_python_task_command_parsing(db_cfg, client_env):
-    from jobmon.client.api import PythonTask, UnknownWorkflow
-    wf = UnknownWorkflow(name="test_python_task_parsing", executor_class="DummyExecutor")
-    py_a = PythonTask(name="task_a", script='~/runme.py --blah 3 --bop 2 --hop 5',
-                      node_args={'blah': 3}, task_args={'bop': 2}, args=['baz', '4'])
-    py_b = PythonTask(name="task_a", script='~/runme.py --blah 4 --bop 6 --hop 5',
-                      node_args={'blah': 4}, task_args={'bop': 6}, args=['baz', '4'])
-    wf.add_tasks([py_a, py_b])
-    wf.bind()
-    wf._create_workflow_run()
-    bound_a = wf.tasks[hash(py_a)]
-    bound_b = wf.tasks[hash(py_b)]
-    assert bound_a.task_id != bound_b.task_id
-    assert bound_a.node.task_template_version_id == bound_b.node.task_template_version_id
-
-
-def test_python_task_equality(db_cfg, client_env):
-    """Test that two identical python tasks are equal and that a non-identical
-    task is not equal"""
-    from jobmon.client.templates.python_task import PythonTask
-
-    a = PythonTask(script='~/runme.py', args=[1])
-    a_again = PythonTask(script='~/runme.py', args=[1])
-    assert a == a_again
-
-    b = PythonTask(script='~/runme.py', args=[2], upstream_tasks=[a, a_again])
-    assert b != a
-    assert len(b.node.upstream_nodes) == 1
-    assert b.node.task_template_version_id == a.node.task_template_version_id
-
-
-def test_python_task_args(db_cfg, client_env):
-    """test that env_variables and other arguments are handled appropriately
-    by python task"""
-    from jobmon.client.templates.python_task import PythonTask
-    from jobmon.server.web.models.task import Task
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    import sys
-
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-
-    workflow1 = UnknownWorkflow(name="test_python_task_args",
-                                executor_class="SequentialExecutor")
-
-    task1 = PythonTask(script='~/runme.py', env_variables={'OP_NUM_THREADS': 1},
-                       num_cores=1, m_mem_free='2G', max_attempts=1)
-    workflow1.add_tasks([task1])
-    workflow1.bind()
-    workflow1._create_workflow_run()
-    bound_task = workflow1.tasks[hash(task1)]
-
-    with app.app_context():
-        task = DB.session.query(Task).filter_by(id=task1.task_id).one()
-
-        # check all task args
-        assert task.workflow_id == workflow1.workflow_id
-        assert task.node_id == bound_task.node.node_id
-        assert task.name == bound_task.name
-        assert task.command == bound_task.command
-        assert task.num_attempts == 0
-        assert task.max_attempts == bound_task.max_attempts
-
-        # check all job args
-        assert bound_task.command == f'OP_NUM_THREADS=1 {sys.executable} ~/runme.py'
-
-
-def test_task_attribute(db_cfg, client_env):
+def test_task_attribute(db_cfg, tool):
     """Test that you can add task attributes to Bash and Python tasks"""
-    from jobmon.client.api import BashTask
-    from jobmon.client.api import PythonTask
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow
-    from jobmon.server.web.models.task_attribute import TaskAttribute
-    from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 
-    workflow1 = UnknownWorkflow(name="test_task_attribute",
-                                executor_class="SequentialExecutor")
-    executor_parameters = ExecutorParameters(m_mem_free='1G', num_cores=1, queue='all.q',
-                                             executor_class="SequentialExecutor")
-    task1 = BashTask("sleep 2",
-                     task_attributes={'LOCATION_ID': 1, 'AGE_GROUP_ID': 5, 'SEX': 1},
-                     executor_parameters=executor_parameters)
+    workflow1 = tool.create_workflow(name="test_task_attribute")
+    task_template = tool.active_task_templates["simple_template"]
+    task1 = task_template.create_task(
+        arg="sleep 2",
+        task_attributes={"LOCATION_ID": 1, "AGE_GROUP_ID": 5, "SEX": 1},
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q"},
+    )
+    task2 = task_template.create_task(
+        arg="sleep 3",
+        task_attributes=["NUM_CORES", "NUM_YEARS"],
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q"},
+    )
 
-    this_file = os.path.dirname(__file__)
-    script_path = os.path.abspath(os.path.expanduser(
-        f"{this_file}/../_scripts/remote_sleep_and_write.py"))
-
-    task2 = PythonTask(script=script_path, num_cores=1,
-                       task_attributes=["NUM_CORES", "NUM_YEARS"])
-
-    task3 = BashTask("sleep 3", num_cores=1, task_attributes={'NUM_CORES': 3, 'NUM_YEARS': 5},
-                     executor_parameters=executor_parameters)
+    task3 = task_template.create_task(
+        arg="sleep 4",
+        task_attributes={"NUM_CORES": 3, "NUM_YEARS": 5},
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q"},
+    )
     workflow1.add_tasks([task1, task2, task3])
-    workflow1.run()
+    workflow1.bind()
+    client_wfr = WorkflowRun(workflow1.workflow_id)
+    client_wfr.bind(workflow1.tasks)
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -284,17 +90,31 @@ def test_task_attribute(db_cfg, client_env):
         WHERE task_attribute.task_id IN (:task_id_1, :task_id_2, :task_id_3)
         ORDER BY task_attribute_type.name, task_id
         """
-        resp = DB.session.query(TaskAttribute.value, TaskAttributeType.name,
-                                TaskAttributeType.id).\
-            from_statement(text(query)).params(task_id_1=task1.task_id,
-                                               task_id_2=task2.task_id,
-                                               task_id_3=task3.task_id).all()
+        resp = (
+            DB.session.query(
+                TaskAttribute.value, TaskAttributeType.name, TaskAttributeType.id
+            )
+            .from_statement(text(query))
+            .params(
+                task_id_1=task1.task_id,
+                task_id_2=task2.task_id,
+                task_id_3=task3.task_id,
+            )
+            .all()
+        )
         values = [tup[0] for tup in resp]
         names = [tup[1] for tup in resp]
         ids = [tup[2] for tup in resp]
-        expected_vals = ['5', '1', None, '3', None, '5', '1']
-        expected_names = ['AGE_GROUP_ID', 'LOCATION_ID', 'NUM_CORES', 'NUM_CORES', 'NUM_YEARS',
-                          'NUM_YEARS', 'SEX']
+        expected_vals = ["5", "1", None, "3", None, "5", "1"]
+        expected_names = [
+            "AGE_GROUP_ID",
+            "LOCATION_ID",
+            "NUM_CORES",
+            "NUM_CORES",
+            "NUM_YEARS",
+            "NUM_YEARS",
+            "SEX",
+        ]
 
         assert values == expected_vals
         assert names == expected_names
@@ -302,21 +122,199 @@ def test_task_attribute(db_cfg, client_env):
         assert ids[4] == ids[5]
 
 
+def test_executor_parameter_copy(tool, task_template):
+    """test that 1 executorparameters object passed to multiple tasks are distinct objects,
+    and scaling 1 task does not scale the others"""
+
+    # Use SGEExecutor for adjust methods, but the executor is never called
+    # Therefore, not an SGEIntegration test
+    compute_resources = {
+        "m_mem_free": "1G",
+        "max_runtime_seconds": 60,
+        "num_cores": 1,
+        "queue": "all.q",
+    }
+
+    task1 = task_template.create_task(
+        name="foo", arg="echo foo", compute_resources=compute_resources
+    )
+    task2 = task_template.create_task(
+        name="bar", arg="echo bar", compute_resources=compute_resources
+    )
+
+    # Ensure memory addresses are different
+    assert id(task1.compute_resources) != id(task2.compute_resources)
+
+
+def test_get_errors(db_cfg, tool):
+    """test that num attempts gets reset on a resume"""
+    from jobmon.server.web.models.task import Task
+
+    # setup workflow 1
+    workflow1 = tool.create_workflow(name="test_task_instance_error_fatal")
+    task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 5")
+    workflow1.add_task(task_a)
+
+    # add workflow to database
+    workflow1.bind()
+    wfr_1 = workflow1._create_workflow_run()
+
+    # for an just initialized task, get_errors() should be None
+    assert task_a.get_errors() is None
+
+    # now set everything to error fail
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        # fake workflow run
+        DB.session.execute(
+            """
+            UPDATE workflow_run
+            SET status ='{s}'
+            WHERE id={wfr_id}""".format(
+                s=WorkflowRunStatus.RUNNING, wfr_id=wfr_1.workflow_run_id
+            )
+        )
+        DB.session.execute(
+            """
+            INSERT INTO task_instance (workflow_run_id, task_id, status)
+            VALUES ({wfr_id}, {t_id}, '{s}')
+            """.format(
+                wfr_id=wfr_1.workflow_run_id,
+                t_id=task_a.task_id,
+                s=TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+            )
+        )
+        ti = DB.session.execute(
+            "SELECT max(id) from task_instance where task_id={}".format(task_a.task_id)
+        ).fetchone()
+        ti_id = ti[0]
+        DB.session.execute(
+            """
+            UPDATE task
+            SET status ='{s}'
+            WHERE id={t_id}""".format(
+                s=TaskStatus.RUNNING, t_id=task_a.task_id
+            )
+        )
+        DB.session.commit()
+
+    # log task_instance fatal error
+    app_route = f"/task_instance/{ti_id}/log_error_worker_node"
+    return_code, _ = workflow1.requester.send_request(
+        app_route=app_route,
+        message={"error_state": "F", "error_message": "bla bla bla"},
+        request_type="post",
+    )
+    assert return_code == 200
+
+    # log task_instance fatal error - 2nd error
+    app_route = f"/task_instance/{ti_id}/log_error_worker_node"
+    return_code, _ = workflow1.requester.send_request(
+        app_route=app_route,
+        message={"error_state": "F", "error_message": "ble ble ble"},
+        request_type="post",
+    )
+    assert return_code == 200
+
+    # Validate that the database indicates the Dag and its Jobs are complete
+    with app.app_context():
+        t = DB.session.query(Task).filter_by(id=task_a.task_id).one()
+        assert t.status == TaskStatus.ERROR_FATAL
+        DB.session.commit()
+
+    # make sure that the 2 errors logged above are counted for in the request_type='get'
+    rc, response = workflow1.requester.send_request(
+        app_route=f"/task_instance/{ti_id}/task_instance_error_log",
+        message={},
+        request_type="get",
+    )
+    all_errors = [
+        SerializeTaskInstanceErrorLog.kwargs_from_wire(j)
+        for j in response["task_instance_error_log"]
+    ]
+    assert len(all_errors) == 2
+
+    # make sure we see the 2 task_instance_error_log when checking
+    # on the existing task_a, which should return a dict
+    # produced in task.py
+    task_errors = task_a.get_errors()
+    assert type(task_errors) == dict
+    assert len(task_errors) == 2
+    assert task_errors["task_instance_id"] == ti_id
+    error_log = task_errors["error_log"]
+    assert type(error_log) == list
+    err_1st = error_log[0]
+    err_2nd = error_log[1]
+    assert type(err_1st) == dict
+    assert type(err_2nd) == dict
+    assert err_1st["description"] == "bla bla bla"
+    assert err_2nd["description"] == "ble ble ble"
+
+
+def test_reset_attempts_on_resume(db_cfg, tool):
+    """test that num attempts gets reset on a resume"""
+    from jobmon.server.web.models.task import Task
+
+    # Manually modify the database so that some mid-dag jobs appear in
+    # error state, max-ing out the attempts
+
+    # setup workflow 1
+    workflow1 = tool.create_workflow(name="test_reset_attempts_on_resume")
+    task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 5")
+    workflow1.add_task(task_a)
+
+    # add workflow to database
+    workflow1.bind()
+    wfr_1 = workflow1._create_workflow_run()
+    wfr_1._update_status(WorkflowRunStatus.ERROR)
+
+    # now set everything to error fail
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        DB.session.execute(
+            """
+            UPDATE task
+            SET status='{s}', num_attempts=3, max_attempts=3
+            WHERE task.id={task_id}""".format(
+                s=TaskStatus.ERROR_FATAL, task_id=task_a.task_id
+            )
+        )
+        DB.session.commit()
+
+    # create a second workflow and actually run it
+    workflow2 = tool.create_workflow(
+        name="test_reset_attempts_on_resume", workflow_args=workflow1.workflow_args
+    )
+    task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 5")
+    workflow2.add_task(task_a)
+    workflow2.bind()
+    workflow2._create_workflow_run(resume=True)
+
+    # Validate that the database indicates the Dag and its Jobs are complete
+    with app.app_context():
+        t = DB.session.query(Task).filter_by(id=task_a.task_id).one()
+        assert t.max_attempts == 3
+        assert t.num_attempts == 0
+        assert t.status == TaskStatus.REGISTERED
+        DB.session.commit()
+
+
 def test_resource_usage(db_cfg, client_env):
     """Test Task resource usage method."""
     from jobmon.client.tool import Tool
-    tool = Tool.create_tool(name="usage_test_tool")
+
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
     workflow = tool.create_workflow(name="resource_usage_test_wf")
-    workflow.set_executor(executor_class="SequentialExecutor")
     template = tool.get_task_template(
         template_name="resource_usage_test_template",
         command_template="echo a",
     )
-    executor_parameters = ExecutorParameters(executor_class="SequentialExecutor",
-                                             max_runtime_seconds=30)
-    task = template.create_task(
-        executor_parameters=executor_parameters
-    )
+    task = template.create_task()
     workflow.add_tasks([task])
     workflow.run()
 
@@ -331,5 +329,34 @@ def test_resource_usage(db_cfg, client_env):
         DB.session.execute(sql, {"task_id": task.task_id})
         DB.session.commit()
     used_task_resources = task.resource_usage()
-    assert used_task_resources == {'memory': '1234', 'nodename': 'SequentialNode',
-                                   'num_attempts': 1, 'runtime': '12'}
+    assert used_task_resources == {
+        "memory": "1234",
+        "nodename": "SequentialNode",
+        "num_attempts": 1,
+        "runtime": "12",
+    }
+
+
+def test_long_name_task_bind(db_cfg, client_env):
+    """test that all task information gets propagated appropriately into the db"""
+    from jobmon.client.tool import Tool
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
+    template = tool.get_task_template(
+        template_name="long_name_test_template",
+        command_template="echo a",
+    )
+    workflow1 = tool.create_workflow(name="test_bash_task_bind")
+
+    task1 = template.create_task(name="a" * 256)
+    workflow1.add_tasks([task1])
+    workflow1.bind()
+    with pytest.raises(RuntimeError) as e:
+        workflow1._create_workflow_run()
+        assert "Data too long for column" in str(e)

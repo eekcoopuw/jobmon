@@ -56,10 +56,17 @@ spec:
           requests:
             cpu: 200m
             memory: 500Mi
+        volumeMounts:
+          - name: sqlite-data
+            mountPath: /tmp/sqlite
         lifecycle:
           preStop:
             exec:
               command: ["sleep", "15"]
+      volumes:
+        - name: sqlite-data
+          persistentVolumeClaim:
+            claimName: logstash-sqlite-storage
 ---
 # https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/
 apiVersion: autoscaling/v2beta2

@@ -2,7 +2,7 @@ from functools import partial
 from time import sleep
 
 from jobmon.client import ClientLogging as logging
-from jobmon.client.execution.strategies.sge import sge_utils
+from jobmon.client.distributor.strategies.sge import sge_utils
 
 import pytest
 
@@ -13,10 +13,13 @@ def do_nothing():
     return
 
 
-def timeout_and_skip(step_size=10, max_time=120, max_qw=1,
-                     job_name="sleepyjob",
-                     partial_test_function=partial(
-        do_nothing)):
+def timeout_and_skip(
+    step_size=10,
+    max_time=120,
+    max_qw=1,
+    job_name="sleepyjob",
+    partial_test_function=partial(do_nothing),
+):
     """
     Utility function to wrap a test in a timeout loop. If it exceeds timeouts
     then check if there were qwait states. If so, skip the test because it
@@ -55,10 +58,12 @@ def timeout_and_skip(step_size=10, max_time=120, max_qw=1,
             jid = None
             job_status = None
             for id in qstat_out.keys():
-                logger.debug(f"@@@@@@@@{qstat_out[id]['name']}@@@@@@@@{job_name}@@@@@@@@@@")
-                if qstat_out[id]['name'] == job_name:
+                logger.debug(
+                    f"@@@@@@@@{qstat_out[id]['name']}@@@@@@@@{job_name}@@@@@@@@@@"
+                )
+                if qstat_out[id]["name"] == job_name:
                     jid = id
-                    job_status = qstat_out[id]['status']
+                    job_status = qstat_out[id]["status"]
                     print(f"found job {jid} with status {job_status}")
             logger.debug("jid: " + str(jid) + "; job_status: " + str(job_status))
             if jid:
@@ -70,18 +75,20 @@ def timeout_and_skip(step_size=10, max_time=120, max_qw=1,
             if total_sleep > max_time:
                 if qw_count >= max_qw:
                     # The cluster is having a bad day
-                    pytest.skip("Skipping test, saw too many ({}) qw states"
-                                .format(max_qw))
+                    pytest.skip(
+                        "Skipping test, saw too many ({}) qw states".format(max_qw)
+                    )
                 else:
                     qstat_msg = sge_utils.qstat()
-                    assert False, \
-                        f"timed out "\
-                        f"qwait count {qw_count}, " \
-                        f"total_sleep {total_sleep}, " \
-                        f"max_time {max_time}), might be: " \
-                        f"a real bug, cluster load, or " \
-                        f"project permissions for 'proj_jenkins'; " \
+                    assert False, (
+                        f"timed out "
+                        f"qwait count {qw_count}, "
+                        f"total_sleep {total_sleep}, "
+                        f"max_time {max_time}), might be: "
+                        f"a real bug, cluster load, or "
+                        f"project permissions for 'proj_jenkins'; "
                         f"qstat {qstat_msg}"
+                    )
             else:
                 print(f"*** Try it again {job_name}")
 

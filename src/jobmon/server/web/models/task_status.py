@@ -6,7 +6,7 @@ from jobmon.server.web.models import DB
 class TaskStatus(DB.Model):
     """The table in the database that holds on the possible statuses for a Task."""
 
-    __tablename__ = 'task_status'
+    __tablename__ = "task_status"
 
     REGISTERED = Statuses.REGISTERED
     QUEUED_FOR_INSTANTIATION = Statuses.QUEUED_FOR_INSTANTIATION

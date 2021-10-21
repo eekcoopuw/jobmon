@@ -6,7 +6,7 @@ from jobmon.server.web.models import DB
 class WorkflowStatus(DB.Model):
     """Workflow Status database table."""
 
-    __tablename__ = 'workflow_status'
+    __tablename__ = "workflow_status"
 
     REGISTERING = Statuses.REGISTERING
     QUEUED = Statuses.QUEUED
@@ -15,6 +15,8 @@ class WorkflowStatus(DB.Model):
     HALTED = Statuses.HALTED
     FAILED = Statuses.FAILED
     DONE = Statuses.DONE
+    INSTANTIATING = Statuses.INSTANTIATING
+    LAUNCHED = Statuses.LAUNCHED
 
     id = DB.Column(DB.String(1), primary_key=True)
     label = DB.Column(DB.String(150), nullable=False)
