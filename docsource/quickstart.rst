@@ -640,6 +640,11 @@ There are two supported:
         3. The updating user must have at least 1 workflow run associated with the requested workflow.
         4. The requested tasks must all belong to the specified workflow ID
 
+**resource_yaml**
+    Entering ``jobmon task_template_resources`` will allow the user to generate a task template resource YAML file that can be used in Jobmon 3.0 and later.
+
+    As an example, ``jobmon task_template_resources -w 1 -p f ~/temp/resource.yaml`` generates a YAML file for all task templates used in workflow 1 and save it to ~/temp/resource.yaml as well as print it to the standard output.
+
 Resource Usage
 =======================================
 **Task Resource Usage**
