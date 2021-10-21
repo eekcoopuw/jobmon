@@ -401,7 +401,11 @@ class ClientCLI(CLI):
             type=int,
         )
         update_task_parser.add_argument(
-            "-s", "--new_status", help="status to set to", choices=["D", "G"], type=str
+            "-s",
+            "--new_status",
+            help='Status to set to. "D" for DONE; "G" for REGISTERED/(pending).',
+            choices=["D", "G"],
+            type=str,
         )
         ParserDefaults.web_service_fqdn(update_task_parser)
         ParserDefaults.web_service_port(update_task_parser)

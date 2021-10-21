@@ -859,8 +859,7 @@ run process is dead (kill it using the pid from the workflow run table)::
         executor_class = "SGEExecutor",
         stderr = f"/ihme/scratch/users/{user}/{wf_uuid}",
         stdout = f"/ihme/scratch/users/{user}/{wf_uuid}",
-        project = "proj_scicomp",
-        resume = True
+        project = "proj_scicomp"
     )
 
     # Re-add the same Tasks to it...
@@ -885,7 +884,7 @@ run process is dead (kill it using the pid from the workflow run table)::
     workflow.add_tasks([task1, task2, task3])
 
     # Re-run the workflow
-    workflow.run()
+    workflow.run(resume=True)
 
 That's it. It is the same setup, just change the resume flag so that it is
 true (otherwise you will get an error that you are creating a workflow that
@@ -1095,7 +1094,9 @@ tool_version
 workflow
     This table has every Workflow created, along with it’s associated dag_id, and workflow_args
 workflow_attribute
-    Additional attributes that are being tracked for a given Workflow.
+    Additional attributes that are being tracked for a given Workflow. They are not required to use Jobmon, and
+    workflow_attributes are not passed to your jobs. They are intended to track information for a given run and can be
+    utilized for profiling and resource prediction.
 workflow_attribute_type
     The types of attributes that can be tracked for Workflows.
 workflow_run
