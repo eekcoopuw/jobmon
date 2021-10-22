@@ -54,12 +54,15 @@ def _get_completed_task_instance(starttime: float, session: Session) -> None:
 
     Usage for non-UGE tasks do not need to be updated.
     """
+    uge_cluster_id = 4
     sql = (
         "SELECT distributor_id from task_instance "
         'where status not in ("B", "I", "R", "W") '
-        "and UNIX_TIMESTAMP(status_date) > {} "
+        "and UNIX_TIMESTAMP(status_date) > {starttime} "
         "and maxpss is null "
-        "and cluster_type_name = 'uge'".format(starttime)
+        "and cluster_type_id = {cluster_type_id}".format(
+            starttime=starttime, cluster_type_id=uge_cluster_id
+        )
     )
     rs = session.execute(sql).fetchall()
     session.commit()

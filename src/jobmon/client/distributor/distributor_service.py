@@ -22,6 +22,7 @@ from jobmon.exceptions import (
     WorkflowRunStateError,
 )
 from jobmon.requester import http_request_ok, Requester
+from jobmon.serializers import SerializeClusterType
 
 logger = logging.getLogger(__name__)
 tblib.pickling_support.install()
@@ -79,6 +80,9 @@ class DistributorService:
 
         logger.info(f"distributor communicating at {self.requester.url}")
 
+        # Get/set cluster_type_id
+        self._get_cluster_type_id()
+
         # state tracking
         # Move workflow and workflow run to Instantiating
         self._instantiate_workflows()
@@ -93,6 +97,23 @@ class DistributorService:
 
         # log heartbeat on startup so workflow run FSM doesn't have any races
         self.heartbeat()
+
+    def _get_cluster_type_id(self) -> None:
+        """Get the cluster_type_id associated with the cluster_type_name."""
+        app_route = f"/cluster_type/{self.distributor.cluster_type_name}"
+        return_code, response = self.requester.send_request(
+            app_route=app_route, message={}, request_type="get", logger=logger
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from GET "
+                f"request through route {app_route}. Expected code "
+                f"200. Response content: {response}"
+            )
+        cluster_type_kwargs = SerializeClusterType.kwargs_from_wire(
+            response["cluster_type"]
+        )
+        self.cluster_type_id = cluster_type_kwargs["id"]
 
     def _infer_error(self, task_instance: DistributorTaskInstance) -> None:
         """Infer error by checking the distributor remote exit info."""
@@ -463,7 +484,7 @@ class DistributorService:
         task_instance = DistributorTaskInstance.register_task_instance(
             task.task_id,
             self.workflow_run_id,
-            self.distributor.cluster_type_name,
+            self.cluster_type_id,
             self.requester,
         )
         logger.debug("Executing {}".format(task.command))
@@ -508,9 +529,7 @@ class DistributorService:
                 f"code 200. Response content: {response}"
             )
         lost_task_instances = [
-            DistributorTaskInstance.from_wire(
-                ti, self.distributor.cluster_type_name, self.requester
-            )
+            DistributorTaskInstance.from_wire(ti, self.cluster_type_id, self.requester)
             for ti in response["task_instances"]
         ]
         self._to_reconcile = lost_task_instances
@@ -531,7 +550,7 @@ class DistributorService:
         else:
             to_terminate = [
                 DistributorTaskInstance.from_wire(
-                    ti, self.distributor.cluster_type_name, self.requester
+                    ti, self.cluster_type_id, self.requester
                 ).distributor_id
                 for ti in response["task_instances"]
             ]
