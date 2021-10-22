@@ -190,7 +190,7 @@ deploy_jobmon_to_k8s () {
             upgrade --install jobmon-elk /apps/. \
             -n "$K8S_NAMESPACE" \
             --set global.namespace="$K8S_NAMESPACE" \
-            --set metricbeat.db_host_secret="$RANCHER_DB_SECRET"
+            --set metricbeat.db_host_secret="$RANCHER_DB_SECRET" \
             --history-max 3 \
             --set global.namespace="$K8S_NAMESPACE"
     fi
