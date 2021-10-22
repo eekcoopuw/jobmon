@@ -84,3 +84,12 @@ class Direction:
 
     UP = "up"
     DOWN = "down"
+
+
+class SpecialChars:
+    """A generic utility class.
+
+    Used to define special chars.
+    """
+
+    ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""

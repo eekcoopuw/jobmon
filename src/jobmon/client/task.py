@@ -14,7 +14,7 @@ from jobmon.client.cluster import Cluster
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
 from jobmon.cluster_type.base import ClusterQueue
-from jobmon.constants import TaskStatus
+from jobmon.constants import SpecialChars, TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeTaskInstanceErrorLog, SerializeTaskResourceUsage
@@ -27,8 +27,6 @@ class Task:
 
     Task Instances will be created from it for every execution.
     """
-
-    ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""
 
     @classmethod
     def is_valid_job_name(cls: Any, name: str) -> bool:
@@ -55,10 +53,10 @@ class Task:
             raise ValueError("name cannot be None or empty")
         elif name[0].isdigit():
             raise ValueError(f"name cannot begin with a digit, saw: '{name[0]}'")
-        elif any(e in name for e in cls.ILLEGAL_SPECIAL_CHARACTERS):
+        elif any(e in name for e in SpecialChars.ILLEGAL_SPECIAL_CHARACTERS):
             raise ValueError(
                 f"name contains illegal special character, illegal characters "
-                f"are: '{cls.ILLEGAL_SPECIAL_CHARACTERS}'"
+                f"are: '{SpecialChars.ILLEGAL_SPECIAL_CHARACTERS}'"
             )
         return True
 

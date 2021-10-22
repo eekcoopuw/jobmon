@@ -11,6 +11,7 @@ import yaml
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
+from jobmon.constants import SpecialChars
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import (
@@ -470,8 +471,16 @@ class TaskTemplate:
             )
             kwargs["name"] = name
 
+        # special char protection
+        name = "".join(
+            [
+                c if c not in SpecialChars.ILLEGAL_SPECIAL_CHARACTERS else "_"
+                for c in name
+            ]
+        )
+
         # long name protection
-        name = name if len(name) < 256 else name[0:254]
+        name = name if len(name) < 250 else name[0:249]
 
         # set cluster_name, function level overrides default
         if not cluster_name:

@@ -44,12 +44,17 @@ def test_equality(task_template):
     assert len(b.node.upstream_nodes) == 1
 
 
-def test_hash_name_compatibility(task_template):
+def test_default_task_name(task_template):
     """test that name based on hash"""
+    # noral case
     a = task_template.create_task(arg="a")
     assert a.name == "simple_template_1-a"
+    # long name
     a = task_template.create_task(arg="a" * 256)
-    assert a.name == ("simple_template_1-" + "a" * 256)[0:254]
+    assert a.name == ("simple_template_1-" + "a" * 256)[0:249]
+    # special char
+    a = task_template.create_task(arg="abc'abc/abc")
+    assert a.name == "simple_template_1-abc_abc_abc"
 
 
 def test_task_attribute(db_cfg, tool):
