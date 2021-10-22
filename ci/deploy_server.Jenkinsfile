@@ -38,6 +38,9 @@ pipeline {
     booleanParam(defaultValue: 'false',
      description: 'Whether or not you want to deploy the ELK stack',
      name: 'DEPLOY_ELK')
+    booleanParam(defaultValue: 'false',
+     description: 'Whether or not you want to config log rotation for elasticsearch',
+     name: 'LOG_ROTATION')
   } // end parameters
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
