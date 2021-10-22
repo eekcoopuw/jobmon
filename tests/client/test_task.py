@@ -343,27 +343,3 @@ def test_resource_usage(db_cfg, client_env):
         "runtime": "12",
     }
 
-
-def test_long_name_task_bind(db_cfg, client_env):
-    """test that all task information gets propagated appropriately into the db"""
-    from jobmon.client.tool import Tool
-
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-
-    tool = Tool()
-    tool.set_default_compute_resources_from_dict(
-        cluster_name="sequential", compute_resources={"queue": "null.q"}
-    )
-    template = tool.get_task_template(
-        template_name="long_name_test_template",
-        command_template="echo a",
-    )
-    workflow1 = tool.create_workflow(name="test_bash_task_bind")
-
-    task1 = template.create_task(name="a" * 256)
-    workflow1.add_tasks([task1])
-    workflow1.bind()
-    with pytest.raises(RuntimeError) as e:
-        workflow1._create_workflow_run()
-        assert "Data too long for column" in str(e)
