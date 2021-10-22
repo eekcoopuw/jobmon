@@ -461,6 +461,18 @@ class TaskTemplate:
             if k in self.active_task_template_version.task_args
         }
 
+        # use a default name when not provided
+        if name is None:
+            name = (
+                self.template_name
+                + "_"
+                + "_".join([str(k) + "-" + str(node_args[k]) for k in node_args.keys()])
+            )
+            kwargs["name"] = name
+
+        # long name protection
+        name = name if len(name) < 256 else name[0:254]
+
         # set cluster_name, function level overrides default
         if not cluster_name:
             cluster_name = self.default_cluster_name

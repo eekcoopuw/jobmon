@@ -47,7 +47,9 @@ def test_equality(task_template):
 def test_hash_name_compatibility(task_template):
     """test that name based on hash"""
     a = task_template.create_task(arg="a")
-    assert "task_" + str(hash(a)) == a.name
+    assert a.name == "simple_template_1-a"
+    a = task_template.create_task(arg="a" * 256)
+    assert a.name == ("simple_template_1-" + "a" * 256)[0:254]
 
 
 def test_task_attribute(db_cfg, tool):
