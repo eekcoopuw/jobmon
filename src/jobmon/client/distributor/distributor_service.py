@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Type
 
 import tblib.pickling_support
 
+from jobmon.client.client_logging import ClientLogging
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
@@ -24,7 +25,9 @@ from jobmon.exceptions import (
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeClusterType
 
+ClientLogging().attach(__name__)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 tblib.pickling_support.install()
 
 

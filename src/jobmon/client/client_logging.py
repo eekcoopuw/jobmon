@@ -8,10 +8,7 @@ DEFAULT_FORMAT = "%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s: %(messag
 
 
 class ClientLogging:
-    """This is a class to provide jobmon user an easy way to enable logging.
-
-    Please don't use it in our code, so that we allow users to apply their own logger.
-    """
+    """A class to automatically format and attach handlers to client logging modules."""
 
     def __init__(
         self,

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 import uuid
 
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.client_logging import ClientLogging
 from jobmon.client.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.distributor.api import DistributorConfig
@@ -40,8 +41,9 @@ from jobmon.exceptions import (
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeCluster
 
-
+ClientLogging().attach(__name__)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class ResumeStatus(object):
