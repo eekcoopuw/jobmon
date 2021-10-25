@@ -5,26 +5,5 @@
     "number_of_replicas": 0,
     "index.lifecycle.name": "jobmon_ilm",
     "index.lifecycle.rollover_alias": "jobmon"
-  },
-  "mappings": {
-    "properties": {
-      "host": {"type": "text"},
-      "jobmon_version": {"type": "text"},
-      "level": {"type": "text", "index": false},
-      "logger": {"type": "text", "index": false},
-      "dag_hash": {"type": "long"},
-      "dag_id": {"type": "long"},
-      "task_hash": {"type": "long"},
-      "task_id": {"type": "long"},
-      "task_instance_id": {"type": "long"},
-      "task_template_id": {"type": "long"},
-      "timestamp": {"type": "date"},
-      "tool_id": {"type": "long"},
-      "tool_version_id": {"type": "long"},
-      "workflow_args_hash": {"type": "long"},
-      "workflow_id": {"type": "long"},
-      "workflow_run_id": {"type": "long"}
-    }
   }
-
 }
