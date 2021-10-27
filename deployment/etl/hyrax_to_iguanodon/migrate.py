@@ -149,22 +149,33 @@ def migrate():
         print(f"Fetching data to DataFrame chunk by chunk ... {t}")
 
         if t == "workflow_run":
-            select_str = "id, workflow_id, user, jobmon_version, status, created_date, " \
-                         "status_date, heartbeat_date"
+            select_str = "wfr.id, wfr.workflow_id, wfr.user, wfr.jobmon_version, " \
+                         "wfr.status, wfr.created_date, wfr.status_date, " \
+                         "wfr.heartbeat_date"
         elif t == "task":
             select_str = \
                 "t.id, t.workflow_id, t.node_id, t.task_args_hash, t.name, t.command, " \
                 "t.executor_parameter_set_id as task_resources_id, t.num_attempts, " \
                 "t.max_attempts, eps.resource_scales as resource_scales, " \
                 "NULL as fallback_queues, t.status, t.submitted_date, t.status_date"
+        elif t == "task_arg":
+            select_str = "ta.*"
+        elif t == "task_attribute":
+            select_str = "ta.*"
         elif t == "task_instance":
-            select_str = "id, workflow_run_id, " \
-                         "executor_type, " \
-                         "executor_id as distributor_id, task_id, " \
-                         "executor_parameter_set_id as task_resources_id, nodename, " \
-                         "process_group_id, usage_str, wallclock, " \
-                         "maxrss, maxpss, cpu, io, status, submitted_date, status_date, " \
-                         "report_by_date"
+            select_str = "ti.id, ti.workflow_run_id, " \
+                         "ti.executor_type, " \
+                         "ti.executor_id as distributor_id, ti.task_id, " \
+                         "ti.executor_parameter_set_id as task_resources_id, ti.nodename, " \
+                         "ti.process_group_id, ti.usage_str, ti.wallclock, " \
+                         "ti.maxrss, ti.maxpss, ti.cpu, ti.io, ti.status, ti.submitted_date, " \
+                         "ti.status_date, ti.report_by_date"
+        elif t == "task_instance_error_log":
+            select_str = "tiel.*"
+        elif t == "workflow":
+            select_str = "w.*"
+        elif t == "workflow_attribute":
+            select_str = "wa.*"
         elif t == "executor_parameter_set":
             select_str = "e.id, e.task_id, e.queue, " \
                          "e.parameter_set_type as task_resources_type_id," \
@@ -177,10 +188,36 @@ def migrate():
 
         if t == "task":
             from_str = "task t " \
+                       "inner join workflow w on t.workflow_id = w.id " \
                        "left outer join " \
                        "(select task_id, max(resource_scales) as resource_scales " \
                        "from executor_parameter_set " \
                        "group by task_id) eps on t.id = eps.task_id"
+        elif t == "task_arg":
+            from_str = "task_arg ta " \
+                       "inner join task t on ta.task_id = t.id " \
+                       "inner join workflow w on t.workflow_id = w.id "
+        elif t == "task_attribute":
+            from_str = "task_attribute ta " \
+                       "inner join task t on ta.task_id = t.id " \
+                       "inner join workflow w on t.workflow_id = w.id "
+        elif t == "task_instance":
+            from_str = "task_instance ti " \
+                       "inner join task t on ti.task_id = t.id " \
+                       "inner join workflow w on t.workflow_id = w.id "
+        elif t == "task_instance_error_log":
+            from_str = "task_instance_error_log tiel " \
+                       "inner join task_instance ti on tiel.task_instance_id = ti.id " \
+                       "inner join task t on ti.task_id = t.id " \
+                       "inner join workflow w on t.workflow_id = w.id "
+        elif t == "workflow":
+            from_str = "workflow w"
+        elif t == "workflow_attribute":
+            from_str = "workflow_attribute wa " \
+                       "inner join workflow w on wa.workflow_id = w.id "
+        elif t == "workflow_run":
+            from_str = "workflow_run wfr " \
+                       "inner join workflow w on wfr.workflow_id = w.id "
         elif t == "executor_parameter_set":
             from_str = "executor_parameter_set e " \
                        "join task t on e.task_id = t.id " \
@@ -198,6 +235,10 @@ def migrate():
             where_str = " where id <> 1"
         elif t == "tool_version":
             where_str = " where id <> 1"
+        elif t in ("task", "task_arg", "task_attribute", "task_instance",
+                   "task_instance_error_log", "workflow", "workflow_attribute",
+                   "workflow_run", "executor_parameter_set"):
+            where_str = " where w.status in ('D', 'F')"
         else:
             where_str = ""
 
@@ -258,18 +299,18 @@ def migrate():
             chunk_df.to_sql(to_t, target_engine, if_exists='append',
                             index=False, method='multi')
 
-            # # limit to 10_000 for quick test
-            # if t in [
-            #     'edge',
-            #     'node',
-            #     'node_arg',
-            #     'task',
-            #     'task_arg',
-            #     'task_instance',
-            #     'task_instance_error_log',
-            #     'executor_parameter_set',
-            #     ]:
-            #     break
+            # limit to 10_000 for quick test
+            if t in [
+                'edge',
+                'node',
+                'node_arg',
+                'task',
+                'task_arg',
+                'task_instance',
+                'task_instance_error_log',
+                'executor_parameter_set',
+                ]:
+                break
 
     print("Closing connection - Source ...")
     source_conn.close()
