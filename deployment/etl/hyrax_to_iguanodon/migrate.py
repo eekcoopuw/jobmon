@@ -21,26 +21,11 @@ LOG_FILE = None
 
 table_list = [
 
-    # passable small section
+    # tables - small size
     'arg',
     'dag',
-
-    # large size
-    'edge',
-    'node',
-    'node_arg',
-    'task',
-    'task_arg',
-
-    # passable small section
     'task_attribute',
     'task_attribute_type',
-
-    # large size
-    'task_instance',
-    'task_instance_error_log',
-
-    # passable small section
     'task_template',
     'task_template_version',
     'template_arg_map',
@@ -51,6 +36,15 @@ table_list = [
     'workflow_attribute_type',
     'workflow_run',
 
+    # tables - large size
+    'edge',
+    'node',
+    'node_arg',
+    'task',
+    'task_arg',
+    'task_instance',
+    'task_instance_error_log',
+
     # complex piece
     'executor_parameter_set',
 
@@ -59,10 +53,18 @@ table_list = [
     # NO NEED TO migrate: 'task_status',
     # NO NEED TO migrate: 'workflow_run_status',
     # NO NEED TO migrate: 'workflow_status',
+    # NO NEED TO migrate: 'executor_parameter_set_type'
 ]
 
 def requested_resources(max_runtime_seconds: int, context_args: str, num_cores: int,
                         m_mem_free: float, j_resource: int, hard_limits: int) -> str:
+    """
+    Input param:
+        executor_parameter_set columns used to convert into requested_resources.
+
+    Returns:
+        a string with a dict like parings.
+    """
     rr_dict = {}
 
     if max_runtime_seconds is not None and math.isnan(max_runtime_seconds) == False:
@@ -124,7 +126,8 @@ def migrate():
 
     df_cluster_type = pd.read_sql("select * from cluster_type", target_conn)
     # Transform UGE to sge in preparation for comparison.
-    df_cluster_type.loc[df_cluster_type['name'].str.lower().str.startswith('uge'), 'name'] = "sge"
+    df_cluster_type.loc[df_cluster_type['name'].str.lower().str.startswith('uge'), 'name'] \
+        = "sge"
     df_cluster_type['name'] = df_cluster_type['name'].astype(str) + "executor"
     print(f"df_cluster_type = \n{df_cluster_type}")
 
@@ -136,7 +139,8 @@ def migrate():
                 "inner join cluster c on q.cluster_id = c.id " \
                 "inner join cluster_type ct on c.cluster_type_id = ct.id"
     df_queue = pd.read_sql(sql_queue, target_conn)
-    df_queue.loc[df_queue['cluster_type_name'].str.lower().str.startswith('uge'), 'cluster_type_name'] = "sge"
+    df_queue.loc[df_queue['cluster_type_name'].str.lower().str.startswith('uge'),
+                 'cluster_type_name'] = "sge"
     df_queue['cluster_type_name'] = df_queue['cluster_type_name'].astype(str) + "executor"
     print(f"df_queue = \n{df_queue}")
 
@@ -145,7 +149,8 @@ def migrate():
         print(f"Fetching data to DataFrame chunk by chunk ... {t}")
 
         if t == "workflow_run":
-            select_str = "id, workflow_id, user, jobmon_version, status, created_date, status_date, heartbeat_date"
+            select_str = "id, workflow_id, user, jobmon_version, status, created_date, " \
+                         "status_date, heartbeat_date"
         elif t == "task":
             select_str = \
                 "t.id, t.workflow_id, t.node_id, t.task_args_hash, t.name, t.command, " \
@@ -158,11 +163,14 @@ def migrate():
                          "executor_id as distributor_id, task_id, " \
                          "executor_parameter_set_id as task_resources_id, nodename, " \
                          "process_group_id, usage_str, wallclock, " \
-                         "maxrss, maxpss, cpu, io, status, submitted_date, status_date, report_by_date"
+                         "maxrss, maxpss, cpu, io, status, submitted_date, status_date, " \
+                         "report_by_date"
         elif t == "executor_parameter_set":
-            select_str = "e.id, e.task_id, e.queue, e.parameter_set_type as task_resources_type_id," \
+            select_str = "e.id, e.task_id, e.queue, " \
+                         "e.parameter_set_type as task_resources_type_id," \
                          "lower(wfr.executor_class) as cluster_type_name, " \
-                         "e.max_runtime_seconds, e.context_args, e.num_cores, e.m_mem_free, " \
+                         "e.max_runtime_seconds, e.context_args, e.num_cores, " \
+                         "e.m_mem_free, " \
                          "e.j_resource, e.hard_limits"
         else:
             select_str = "*"
@@ -207,13 +215,15 @@ def migrate():
                 file_object.write(f"chunk_df = \n{chunk_df}\n\n")
             if t == "task":
                 chunk_df['resource_scales'] = \
-                    chunk_df.apply(lambda x: transform_resource_scales(x['resource_scales']), axis=1)
+                    chunk_df.apply(lambda x: transform_resource_scales(x['resource_scales']),
+                                   axis=1)
                 print(f"chunk_df AFTER TRANSFORM = \n{chunk_df}")
                 with open(LOG_FILE, "a") as file_object:
                     file_object.write(f"chunk_df AFTER TRANSFORM = \n{chunk_df}\n\n")
             elif t == "task_instance":
                 chunk_df['cluster_type_id'] = \
-                    chunk_df['executor_type'].str.lower().map(df_cluster_type.set_index('name')['id'])
+                    chunk_df['executor_type'].str.lower().\
+                        map(df_cluster_type.set_index('name')['id'])
                 del chunk_df['executor_type']
                 col = chunk_df.pop('cluster_type_id')
                 chunk_df.insert(2, col.name, col)
@@ -221,13 +231,15 @@ def migrate():
                 with open(LOG_FILE, "a") as file_object:
                     file_object.write(f"chunk_df AFTER TRANSFORM = \n{chunk_df}\n\n")
             elif t == "executor_parameter_set":
-                chunk_df = pd.merge(chunk_df, df_queue, on=["queue", "cluster_type_name"], how="left")
+                chunk_df = pd.merge(chunk_df, df_queue,
+                                    on=["queue", "cluster_type_name"], how="left")
                 del chunk_df['queue']
                 del chunk_df['cluster_type_name']
                 chunk_df['requested_resources'] = \
                     chunk_df.apply(lambda x:
-                                   requested_resources(x["max_runtime_seconds"], x["context_args"],
-                                        x["num_cores"], x["m_mem_free"], x["j_resource"],
+                                   requested_resources(x["max_runtime_seconds"],
+                                        x["context_args"], x["num_cores"],
+                                        x["m_mem_free"], x["j_resource"],
                                         x["hard_limits"]), axis=1)
                 del chunk_df['max_runtime_seconds']
                 del chunk_df['context_args']
@@ -243,24 +255,20 @@ def migrate():
 
             print(f"Migrating data ... {to_t}")
 
-            chunk_df.to_sql(to_t, target_engine, if_exists='append', index=False, method='multi')
+            chunk_df.to_sql(to_t, target_engine, if_exists='append',
+                            index=False, method='multi')
 
-            # limit to 10_000 for quick test
-            if t in [
-                'edge',
-                'node',
-                'node_arg',
-                'task',
-                'task_arg',
-                'task_instance',
-                'task_instance_error_log',
-                'executor_parameter_set',
-                ]:
-                break
-
-            # cnt+= 1
-            #
-            # if cnt >= 10:
+            # # limit to 10_000 for quick test
+            # if t in [
+            #     'edge',
+            #     'node',
+            #     'node_arg',
+            #     'task',
+            #     'task_arg',
+            #     'task_instance',
+            #     'task_instance_error_log',
+            #     'executor_parameter_set',
+            #     ]:
             #     break
 
     print("Closing connection - Source ...")
