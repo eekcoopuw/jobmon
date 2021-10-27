@@ -27,7 +27,9 @@ def create_app(web_config: Optional[WebConfig] = None) -> Flask:
             "ENVIRONMENT": "development",
             "DEBUG": True,
         }
-        ElasticAPM(app)
+        apm = ElasticAPM(app)
+    else:
+        apm = None
 
     if web_config.use_logstash:
         logstash_handler_config: Optional[
@@ -61,6 +63,6 @@ def create_app(web_config: Optional[WebConfig] = None) -> Flask:
         log_config.configure_logger("jobmon.server.web", logstash_handler_config)
 
         # add request logging hooks
-        add_hooks_and_handlers(app)
+        add_hooks_and_handlers(app, apm)
 
         return app

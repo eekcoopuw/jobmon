@@ -56,6 +56,7 @@ def kill_self(task_instance_id: int) -> Any:
     logger.info(f"ti {task_instance_id} should_kill: {should_kill}")
     if should_kill is not None:
         resp = jsonify(should_kill=True)
+        logger.info(f"ti {task_instance_id} should_kill: {should_kill}")
     else:
         resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -197,7 +198,6 @@ def log_done(task_instance_id: int) -> Any:
     """
     bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
-    logger.info(f"Log DONE for TI {task_instance_id}.")
 
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     if data.get("distributor_id", None) is not None:
@@ -484,7 +484,7 @@ def add_task_instance() -> Any:
         # create task_instance from task parameters
         task_instance = TaskInstance(
             workflow_run_id=data["workflow_run_id"],
-            cluster_type_name=data["cluster_type_name"],
+            cluster_type_id=data["cluster_type_id"],
             task_id=data["task_id"],
             task_resources_id=task.task_resources_id,
         )
@@ -530,9 +530,7 @@ def log_no_distributor_id(task_instance_id: int) -> Any:
     )
     data = request.get_json()
     logger.debug(f"Log NO DISTRIBUTOR ID. Data {data['no_id_err_msg']}")
-
     err_msg = data["no_id_err_msg"]
-
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(ti, TaskInstanceStatus.NO_DISTRIBUTOR_ID)
     error = TaskInstanceErrorLog(task_instance_id=ti.id, description=err_msg)
@@ -555,8 +553,6 @@ def log_distributor_id(task_instance_id: int) -> Any:
     """
     bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
-    logger.info(f"Log DISTRIBUTOR ID for TI {task_instance_id}.")
-
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(
         ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR

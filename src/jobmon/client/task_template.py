@@ -11,9 +11,13 @@ import yaml
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
+from jobmon.constants import SpecialChars
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
-from jobmon.serializers import SerializeClientTaskTemplate
+from jobmon.serializers import (
+    SerializeClientTaskTemplate,
+    SerializeTaskTemplateResourceUsage,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -458,6 +462,26 @@ class TaskTemplate:
             if k in self.active_task_template_version.task_args
         }
 
+        # use a default name when not provided
+        if name is None:
+            name = (
+                self.template_name
+                + "_"
+                + "_".join([str(k) + "-" + str(node_args[k]) for k in node_args.keys()])
+            )
+            kwargs["name"] = name
+
+        # special char protection
+        name = "".join(
+            [
+                c if c not in SpecialChars.ILLEGAL_SPECIAL_CHARACTERS else "_"
+                for c in name
+            ]
+        )
+
+        # long name protection
+        name = name if len(name) < 250 else name[0:249]
+
         # set cluster_name, function level overrides default
         if not cluster_name:
             cluster_name = self.default_cluster_name
@@ -492,3 +516,51 @@ class TaskTemplate:
             hashlib.sha1(self.template_name.encode("utf-8")).hexdigest(), 16
         )
         return hash_value
+
+    def resource_usage(
+        self,
+        workflows: List[int] = None,
+        node_args: dict[str, Any] = None,
+        ci: float = None,
+    ) -> dict:
+        """Get the aggregate resource usage for a TaskTemplate."""
+        message: Dict[Any, Any] = dict()
+        message["task_template_version_id"] = self._active_task_template_version.id
+        if workflows:
+            message["workflows"] = workflows
+        if node_args:
+            message["node_args"] = node_args
+        if ci:
+            message["ci"] = ci
+        app_route = "/task_template_resource_usage"
+        return_code, response = self.requester.send_request(
+            app_route=app_route, message=message, request_type="post", logger=logger
+        )
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from GET "
+                f"request through route {app_route}. Expected code "
+                f"200. Response content: {response}"
+            )
+
+        def format_bytes(value: Any) -> Optional[str]:
+            if value is not None:
+                return str(value) + "B"
+            else:
+                return value
+
+        kwargs = SerializeTaskTemplateResourceUsage.kwargs_from_wire(response)
+        resources = {
+            "num_tasks": kwargs["num_tasks"],
+            "min_mem": format_bytes(kwargs["min_mem"]),
+            "max_mem": format_bytes(kwargs["max_mem"]),
+            "mean_mem": format_bytes(kwargs["mean_mem"]),
+            "min_runtime": kwargs["min_runtime"],
+            "max_runtime": kwargs["max_runtime"],
+            "mean_runtime": kwargs["mean_runtime"],
+            "median_mem": format_bytes(kwargs["median_mem"]),
+            "median_runtime": kwargs["median_runtime"],
+            "ci_mem": kwargs["ci_mem"],
+            "ci_runtime": kwargs["ci_runtime"],
+        }
+        return resources

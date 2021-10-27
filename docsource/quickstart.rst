@@ -640,6 +640,46 @@ There are two supported:
         3. The updating user must have at least 1 workflow run associated with the requested workflow.
         4. The requested tasks must all belong to the specified workflow ID
 
+**resource_yaml**
+    Entering ``jobmon task_template_resources`` will allow the user to generate a task template resource YAML file that can be used in Jobmon 3.0 and later.
+
+    As an example, ``jobmon task_template_resources -w 1 -p f ~/temp/resource.yaml`` generates a YAML file for all task templates used in workflow 1 and save it to ~/temp/resource.yaml as well as print it to the standard output.
+
+Resource Usage
+=======================================
+**Task Resource Usage**
+    There is a method on the Task object that will return the resource usage for a Task. This
+    method must be called after ``workflow.run()``. To use it simply call the method on your
+    predefined Task object, ``task.resource_usage()``. This method will return a dictionary
+    that includes: the memory usage (in bytes), the name of the node the task was run on, the
+    number of attempts, and the runtime. This method will only return resource usage data for
+    Tasks that had a successful TaskInstance (in DONE state).
+
+**TaskTemplate Resource Usage**
+    Jobmon can aggregate the resource usage at the TaskTemplate level. Jobmon will return a
+    dictionary that includes: number of Tasks used to calculate the usage, the minimum,
+    maximum, and mean memory used (in bytes), and the minimum, maximum and mean runtime. It
+    only includes Tasks in the calculation that are associated with a specified
+    TaskTemplateVersion.
+
+    You can access this in two ways: via a method on TaskTemplate or the Jobmon command line
+    interface.
+
+    To access it via the TaskTemplate object, simply call the method on your predefined
+    TaskTemplate, ``task_template.resource_usage()``. This method has two *optional*
+    arguments: workflows (a list of workflow IDs) and node_args (a dictionary of node
+    arguments). This allows users to have more exact resource usage data. For example, a
+    user can call ``resources = task_template.resource_usage(workflows=[123, 456],
+    node_args={"location_id":[101, 102], "sex":[1]})`` This command will find all of the
+    Tasks associated with that version of the TaskTemplate, that are associated with either
+    workflow 123 or 456, that also has a location_id that is either 102 or 102, and has a
+    sex ID of 1. Jobmon will then calculate the resource usage values based on those queried
+    Tasks.
+
+    To use this functionality via the CLI, call ``jobmon task_template_resources -t
+    <task_template_version_id>`` The CLI has two optional flags: -w to specify workflow IDs
+    and -a to query by specific node_args. For example, ``jobmon task_template_resources -t
+    12 -w 101 102 -a '{"location_id":[101,102], "sex":[1]}'``.
 
 A Workflow that retries Tasks if they fail
 ******************************************
@@ -819,8 +859,7 @@ run process is dead (kill it using the pid from the workflow run table)::
         executor_class = "SGEExecutor",
         stderr = f"/ihme/scratch/users/{user}/{wf_uuid}",
         stdout = f"/ihme/scratch/users/{user}/{wf_uuid}",
-        project = "proj_scicomp",
-        resume = True
+        project = "proj_scicomp"
     )
 
     # Re-add the same Tasks to it...
@@ -845,7 +884,7 @@ run process is dead (kill it using the pid from the workflow run table)::
     workflow.add_tasks([task1, task2, task3])
 
     # Re-run the workflow
-    workflow.run()
+    workflow.run(resume=True)
 
 That's it. It is the same setup, just change the resume flag so that it is
 true (otherwise you will get an error that you are creating a workflow that
@@ -1055,7 +1094,9 @@ tool_version
 workflow
     This table has every Workflow created, along with it’s associated dag_id, and workflow_args
 workflow_attribute
-    Additional attributes that are being tracked for a given Workflow.
+    Additional attributes that are being tracked for a given Workflow. They are not required to use Jobmon, and
+    workflow_attributes are not passed to your jobs. They are intended to track information for a given run and can be
+    utilized for profiling and resource prediction.
 workflow_attribute_type
     The types of attributes that can be tracked for Workflows.
 workflow_run

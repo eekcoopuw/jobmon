@@ -73,3 +73,23 @@ class QsubAttribute:
     """SGE exit codes that Jobmon will detect and handle in a special way."""
 
     ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)
+
+
+class Direction:
+    """A generic utility class.
+
+    Used to represent one-dimensional direction,
+    such as upstream/downstream.
+    """
+
+    UP = "up"
+    DOWN = "down"
+
+
+class SpecialChars:
+    """A generic utility class.
+
+    Used to define special chars.
+    """
+
+    ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""

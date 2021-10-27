@@ -12,10 +12,11 @@ INSTALL_REQUIRES = [
     'python_json_logger',
     'pyyaml',
     'requests',
+    'scipy',
     'structlog',
     'tabulate',
     'tenacity',
-    'tblib'
+    'tblib',
 ]
 
 SERVER_REQUIRES = [
@@ -25,7 +26,7 @@ SERVER_REQUIRES = [
     'elastic-apm[flask]',
     'pymysql',  # install MySQLdb/mysqlclient for more performance
     'python-logstash-async',
-    'sqlalchemy==1.3',
+    'sqlalchemy',
 ]
 
 # pip install -e .[test]
@@ -47,12 +48,6 @@ DOCS_REQUIRES = [
     'graphviz',
     'sphinx_code_tabs',
 ]
-
-
-def local_scheme(version):
-    """Skip the local version (eg. +xyz of 0.6.1.dev4+gdf99fe2)
-    to be able to upload to Test PyPI"""
-    return ""
 
 
 def read(read_file: str):
@@ -91,9 +86,10 @@ setup(
     package_data={"jobmon": ["py.typed"]},
 
     setup_requires=["setuptools_scm"],
-    use_scm_version={'local_scheme': local_scheme,
+    use_scm_version={'local_scheme': 'no-local-version',
                      'write_to': 'src/jobmon/_version.py',
-                     'fallback_version': '0.0.0'},
+                     'fallback_version': '0.0.0',
+                     'version_scheme': 'release-branch-semver'},
 
     entry_points={
         'console_scripts': [

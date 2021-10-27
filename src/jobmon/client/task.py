@@ -14,10 +14,10 @@ from jobmon.client.cluster import Cluster
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
 from jobmon.cluster_type.base import ClusterQueue
-from jobmon.constants import TaskStatus
+from jobmon.constants import SpecialChars, TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
-from jobmon.serializers import SerializeTaskInstanceErrorLog
+from jobmon.serializers import SerializeTaskInstanceErrorLog, SerializeTaskResourceUsage
 
 logger = logging.getLogger(__name__)
 
@@ -27,8 +27,6 @@ class Task:
 
     Task Instances will be created from it for every execution.
     """
-
-    ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""
 
     @classmethod
     def is_valid_job_name(cls: Any, name: str) -> bool:
@@ -55,10 +53,10 @@ class Task:
             raise ValueError("name cannot be None or empty")
         elif name[0].isdigit():
             raise ValueError(f"name cannot begin with a digit, saw: '{name[0]}'")
-        elif any(e in name for e in cls.ILLEGAL_SPECIAL_CHARACTERS):
+        elif any(e in name for e in SpecialChars.ILLEGAL_SPECIAL_CHARACTERS):
             raise ValueError(
                 f"name contains illegal special character, illegal characters "
-                f"are: '{cls.ILLEGAL_SPECIAL_CHARACTERS}'"
+                f"are: '{SpecialChars.ILLEGAL_SPECIAL_CHARACTERS}'"
             )
         return True
 
@@ -463,3 +461,20 @@ class Task:
         hash_value.update(bytes(str(hash(self.node)).encode("utf-8")))
         hash_value.update(bytes(str(self.task_args_hash).encode("utf-8")))
         return int(hash_value.hexdigest(), 16)
+
+    def resource_usage(self) -> dict:
+        """Get the resource usage for the successful TaskInstance of a Task."""
+        app_route = "/task_resource_usage"
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={"task_id": self.task_id},
+            request_type="get",
+            logger=logger,
+        )
+        if return_code != StatusCodes.OK:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from GET "
+                f"request through route {app_route}. Expected code "
+                f"200. Response content: {response}"
+            )
+        return SerializeTaskResourceUsage.kwargs_from_wire(response)

@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Sequence, Union
 import uuid
 
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.client_logging import ClientLogging
 from jobmon.client.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.distributor.api import DistributorConfig
@@ -40,8 +41,9 @@ from jobmon.exceptions import (
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeCluster
 
-
+ClientLogging().attach(__name__)
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
 
 
 class ResumeStatus(object):
@@ -382,56 +384,13 @@ class Workflow(object):
 
         return swarm.status
 
-    def validate(self) -> None:
+    def validate(self, fail: bool = False) -> None:
         """Confirm that the tasks in this workflow are valid.
 
         This method will access the database to confirm the requested resources are valid for
         the specified cluster. It will also confirm that the workflow args are valid.  It also
         will make sure no task contains up/down stream tasks that are not in the workflow.
         """
-        # for task in self.tasks.values():
-
-        #     # get the cluster for this task
-        #     cluster_name = self._get_cluster_name(task)
-        #     cluster = self._get_cluster_by_name(cluster_name)
-
-        #     # construct the resource params by traversing from workflow to task
-        #     resource_params = self._get_resource_params(task, cluster_name)
-
-        #     # get queue from resource params. it is cached on cluster object
-        #     queue_name = resource_params.pop("queue")
-        #     queue = cluster.get_queue(queue_name)
-
-        #     # construct resource scales
-        #     try:
-        #         resource_params.pop("resource_scales")
-        #     except KeyError:
-        #         pass
-
-        #     cluster.validate_requested_resources(resource_params, queue)
-
-        # # validate by creating the object. validate is called under the hood
-        # return cluster.create_task_resources(resource_params)
-
-        # TODO: confirm compute_resources has a callable or task_resources is valid.
-        # TODO: confirm we get a queue from compute_resources
-
-        # check if workflow is valid
-        self._dag.validate()
-        self._matching_wf_args_diff_hash()
-
-    def bind(self) -> None:
-        """Bind objects to the database if they haven't already been.
-
-        compute_resources: A dictionary that includes the users requested resources
-            for the current run. E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
-        cluster_name: The specific cluster that the user wants to use.
-        """
-        if self.is_bound:
-            return
-
-        self.validate()
-
         # construct task resources
         # TODO: consider moving to create_workflow_run
         for task in self.tasks.values():
@@ -448,8 +407,24 @@ class Workflow(object):
                 resource_params = self._get_resource_params(task, cluster_name)
 
                 task.task_resources = cluster.create_valid_task_resources(
-                    resource_params, TaskResourcesType.VALIDATED
+                    resource_params, TaskResourcesType.VALIDATED, fail=fail
                 )
+
+        # check if workflow is valid
+        self._dag.validate()
+        self._matching_wf_args_diff_hash()
+
+    def bind(self) -> None:
+        """Bind objects to the database if they haven't already been.
+
+        compute_resources: A dictionary that includes the users requested resources
+            for the current run. E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
+        cluster_name: The specific cluster that the user wants to use.
+        """
+        if self.is_bound:
+            return
+
+        self.validate()
 
         # bind dag
         self._dag.bind(self._chunk_size)
@@ -877,3 +852,27 @@ class Workflow(object):
         hash_value.update(str(self.task_hash).encode("utf-8"))
         hash_value.update(str(hash(self._dag)).encode("utf-8"))
         return int(hash_value.hexdigest(), 16)
+
+    def get_errors(
+        self, limit: int = 1000
+    ) -> Optional[Dict[int, Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]]]:
+        """Method to get all errors.
+
+        Return a dictionary with the erring task_id as the key, and
+        the Task.get_errors content as the value.
+        When limit is specifically set as None from the client, this
+        return set will pass back all the erred tasks in the workflow.
+        """
+        errors = {}
+
+        cnt: int = 0
+        for task in self.tasks.values():
+            task_id = task.task_id
+            task_errors = task.get_errors()
+            if task_errors is not None and len(task_errors) > 0:
+                errors[task_id] = task_errors
+                cnt += 1
+                if limit is not None and cnt >= limit - 1:
+                    break
+
+        return errors
