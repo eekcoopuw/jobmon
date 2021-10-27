@@ -7,15 +7,23 @@ import math
 import ast
 import json
 
-SOURCE_DB_HOST = "scicomp-maria-db-d01.db.ihme.washington.edu" # "scicomp-maria-db-p02.db.ihme.washington.edu"
-SOURCE_DB_PORT = 3306
-SOURCE_DB_INSTANCE_IDENTIFIER = "docker_prod_1022"
-SOURCE_DB_USER = "read_only"
+SOURCE_DB_HOST_DEFAULT = "scicomp-maria-db-d01.db.ihme.washington.edu" # "scicomp-maria-db-p02.db.ihme.washington.edu"
+SOURCE_DB_INSTANCE_IDENTIFIER_DEFAULT = "docker_prod_1022"
+SOURCE_DB_USER_DEFAULT = "read_only"
 
-TARGET_DB_HOST = "scicomp-maria-db-d01.db.ihme.washington.edu"
+TARGET_DB_HOST_DEFAULT = "scicomp-maria-db-d01.db.ihme.washington.edu"
+TARGET_DB_INSTANCE_IDENTIFIER_DEFAULT = "docker"
+TARGET_DB_USER_DEFAULT = "root"
+
+SOURCE_DB_HOST = None
+SOURCE_DB_PORT = 3306
+SOURCE_DB_INSTANCE_IDENTIFIER = None
+SOURCE_DB_USER = None
+
+TARGET_DB_HOST = None
 TARGET_DB_PORT = 3306
-TARGET_DB_INSTANCE_IDENTIFIER = "zshort_docker"
-TARGET_DB_USER = "root"
+TARGET_DB_INSTANCE_IDENTIFIER = None
+TARGET_DB_USER = None
 
 LOG_FILE = None
 
@@ -105,17 +113,35 @@ def transform_resource_scales(orig_resource_scales: str) -> str:
     return json.dumps(new_resource_scales)
 
 def migrate():
-    print("\n*********** Loading data from SOURCE DB ***********\n")
-    print("Connecting to [" + SOURCE_DB_HOST + "] ...")
+    """
+    Main migrate process
+    """
+    SOURCE_DB_HOST = input(f"Enter your SOURCE_DB_HOST(default {SOURCE_DB_HOST_DEFAULT}):") \
+                     or SOURCE_DB_HOST_DEFAULT
+    SOURCE_DB_INSTANCE_IDENTIFIER = \
+        input(f"Enter your SOURCE_DB_INSTANCE_IDENTIFIER"
+              f"(default {SOURCE_DB_INSTANCE_IDENTIFIER_DEFAULT}):") \
+              or SOURCE_DB_INSTANCE_IDENTIFIER_DEFAULT
+    SOURCE_DB_USER = input(f"Enter your SOURCE_DB_USER"
+                           f"(default {SOURCE_DB_USER_DEFAULT}):") or SOURCE_DB_USER_DEFAULT
     SOURCE_DB_PASSWORD = input(f"Enter your SOURCE PASS for {SOURCE_DB_USER}: ")
+    print("Connecting to [" + SOURCE_DB_HOST + "] ...")
     source_engine = create_engine(
         'mysql://' + SOURCE_DB_USER + ':' + SOURCE_DB_PASSWORD + '@' +
         SOURCE_DB_HOST + '/' + SOURCE_DB_INSTANCE_IDENTIFIER + '?charset=utf8mb4')
     # Activate server side cursor
     source_conn = source_engine.connect().execution_options(stream_results=True)
 
-    print("Connecting to [" + TARGET_DB_HOST + "] ...")
+    TARGET_DB_HOST = input(f"Enter your TARGET_DB_HOST(default {TARGET_DB_HOST_DEFAULT}):") \
+                     or TARGET_DB_HOST_DEFAULT
+    TARGET_DB_INSTANCE_IDENTIFIER = \
+        input(f"Enter your TARGET_DB_INSTANCE_IDENTIFIER"
+              f"(default {TARGET_DB_INSTANCE_IDENTIFIER_DEFAULT}):") \
+              or TARGET_DB_INSTANCE_IDENTIFIER_DEFAULT
+    TARGET_DB_USER = input(f"Enter your TARGET_DB_USER"
+                           f"(default {TARGET_DB_USER_DEFAULT}):") or TARGET_DB_USER_DEFAULT
     TARGET_DB_PASSWORD = input(f"Enter your TARGET PASS for {TARGET_DB_USER}: ")
+    print("Connecting to [" + TARGET_DB_HOST + "] ...")
     target_engine = create_engine(
         'mysql://' + TARGET_DB_USER + ':' + TARGET_DB_PASSWORD + '@' +
         TARGET_DB_HOST + '/' + TARGET_DB_INSTANCE_IDENTIFIER + '?charset=utf8mb4')
@@ -298,19 +324,19 @@ def migrate():
 
             chunk_df.to_sql(to_t, target_engine, if_exists='append',
                             index=False, method='multi')
-
-            # limit to 10_000 for quick test
-            if t in [
-                'edge',
-                'node',
-                'node_arg',
-                'task',
-                'task_arg',
-                'task_instance',
-                'task_instance_error_log',
-                'executor_parameter_set',
-                ]:
-                break
+            #
+            # # limit to 10_000 for quick test
+            # if t in [
+            #     'edge',
+            #     'node',
+            #     'node_arg',
+            #     'task',
+            #     'task_arg',
+            #     'task_instance',
+            #     'task_instance_error_log',
+            #     'executor_parameter_set',
+            #     ]:
+            #     break
 
     print("Closing connection - Source ...")
     source_conn.close()
