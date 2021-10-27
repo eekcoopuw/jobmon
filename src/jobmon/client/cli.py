@@ -202,7 +202,7 @@ class ClientCLI(CLI):
         workflow_status_parser.set_defaults(func=self.workflow_status)
         workflow_status_parser.add_argument(
             "-w", "--workflow_id", nargs="*", help="list of workflow_ids", required=False,
-            type=int, action='append'
+            type=int, action='append', default=[]
         )
         workflow_status_parser.add_argument(
             "-u", "--user", nargs="*", help="list of users", required=False, type=str
