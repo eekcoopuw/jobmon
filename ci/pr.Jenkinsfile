@@ -5,13 +5,14 @@ pipeline {
   options {
     buildDiscarder(logRotator(numToKeepStr: '30'))
   } // End options
-    parameters {
+  parameters {
+    listGitBranches(
       name: 'BRANCH',
       defaultValue: '**/from',
       type: 'BRANCH',
       remoteURL: 'ssh://git@stash.ihme.washington.edu:7999/scic/jobmon.git',
       credentialsId: 'jenkins',
-      selectedValue: 'DEFAULT'
+      selectedValue: 'DEFAULT')
     booleanParam(defaultValue: 'true',
       description: 'Whether or not you want to deploy Jobmon to Pypi',
       name: 'DEPLOY_PYPI')
