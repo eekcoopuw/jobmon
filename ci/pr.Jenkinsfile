@@ -6,9 +6,15 @@ pipeline {
     buildDiscarder(logRotator(numToKeepStr: '30'))
   } // End options
   parameters {
+    listGitBranches(
+      branchFilter: 'origin.*/(.*)',
+      name: 'BRANCH',
+      type: 'BRANCH',
+      remoteURL: 'ssh://git@stash.ihme.washington.edu:7999/scic/jobmon.git',
+      credentialsId: 'jenkins')
     booleanParam(defaultValue: 'true',
-     description: 'Whether or not you want to deploy Jobmon to Pypi',
-     name: 'DEPLOY_PYPI')
+      description: 'Whether or not you want to deploy Jobmon to Pypi',
+      name: 'DEPLOY_PYPI')
   } // end parameters
   triggers {
     // This cron expression runs seldom, or never runs, but having the value set
