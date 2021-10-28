@@ -7,9 +7,10 @@ pipeline {
   } // End options
   parameters {
     listGitBranches(
-      branchFilter: 'origin.*/(.*)',
       name: 'BRANCH',
+      defaultValue: '**/from',
       type: 'BRANCH',
+      branchFilter: 'origin.*/(.*)',
       remoteURL: 'ssh://git@stash.ihme.washington.edu:7999/scic/jobmon.git',
       credentialsId: 'jenkins')
     booleanParam(defaultValue: 'true',
