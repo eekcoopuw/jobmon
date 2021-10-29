@@ -7,7 +7,7 @@ pipeline {
   } // End options.
   parameters {
     listGitBranches(
-      name: 'BRANCH',
+      name: 'branch',
       defaultValue: '**/from',
       type: 'BRANCH',
       remoteURL: 'ssh://git@stash.ihme.washington.edu:7999/scic/jobmon.git',
