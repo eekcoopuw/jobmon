@@ -4,7 +4,7 @@ pipeline {
   }
   options {
     buildDiscarder(logRotator(numToKeepStr: '30'))
-  } // End options
+  } // End options.
   parameters {
     listGitBranches(
       name: 'BRANCH',
