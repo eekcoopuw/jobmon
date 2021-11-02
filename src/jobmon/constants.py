@@ -92,4 +92,4 @@ class SpecialChars:
     Used to define special chars.
     """
 
-    ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""
+    ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\" "

@@ -4,11 +4,11 @@ pipeline {
   }
   options {
     buildDiscarder(logRotator(numToKeepStr: '30'))
-  } // End options
+  } // End options.
   parameters {
     booleanParam(defaultValue: 'true',
-     description: 'Whether or not you want to deploy Jobmon to Pypi',
-     name: 'DEPLOY_PYPI')
+      description: 'Whether or not you want to deploy Jobmon to Pypi',
+      name: 'DEPLOY_PYPI')
   } // end parameters
   triggers {
     // This cron expression runs seldom, or never runs, but having the value set
