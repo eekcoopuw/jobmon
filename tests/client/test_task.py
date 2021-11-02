@@ -55,6 +55,9 @@ def test_default_task_name(task_template):
     # special char
     a = task_template.create_task(arg="abc'abc/abc")
     assert a.name == "simple_template_1-abc_abc_abc"
+    # spaces
+    a = task_template.create_task(arg="echo 10")
+    assert a.name == "simple_template_1-echo_10"
 
 
 def test_task_attribute(db_cfg, tool):
