@@ -360,13 +360,14 @@ if __name__ == '__main__':
 
     dateTimeObj_after = datetime.now()
 
-    print(f"Time before migration: {dateTimeObj_before}")
     with open(LOG_FILE, "a") as file_object:
+
+        print(f"Time before migration: {dateTimeObj_before}")
         file_object.write(f"Time before migration: {dateTimeObj_before}\n")
-    print(f"Time after migration: {dateTimeObj_after}")
-    with open(LOG_FILE, "a") as file_object:
+
+        print(f"Time after migration: {dateTimeObj_after}")
         file_object.write(f"Time after migration: {dateTimeObj_after}\n")
 
-    print(f"Time spent: {dateTimeObj_after - dateTimeObj_before}")
-    with open(LOG_FILE, "a") as file_object:
+        print(f"Time spent: {dateTimeObj_after - dateTimeObj_before}")
         file_object.write(f"Time spent: {dateTimeObj_after - dateTimeObj_before}\n")
+
