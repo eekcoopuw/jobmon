@@ -158,9 +158,8 @@ class Task:
         else:
             self.compute_resources = compute_resources.copy()
         self.compute_resources_callable = compute_resources_callable
-        self.resource_scales = \
-            resource_scales if resource_scales is not None \
-                            else {'memory': 0.5, 'runtime': 0.5}
+        self.resource_scales = resource_scales if resource_scales is not None \
+            else {'memory': 0.5, 'runtime': 0.5}
         self.cluster_name = cluster_name
         self.fallback_queues = \
             fallback_queues if fallback_queues is not None else []
