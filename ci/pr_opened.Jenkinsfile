@@ -26,7 +26,7 @@ pipeline {
     //     } // End script
     //   } // End step
     // } // End notify bitbucket stage
-    stage('Merge Branches') {
+    stage('Merge Branches.') {
       steps {
         checkout scm
         sh """
