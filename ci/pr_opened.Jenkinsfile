@@ -26,10 +26,14 @@ pipeline {
     //     } // End script
     //   } // End step
     // } // End notify bitbucket stage
-    stage('Remote Checkout Repo') {
+    stage('Merge Branches') {
       steps {
-        sh "echo ${BITBUCKET_PATHLOAD}"
         checkout scm
+        sh """
+          git fetch origin
+          git branch -t ${BITBUCKET_TARGET_BRANCH}
+          git merge ${BITBUCKET_SOURCE_BRANCH}
+        """
       } // End step
     } // End remote checkout repo stage
     stage("parallel") {
