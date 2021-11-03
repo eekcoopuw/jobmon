@@ -22,9 +22,66 @@ Cold Resume
 
 Fail Fast
 #########
+On occasion, a user might want to see how far a workflow can get before it fails,
+or want to immediately see where problem spots are. To do this, the user can just
+instantiate the workflow with fail_fast set to True. Then add tasks to the workflow
+as normal, and the workflow will fail on the first failure.
+
+For example::
+
+    wf = Workflow(workflow_args='testing', fail_fast=True)
+    t1 = BashTask("not a command 1")
+    t2 = BashTask("sleep 10", upstream_tasks=[t1])
+    wf.add_tasks([t1, t2])
+    wf.run()
+
 
 Dynamic Task Resources
 ######################
+It is possible to dynamically configure the resources needed to run a
+given task. For example, if an upstream Task may better inform the resources
+that a downstream Task needs, the resources will not be checked and bound until
+the downstream is about to run and all of it's upstream dependencies
+have completed. To do this, the user can provide a function that will be called
+at runtime and return an ExecutorParameter object with the resources needed.
+
+For example ::
+
+    from jobmon.client.api import ExecutorParameters
+    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
+    from jobmon.client.templates.bash_task import BashTask
+
+    def assign_resources(*args, **kwargs):
+        """ Callable to be evaluated when the task is ready to be scheduled
+        to run"""
+        fp = '/ihme/scratch/users/svcscicompci/tests/jobmon/resources.txt'
+        with open(fp, "r") as file:
+            resources = file.read()
+            resource_dict = ast.literal_eval(resources)
+        m_mem_free = resource_dict['m_mem_free']
+        max_runtime_seconds = int(resource_dict['max_runtime_seconds'])
+        num_cores = int(resource_dict['num_cores'])
+        queue = resource_dict['queue']
+
+        exec_params = ExecutorParameters(m_mem_free=m_mem_free,
+                                         max_runtime_seconds=max_runtime_seconds,
+                                         num_cores=num_cores, queue=queue)
+        return exec_params
+
+    # task with static resources that assigns the resources for the 2nd task
+    # when it runs
+    task1 = PythonTask(name='task_to_assign_resources',
+                       script="/assign_resources.py", max_attempts = 1,
+                       max_runtime_seconds=200, num_cores=1,
+                       queue='all.q', m_mem_free='1G')
+
+    task2 = BashTask(name='dynamic_resource_task', command='sleep 1',
+                    max_attempts=2, executor_parameters=assign_resources)
+    task2.add_upstream(task1) # make task2 dependent on task 1
+
+    wf = Workflow(workflow_args='dynamic_resource_wf')
+    wf.add_task(task1)
+    wf.run()
 
 Advanced Task Dependencies
 ##########################

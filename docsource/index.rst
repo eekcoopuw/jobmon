@@ -28,6 +28,8 @@ Table of Contents
     core_concepts
     monitoring_debugging
     advanced_usage
+    database_tables
+    statuses
     glossary
     API Reference <api/modules>
     architecture
