@@ -26,16 +26,13 @@ Table of Contents
 
     quickstart
     core_concepts
+    monitoring_debugging
+    advanced_usage
     glossary
-    advanced_dependencies
-    architecture
-    databases
-    kubernetes_deployment
-    docker_deployment
-    tests
     API Reference <api/modules>
-    experimental_azure_kubernetes_deployment
-    design/finite_state_machine
+    architecture
+    deployments
+    deployment_units
 
 
 Indices and tables

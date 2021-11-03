@@ -1,6 +1,6 @@
-
+**********
 Quickstart
-##########
+**********
 
 Jobmon is a job-control system used for automating scientific workflows and running them on
 distributed computing systems. It manages complex job and resource dependencies and manages
@@ -11,7 +11,7 @@ Jobmon’s vision is to make it as easy as possible for everyone at IHME to run 
 on any compute platform, reliably, and efficiently.
 
 Install
-*******
+#######
 To get started::
 
     pip install jobmon
@@ -25,14 +25,12 @@ To get started::
 
 .. note::
 
-    Jobmon is intended to be used on the SGE cluster. At present, it has
+    Jobmon is intended to be used on the Slurm or UGE (Buster). At present, it has
     limited capabilities for executing Tasks locally on a single machine using
-    either sequential execution or multiprocessing. These local task-management
-    capabilities will be improved going forward, but SGE support will always be
-    the primary goal for the project.
+    either sequential execution or multiprocessing.
 
 Jobmon Learning
-***************
+###############
 For a deeper dive in to Jobmon, check out some of our courses:
     1. `About Jobmon <https://hub.ihme.washington.edu/pages/viewpage.action?pageId=74531156>`_.
     2. `Learn Jobmon <https://hub.ihme.washington.edu/pages/viewpage.action?pageId=78062050>`_.
@@ -43,7 +41,7 @@ These courses are occasionally offered in-person. Check IHME Learn to see if the
 upcoming trainings.
 
 Getting Started
-***************
+###############
 The Jobmon controller script (i.e. the code defining the workflow) has to be
 written in Python or R. The modeling code can be in Python, R, Stata, C++, or in fact any
 language.
@@ -55,7 +53,7 @@ be resumed if the WorkflowArgs and all Tasks added to it are shown to be
 exact matches to the previous Workflow.
 
 Create a Workflow
-*****************
+#################
 
 A Workflow is a framework by which a user may define the relationship between
 Tasks and define the relationship between multiple runs of the same set of Tasks.
@@ -356,7 +354,7 @@ task's ExecutorParameters
     itself. Errors with a return code of 137 or 247 indicate resource errors.
 
 Nodes, TaskTemplates, and Tools
-===============================
+###############################
 Nodes are the object representing a Task within a DAG. It simply keeps track of where a
 Task is and what attributes make the task unique within the DAG. Tasks
 will often be created from a TaskTemplate and they will vary somewhat e.g. by location, this
@@ -539,7 +537,7 @@ For example::
 
 
 Logging
-===============================
+#######
 To attach Jobmon's simple formatted logger use the following code.
 
 For example::
@@ -548,86 +546,6 @@ For example::
 
     ClientLogging().attach()
 
-Jobmon Commands
-=======================================
-The Jobmon status
-commands allow you to check that status of your Workflows and Tasks from the
-command line.
-
-To use the status commands:
-    1. Open a new terminal window
-    2. SSH in to the cluster
-    3. qlogin
-    4. Activate the same conda environment that your Tasks are running in
-
-There are currently three supported commands:
-
-**workflow_status**
-    Entering ``jobmon workflow_status`` in to the command line will show you
-    a table of how many tasks are in each state within that workflow. You
-    can specify the workflow by user using the -u flag. For example:
-    ``jobmon workflow_status -u {user}``. You can also specify the workflow
-    using the -w flag. For example: ``jobmon workflow_status -w 9876``.
-    You can also use the -w flag to specify multiple workflows at the same
-    time. For example, if you have one workflow named 9876 and one
-    workflow named 1234 you would enter ``jobmon workflow_status -w 9876 1234``.
-
-**workflow_tasks**
-    Entering ``jobmon workflow_tasks`` in to the command line will show you
-    the status of specific tasks in a given workflow. You can specify which
-    workflow with the -w flag. For example: ``jobmon workflow_tasks -w 9876``.
-    You can also add a -s flag to only query tasks that are in a certain
-    state. For example: ``jobmon workflow_tasks -w 9876 -s PENDING`` will query all
-    tasks within workflow 9876 that have the pending status. You may also query by multiple
-    statuses. For example: ``jobmon workflow_tasks -w 9876 -s PENDING RUNNING``
-
-**task_status**
-    Entering ``jobmon task_status`` in to the command line will show you the
-    state of each task instance for a certain task. You may specify the task
-    by adding a -t flag. For example: ``jobmon task_status -t 1234``. You may also filter by
-    multiple task ids and statuses. The -s flag will allow you to filter upon a specific status.
-    For example, if you wanted to query all task instances in the Done state for task 1234 and
-    task 7652 you would do the following ``jobmon task_status -t 1234 7652 -s done``
-
-**JSON flag**
-    A new flag has been added to the Jobmon CLI to allow users to return their workflow and
-    task statuses in JSON format. To use this feature add a ``-n`` flag to any of the Jobmon
-    CLI commands. For example: ``jobmon task_status -t 1234 7652 -s done -n``
-
-Possible states: PENDING, RUNNING, DONE, FATAL
-
-Jobmon Self-Service Commands
-****************************
-
-Jobmon has a suite of commands to not only visualize task statuses from the database, but to allow the users to modify the states of their workflows. These self-service commands can be invoked from the command line in the same way as the status commands.
-
-There are two supported:
-
-**concurrency_limit**
-    Entering ``jobmon concurrency_limit`` will allow the user to change the maximum running task instances allowed in their workflow. When a workflow is instantiated, the user can specify a maximum limit to the number of concurrent tasks in case a very wide workflow threatens to resource-throttle the cluster. While running, the user can use this command to change the maximum allowed concurrency as needed if cluster busyness starts to wax or wane.
-
-    As an example, if we plan on running 100,000 tasks at once and don't specify a default, Jobmon will ensure only 10,000 tasks at once will be queued and run. If the cluster is particularly free, the user can use ``jobmon concurrency_limit -w <workflow_id> -n 100000`` to run all 100,000 tasks simultaneously without interrupting the current workflow execution. If cluster usage starts to pick back up and we need to make space for others, we can use ``jobmon concurrency_limit -w <workflow_id> -n 100`` to ensure that only 100 tasks at once will be queued and that we can make space for others.
-
-**update_task_status**
-
-    Entering ``jobmon update_task_status`` allows the user to set the status of tasks in their workflow. This is helpful for either rerunning portions of a workflow that have already completed, or allowing a workflow to progress past a blocking error. The usage is ``jobmon update_task_status -t [task_ids] -w [workflow_id] -s [status]``
-
-    There are 2 allowed statuses: "D" - DONE and "G" - REGISTERED.
-
-    Specifying status "D" will mark only the listed task_ids as "D", and leave the rest of the DAG unchanged. When the workflow is resumed, the DAG executes as if the listed task_ids have finished successfully.
-
-    If status "G" is specified, the listed task IDs will be set to "G" as well as all downstream dependents of those tasks. TaskInstances will be set to "K". When the workflow is resumed, the specified tasks will be rerun and subsequently their downstream tasks as well. If the workflow has successfully completed, and is marked with status "D", the workflow status will be amended to status "E" in order to allow a resume.
-
-    .. note::
-        1. All status changes are propagated to the database.
-        2. Only inactive workflows can have task statuses updated
-        3. The updating user must have at least 1 workflow run associated with the requested workflow.
-        4. The requested tasks must all belong to the specified workflow ID
-
-**resource_yaml**
-    Entering ``jobmon task_template_resources`` will allow the user to generate a task template resource YAML file that can be used in Jobmon 3.0 and later.
-
-    As an example, ``jobmon task_template_resources -w 1 -p f ~/temp/resource.yaml`` generates a YAML file for all task templates used in workflow 1 and save it to ~/temp/resource.yaml as well as print it to the standard output.
 
 Resource Usage
 =======================================
