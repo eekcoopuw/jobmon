@@ -25,6 +25,7 @@ Table of Contents
     :maxdepth: 2
 
     quickstart
+    core_concepts
     glossary
     advanced_dependencies
     architecture

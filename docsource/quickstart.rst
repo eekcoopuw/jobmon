@@ -537,22 +537,6 @@ For example::
         # Run the workflow
         workflow.run()
 
-node_args, task_args, op_args
-===============================
-**node_args**
-    Any named arguments in command_template that make the command unique within this template
-    for a given workflow run. Generally these are arguments that can be parallelized over, e.g.
-    location_id.
-
-**task_args**
-    Any named arguments in command_template that make the command unique across workflows if
-    the node args are the same as a previous workflow. Generally these are arguments about
-    data moving though the task, e.g. release_id.
-
-**op_args**
-    Any named arguments in command_template that can change without changing the identity of
-    the task. Generally these are things like the task executable location or the verbosity of
-    the script.
 
 Logging
 ===============================
@@ -926,22 +910,10 @@ For more examples, take a look at the `resume tests <https://stash.ihme.washingt
     need to worry about, but the concept may be helpful in debugging failures.
     (SEE DEBUGGING TODO).
 
-.. todo for the jobmon developers::
-
-    (DEBUGGING) Figure out whether/how we want users to interact with
-    WorkflowRuns. I tend to think they're only useful for debugging purposes...
-    but that leads to the question of what utilities we want to expose to help
-    users to debug in general.
-
 As soon as you change any of the values of your WorkflowArgs or modify its Tasks,
 you'll cause a new Workflow entry to be created in the Jobmon
 database. When calling run() on this new Workflow, any progress through the
 Tasks that may have been made in previous Workflows will be ignored.
-
-.. todo for the jobmon developers::
-
-    Figure out how we want to give users visibility into the Workflows
-    they've created over time.
 
 
 Making a Workflow Fail On First Failure
@@ -985,14 +957,9 @@ jobmon-docker-cont-p02.hosts.ihme.washington.edu.
     The database credentials will only change when database changes are implemented
     (e.g. Jobmon 2.0.0)
 
-.. todo for the jobmon developers::
-
-    Create READ-ONLY credentials
-
 
 Running Queries in Jobmon
 *************************
-
 
 You can query the Jobmon database to see the status of a whole Workflow, or any set of tasks.
 Open a SQL browser (e.g. Sequel Pro) and connect to the database defined above.
@@ -1194,8 +1161,6 @@ Jobmon.
 
 To contact the team via Slack:
     - #jobmon-users to ask questions about Jobmon.
-    - #jobmonalerts is an automated messaging channel. Jobmon will notify the channel when a
-      workflow failed.
 
 To set up a consultation:
     - Send a message in the #jobmon-users slack channel saying that you would like a
