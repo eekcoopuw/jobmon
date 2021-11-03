@@ -35,7 +35,7 @@ Table of Contents
     API Reference <api/modules>
     architecture
     deployments
-    deployment_units
+    design/finite_state_machine
     developer_testing
 
 
