@@ -30,7 +30,6 @@ pipeline {
       steps {
         checkout scm
         sh """
-          git fetch origin
           git branch -t ${BITBUCKET_TARGET_BRANCH}
           git merge ${BITBUCKET_SOURCE_BRANCH}
         """
