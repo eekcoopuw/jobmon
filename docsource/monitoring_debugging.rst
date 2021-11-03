@@ -7,9 +7,61 @@ Jobmon Database
 
 Running Queries
 ***************
+If the command line status commands do not provide the information you need,
+you can query the Jobmon database.
 
-Useful Queries
-**************
+By default, your Workflow talks to our centrally-hosted Jobmon server
+(scicomp-maria-db-p01.db.ihme.washington.edu). You can access the
+Jobmon database from your favorite database browser (e.g. SequelPro, MySQL Workbench) using
+the credentials::
+
+    host: scicomp-maria-db-p01.db.ihme.washington.edu
+    port: 3306
+    user: read_only
+    pass: docker
+    database: docker
+
+To see previous database connections: https://hub.ihme.washington.edu/display/DataScience/Jobmon+Database+Connections
+
+.. note::
+    Jobmon has a persistent database. This means any time the client side of Jobmon is updated
+    it will continue to use the same database. The database credentials will only change when
+    database changes are implemented.
+
+You can query the Jobmon database to see the status of a whole Workflow, or any set of tasks.
+Open a SQL browser (e.g. Sequel Pro) and connect to the database defined above.
+
+Useful Jobmon Queries
+*********************
+If you wanted the current status of all Tasks in workflow 191:
+    | SELECT status, count(*)
+    | FROM task
+    | WHERE workflow_id=191
+    | GROUP BY status
+
+To find your Workflow if you know the Workflow name:
+    | SELECT *
+    | FROM workflow
+    | WHERE name="<your workflow name>"
+
+To find all of your Workflows by your username:
+    | SELECT *
+    | FROM workflow
+    | JOIN workflow_run ON workflow.id = workflow_run.workflow_id
+    | WHERE workflow_run.user="<your username>"
+
+To get all of the error logs associated with a given Workflow:
+    | SELECT *
+    | FROM task t1, task_instance t2, task_instance_error_log t3
+    | WHERE t1.id = t2.task_id
+    | AND t2.id = t3.task_instance_id
+    | AND t1.workflow_id = <workflow id>
+
+To get the error logs for a given WorkflowRun:
+    | SELECT *
+    | FROM task_instance t1, task_instance_error_log t2
+    | WHERE t1.id = t2.task_instance_id
+    | AND t1.workflow_run_id = <workflow_run_id>
 
 .. _status-commands-label:
 

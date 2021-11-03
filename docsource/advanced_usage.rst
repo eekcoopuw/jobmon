@@ -46,6 +46,7 @@ maximum allowed concurrency as needed if cluster busyness starts to wax or wane.
 workflow_reset
 **************
 TODO: FILL OUT THIS SECTION
+https://stash.ihme.washington.edu/projects/SCIC/repos/jobmon/pull-requests/356/overview
 
 update_task_status
 ******************
@@ -81,27 +82,29 @@ TaskTemplate Resource Prediction to YAML
     a YAML file for all task templates used in workflow 1 and saves it to ~/temp/resource.yaml.
     It will also print the generated compute resources to standard out.
 
-    An example output::
+    An example output:
 
-    your_task_template_1:
-        ihme_slurm:
-          num_cores: 1
-          m_mem_free: "400B"
-          max_runtime_seconds: 10
-          queue: "all.q"
-        ihme_uge:
-          num_cores: 1
-          m_mem_free: "400B"
-          max_runtime_seconds: 10
-          queue: "all.q"
-    your_task_template_2:
-        ihme_slurm:
-          num_cores: 1
-          m_mem_free: "600B"
-          max_runtime_seconds: 20
-          queue: "long.q"
-        ihme_uge:
-          num_cores: 1
-          m_mem_free: "600B"
-          max_runtime_seconds: 20
-          queue: "long.q"
+    .. code-block:: yaml
+
+       your_task_template_1:
+            ihme_slurm:
+              cores: 1
+              memory: "400B"
+              runtime: 10
+              queue: "all.q"
+            ihme_uge:
+              num_cores: 1
+              m_mem_free: "400B"
+              max_runtime_seconds: 10
+              queue: "all.q"
+        your_task_template_2:
+            ihme_slurm:
+              cores: 1
+              memory: "600B"
+              runtime: 20
+              queue: "long.q"
+            ihme_uge:
+              num_cores: 1
+              m_mem_free: "600B"
+              max_runtime_seconds: 20
+              queue: "long.q"
