@@ -122,4 +122,4 @@ workflow_run_status
 
 workflow_status
 ###############
-    Meta-data table that defines eight states of Workflow:
+    Meta-data table that defines eight states of Workflow.
