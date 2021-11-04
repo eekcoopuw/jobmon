@@ -21,7 +21,7 @@ pipeline {
         ]
       ]
     )
-  } // end triggers
+  } // end triggers.
   parameters {
     listGitBranches(
       branchFilter: '.*',
