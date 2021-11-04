@@ -29,7 +29,7 @@ pipeline {
       defaultValue: '${BITBUCKET_TARGET_BRANCH}',
       name: 'BRANCH_TO_BUILD',
       quickFilterEnabled: false,
-      remoteURL: 'ssh://git@stash.ihme.washington.edu:7999/scic/jobmon_uge.git',
+      remoteURL: 'ssh://git@stash.ihme.washington.edu:7999/scic/jobmon.git',
       selectedValue: 'DEFAULT',
       sortMode: 'NONE',
       tagFilter: '*',
