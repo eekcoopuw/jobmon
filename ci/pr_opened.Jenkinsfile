@@ -21,7 +21,22 @@ pipeline {
     } // End notify bitbucket stage
     stage('Merge Branches') {
       steps {
-        checkout scm
+        checkout scm: BbS(
+          branches: [[name: '${BITBUCKET_SOURCE_BRANCH}']],
+          credentialsId: 'svcscicompci',
+          extensions: [
+            [$class: 'PreBuildMerge',
+             options: [mergeRemote: 'jobmon',
+                       mergeTarget: '${BITBUCKET_TARGET_BRANCH}']
+            ]
+          ],
+          id: '8370906b-d076-4301-803f-71015eb58456',
+          mirrorName: '',
+          projectName: 'Scicomp',
+          repositoryName: 'jobmon',
+          serverId: '54f3b3a3-5d12-4c80-b568-58b59186132d',
+          sshCredentialsId: 'jenkins'
+        )
       } // End step
     } // End remote checkout repo stage
     stage("parallel") {
