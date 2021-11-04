@@ -42,8 +42,8 @@ def workflow_template_example():
             "cores": 1,
             "memory": "1G",
             "runtime": "1m",
-            "stdout": f"/ihme/scratch/users/{user}/{wf_uuid}",
-            "stderr": f"/ihme/scratch/users/{user}/{wf_uuid}",
+            "stdout": f"/ihme/scratch/users/{user}",
+            "stderr": f"/ihme/scratch/users/{user}",
             "project": "proj_scicomp"
         },
         template_name="quickstart_echo_template",
@@ -58,8 +58,8 @@ def workflow_template_example():
             "cores": 2,
             "memory": "2G",
             "runtime": "10m",
-            "stdout": f"/ihme/scratch/users/{user}/{wf_uuid}",
-            "stderr": f"/ihme/scratch/users/{user}/{wf_uuid}",
+            "stdout": f"/ihme/scratch/users/{user}",
+            "stderr": f"/ihme/scratch/users/{user}",
             "project": "proj_scicomp"
         },
         template_name="quickstart_python_template",
