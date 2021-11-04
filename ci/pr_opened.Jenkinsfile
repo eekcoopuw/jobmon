@@ -1,8 +1,12 @@
 pipeline {
-  triggers{
+  agent {
+    label "qlogin"
+  }
+  triggers {
+    // https://plugins.jenkins.io/bitbucket-push-and-pull-request/
     bitbucketTriggers {
       pullRequestServerCreatedAction()
-      pullRequestServerUpdatedAction()
+      pullRequestServerSourceUpdatedAction()
     }
   } // End triggers
   options {
