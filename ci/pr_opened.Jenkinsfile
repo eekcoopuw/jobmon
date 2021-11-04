@@ -2,14 +2,6 @@ pipeline {
   agent {
     label "qlogin"
   }
-  scm {
-    checkout([
-      $class: 'GitSCM',
-      branches: [[name: '**/from']],
-      userRemoteConfigs: [[credentialsId: 'jenkins',
-                           url: 'ssh://git@stash.ihme.washington.edu:7999/scic/jobmon.git']]
-    ])
-  }
   triggers {
     bitBucketTrigger(
       [
