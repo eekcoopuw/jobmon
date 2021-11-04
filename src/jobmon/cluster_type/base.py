@@ -4,6 +4,8 @@ from __future__ import annotations
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
+# the following try-except is to accommodate Python versions on both >=3.8 and 3.7.
+# The Protocol was officially introduced in 3.8, with typing_extensions slapped on 3.7.
 try:
     from typing import Protocol
 except ImportError:
