@@ -8,7 +8,7 @@ from jobmon.client.client_config import ClientConfig
 from jobmon.client.cluster import Cluster
 from jobmon.client.task_resources import TaskResources
 from jobmon.cluster_type.base import ClusterQueue
-from jobmon.constants import TaskStatus
+from jobmon.constants import TaskResourcesType, TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeSwarmTask
@@ -145,5 +145,5 @@ class SwarmTask(object):
             expected_queue=expected_queue,
             fallback_queues=fallback_queues,
         )
-        new_task_resources.bind(task_id=self.task_id)
+        new_task_resources.bind(TaskResourcesType.ADJUSTED)
         self.task_resources = new_task_resources

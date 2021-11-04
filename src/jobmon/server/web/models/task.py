@@ -45,6 +45,7 @@ class Task(DB.Model):
     workflow_id = DB.Column(DB.Integer, DB.ForeignKey("workflow.id"))
     node_id = DB.Column(DB.Integer, DB.ForeignKey("node.id"))
     task_args_hash = DB.Column(DB.Integer)
+    array_id = DB.Column(DB.Integer, DB.ForeignKey("array.id"), default=None)
     name = DB.Column(DB.String(255))
     command = DB.Column(DB.Text)
     task_resources_id = DB.Column(

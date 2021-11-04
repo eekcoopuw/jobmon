@@ -345,4 +345,3 @@ def test_resource_usage(db_cfg, client_env):
         "num_attempts": 1,
         "runtime": "12",
     }
-
