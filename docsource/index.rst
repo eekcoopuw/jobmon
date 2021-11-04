@@ -17,26 +17,32 @@ institute's needs. Jobmon aims to reduce human pain by providing:
 - Whole-of-application resumes to handle missing data or in-flight code fixes.
 - Fine-grained job dependencies.
 
-
-
+#################
 Table of Contents
-*****************
+#################
+
+User Manual
+===========
 
 .. toctree::
     :maxdepth: 2
+    :caption: User Manual
 
     quickstart
     core_concepts
     monitoring_debugging
     advanced_usage
-    database_tables
-    statuses
     glossary
     API Reference <api/modules>
-    architecture
-    deployments
-    design/finite_state_machine
-    developer_testing
+
+Developer's Guide
+=================
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Developer's Guide
+
+   developers_guide/index
 
 
 Indices and tables
