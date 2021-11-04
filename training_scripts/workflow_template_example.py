@@ -49,7 +49,7 @@ def workflow_template_example():
         template_name="echo_template",
         default_cluster_name="slurm",
         command_template="echo {output}",
-        task_args=["output"],
+        node_args=["output"],
     )
 
     python_template = tool.get_task_template(
@@ -65,7 +65,7 @@ def workflow_template_example():
         template_name="python_template",
         default_cluster_name="slurm",
         command_template="{python} {script_path} --args1 {val1} --args2 {val2}",
-        task_args=["val1", "val2"],
+        node_args=["val1", "val2"],
         op_args=["python", "script_path"],
     )
 
