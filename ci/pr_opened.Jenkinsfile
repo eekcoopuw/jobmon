@@ -2,6 +2,26 @@ pipeline {
   agent {
     label "qlogin"
   }
+  triggers {
+    bitBucketTrigger(
+      [
+        [
+          $class: 'BitBucketPPRPullRequestServerTriggerFilter',
+          actionFilter: [
+            $class: 'BitBucketPPRPullRequestServerCreatedActionFilter',
+            allowedBranches: ''
+          ]
+        ],
+        [
+          $class: 'BitBucketPPRPullRequestServerTriggerFilter',
+          actionFilter: [
+            $class: 'BitBucketPPRPullRequestServerSourceUpdatedActionFilter',
+            allowedBranches: ''
+          ]
+        ]
+      ]
+    )
+  }
   options {
     buildDiscarder(logRotator(numToKeepStr: '30'))
   } // End options
