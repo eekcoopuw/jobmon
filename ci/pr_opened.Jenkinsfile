@@ -29,13 +29,6 @@ pipeline {
     stage('Merge Branches.') {
       steps {
         checkout scm
-        withCredentials([gitUsernamePassword(credentialsId: 'svcscicompci', gitToolName: 'Default')]) {
-          sh """
-            git fetch origin
-            git checkout -t origin/${BITBUCKET_TARGET_BRANCH}
-            git merge origin/${BITBUCKET_SOURCE_BRANCH}
-          """
-        } // End credentials
       } // End step
     } // End remote checkout repo stage
     stage("parallel") {
