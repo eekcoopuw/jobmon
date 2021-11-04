@@ -242,7 +242,7 @@ test_k8s_uge_deployment () {
 
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
     $QLOGIN_ACTIVATE && \
-        conda create --prefix $CONDA_DIR python==3.8
+        conda create --prefix $CONDA_DIR python==3.7
     $QLOGIN_ACTIVATE &&
        conda activate $CONDA_DIR && \
        pip install pyyaml && \
@@ -271,7 +271,7 @@ test_k8s_slurm_deployment () {
     . ${MINICONDA_PATH} ${CONDA_ENV_NAME} && \
       conda deactivate && \
       conda env remove --name slurm_k8s_env && \
-      conda create -n slurm_k8s_env python==3.8 && \
+      conda create -n slurm_k8s_env python==3.7 && \
       conda activate slurm_k8s_env && \
       pip install pyyaml && \
       pip install jobmon==$JOBMON_VERSION && \
@@ -332,7 +332,7 @@ test_server () {
 
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
     $QLOGIN_ACTIVATE && \
-        conda create --prefix $CONDA_DIR python==3.8
+        conda create --prefix $CONDA_DIR python==3.7
     $QLOGIN_ACTIVATE &&
         conda activate $CONDA_DIR && \
         pip install jobmon==$JOBMON_VERSION && \
