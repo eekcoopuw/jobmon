@@ -130,6 +130,10 @@ def migrate():
         'mysql://' + SOURCE_DB_USER + ':' + SOURCE_DB_PASSWORD + '@' +
         SOURCE_DB_HOST + '/' + SOURCE_DB_INSTANCE_IDENTIFIER + '?charset=utf8mb4')
     # Activate server side cursor
+    # https://docs.sqlalchemy.org/en/13/core/connections.html
+    # Indicate that results should be "streamed"(i.e. not to brought in in a single fetch)
+    # and not pre-buffered, if possible.
+    # The flag is currently understood only by the psycopg2, mysqldb and pymysql dialects.
     source_conn = source_engine.connect().execution_options(stream_results=True)
 
     TARGET_DB_HOST = input(f"Enter your TARGET_DB_HOST(default {TARGET_DB_HOST_DEFAULT}):") \
