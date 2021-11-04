@@ -105,6 +105,12 @@ For users
         Task Template in order to classify it as a type of job within the context of your
         Workflow. Do this by using the Task Template create_task() function.
 
+    TaskAttribute
+        Additional attributes of the task that can be tracked. For example, release ID or
+        location set version ID. Task attributes are not passed to the job but may be useful
+        for profiling or resource prediction work in the Jobmon database. Pass in task
+        attributes as a list or dictionary to create_task().
+
     TaskStatus
         === =========================== =======================================================================================
         ID  Label                       Description
@@ -121,7 +127,9 @@ For users
 
     TaskInstance
         The actual instance of execution of a Task command. The equivalent of a single qsub on
-        an SGE Cluster. Jobmon will create TaskInstances from the Tasks that you define.
+        an SGE Cluster. Jobmon will create TaskInstances from the Tasks that you define. This
+        is an actual run of a task. Like calling a function in Python. One Task can have
+        multiple task instances if they are retried.
 
     TaskInstanceStatus
         === =========================== ==============================================================================
@@ -144,6 +152,12 @@ For users
         MultiprocessingExecutor, or SequentialExecutor. If the user wants to set up the Jobmon
         Workflow and test it without risking actually running the commands, they can use the
         DummyExecutor which imitates job submission.
+
+    Workflow Attributes
+        Additional attributes that are being tracked for a given Workflow. They are not required
+        to use Jobmon, and workflow_attributes are not passed to your jobs. They are intended to
+        track information for a given run and can be utilized for profiling and resource
+        prediction.
 
 For developers
 **************

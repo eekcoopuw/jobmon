@@ -52,8 +52,12 @@ Required Resources
 Dependencies
 ############
 
+.. _jobmon-arguments-label:
+
 Arguments
 #########
+
+.. _jobmon-node-args-label:
 
 node_args
 *********
@@ -66,6 +70,8 @@ op_args
     Any named arguments in command_template that can change without changing the identity of
     the task. Generally these are things like the task executable location or the verbosity of
     the script.
+
+.. _jobmon-task-args-label:
 
 task_args
 *********
