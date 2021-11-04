@@ -46,7 +46,7 @@ def workflow_template_example():
             "stderr": f"/ihme/scratch/users/{user}/{wf_uuid}",
             "project": "proj_scicomp"
         },
-        template_name="echo_template",
+        template_name="quickstart_echo_template",
         default_cluster_name="slurm",
         command_template="echo {output}",
         node_args=["output"],
@@ -62,7 +62,7 @@ def workflow_template_example():
             "stderr": f"/ihme/scratch/users/{user}/{wf_uuid}",
             "project": "proj_scicomp"
         },
-        template_name="python_template",
+        template_name="quickstart_python_template",
         default_cluster_name="slurm",
         command_template="{python} {script_path} --args1 {val1} --args2 {val2}",
         node_args=["val1", "val2"],
