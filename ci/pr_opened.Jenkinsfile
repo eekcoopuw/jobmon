@@ -58,11 +58,11 @@ pipeline {
         // )
         checkout([
           $class: 'GitSCM',
-          branches: [[name: '*/${BITBUCKET_SOURCE_BRANCH}']],
+          branches: [[name: '${BITBUCKET_SOURCE_BRANCH}']],
           extensions: [[
             $class: 'PreBuildMerge',
             options: [mergeRemote: 'ssh://git@stash.ihme.washington.edu:7999/scic/jobmon.git',
-                      mergeTarget: '*/${BITBUCKET_TARGET_BRANCH}']
+                      mergeTarget: '${BITBUCKET_TARGET_BRANCH}']
           ]],
           userRemoteConfigs: [[credentialsId: 'jenkins',
                                url: 'ssh://git@stash.ihme.washington.edu:7999/scic/jobmon.git']]
