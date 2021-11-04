@@ -4,17 +4,10 @@ pipeline {
       pullRequestServerCreatedAction()
       pullRequestServerUpdatedAction()
     }
-  }
+  } // End triggers
   options {
     buildDiscarder(logRotator(numToKeepStr: '30'))
   } // End options
-  // triggers {
-  //   // This cron expression runs seldom, or never runs, but having the value set
-  //   // allows bitbucket server to remotely trigger builds.
-  //   // Git plugin 4.x: https://mohamicorp.atlassian.net/wiki/spaces/DOC/pages/209059847/Triggering+Jenkins+on+new+Pull+Requests
-  //   // Git plugin 3.x: https://mohamicorp.atlassian.net/wiki/spaces/DOC/pages/955088898/Triggering+Jenkins+on+new+Pull+Requests+Git+Plugin+3.XX
-  //   pollSCM ''
-  // } // End triggers
   environment {
 
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
