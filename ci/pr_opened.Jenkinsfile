@@ -56,17 +56,6 @@ pipeline {
           serverId: '54f3b3a3-5d12-4c80-b568-58b59186132d',
           sshCredentialsId: 'jenkins'
         )
-        // checkout([
-        //   $class: 'GitSCM',
-        //   branches: [[name: '${BITBUCKET_SOURCE_BRANCH}']],
-        //   extensions: [[
-        //     $class: 'PreBuildMerge',
-        //     options: [mergeRemote: 'ssh://git@stash.ihme.washington.edu:7999/scic/jobmon.git',
-        //               mergeTarget: '${BITBUCKET_TARGET_BRANCH}']
-        //   ]],
-        //   userRemoteConfigs: [[credentialsId: 'jenkins',
-        //                        url: 'ssh://git@stash.ihme.washington.edu:7999/scic/jobmon.git']]
-        // ])
       } // End step
     } // End remote checkout repo stage
     stage("parallel") {
