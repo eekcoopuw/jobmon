@@ -6,7 +6,6 @@ pipeline {
     buildDiscarder(logRotator(numToKeepStr: '30'))
   } // End options
   environment {
-
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
     ACTIVATE = ". /homes/svcscicompci/miniconda3/bin/activate base"
   } // End environment
