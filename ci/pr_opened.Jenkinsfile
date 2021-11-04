@@ -1,4 +1,3 @@
-
 pipeline {
   agent {
     label "qlogin"
@@ -6,7 +5,9 @@ pipeline {
   options {
     buildDiscarder(logRotator(numToKeepStr: '30'))
   } // End options
+
   environment {
+
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
     ACTIVATE = ". /homes/svcscicompci/miniconda3/bin/activate base"
   } // End environment
@@ -21,21 +22,7 @@ pipeline {
     } // End notify bitbucket stage
     stage('Merge Branches') {
       steps {
-        checkout scm: BbS(
-          branches: [[name: '${BITBUCKET_SOURCE_BRANCH}']],
-          credentialsId: 'svcscicompci',
-          extensions: [
-            [$class: 'PreBuildMerge',
-             options: [mergeRemote: 'jobmon',
-                       mergeTarget: '${BITBUCKET_TARGET_BRANCH}']
-            ]
-          ],
-          id: '8370906b-d076-4301-803f-71015eb58456',
-          mirrorName: '',
-          projectName: 'Scicomp',
-          repositoryName: 'jobmon',
-          serverId: '54f3b3a3-5d12-4c80-b568-58b59186132d',
-          sshCredentialsId: 'jenkins')
+        checkout scm
       } // End step
     } // End remote checkout repo stage
     stage("parallel") {
