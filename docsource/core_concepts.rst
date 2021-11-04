@@ -8,11 +8,20 @@ A tool is the project (e.g. STG-PR, CODCorrect) that you want to associate your 
 Task Templates with. A Tool keeps track of where Workflows and Tasks are within the IHME
 pipeline.
 
+.. _jobmon-workflow-label:
+
 Workflow
 ########
+A Workflow is further uniquely identified by a set of WorkflowArgs which are
+required if the Workflow is to be resumable.
 
 Workflow Run
 ************
+
+.. _jobmon-wf-arg-label:
+
+Workflow Arguments
+******************
 
 Task Template
 ##############
@@ -23,6 +32,8 @@ associated with a given Tool. TaskTemplates can also be versioned, meaning you c
 upon them. A user would create a new version of their TaskTemplate if the command changes or
 if the underlying methods change in a way that the user wants to recognize as different from
 before.
+
+.. _jobmon-task-label:
 
 Task
 ####

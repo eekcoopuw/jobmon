@@ -102,6 +102,7 @@ For example::
 
 
 
+.. _jobmon-resume-label:
 
 Resumes
 #######
@@ -589,23 +590,23 @@ TaskTemplate Resource Prediction to YAML
     .. code-block:: yaml
 
        your_task_template_1:
-            ihme_slurm:
+            slurm:
               cores: 1
               memory: "400B"
               runtime: 10
               queue: "all.q"
-            ihme_uge:
+            buster:
               num_cores: 1
               m_mem_free: "400B"
               max_runtime_seconds: 10
               queue: "all.q"
         your_task_template_2:
-            ihme_slurm:
+            slurm:
               cores: 1
               memory: "600B"
               runtime: 20
               queue: "long.q"
-            ihme_uge:
+            buster:
               num_cores: 1
               m_mem_free: "600B"
               max_runtime_seconds: 20
