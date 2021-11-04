@@ -5,13 +5,6 @@ pipeline {
       pullRequestServerUpdatedAction()
     }
   }
-  scm {
-    git {
-      remote {
-        url("https://git.company.domain/scm/~username/telegram.git")
-      }
-    }
-  }
   options {
     buildDiscarder(logRotator(numToKeepStr: '30'))
   } // End options
