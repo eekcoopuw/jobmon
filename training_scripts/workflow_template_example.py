@@ -32,11 +32,6 @@ def workflow_template_example():
 
     # Create a workflow, and set the executor
     workflow = tool.create_workflow(
-        default_compute_resources={
-            "stdout": f"/ihme/scratch/users/{user}/{wf_uuid}",
-            "stderr": f"/ihme/scratch/users/{user}/{wf_uuid}",
-            "project": "proj_scicomp",
-        },  # specify your team's project
         name=f"template_workflow_{wf_uuid}",
     )
 
@@ -47,6 +42,9 @@ def workflow_template_example():
             "cores": 1,
             "memory": "1G",
             "runtime": "1m",
+            "stdout": f"/ihme/scratch/users/{user}/{wf_uuid}",
+            "stderr": f"/ihme/scratch/users/{user}/{wf_uuid}",
+            "project": "proj_scicomp"
         },
         template_name="echo_template",
         default_cluster_name="slurm",
@@ -60,6 +58,9 @@ def workflow_template_example():
             "cores": 2,
             "memory": "2G",
             "runtime": "10m",
+            "stdout": f"/ihme/scratch/users/{user}/{wf_uuid}",
+            "stderr": f"/ihme/scratch/users/{user}/{wf_uuid}",
+            "project": "proj_scicomp"
         },
         template_name="python_template",
         default_cluster_name="slurm",
