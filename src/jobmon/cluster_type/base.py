@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple
 try:
     from typing import Protocol
 except ImportError:
-    from typing_extensions import Protocol
+    from typing_extensions import Protocol  # type: ignore
 
 from jobmon import __version__
 from jobmon.exceptions import RemoteExitInfoNotAvailable

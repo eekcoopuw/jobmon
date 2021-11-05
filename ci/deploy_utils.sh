@@ -271,16 +271,9 @@ test_k8s_slurm_deployment () {
     . ${MINICONDA_PATH} ${CONDA_ENV_NAME} && \
       conda deactivate && \
       conda env remove --name slurm_k8s_env && \
-      conda create -n slurm_k8s_env python==3.7 && \
+      conda create -n slurm_k8s_env ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
       conda activate slurm_k8s_env && \
-      pip install pyyaml && \
-      pip install jobmon==$JOBMON_VERSION && \
-      pip install slurm_rest && \
-      pip install jobmon_uge && \
-      pip install jobmon_slurm && \
-      PATH=$PATH:/opt/slurm/bin && \
-      pip freeze && \
-      jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
+      conda info --envs && \
       srun -n 1 -p all.q -A general -c 1 --mem=10000 --time=100 python $WORKSPACE/deployment/tests/six_job_test.py 'slurm'
 }
 
