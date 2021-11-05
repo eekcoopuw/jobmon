@@ -47,14 +47,6 @@ pipeline {
     ACTIVATE = ". /homes/svcscicompci/miniconda3/bin/activate base"
   } // End environment
   stages {
-    stage("Notify BitBucket") {
-      steps {
-        // Tell BitBucket that a build has started.
-        script {
-          notifyBitbucket()
-        } // End script
-      } // End step
-    } // End notify bitbucket stage
     stage('Remote Checkout Repo') {
       steps {
         checkout([
@@ -152,15 +144,5 @@ pipeline {
       // Delete the workspace directory.
       deleteDir()
     } // End always
-    failure {
-      script {
-        notifyBitbucket(buildStatus: 'FAILED')
-      } // End script
-    } // End failure
-    success {
-      script {
-        notifyBitbucket(buildStatus: 'SUCCESSFUL')
-      } // End script
-    } // End success
   } // End post
 } // End pipeline
