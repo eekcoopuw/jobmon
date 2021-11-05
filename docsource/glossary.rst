@@ -23,20 +23,6 @@ For users
         can define to indicate what makes this set of Tasks unique such that no other
         Workflow will be the same.
 
-    WorkflowStatus
-        === =========================== =========================================================================
-        ID  Label                       Description
-        === =========================== =========================================================================
-        G   REGISTERED                  Workflow created and validated
-        B   BOUND                       Workflow bound to the database
-        A   ABORTED                     Workflow encountered an error before a WorkflowRun was created
-        C   CREATED                     Workflow created a WorkflowRun
-        R   RUNNING                     Workflow has a WorkflowRun that is running
-        S   SUSPENDED                   Workflow paused if marked for resume, can be set to running again
-        F   FAILED                      Workflow unsuccessful in one or more WorkflowRuns, none finished as Done
-        D   DONE                        Workflow finished successfully
-        === =========================== =========================================================================
-
     WorkflowArgs
         A set of arguments that are used to determine the "uniqueness" of the
         Workflow and whether it can be resumed. Must be hashable. For example,
@@ -54,22 +40,6 @@ For users
         state, it will no longer be added to a subsequent WorkflowRun, and therefore the
         Workflow Run will not create any Task Instances for that Task. (If a user wants it to
         be rerun, then it must be reset to a Registered, or other non-Done state)
-
-    WorkflowRunStatus
-        === =========================== =================================================================================================
-        ID  Label                       Description
-        === =========================== =================================================================================================
-        G   REGISTERED                  WorkflowRun has been validated
-        B   BOUND                       WorkflowRun has been bound to the database
-        R   RUNNING                     WorkflowRun is currently Running
-        D   DONE                        WorkflowRun has run to completion
-        A   ABORTED                     WorkflowRun encountered problems will binding so it stopped
-        S   STOPPED                     WorkflowRun has been stopped probably by keyboard interrupt from user
-        E   ERROR                       WorkflowRun has not completed successfully, may have lost contact with services
-        C   COLD_RESUME                 WorkflowRun was set to resume once all Tasks were stopped
-        H   HOT_RESUME                  WorkflowRun was set to resume while Tasks are still running, they will continue running
-        T   TERMINATED                  WorkflowRun was in resume, new WF Run created to pick up remaining Tasks, so this one Terminated
-        === =========================== =================================================================================================
 
     Dag
         Directed Acyclic Graph. The graph of Tasks that will be traversed upon execution of a
@@ -111,40 +81,14 @@ For users
         for profiling or resource prediction work in the Jobmon database. Pass in task
         attributes as a list or dictionary to create_task().
 
-    TaskStatus
-        === =========================== =======================================================================================
-        ID  Label                       Description
-        === =========================== =======================================================================================
-        G   REGISTERED                  Task has been bound to the database
-        Q   QUEUED_FOR_INSTANTIATION    Task's dependencies have been met, it can be run when the scheduler is ready
-        I   INSTANTIATED                Task has had a Task Instance created that will be submitted to the Executor
-        R   RUNNING                     Task is running on the chosen Executor
-        E   ERROR_RECOVERABLE           Task has errored out but has more attempts so it will be retried
-        A   ADJUSTING_RESOURCES         Task has errored with a resource error, the resources will be adjusted before retrying
-        F   ERROR_FATAL                 Task has errored out and has used all of the attempts. It cannot be retried
-        D   DONE                        Task ran to completion
-        === =========================== =======================================================================================
-
     TaskInstance
         The actual instance of execution of a Task command. The equivalent of a single qsub on
         an SGE Cluster. Jobmon will create TaskInstances from the Tasks that you define. This
         is an actual run of a task. Like calling a function in Python. One Task can have
         multiple task instances if they are retried.
 
-    TaskInstanceStatus
-        === =========================== ==============================================================================
-        ID  Label                       Description
-        === =========================== ==============================================================================
-        B   SUBMITTED_TO_BATCH_EXECUTOR Task instance submitted normally.
-        D   DONE                        Task instance finishes normally.
-        E   ERROR                       Task instance has hit an application error.
-        I   INSTANTIATED                Task instance is created.
-        R   RUNNING                     Task instance starts running normally.
-        U   UNKNOWN_ERROR               Task instance stops reporting that it's alive and jobmon can't figure out why.
-        W   NO_EXECUTOR_ID              Task instance submission has hit a bug and did not receive an executor_id.
-        Z   RESOURCE_ERROR              Task instance died because of an insufficient resource request.
-        K   KILL_SELF                   Task instance has been ordered to kill itself if it is still alive.
-        === =========================== ==============================================================================
+    Nodes
+        TODO: Fill out
 
     Executor
         Where the Tasks will be run. The standard at IHME is to use the SGEExecutor so jobs
@@ -158,8 +102,3 @@ For users
         to use Jobmon, and workflow_attributes are not passed to your jobs. They are intended to
         track information for a given run and can be utilized for profiling and resource
         prediction.
-
-For developers
-**************
-
-You'll want to study to the :doc:`API Reference <api/modules>`.

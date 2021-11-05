@@ -1,7 +1,7 @@
 def workflow_template_example():
+    import getpass
     import os
     import sys
-    import getpass
     import uuid
 
     from jobmon.client.tool import Tool

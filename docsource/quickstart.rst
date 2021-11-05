@@ -15,14 +15,38 @@ Install
 
 plugins
 *******
-TODO: FILL IN THIS SECTION
+Jobmon has the capability to run jobs on both the Slurm and UGE clusters. At present, it also
+has limited capabilities for executing Tasks locally on a single machine using either
+sequential execution or multiprocessing.
+
+To use either of the clusters with Jobmon users need to install their Jobmon plugin. If a user
+wants to use Slurm with Jobmon, they would need to have the core Jobmon software and the
+Jobmon Slurm plugin installed. If a user wants to use UGE with Jobmon, they would need to have
+core Jobmon and the Jobmon UGE plugin installed.
+
+Users can either install Jobmon core and the plugins individually using "pip" or they can
+install Jobmon core, the UGE plugin, and Slurm plugin all together with a single conda command.
+
+conda install
+*************
+To install core Jobmon and both plugins using conda::
+
+    conda install ihme_jobmon -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge
 
 pip install
 ***********
-TODO: EXPAND THIS SECTION
-To get started::
+To install just core jobmon (no cluster plugins) via pip::
 
     pip install jobmon
+
+To install the UGE plugin via pip::
+
+    pip install jobmon_uge
+
+To install the Slurm plugin via pip::
+
+    pip install jobmon_slurm
+
 
 .. note::
     If you get the error **"Could not find a version that satisfies the requirement jobmon (from version: )"** then create (or append) the following to your ``~/.pip/pip.conf``::
@@ -31,17 +55,6 @@ To get started::
         extra-index-url = https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple
         trusted-host = artifactory.ihme.washington.edu
 
-
-conda install
-*************
-TODO: FILL IN THIS SECTION
-
-Make sure to not where users can specify what cluster to use
-
-.. note::
-   Jobmon is intended to be used on the Slurm or UGE (Buster). At present, it has limited
-   capabilities for executing Tasks locally on a single machine using either sequential
-   execution or multiprocessing.
 
 Jobmon Learning
 ###############
@@ -89,100 +102,97 @@ Constructing a Workflow and adding a few Tasks is simple:
     .. code-tab:: python
       :title: Python
 
-      import os
-      import sys
-      import getpass
-      import uuid
+        import getpass
+        import os
+        import sys
+        import uuid
 
-      from jobmon.client.tool import Tool
+        from jobmon.client.tool import Tool
 
-      def workflow_template_example():
-      """
-      Instructions:
+        """
+        Instructions:
 
-        The steps in this example are:
-        1. Create a tool
-        2. Create  workflow using the tool from step 1
-        3. Create task templates using the tool from step 1
-        4. Create tasks using the template from step 3
-        5. Add created tasks to the workflow
-        6. Run the workflow
+          The steps in this example are:
+          1. Create a tool
+          2. Create  workflow using the tool from step 1
+          3. Create task templates using the tool from step 1
+          4. Create tasks using the template from step 3
+          5. Add created tasks to the workflow
+          6. Run the workflow
 
-      To actually run the provided example:
-        Make sure Jobmon is installed in your activated conda environment, and that you're on
-        the Slurm cluster in a srun session. From the root of the repo, run:
-           $ python training_scripts/workflow_template_example.py
-      """
+        To actually run the provided example:
+          Make sure Jobmon is installed in your activated conda environment, and that you're on
+          the Slurm cluster in a srun session. From the root of the repo, run:
+             $ python training_scripts/workflow_template_example.py
+        """
 
-      user = getpass.getuser()
-      wf_uuid = uuid.uuid4()
-      script_path = os.path.abspath(os.path.dirname(__file__))
+        user = getpass.getuser()
+        wf_uuid = uuid.uuid4()
+        script_path = os.path.abspath(os.path.dirname(__file__))
 
-      # Create a tool
-      tool = Tool(name="example_tool")
+        # Create a tool
+        tool = Tool(name="example_tool")
 
-      # Create a workflow, and set the executor
-      workflow = tool.create_workflow(
-       default_compute_resources={
-            'stdout': f"/ihme/scratch/users/{user}/{wf_uuid}",
-            'stderr': f"/ihme/scratch/users/{user}/{wf_uuid}",
-            'project': "proj_scicomp" # specify your team's project
-        }
-        name = f"template_workflow_{wf_uuid}",
-        description = "example_workflow")
+        # Create a workflow, and set the executor
+        workflow = tool.create_workflow(
+            name=f"template_workflow_{wf_uuid}",
+        )
 
-      # Create task templates
-      echo_template = tool.get_task_template(
-       default_compute_resources={
-            'queue': 'all.q',
-            'cores': 1,
-            'memory': "1G",
-            'runtime': "1m"
-        }
-        template_name='echo_template',
-        default_cluster_name='slurm'
-        command_template='echo {output}',
-        task_args=['output'])
+        # Create task templates
+        echo_template = tool.get_task_template(
+            default_compute_resources={
+                "queue": "all.q",
+                "cores": 1,
+                "memory": "1G",
+                "runtime": "1m",
+                "stdout": f"/ihme/scratch/users/{user}",
+                "stderr": f"/ihme/scratch/users/{user}",
+                "project": "proj_scicomp"
+            },
+            template_name="quickstart_echo_template",
+            default_cluster_name="slurm",
+            command_template="echo {output}",
+            node_args=["output"],
+        )
 
-      python_template = tool.get_task_template(
-        default_compute_resources={
-            'queue': 'all.q',
-            'cores': 2,
-            'memory': "2G",
-            'runtime': "10m"
-        }
-        template_name='python_template',
-        default_cluster_name='slurm'
-        command_template='{python} {script_path} --args1 {val1} --args2 {val2}',
-        task_args=['val1', 'val2'],
-        op_args=['python', 'script_path'])
+        python_template = tool.get_task_template(
+            default_compute_resources={
+                "queue": "all.q",
+                "cores": 2,
+                "memory": "2G",
+                "runtime": "10m",
+                "stdout": f"/ihme/scratch/users/{user}",
+                "stderr": f"/ihme/scratch/users/{user}",
+                "project": "proj_scicomp"
+            },
+            template_name="quickstart_python_template",
+            default_cluster_name="slurm",
+            command_template="{python} {script_path} --args1 {val1} --args2 {val2}",
+            node_args=["val1", "val2"],
+            op_args=["python", "script_path"],
+        )
 
-      # Create tasks
-      task1 = echo_template.create_task(
-        name='task1',
-        output='task1'
-      )
+        # Create tasks
+        task1 = echo_template.create_task(name="task1", output="task1")
 
-      task2 = echo_template.create_task(
-        name='task2',
-        upstream_tasks = [task1],
-        output='task2'
-      )
+        task2 = echo_template.create_task(
+            name="task2", upstream_tasks=[task1], output="task2"
+        )
 
-      task3 = python_template.create_task(
-        name='task3',
-        upstream_tasks=[task2],
-        python=sys.executable,
-        script_path=os.path.join(script_path, 'test_scripts/test.py'),
-        val1='val1',
-        val2='val2'
-      )
+        task3 = python_template.create_task(
+            name="task3",
+            upstream_tasks=[task2],
+            python=sys.executable,
+            script_path=os.path.join(script_path, "test_scripts/test.py"),
+            val1="val1",
+            val2="val2",
+        )
 
-      # add task to workflow
-      workflow.add_tasks([task1, task2, task3])
+        # add task to workflow
+        workflow.add_tasks([task1, task2, task3])
 
-      # run workflow
-      workflow.run()
+        # run workflow
+        workflow.run()
 
     .. code-tab:: R
       :title: R
@@ -204,9 +214,6 @@ Constructing a Workflow and adding a few Tasks is simple:
         workflow_args=paste0('template_workflow_', Sys.Date()),
         name='template_workflow')
 
-      # Set the executor
-      wf <- set_executor(wf, executor_class='SGEExecutor')
-
       # Create an echoing task template
       echo_tt <- task_template(tool=my_tool,
         template_name='echo_templ',
@@ -220,12 +227,29 @@ Constructing a Workflow and adding a few Tasks is simple:
         command_template=paste0(Sys.getenv("RETICULATE_PYTHON"), ' ', script_path, ' --args1 {val1} --args2 {val2}'),
         task_args=list('val1', 'val2'))
 
+      # Set the echo task template compute resources
+      echo_tt_resources <- jobmonr::set_default_template_resources(
+          task_template=echo_tt,
+          default_cluster_name='buster',
+          resources=list(
+            'cores'=1,
+            'queue'='all.q',
+            'runtime'="2m",
+            'memory'='1G'
+          )
+        )
 
-      # Define executor parameters for our tasks
-      params <- executor_parameters(num_cores=1,
-        m_mem_free="1G",
-        queue='all.q',
-        max_runtime_seconds=100)
+      # Set the script task template compute resources
+      script_tt_resources <- jobmonr::set_default_template_resources(
+          task_template=script_tt,
+          default_cluster_name='buster',
+          resources=list(
+            'cores'=1,
+            'queue'='all.q',
+            'runtime'="2m",
+            'memory'='1G'
+          )
+        )
 
       # Create two sleepy tasks
       task1 <- task(task_template=echo_tt,
@@ -270,12 +294,18 @@ Compute Resources: Compute resources are used to allocate resources for your tas
 able to specify requested memory, cores, runtime, queue, stdout, stderr, and project. Compute
 resources can be set at the Task, TaskTemplate, Workflow and Tool level. If compute resources
 are set on multiple objects, Jobmon has a hierarchy of which resources will take precedence,
-the hierarchy is Task -> TaskTemplate -> Workflow -> Tool. To set resources on Task, use
-"compute_resources". To set resources on TaskTemplate, Workflow, and Tool, use
+the hierarchy is Task -> TaskTemplate -> Workflow -> Tool. To set compute resources on Tasks, use
+"compute_resources". To set compute resources on TaskTemplate, Workflow, and Tool, use
 "default_compute_resources".
 
 By default compute resources on the Slurm cluster: cores will be 1, memory will be 1G, and
 runtime will be 10 minutes.
+
+Cluster name: You can specify the cluster you want to use on the Task, TaskTemplate, Workflow
+and Tool level. To set cluster name on Tasks, use "cluster_name". To set cluster_name on
+TaskTemplate, Workflow, and Tool, use "default_cluster_name". If cluster name
+is set on multiple Jobmon objects, Jobmon has a hierarchy of which cluster will take precedence,
+the hierarchy is Task -> TaskTemplate -> Workflow -> Tool.
 
 .. note::
     By default Workflows are set to time out if all of your tasks haven't
