@@ -291,8 +291,8 @@ def bind_tasks() -> Any:
                 "command": command,
                 "max_attempts": max_att,
                 "status": TaskStatus.REGISTERED,
-                "resource_scales": resource_scales,
-                "fallback_queues": fallback_queues,
+                "resource_scales": str(resource_scales),
+                "fallback_queues": str(fallback_queues),
             }
             tasks_to_add.append(task)
 
