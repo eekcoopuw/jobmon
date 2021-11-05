@@ -30,14 +30,14 @@ pipeline {
     ACTIVATE = ". /homes/svcscicompci/miniconda3/bin/activate base"
   } // End environment
   stages {
-    stage("Notify BitBucket") {
-      steps {
-        // Tell BitBucket that a build has started.
-        script {
-          notifyBitbucket()
-        } // End script
-      } // End step
-    } // End notify bitbucket stage
+    // stage("Notify BitBucket") {
+    //   steps {
+    //     // Tell BitBucket that a build has started.
+    //     script {
+    //       notifyBitbucket()
+    //     } // End script
+    //   } // End step
+    // } // End notify bitbucket stage
     stage('Merge Branches') {
       steps {
         checkout scm: BbS(
