@@ -24,6 +24,7 @@ class LoadTestParameters:
 
     Args:
         wfid: unique identifier for this load test
+        cluster_name: cluster name under which this test is conducted
         random_seed: random seed for probabilistic params. set for repeatability
         n_tasks: approximate number of tasks to include in workflow
         phase_task_ratios:  approximate ratio of task size between phases
@@ -39,6 +40,7 @@ class LoadTestParameters:
     """
 
     wfid: str
+    cluster_name: str
     random_seed: int
     n_tasks: int
     phase_task_ratios: Sequence[int] = field(default=(10, 30, 1))
@@ -66,7 +68,7 @@ class LoadTestParameters:
             raise ValueError("all percent arguments must be less than 100")
 
     @classmethod
-    def from_yaml_file(cls, file_path: str, wfid: str) -> LoadTestParameters:
+    def from_yaml_file(cls, file_path: str, wfid: str, cluster_name: str) -> LoadTestParameters:
         """Instantiate from a yaml file
 
         Args:
@@ -75,7 +77,7 @@ class LoadTestParameters:
         """
         with open(file_path) as file:
             params = load(file, Loader=SafeLoader)
-        return cls(wfid, **params["load_test_parameters"][wfid])
+        return cls(wfid, cluster_name, **params["load_test_parameters"][wfid])
 
 
 class LoadTestGenerator:
@@ -83,7 +85,7 @@ class LoadTestGenerator:
     thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
     script = os.path.join(thisdir, "sleep_and_error.py")
 
-    def __init__(self, scratch_dir: str, wfid: str):
+    def __init__(self, scratch_dir: str, wfid: str, cluster_name: str):
         """Factory for generating a single load test parameterized by LoadTestParameters
 
         Args:
@@ -98,9 +100,9 @@ class LoadTestGenerator:
         except FileExistsError:
             pass
         self.workflow = self.tool.create_workflow(name='generated_workflow',
-            default_cluster_name='buster',
+            default_cluster_name=cluster_name,
             default_compute_resources_set={
-                'buster': {
+                cluster_name: {
                     'stderr': f"{scratch_dir}/err",
                     'stdout': f"{scratch_dir}/out",
                     'project': "proj_scicomp"}
@@ -123,7 +125,8 @@ class LoadTestGenerator:
             parameters: specification object for this load test
         """
         random.seed(parameters.random_seed)
-        ltg = cls(scratch_dir=scratch_dir, wfid=parameters.wfid)
+        ltg = cls(scratch_dir=scratch_dir, wfid=parameters.wfid,
+                  cluster_name=parameters.cluster_name)
         ltg.add_tasks_to_workflow(
             total_tasks=parameters.n_tasks,
             phase_task_ratios=list(parameters.phase_task_ratios),
@@ -263,6 +266,8 @@ def parse_arguments(argstr: Optional[str] = None) -> Namespace:
                               "jobmon/deployment/tests/sample.yaml"))
     parser.add_argument("--wfid", required=True, type=str, action='store',
                         help="a key in the yaml_path for a specific workflow entry")
+    parser.add_argument("--cluster_name", required=True, type=str, action='store',
+                        help="cluster name that this test is conducted on")
     parser.add_argument("--scratch_dir", required=False, default="", type=str, action='store',
                         help="location where logs and other artifacts will be written")
 
@@ -280,6 +285,6 @@ def parse_arguments(argstr: Optional[str] = None) -> Namespace:
 
 if __name__ == "__main__":
     args = parse_arguments()
-    params = LoadTestParameters.from_yaml_file(args.yaml_path, args.wfid)
+    params = LoadTestParameters.from_yaml_file(args.yaml_path, args.wfid, args.cluster_name)
     load_test_generator = LoadTestGenerator.from_parameters(args.scratch_dir, params)
     load_test_generator.workflow.run()

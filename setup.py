@@ -68,9 +68,10 @@ setup(
     classifiers="""
         Programming Language :: Python :: 3.9
         Programming Language :: Python :: 3.8
+        Programming Language :: Python :: 3.7
         """,
 
-    python_requires='>=3.8',
+    python_requires='>=3.7',
     install_requires=INSTALL_REQUIRES,
     extras_require={
         'test': TEST_REQUIRES,
