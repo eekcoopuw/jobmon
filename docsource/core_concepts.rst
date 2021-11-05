@@ -2,6 +2,8 @@
 Core Concepts
 *************
 
+.. _jobmon-core-label:
+
 Cluster Name
 ############
 The name of the cluster users want to run their Tasks on. Usually either Buster or Slurm. You
