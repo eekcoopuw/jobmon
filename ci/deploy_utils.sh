@@ -242,7 +242,7 @@ test_k8s_uge_deployment () {
 
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
     $QLOGIN_ACTIVATE && \
-        conda create --prefix $CONDA_DIR python==3.8
+        conda create --prefix $CONDA_DIR python==3.7
     $QLOGIN_ACTIVATE &&
        conda activate $CONDA_DIR && \
        pip install pyyaml && \
@@ -325,7 +325,7 @@ test_server () {
 
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
     $QLOGIN_ACTIVATE && \
-        conda create --prefix $CONDA_DIR python==3.8
+        conda create --prefix $CONDA_DIR python==3.7
     $QLOGIN_ACTIVATE &&
         conda activate $CONDA_DIR && \
         pip install jobmon==$JOBMON_VERSION && \
