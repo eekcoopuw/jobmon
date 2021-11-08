@@ -177,7 +177,7 @@ def test_create_tasks(db_cfg, client_env, tool):
         assert set(task_arg_names) == {"task_arg"}
 
     # Define individual node_args, and expect to get a valid task
-    three_c_node_args = {'narg1': 3, 'narg2': 'b'}
+    three_c_node_args = {"narg1": 3, "narg2": "b"}
 
     three_c_task = array.get_task_by_node_args(**three_c_node_args)
 
@@ -199,7 +199,7 @@ def test_empty_array(db_cfg, client_env, tool):
     """Check that an empty array raises the appropriate error."""
 
     tt = tool.get_task_template(
-        template_name='empty',
+        template_name="empty",
         command_template="",
         node_args=[],
         task_args=[],

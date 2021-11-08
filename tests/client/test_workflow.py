@@ -536,6 +536,7 @@ def test_workflow_get_errors(db_cfg, client_env):
     assert type(err_1st_b) == dict
     assert err_1st_b["description"] == "cla cla cla"
 
+
 def test_get_task_by_node_args(db_cfg, client_env, tool):
     """Test the workflow.validate() function, and ensure idempotency"""
     gt_task_template = tool.get_task_template(
@@ -568,7 +569,7 @@ def test_get_task_by_node_args(db_cfg, client_env, tool):
     wf1.add_task(t2)
 
     # Define individual node_args, and expect to get a valid task
-    b_2_node_args = {'narg1': 2, 'narg2': 'b'}
+    b_2_node_args = {"narg1": 2, "narg2": "b"}
 
     b_2_task = wf1.get_task_by_node_args(**b_2_node_args)
     assert b_2_task is not None

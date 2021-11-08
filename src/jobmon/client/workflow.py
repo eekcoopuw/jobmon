@@ -324,7 +324,6 @@ class Workflow(object):
 
     def get_task_by_node_args(self, **kwargs: Any) -> Task:
         """Query tasks by node args. Used for setting dependencies."""
-
         if self.arrays:
             for array in self.arrays:
                 node_args_mapped = {

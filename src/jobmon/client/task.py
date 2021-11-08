@@ -13,6 +13,7 @@ from jobmon.client.client_config import ClientConfig
 from jobmon.client.cluster import Cluster
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
+from jobmon.client.task_template_version import TaskTemplateVersion
 from jobmon.cluster_type.base import ClusterQueue
 from jobmon.constants import SpecialChars, TaskStatus
 from jobmon.exceptions import InvalidResponse

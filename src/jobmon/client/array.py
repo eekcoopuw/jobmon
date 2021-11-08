@@ -232,8 +232,7 @@ class Array:
     def get_task_by_node_args(self, **kwargs: Any) -> Task:
         """Query tasks by node args. Used for setting dependencies."""
         node_args_mapped = {
-            self.task_template_version.id_name_map[k]: v
-            for k, v in kwargs.items()
+            self.task_template_version.id_name_map[k]: v for k, v in kwargs.items()
         }
         for task in self.tasks:
             if task.node.node_args == node_args_mapped:
