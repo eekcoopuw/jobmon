@@ -322,7 +322,7 @@ class Workflow(object):
         """
         self.default_cluster_name = cluster_name
 
-    def get_task_by_node_args(self, **kwargs: Any) -> Task:
+    def get_task_by_node_args(self, **kwargs: Any) -> Task:  # type: ignore[return]
         """Query tasks by node args. Used for setting dependencies."""
         if self.arrays:
             for array in self.arrays:
@@ -341,8 +341,6 @@ class Workflow(object):
             }
             if task.node.node_args == node_args_mapped:
                 return task
-
-        return None
 
     def run(
         self,

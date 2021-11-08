@@ -229,7 +229,7 @@ class Array:
         for element in product(*kwargs.values()):
             yield dict(zip(keys, element))
 
-    def get_task_by_node_args(self, **kwargs: Any) -> Task:
+    def get_task_by_node_args(self, **kwargs: Any) -> Task:  # type: ignore[return]
         """Query tasks by node args. Used for setting dependencies."""
         node_args_mapped = {
             self.task_template_version.id_name_map[k]: v for k, v in kwargs.items()
@@ -237,7 +237,6 @@ class Array:
         for task in self.tasks:
             if task.node.node_args == node_args_mapped:
                 return task
-        return None
 
     def bind(self, workflow_id: int, cluster_id: int) -> None:
         """Add an array to the database."""
