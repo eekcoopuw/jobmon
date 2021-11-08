@@ -322,6 +322,29 @@ class Workflow(object):
         """
         self.default_cluster_name = cluster_name
 
+    def get_task_by_node_args(self, **kwargs: Any) -> Task:
+        """Query tasks by node args. Used for setting dependencies."""
+
+        if self.arrays:
+            for array in self.arrays:
+                node_args_mapped = {
+                    array.task_template_version.id_name_map[k]: v
+                    for k, v in kwargs.items()
+                }
+                for task in self.tasks.values():
+                    if task.node.node_args == node_args_mapped:
+                        return task
+
+        for task in self.tasks.values():
+            node_args_mapped = {
+                task.task_template_version.id_name_map[k]: str(v)
+                for k, v in kwargs.items()
+            }
+            if task.node.node_args == node_args_mapped:
+                return task
+
+        return None
+
     def run(
         self,
         fail_fast: bool = False,

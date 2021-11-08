@@ -176,6 +176,24 @@ def test_create_tasks(db_cfg, client_env, tool):
         task_arg_names = [r.name for r in task_args]
         assert set(task_arg_names) == {"task_arg"}
 
+    # Define individual node_args, and expect to get a valid task
+    three_c_node_args = {'narg1': 3, 'narg2': 'b'}
+
+    three_c_task = array.get_task_by_node_args(**three_c_node_args)
+
+    three_c_node_args_mapped = {
+        array.task_template_version.id_name_map[k]: v
+        for k, v in three_c_node_args.items()
+    }
+
+    assert three_c_task is not None
+    assert three_c_task.node.node_args == three_c_node_args_mapped
+
+    # For the same node_args, try workflow for a valid task
+    three_c_wf_task = wf.get_task_by_node_args(**three_c_node_args)
+
+    assert three_c_wf_task is not None
+
 
 def test_empty_array(db_cfg, client_env, tool):
     """Check that an empty array raises the appropriate error."""

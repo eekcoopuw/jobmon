@@ -496,7 +496,7 @@ class TaskTemplate:
         # build task
         task = Task(
             command=command,
-            task_template_version_id=self.active_task_template_version.id,
+            task_template_version=self.active_task_template_version,
             node_args=node_args,
             task_args=task_args,
             compute_resources=resources,
