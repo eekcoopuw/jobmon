@@ -20,18 +20,26 @@ A tool is the project (e.g. STG-PR, CODCorrect) that you want to associate your 
 Task Templates with. You may overhaul your Workflows and Tasks/TaskTemplates over time, but the
 concept of the project will remain to categorize them within the broader IHME pipeline.
 
+.. _jobmon-dag-label:
+
+DAG
+###
+Directed Acyclic Graph. The graph of Tasks that will be traversed upon execution of a
+WorkflowRun. Made up of :ref:`jobmon-node-label` (Tasks with specific node arguments) and
+:ref:`jobmon-edge-label` (the relationship between two Nodes)
+
 .. _jobmon-workflow-label:
 
 Workflow
 ########
 *(aka Batch, aka Swarm)*
 The object that encompasses all of your Tasks that will be executed. It builds on the
-DAG to include the setup logic to bind all of the objects to the database and capture
-metadata about the Workflow. Much like Task is the intent to run a command, and Task
-Instance is the actual execution, Workflow is the intent to run a DAG of Tasks, and a
-Workflow Run is the actual execution of the DAG traversal. Therefore a Workflow can be
-resumed if it failed on a previous Workflow Run, but the Tasks that it will execute
-must remain the same. This is codified in the WorkflowArgs parameter that the user
+:ref:`jobmon-dag-label` to include the setup logic to bind all of the objects to the database
+and capture metadata about the Workflow. Much like :ref:`jobmon-task-label` is the intent to run a command, and
+:ref:`jobmon-ti-label` is the actual execution, Workflow is the intent to run a DAG of
+Tasks, and a :ref:`jobmon-wfrun-label` is the actual execution of the DAG traversal. Therefore a
+Workflow can be resumed if it failed on a previous Workflow Run, but the Tasks that it will
+execute must remain the same. This is codified in the WorkflowArgs parameter that the user
 can define to indicate what makes this set of Tasks unique such that no other
 Workflow will be the same.
 
@@ -51,7 +59,9 @@ to use Jobmon, and workflow_attributes are not passed to your jobs. They are int
 track information for a given run and can be utilized for profiling and resource
 prediction.
 
-Workflow Run
+.. _jobmon-wfrun-label:
+
+WorkflowRun
 ************
 WorkflowRun enables tracking for multiple runs of a single Workflow. A
 Workflow may be started/paused/ and resumed multiple times. Each start
@@ -90,6 +100,8 @@ location set version ID. Task attributes are not passed to the job but may be us
 for profiling or resource prediction work in the Jobmon database. Pass in task
 attributes as a list or dictionary to create_task().
 
+.. _jobmon-ti-label:
+
 Task Instance
 *************
 The actual instance of execution of a Task command. The equivalent of a single srun on
@@ -97,12 +109,20 @@ the Slurm Cluster. Jobmon will create TaskInstances from the Tasks that you defi
 is an actual run of a task. Like calling a function in Python. One Task can have
 multiple task instances if they are retried.
 
+.. _jobmon-node-label:
+
 Nodes
 #####
 Nodes are the object representing a Task within a DAG. It simply keeps track of where a
 Task is and what attributes make the task unique within the DAG. Tasks
 will often be created from a TaskTemplate and they will vary somewhat e.g. by location, this
 variation is what makes a Node unique.
+
+.. _jobmon-edge-label:
+
+Edges
+#####
+The relationships between an upstream and a downstream Node.
 
 Compute Resources
 #################
@@ -116,30 +136,39 @@ Workflow -> Tool.
 
 YAML Configuration Files
 ************************
-Users are also able to pass in compute resources via a YAML file. You can specify compute
+Users are also able to pass in compute resources via a YAML file. Users can specify compute
 resources via YAML on the Tool and TaskTemplate objects. Simply create a YAML file with the
 requested resources, for example:
 
 .. code-block:: yaml
 
+    # tool_resources is a hardcoded Jobmon key
     tool_resources:
-      buster:
-        num_cores: 1
-        m_mem_free: "1G"
-        max_runtime_seconds: (60 * 60 * 24 * 7)
-        queue: "null.q"
-      slurm:
-        cores: 2
-        memory: "2G"
-        runtime: (60 * 60 * 24)
-        queue: "null.q"
+      # example_tool_name matches the name of a Tool defined in the python script
+      example_tool_name:
+          # buster corresponds to a cluster in the Jobmon database
+          buster:
+            num_cores: 1
+            m_mem_free: "1G"
+            max_runtime_seconds: (60 * 60 * 24 * 7)
+            queue: "null.q"
+          # slurm corresponds to a cluster in the Jobmon database
+          slurm:
+            cores: 2
+            memory: "2G"
+            runtime: (60 * 60 * 24)
+            queue: "null.q"
+    # task_template_resources is a hardcoded Jobmon key
     task_template_resources:
+      # example_task_template_name matches the name of a TaskTemplate defined in the python script
       example_task_template_name:
+        # buster corresponds to a cluster in the Jobmon database
         buster:
           num_cores: 1
           m_mem_free: "3G"
           max_runtime_seconds: (60 * 60 * 4)
           queue: "null.q"
+        # slurm corresponds to a cluster in the Jobmon database
         slurm:
           cores: 2
           memory: "4G"

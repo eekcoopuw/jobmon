@@ -28,8 +28,7 @@ For users
 
     DAG
         Directed Acyclic Graph. The graph of Tasks that will be traversed upon execution of a
-        Workflow Run. Made up of Nodes (Tasks with specific node arguments) and Edges (the
-        relationship between two Nodes)
+        WorkflowRun.
 
     Node
         The object representing a Task within a DAG.
