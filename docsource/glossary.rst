@@ -1,8 +1,9 @@
+*****************
 Glossary of terms
-#################
+*****************
 
 For users
-*********
+#########
 
 .. note::
     The glossary provides an overview of key Jobmon terms, for more in-depth explanations see

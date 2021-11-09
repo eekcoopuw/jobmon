@@ -9,7 +9,9 @@ Ordinary
 ********
 By default a Task will be retried up to three times if it fails. This helps to
 reduce the chance that random events on the cluster or landing on a bad node
-will cause your entire Task and Workflow to fail.
+will cause a user's entire Task and Workflow to fail. If a TaskInstance fails, then Jobmon will
+run an exact copy as long as the max number of attempts hasn't be reached. The new TaskInstance
+will be created with the same resources and configurations as the first TaskInstance.
 
 In order to configure the number of times a Task can be retried, configure the
 max_attempts parameter in the Task that you create. If you are still debugging
@@ -21,39 +23,45 @@ The following example shows a configuration in which the user wants their Task
 to be retried 4 times and it will fail up until the fourth time.::
 
     import getpass
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-    from jobmon.client.templates.python_task import PythonTask
-    from jobmon.client.api import ExecutorParameters
-    from jobmon.client.execution.strategies.sge import sge_utils
+    from jobmon.client.tool import Tool
 
     user = getpass.getuser()
 
-    wf = Workflow(
-        workflow_args="workflow_with_many_retries",
-        project="proj_scicomp")
+    tool = Tool(name=ordinary_resume_tutorial)
 
-    params = ExecutorParameters(
-        num_cores=1,
-        m_mem_free="1G",
-        max_runtime_seconds=100,  # set max runtime to be shorter than task runtime
-        queue="all.q",
-        executor_class="SGEExecutor",
-        resource_scales={'m_mem_free': 0.5, 'max_runtime_seconds': 0.5})
+    wf = tool.create_workflow(name=ordinary_resume_wf, workflow_args="wf_with_many_retries")
 
-    name = "retry_task"
+    retry_tt = tool.get_task_template(
+        template_name="retry_tutorial_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[]
+    )
     output_file_name = f"/ihme/scratch/users/{user}/retry_output"
-    retry_task = PythonTask(
-        script=sge_utils.true_path("tests/remote_sleep_and_write.py"),
-        args=["--sleep_secs", "4",
-              "--output_file_path", output_file_name,
-              "--fail_count", 3,
-              "--name", name],
-        name=name, max_attempts=4, executor_parameters = params)
+    this_file = os.path.dirname(__file__)
+    remote_sleep_and_write = os.path.abspath(
+        os.path.expanduser(f"{this_file}/../tests/_scripts/remote_sleep_and_write.py")
+    )
+    retry_task = retry_tt.create_task(
+        name="retry_task",
+        max_attempts=4,
+        compute_resources={
+            'cores': 1,
+            'runtime': '100s',
+            'memory': '1Gb',
+            'queue': 'all.q',
+            'project': 'proj_scicomp',
+        },
+        cluster_name="slurm",
+        arg=f"python {remote_sleep_and_write} --sleep_secs 4 --output_file_path {output_file_name} --name "retry_task" --fail-count 3"
+
+    )
 
     wf.add_task(retry_task)
 
     # 3 TaskInstances will fail before ultimately succeeding
-    wf.run()
+    workflow_run_status = wf.run()
 
 
 
@@ -61,45 +69,53 @@ Resource
 ********
 Sometimes a user may not be able to accurately predict the runtime or memory usage
 of a task. Jobmon will detect when the task fails due to resource constraints and
-retry that task with with more resources. The default resource scaling factor is 50%
-for m_mem_free and max_runtime_sec unless otherwise specified. For example if your
-max_runtime for a task was set to 100 seconds and fails, Jobmon will automatically
-retry the Task with a max runtime set to 150 seconds.
+retry that task with with more resources. The default resource
+scaling factor is 50% for memory and runtime unless otherwise specified. For example if your
+runtime for a task was set to 100 seconds and fails, Jobmon will automatically
+retry the Task with a max runtime set to 150 seconds. Users can specify how they percentage
+they would like runtime and memory to scale by.
 
 For example::
 
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-    from jobmon.client.templates.bash_task import BashTask
-    from jobmon.client.api import ExecutorParameters
-
-    my_wf = Workflow(
-        workflow_args="resource_starved_workflow",
-        project="proj_scicomp")
-
-
-    # specify SGE specific parameters
-    sleepy_params = ExecutorParameters(
-        num_cores=1,
-        m_mem_free="1G",
-        max_runtime_seconds=100,  # set max runtime to be shorter than task runtime
-        queue="all.q",
-        executor_class="SGEExecutor",
-        resource_scales={'m_mem_free': 0.6, 'max_runtime_seconds': 0.6})
-    sleepy_task = BashTask(
-        # set sleep to be longer than max runtime, forcing a retry
-        "sleep 120",
-        # job should succeed on second try. The runtime will 160 seconds on the retry
-        max_attempts=2,
-        executor_parameters=sleepy_params)
-    my_wf.add_task(sleepy_task)
+    import getpass
+    from jobmon.client.tool import Tool
 
     # The Task will time out and get killed by the cluster. After a few minutes Jobmon
-    # will notice that it has disappeared and ask SGE for exit status. SGE will
-    # show a resource kill. Jobmon will scale the memory and runtime by 60% and retry the
-    # job at which point it will succeed.
+    # will notice that it has disappeared and ask Slurm for an exit status. Slurm will
+    # show a resource kill. Jobmon will scale the memory and runtime by the default 50% and
+    # retry the job at which point it will succeed.
+
+    user = getpass.getuser()
+
+    tool = Tool(name=resource_resume_tutorial)
+
+    wf = tool.create_workflow(name=resource_resume_wf, workflow_args="wf_with_resource_retries")
+
+    retry_tt = tool.get_task_template(
+        template_name="resource_retry_tutorial_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[]
+    )
+
+    retry_task = retry_tt.create_task(
+                        arg="sleep 110"
+                        name="retry_task",
+                        # job should succeed on second try. The runtime will 135 seconds on the retry
+                        max_attempts=2,
+                        compute_resources={
+                            'cores': 1,
+                            'runtime': '90s',
+                            'memory': '1Gb',
+                            'queue': 'all.q',
+                            'project': 'proj_scicomp'},
+                        cluster_name="slurm"
+                    )
+
+    wf.add_task(retry_task)
+
     my_wf.run()
-
-
 
 
 .. _jobmon-resume-label:
@@ -124,57 +140,14 @@ that bug!) or are Registered. As always it only starts a job when all its upstre
 In other words, it starts from first failure, creating a new workflow run for an existing workflow.
 
 To resume a Workflow, make sure that your previous workflow
-run process is dead (kill it using the pid from the workflow run table)::
+run process is dead (kill it using the pid from the workflow run table). Then the keep the
+same Jobmon code, only line of code needs to change. A user simply needs to add a resume
+parameter to the run() function to resume their Workflow.::
 
-    import getpass
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-
-    # Re-instantiate your Workflow with the same WorkflowArgs but add the resume flag
-    user = getpass.getuser()
-    workflow = Workflow(
-        name = "template_workflow",
-        description = "template_workflow",
-        executor_class = "SGEExecutor",
-        stderr = f"/ihme/scratch/users/{user}/{wf_uuid}",
-        stdout = f"/ihme/scratch/users/{user}/{wf_uuid}",
-        project = "proj_scicomp"
-    )
-
-    # Re-add the same Tasks to it...
-    task1 = BashTask(
-        command = "echo task1",
-        executor_class = "SGEExecutor"
-    )
-
-    task2 = BashTask(
-        command = "echo task2",
-        executor_class = "SGEExecutor",
-        upstream_tasks = [task1]
-    )
-
-    task3 = PythonTask(
-        script = os.path.join(script_path, 'test_scripts/test.py'),
-        args = ["--args1", "val1", "--args2", "val2"],
-        executor_class = "SGEExecutor",
-        upstream_tasks = [task2]
-    )
-
-    workflow.add_tasks([task1, task2, task3])
-
-    # Re-run the workflow
     workflow.run(resume=True)
 
-That's it. It is the same setup, just change the resume flag so that it is
-true (otherwise you will get an error that you are creating a workflow that
-already exists)
-
-For further configuration there are two types of resumes:
-    1.Cold Resume: all Tasks are stopped and you are ok with resetting all
-    running Tasks and killing any running TaskInstances before restarting
-    (the default option).
-
-    2. Hot Resume: any Tasks that are currently running will not be reset, and
-    any TaskInstance that are currently running on the cluster will not be killed
+That's it. If you don't set "resume=True", Jobmon will raise an error saying that the user is
+trying to create a Workflow that already exists.
 
 Behind the scenes, the Workflow will launch your Tasks as soon as each is
 ready to run (i.e. as soon as the Task's upstream dependencies are DONE). It
@@ -209,30 +182,69 @@ you'll cause a new Workflow entry to be created in the Jobmon
 database. When calling run() on this new Workflow, any progress through the
 Tasks that may have been made in previous Workflows will be ignored.
 
+For further configuration there are two types of resumes:
+Cold Resume
+***********
+All Tasks are stopped and you are ok with resetting all running Tasks and killing any running
+TaskInstances before restarting (the default option).
 
 Hot Resume
 **********
-TODO: SPLIT RESUME IN TO THESE COMPONENTS
-
-Cold Resume
-***********
-TODO: SPLIT RESUME IN TO THESE COMPONENTS
+Any Tasks that are currently running will not be reset, and
+any TaskInstance that are currently running on the cluster will not be killed
 
 Fail Fast
 #########
 On occasion, a user might want to see how far a workflow can get before it fails,
 or want to immediately see where problem spots are. To do this, the user can just
 instantiate the workflow with fail_fast set to True. Then add tasks to the workflow
-as normal, and the workflow will fail on the first failure.
+as normal, and the workflow will fail on the first failure. The Workflow will **not** fail fast
+if a Task fails because of a resource error (e.g. over runtime or over memory).
 
 For example::
 
-    wf = Workflow(workflow_args='testing', fail_fast=True)
-    t1 = BashTask("not a command 1")
-    t2 = BashTask("sleep 10", upstream_tasks=[t1])
-    wf.add_tasks([t1, t2])
-    wf.run()
+    workflow = tool.create_workflow(name="test_fail_fast", workflow_args="testing")
+    task = task_template.create_task(name="fail_fast_task",
+                                     compute_resources={runtime: "100s"},
+                                     arg="sleep 1")
+    workflow.add_tasks([task])
 
+    # This line makes the workflow fail fast
+    wfr_status = workflow.run(fail_fast=True)
+
+
+Fallback Queues
+##############
+Users are able to specify fallback queues in Jobmon. Scenario: a user has a Task that fails due
+to a resource error, Jobmon then scales that Tasks resources, but the newly scaled resources
+exceed the resources of the queue the Task is on. In this scenario the user could have
+specified a fallback queue(s), if this was specified Jobmon would run the Task with scaled
+resources to the next specified queue. If a user does not specify a fallback queue, the
+resources will only scale to the maximum values of their originally specified queue.
+
+To set fallback queues, simply pass a list of queues to the  create_task() method. For example::
+
+    # In this example Jobmon will run the Task on all.q. Hypothetically, if it scaled the resources
+    # past the all.q limits, it would then try to run the Task on long.q. If that also failed,
+    # it would then try to run the Task on i.q.
+
+    workflow = tool.create_workflow(name="test_fallback_queue", workflow_args="fallback")
+    fallback_task = fallback_tt.create_task(
+                        arg="sleep 110"
+                        name="fallback_task",
+                        compute_resources={
+                            'cores': 1,
+                            'runtime': '90s',
+                            'memory': '1Gb',
+                            'queue': 'all.q',
+                            'project': 'proj_scicomp'},
+                        cluster_name="slurm",
+                        fallback_queues=["long.q", "i.q"]
+                    )
+    workflow.add_tasks([task])
+
+    # This line makes the workflow fail fast
+    wfr_status = workflow.run(fail_fast=True)
 
 Dynamic Task Resources
 ######################
@@ -241,13 +253,12 @@ given task. For example, if an upstream Task may better inform the resources
 that a downstream Task needs, the resources will not be checked and bound until
 the downstream is about to run and all of it's upstream dependencies
 have completed. To do this, the user can provide a function that will be called
-at runtime and return an ExecutorParameter object with the resources needed.
+at runtime and return a ComputeResources object with the resources needed.
 
 For example ::
 
-    from jobmon.client.api import ExecutorParameters
-    from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-    from jobmon.client.templates.bash_task import BashTask
+    import sys
+    from jobmon.client.tool import Tool
 
     def assign_resources(*args, **kwargs):
         """ Callable to be evaluated when the task is ready to be scheduled
@@ -256,30 +267,52 @@ For example ::
         with open(fp, "r") as file:
             resources = file.read()
             resource_dict = ast.literal_eval(resources)
-        m_mem_free = resource_dict['m_mem_free']
-        max_runtime_seconds = int(resource_dict['max_runtime_seconds'])
-        num_cores = int(resource_dict['num_cores'])
+        memory = resource_dict['memory']
+        runtime = int(resource_dict['runtime'])
+        cores = int(resource_dict['cores'])
         queue = resource_dict['queue']
 
-        exec_params = ExecutorParameters(m_mem_free=m_mem_free,
-                                         max_runtime_seconds=max_runtime_seconds,
-                                         num_cores=num_cores, queue=queue)
-        return exec_params
+        compute_resources = {"memory": memory, "runtime": runtime, "cores": cores,
+                            "queue": queue}
+        return compute_resources
+
+    tool = Tool(name="dynamic_tool")
+
+    dynamic_tt = tool.get_task_template(
+                template_name="random_template",
+                command_template="{python} {script}",
+                node_args=[],
+                task_args=[],
+                op_args=["python", "script"],
+                default_cluster_name='slurm')
 
     # task with static resources that assigns the resources for the 2nd task
     # when it runs
-    task1 = PythonTask(name='task_to_assign_resources',
-                       script="/assign_resources.py", max_attempts = 1,
-                       max_runtime_seconds=200, num_cores=1,
-                       queue='all.q', m_mem_free='1G')
-
-    task2 = BashTask(name='dynamic_resource_task', command='sleep 1',
-                    max_attempts=2, executor_parameters=assign_resources)
+    workflow = tool.create_workflow(name="dynamic_tasks", workflow_args="dynamic")
+    task1 = dynamic_tt.create_task(
+                        name="task_to_assign_resources",
+                        python=sys.executable,
+                        script="/assign_resources.py"
+                        compute_resources={
+                            'cores': 1,
+                            'runtime': '200s',
+                            'memory': '1Gb',
+                            'queue': 'all.q',
+                            'project': 'proj_scicomp'},
+                        max_attempts=1
+                        cluster_name="slurm"
+                    )
+    # tt is a simple task template that makes arg the command
+    task2 = tt.create_task(
+                name="dynamic_resource_task",
+                arg="echo hello",
+                max_attempts=2,
+                compute_resouces=assign_resources
+            )
     task2.add_upstream(task1) # make task2 dependent on task 1
 
-    wf = Workflow(workflow_args='dynamic_resource_wf')
-    wf.add_task(task1)
-    wf.run()
+    wf.add_task(task1, task2)
+    wfr_status = wf.run()
 
 Advanced Task Dependencies
 ##########################
@@ -306,7 +339,6 @@ downstream tasks depend on these jobs.
     import sys
     from jobmon.client.tool import Tool
     from jobmon.client.task_template import TaskTemplate
-    from jobmon.client.execution.strategies.base import ExecutorParameters
 
     from my_app.utils import split_locs_by_loc_set
 
@@ -377,17 +409,12 @@ downstream tasks depend on these jobs.
         def create_most_detailed_jobs(self):
             """First set of tasks, thus no upstream tasks"""
 
-            executor_parameters = ExecutorParameters(
-                num_cores=40,
-                m_mem_free="20G",
-                max_attempts=5,
-                max_runtime_seconds=360
-            )
-
             for loc in self.most_detailed_location_ids:
                 for year in self.year_ids:
                     task = self.most_detailed_tt.create_task(
-                                      executor_parameters=executor_parameters,
+                                      compute_resources={"cores": 40, "memory": "20Gb", "runtime": "360s"},
+                                      cluster_name="slurm",
+                                      max_attempts=5,
                                       name='most_detailed_{}_{}'.format(loc, year),
                                       python=self.python,
                                       script='run_burdenator_most_detailed',
@@ -399,19 +426,14 @@ downstream tasks depend on these jobs.
         def create_loc_agg_jobs(self):
             """Depends on most detailed jobs"""
 
-            executor_parameters = ExecutorParameters(
-                num_cores=20,
-                m_mem_free="40G",
-                max_attempts=11,
-                max_runtime_seconds=540
-            )
-
             for year in self.year_ids:
                 for sex in self.sex_ids:
                     for measure in self.measure_ids:
                         for rei in self.rei_ids:
                             task = self.loc_agg_tt.create_task(
-                                executor_parameters=executor_parameters,
+                                compute_resources={"cores": 20, "memory": "40Gb", "runtime": "540s"},
+                                cluster_name="slurm,
+                                max_attempts=11,
                                 name='loc_agg_{}_{}_{}_{}'.format(measure, year, sex, rei),
                                 python=self.python,
                                 script='run_loc_agg',
@@ -430,18 +452,13 @@ downstream tasks depend on these jobs.
         def create_cleanup_jobs(self):
             """Depends on aggregate locations coming out of loc agg jobs"""
 
-            executor_parameters = ExecutorParameters(
-                num_cores=25,
-                m_mem_free="50G",
-                max_attempts=11,
-                max_runtime_seconds=360
-            )
-
             for measure in self.measure_ids:
                 for loc in self.aggregate_location_ids:
                     for year in self.year_ids:
                         task = self.cleanup_jobs_tt.create_task(
-                                          executor_parameters=executor_parameters,
+                                          compute_resources={"cores": 25, "memory": "50Gb", "runtime": "360s"},
+                                          cluster_name="slurm",
+                                          max_attempts=11,
                                           name='cleanup_{}_{}_{}'.format(measure, loc, year),
                                           python=self.python,
                                           script='run_cleanup',
@@ -462,13 +479,6 @@ downstream tasks depend on these jobs.
             """For aggregate locations, depends on cleanup jobs.
             But for most_detailed locations, depends only on most_detailed jobs"""
 
-            executor_parameters = ExecutorParameters(
-                num_cores=45,
-                m_mem_free="90G",
-                max_attempts=11,
-                max_runtime_seconds=540
-            )
-
             for measure in self.measure_ids:
                 for start_year, end_year in zip(self.start_year_ids, self.end_year_ids):
                     for loc in self.location_ids:
@@ -477,7 +487,9 @@ downstream tasks depend on these jobs.
                         else:
                             is_aggregate = False
                         task = self.pct_change_tt.create_task(
-                                          executor_parameters=executor_parameters,
+                                          compute_resources={"cores": 45, "memory": "90Gb", "runtime": "540s"},
+                                          cluster_name="slurm",
+                                          max_attempts=11,
                                           name=('pct_change_{}_{}_{}_{}'
                                                 .format(measure, loc, start_year, end_year),
                                           python=self.python,
@@ -502,16 +514,11 @@ downstream tasks depend on these jobs.
         def create_upload_jobs(self):
             """Depends on pct-change jobs"""
 
-            executor_parameters = ExecutorParameters(
-                num_cores=20,
-                m_mem_free="40G",
-                max_attempts=3,
-                max_runtime_seconds=720
-            )
-
             for measure in self.measure_ids:
                 task = self.upload_tt.create_task(
-                                  executor_parameters=executor_parameters,
+                                  compute_resources={"cores": 20, "memory": "40Gb", "runtime": "720s"},
+                                  cluster_name="slurm",
+                                  max_attempts=3,
                                   name='upload_{}'.format(measure)
                                   script='run_pct_change',
                                   measure=measure)
@@ -548,8 +555,13 @@ maximum allowed concurrency as needed if cluster busyness starts to wax or wane.
 
 workflow_reset
 **************
-TODO: FILL OUT THIS SECTION
-https://stash.ihme.washington.edu/projects/SCIC/repos/jobmon/pull-requests/356/overview
+Entering ``jobmon workflow_reset`` will reset a Workflow to G state (REGISTERED). When a
+Workflow is reset, all of the Tasks associated with the Workflow will also be transitioned to
+G state. The usage of this command is ``jobmon workflow_reset -w [workflow_id]``.
+
+To use this command the last WorkflowRun of the specified Workflow must be in E (ERROR) state.
+The last WorkflowRun must also have been started by the same user that is attempting to reset
+the Workflow.
 
 update_task_status
 ******************

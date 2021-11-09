@@ -1,8 +1,9 @@
+
+.. _jobmon-core-label:
+
 *************
 Core Concepts
 *************
-
-.. _jobmon-core-label:
 
 Cluster Name
 ############
