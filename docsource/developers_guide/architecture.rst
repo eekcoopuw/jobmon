@@ -145,7 +145,7 @@ A GUI would open up this feature to more Application Owners.
 How do they find the task statuses? How do they find Errors from their own applications?
 
 Jobmon Distributor Use Cases
-==========================
+============================
 
 330. Jobmon submits a Job to UGE
 
