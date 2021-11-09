@@ -2,45 +2,58 @@ pipeline {
   agent {
     label "qlogin"
   }
-  options {
-    buildDiscarder(logRotator(numToKeepStr: '30'))
-  } // End options
+  triggers {
+    bitBucketTrigger(
+      [
+        [
+          $class: 'BitBucketPPRPullRequestServerTriggerFilter',
+          actionFilter: [
+            $class: 'BitBucketPPRPullRequestServerMergedActionFilter',
+            allowedBranches: 'release/*'
+          ]
+        ],
+        [
+          $class: 'BitBucketPPRPullRequestServerTriggerFilter',
+          actionFilter: [
+            $class: 'BitBucketPPRPullRequestServerMergedActionFilter',
+            allowedBranches: 'main'
+          ]
+        ]
+      ]
+    )
+  } // end triggers.
   parameters {
     listGitBranches(
-      name: 'BRANCH',
-      defaultValue: '**/from',
-      type: 'BRANCH',
-      remoteURL: 'ssh://git@stash.ihme.washington.edu:7999/scic/jobmon.git',
+      branchFilter: '.*',
       credentialsId: 'jenkins',
-      selectedValue: 'DEFAULT')
+      defaultValue: '${BITBUCKET_TARGET_BRANCH}',
+      name: 'BRANCH_TO_BUILD',
+      quickFilterEnabled: false,
+      remoteURL: 'ssh://git@stash.ihme.washington.edu:7999/scic/jobmon.git',
+      selectedValue: 'DEFAULT',
+      sortMode: 'NONE',
+      tagFilter: '*',
+      type: 'PT_BRANCH'
+    )
     booleanParam(defaultValue: 'true',
       description: 'Whether or not you want to deploy Jobmon to Pypi',
       name: 'DEPLOY_PYPI')
-  } // end parameters
-  triggers {
-    // This cron expression runs seldom, or never runs, but having the value set
-    // allows bitbucket server to remotely trigger builds.
-    // Git plugin 4.x: https://mohamicorp.atlassian.net/wiki/spaces/DOC/pages/209059847/Triggering+Jenkins+on+new+Pull+Requests
-    // Git plugin 3.x: https://mohamicorp.atlassian.net/wiki/spaces/DOC/pages/955088898/Triggering+Jenkins+on+new+Pull+Requests+Git+Plugin+3.XX
-    pollSCM ''
-  } // End triggers
+  }
+  options {
+    buildDiscarder(logRotator(numToKeepStr: '30'))
+  } // End options
   environment {
-
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
-    ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
+    ACTIVATE = ". /homes/svcscicompci/miniconda3/bin/activate base"
   } // End environment
   stages {
-    stage("Notify BitBucket") {
-      steps {
-        // Tell BitBucket that a build has started.
-        script {
-          notifyBitbucket()
-        } // End script
-      } // End step
-    } // End notify bitbucket stage
     stage('Remote Checkout Repo') {
       steps {
-        checkout scm
+        checkout([
+          $class: 'GitSCM',
+          branches: [[name: params.BRANCH_TO_BUILD]],
+          userRemoteConfigs: scm.userRemoteConfigs
+        ])
       } // End step
     } // End remote checkout repo stage
     stage("parallel") {
@@ -131,15 +144,5 @@ pipeline {
       // Delete the workspace directory.
       deleteDir()
     } // End always
-    failure {
-      script {
-        notifyBitbucket(buildStatus: 'FAILED')
-      } // End script
-    } // End failure
-    success {
-      script {
-        notifyBitbucket(buildStatus: 'SUCCESSFUL')
-      } // End script
-    } // End success
   } // End post
 } // End pipeline
