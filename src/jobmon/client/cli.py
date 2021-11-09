@@ -254,7 +254,7 @@ class ClientCLI(CLI):
             required=False,
             type=int,
             action="append",
-            default=[]
+            default=[],
         )
         workflow_status_parser.add_argument(
             "-u", "--user", nargs="*", help="list of users", required=False, type=str
