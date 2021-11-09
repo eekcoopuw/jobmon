@@ -33,15 +33,15 @@ WorkflowRun. Made up of :ref:`jobmon-node-label` (Tasks with specific node argum
 Workflow
 ########
 *(aka Batch, aka Swarm)*
-The object that encompasses all of your Tasks that will be executed. It builds on the
-:ref:`jobmon-dag-label` to include the setup logic to bind all of the objects to the database
-and capture metadata about the Workflow. Much like :ref:`jobmon-task-label` is the intent to run a command, and
-:ref:`jobmon-ti-label` is the actual execution, Workflow is the intent to run a DAG of
-Tasks, and a :ref:`jobmon-wfrun-label` is the actual execution of the DAG traversal. Therefore a
-Workflow can be resumed if it failed on a previous Workflow Run, but the Tasks that it will
-execute must remain the same. This is codified in the WorkflowArgs parameter that the user
-can define to indicate what makes this set of Tasks unique such that no other
-Workflow will be the same.
+The object that encompasses all of your :ref:`jobmon-task-label` and the dependencies
+between them. A Workflow is the intent to run a :ref:`jobmon-dag-label`
+(Directed Acyclic Graph) of Tasks, and a :ref:`jobmon-wfrun-label` is the
+actual execution of the DAG on a cluster. A Workflow can have multiple
+WorkflowRuns associated with it if previous runs fail or are stopped manually. A Workflow
+can be resumed if it failed on a previous Workflow Run, but the Tasks that it will execute
+must remain the same. Resumability is codified by the :ref:`jobmon-wf-arg-label` parameter that the user
+can define, which indicates what makes this intention to run Tasks unique from other workflows
+with the same tasks and dependencies.
 
 .. _jobmon-wf-arg-label:
 
@@ -87,8 +87,8 @@ before.
 
 .. _jobmon-task-label:
 
-Task
-####
+Tasks
+#####
 A single executable object in the workflow; a command that will be run. Relate it to a
 Task Template in order to classify it as a type of job within the context of your
 Workflow. Do this by using the TaskTemplate create_task() function.
