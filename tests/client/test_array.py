@@ -176,23 +176,39 @@ def test_create_tasks(db_cfg, client_env, tool):
         task_arg_names = [r.name for r in task_args]
         assert set(task_arg_names) == {"task_arg"}
 
-    # Define individual node_args, and expect to get a valid task
-    three_c_node_args = {"narg1": 3, "narg2": "b"}
+    # Define individual node_args, and expect to get a list of one task
+    three_c_node_args = {"narg1": 3, "narg2": "c"}
+    three_c_tasks = array.get_tasks_by_node_args(
+        task_template_name="simple_template", **three_c_node_args
+    )
+    assert len(three_c_tasks) == 1
 
-    three_c_task = array.get_task_by_node_args(**three_c_node_args)
+    # Define out of scope node_args, and expect to get a empty list
+    x_node_args = {"narg1": 3, "narg2": "x"}
+    x_tasks = array.get_tasks_by_node_args(
+        task_template_name="simple_template", **x_node_args
+    )
+    assert len(x_tasks) == 0
 
-    three_c_node_args_mapped = {
-        array.task_template_version.id_name_map[k]: v
-        for k, v in three_c_node_args.items()
-    }
+    # Define narg1 only, expect to see a list of 3 tasks
+    three_node_args = {"narg1": 3}
+    three_tasks = array.get_tasks_by_node_args(
+        task_template_name="simple_template", **three_node_args
+    )
+    assert len(three_tasks) == 3
 
-    assert three_c_task is not None
-    assert three_c_task.node.node_args == three_c_node_args_mapped
+    # Define an empty dict, expect to see a list of 9 tasks
+    empty_node_args = {}
+    all_tasks = array.get_tasks_by_node_args(
+        task_template_name="simple_template", **empty_node_args
+    )
+    assert len(all_tasks) == 9
 
-    # For the same node_args, try workflow for a valid task
-    three_c_wf_task = wf.get_task_by_node_args(**three_c_node_args)
-
-    assert three_c_wf_task is not None
+    two_node_args = {"narg1": 2}
+    two_wf_tasks = wf.get_tasks_by_node_args(
+        task_template_name="simple_template", **two_node_args
+    )
+    assert len(two_wf_tasks) == 3
 
 
 def test_empty_array(db_cfg, client_env, tool):

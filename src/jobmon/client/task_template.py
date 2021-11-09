@@ -496,7 +496,7 @@ class TaskTemplate:
         # build task
         task = Task(
             command=command,
-            task_template_version=self.active_task_template_version,
+            task_template_version_id=self.active_task_template_version.id,
             node_args=node_args,
             task_args=task_args,
             compute_resources=resources,
@@ -577,6 +577,7 @@ class TaskTemplate:
                 op_args[key] = val
 
         array = Array(
+            task_template_name=self.template_name,
             task_template_version=self.active_task_template_version,
             max_concurrently_running=max_concurrently_running,
             name=name,

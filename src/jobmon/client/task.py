@@ -13,7 +13,6 @@ from jobmon.client.client_config import ClientConfig
 from jobmon.client.cluster import Cluster
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
-from jobmon.client.task_template_version import TaskTemplateVersion
 from jobmon.cluster_type.base import ClusterQueue
 from jobmon.constants import SpecialChars, TaskStatus
 from jobmon.exceptions import InvalidResponse
@@ -64,7 +63,7 @@ class Task:
     def __init__(
         self,
         command: str,
-        task_template_version: TaskTemplateVersion,
+        task_template_version_id: int,
         node_args: dict,
         task_args: dict,
         cluster_name: str = "",
@@ -87,7 +86,7 @@ class Task:
             command (str): the unique command for this Task, also readable by humans. Should
                 include all parameters. Two Tasks are equal (__eq__) iff they have the same
                 command.
-            task_template_version: TaskTemplateVersion for the associated Task Template.
+            task_template_version_id (int): identifier for the associated Task Template.
             node_args (dict): Task arguments that identify a unique node in the DAG.
             task_args (dict): Task arguments that make the command unique across workflows
                 usually pertaining to data flowing through the task.
@@ -116,12 +115,10 @@ class Task:
             requester = Requester(requester_url)
         self.requester = requester
 
-        self.task_template_version = task_template_version
-
         # pre bind hash defining attributes
         self.task_args = task_args
         self.task_args_hash = self._hash_task_args()
-        self.node = Node(task_template_version.id, node_args, requester)
+        self.node = Node(task_template_version_id, node_args, requester)
 
         # pre bind mutable attributes
         self.command = command
