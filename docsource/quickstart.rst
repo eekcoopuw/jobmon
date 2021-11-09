@@ -4,7 +4,7 @@ Quickstart
 
 Jobmon is a job-control system used for automating scientific workflows and running them on
 distributed computing systems. It manages complex job and resource dependencies and manages
-computing environment instability to execute dependably and assist in troubleshooting when
+computing environment instability, ensuring dependably and assisting in troubleshooting when
 needed. It is developed and maintained by IHME's Scientific Computing team.
 
 Jobmon’s vision is to make it as easy as possible for everyone at IHME to run any kind of code
