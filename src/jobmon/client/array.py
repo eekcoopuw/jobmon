@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from http import HTTPStatus as StatusCodes
 from itertools import product
 import logging
@@ -237,12 +238,22 @@ class Array:
         node_args_mapped = {
             self.task_template_version.id_name_map[k]: v for k, v in kwargs.items()
         }
+
         for task in self.tasks:
-            node_args_mapped_minus_task = dict(
-                node_args_mapped.items() - task.node.node_args.items()
-            )
-            if len(node_args_mapped_minus_task) == 0:
+            key_count_to_meet = len(node_args_mapped)
+            for key, val in node_args_mapped.items():
+                if (
+                    isinstance(val, Iterable)
+                    and task.node.node_args[key] in val
+                    or task.node.node_args[key] == val
+                ):
+                    key_count_to_meet -= 1
+                    continue
+                else:
+                    break
+            if key_count_to_meet == 0:
                 tasks.append(task)
+
         return tasks
 
     def bind(self, workflow_id: int, cluster_id: int) -> None:

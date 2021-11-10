@@ -196,6 +196,11 @@ def test_create_tasks(db_cfg, client_env, tool):
     all_tasks = array.get_tasks_by_node_args(**empty_node_args)
     assert len(all_tasks) == 9
 
+    # Define a list(3,2 items)-valued case for narg1 and narg2, expect to see 6
+    empty_node_args = {"narg1": [1, 2, 3], "narg2": ["a", "b"]}
+    all_tasks = array.get_tasks_by_node_args(**empty_node_args)
+    assert len(all_tasks) == 6
+
     # Define a task_template_name in-scope valid node_args, expect to see a list of 3 tasks
     two_node_args = {"narg1": 2}
     two_wf_tasks = wf.get_tasks_by_node_args(
