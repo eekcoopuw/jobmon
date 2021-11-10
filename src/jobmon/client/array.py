@@ -231,21 +231,18 @@ class Array:
         for element in product(*kwargs.values()):
             yield dict(zip(keys, element))
 
-    def get_tasks_by_node_args(
-        self, task_template_name: str, **kwargs: Any
-    ) -> List["Task"]:
+    def get_tasks_by_node_args(self, **kwargs: Any) -> List["Task"]:
         """Query tasks by node args. Used for setting dependencies."""
         tasks: List["Task"] = []
-        if task_template_name == self.task_template_name:
-            node_args_mapped = {
-                self.task_template_version.id_name_map[k]: v for k, v in kwargs.items()
-            }
-            for task in self.tasks:
-                node_args_mapped_minus_task = dict(
-                    node_args_mapped.items() - task.node.node_args.items()
-                )
-                if len(node_args_mapped_minus_task) == 0:
-                    tasks.append(task)
+        node_args_mapped = {
+            self.task_template_version.id_name_map[k]: v for k, v in kwargs.items()
+        }
+        for task in self.tasks:
+            node_args_mapped_minus_task = dict(
+                node_args_mapped.items() - task.node.node_args.items()
+            )
+            if len(node_args_mapped_minus_task) == 0:
+                tasks.append(task)
         return tasks
 
     def bind(self, workflow_id: int, cluster_id: int) -> None:

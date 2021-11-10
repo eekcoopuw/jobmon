@@ -178,37 +178,37 @@ def test_create_tasks(db_cfg, client_env, tool):
 
     # Define individual node_args, and expect to get a list of one task
     three_c_node_args = {"narg1": 3, "narg2": "c"}
-    three_c_tasks = array.get_tasks_by_node_args(
-        task_template_name="simple_template", **three_c_node_args
-    )
+    three_c_tasks = array.get_tasks_by_node_args(**three_c_node_args)
     assert len(three_c_tasks) == 1
 
     # Define out of scope node_args, and expect to get a empty list
     x_node_args = {"narg1": 3, "narg2": "x"}
-    x_tasks = array.get_tasks_by_node_args(
-        task_template_name="simple_template", **x_node_args
-    )
+    x_tasks = array.get_tasks_by_node_args(**x_node_args)
     assert len(x_tasks) == 0
 
     # Define narg1 only, expect to see a list of 3 tasks
     three_node_args = {"narg1": 3}
-    three_tasks = array.get_tasks_by_node_args(
-        task_template_name="simple_template", **three_node_args
-    )
+    three_tasks = array.get_tasks_by_node_args(**three_node_args)
     assert len(three_tasks) == 3
 
     # Define an empty dict, expect to see a list of 9 tasks
     empty_node_args = {}
-    all_tasks = array.get_tasks_by_node_args(
-        task_template_name="simple_template", **empty_node_args
-    )
+    all_tasks = array.get_tasks_by_node_args(**empty_node_args)
     assert len(all_tasks) == 9
 
+    # Define a task_template_name in-scope valid node_args, expect to see a list of 3 tasks
     two_node_args = {"narg1": 2}
     two_wf_tasks = wf.get_tasks_by_node_args(
         task_template_name="simple_template", **two_node_args
     )
     assert len(two_wf_tasks) == 3
+
+    # Define a task_template_name out-of-scope node_args, expect to see a list of 3 tasks
+    two_node_args = {"narg1": 2}
+    two_wf_tasks = wf.get_tasks_by_node_args(
+        task_template_name="OUT_OF_SCOPE_simple_template", **two_node_args
+    )
+    assert len(two_wf_tasks) == 0
 
 
 def test_empty_array(db_cfg, client_env, tool):

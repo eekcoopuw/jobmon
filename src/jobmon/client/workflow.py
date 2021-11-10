@@ -329,7 +329,8 @@ class Workflow(object):
         tasks: List["Task"] = []
         if self.arrays:
             for array in self.arrays:
-                tasks.extend(array.get_tasks_by_node_args(task_template_name, **kwargs))
+                if task_template_name == array.task_template_name:
+                    tasks.extend(array.get_tasks_by_node_args(**kwargs))
         return tasks
 
     def run(
