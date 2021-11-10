@@ -322,6 +322,17 @@ class Workflow(object):
         """
         self.default_cluster_name = cluster_name
 
+    def get_tasks_by_node_args(
+        self, task_template_name: str, **kwargs: Any
+    ) -> List["Task"]:
+        """Query tasks by node args. Used for setting dependencies."""
+        tasks: List["Task"] = []
+        if self.arrays:
+            for array in self.arrays:
+                if task_template_name == array.task_template_name:
+                    tasks.extend(array.get_tasks_by_node_args(**kwargs))
+        return tasks
+
     def run(
         self,
         fail_fast: bool = False,

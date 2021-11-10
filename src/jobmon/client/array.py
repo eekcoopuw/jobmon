@@ -1,3 +1,4 @@
+from collections.abc import Iterable
 from http import HTTPStatus as StatusCodes
 from itertools import product
 import logging
@@ -22,6 +23,7 @@ class Array:
 
     def __init__(
         self,
+        task_template_name: str,
         task_template_version: TaskTemplateVersion,
         max_concurrently_running: int,
         cluster_name: str,
@@ -37,6 +39,7 @@ class Array:
         requester: Optional[Requester] = None,
     ) -> None:
         """Initialize the array object."""
+        self.task_template_name = task_template_name
         self.task_template_version = task_template_version
         self.max_concurrently_running = max_concurrently_running
         self.task_args = task_args
@@ -63,10 +66,7 @@ class Array:
     @property
     def is_bound(self) -> bool:
         """If the array has been bound to the db."""
-        if not hasattr(self, "_array_id"):
-            return False
-        else:
-            return True
+        return hasattr(self, "_array_id")
 
     @property
     def array_id(self) -> int:
@@ -232,9 +232,29 @@ class Array:
         for element in product(*kwargs.values()):
             yield dict(zip(keys, element))
 
-    def get_task_by_node_args(self, **kwargs: Any) -> Task:
+    def get_tasks_by_node_args(self, **kwargs: Any) -> List["Task"]:
         """Query tasks by node args. Used for setting dependencies."""
-        raise NotImplementedError
+        tasks: List["Task"] = []
+        node_args_mapped = {
+            self.task_template_version.id_name_map[k]: v for k, v in kwargs.items()
+        }
+
+        for task in self.tasks:
+            key_count_to_meet = len(node_args_mapped)
+            for key, val in node_args_mapped.items():
+                if (
+                    isinstance(val, Iterable)
+                    and task.node.node_args[key] in val
+                    or task.node.node_args[key] == val
+                ):
+                    key_count_to_meet -= 1
+                    continue
+                else:
+                    break
+            if key_count_to_meet == 0:
+                tasks.append(task)
+
+        return tasks
 
     def bind(self, workflow_id: int, cluster_id: int) -> None:
         """Add an array to the database."""
