@@ -370,8 +370,17 @@ def get_task_template_resource_usage() -> Any:
 
     query = """
               SELECT
-                    ti.wallclock as r,
-                    ti.maxpss as m
+                    CASE
+                        WHEN ti.wallclock is Null THEN 0
+                        ELSE ti.wallclock
+                    END AS r,
+                    CASE
+                        WHEN ti.maxpss is Null AND ti.maxrss is Null THEN 0
+                        WHEN ti.maxpss is Null AND ti.maxrss is not Null THEN ti.maxrss
+                        WHEN ti.maxpss is NOT Null AND ti.maxrss is Null THEN ti.maxpss
+                        WHEN ti.maxpss > ti.maxrss THEN ti.maxpss
+                        ELSE ti.maxrss
+                     END AS m
                 FROM
                     task_template_version AS ttv,
                     node AS n,
@@ -397,7 +406,7 @@ def get_task_template_resource_usage() -> Any:
         mems = []
         for row in result:
             runtimes.append(int(row["r"]))
-            mems.append(int(row["m"]))
+            mems.append(max(0, int(row["m"])))
         num_tasks = len(runtimes)
         min_mem = int(np.min(mems))
         max_mem = int(np.max(mems))
