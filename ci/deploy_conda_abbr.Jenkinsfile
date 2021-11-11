@@ -62,6 +62,8 @@ pipeline {
         script {
           sh (
             script: '''#!/bin/bash
+                       cat ${WORKSPACE}
+                       cat ${WORKSPACE}/jobmon_service_fqdn.txt
                        cp ${WORKSPACE}/jobmon_service_fqdn.txt /ihme/homes/samhu
                     ''',
             returnStdout: false
