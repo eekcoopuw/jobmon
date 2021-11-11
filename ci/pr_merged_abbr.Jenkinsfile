@@ -1,6 +1,6 @@
 pipeline {
   agent {
-    label "docker"
+    label "qlogin"
   }
   parameters {
     listGitBranches(
@@ -21,10 +21,7 @@ pipeline {
   }
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
-    DOCKER_ACTIVATE = "source /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
-    QLOGIN_ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
-    MINICONDA_PATH = "/homes/svcscicompci/miniconda3/bin/activate"
-    CONDA_ENV_NAME = "base"
+    ACTIVATE = ". /homes/svcscicompci/miniconda3/bin/activate base"
   } // End environment
   stages {
     stage('Remote Checkout Repo') {
@@ -40,7 +37,7 @@ pipeline {
       parallel {
         stage("Build Docs") {
           steps {
-            sh "${QLOGIN_ACTIVATE} && nox --session docs"
+            sh "${ACTIVATE} && nox --session docs"
           } // End step
         } // End build docs stage
       } // End parallel
