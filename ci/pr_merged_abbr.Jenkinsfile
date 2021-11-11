@@ -21,6 +21,26 @@ pipeline {
     ACTIVATE = ". /homes/svcscicompci/miniconda3/bin/activate base"
   } // End environment
   stages {
+    stage('Check out Target Ip/Port') {
+      script {
+        // Scicomp kubernetes cluster container
+        withCredentials([file(credentialsId: 'k8s-scicomp-cluster-kubeconf',
+                              variable: 'KUBECONFIG')]) {
+          sh '''#!/bin/bash
+                . ${WORKSPACE}/ci/deploy_utils.sh
+                get_connection_info_from_namespace ${WORKSPACE} ${K8S_NAMESPACE}
+             '''
+        } // end credentials
+      }
+      script {
+        env.JOBMON_SERVICE_FQDN = sh (
+          script: '''#!/bin/bash
+                     cat ${WORKSPACE}/jobmon_service_fqdn.txt
+                  ''',
+          returnStdout: true
+        ).trim()
+      } // end script
+    }
     stage('Remote Checkout Repo') {
       steps {
         checkout([
