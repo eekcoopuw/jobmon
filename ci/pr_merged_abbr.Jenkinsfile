@@ -21,7 +21,7 @@ pipeline {
     ACTIVATE = ". /homes/svcscicompci/miniconda3/bin/activate base"
   } // End environment
   stages {
-    stage('Check out Target Ip/Port') {
+    stage('Get service configuration info') {
       steps {
         script {
           // Scicomp kubernetes cluster container
@@ -41,8 +41,26 @@ pipeline {
             returnStdout: true
           ).trim()
         } // end script
-      }
-    }
+        script {
+          sh (
+            script: '''#!/bin/bash
+                       cp ${WORKSPACE}/jobmon_service_fqdn.txt /ihme/homes/samhu
+                    ''',
+            returnStdout: false
+          )
+        } // end script
+        script {
+          env.JOBMON_SERVICE_PORT = sh (
+            script: '''#!/bin/bash
+                       cat ${WORKSPACE}/jobmon_service_port.txt
+                    ''',
+            returnStdout: true
+          ).trim()
+        } // end script
+        echo "Setting JOBMON_SERVICE_FQDN=${env.JOBMON_SERVICE_FQDN}"
+        echo "Setting JOBMON_SERVICE_PORT=${env.JOBMON_SERVICE_PORT}"
+      } // end steps
+    } // end TARGETIP stage
     stage('Remote Checkout Repo') {
       steps {
         checkout([
