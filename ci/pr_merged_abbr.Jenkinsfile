@@ -15,6 +15,9 @@ pipeline {
       tagFilter: '*',
       type: 'PT_BRANCH'
     )
+    string(defaultValue: 'jobmon-dev',
+     description: 'Kubernetes Namespace to deploy to',
+     name: 'K8S_NAMESPACE')
   }
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
