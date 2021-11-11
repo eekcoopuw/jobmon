@@ -40,7 +40,7 @@ pipeline {
       parallel {
         stage("Build Docs") {
           steps {
-            sh "${DOCKER_ACTIVATE} && nox --session docs"
+            sh "${QLOGIN_ACTIVATE} && nox --session docs"
           } // End step
         } // End build docs stage
       } // End parallel
