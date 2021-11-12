@@ -179,7 +179,7 @@ def get_requsted_cores() -> Any:
 
 @finite_state_machine.route("/get_most_popular_queue", methods=["GET"])
 def get_most_popular_queue() -> Any:
-    """Get the min, max, and arg of requested cores."""
+    """Get the most polular queue of the task template."""
     # parse args
     ttvis = request.args.get("task_template_version_ids")
     sql = f"""
