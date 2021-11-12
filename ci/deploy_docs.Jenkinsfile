@@ -68,14 +68,6 @@ pipeline {
       steps {
         script {
           sh '''#!/bin/bash
-                export PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
-                export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
-                export JENKINS_BUILD_NUMBER="${BUILD_NUMBER}"
-                export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
-                export JOBMON_VERSION="${JOBMON_VERSION}"
-                export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
-                export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
-                export SLURM_REST_VERSION="${SLURM_REST_VERSION}"
                 export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
                 export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
                 ${DOCKER_ACTIVATE} && nox --session docs
