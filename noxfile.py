@@ -87,7 +87,7 @@ def docs(session: Session) -> None:
     # environment variables used in build script
     web_service_fqdn = os.environ["WEB_SERVICE_FQDN"]
     web_service_port = os.environ["WEB_SERVICE_PORT"]
-    
+
     print(f"web_service_fqdn={web_service_fqdn}")
 
     # subprocess.Popen(['bash', '-c', '. /docsource/deploy_utils.sh; get_conn_info_from_namespace'])
@@ -98,24 +98,24 @@ def docs(session: Session) -> None:
     #
     # print(stdout)
 
-    # session.conda_install("graphviz")
-    #
-    # session.install("-e", ".[docs,server]")
-    #
-    # autodoc_output = 'docsource/api'
-    # if os.path.exists(autodoc_output):
-    #     shutil.rmtree(autodoc_output)
-    # session.run(
-    #     'sphinx-apidoc',
-    #     # output dir
-    #     '-o', autodoc_output,
-    #     # source dir
-    #     'src/jobmon',
-    #     # exclude from autodoc
-    #     'src/jobmon/server/qpid_integration',
-    #     'src/jobmon/server/web/main.py'
-    # )
-    # session.run("sphinx-build", "docsource", "out/_html")
+    session.conda_install("graphviz")
+
+    session.install("-e", ".[docs,server]")
+
+    autodoc_output = 'docsource/api'
+    if os.path.exists(autodoc_output):
+        shutil.rmtree(autodoc_output)
+    session.run(
+        'sphinx-apidoc',
+        # output dir
+        '-o', autodoc_output,
+        # source dir
+        'src/jobmon',
+        # exclude from autodoc
+        'src/jobmon/server/qpid_integration',
+        'src/jobmon/server/web/main.py'
+    )
+    session.run("sphinx-build", "docsource", "out/_html")
 
 
 @nox.session(python=python, venv_backend="conda")
