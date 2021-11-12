@@ -45,14 +45,6 @@ pipeline {
           ).trim()
         } // end script
         script {
-          sh (
-            script: '''#!/bin/bash
-                       cp ${WORKSPACE}/jobmon_service_fqdn.txt /ihme/homes/samhu
-                    ''',
-            returnStdout: false
-          )
-        } // end script
-        script {
           env.JOBMON_SERVICE_PORT = sh (
             script: '''#!/bin/bash
                        cat ${WORKSPACE}/jobmon_service_port.txt
