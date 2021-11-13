@@ -109,7 +109,7 @@ def docs(session: Session) -> None:
     )
     session.run("sphinx-build", "docsource", "out/_html",
         env={
-            "WEB_SERVICE_FQDN": web_service_fqdn,  # eg. 10.158.146.73
+            "WEB_SERVICE_FQDN": web_service_fqdn,
             "WEB_SERVICE_PORT": web_service_port
         }
     )
