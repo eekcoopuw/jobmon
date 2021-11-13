@@ -56,7 +56,7 @@ pipeline {
         echo "Setting JOBMON_SERVICE_PORT=${env.JOBMON_SERVICE_PORT}"
       } // end steps
     } // end TARGETIP stage
-    stage('Build Docs via same container) {
+    stage('Build Docs via same container') {
       steps {
         script {
           sh '''#!/bin/bash
