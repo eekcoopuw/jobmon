@@ -8,7 +8,7 @@ class WebService(Directive):
     def run(self):
         webservice_str = "jobmon update_config --web_service_fqdn " + \
                          os.environ.get("WEB_SERVICE_FQDN") + \
-                         " --web_service_fqdn " + \
+                         " --web_service_port " + \
                          os.environ.get("WEB_SERVICE_PORT")
         paragraph_node = nodes.paragraph(text=webservice_str)
         return [paragraph_node]
