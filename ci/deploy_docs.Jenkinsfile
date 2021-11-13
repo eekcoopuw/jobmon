@@ -13,8 +13,8 @@ pipeline {
   } // end parameters
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
-    DOCKER_ACTIVATE = "source /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
-    QLOGIN_ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
+    DOCKER_ACTIVATE = ". /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
+    QLOGIN_ACTIVATE = ". /homes/svcscicompci/miniconda3/bin/activate base"
     MINICONDA_PATH = "/homes/svcscicompci/miniconda3/bin/activate"
     CONDA_ENV_NAME = "base"
   } // end environment
@@ -56,13 +56,13 @@ pipeline {
         echo "Setting JOBMON_SERVICE_PORT=${env.JOBMON_SERVICE_PORT}"
       } // end steps
     } // end TARGETIP stage
-    stage('Build Docs via docker') {
+    stage('Build Docs via QLOGIN') {
       steps {
         script {
           sh '''#!/bin/bash
                 export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
                 export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
-                ${DOCKER_ACTIVATE} && nox --session docs
+                ${QLOGIN_ACTIVATE} && nox --session docs
              '''
         } // End script
       } // end steps
