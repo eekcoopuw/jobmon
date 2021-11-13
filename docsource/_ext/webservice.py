@@ -3,21 +3,18 @@ from docutils import nodes
 from docutils.parsers.rst import Directive
 
 
-class WebServiceFqdn(Directive):
+class WebService(Directive):
 
     def run(self):
-        paragraph_node = nodes.paragraph(text=os.environ.get("WEB_SERVICE_FQDN"))
-        return [paragraph_node]
-
-class WebServicePort(Directive):
-
-    def run(self):
-        paragraph_node = nodes.paragraph(text=os.environ.get("WEB_SERVICE_PORT"))
+        webservice_str = "jobmon update_config --web_service_fqdn " + \
+                         os.environ.get("WEB_SERVICE_FQDN") + \
+                         " --web_service_fqdn " + \
+                         os.environ.get("WEB_SERVICE_PORT")
+        paragraph_node = nodes.paragraph(text=webservice_str)
         return [paragraph_node]
 
 def setup(app):
-    app.add_directive("webservicefqdn", WebServiceFqdn)
-    app.add_directive("webserviceport", WebServicePort)
+    app.add_directive("webservicedir", WebService)
 
     return {
         'version': '0.1',
