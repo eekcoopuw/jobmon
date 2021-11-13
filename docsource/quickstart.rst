@@ -49,7 +49,7 @@ To install the Slurm plugin via pip::
 
 Then issue the following command to configure the web service and port:
 
-.. webservicedir::
+    .. webservicedir::
 
 .. note::
     If you get the error **"Could not find a version that satisfies the requirement jobmon (from version: )"** then create (or append) the following to your ``~/.pip/pip.conf``::
