@@ -62,7 +62,7 @@ pipeline {
           sh '''#!/bin/bash
                 export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
                 export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
-                ${DOCKER_ACTIVATE} nox --session docs
+                ${DOCKER_ACTIVATE} && nox --session docs
              '''
         } // End script
       } // end steps
