@@ -47,7 +47,7 @@ To install the Slurm plugin via pip::
 
     pip install jobmon_slurm
 
-Then issue the following command to target our current production server:
+Then issue the following command to configure the web service and port:
 
 .. webservicedir::
 

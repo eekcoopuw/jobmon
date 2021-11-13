@@ -85,18 +85,10 @@ def docs(session: Session) -> None:
     """Build the documentation."""
 
     # environment variables used in build script
-    web_service_fqdn = "999.888.777.123" # os.environ["WEB_SERVICE_FQDN"]
-    web_service_port = "80" # os.environ["WEB_SERVICE_PORT"]
-
-    print(f"web_service_fqdn={web_service_fqdn}")
-
-    # subprocess.Popen(['bash', '-c', '. /docsource/deploy_utils.sh; get_conn_info_from_namespace'])
-
-    # process = Popen(['cat', '/docsource/deploy_utils.sh'], stdout=PIPE, stderr=PIPE)
-    #
-    # stdout, stderr = process.communicate()
-    #
-    # print(stdout)
+    web_service_fqdn = \
+        os.environ.get("WEB_SERVICE_FQDN") if "WEB_SERVICE_FQDN" in os.environ else "TBD"
+    web_service_port = \
+        os.environ.get("WEB_SERVICE_PORT") if "WEB_SERVICE_PORT" in os.environ else "TBD"
 
     session.conda_install("graphviz")
 
