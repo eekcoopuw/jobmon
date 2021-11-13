@@ -56,13 +56,13 @@ pipeline {
         echo "Setting JOBMON_SERVICE_PORT=${env.JOBMON_SERVICE_PORT}"
       } // end steps
     } // end TARGETIP stage
-    stage('Build Docs via same container') {
+    stage('Build Docs via docker') {
       steps {
         script {
           sh '''#!/bin/bash
                 export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
                 export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
-                nox --session docs
+                ${DOCKER_ACTIVATE} nox --session docs
              '''
         } // End script
       } // end steps
