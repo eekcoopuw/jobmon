@@ -85,8 +85,8 @@ def docs(session: Session) -> None:
     """Build the documentation."""
 
     # environment variables used in build script
-    web_service_fqdn = os.environ["WEB_SERVICE_FQDN"]
-    web_service_port = os.environ["WEB_SERVICE_PORT"]
+    web_service_fqdn = "999.123.123.123" # os.environ["WEB_SERVICE_FQDN"]
+    web_service_port = "80" # os.environ["WEB_SERVICE_PORT"]
 
     print(f"web_service_fqdn={web_service_fqdn}")
 
@@ -115,7 +115,12 @@ def docs(session: Session) -> None:
         'src/jobmon/server/qpid_integration',
         'src/jobmon/server/web/main.py'
     )
-    session.run("sphinx-build", "docsource", "out/_html")
+    session.run("sphinx-build", "docsource", "out/_html",
+        env={
+            "WEB_SERVICE_FQDN": web_service_fqdn,  # eg. 10.158.146.73
+            "WEB_SERVICE_PORT": web_service_port
+        }
+    )
 
 
 @nox.session(python=python, venv_backend="conda")

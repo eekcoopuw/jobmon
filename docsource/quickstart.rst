@@ -47,6 +47,15 @@ To install the Slurm plugin via pip::
 
     pip install jobmon_slurm
 
+Then issue the following command to target our current production server::
+
+    jobmon update_config --web_service_fqdn
+.. webservicefqdn::
+
+--web_service_port
+
+.. webserviceport::
+
 
 .. note::
     If you get the error **"Could not find a version that satisfies the requirement jobmon (from version: )"** then create (or append) the following to your ``~/.pip/pip.conf``::
