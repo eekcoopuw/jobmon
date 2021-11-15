@@ -540,13 +540,15 @@ class TaskTemplate:
             **kwargs: task, node, and op_args as defined in the command template. If you
                 provide node_args as an iterable, they will be expanded.
         """
-        if compute_resources is None:
-            compute_resources = self.default_compute_resources_set[
-                self.default_cluster_name
-            ]
-
-        if cluster_name == "":
+        # set cluster_name, function level overrides default
+        if not cluster_name:
             cluster_name = self.default_cluster_name
+
+        # Set compute resources, task compute resources override tasktemplate defaults
+        if compute_resources is None:
+            compute_resources = {}
+        resources = self.default_compute_resources_set.get(cluster_name, {}).copy()
+        resources.update(compute_resources)
 
         if upstream_tasks is None:
             upstream_tasks = []

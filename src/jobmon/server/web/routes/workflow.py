@@ -761,44 +761,43 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Any:
     # If we want to prioritize by task or workflow level it would be done in this query
     bind_to_logger(workflow_id=workflow_id)
     logger.info("Getting queued jobs for workflow")
-    queue_limit_query = """
-        SELECT (
-            SELECT
-                max_concurrently_running
-            FROM
-                workflow
-            WHERE
-                id = :workflow_id
-            ) - (
-            SELECT
-                count(*)
-            FROM
-                task
-            WHERE
-                task.workflow_id = :workflow_id
-                AND task.status IN ("I", "R")
-            )
-        AS queue_limit
-    """
-    concurrency_limit = DB.session.execute(
-        queue_limit_query, {"workflow_id": int(workflow_id)}
-    ).fetchone()[0]
+    # queue_limit_query = """
+    #     SELECT (
+    #         SELECT
+    #             max_concurrently_running
+    #         FROM
+    #             workflow
+    #         WHERE
+    #             id = :workflow_id
+    #         ) - (
+    #         SELECT
+    #             count(*)
+    #         FROM
+    #             task
+    #         WHERE
+    #             task.workflow_id = :workflow_id
+    #             AND task.status IN ("I", "R")
+    #         )
+    #     AS queue_limit
+    # """
+    # concurrency_limit = DB.session.execute(
+    #     queue_limit_query, {"workflow_id": int(workflow_id)}
+    # ).fetchone()[0]
 
-    # query if we aren't at the concurrency_limit
-    if concurrency_limit > 0:
-        concurrency_limit = min(int(concurrency_limit), int(n_queued_tasks))
+    # # query if we aren't at the concurrency_limit
+    # if concurrency_limit > 0:
+    #     concurrency_limit = min(int(concurrency_limit), int(n_queued_tasks))
 
-        tasks = (
-            DB.session.query(Task)
-            .options(joinedload(Task.task_resources))
-            .filter(Task.workflow_id == workflow_id, Task.status == "Q")
-            .limit(concurrency_limit)
-            .all()
-        )
-        DB.session.commit()
-        task_dcts = [t.to_wire_as_distributor_task() for t in tasks]
-    else:
-        task_dcts = []
+    tasks = (
+        DB.session.query(Task)
+        .options(joinedload(Task.task_resources))
+        .options(joinedload(Task.array))
+        .filter(Task.workflow_id == workflow_id, Task.status == "Q")
+        .limit(int(n_queued_tasks))
+        .all()
+    )
+    DB.session.commit()
+    task_dcts = [t.to_wire_as_distributor_task() for t in tasks]
     logger.debug(f"Got the following queued tasks: {task_dcts}")
     resp = jsonify(task_dcts=task_dcts)
     return resp

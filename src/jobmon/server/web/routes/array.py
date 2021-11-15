@@ -65,3 +65,31 @@ def add_array() -> Any:
     resp = jsonify(array_id=array.id)
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@finite_state_machine.route("/array/<array_id>", methods=["GET"])
+def get_array(array_id: int) -> Any:
+    """Return an array.
+
+    If not found, bind the array.
+    """
+    bind_to_logger(array_id=array_id)
+
+    # Check if the array is already bound, if so return it
+    array_stmt = """
+        SELECT array.*
+        FROM array
+        WHERE
+            array.id = :array_id
+    """
+    array = (
+        DB.session.query(Array)
+        .from_statement(text(array_stmt))
+        .params(array_id=array_id)
+        .one()
+    )
+    DB.session.commit()
+
+    resp = jsonify(array=array.to_wire_as_distributor_array())
+    resp.status_code = StatusCodes.OK
+    return resp
