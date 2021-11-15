@@ -143,6 +143,7 @@ pipeline {
             sh '''#!/bin/bash
                 ls -al /mnt/team/cc/pub/html_test
                '''
+            }
         } // end script
       } // end steps
     } // end upload stage
