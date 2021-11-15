@@ -123,18 +123,6 @@ pipeline {
     stage('Upload Docs') {
       steps {
         script {
-//           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
-//                                             usernameVariable: 'REG_USERNAME',
-//                                             passwordVariable: 'REG_PASSWORD')]) {
-//         script {
-//           sh (
-//             script: '''#!/bin/bash
-//                        cp ${WORKSPACE}/jobmon_service_fqdn.txt /ihme/homes/samhu
-//                     ''',
-//             returnStdout: false
-//           )
-//         } // end script
-
             sh '''#!/bin/bash
                 cp -r ${WORKSPACE}/out/_html /mnt/team/cc/pub/html_test
                '''
@@ -143,10 +131,9 @@ pipeline {
             sh '''#!/bin/bash
                 ls -al /mnt/team/cc/pub/html_test
                '''
-            }
         } // end script
       } // end steps
-    } // end upload stage
+    } // end upload doc stage
 //     stage("parallel") {
 //       parallel {
 //         stage ('Test Conda Client UGE') {
