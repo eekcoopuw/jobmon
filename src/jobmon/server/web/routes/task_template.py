@@ -183,12 +183,13 @@ def get_most_popular_queue() -> Any:
     # parse args
     ttvis = request.args.get("task_template_version_ids")
     sql = f"""
-           SELECT t3.id as id, t4.requested_resources as rr
+           SELECT t3.id as id,  t4.queue_id as queue_id
            FROM task t1, node t2, task_template_version t3, task_resources t4
            WHERE t3.id in {ttvis}
            AND t2.task_template_version_id=t3.id
            AND t1.node_id=t2.id
            AND t4.task_id=t1.id
+           AND t4.queue_id is not null
     """
     rows = DB.session.execute(sql).fetchall()
     # return a "standard" json format for cli routes
@@ -197,20 +198,15 @@ def get_most_popular_queue() -> Any:
         result_dir: Dict = dict()
         for r in rows:
             ttvi = r["id"]
-            # json loads hates single quotes
-            j_str = r["rr"].replace("'", '"')
-            j_dir = json.loads(j_str)
-            # Ignore rows without queue info
-            if "queue" in j_dir.keys():
-                q = j_dir["queue"]
-                if ttvi in result_dir.keys():
-                    if q in result_dir[ttvi].keys():
-                        result_dir[ttvi][q] += 1
-                    else:
-                        result_dir[ttvi][q] = 1
+            q = r["queue_id"]
+            if ttvi in result_dir.keys():
+                if q in result_dir[ttvi].keys():
+                    result_dir[ttvi][q] += 1
                 else:
-                    result_dir[ttvi] = dict()
                     result_dir[ttvi][q] = 1
+            else:
+                result_dir[ttvi] = dict()
+                result_dir[ttvi][q] = 1
         for ttvi in result_dir.keys():
             # assign to a variable to keep typecheck happy
             max_usage = 0
@@ -218,7 +214,12 @@ def get_most_popular_queue() -> Any:
                 if result_dir[ttvi][q] > max_usage:
                     popular_q = q
                     max_usage = result_dir[ttvi][q]
-            queue_info.append({"id": ttvi, "queue": popular_q})
+            # get queue name; and return queue id with it
+            sql = f"SELECT name FROM queue WHERE id={popular_q}"
+            popular_q_name = DB.session.execute(sql).fetchone()["name"]
+            queue_info.append(
+                {"id": ttvi, "queue": popular_q_name, "queue_id": popular_q}
+            )
 
     resp = jsonify({"queue_info": queue_info})
     resp.status_code = StatusCodes.OK
