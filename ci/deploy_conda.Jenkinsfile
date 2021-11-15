@@ -136,7 +136,7 @@ pipeline {
 //         } // end script
 
             sh '''#!/bin/bash
-                cp ${WORKSPACE}/out/_html /ihme/centralcomp/docs/jobmon/html_test
+                cp -r ${WORKSPACE}/out/_html /ihme/centralcomp/docs/jobmon/html_test
                '''
           } // end credentials
         } // end script
