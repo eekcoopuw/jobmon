@@ -197,7 +197,7 @@ pipeline {
 //         } // end test deployment stage
 //       } // end parallel
 //     } // end parallel stage
-  } // end stages
+//   } // end stages
   post {
     always {
       // Delete the workspace directory.
