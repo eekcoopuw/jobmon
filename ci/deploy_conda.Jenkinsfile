@@ -136,7 +136,13 @@ pipeline {
 //         } // end script
 
             sh '''#!/bin/bash
-                cp -r ${WORKSPACE}/out/_html /mnt/team/cc/html_test
+                cp -r ${WORKSPACE}/out/_html /mnt/team/cc/pub/html_test
+               '''
+          } // end credentials
+        } // end script
+        script {
+            sh '''#!/bin/bash
+                ls -al /mnt/team/cc/pub/html_test
                '''
           } // end credentials
         } // end script
