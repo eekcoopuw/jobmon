@@ -71,44 +71,44 @@ pipeline {
         echo "Setting JOBMON_SERVICE_PORT=${env.JOBMON_SERVICE_PORT}"
       } // end steps
     } // end TARGETIP stage
-//     stage('Build Conda Distribution') {
-//       steps {
-//         script {
-//           sh '''#!/bin/bash
-//                 export PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
-//                 export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
-//                 export JENKINS_BUILD_NUMBER="${BUILD_NUMBER}"
-//                 export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
-//                 export JOBMON_VERSION="${JOBMON_VERSION}"
-//                 export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
-//                 export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
-//                 export SLURM_REST_VERSION="${SLURM_REST_VERSION}"
-//                 export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
-//                 export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
-//                 ${DOCKER_ACTIVATE} && nox --session conda_build
-//              '''
-//         } // End script
-//       } // end steps
-//     } // end build stage
-//     stage('Upload Conda Distribution') {
-//       steps {
-//         script {
-//           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
-//                                             usernameVariable: 'REG_USERNAME',
-//                                             passwordVariable: 'REG_PASSWORD')]) {
-//             sh '''#!/bin/bash
-//                   FULL_FILEPATH=$(find "${WORKSPACE}/conda_build_output/noarch" -name "ihme_jobmon*.bz2")
-//                   UPLOAD_FILEPATH=$(basename $FULL_FILEPATH)
-//
-//                   curl -XPUT \
-//                     --user "${REG_USERNAME}:${REG_PASSWORD}" \
-//                     -T ${FULL_FILEPATH} \
-//                     "https://artifactory.ihme.washington.edu/artifactory/conda-scicomp/noarch/$UPLOAD_FILEPATH"
-//                '''
-//           } // end credentials
-//         } // end script
-//       } // end steps
-//     } // end upload stage
+    stage('Build Conda Distribution') {
+      steps {
+        script {
+          sh '''#!/bin/bash
+                export PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
+                export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
+                export JENKINS_BUILD_NUMBER="${BUILD_NUMBER}"
+                export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
+                export JOBMON_VERSION="${JOBMON_VERSION}"
+                export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
+                export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
+                export SLURM_REST_VERSION="${SLURM_REST_VERSION}"
+                export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
+                export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
+                ${DOCKER_ACTIVATE} && nox --session conda_build
+             '''
+        } // End script
+      } // end steps
+    } // end build stage
+    stage('Upload Conda Distribution') {
+      steps {
+        script {
+          withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
+                                            usernameVariable: 'REG_USERNAME',
+                                            passwordVariable: 'REG_PASSWORD')]) {
+            sh '''#!/bin/bash
+                  FULL_FILEPATH=$(find "${WORKSPACE}/conda_build_output/noarch" -name "ihme_jobmon*.bz2")
+                  UPLOAD_FILEPATH=$(basename $FULL_FILEPATH)
+
+                  curl -XPUT \
+                    --user "${REG_USERNAME}:${REG_PASSWORD}" \
+                    -T ${FULL_FILEPATH} \
+                    "https://artifactory.ihme.washington.edu/artifactory/conda-scicomp/noarch/$UPLOAD_FILEPATH"
+               '''
+          } // end credentials
+        } // end script
+      } // end steps
+    } // end upload stage
     stage('Build Docs') {
       steps {
         script {
@@ -137,70 +137,70 @@ pipeline {
               echo ${JOBMON_VERSION}
               if [[ ! "${JOBMON_VERSION}" =~ "dev" ]]
               then
-                rm -rf /ihme/centralcomp/docs/jobmon/zzzz_test/${JOBMON_VERSION}
-                cp -r /mnt/team/scicomp/pub/docs_temp /ihme/centralcomp/docs/jobmon/zzzz_test/${JOBMON_VERSION}
+                rm -rf /ihme/centralcomp/docs/jobmon/${JOBMON_VERSION}
+                cp -r /mnt/team/scicomp/pub/docs_temp /ihme/centralcomp/docs/jobmon/${JOBMON_VERSION}
               fi
-              python $WORKSPACE/docsource/_ext/symlinks.py '/ihme/centralcomp/docs/jobmon/zzzz_test'
+              python $WORKSPACE/docsource/_ext/symlinks.py '/ihme/centralcomp/docs/jobmon'
             '''
           } // end script
         } // end qlogin
       } // end steps
     } // end upload doc stage
-//     stage("parallel") {
-//       parallel {
-//         stage ('Test Conda Client UGE') {
-//           steps {
-//             node('qlogin') {
-//               // Download jobmon
-//               checkout scm
-//               sh '''#!/bin/bash
-//                     . ${WORKSPACE}/ci/deploy_utils.sh
-//                     test_conda_client_uge \
-//                         ${WORKSPACE} \
-//                         "${QLOGIN_ACTIVATE}" \
-//                         ${CONDA_CLIENT_VERSION} \
-//                         ${JOBMON_VERSION} \
-//                  ''' +  "${env.JOBMON_SERVICE_FQDN}"
-//             } // end qlogin
-//           } // end steps
-//         } // end test deployment stage
-//         stage ('Test Conda Client Slurm') {
-//           steps {
-//             node('qlogin') {
-//
-//               // Be very, very careful with nested quotes here, it is safest not to use them
-//               // because ssh parses and recreates the remote string.
-//               // For reference see https://unix.stackexchange.com/questions/212215/ssh-command-with-quotes
-//               // Ubuntu uses dash, not bash. bash has the "source" command, dash does not.
-//               // In dash you have to use the "." command instead
-//               // Conceptually it would be possible to use "/bin/bash -c"
-//               // but that requires quotes around the command. It is safer to just use "." rather
-//               // than "source" in deploy_utils.sh and execute it with dash.
-//               // Also, don't try to pass a whole command as a single argument because that also
-//               // requires clever quoting. Only pass single words as arguments.
-//
-//               // Download jobmon
-//               checkout scm
-//               script {
-//                 ssh_cmd= """. ${WORKSPACE}/ci/deploy_utils.sh
-//                      test_conda_client_slurm \
-//                          ${WORKSPACE} \
-//                          ${MINICONDA_PATH} \
-//                          ${CONDA_ENV_NAME} \
-//                          ${CONDA_CLIENT_VERSION} \
-//                          ${JOBMON_VERSION} \
-//                          ${env.JOBMON_SERVICE_FQDN} \
-//                 """
-//                 echo ssh_cmd
-//                 sshagent(['jenkins']) {
-//                    sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.cluster.ihme.washington.edu '${ssh_cmd}'"
-//                 } // end ssh
-//               } // end script
-//             } // end qlogin
-//           } // end steps
-//         } // end test deployment stage
-//       } // end parallel
-//     } // end parallel stage
+    stage("parallel") {
+      parallel {
+        stage ('Test Conda Client UGE') {
+          steps {
+            node('qlogin') {
+              // Download jobmon
+              checkout scm
+              sh '''#!/bin/bash
+                    . ${WORKSPACE}/ci/deploy_utils.sh
+                    test_conda_client_uge \
+                        ${WORKSPACE} \
+                        "${QLOGIN_ACTIVATE}" \
+                        ${CONDA_CLIENT_VERSION} \
+                        ${JOBMON_VERSION} \
+                 ''' +  "${env.JOBMON_SERVICE_FQDN}"
+            } // end qlogin
+          } // end steps
+        } // end test deployment stage
+        stage ('Test Conda Client Slurm') {
+          steps {
+            node('qlogin') {
+
+              // Be very, very careful with nested quotes here, it is safest not to use them
+              // because ssh parses and recreates the remote string.
+              // For reference see https://unix.stackexchange.com/questions/212215/ssh-command-with-quotes
+              // Ubuntu uses dash, not bash. bash has the "source" command, dash does not.
+              // In dash you have to use the "." command instead
+              // Conceptually it would be possible to use "/bin/bash -c"
+              // but that requires quotes around the command. It is safer to just use "." rather
+              // than "source" in deploy_utils.sh and execute it with dash.
+              // Also, don't try to pass a whole command as a single argument because that also
+              // requires clever quoting. Only pass single words as arguments.
+
+              // Download jobmon
+              checkout scm
+              script {
+                ssh_cmd= """. ${WORKSPACE}/ci/deploy_utils.sh
+                     test_conda_client_slurm \
+                         ${WORKSPACE} \
+                         ${MINICONDA_PATH} \
+                         ${CONDA_ENV_NAME} \
+                         ${CONDA_CLIENT_VERSION} \
+                         ${JOBMON_VERSION} \
+                         ${env.JOBMON_SERVICE_FQDN} \
+                """
+                echo ssh_cmd
+                sshagent(['jenkins']) {
+                   sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.cluster.ihme.washington.edu '${ssh_cmd}'"
+                } // end ssh
+              } // end script
+            } // end qlogin
+          } // end steps
+        } // end test deployment stage
+      } // end parallel
+    } // end parallel stage
   } // end stages
   post {
     always {
