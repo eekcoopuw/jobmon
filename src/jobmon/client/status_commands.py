@@ -492,10 +492,17 @@ def workflow_reset(workflow_id: int, requester_url: Optional[str] = None) -> str
 
     return wr_return
 
+def _get_exclude_tt_list() -> set:
+    # hard code a exclude list for task template with huge tasks
+    TT_EXCLUDE_LIST = {1}
+    return TT_EXCLUDE_LIST
+
 
 def _get_yaml_data(
     wfid: int, tid: int, v_mem: str, v_core: str, v_runtime: str, requester: Requester
 ) -> Dict:
+    # make it a method for easy mock
+    tt_exclude_list = _get_exclude_tt_list()
 
     key_map_m = {"avg": "mean_mem", "min": "min_mem", "max": "max_mem"}
     key_map_r = {"avg": "mean_runtime", "min": "min_runtime", "max": "max_runtime"}
@@ -511,10 +518,29 @@ def _get_yaml_data(
         raise AssertionError(
             f"Server returns HTTP error code: {rc} " f"for get_task_template_version."
         )
-    ttvis_dic = dict()
+
     # data structure: {ttv_id: [name, core, mem, runtime, queue]}
+    ttvis_dic = dict()
+
+    # create a holder for tts that are in the exclude list
+    tt_in_exclude = []
     for t in res["task_template_version_ids"]:
-        ttvis_dic[t["id"]] = [t["name"]]
+        if t["id"] in tt_exclude_list:
+            tt_in_exclude.append(t)
+            msg = f"Task template {t} contains too many tasks and will be excluded."
+            logger.warning(msg)
+            print(msg)
+        else:
+            ttvis_dic[t["id"]] = [t["name"]]
+
+    for t in tt_in_exclude:
+        # fill in template using default values
+        print(f"Fill template for t using {t}")
+        ttvis_dic[t["id"]] = [t["name"], 1, 1, 3600, "all.q"]
+
+    if len(ttvis_dic) == len(tt_in_exclude):
+        # no tt not in exclude list
+        return ttvis_dic
 
     # get core
     ttvis = str([i for i in ttvis_dic.keys()]).replace("[", "(").replace("]", ")")
