@@ -141,9 +141,21 @@ def tool(db_cfg, client_env):
         task_args=[],
         op_args=[],
     )
+    tool.get_task_template(
+        template_name="array_template",
+        command_template="echo {arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
     return tool
 
 
 @pytest.fixture
 def task_template(tool):
     return tool.active_task_templates["simple_template"]
+
+
+@pytest.fixture
+def array_template(tool):
+    return tool.active_task_templates["array_template"]

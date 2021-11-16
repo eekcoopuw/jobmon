@@ -4,31 +4,23 @@ from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Union
 
 
-class SerializeTask:
+class SerializeDistributorTask:
     """Serialize the data to and from the database for an DistributorTask object."""
 
     @staticmethod
     def to_wire(
         task_id: int,
-        workflow_id: int,
-        node_id: int,
-        task_args_hash: int,
+        array_id: int,
         name: str,
         command: str,
-        status: str,
-        queue_id: int,
         requested_resources: dict,
     ) -> tuple:
         """Submitting the above args to the database for an DistributorTask object."""
         return (
             task_id,
-            workflow_id,
-            node_id,
-            task_args_hash,
+            array_id,
             name,
             command,
-            status,
-            queue_id,
             requested_resources,
         )
 
@@ -41,16 +33,12 @@ class SerializeTask:
         """
         return {
             "task_id": int(wire_tuple[0]),
-            "workflow_id": int(wire_tuple[1]),
-            "node_id": int(wire_tuple[2]),
-            "task_args_hash": int(wire_tuple[3]),
-            "name": wire_tuple[4],
-            "command": wire_tuple[5],
-            "status": wire_tuple[6],
-            "queue_id": wire_tuple[7],
+            "array_id": int(wire_tuple[1]) if wire_tuple[1] is not None else None,
+            "name": wire_tuple[2],
+            "command": wire_tuple[3],
             "requested_resources": {}
-            if wire_tuple[8] is None
-            else ast.literal_eval(wire_tuple[8]),
+            if wire_tuple[4] is None
+            else ast.literal_eval(wire_tuple[4]),
         }
 
 
@@ -391,4 +379,31 @@ class SerializeTaskTemplateResourceUsage:
             "median_runtime": wire_tuple[8],
             "ci_mem": wire_tuple[9],
             "ci_runtime": wire_tuple[10],
+        }
+
+
+class SerializeDistributorArray:
+    """"""
+    @staticmethod
+    def to_wire(
+        array_id: int,
+        task_resources_id: int,
+        requested_resources: Dict,
+    ) -> tuple:
+        """Submit the TaskTemplate resource usage information to the database."""
+        return (
+            array_id,
+            task_resources_id,
+            requested_resources,
+        )
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        """Get the TaskTemplate resource usage information from the database."""
+        return {
+            "array_id": wire_tuple[0],
+            "task_resources_id": wire_tuple[1],
+            "requested_resources": {}
+            if wire_tuple[2] is None
+            else ast.literal_eval(wire_tuple[2])
         }
