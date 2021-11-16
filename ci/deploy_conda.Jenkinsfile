@@ -129,7 +129,17 @@ pipeline {
         } // end script
         script {
             sh '''#!/bin/bash
+                cp -r ${WORKSPACE}/out/_html /ihme/centralcomp/docs/jobmon/html_test
+               '''
+        } // end script
+        script {
+            sh '''#!/bin/bash
                 ls -al /mnt/team/scicomp/pub/html_test
+               '''
+        } // end script
+        script {
+            sh '''#!/bin/bash
+                ls -al /ihme/centralcomp/docs/jobmon/html_test
                '''
         } // end script
       } // end steps
