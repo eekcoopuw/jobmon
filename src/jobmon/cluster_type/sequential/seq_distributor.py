@@ -129,6 +129,9 @@ class SequentialDistributor(ClusterDistributor):
         self._exit_info[distributor_id] = exit_code
         return distributor_id
 
+    def submit_array_to_batch_distributor(self, array_id: int) -> int:
+        """The sequential distributor simply submits tasks one by one."""
+
 
 class SequentialWorkerNode(ClusterWorkerNode):
     """Get Executor Info for a Task Instance."""

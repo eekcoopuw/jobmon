@@ -68,6 +68,20 @@ class ClusterDistributor(Protocol):
         """Return the name of the cluster type."""
         raise NotImplementedError
 
+    @staticmethod
+    @abstractmethod
+    def array_subtask_id() -> int:
+        """Pull a distinguishing variable that allows separation of array subtasks.
+
+        For clusters that support array task submission, the plugin must implement
+        a method that returns a distinguishing variable to separate task instances.
+        For example, UGE and SLURM array sub-tasks can pull this variable from the
+        environment.
+
+        Always assumed to be a value in the range [0, len(array)).
+        """
+        raise NotImplementedError
+
     @abstractmethod
     def start(self) -> None:
         """Start the distributor."""
@@ -120,6 +134,25 @@ class ClusterDistributor(Protocol):
         """
         raise NotImplementedError
 
+    @abstractmethod
+    def submit_array_to_batch_distributor(
+        self, command: str, name: str, requested_resources: Dict[str, Any]
+    ) -> int:
+        """Submit an array task to the underlying distributor and return a distributor_id.
+
+        The distributor ID represents the ID of the overall array job, sub-tasks will have
+        their own associated IDs.
+
+        Args:
+            command: the array worker node command to run
+            name: name of the array
+            requested_resources: resources with which to run the array
+
+        Returns:
+             distributor_id of the overall array
+        """
+        raise NotImplementedError
+
     def build_worker_node_command(self, task_instance_id: int) -> str:
         """Build a command that can be executed by the worker_node.
 
@@ -133,6 +166,27 @@ class ClusterDistributor(Protocol):
             "worker_node",
             "--task_instance_id",
             task_instance_id,
+            "--expected_jobmon_version",
+            __version__,
+            "--cluster_type_name",
+            self.cluster_type_name,
+        ]
+        str_cmd = " ".join([str(i) for i in wrapped_cmd])
+        return str_cmd
+
+    def build_array_worker_node_command(self, array_id: int) -> str:
+        """Build a command to run an array worker node instance.
+
+        Args:
+            array_id: id for the array to run
+
+        Returns:
+            (str) unwrappable command
+        """
+        wrapped_cmd = [
+            "worker_node",
+            "--array_id",
+            array_id,
             "--expected_jobmon_version",
             __version__,
             "--cluster_type_name",
