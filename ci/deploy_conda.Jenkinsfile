@@ -129,19 +129,16 @@ pipeline {
         } // end script
         script {
             sh '''#!/bin/bash
-                cp -r ${WORKSPACE}/out/_html /ihme/centralcomp/docs/jobmon/html_test
-               '''
-        } // end script
-        script {
-            sh '''#!/bin/bash
                 ls -al /mnt/team/scicomp/pub/html_test
                '''
         } // end script
         script {
-            sh '''#!/bin/bash
-                ls -al /ihme/centralcomp/docs/jobmon/html_test
-               '''
-        } // end script
+          sh '''#!/bin/bash
+                export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
+                export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
+                ${QLOGIN_ACTIVATE} && cp -r /mnt/team/scicomp/pub/html_test /ihme/centralcomp/docs/jobmon
+             '''
+        } // End script
       } // end steps
     } // end upload doc stage
 //     stage("parallel") {
