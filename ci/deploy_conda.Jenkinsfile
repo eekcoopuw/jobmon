@@ -139,8 +139,8 @@ pipeline {
               then
                 rm -rf /ihme/centralcomp/docs/jobmon/zzzz_test/${JOBMON_VERSION}
                 cp -r /mnt/team/scicomp/pub/docs_temp /ihme/centralcomp/docs/jobmon/zzzz_test/${JOBMON_VERSION}
-                python $WORKSPACE/docsource/_ext/symlinks.py '/ihme/centralcomp/docs/jobmon/zzzz_test'
               fi
+              python $WORKSPACE/docsource/_ext/symlinks.py '/ihme/centralcomp/docs/jobmon/zzzz_test'
             '''
           } // end script
         } // end qlogin
