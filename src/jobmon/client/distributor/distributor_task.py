@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Type
+from typing import Optional, Type
 
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.exceptions import InvalidResponse
@@ -74,13 +74,12 @@ class DistributorTask:
 
     def register_task_instance(
         self,
-        workflow_run_id: int,
+        workflow_run_id: int
     ) -> DistributorTaskInstance:
         """create a task instance associated with this task.
 
         Args:
             workflow_run_id (int): the workflow run id
-            requester: requester for communicating with central services
         """
         app_route = "/task_instance"
         return_code, response = self.requester.send_request(
