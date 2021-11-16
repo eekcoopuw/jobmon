@@ -176,12 +176,51 @@ def test_create_tasks(db_cfg, client_env, tool):
         task_arg_names = [r.name for r in task_args]
         assert set(task_arg_names) == {"task_arg"}
 
+    # Define individual node_args, and expect to get a list of one task
+    three_c_node_args = {"narg1": 3, "narg2": "c"}
+    three_c_tasks = array.get_tasks_by_node_args(**three_c_node_args)
+    assert len(three_c_tasks) == 1
+
+    # Define out of scope node_args, and expect to get a empty list
+    x_node_args = {"narg1": 3, "narg2": "x"}
+    x_tasks = array.get_tasks_by_node_args(**x_node_args)
+    assert len(x_tasks) == 0
+
+    # Define narg1 only, expect to see a list of 3 tasks
+    three_node_args = {"narg1": 3}
+    three_tasks = array.get_tasks_by_node_args(**three_node_args)
+    assert len(three_tasks) == 3
+
+    # Define an empty dict, expect to see a list of 9 tasks
+    empty_node_args = {}
+    all_tasks = array.get_tasks_by_node_args(**empty_node_args)
+    assert len(all_tasks) == 9
+
+    # Define a list(3,2 items)-valued case for narg1 and narg2, expect to see 6
+    empty_node_args = {"narg1": [1, 2, 3], "narg2": ["a", "b"]}
+    all_tasks = array.get_tasks_by_node_args(**empty_node_args)
+    assert len(all_tasks) == 6
+
+    # Define a task_template_name in-scope valid node_args, expect to see a list of 3 tasks
+    two_node_args = {"narg1": 2}
+    two_wf_tasks = wf.get_tasks_by_node_args(
+        task_template_name="simple_template", **two_node_args
+    )
+    assert len(two_wf_tasks) == 3
+
+    # Define a task_template_name out-of-scope node_args, expect to see a list of 3 tasks
+    two_node_args = {"narg1": 2}
+    two_wf_tasks = wf.get_tasks_by_node_args(
+        task_template_name="OUT_OF_SCOPE_simple_template", **two_node_args
+    )
+    assert len(two_wf_tasks) == 0
+
 
 def test_empty_array(db_cfg, client_env, tool):
     """Check that an empty array raises the appropriate error."""
 
     tt = tool.get_task_template(
-        template_name='empty',
+        template_name="empty",
         command_template="",
         node_args=[],
         task_args=[],
