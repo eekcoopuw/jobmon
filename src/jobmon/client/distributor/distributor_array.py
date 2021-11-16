@@ -24,7 +24,7 @@ class DistributorArray:
         self.array_id = array_id
         self.task_resources_id = task_resources_id
         self.requested_resources = requested_resources
-        self._registered_array_task_instance_ids: List[int] = []
+        self.registered_array_task_instance_ids: List[int] = []
 
     @classmethod
     def from_wire(
@@ -53,4 +53,11 @@ class DistributorArray:
         """
         Add task instance to array queue
         """
-        self._registered_array_task_instance_ids.append(task_instance_id)
+        self.registered_array_task_instance_ids.append(task_instance_id)
+
+    def clear_task_registry(self) -> None:
+        """Simple method to clear the list of registered task instance IDs.
+
+        Called whenever the array is launched since the task instances are no longer
+        registered but are running."""
+        self.registered_array_task_instance_ids = []

@@ -63,7 +63,8 @@ class DistributorWorkflowRun:
     @property
     def running_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of launched task_instances"""
-        pass
+        return [DistributorTaskInstance(tid, self.workflow_run_id) for tid in
+                self._running_array_task_instance_ids]
 
     @property
     def registered_array_task_instances(self) -> List[DistributorTaskInstance]:
@@ -179,6 +180,13 @@ class DistributorWorkflowRun:
     ):
         """
         submits an array task on a given distributor
-        adds the new task instances to self.submitted_or_running_array_task_instances
+        adds the new task instances to self.running_array_task_instances
         """
-        pass
+        # Clear the registered tasks and move into running
+        self._running_array_task_instance_ids.extend(array.registered_array_task_instance_ids)
+        array.registered_array_task_instance_ids = []
+
+        # Fetch the command
+        command = cluster.build_array_worker_node_command(array.array_id)
+        array_distributor_id = cluster.submit_array_to_batch_distributor(command)
+
