@@ -518,6 +518,36 @@ def add_task_instance() -> Any:
             ) from e
 
 
+@finite_state_machine.route("/get_array_task_instance_id/<array_id>/<subtask_id>",
+                            methods=['GET'])
+def get_array_task_instance_id(array_id: int, subtask_id: int) -> int:
+    """Given an array ID and an index, select a single task instance ID.
+
+    Task instance IDs that are associated with the array are ordered, and selected by index.
+    This route will be called once per array task instance worker node, so must be scalable."""
+
+    bind_to_logger(array_id=array_id)
+
+    query = """
+        SELECT id
+        FROM
+            (SELECT id, ROW_NUMBER() OVER (PARTITION BY array_id ORDER BY id) as rownum
+            FROM task_instance
+            WHERE array_id = :array_id) as ranked_ids
+        WHERE rownum = :subtask_id
+    """
+    task_instance_id = (
+        DB.session.query(TaskInstance)
+        .from_statement(text(query))
+        .params(array_id=array_id, subtask_id=subtask_id)
+        .one()
+    )
+
+    resp = jsonify(task_instance_id=task_instance_id.id)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @finite_state_machine.route(
     "/task_instance/<task_instance_id>/log_no_distributor_id", methods=["POST"]
 )
