@@ -138,7 +138,7 @@ pipeline {
               export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
               export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
               ${QLOGIN_ACTIVATE} && cp -r /mnt/team/scicomp/pub/html_test /ihme/centralcomp/docs/jobmon
-            } // end sh
+            '''
           } // end script
         } // end qlogin
       } // end steps
