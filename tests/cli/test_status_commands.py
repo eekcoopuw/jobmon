@@ -591,43 +591,44 @@ def test_bad_put_route(db_cfg, client_env):
 
 
 def test_get_yaml_data(db_cfg, client_env):
-    import jobmon.client.status_commands
+    t = Tool()
+    wf = t.create_workflow(name="i_am_a_fake_wf")
+    tt1 = t.get_task_template(
+        template_name="tt1", command_template="echo {arg}", node_args=["arg"]
+    )
+    tt2 = t.get_task_template(
+        template_name="tt2", command_template="sleep {arg}", node_args=["arg"]
+    )
+    t1 = tt1.create_task(
+        arg=1, cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
+    t2 = tt2.create_task(
+        arg=2, cluster_name="sequential", compute_resources={"queue": "null2.q"}
+    )
+
+    wf.add_tasks([t1, t2])
+    wf.run()
+
+    # manipulate data
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        query_1 = """
+                    UPDATE task_instance
+                    SET wallclock = 10, maxpss = 400
+                    WHERE task_id = :task_id"""
+        DB.session.execute(query_1, {"task_id": t1.task_id})
+
+        query_2 = """
+                    UPDATE task_instance
+                    SET wallclock = 20, maxpss = 600
+                    WHERE task_id = :task_id"""
+        DB.session.execute(query_2, {"task_id": t2.task_id})
+        DB.session.commit()
+
     with patch("jobmon.client.status_commands._get_exclude_tt_list") as f:
         f.return_value = set()  # no exclude tt
-        t = Tool()
-        wf = t.create_workflow(name="i_am_a_fake_wf")
-        tt1 = t.get_task_template(
-            template_name="tt1", command_template="echo {arg}", node_args=["arg"]
-        )
-        tt2 = t.get_task_template(
-            template_name="tt2", command_template="sleep {arg}", node_args=["arg"]
-        )
-        t1 = tt1.create_task(
-            arg=1, cluster_name="sequential", compute_resources={"queue": "null.q"}
-        )
-        t2 = tt2.create_task(
-            arg=2, cluster_name="sequential", compute_resources={"queue": "null2.q"}
-        )
 
-        wf.add_tasks([t1, t2])
-        wf.run()
-
-        # manipulate data
-        app = db_cfg["app"]
-        DB = db_cfg["DB"]
-        with app.app_context():
-            query_1 = """
-                UPDATE task_instance
-                SET wallclock = 10, maxpss = 400
-                WHERE task_id = :task_id"""
-            DB.session.execute(query_1, {"task_id": t1.task_id})
-
-            query_2 = """
-                UPDATE task_instance
-                SET wallclock = 20, maxpss = 600
-                WHERE task_id = :task_id"""
-            DB.session.execute(query_2, {"task_id": t2.task_id})
-            DB.session.commit()
         # get data for the resource yaml
         from jobmon.client.status_commands import _get_yaml_data
 
@@ -641,6 +642,38 @@ def test_get_yaml_data(db_cfg, client_env):
             20,
             "null2.q",
         ]
+
+    with patch("jobmon.client.status_commands._get_exclude_tt_list") as f:
+        f.return_value = {tt1.id}  # no exclude tt
+
+        # get data for the resource yaml
+        from jobmon.client.status_commands import _get_yaml_data
+
+        result = _get_yaml_data(wf.workflow_id, None, "avg", "avg", "max", wf.requester)
+        assert len(result) == 2
+        # tt1 fills with default value
+        assert result[tt1._active_task_template_version.id] == ["tt1", 1, 1, 3600, "all.q"]
+        # tt2 is real
+        assert result[tt2._active_task_template_version.id] == [
+            "tt2",
+            1,
+            600,
+            20,
+            "null2.q",
+        ]
+
+    with patch("jobmon.client.status_commands._get_exclude_tt_list") as f:
+        f.return_value = {tt1.id, tt2.id}  # no exclude tt
+
+        # get data for the resource yaml
+        from jobmon.client.status_commands import _get_yaml_data
+
+        result = _get_yaml_data(wf.workflow_id, None, "avg", "avg", "max", wf.requester)
+        assert len(result) == 2
+        # tt1 fills with default value
+        assert result[tt1._active_task_template_version.id] == ["tt1", 1, 1, 3600, "all.q"]
+        # tt2 fills with default value
+        assert result[tt2._active_task_template_version.id] == ["tt2", 1, 1, 3600, "all.q"]
 
 
 def test_create_yaml():

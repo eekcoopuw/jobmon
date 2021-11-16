@@ -538,12 +538,14 @@ def _get_yaml_data(
         print(f"Fill template for t using {t}")
         ttvis_dic[t["id"]] = [t["name"], 1, 1, 3600, "all.q"]
 
-    if len(ttvis_dic) == len(tt_in_exclude):
-        # no tt not in exclude list
+    # set of ttvs not in exclude list
+    actual_ttvs = set(ttvis_dic.keys()) - set([i['id'] for i in tt_in_exclude])
+    
+    if len(actual_ttvs) == 0:
         return ttvis_dic
 
     # get core
-    ttvis = str([i for i in ttvis_dic.keys()]).replace("[", "(").replace("]", ")")
+    ttvis = str([i for i in actual_ttvs]).replace("[", "(").replace("]", ")")
     rc, res = requester.send_request(
         app_route="/get_requested_cores",
         message={"task_template_version_ids": f"{ttvis}"},
@@ -558,7 +560,7 @@ def _get_yaml_data(
         ttvis_dic[int(record["id"])].append(record[v_core])
 
     # Get actually mem and runtime for each ttvi
-    for ttv in ttvis_dic.keys():
+    for ttv in actual_ttvs:
         rc, res = requester.send_request(
             app_route="/task_template_resource_usage",
             message={"task_template_version_id": ttv},
