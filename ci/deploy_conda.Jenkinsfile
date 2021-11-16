@@ -129,6 +129,8 @@ pipeline {
                '''
         } // end script
         node('qlogin') {
+          // Download jobmon
+          checkout scm
           script {
             sh '''#!/bin/bash
               ${QLOGIN_ACTIVATE} &&
