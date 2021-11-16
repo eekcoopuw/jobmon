@@ -1,5 +1,6 @@
-Testing Strategy
-################
+************************
+Jobmon Developer Testing
+************************
 
 Jobmon has two sets of tests – automatic unit tests and manual integration/load tests.
 

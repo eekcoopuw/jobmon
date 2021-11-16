@@ -156,7 +156,7 @@ pipeline {
                 """
                 echo ssh_cmd
                 sshagent(['jenkins']) {
-                   sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu '${ssh_cmd}'"
+                   sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.cluster.ihme.washington.edu '${ssh_cmd}'"
                 } // end ssh
               } // end script
             } // end qlogin
