@@ -135,7 +135,7 @@ pipeline {
             sh '''#!/bin/bash
               ${QLOGIN_ACTIVATE} &&
               echo ${JOBMON_VERSION}
-              if [[ ! "$JOBMON_VERSION" =~ "dev" ]]
+              if [[ ! "$JOBMON_VERSION" =~ "dev" ]] then
                 rm -rf /ihme/centralcomp/docs/jobmon/zzzz_test/${JOBMON_VERSION}
                 cp -r /mnt/team/scicomp/pub/docs_temp /ihme/centralcomp/docs/jobmon/zzzz_test/${JOBMON_VERSION}
                 python $WORKSPACE/ci/publish.py '/ihme/centralcomp/docs/jobmon/zzzz_test'
