@@ -475,7 +475,8 @@ def add_task_instance() -> Any:
     try:
         data = request.get_json()
         task_id = data["task_id"]
-        bind_to_logger(task_id=task_id)
+        array_id = data["array_id"]
+        bind_to_logger(task_id=task_id, array_id=array_id)
         logger.info(f"Add task instance for task {task_id}")
         # query task
         task = DB.session.query(Task).filter_by(id=task_id).first()
@@ -484,7 +485,8 @@ def add_task_instance() -> Any:
         # create task_instance from task parameters
         task_instance = TaskInstance(
             workflow_run_id=data["workflow_run_id"],
-            task_id=data["task_id"],
+            task_id=task_id,
+            array_id=array_id,
             task_resources_id=task.task_resources_id,
         )
         DB.session.add(task_instance)
