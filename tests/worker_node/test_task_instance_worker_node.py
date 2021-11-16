@@ -103,9 +103,8 @@ def test_ti_kill_self_state(db_cfg, tool, ti_state):
     assert worker_node_task_instance.in_kill_self_state()
 
 
-def test_array_task_instance_selection(tool, db_cfg, client_env, array_template):
-    """tests that the server route for selecting TIs from an array work"""
-
+def test_array_task_instance(tool, db_cfg, client_env, array_template):
+    """Tests that the worker node is compatible with array task instances."""
     array1 = array_template.create_array(arg=[1, 2, 3], cluster_name="sequential",
                                          compute_resources={"queue": "null.q"})
 
@@ -155,3 +154,30 @@ def test_array_task_instance_selection(tool, db_cfg, client_env, array_template)
         task_instance_ids.add(resp['task_instance_id'])
 
     assert task_instance_ids == set([dti.task_instance_id for dti in dtis])
+
+    # Test array worker node functionality
+    # Sequential distributor always returns the first ID, so just test a single worker node.
+    from jobmon import __version__
+    w = WorkerNodeTaskInstance(task_instance_id=None,
+                               expected_jobmon_version=__version__,
+                               cluster_type_name='sequential',
+                               array_id=array1.array_id)
+
+    # Check that task instance ID property set correctly
+    tid = w.task_instance_id
+    assert tid == min(task_instance_ids)
+
+    proc_return_code = w.run(heartbeat_interval=90, report_by_buffer=3.1)
+    assert proc_return_code == 0
+
+    app, DB = db_cfg['app'], db_cfg['DB']
+
+    with app.app_context():
+        q = f"""
+        SELECT status
+        FROM task_instance
+        WHERE id = {tid}"""
+
+        task_instance = DB.session.execute(q).one()
+        DB.session.commit()
+        assert task_instance.status == "D"

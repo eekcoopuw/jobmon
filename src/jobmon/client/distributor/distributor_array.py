@@ -4,7 +4,6 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Type
 
-from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeDistributorArray
 
@@ -55,9 +54,8 @@ class DistributorArray:
         """
         self.registered_array_task_instance_ids.append(task_instance_id)
 
-    def clear_task_registry(self) -> None:
-        """Simple method to clear the list of registered task instance IDs.
+    def clear_registered_task_registry(self) -> None:
+        """Clear all registered tasks that have already been submitted.
 
-        Called whenever the array is launched since the task instances are no longer
-        registered but are running."""
+        Called when the array is submitted to the batch distributor."""
         self.registered_array_task_instance_ids = []

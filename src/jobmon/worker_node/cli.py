@@ -33,6 +33,7 @@ class WorkerNodeCLI(CLI):
 
         worker_node_task_instance = WorkerNodeTaskInstance(
             task_instance_id=args.task_instance_id,
+            array_id=args.array_id,
             expected_jobmon_version=args.expected_jobmon_version,
             cluster_type_name=args.cluster_type_name,
             requester_url=worker_node_config.url,
@@ -50,7 +51,13 @@ class WorkerNodeCLI(CLI):
             "--task_instance_id",
             type=int,
             help="task_instance_id of the work node.",
-            required=True,
+            required=False,
+        )
+        worker_node_parser.add_argument(
+            "--array_id",
+            type=int,
+            help="array_id of the worker node if this is an array task.",
+            required=False
         )
         worker_node_parser.add_argument(
             "--cluster_type_name",

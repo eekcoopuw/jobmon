@@ -129,8 +129,20 @@ class SequentialDistributor(ClusterDistributor):
         self._exit_info[distributor_id] = exit_code
         return distributor_id
 
-    def submit_array_to_batch_distributor(self, array_id: int) -> int:
-        """The sequential distributor simply submits tasks one by one."""
+    def submit_array_to_batch_distributor(
+        self, command: str, name: str, requested_resources: Dict[str, Any]
+    ) -> int:
+        """Submit an array task to the sequential cluster."""
+        logger.warning("Array tasks are not actually implemented in the sequential "
+                       "distributor. This method just returns sequential submission.")
+        return self.submit_to_batch_distributor(command, name, requested_resources)
+
+    @staticmethod
+    def array_subtask_id() -> int:
+        """Sequential distributor doesn't support array tasks.
+
+        Each call will return a hardcoded value corresponding to the first task instance."""
+        return 1
 
 
 class SequentialWorkerNode(ClusterWorkerNode):

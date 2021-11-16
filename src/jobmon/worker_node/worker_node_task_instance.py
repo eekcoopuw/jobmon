@@ -12,7 +12,7 @@ from threading import Thread
 from time import sleep, time
 import traceback
 from types import ModuleType
-from typing import Any, Dict, Optional, Tuple, Union
+from typing import Any, Dict, Optional, Tuple, Type, Union
 
 from jobmon import __version__ as version
 from jobmon.client.client_config import ClientConfig
@@ -31,9 +31,9 @@ class WorkerNodeTaskInstance:
     def __init__(
         self,
         task_instance_id: Optional[int],
-        array_id: Optional[int],
         expected_jobmon_version: str,
         cluster_type_name: str,
+        array_id: Optional[int] = None,
         requester_url: Optional[str] = None,
     ) -> None:
         """A mechanism whereby a running task_instance can communicate back to the JSM.
@@ -43,9 +43,9 @@ class WorkerNodeTaskInstance:
         Args:
             task_instance_id (int): the id of the job_instance_id that is
                 reporting back.
-            array_id (int): If this is an array job, the corresponding array ID
             expected_jobmon_version (str): version of Jobmon.
             cluster_type_name (str): the name of the cluster type.
+            array_id (int): If this is an array job, the corresponding array ID
             requester_url (str): url to communicate with the flask services.
         """
         self._task_instance_id = task_instance_id
@@ -94,7 +94,7 @@ class WorkerNodeTaskInstance:
                     f"200. Response content: {rc}"
                 )
 
-            self._task_instance_id = resp.task_instance_id
+            self._task_instance_id = resp['task_instance_id']
             return self._task_instance_id
 
     @property
@@ -130,12 +130,6 @@ class WorkerNodeTaskInstance:
 
             module = import_cluster(cluster_type_name)
         return module
-
-    def _get_distributor_class(self, cluster_type_name: str) -> type:
-        """Lookup the distributor class, return the class type."""
-        distributor_class = self.module.get_cluster_distributor_class()
-        # Only static methods needed so no instance initialized
-        return distributor_class
 
     def _get_worker_node(
         self, cluster_type_name: str, **worker_node_kwargs: Any
