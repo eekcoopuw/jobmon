@@ -124,20 +124,17 @@ pipeline {
       steps {
         script {
             sh '''#!/bin/bash
-                cp -r ${WORKSPACE}/out/_html /mnt/team/scicomp/pub/html_test
-               '''
-        } // end script
-        script {
-            sh '''#!/bin/bash
-                ls -al /mnt/team/scicomp/pub/html_test
+                rm -rf /mnt/team/scicomp/pub/docs_temp
+                cp -r ${WORKSPACE}/out/_html /mnt/team/scicomp/pub/docs_temp
                '''
         } // end script
         node('qlogin') {
           script {
             sh '''#!/bin/bash
-              export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
-              export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
-              ${QLOGIN_ACTIVATE} && cp -r /mnt/team/scicomp/pub/html_test /ihme/centralcomp/docs/jobmon
+              ${QLOGIN_ACTIVATE} &&
+              echo ${JOBMON_VERSION}
+              rm -rf /ihme/centralcomp/docs/jobmon/${JOBMON_VERSION}
+              cp -r /mnt/team/scicomp/pub/docs_temp /ihme/centralcomp/docs/jobmon/${JOBMON_VERSION}
             '''
           } // end script
         } // end qlogin
