@@ -7,6 +7,7 @@ from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
+from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 
@@ -183,11 +184,29 @@ class DistributorWorkflowRun:
         adds the new task instances to self.running_array_task_instances
         """
         # Clear the registered tasks and move into launched
-        self._launched_array_task_instance_ids.extend(array.registered_array_task_instance_ids)
-        array.clear_task_registry()
+        ids_to_launch = array.registered_array_task_instance_ids
+        app_route = f"/task_instance/transition/{TaskInstanceStatus.LAUNCHED}"
+        rc, resp = self.requester.send_request(
+            app_route=app_route,
+            message={
+                'array_id': array.array_id,
+                'task_instance_ids': tuple(ids_to_launch)
+            },
+            request_type='post'
+        )
+        if not http_request_ok(rc):
+            raise InvalidResponse(
+                f"Unexpected status code {rc} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {resp}"
+            )
+
+        self._launched_array_task_instance_ids.extend(ids_to_launch)
+        array.clear_registered_task_registry()
 
         # Fetch the command
-        command = cluster.build_array_worker_node_command(array.array_id)
+        command = cluster.build_worker_node_command(task_instance_id=None,
+                                                    array_id=array.array_id)
         array_distributor_id = cluster.submit_array_to_batch_distributor(command)
 
         return array_distributor_id

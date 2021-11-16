@@ -78,8 +78,10 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.KILL_SELF),
         # task instance logs running before submitted due to race condition
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.RUNNING),
-        # task instance logs running after submission to batch (happy path)
-        (TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR, TaskInstanceStatus.RUNNING),
+        # task instance launched after submission to batch (happy path)
+        (TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR, TaskInstanceStatus.LAUNCHED),
+        # task instance running after transitioning from launched
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.RUNNING),
         # task instance disappeared from distributor heartbeat and never logged
         # running. The distributor has no accounting of why it died
         (
@@ -93,13 +95,17 @@ class TaskInstance(DB.Model):
             TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
             TaskInstanceStatus.RESOURCE_ERROR,
         ),
-        # task instance is submitted to the batch distributor waiting to start
-        # running. new workflow run is created and this task is told to kill
+        # task instance is submitted to the batch distributor waiting to launch.
+        # new workflow run is created and this task is told to kill
         # itself
         (
             TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
             TaskInstanceStatus.KILL_SELF,
         ),
+        # Allow transitioning from launched to error states. Unlikely but valid
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.UNKNOWN_ERROR),
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.RESOURCE_ERROR),
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.KILL_SELF),
         # task instance hits an application error (happy path)
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.ERROR),
         # task instance stops logging heartbeats. reconciler can't find an exit
@@ -126,6 +132,8 @@ class TaskInstance(DB.Model):
         # race condition. this is unlikely but happens and is valid for the
         # purposes of the FSM
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR),
+        # Same condition as above for the launched state
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR),
         # task instance stops logging heartbeats and reconciler is looking for
         # remote exit status but can't find it so logs an unknown error. task
         # finishes with an application error. We can't update state because

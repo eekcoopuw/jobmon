@@ -691,6 +691,35 @@ def log_unknown_error(task_instance_id: int) -> Any:
     return resp
 
 
+@finite_state_machine.route("/task_instance/transition/<new_status>", methods=["POST"])
+def transition_task_instances(new_status: str) -> Any:
+    """Attempt to transition a task instance to the new status"""
+    data = request.get_json()
+    task_instance_ids = data['task_instance_ids']
+    array_id = data['array_id']
+    bind_to_logger(array_id=array_id)
+
+    task_instances = (
+        DB.session.query(TaskInstance)
+        .filter(TaskInstance.id.in_(task_instance_ids))
+    ).all()
+
+    # Attempt a transition for each task instance
+    for ti in task_instances:
+        msg = _update_task_instance_state(ti, new_status)
+        if len(msg) > 0:
+            # Task instances that fail to transition log a message, but are returned with
+            # their existing state (no exceptions raised).
+            # TODO: Decide whether to continue to defer transition error handling to the client
+            bind_to_logger(task_instance_id=ti.id)
+            logger.error(msg)
+
+    DB.session.commit()
+    resp = jsonify(task_instances={ti.id: ti.status for ti in task_instances})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 # ############################ HELPER FUNCTIONS ###############################
 def _update_task_instance_state(task_instance: TaskInstance, status_id: str) -> Any:
     """Advance the states of task_instance and it's associated Task.

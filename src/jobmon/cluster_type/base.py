@@ -153,11 +153,14 @@ class ClusterDistributor(Protocol):
         """
         raise NotImplementedError
 
-    def build_worker_node_command(self, task_instance_id: int) -> str:
+    def build_worker_node_command(
+            self, task_instance_id: Optional[int] = None, array_id: Optional[int] = None
+    ) -> str:
         """Build a command that can be executed by the worker_node.
 
         Args:
             task_instance_id: id for the given instance of this task
+            array_id: id for the array if using an array strategy
 
         Returns:
             (str) unwrappable command
@@ -166,25 +169,6 @@ class ClusterDistributor(Protocol):
             "worker_node",
             "--task_instance_id",
             task_instance_id,
-            "--expected_jobmon_version",
-            __version__,
-            "--cluster_type_name",
-            self.cluster_type_name,
-        ]
-        str_cmd = " ".join([str(i) for i in wrapped_cmd])
-        return str_cmd
-
-    def build_array_worker_node_command(self, array_id: int) -> str:
-        """Build a command to run an array worker node instance.
-
-        Args:
-            array_id: id for the array to run
-
-        Returns:
-            (str) unwrappable command
-        """
-        wrapped_cmd = [
-            "worker_node",
             "--array_id",
             array_id,
             "--expected_jobmon_version",
