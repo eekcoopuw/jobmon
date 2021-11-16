@@ -58,15 +58,12 @@ class Array:
             requester_url = ClientConfig.from_defaults().url
             requester = Requester(requester_url)
         self.requester = requester
-        self.tasks: List["Task"] = []  # Initialize to empty list
+        self.tasks: Dict[int, Task] = {}  # Initialize to empty dict
 
     @property
     def is_bound(self) -> bool:
         """If the array has been bound to the db."""
-        if not hasattr(self, "_array_id"):
-            return False
-        else:
-            return True
+        return hasattr(self, "_array_id")
 
     @property
     def array_id(self) -> int:
@@ -86,9 +83,7 @@ class Array:
         if self._task_resources is not None:
             return self._task_resources
         else:
-            raise AttributeError(
-                "Task resources cannot be accessed before it is assigned"
-            )
+            raise AttributeError("Task resources cannot be accessed before it is assigned")
 
     @task_resources.setter
     def task_resources(self, task_resources: TaskResources) -> None:
@@ -98,8 +93,7 @@ class Array:
         """
         if not task_resources.is_bound:
             raise AttributeError(
-                "Task resource must be bound and have an ID to be assigned"
-                "to the array."
+                "Task resource must be bound and have an ID to be assigned to the array."
             )
         self._task_resources = task_resources
 
@@ -122,13 +116,13 @@ class Array:
                 "Task resources have already been set on this array, updating"
             )
         self.task_resources = task_resources
-        for task in self.tasks:
+        for task in self.tasks.values():
             task.task_resources = task_resources
 
     def create_tasks(
         self,
         name: Optional[str] = None,
-        upstream_tasks: Optional[List["Task"]] = None,
+        upstream_tasks: Optional[List[Task]] = None,
         task_attributes: Union[List, dict] = {},
         max_attempts: int = 3,
         compute_resources: Optional[Dict[str, Any]] = None,
@@ -136,7 +130,7 @@ class Array:
         resource_scales: Optional[Dict[str, Any]] = None,
         cluster_name: str = "",
         **node_kwargs: Any,
-    ) -> List["Task"]:
+    ) -> List[Task]:
         """Create an task associated with the array.
 
         Args:
@@ -216,6 +210,16 @@ class Array:
                 requester=self.requester,
             )
             tasks.append(task)
+
+            logger.debug(f"Adding Task {task}")
+            if hash(task) in self.tasks.keys():
+                raise ValueError(
+                    f"A task with hash {hash(task)} already exists. "
+                    f"All tasks in a workflow must have unique "
+                    f"commands. Your command was: {task.command}"
+                )
+            self.tasks[hash(task)] = task
+
         return tasks
 
     @staticmethod

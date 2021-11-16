@@ -232,7 +232,7 @@ class Workflow(object):
         Args:
             task: single task to add.
         """
-        logger.info(f"Adding Task {task}")
+        logger.debug(f"Adding Task {task}")
         if hash(task) in self.tasks.keys():
             raise ValueError(
                 f"A task with hash {hash(task)} already exists. "
@@ -264,7 +264,7 @@ class Workflow(object):
         if len(array.tasks) == 0:
             raise ValueError("Cannot bind an array with no tasks.")
         self.arrays.append(array)
-        self.add_tasks(array.tasks)
+        self.add_tasks(list(array.tasks.values()))
 
     def add_arrays(self, arrays: List[Array]) -> None:
         """Add multiple arrays to the workflow."""
