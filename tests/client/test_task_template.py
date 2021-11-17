@@ -1,7 +1,9 @@
 import os
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
 import uuid
+
+import jobmon.constants
 
 
 @pytest.fixture(scope="function")
@@ -291,7 +293,20 @@ def test_tt_resource_usage(db_cfg, client_env):
         DB.session.execute(query_3, {"task_id": task_3.task_id})
         DB.session.commit()
 
-    with patch("jobmon.client.status_commands._get_exclude_tt_list") as f:
+    with patch(
+        "jobmon.constants.ExcludeTTVs.EXCLUDE_TTVS", new_callable=PropertyMock
+    ) as f:
+        f.return_value = {
+            template.active_task_template_version.id,
+            template_2.active_task_template_version.id,
+        }
+        # ttv in exclude list should return None
+        used_task_template_resources = template.resource_usage(ci=0.95)
+        assert used_task_template_resources is None
+
+    with patch(
+        "jobmon.constants.ExcludeTTVs.EXCLUDE_TTVS", new_callable=PropertyMock
+    ) as f:
         f.return_value = set()  # no exclude tt
 
         # Check the aggregate resources for all workflows

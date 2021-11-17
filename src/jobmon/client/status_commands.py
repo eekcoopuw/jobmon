@@ -123,7 +123,7 @@ def task_template_resources(
     Returns:
         Dataframe of TaskTemplate resource usage
     """
-    exclue_list = _get_exclude_tt_list()
+    exclue_list = ExcludeTTVs.EXCLUDE_TTVS
     if task_template_version in exclue_list:
         msg = (
             f"Resource usage query for task_template_version {task_template_version}"
@@ -502,16 +502,11 @@ def workflow_reset(workflow_id: int, requester_url: Optional[str] = None) -> str
     return wr_return
 
 
-def _get_exclude_tt_list() -> set:
-    # make it a method for easy mock
-    return ExcludeTTVs.EXCLUDE_TTVS
-
-
 def _get_yaml_data(
     wfid: int, tid: int, v_mem: str, v_core: str, v_runtime: str, requester: Requester
 ) -> Dict:
     # make it a method for easy mock
-    tt_exclude_list = _get_exclude_tt_list()
+    tt_exclude_list = ExcludeTTVs.EXCLUDE_TTVS
 
     key_map_m = {"avg": "mean_mem", "min": "min_mem", "max": "max_mem"}
     key_map_r = {"avg": "mean_runtime", "min": "min_runtime", "max": "max_runtime"}

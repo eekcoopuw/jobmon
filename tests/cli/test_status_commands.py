@@ -3,7 +3,7 @@ import logging
 
 
 import pytest
-from unittest.mock import patch
+from unittest.mock import patch, PropertyMock
 
 from jobmon.client.cli import ClientCLI as CLI
 from jobmon.client.tool import Tool
@@ -626,7 +626,9 @@ def test_get_yaml_data(db_cfg, client_env):
         DB.session.execute(query_2, {"task_id": t2.task_id})
         DB.session.commit()
 
-    with patch("jobmon.client.status_commands._get_exclude_tt_list") as f:
+    with patch(
+        "jobmon.constants.ExcludeTTVs.EXCLUDE_TTVS", new_callable=PropertyMock
+    ) as f:
         f.return_value = set()  # no exclude tt
 
         # get data for the resource yaml
@@ -649,7 +651,9 @@ def test_get_yaml_data(db_cfg, client_env):
             "null2.q",
         ]
 
-    with patch("jobmon.client.status_commands._get_exclude_tt_list") as f:
+    with patch(
+        "jobmon.constants.ExcludeTTVs.EXCLUDE_TTVS", new_callable=PropertyMock
+    ) as f:
         f.return_value = {tt1.id}  # no exclude tt
 
         # get data for the resource yaml
@@ -674,7 +678,9 @@ def test_get_yaml_data(db_cfg, client_env):
             "null2.q",
         ]
 
-    with patch("jobmon.client.status_commands._get_exclude_tt_list") as f:
+    with patch(
+        "jobmon.constants.ExcludeTTVs.EXCLUDE_TTVS", new_callable=PropertyMock
+    ) as f:
         f.return_value = {tt1.id, tt2.id}  # no exclude tt
 
         # get data for the resource yaml
