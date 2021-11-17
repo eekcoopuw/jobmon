@@ -17,6 +17,7 @@ INSTALL_REQUIRES = [
     'tabulate',
     'tenacity',
     'tblib',
+    'typing_extensions'
 ]
 
 SERVER_REQUIRES = [

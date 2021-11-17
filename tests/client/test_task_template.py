@@ -542,3 +542,97 @@ def test_tt_resource_usage(db_cfg, client_env):
     assert np.isnan(used_task_template_resources["ci_mem"][1])
     assert np.isnan(used_task_template_resources["ci_runtime"][0])
     assert np.isnan(used_task_template_resources["ci_runtime"][1])
+
+
+def test_max_mem(db_cfg, client_env):
+    from jobmon.client.tool import Tool
+
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
+
+    workflow_1 = tool.create_workflow(name="task_template_mem_test")
+    template = tool.get_task_template(
+        template_name="task_template_resource_usage",
+        command_template="echo {arg} --foolili {arg_2} --bar {task_arg_1} --baz {arg_3}",
+        node_args=["arg", "arg_2", "arg_3"],
+        task_args=["task_arg_1"],
+        op_args=[],
+    )
+    task_1 = template.create_task(
+        arg="Acadia",
+        arg_2="DeathValley",
+        task_arg_1="NorthCascades",
+        arg_3="Yellowstone",
+        compute_resources={"max_runtime_seconds": 30},
+    )
+
+    workflow_1.add_tasks([task_1])
+    workflow_1.run()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+
+    # return 0 when both null
+    with app.app_context():
+        query_1 = """
+            UPDATE task_instance
+            SET maxpss = null, maxrss=null
+            WHERE task_id = :task_id"""
+        DB.session.execute(query_1, {"task_id": task_1.task_id})
+        DB.session.commit()
+    resources = template.resource_usage()
+    assert resources["max_mem"] == "0B"
+
+    # return the other when 1 is null
+    with app.app_context():
+        query_1 = """
+                UPDATE task_instance
+                SET maxpss = 1, maxrss=null
+                WHERE task_id = :task_id"""
+        DB.session.execute(query_1, {"task_id": task_1.task_id})
+        DB.session.commit()
+    resources = template.resource_usage()
+    assert resources["max_mem"] == "1B"
+
+    with app.app_context():
+        query_1 = """
+                UPDATE task_instance
+                SET maxpss = null, maxrss=1
+                WHERE task_id = :task_id"""
+        DB.session.execute(query_1, {"task_id": task_1.task_id})
+        DB.session.commit()
+    resources = template.resource_usage()
+    assert resources["max_mem"] == "1B"
+
+    # return the bigger one when both has value
+    with app.app_context():
+        query_1 = """
+                UPDATE task_instance
+                SET maxpss = -1, maxrss=1
+                WHERE task_id = :task_id"""
+        DB.session.execute(query_1, {"task_id": task_1.task_id})
+        DB.session.commit()
+    resources = template.resource_usage()
+    assert resources["max_mem"] == "1B"
+    with app.app_context():
+        query_1 = """
+                UPDATE task_instance
+                SET maxpss = 1, maxrss= -1
+                WHERE task_id = :task_id"""
+        DB.session.execute(query_1, {"task_id": task_1.task_id})
+        DB.session.commit()
+    resources = template.resource_usage()
+    assert resources["max_mem"] == "1B"
+
+    # return 0 when both -1
+    with app.app_context():
+        query_1 = """
+                UPDATE task_instance
+                SET maxpss = -1, maxrss= -1
+                WHERE task_id = :task_id"""
+        DB.session.execute(query_1, {"task_id": task_1.task_id})
+        DB.session.commit()
+    resources = template.resource_usage()
+    assert resources["max_mem"] == "0B"
