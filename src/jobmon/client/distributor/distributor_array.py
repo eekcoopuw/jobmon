@@ -58,4 +58,5 @@ class DistributorArray:
         """Clear all registered tasks that have already been submitted.
 
         Called when the array is submitted to the batch distributor."""
+        # TODO: Safe for sequential, may have problems with async and centeralized distributor
         self.registered_array_task_instance_ids = []

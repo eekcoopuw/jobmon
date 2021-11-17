@@ -183,14 +183,25 @@ class DistributorWorkflowRun:
         submits an array task on a given distributor
         adds the new task instances to self.running_array_task_instances
         """
+        # Fetch the command
+        command = cluster.build_worker_node_command(task_instance_id=None,
+                                                    array_id=array.array_id)
+        array_distributor_id = cluster.submit_array_to_batch_distributor(
+            command=command,
+            name=array.name,  # TODO: array class should have a name in the client model
+            requested_resources=array.requested_resources)
+
         # Clear the registered tasks and move into launched
-        ids_to_launch = array.registered_array_task_instance_ids
+        ids_to_launch = array.registered_array_task_instance_ids()
+
         app_route = f"/task_instance/transition/{TaskInstanceStatus.LAUNCHED}"
         rc, resp = self.requester.send_request(
             app_route=app_route,
             message={
                 'array_id': array.array_id,
-                'task_instance_ids': tuple(ids_to_launch)
+                # TODO: Will bulk update be too slow? Should we chunk?
+                'task_instance_ids': tuple(ids_to_launch),
+                'distributor_id': array_distributor_id
             },
             request_type='post'
         )
@@ -203,10 +214,5 @@ class DistributorWorkflowRun:
 
         self._launched_array_task_instance_ids.extend(ids_to_launch)
         array.clear_registered_task_registry()
-
-        # Fetch the command
-        command = cluster.build_worker_node_command(task_instance_id=None,
-                                                    array_id=array.array_id)
-        array_distributor_id = cluster.submit_array_to_batch_distributor(command)
 
         return array_distributor_id

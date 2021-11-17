@@ -195,9 +195,9 @@ class TaskInstance(DB.Model):
             task_id=self.task_id,
             task_instance_id=self.id,
         )
-        logger.info(f"Transitioning task_instance from {self.status} to {new_state}")
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
+            logger.info(f"Transitioning task_instance from {self.status} to {new_state}")
             self.status = new_state
             self.status_date = func.now()
             if new_state == TaskInstanceStatus.RUNNING:
@@ -210,7 +210,6 @@ class TaskInstance(DB.Model):
                 # if the task instance is F, the task status should be F too
                 self.task.transition(TaskStatus.ERROR_RECOVERABLE)
                 self.task.transition(TaskStatus.ERROR_FATAL)
-        logger.info(f"Status of task_instance is now {self.status}")
 
     def _validate_transition(self, new_state: str) -> None:
         """Ensure the TaskInstance status transition is valid."""
