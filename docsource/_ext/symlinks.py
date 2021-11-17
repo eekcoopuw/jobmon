@@ -11,24 +11,26 @@ def valid_full_version(vers_str) -> bool:
     A valid full version is a string with all numbers delimited by .
     """
     splits = vers_str.split(".")
+    if len(splits) != 3:
+        return False
     for s in splits:
         if s.isnumeric() == False:
             return False
     return True
 
 
-def vers_tuple(vers_string):
+def version_tuple(version_string):
     """
-    Return a tuple for vers_string
+    Return a tuple for version_string
     """
-    print("vers_string:" + vers_string)
+    print("version_string:" + version_string)
     def my_int(s):
-        # We have old testing release contains non number chars in the version name. Ignor them.
+        # We have old testing release contains non number chars in the version name. Ignore them.
         try:
             return int(s)
         except:
             return 0
-    return tuple(map(my_int, vers_string.split(".")))
+    return tuple(map(my_int, version_string.split(".")))
 
 
 def max_full_version(versioned_doc_dir):
@@ -40,8 +42,8 @@ def max_full_version(versioned_doc_dir):
     full_versions = [vers for vers in versions if valid_full_version(vers)]
     if len(full_versions) == 0:
         return None
-    max_vers_tuple = max([vers_tuple(fv) for fv in full_versions])
-    return max_vers_tuple
+    max_version_tuple = max([version_tuple(fv) for fv in full_versions])
+    return max_version_tuple
 
 
 def current_edge_symlinks(index_dir):
