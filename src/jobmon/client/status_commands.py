@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import pandas as pd
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.constants import TaskStatus, WorkflowStatus
+from jobmon.constants import ExcludeTTVs, TaskStatus, WorkflowStatus
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
 
@@ -109,7 +109,7 @@ def task_template_resources(
     node_args: Optional[Dict] = None,
     requester_url: Optional[str] = None,
     ci: Optional[float] = None,
-) -> Dict:
+) -> Optional[Dict]:
     """Get aggregate resource usage data for a given TaskTemplateVersion.
 
     Args:
@@ -123,6 +123,15 @@ def task_template_resources(
     Returns:
         Dataframe of TaskTemplate resource usage
     """
+    exclue_list = _get_exclude_tt_list()
+    if task_template_version in exclue_list:
+        msg = (
+            f"Resource usage query for task_template_version {task_template_version}"
+            f"  is restricted."
+        )
+        logger.warning(msg)
+        print(msg)
+        return None
     message: Dict[Any, Any] = dict()
     message["task_template_version_id"] = task_template_version
     if workflows:
@@ -492,10 +501,10 @@ def workflow_reset(workflow_id: int, requester_url: Optional[str] = None) -> str
 
     return wr_return
 
+
 def _get_exclude_tt_list() -> set:
-    # hard code a exclude list for task template with huge tasks
-    TT_EXCLUDE_LIST = {1}
-    return TT_EXCLUDE_LIST
+    # make it a method for easy mock
+    return ExcludeTTVs.EXCLUDE_TTVS
 
 
 def _get_yaml_data(
@@ -539,8 +548,8 @@ def _get_yaml_data(
         ttvis_dic[t["id"]] = [t["name"], 1, 1, 3600, "all.q"]
 
     # set of ttvs not in exclude list
-    actual_ttvs = set(ttvis_dic.keys()) - set([i['id'] for i in tt_in_exclude])
-    
+    actual_ttvs = set(ttvis_dic.keys()) - set([i["id"] for i in tt_in_exclude])
+
     if len(actual_ttvs) == 0:
         return ttvis_dic
 

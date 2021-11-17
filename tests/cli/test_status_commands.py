@@ -634,7 +634,13 @@ def test_get_yaml_data(db_cfg, client_env):
 
         result = _get_yaml_data(wf.workflow_id, None, "avg", "avg", "max", wf.requester)
         assert len(result) == 2
-        assert result[tt1._active_task_template_version.id] == ["tt1", 1, 400, 10, "null.q"]
+        assert result[tt1._active_task_template_version.id] == [
+            "tt1",
+            1,
+            400,
+            10,
+            "null.q",
+        ]
         assert result[tt2._active_task_template_version.id] == [
             "tt2",
             1,
@@ -652,7 +658,13 @@ def test_get_yaml_data(db_cfg, client_env):
         result = _get_yaml_data(wf.workflow_id, None, "avg", "avg", "max", wf.requester)
         assert len(result) == 2
         # tt1 fills with default value
-        assert result[tt1._active_task_template_version.id] == ["tt1", 1, 1, 3600, "all.q"]
+        assert result[tt1._active_task_template_version.id] == [
+            "tt1",
+            1,
+            1,
+            3600,
+            "all.q",
+        ]
         # tt2 is real
         assert result[tt2._active_task_template_version.id] == [
             "tt2",
@@ -671,9 +683,21 @@ def test_get_yaml_data(db_cfg, client_env):
         result = _get_yaml_data(wf.workflow_id, None, "avg", "avg", "max", wf.requester)
         assert len(result) == 2
         # tt1 fills with default value
-        assert result[tt1._active_task_template_version.id] == ["tt1", 1, 1, 3600, "all.q"]
+        assert result[tt1._active_task_template_version.id] == [
+            "tt1",
+            1,
+            1,
+            3600,
+            "all.q",
+        ]
         # tt2 fills with default value
-        assert result[tt2._active_task_template_version.id] == ["tt2", 1, 1, 3600, "all.q"]
+        assert result[tt2._active_task_template_version.id] == [
+            "tt2",
+            1,
+            1,
+            3600,
+            "all.q",
+        ]
 
 
 def test_create_yaml():

@@ -93,3 +93,12 @@ class SpecialChars:
     """
 
     ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\" "
+
+
+class ExcludeTTVs:
+    """A hard code list.
+
+    Used to exclude task template versions with huge tasks that cause DB crash.
+    """
+
+    EXCLUDE_TTVS = {1}
