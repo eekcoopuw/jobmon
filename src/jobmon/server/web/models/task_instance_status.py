@@ -9,7 +9,6 @@ class TaskInstanceStatus(DB.Model):
     __tablename__ = "task_instance_status"
     INSTANTIATED = Statuses.INSTANTIATED
     NO_DISTRIBUTOR_ID = Statuses.NO_DISTRIBUTOR_ID
-    SUBMITTED_TO_BATCH_DISTRIBUTOR = Statuses.SUBMITTED_TO_BATCH_DISTRIBUTOR
     LAUNCHED = Statuses.LAUNCHED
     RUNNING = Statuses.RUNNING
     RESOURCE_ERROR = Statuses.RESOURCE_ERROR

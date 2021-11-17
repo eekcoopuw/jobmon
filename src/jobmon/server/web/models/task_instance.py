@@ -69,7 +69,7 @@ class TaskInstance(DB.Model):
         # task instance is submitted normally (happy path)
         (
             TaskInstanceStatus.INSTANTIATED,
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+            TaskInstanceStatus.LAUNCHED,
         ),
         # task instance submission hit weird bug and didn't get an distributor_id
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.NO_DISTRIBUTOR_ID),
@@ -78,28 +78,26 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.KILL_SELF),
         # task instance logs running before submitted due to race condition
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.RUNNING),
-        # task instance launched after submission to batch (happy path)
-        (TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR, TaskInstanceStatus.LAUNCHED),
         # task instance running after transitioning from launched
         (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.RUNNING),
         # task instance disappeared from distributor heartbeat and never logged
         # running. The distributor has no accounting of why it died
         (
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+            TaskInstanceStatus.LAUNCHED,
             TaskInstanceStatus.UNKNOWN_ERROR,
         ),
         # task instance disappeared from distributor heartbeat and never logged
         # running. The distributor discovered a resource error exit status.
         # This seems unlikely but is valid for the purposes of the FSM
         (
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+            TaskInstanceStatus.LAUNCHED,
             TaskInstanceStatus.RESOURCE_ERROR,
         ),
         # task instance is submitted to the batch distributor waiting to launch.
         # new workflow run is created and this task is told to kill
         # itself
         (
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+            TaskInstanceStatus.LAUNCHED,
             TaskInstanceStatus.KILL_SELF,
         ),
         # Allow transitioning from launched to error states. Unlikely but valid
@@ -122,7 +120,7 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.DONE),
         # allow task instance to transit to F to immediately fail the task
         (
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+            TaskInstanceStatus.LAUNCHED,
             TaskInstanceStatus.ERROR_FATAL,
         ),
     ]
@@ -131,9 +129,7 @@ class TaskInstance(DB.Model):
         # task instance logs running before the distributor logs submitted due to
         # race condition. this is unlikely but happens and is valid for the
         # purposes of the FSM
-        (TaskInstanceStatus.RUNNING, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR),
-        # Same condition as above for the launched state
-        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR),
+        (TaskInstanceStatus.RUNNING, TaskInstanceStatus.LAUNCHED),
         # task instance stops logging heartbeats and reconciler is looking for
         # remote exit status but can't find it so logs an unknown error. task
         # finishes with an application error. We can't update state because

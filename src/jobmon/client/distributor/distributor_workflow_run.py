@@ -46,6 +46,9 @@ class DistributorWorkflowRun:
         self._launched_array_task_instance_ids: List[int] = []
         self._running_array_task_instance_ids: List[int] = []
 
+        # Triaging queue
+        self._triaging_queue = []
+
     @property
     def arrays(self) -> List[DistributorArray]:
         """Return a list of arrays"""
@@ -193,6 +196,8 @@ class DistributorWorkflowRun:
 
         # Clear the registered tasks and move into launched
         ids_to_launch = array.registered_array_task_instance_ids()
+        self._launched_array_task_instance_ids.extend(ids_to_launch)
+        array.clear_registered_task_registry()
 
         app_route = f"/task_instance/transition/{TaskInstanceStatus.LAUNCHED}"
         rc, resp = self.requester.send_request(
@@ -212,7 +217,8 @@ class DistributorWorkflowRun:
                 f"code 200. Response content: {resp}"
             )
 
-        self._launched_array_task_instance_ids.extend(ids_to_launch)
-        array.clear_registered_task_registry()
+        # Pull unsuccessful transitions from the response, and add to a triaging queue
+        erroneous_ti_transitions = resp['erroneous_transitions']
+        self._triaging_queue.extend(erroneous_ti_transitions)
 
         return array_distributor_id

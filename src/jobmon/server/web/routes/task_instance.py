@@ -706,7 +706,6 @@ def transition_task_instances(new_status: str) -> Any:
     ).all()
 
     # Attempt a transition for each task instance
-    successful_transitions = []
     erroneous_transitions = []
     for ti in task_instances:
         # Attach the distributor ID
@@ -716,11 +715,10 @@ def transition_task_instances(new_status: str) -> Any:
             # Task instances that fail to transition log a message, but are returned with
             # their existing state (no exceptions raised).
             erroneous_transitions.append(ti)
-        else:
-            successful_transitions.append(ti)
+
     DB.session.flush()
     DB.session.commit()
-    resp = jsonify(task_instances={ti.id: ti.status for ti in task_instances})
+    resp = jsonify(erroneous_transitions={ti.id: ti.status for ti in erroneous_transitions})
     resp.status_code = StatusCodes.OK
     return resp
 
