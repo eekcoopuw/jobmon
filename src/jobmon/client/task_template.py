@@ -11,6 +11,7 @@ import yaml
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
+from jobmon.cluster_type.base import ClusterQueue
 from jobmon.constants import ExcludeTTVs, SpecialChars
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
@@ -402,6 +403,7 @@ class TaskTemplate:
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, Any]] = None,
         cluster_name: str = "",
+        fallback_queues: Optional[List[ClusterQueue]] = None,
         **kwargs: Any,
     ) -> Task:
         """Create an instance of a task associated with this template.
@@ -507,6 +509,7 @@ class TaskTemplate:
             upstream_tasks=upstream_tasks,
             task_attributes=task_attributes,
             requester=self.requester,
+            fallback_queues=fallback_queues
         )
         return task
 
