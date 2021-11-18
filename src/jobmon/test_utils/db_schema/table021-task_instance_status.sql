@@ -13,9 +13,5 @@ CREATE TABLE `task_instance_status` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 LOCK TABLES `task_instance_status` WRITE;
-<<<<<<< HEAD
 INSERT INTO `task_instance_status` VALUES ('D','DONE'),('E','ERROR'),('F','ERROR_FATAL'),('I','INSTANTIATED'),('O','LAUNCHED'),('R','RUNNING'),('U','UNKNOWN_ERROR'),('W','NO_DISTRIBUTOR_ID'),('Z','RESOURCE_ERROR'),('K','KILL_SELF');
-=======
-INSERT INTO `task_instance_status` VALUES ('B','SUBMITTED_TO_BATCH_DISTRIBUTOR'),('D','DONE'),('E','ERROR'),('F','ERROR_FATAL'),('I','INSTANTIATED'),('O','LAUNCHED'),('R','RUNNING'),('U','UNKNOWN_ERROR'),('W','NO_DISTRIBUTOR_ID'),('Z','RESOURCE_ERROR'),('K','KILL_SELF');
->>>>>>> 92dfb4d356e295eda0d3a789db1309705e05dfd8
 UNLOCK TABLES;
