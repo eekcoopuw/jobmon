@@ -19,8 +19,8 @@ class DistributorArray:
         array_id: int,
         task_resources_id: int,
         requested_resources: Dict,
-        name: str,
-        requester: Requester
+        requester: Requester,
+        name: Optional[str] = None,
     ):
         self.array_id = array_id
         self.task_resources_id = task_resources_id
