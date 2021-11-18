@@ -509,7 +509,7 @@ class TaskTemplate:
             upstream_tasks=upstream_tasks,
             task_attributes=task_attributes,
             requester=self.requester,
-            fallback_queues=fallback_queues
+            fallback_queues=fallback_queues,
         )
         return task
 
