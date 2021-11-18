@@ -643,25 +643,25 @@ def test_create_yaml():
     expected = """task_template_resources:
   tt1:
     ihme_slurm:
-      num_cores: 1
-      m_mem_free: "400B"
-      max_runtime_seconds: 10
+      cores: 1
+      memory: "400B"
+      runtime: 10
       queue: "all.q"
     ihme_uge:
-      num_cores: 1
-      m_mem_free: "400B"
-      max_runtime_seconds: 10
+      cores: 1
+      memory: "400B"
+      runtime: 10
       queue: "all.q"
   tt2:
     ihme_slurm:
-      num_cores: 1
-      m_mem_free: "600B"
-      max_runtime_seconds: 20
+      cores: 1
+      memory: "600B"
+      runtime: 20
       queue: "long.q"
     ihme_uge:
-      num_cores: 1
-      m_mem_free: "600B"
-      max_runtime_seconds: 20
+      cores: 1
+      memory: "600B"
+      runtime: 20
       queue: "long.q"
 """
     from jobmon.client.status_commands import _create_yaml

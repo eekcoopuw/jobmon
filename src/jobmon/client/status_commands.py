@@ -570,9 +570,9 @@ def _create_yaml(data: Dict = None, clusters: List = []) -> str:
         yaml += f"  {data[ttv][0]}:\n"  # name
         for cluster in clusters:
             yaml += f"    {cluster}:\n"  # cluster
-            yaml += f"      num_cores: {data[ttv][1]}\n"  # core
-            yaml += f'      m_mem_free: "{data[ttv][2]}B"\n'  # mem
-            yaml += f"      max_runtime_seconds: {data[ttv][3]}\n"  # runtime
+            yaml += f"      cores: {data[ttv][1]}\n"  # core
+            yaml += f'      memory: "{data[ttv][2]}B"\n'  # mem
+            yaml += f"      runtime: {data[ttv][3]}\n"  # runtime
             yaml += f'      queue: "{data[ttv][4]}"\n'  # queue
     return yaml
 
