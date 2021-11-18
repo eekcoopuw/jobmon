@@ -4,7 +4,10 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Type
 
+<<<<<<< HEAD
 from jobmon.exceptions import InvalidResponse
+=======
+>>>>>>> 92dfb4d356e295eda0d3a789db1309705e05dfd8
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeDistributorArray
 
@@ -25,8 +28,11 @@ class DistributorArray:
         self.task_resources_id = task_resources_id
         self.requested_resources = requested_resources
         self.registered_array_task_instance_ids: List[int] = []
+<<<<<<< HEAD
         self.batch_number = 0
         self.requester = requester
+=======
+>>>>>>> 92dfb4d356e295eda0d3a789db1309705e05dfd8
 
     @classmethod
     def from_wire(

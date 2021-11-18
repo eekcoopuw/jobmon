@@ -165,6 +165,7 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template):
         task_instance_ids.add(resp['task_instance_id'])
 
     assert task_instance_ids == set([dti.task_instance_id for dti in dtis])
+
     # Test array worker node functionality
     # Sequential distributor always returns the first ID, so just test a single worker node.
     from jobmon import __version__

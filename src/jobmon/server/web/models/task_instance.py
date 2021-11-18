@@ -80,6 +80,11 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.KILL_SELF),
         # task instance logs running before submitted due to race condition
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.RUNNING),
+<<<<<<< HEAD
+=======
+        # task instance launched after submission to batch (happy path)
+        (TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR, TaskInstanceStatus.LAUNCHED),
+>>>>>>> 92dfb4d356e295eda0d3a789db1309705e05dfd8
         # task instance running after transitioning from launched
         (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.RUNNING),
         # task instance disappeared from distributor heartbeat and never logged
@@ -131,7 +136,13 @@ class TaskInstance(DB.Model):
         # task instance logs running before the distributor logs submitted due to
         # race condition. this is unlikely but happens and is valid for the
         # purposes of the FSM
+<<<<<<< HEAD
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.LAUNCHED),
+=======
+        (TaskInstanceStatus.RUNNING, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR),
+        # Same condition as above for the launched state
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR),
+>>>>>>> 92dfb4d356e295eda0d3a789db1309705e05dfd8
         # task instance stops logging heartbeats and reconciler is looking for
         # remote exit status but can't find it so logs an unknown error. task
         # finishes with an application error. We can't update state because

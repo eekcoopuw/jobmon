@@ -186,6 +186,7 @@ class DistributorWorkflowRun:
         submits an array task on a given distributor
         adds the new task instances to self.running_array_task_instances
         """
+
         # all task instances associated with an array and a batch number
         ids_to_launch = array.registered_array_task_instance_ids
         array.add_batch_number_to_task_instances()
@@ -203,6 +204,8 @@ class DistributorWorkflowRun:
         self._launched_array_task_instance_ids.extend(ids_to_launch)
         array.clear_registered_task_registry()
 
+        # Clear the registered tasks and move into launched
+        ids_to_launch = array.registered_array_task_instance_ids
         app_route = f"/task_instance/transition/{TaskInstanceStatus.LAUNCHED}"
         rc, resp = self.requester.send_request(
             app_route=app_route,
@@ -224,5 +227,10 @@ class DistributorWorkflowRun:
         # Pull unsuccessful transitions from the response, and add to a triaging queue
         erroneous_ti_transitions = resp['erroneous_transitions']
         self._triaging_queue.extend(erroneous_ti_transitions)
+
+        # Fetch the command
+        worker_node_command = cluster.build_worker_node_command(task_instance_id=None,
+                                                                array_id=array.array_id)
+        array_distributor_id = cluster.submit_array_to_batch_distributor(worker_node_command)
 
         return array_distributor_id
