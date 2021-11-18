@@ -704,10 +704,12 @@ def record_array_batch_num(batch_num: int) -> Any:
     data = request.get_json()
     task_instance_ids = data['task_instance_ids']
 
+    task_instance_ids = ",".join(f'{x}' for x in task_instance_ids)
+
     update_stmt = f"""
         UPDATE task_instance
         SET array_batch_num = {batch_num}
-        WHERE id IN {tuple(task_instance_ids)}
+        WHERE id IN ({task_instance_ids})
     """
     DB.session.execute(update_stmt)
     DB.session.commit()

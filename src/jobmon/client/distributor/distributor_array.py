@@ -19,11 +19,13 @@ class DistributorArray:
         array_id: int,
         task_resources_id: int,
         requested_resources: Dict,
+        name: str,
         requester: Requester
     ):
         self.array_id = array_id
         self.task_resources_id = task_resources_id
         self.requested_resources = requested_resources
+        self.name = name
         self.registered_array_task_instance_ids: List[int] = []
         self.batch_number = 0
         self.requester = requester

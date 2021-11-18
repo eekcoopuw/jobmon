@@ -135,7 +135,8 @@ class SequentialDistributor(ClusterDistributor):
         """Submit an array task to the sequential cluster."""
         logger.warning("Array tasks are not actually implemented in the sequential "
                        "distributor. This method just returns sequential submission.")
-        return self.submit_to_batch_distributor(command, name, requested_resources)
+        return self.submit_to_batch_distributor(command=command, name=name,
+                                                requested_resources=requested_resources)
 
     @staticmethod
     def array_subtask_id() -> int:

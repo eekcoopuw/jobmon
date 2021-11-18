@@ -258,7 +258,7 @@ class WorkerNodeTaskInstance:
         else:
             logger.info("No Task ID was found in the qsub env at this time")
         rc, resp = self.requester.send_request(
-            app_route=(f"/task_instance/{self.task_instance_id}/log_running"),
+            app_route=f"/task_instance/{self.task_instance_id}/log_running",
             message=message,
             request_type="post",
             logger=logger,
@@ -330,9 +330,7 @@ class WorkerNodeTaskInstance:
         rc, kill, command = self.log_running(
             next_report_increment=(heartbeat_interval * report_by_buffer)
         )
-        if (
-            kill == "True"
-        ):  # TODO: possibly incorrect;check to see if it should be 'kill self'
+        if kill:
             kill_self()
 
         try:

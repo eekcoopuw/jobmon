@@ -167,19 +167,14 @@ class ClusterDistributor(Protocol):
         Returns:
             (str) unwrappable command
         """
-        wrapped_cmd = [
-            "worker_node",
-            "--task_instance_id",
-            task_instance_id,
-            "--array_id",
-            array_id,
-            "--batch_number",
-            batch_number,
-            "--expected_jobmon_version",
-            __version__,
-            "--cluster_type_name",
-            self.cluster_type_name,
-        ]
+        wrapped_cmd = ["worker_node"]
+        if task_instance_id is not None:
+            wrapped_cmd.extend(["--task_instance_id", task_instance_id])
+        if array_id is not None:
+            wrapped_cmd.extend(["--array_id", array_id])
+        if batch_number is not None:
+            wrapped_cmd.extend(["--batch_number", batch_number])
+        wrapped_cmd.extend(["--expected_jobmon_version", __version__, "--cluster_type_name", self.cluster_type_name])
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         return str_cmd
 
