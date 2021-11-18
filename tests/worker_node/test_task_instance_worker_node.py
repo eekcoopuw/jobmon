@@ -5,6 +5,7 @@ import pytest
 from jobmon import __version__
 from jobmon.requester import Requester
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
@@ -141,12 +142,22 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template):
         for dt in dts
     ]
 
+    # Append on batch number
+    dist_array = DistributorArray(array1.array_id,
+                                  array1.task_resources.id,
+                                  array1.default_compute_resources_set,
+                                  requester)
+    dist_array.registered_array_task_instance_ids = [dti.task_instance_id for dti in dtis]
+    assert dist_array.batch_number == 0
+    dist_array.add_batch_number_to_task_instances()
+    assert dist_array.batch_number == 1
+
     # Call the array method for all tasks and ensure full coverage of task instance IDs
     # Indices are offset by 1 since the clusters will submit using a 1:N range strategy
     task_instance_ids = set()
     for i in range(1, len(dtis) + 1):
         _, resp = requester._send_request(
-            app_route=f"/get_array_task_instance_id/{array1.array_id}/{i}",
+            app_route=f"/get_array_task_instance_id/{array1.array_id}/0/{i}",
             message={},
             request_type='get'
         )
@@ -154,7 +165,6 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template):
         task_instance_ids.add(resp['task_instance_id'])
 
     assert task_instance_ids == set([dti.task_instance_id for dti in dtis])
-
     # Test array worker node functionality
     # Sequential distributor always returns the first ID, so just test a single worker node.
     from jobmon import __version__

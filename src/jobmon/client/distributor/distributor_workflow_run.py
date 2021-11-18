@@ -186,16 +186,20 @@ class DistributorWorkflowRun:
         submits an array task on a given distributor
         adds the new task instances to self.running_array_task_instances
         """
+        # all task instances associated with an array and a batch number
+        ids_to_launch = array.registered_array_task_instance_ids
+        array.add_batch_number_to_task_instances()
+
         # Fetch the command
         command = cluster.build_worker_node_command(task_instance_id=None,
-                                                    array_id=array.array_id)
+                                                    array_id=array.array_id,
+                                                    batch_number=array.batch_number)
         array_distributor_id = cluster.submit_array_to_batch_distributor(
             command=command,
             name=array.name,  # TODO: array class should have a name in the client model
             requested_resources=array.requested_resources)
 
         # Clear the registered tasks and move into launched
-        ids_to_launch = array.registered_array_task_instance_ids()
         self._launched_array_task_instance_ids.extend(ids_to_launch)
         array.clear_registered_task_registry()
 

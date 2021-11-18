@@ -34,6 +34,7 @@ class WorkerNodeTaskInstance:
         expected_jobmon_version: str,
         cluster_type_name: str,
         array_id: Optional[int] = None,
+        batch_number: Optional[int] = None,
         requester_url: Optional[str] = None,
     ) -> None:
         """A mechanism whereby a running task_instance can communicate back to the JSM.
@@ -50,6 +51,7 @@ class WorkerNodeTaskInstance:
         """
         self._task_instance_id = task_instance_id
         self._array_id = array_id
+        self._batch_number = batch_number
         self.expected_jobmon_version = expected_jobmon_version
         self.cluster_type_name = cluster_type_name
 
@@ -81,7 +83,9 @@ class WorkerNodeTaskInstance:
             subtask_id = distributor.array_subtask_id()
 
             # Fetch from the database
-            app_route = f"/get_array_task_instance_id/{self._array_id}/{subtask_id}"
+            app_route = \
+                f"/get_array_task_instance_id/" \
+                f"{self._array_id}/{self._batch_number}/{subtask_id}"
             rc, resp = self.requester.send_request(
                 app_route=app_route,
                 message={},

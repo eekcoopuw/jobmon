@@ -520,9 +520,10 @@ def add_task_instance() -> Any:
             ) from e
 
 
-@finite_state_machine.route("/get_array_task_instance_id/<array_id>/<subtask_id>",
-                            methods=['GET'])
-def get_array_task_instance_id(array_id: int, subtask_id: int) -> int:
+@finite_state_machine.route(
+    "/get_array_task_instance_id/<array_id>/<batch_num>/<subtask_id>", methods=['GET']
+)
+def get_array_task_instance_id(array_id: int, batch_num: int, subtask_id: int) -> int:
     """Given an array ID and an index, select a single task instance ID.
 
     Task instance IDs that are associated with the array are ordered, and selected by index.
@@ -530,18 +531,22 @@ def get_array_task_instance_id(array_id: int, subtask_id: int) -> int:
 
     bind_to_logger(array_id=array_id)
 
+    # The subquery will always return values indexed from 1, provided subtask ID must follow
+    # the same pattern.
     query = """
         SELECT id
         FROM
-            (SELECT id, ROW_NUMBER() OVER (PARTITION BY array_id ORDER BY id) as rownum
+            (SELECT id, ROW_NUMBER() OVER 
+                (PARTITION BY array_id, array_batch_num ORDER BY id) as rownum
             FROM task_instance
-            WHERE array_id = :array_id) as ranked_ids
+            WHERE array_id = :array_id
+            AND array_batch_num = :batch_num) as ranked_ids
         WHERE rownum = :subtask_id
     """
     task_instance_id = (
         DB.session.query(TaskInstance)
         .from_statement(text(query))
-        .params(array_id=array_id, subtask_id=subtask_id)
+        .params(array_id=array_id, batch_num=batch_num, subtask_id=subtask_id)
         .one()
     )
 
@@ -685,6 +690,27 @@ def log_unknown_error(task_instance_id: int) -> Any:
             # modify the error message and retry
             new_msg = error_message.encode("latin1", "replace").decode("utf-8")
             resp = _log_error(ti, error_state, new_msg, distributor_id, nodename)
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route(
+    "/task_instance/record_array_batch_num/<batch_num>", methods=["POST"]
+)
+def record_array_batch_num(batch_num: int) -> Any:
+    """Record a batch number to associate sets of task instances with an array submission."""
+    data = request.get_json()
+    task_instance_ids = data['task_instance_ids']
+
+    update_stmt = f"""
+        UPDATE task_instance
+        SET array_batch_num = {batch_num}
+        WHERE id IN {tuple(task_instance_ids)}
+    """
+    DB.session.execute(update_stmt)
+    DB.session.commit()
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK

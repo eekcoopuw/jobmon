@@ -4,6 +4,7 @@ from __future__ import annotations
 import logging
 from typing import Dict, List, Type
 
+from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeDistributorArray
 
@@ -24,6 +25,8 @@ class DistributorArray:
         self.task_resources_id = task_resources_id
         self.requested_resources = requested_resources
         self.registered_array_task_instance_ids: List[int] = []
+        self.batch_number = 0
+        self.requester = requester
 
     @classmethod
     def from_wire(
@@ -60,3 +63,23 @@ class DistributorArray:
         Called when the array is submitted to the batch distributor."""
         # TODO: Safe for sequential, may have problems with async and centeralized distributor
         self.registered_array_task_instance_ids = []
+
+    def add_batch_number_to_task_instances(self) -> None:
+        """Add the current batch number to the current set of registered task instance ids."""
+        app_route = f'/task_instance/record_array_batch_num/{self.batch_number}'
+        rc, resp = self.requester.send_request(
+            app_route=app_route,
+            message={
+                'task_instance_ids': self.registered_array_task_instance_ids,
+            },
+            request_type='post'
+        )
+        if not http_request_ok(rc):
+            raise InvalidResponse(
+                f"Unexpected status code {rc} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {resp}"
+            )
+
+        # Increment the counter for the next set of jobs
+        self.batch_number += 1

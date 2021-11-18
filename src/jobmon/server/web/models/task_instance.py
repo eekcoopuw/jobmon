@@ -38,6 +38,8 @@ class TaskInstance(DB.Model):
     distributor_id = DB.Column(DB.Integer, index=True)
     task_id = DB.Column(DB.Integer, DB.ForeignKey("task.id"))
     task_resources_id = DB.Column(DB.Integer, DB.ForeignKey("task_resources.id"))
+    array_batch_num = DB.Column(DB.Integer)
+    array_step_id = DB.Column(DB.Integer)
 
     # usage
     nodename = DB.Column(DB.String(150))
