@@ -21,7 +21,7 @@ def valid_full_version(vers_str) -> bool:
 
 def version_tuple(version_string):
     """
-    Return a tuple for version_string
+    Return a tuple for version_string.
     """
     print("version_string:" + version_string)
     def my_int(s):
