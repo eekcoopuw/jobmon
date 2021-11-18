@@ -79,7 +79,7 @@ class DistributorWorkflowRun:
         task_instances: List[DistributorTaskInstance] = []
         for array in self._arrays.values():
             array_task_instances = [self._task_instances[tiid] for tiid in
-                                    array._registered_array_task_instance_ids]
+                                    array.registered_array_task_instance_ids]
             task_instances.extend(array_task_instances)
         return task_instances
 

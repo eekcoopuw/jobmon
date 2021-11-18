@@ -1,4 +1,3 @@
-
 from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
@@ -72,7 +71,6 @@ def call_get_array_task_instance_id(array_id, batch_num, client_env):
 
 
 def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array_template):
-    # stuff
     array1 = array_template.create_array(arg=[1, 2, 3], cluster_name="sequential",
                                          compute_resources={"queue": "null.q"})
 
@@ -116,7 +114,6 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
 
     distributor_array.registered_array_task_instance_ids = [dtis_1.task_instance_id,
                                                             dtis_2.task_instance_id]
-    # distributor_array.add_batch_number_to_task_instances()
     distributor_wfr = DistributorWorkflowRun(
         workflow.workflow_id, wfr.workflow_run_id, requester
     )
@@ -125,28 +122,38 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
     array_id = distributor_wfr.launch_array_instance(array=distributor_array,
                                                      cluster=distributor)
 
-    assert get_task_instance_status(db_cfg, dtis_1.task_instance_id) == "D"
+    # Sequential distributor will submit only the first task in an array.
+    # Task 1 will be running, launched, or done
+    assert get_task_instance_status(db_cfg, dtis_1.task_instance_id) in ["D", "O", "R"]
+    # Task 2 was moved to launched
     assert get_task_instance_status(db_cfg, dtis_2.task_instance_id) == "O"
+    # Task 3 was not updated
     assert get_task_instance_status(db_cfg, dtis_3.task_instance_id) == "I"
-    assert distributor_wfr.registered_task_instances == []
+    # The registry was cleared out correctly
     assert distributor_wfr.registered_array_task_instances == []
 
     ti_1_batch_num = get_batch_number(db_cfg, dtis_1.task_instance_id)
     ti_2_batch_num = get_batch_number(db_cfg, dtis_2.task_instance_id)
     ti_3_batch_num = get_batch_number(db_cfg, dtis_3.task_instance_id)
+    # Tasks 1 and 2 are associated with the first array batch, should be grouped together
     assert ti_1_batch_num == 0
     assert ti_2_batch_num == 0
+    # Task 3 has not been launched yet and should not have a batch number
     assert ti_3_batch_num is None
-    assert call_get_array_task_instance_id(array_id, ti_1_batch_num, client_env) == 1
+    # The first result in the array is always the lowest task instance ID
+    assert call_get_array_task_instance_id(array_id, ti_1_batch_num, client_env) == \
+           dtis_1.task_instance_id
 
+    # Add task 3 to the registered queue, and launch
     distributor_array.registered_array_task_instance_ids = [dtis_3.task_instance_id]
     distributor_wfr.launch_array_instance(array=distributor_array, cluster=distributor)
 
-    assert get_task_instance_status(db_cfg, dtis_1.task_instance_id) == "D"
-    assert get_task_instance_status(db_cfg, dtis_2.task_instance_id) == "O"
-    assert get_task_instance_status(db_cfg, dtis_3.task_instance_id) == "D"
+    # Check that the worker node is either launched, running, or done
+    assert get_task_instance_status(db_cfg, dtis_3.task_instance_id) in ["D", "O", "R"]
     ti_3_batch_num = get_batch_number(db_cfg, dtis_3.task_instance_id)
+    # Task 3 belongs to the second array submission, so gets batch number 1 back
     assert ti_3_batch_num == 1
-    assert distributor_wfr.registered_task_instances == []
     assert distributor_wfr.registered_array_task_instances == []
-    assert call_get_array_task_instance_id(array_id, ti_3_batch_num, client_env) == 3
+    # Assert that the task instance ID can be associated
+    assert call_get_array_task_instance_id(array_id, ti_3_batch_num, client_env) == \
+           dtis_3.task_instance_id

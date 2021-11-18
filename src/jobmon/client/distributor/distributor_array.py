@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Type
+from typing import Dict, List, Optional, Type
 
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
