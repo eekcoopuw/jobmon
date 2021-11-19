@@ -6,7 +6,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 import pandas as pd
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.constants import TaskStatus, WorkflowStatus
+from jobmon.constants import ExcludeTTVs, TaskStatus, WorkflowStatus
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
 
@@ -109,7 +109,7 @@ def task_template_resources(
     node_args: Optional[Dict] = None,
     requester_url: Optional[str] = None,
     ci: Optional[float] = None,
-) -> Dict:
+) -> Optional[Dict]:
     """Get aggregate resource usage data for a given TaskTemplateVersion.
 
     Args:
@@ -123,6 +123,15 @@ def task_template_resources(
     Returns:
         Dataframe of TaskTemplate resource usage
     """
+    exclue_list = ExcludeTTVs.EXCLUDE_TTVS
+    if task_template_version in exclue_list:
+        msg = (
+            f"Resource usage query for task_template_version {task_template_version}"
+            f"  is restricted."
+        )
+        logger.warning(msg)
+        print(msg)
+        return None
     message: Dict[Any, Any] = dict()
     message["task_template_version_id"] = task_template_version
     if workflows:
@@ -496,6 +505,8 @@ def workflow_reset(workflow_id: int, requester_url: Optional[str] = None) -> str
 def _get_yaml_data(
     wfid: int, tid: int, v_mem: str, v_core: str, v_runtime: str, requester: Requester
 ) -> Dict:
+    # make it a method for easy mock
+    tt_exclude_list = ExcludeTTVs.EXCLUDE_TTVS
 
     key_map_m = {"avg": "mean_mem", "min": "min_mem", "max": "max_mem"}
     key_map_r = {"avg": "mean_runtime", "min": "min_runtime", "max": "max_runtime"}
@@ -511,13 +522,34 @@ def _get_yaml_data(
         raise AssertionError(
             f"Server returns HTTP error code: {rc} " f"for get_task_template_version."
         )
-    ttvis_dic = dict()
+
     # data structure: {ttv_id: [name, core, mem, runtime, queue]}
+    ttvis_dic = dict()
+
+    # create a holder for tts that are in the exclude list
+    tt_in_exclude = []
     for t in res["task_template_version_ids"]:
-        ttvis_dic[t["id"]] = [t["name"]]
+        if t["id"] in tt_exclude_list:
+            tt_in_exclude.append(t)
+            msg = f"Task template {t} contains too many tasks and will be excluded."
+            logger.warning(msg)
+            print(msg)
+        else:
+            ttvis_dic[t["id"]] = [t["name"]]
+
+    for t in tt_in_exclude:
+        # fill in template using default values
+        print(f"Fill template for t using {t}")
+        ttvis_dic[t["id"]] = [t["name"], 1, 1, 3600, "all.q"]
+
+    # set of ttvs not in exclude list
+    actual_ttvs = set(ttvis_dic.keys()) - set([i["id"] for i in tt_in_exclude])
+
+    if len(actual_ttvs) == 0:
+        return ttvis_dic
 
     # get core
-    ttvis = str([i for i in ttvis_dic.keys()]).replace("[", "(").replace("]", ")")
+    ttvis = str([i for i in actual_ttvs]).replace("[", "(").replace("]", ")")
     rc, res = requester.send_request(
         app_route="/get_requested_cores",
         message={"task_template_version_ids": f"{ttvis}"},
@@ -532,7 +564,7 @@ def _get_yaml_data(
         ttvis_dic[int(record["id"])].append(record[v_core])
 
     # Get actually mem and runtime for each ttvi
-    for ttv in ttvis_dic.keys():
+    for ttv in actual_ttvs:
         rc, res = requester.send_request(
             app_route="/task_template_resource_usage",
             message={"task_template_version_id": ttv},

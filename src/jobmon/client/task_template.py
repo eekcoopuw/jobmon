@@ -11,7 +11,7 @@ import yaml
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
-from jobmon.constants import SpecialChars
+from jobmon.constants import ExcludeTTVs, SpecialChars
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import (
@@ -522,10 +522,22 @@ class TaskTemplate:
         workflows: List[int] = None,
         node_args: dict[str, Any] = None,
         ci: float = None,
-    ) -> dict:
+    ) -> Optional[dict]:
         """Get the aggregate resource usage for a TaskTemplate."""
         message: Dict[Any, Any] = dict()
         message["task_template_version_id"] = self._active_task_template_version.id
+
+        # exclude ttv with huge number of tasks
+        exclue_list = ExcludeTTVs.EXCLUDE_TTVS
+        if self._active_task_template_version.id in exclue_list:
+            msg = (
+                f"Resource usage query for task_template_version "
+                f"{self._active_task_template_version.id}"
+                f"  is restricted."
+            )
+            logger.warning(msg)
+            return None
+
         if workflows:
             message["workflows"] = workflows
         if node_args:
