@@ -95,10 +95,10 @@ class SpecialChars:
     ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\" "
 
 
-class ExcludeTTVs:
-    """A hard code list.
+class ExecludeTTVs:
+    """A hard-coded list.
 
     Used to exclude task template versions with huge tasks that cause DB crash.
     """
 
-    EXCLUDE_TTVS = {1}
+    EXECLUDE_TTVS = {1}  # bashtask

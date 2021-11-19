@@ -11,8 +11,7 @@ import yaml
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
-from jobmon.cluster_type.base import ClusterQueue
-from jobmon.constants import ExcludeTTVs, SpecialChars
+from jobmon.constants import ExecludeTTVs, SpecialChars
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import (
@@ -403,7 +402,7 @@ class TaskTemplate:
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, Any]] = None,
         cluster_name: str = "",
-        fallback_queues: Optional[List[ClusterQueue]] = None,
+        fallback_queues: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Task:
         """Create an instance of a task associated with this template.
@@ -531,7 +530,7 @@ class TaskTemplate:
         message["task_template_version_id"] = self._active_task_template_version.id
 
         # exclude ttv with huge number of tasks
-        exclue_list = ExcludeTTVs.EXCLUDE_TTVS
+        exclue_list = ExecludeTTVs.EXECLUDE_TTVS
         if self._active_task_template_version.id in exclue_list:
             msg = (
                 f"Resource usage query for task_template_version "
