@@ -99,7 +99,10 @@ class DistributorTask:
                 f"code 200. Response content: {response}"
             )
 
-        return DistributorTaskInstance.from_wire(
+        distributor_ti = DistributorTaskInstance.from_wire(
             response["task_instance"],
             requester=self.requester,
         )
+        distributor_ti.name = self.name
+        distributor_ti.requested_resources = self.requested_resources
+        return distributor_ti
