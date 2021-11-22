@@ -72,6 +72,7 @@ class WorkflowReaper(object):
                 self._halted_state()
                 self._aborted_state()
                 self._error_state()
+                self._inconsistent_status()
                 sleep(self._poll_interval_minutes * 60)
         except RuntimeError as e:
             logger.debug(f"Error in monitor_forever() in workflow reaper: {e}")
@@ -155,11 +156,11 @@ class WorkflowReaper(object):
                 )
                 self._wf_notification_sink(msg=message)
 
-    def _inconsistent_status(self) -> None
+    def _inconsistent_status(self) -> None:
         """Find wf in F with all tasks in D and fix them."""
         logger.info("Find wf in F with all tasks in D and fix them.")
 
-        app_route = f"workflow/{WorkflowReaper._current_max_wf_id}/fix_status_inconsitency"
+        app_route = f"/workflow/{WorkflowReaper._current_max_wf_id}/fix_status_inconsitency"
         return_code, result = self._requester.send_request(
             app_route=app_route,
             message={},

@@ -535,3 +535,57 @@ def test_workflow_get_errors(db_cfg, client_env):
     err_1st_b = error_log_b[0]
     assert type(err_1st_b) == dict
     assert err_1st_b["description"] == "cla cla cla"
+
+
+def test_inconsistent_status(db_cfg, client_env):
+    from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
+
+    # setup workflow
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
+    task_template = tool.get_task_template(
+        template_name="test_inconsistent_status",
+        command_template="echo {arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    workflow1 = tool.create_workflow(name="test_inconsistent_status")
+    task_a = task_template.create_task(arg="1")
+    workflow1.add_task(task_a)
+    task_b = task_template.create_task(arg="2")
+    workflow1.add_task(task_b)
+
+    # add workflow to database
+    workflow1.run()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        # fake workflow run
+        DB.session.execute(
+            """
+            UPDATE workflow
+            SET status ='F'
+            WHERE id={}""".format(workflow1.workflow_id)
+        )
+        DB.session.commit()
+
+    # make sure it starts with 0
+    WorkflowReaper._current_max_wf_id = 0
+    WorkflowReaper(1, workflow1.requester)._inconsistent_status()
+    # check starter id changed
+    assert WorkflowReaper._current_max_wf_id == workflow1.workflow_id
+    # check workflow status changed
+    with app.app_context():
+        # fake workflow run
+        s = DB.session.execute(
+            """
+            select status
+            FROM workflow
+            WHERE id={}""".format(workflow1.workflow_id)
+        ).fetchone()["status"]
+        assert s == "D"
+
