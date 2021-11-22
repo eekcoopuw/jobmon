@@ -294,20 +294,20 @@ def test_tt_resource_usage(db_cfg, client_env):
         DB.session.commit()
 
     with patch(
-        "jobmon.constants.ExcludeTTVs.EXCLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
         f.return_value = {
             template.active_task_template_version.id,
             template_2.active_task_template_version.id,
         }
-        # ttv in exclude list should return None
+        # ttv in execlude list should return None
         used_task_template_resources = template.resource_usage(ci=0.95)
         assert used_task_template_resources is None
 
     with patch(
-        "jobmon.constants.ExcludeTTVs.EXCLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
-        f.return_value = set()  # no exclude tt
+        f.return_value = set()  # no execlude tt
 
         # Check the aggregate resources for all workflows
         used_task_template_resources = template.resource_usage(ci=0.95)

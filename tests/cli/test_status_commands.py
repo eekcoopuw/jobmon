@@ -627,9 +627,9 @@ def test_get_yaml_data(db_cfg, client_env):
         DB.session.commit()
 
     with patch(
-        "jobmon.constants.ExcludeTTVs.EXCLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
-        # no exclude tt
+        # no execlude tt
         f.return_value = set()
 
         # get data for the resource yaml
@@ -653,9 +653,9 @@ def test_get_yaml_data(db_cfg, client_env):
         ]
 
     with patch(
-        "jobmon.constants.ExcludeTTVs.EXCLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
-        # exclude tt1
+        # execlude tt1
         f.return_value = {tt1.active_task_template_version.id}
 
         # get data for the resource yaml
@@ -681,9 +681,9 @@ def test_get_yaml_data(db_cfg, client_env):
         ]
 
     with patch(
-        "jobmon.constants.ExcludeTTVs.EXCLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
-        # exclude both
+        # execlude both
         f.return_value = {
             tt1.active_task_template_version.id,
             tt2.active_task_template_version.id,
