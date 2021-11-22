@@ -78,9 +78,8 @@ class WorkerNodeTaskInstance:
             if self._array_id is None:
                 raise ValueError("Neither task_instance_id nor array_id were provided.")
 
-            distributor = self.module.get_cluster_distributor_class()
-            # Always assumed to be a value in the range [0, len(array))
-            subtask_id = distributor.array_subtask_id()
+            # Always assumed to be a value in the range [1, len(array)]
+            subtask_id = self.executor.array_subtask_id()
 
             # Fetch from the database
             app_route = \

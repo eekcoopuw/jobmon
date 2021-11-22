@@ -239,9 +239,14 @@ class MultiprocessDistributor(ClusterDistributor):
         return list(self._running_or_submitted.keys())
 
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: dict
+        self, command: str, name: str, requested_resources: dict, array_length: int
     ) -> int:
         """Execute a task instance."""
+        # Array submission for multiproc execution not supported, runs a single instance.
+        if array_length > 0:
+            logger.warning("Array submission for multiproc execution not supported, "
+                           "only a single instance will be run.")
+        # add an executor id to the environment
         distributor_id = self._next_distributor_id
         self._next_distributor_id += 1
         task = PickableTask(
@@ -250,14 +255,6 @@ class MultiprocessDistributor(ClusterDistributor):
         self.task_queue.put(task)
         self._running_or_submitted.update({distributor_id: None})
         return distributor_id
-
-    def submit_array_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any]
-    ) -> int:
-        """Executes an array of tasks.
-
-        For the multiprocess executor this will be the same as regular submission."""
-        return self.submit_to_batch_distributor(command, name, requested_resources)
 
     def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
         """Get the task instances that have errored out."""
@@ -274,11 +271,6 @@ class MultiprocessDistributor(ClusterDistributor):
             return [int(running)]
         else:
             return []
-
-    @staticmethod
-    def array_subtask_id() -> int:
-        """Array implementation not supported for multiprocess execution, return 1."""
-        return 1
 
 
 class MultiprocessWorkerNode(ClusterWorkerNode):
@@ -305,3 +297,8 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
     def get_usage_stats(self) -> Dict:
         """Usage information specific to the distributor."""
         raise NotImplementedError
+
+    @staticmethod
+    def array_subtask_id() -> int:
+        """Array implementation not supported for multiprocess execution, return 1."""
+        return 1
