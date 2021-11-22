@@ -17,6 +17,8 @@ class WorkflowReaper(object):
 
     _version = __version__
 
+    _current_max_wf_id = 0
+
     _reaper_message = {
         WorkflowRunStatus.ERROR: (
             "{__version__} Workflow Reaper transitioned Workflow #{workflow_id} to FAILED "
@@ -152,3 +154,22 @@ class WorkflowReaper(object):
                     workflow_run_id=wfr.workflow_run_id,
                 )
                 self._wf_notification_sink(msg=message)
+
+    def _inconsistent_status(self) -> None
+        """Find wf in F with all tasks in D and fix them."""
+        logger.info("Find wf in F with all tasks in D and fix them.")
+
+        app_route = f"workflow/{WorkflowReaper._current_max_wf_id}/fix_status_inconsitency"
+        return_code, result = self._requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type="put",
+            logger=logger,
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {result}"
+            )
+        WorkflowReaper._current_max_wf_id = int(result["wfid"])

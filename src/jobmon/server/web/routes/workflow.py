@@ -863,3 +863,35 @@ def reset_workflow(workflow_id: int) -> Any:
     resp = jsonify({})
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@finite_state_machine.route("workflow/<workflow_id>/fix_status_inconsitency", methods=["PUT"])
+def fix_wf_inconsistency(workflow_id: int) -> Any:
+    """Find wf in F with all tasks in D and fix them."""
+    sql = "SELECT MAX(id) as id FROM workflow"
+    # the id to return to rapper as next start point
+    current_max_wf_id = DB.session.excute(sql).fetchone()["id"]
+
+    # Update wf in F with all task in D to D
+    sql = """UPDATE workflow
+            SET status = "D"
+            WHERE id IN (
+                SELECT id FROM (
+				    SELECT id, count(s), sum(s)
+				    FROM
+					    (SELECT workflow.id, (case when task.status="D" then 1 else 0 end) as s
+					    FROM workflow, task
+					    WHERE workflow.id > {}
+					    AND workflow.status='F'
+					    AND workflow.id=task.workflow_id) t
+				    GROUP BY id
+				    HAVING count(s) = sum(s) ) tt
+            )
+            """.format(workflow_id)
+
+    DB.session.execute(sql)
+    DB.session.commit()
+
+    resp = jsonify({"wfid": current_max_wf_id})
+    resp.status_code = StatusCodes.OK
+    return resp
