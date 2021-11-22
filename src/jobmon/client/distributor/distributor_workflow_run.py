@@ -7,6 +7,7 @@ from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
+from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 
@@ -45,6 +46,9 @@ class DistributorWorkflowRun:
         self._launched_array_task_instance_ids: List[int] = []
         self._running_array_task_instance_ids: List[int] = []
 
+        # Triaging queue
+        self._triaging_queue = []
+
     @property
     def arrays(self) -> List[DistributorArray]:
         """Return a list of arrays"""
@@ -63,7 +67,8 @@ class DistributorWorkflowRun:
     @property
     def running_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of launched task_instances"""
-        pass
+        return [DistributorTaskInstance(tid, self.workflow_run_id) for tid in
+                self._running_array_task_instance_ids]
 
     @property
     def registered_array_task_instances(self) -> List[DistributorTaskInstance]:
@@ -74,7 +79,7 @@ class DistributorWorkflowRun:
         task_instances: List[DistributorTaskInstance] = []
         for array in self._arrays.values():
             array_task_instances = [self._task_instances[tiid] for tiid in
-                                    array._registered_array_task_instance_ids]
+                                    array.registered_array_task_instance_ids]
             task_instances.extend(array_task_instances)
         return task_instances
 
@@ -179,6 +184,47 @@ class DistributorWorkflowRun:
     ):
         """
         submits an array task on a given distributor
-        adds the new task instances to self.submitted_or_running_array_task_instances
+        adds the new task instances to self.running_array_task_instances
         """
-        pass
+
+        # all task instances associated with an array and a batch number
+        ids_to_launch = array.registered_array_task_instance_ids
+        array.add_batch_number_to_task_instances()
+
+        # Fetch the command
+        command = cluster.build_worker_node_command(task_instance_id=None,
+                                                    array_id=array.array_id,
+                                                    batch_number=array.batch_number - 1)
+
+        array_distributor_id = cluster.submit_array_to_batch_distributor(
+            command=command,
+            name=array.name,  # TODO: array class should have a name in the client model
+            requested_resources=array.requested_resources)
+
+        # Clear the registered tasks and move into launched
+        self._launched_array_task_instance_ids.extend(ids_to_launch)
+        array.clear_registered_task_registry()
+
+        app_route = f"/task_instance/transition/{TaskInstanceStatus.LAUNCHED}"
+        rc, resp = self.requester.send_request(
+            app_route=app_route,
+            message={
+                'array_id': array.array_id,
+                # TODO: Will bulk update be too slow? Should we chunk?
+                'task_instance_ids': tuple(ids_to_launch),
+                'distributor_id': array_distributor_id
+            },
+            request_type='post'
+        )
+        if not http_request_ok(rc):
+            raise InvalidResponse(
+                f"Unexpected status code {rc} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {resp}"
+            )
+
+        # Pull unsuccessful transitions from the response, and add to a triaging queue
+        erroneous_ti_transitions = resp['erroneous_transitions']
+        self._triaging_queue.extend(erroneous_ti_transitions)
+
+        return array_distributor_id

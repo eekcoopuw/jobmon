@@ -15,6 +15,7 @@ class TaskInstanceStatus:
     INSTANTIATED = "I"
     NO_DISTRIBUTOR_ID = "W"
     SUBMITTED_TO_BATCH_DISTRIBUTOR = "B"
+    LAUNCHED = "O"
     RUNNING = "R"
     RESOURCE_ERROR = "Z"
     UNKNOWN_ERROR = "U"

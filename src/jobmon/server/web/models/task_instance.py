@@ -38,6 +38,8 @@ class TaskInstance(DB.Model):
     distributor_id = DB.Column(DB.Integer, index=True)
     task_id = DB.Column(DB.Integer, DB.ForeignKey("task.id"))
     task_resources_id = DB.Column(DB.Integer, DB.ForeignKey("task_resources.id"))
+    array_batch_num = DB.Column(DB.Integer)
+    array_step_id = DB.Column(DB.Integer)
 
     # usage
     nodename = DB.Column(DB.String(150))
@@ -69,7 +71,7 @@ class TaskInstance(DB.Model):
         # task instance is submitted normally (happy path)
         (
             TaskInstanceStatus.INSTANTIATED,
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+            TaskInstanceStatus.LAUNCHED,
         ),
         # task instance submission hit weird bug and didn't get an distributor_id
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.NO_DISTRIBUTOR_ID),
@@ -78,28 +80,32 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.KILL_SELF),
         # task instance logs running before submitted due to race condition
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.RUNNING),
-        # task instance logs running after submission to batch (happy path)
-        (TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR, TaskInstanceStatus.RUNNING),
+        # task instance running after transitioning from launched
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.RUNNING),
         # task instance disappeared from distributor heartbeat and never logged
         # running. The distributor has no accounting of why it died
         (
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+            TaskInstanceStatus.LAUNCHED,
             TaskInstanceStatus.UNKNOWN_ERROR,
         ),
         # task instance disappeared from distributor heartbeat and never logged
         # running. The distributor discovered a resource error exit status.
         # This seems unlikely but is valid for the purposes of the FSM
         (
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+            TaskInstanceStatus.LAUNCHED,
             TaskInstanceStatus.RESOURCE_ERROR,
         ),
-        # task instance is submitted to the batch distributor waiting to start
-        # running. new workflow run is created and this task is told to kill
+        # task instance is submitted to the batch distributor waiting to launch.
+        # new workflow run is created and this task is told to kill
         # itself
         (
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+            TaskInstanceStatus.LAUNCHED,
             TaskInstanceStatus.KILL_SELF,
         ),
+        # Allow transitioning from launched to error states. Unlikely but valid
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.UNKNOWN_ERROR),
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.RESOURCE_ERROR),
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.KILL_SELF),
         # task instance hits an application error (happy path)
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.ERROR),
         # task instance stops logging heartbeats. reconciler can't find an exit
@@ -116,7 +122,7 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.DONE),
         # allow task instance to transit to F to immediately fail the task
         (
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+            TaskInstanceStatus.LAUNCHED,
             TaskInstanceStatus.ERROR_FATAL,
         ),
     ]
@@ -125,7 +131,7 @@ class TaskInstance(DB.Model):
         # task instance logs running before the distributor logs submitted due to
         # race condition. this is unlikely but happens and is valid for the
         # purposes of the FSM
-        (TaskInstanceStatus.RUNNING, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR),
+        (TaskInstanceStatus.RUNNING, TaskInstanceStatus.LAUNCHED),
         # task instance stops logging heartbeats and reconciler is looking for
         # remote exit status but can't find it so logs an unknown error. task
         # finishes with an application error. We can't update state because
@@ -187,9 +193,9 @@ class TaskInstance(DB.Model):
             task_id=self.task_id,
             task_instance_id=self.id,
         )
-        logger.info(f"Transitioning task_instance from {self.status} to {new_state}")
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
+            logger.info(f"Transitioning task_instance from {self.status} to {new_state}")
             self.status = new_state
             self.status_date = func.now()
             if new_state == TaskInstanceStatus.RUNNING:
@@ -202,7 +208,6 @@ class TaskInstance(DB.Model):
                 # if the task instance is F, the task status should be F too
                 self.task.transition(TaskStatus.ERROR_RECOVERABLE)
                 self.task.transition(TaskStatus.ERROR_FATAL)
-        logger.info(f"Status of task_instance is now {self.status}")
 
     def _validate_transition(self, new_state: str) -> None:
         """Ensure the TaskInstance status transition is valid."""
