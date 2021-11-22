@@ -569,7 +569,9 @@ def test_inconsistent_status(db_cfg, client_env):
             """
             UPDATE workflow
             SET status ='F'
-            WHERE id={}""".format(workflow1.workflow_id)
+            WHERE id={}""".format(
+                workflow1.workflow_id
+            )
         )
         DB.session.commit()
 
@@ -585,7 +587,8 @@ def test_inconsistent_status(db_cfg, client_env):
             """
             select status
             FROM workflow
-            WHERE id={}""".format(workflow1.workflow_id)
+            WHERE id={}""".format(
+                workflow1.workflow_id
+            )
         ).fetchone()["status"]
         assert s == "D"
-

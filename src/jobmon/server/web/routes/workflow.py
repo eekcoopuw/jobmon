@@ -865,7 +865,9 @@ def reset_workflow(workflow_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("workflow/<workflow_id>/fix_status_inconsitency", methods=["PUT"])
+@finite_state_machine.route(
+    "workflow/<workflow_id>/fix_status_inconsitency", methods=["PUT"]
+)
 def fix_wf_inconsistency(workflow_id: int) -> Any:
     """Find wf in F with all tasks in D and fix them."""
     sql = "SELECT MAX(id) as id FROM workflow"
@@ -877,17 +879,19 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
             SET status = "D"
             WHERE id IN (
                 SELECT id FROM (
-				    SELECT id, count(s), sum(s)
-				    FROM
-					    (SELECT workflow.id, (case when task.status="D" then 1 else 0 end) as s
-					    FROM workflow, task
-					    WHERE workflow.id > {}
-					    AND workflow.status='F'
-					    AND workflow.id=task.workflow_id) t
-				    GROUP BY id
-				    HAVING count(s) = sum(s) ) tt
+                    SELECT id, count(s), sum(s)
+                    FROM
+                        (SELECT workflow.id, (case when task.status="D" then 1 else 0 end) as s
+                        FROM workflow, task
+                        WHERE workflow.id > {}
+                        AND workflow.status='F'
+                        AND workflow.id=task.workflow_id) t
+                        GROUP BY id
+                        HAVING count(s) = sum(s) ) tt
             )
-            """.format(workflow_id)
+            """.format(
+        workflow_id
+    )
 
     DB.session.execute(sql)
     DB.session.commit()
