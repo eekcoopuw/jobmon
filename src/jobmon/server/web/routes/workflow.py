@@ -871,7 +871,7 @@ def reset_workflow(workflow_id: int) -> Any:
 def fix_wf_inconsistency(workflow_id: int) -> Any:
     """Find wf in F with all tasks in D and fix them."""
     sql = "SELECT MAX(id) as id FROM workflow"
-    # the id to return to rapper as next start point
+    # the id to return to reaper as next start point
     current_max_wf_id = DB.session.execute(sql).fetchone()["id"]
 
     # Update wf in F with all task in D to D
