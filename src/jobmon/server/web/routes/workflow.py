@@ -870,11 +870,22 @@ def reset_workflow(workflow_id: int) -> Any:
 )
 def fix_wf_inconsistency(workflow_id: int) -> Any:
     """Find wf in F with all tasks in D and fix them."""
-    sql = "SELECT MAX(id) as id FROM workflow"
+    sql = "SELECT COUNT(*) as total FROM workflow"
     # the id to return to reaper as next start point
-    current_max_wf_id = DB.session.execute(sql).fetchone()["id"]
+    total_wf = int(DB.session.execute(sql).fetchone()["total"])
+
+    # move the starting row forward by 3000
+    # if the starting row > max row, restart from 0
+    # this way, we can get to the unfinished the wf later
+    # without querying the whole db every time
+    increase_step = 3000
+    current_max_wf_id = int(workflow_id) + int(increase_step)
+    if current_max_wf_id > total_wf:
+        current_max_wf_id = 0
 
     # Update wf in F with all task in D to D
+    # limit the query lines to 1k, which should finish <1s
+    # and won't shock the db when reaper restarts
     sql = """UPDATE workflow
             SET status = "D"
             WHERE id IN (
@@ -883,14 +894,15 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
                     FROM
                         (SELECT workflow.id, (case when task.status="D" then 1 else 0 end) as s
                         FROM workflow, task
-                        WHERE workflow.id > {}
+                        WHERE workflow.id > {wfid1}
+                        AND workflow.id <= {wfid2}
                         AND workflow.status='F'
                         AND workflow.id=task.workflow_id) t
                         GROUP BY id
                         HAVING count(s) = sum(s) ) tt
             )
             """.format(
-        workflow_id
+        wfid1=workflow_id, wfid2=int(workflow_id) + increase_step
     )
 
     DB.session.execute(sql)

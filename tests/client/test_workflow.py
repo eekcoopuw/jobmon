@@ -576,10 +576,10 @@ def test_inconsistent_status(db_cfg, client_env):
         DB.session.commit()
 
     # make sure it starts with 0
-    WorkflowReaper._current_max_wf_id = 0
+    WorkflowReaper._current_starting_row = 0
     WorkflowReaper(1, workflow1.requester)._inconsistent_status()
-    # check starter id changed
-    assert WorkflowReaper._current_max_wf_id >= workflow1.workflow_id
+    assert WorkflowReaper._current_starting_row == 0
+
     # check workflow status changed
     with app.app_context():
         # fake workflow run

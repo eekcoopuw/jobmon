@@ -17,7 +17,8 @@ class WorkflowReaper(object):
 
     _version = __version__
 
-    _current_max_wf_id = 0
+    # starting point of inconsistency query
+    _current_starting_row = 0
 
     _reaper_message = {
         WorkflowRunStatus.ERROR: (
@@ -161,7 +162,7 @@ class WorkflowReaper(object):
         logger.info("Find wf in F with all tasks in D and fix them.")
 
         app_route = (
-            f"/workflow/{WorkflowReaper._current_max_wf_id}/fix_status_inconsitency"
+            f"/workflow/{WorkflowReaper._current_starting_row}/fix_status_inconsitency"
         )
         return_code, result = self._requester.send_request(
             app_route=app_route,
@@ -175,4 +176,4 @@ class WorkflowReaper(object):
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {result}"
             )
-        WorkflowReaper._current_max_wf_id = int(result["wfid"])
+        WorkflowReaper._current_starting_row = int(result["wfid"])
