@@ -3,6 +3,7 @@ import logging
 
 
 import pytest
+from unittest.mock import patch, PropertyMock
 
 from jobmon.client.cli import ClientCLI as CLI
 from jobmon.client.tool import Tool
@@ -613,30 +614,102 @@ def test_get_yaml_data(db_cfg, client_env):
     DB = db_cfg["DB"]
     with app.app_context():
         query_1 = """
-            UPDATE task_instance
-            SET wallclock = 10, maxpss = 400
-            WHERE task_id = :task_id"""
+                    UPDATE task_instance
+                    SET wallclock = 10, maxpss = 400
+                    WHERE task_id = :task_id"""
         DB.session.execute(query_1, {"task_id": t1.task_id})
 
         query_2 = """
-            UPDATE task_instance
-            SET wallclock = 20, maxpss = 600
-            WHERE task_id = :task_id"""
+                    UPDATE task_instance
+                    SET wallclock = 20, maxpss = 600
+                    WHERE task_id = :task_id"""
         DB.session.execute(query_2, {"task_id": t2.task_id})
         DB.session.commit()
-    # get data for the resource yaml
-    from jobmon.client.status_commands import _get_yaml_data
 
-    result = _get_yaml_data(wf.workflow_id, None, "avg", "avg", "max", wf.requester)
-    assert len(result) == 2
-    assert result[tt1._active_task_template_version.id] == ["tt1", 1, 400, 10, "null.q"]
-    assert result[tt2._active_task_template_version.id] == [
-        "tt2",
-        1,
-        600,
-        20,
-        "null2.q",
-    ]
+    with patch(
+        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+    ) as f:
+        # no execlude tt
+        f.return_value = set()
+
+        # get data for the resource yaml
+        from jobmon.client.status_commands import _get_yaml_data
+
+        result = _get_yaml_data(wf.workflow_id, None, "avg", "avg", "max", wf.requester)
+        assert len(result) == 2
+        assert result[tt1._active_task_template_version.id] == [
+            "tt1",
+            1,
+            400,
+            10,
+            "null.q",
+        ]
+        assert result[tt2._active_task_template_version.id] == [
+            "tt2",
+            1,
+            600,
+            20,
+            "null2.q",
+        ]
+
+    with patch(
+        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+    ) as f:
+        # execlude tt1
+        f.return_value = {tt1.active_task_template_version.id}
+
+        # get data for the resource yaml
+        from jobmon.client.status_commands import _get_yaml_data
+
+        result = _get_yaml_data(wf.workflow_id, None, "avg", "avg", "max", wf.requester)
+        assert len(result) == 2
+        # tt1 fills with default value
+        assert result[tt1._active_task_template_version.id] == [
+            "tt1",
+            1,
+            1,
+            3600,
+            "all.q",
+        ]
+        # tt2 is real
+        assert result[tt2._active_task_template_version.id] == [
+            "tt2",
+            1,
+            600,
+            20,
+            "null2.q",
+        ]
+
+    with patch(
+        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+    ) as f:
+        # execlude both
+        f.return_value = {
+            tt1.active_task_template_version.id,
+            tt2.active_task_template_version.id,
+        }
+
+        # get data for the resource yaml
+        from jobmon.client.status_commands import _get_yaml_data
+
+        result = _get_yaml_data(wf.workflow_id, None, "avg", "avg", "max", wf.requester)
+        assert len(result) == 2
+        # tt1 fills with default value
+        assert result[tt1._active_task_template_version.id] == [
+            "tt1",
+            1,
+            1,
+            3600,
+            "all.q",
+        ]
+        # tt2 fills with default value
+        assert result[tt2._active_task_template_version.id] == [
+            "tt2",
+            1,
+            1,
+            3600,
+            "all.q",
+        ]
 
 
 def test_create_yaml():
