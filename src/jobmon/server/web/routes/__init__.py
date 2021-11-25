@@ -72,6 +72,7 @@ def test_bad_route():
 
 # ############################ APPLICATION ROUTES #############################################
 from jobmon.server.web.routes import (
+    array,
     dag,
     node,
     task,

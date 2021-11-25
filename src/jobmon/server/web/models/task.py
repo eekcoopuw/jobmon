@@ -4,7 +4,7 @@ from functools import partial
 from sqlalchemy.sql import func
 from werkzeug.local import LocalProxy
 
-from jobmon.serializers import SerializeSwarmTask, SerializeTask
+from jobmon.serializers import SerializeSwarmTask, SerializeDistributorTask
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
@@ -23,15 +23,12 @@ class Task(DB.Model):
 
     def to_wire_as_distributor_task(self) -> tuple:
         """Serialize executor task object."""
-        serialized = SerializeTask.to_wire(
+        array_id = self.array.id if self.array is not None else None
+        serialized = SerializeDistributorTask.to_wire(
             task_id=self.id,
-            workflow_id=self.workflow_id,
-            node_id=self.node_id,
-            task_args_hash=self.task_args_hash,
+            array_id=array_id,
             name=self.name,
             command=self.command,
-            status=self.status,
-            queue_id=self.task_resources.queue_id,
             requested_resources=self.task_resources.requested_resources,
         )
         return serialized
@@ -45,6 +42,7 @@ class Task(DB.Model):
     workflow_id = DB.Column(DB.Integer, DB.ForeignKey("workflow.id"))
     node_id = DB.Column(DB.Integer, DB.ForeignKey("node.id"))
     task_args_hash = DB.Column(DB.Integer)
+    array_id = DB.Column(DB.Integer, DB.ForeignKey("array.id"), default=None)
     name = DB.Column(DB.String(255))
     command = DB.Column(DB.Text)
     task_resources_id = DB.Column(
@@ -61,6 +59,7 @@ class Task(DB.Model):
     # ORM relationships
     task_instances = DB.relationship("TaskInstance", back_populates="task")
     task_resources = DB.relationship("TaskResources", foreign_keys=[task_resources_id])
+    array = DB.relationship("Array", foreign_keys=[array_id])
 
     # Finite state machine
     valid_transitions = [

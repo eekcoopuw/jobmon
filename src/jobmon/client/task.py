@@ -123,6 +123,10 @@ class Task:
         # pre bind mutable attributes
         self.command = command
 
+        # Initialize array_id as None
+        # Not all tasks bound to an array
+        self.array_id = None
+
         # Names of jobs can't start with a numeric.
         if name is None:
             self.name = f"task_{hash(self)}"
@@ -190,7 +194,7 @@ class Task:
         return self._task_resources
 
     @task_resources.setter
-    def task_resources(self, val: int) -> None:
+    def task_resources(self, val: TaskResources) -> None:
         if not isinstance(val, TaskResources):
             raise ValueError("task_resources must be of type=TaskResources")
         self._task_resources = val
@@ -422,18 +426,20 @@ class Task:
 
     def _add_task(self) -> int:
         """Bind a task to the db with the node, and workflow ids that have been established."""
-        tasks = []
-        task = {
-            "workflow_id": self.workflow_id,
-            "node_id": self.node.node_id,
-            "task_args_hash": self.task_args_hash,
-            "name": self.name,
-            "command": self.command,
-            "max_attempts": self.max_attempts,
-            "task_args": self.task_args,
-            "task_attributes": self.task_attributes,
-        }
-        tasks.append(task)
+        tasks = [
+            {
+                "workflow_id": self.workflow_id,
+                "node_id": self.node.node_id,
+                "array_id": self.array_id,
+                "task_resources_id": self.task_resources.id,
+                "task_args_hash": self.task_args_hash,
+                "name": self.name,
+                "command": self.command,
+                "max_attempts": self.max_attempts,
+                "task_args": self.task_args,
+                "task_attributes": self.task_attributes,
+            }
+        ]
         app_route = "/task"
         return_code, response = self.requester.send_request(
             app_route=app_route,

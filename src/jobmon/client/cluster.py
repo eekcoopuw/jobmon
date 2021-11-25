@@ -157,7 +157,7 @@ class Cluster:
             queue_name: str = resource_params["queue"]
         except KeyError:
             raise ValueError(
-                "A queue name must be provided " "in the specified compute resources."
+                "A queue name must be provided in the specified compute resources."
             )
         queue = self.get_queue(queue_name)
 

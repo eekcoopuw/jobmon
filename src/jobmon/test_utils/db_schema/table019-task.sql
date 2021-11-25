@@ -10,6 +10,7 @@ CREATE TABLE `task` (
   `workflow_id` INTEGER DEFAULT NULL,
   `node_id` INTEGER DEFAULT NULL,
   `task_args_hash` varchar(150) NOT NULL,
+  `array_id` INTEGER DEFAULT NULL,
   `name` varchar(250) DEFAULT NULL,
   `command` text,
   `task_resources_id` INTEGER DEFAULT NULL,
@@ -27,6 +28,7 @@ CREATE TABLE `task` (
 
 ALTER TABLE `task` ADD INDEX `ix_workflow_id` (`workflow_id`);
 ALTER TABLE `task` ADD INDEX `ix_node_id` (`node_id`);
+ALTER TABLE `task` ADD INDEX `ix_array_id` (`array_id`);
 ALTER TABLE `task` ADD INDEX `ix_task_args_hash` (`task_args_hash`);
 ALTER TABLE `task` ADD INDEX `ix_task_resources_id` (`task_resources_id`);
 ALTER TABLE `task` ADD INDEX `ix_status` (`status`);

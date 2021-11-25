@@ -128,6 +128,7 @@ def add_task() -> Any:
                 workflow_id=t["workflow_id"],
                 node_id=t["node_id"],
                 task_args_hash=t["task_args_hash"],
+                array_id=t["array_id"],
                 name=t["name"],
                 command=t["command"],
                 max_attempts=t["max_attempts"],
@@ -217,8 +218,9 @@ def bind_tasks() -> Any:
     bind_to_logger(workflow_id=workflow_id)
     logger.info("Binding tasks")
     # receive from client the tasks in a format of:
-    # {<hash>:[node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5),
-    # reset_if_running(6), task_args(7),task_attributes(8),resource_scales(9)]}
+    # {<hash>:[node_id(1), task_args_hash(2), array_id(3), task_resources_id(4), name(5),
+    # command(6), max_attempts(7), reset_if_running(8),
+    # task_args(9),task_attributes(10),resource_scales(11)]}
 
     # Retrieve existing task_ids
     task_query = """
@@ -254,6 +256,8 @@ def bind_tasks() -> Any:
         (
             node_id,
             arg_hash,
+            array_id,
+            task_resources_id,
             name,
             command,
             max_att,
@@ -281,6 +285,8 @@ def bind_tasks() -> Any:
                 "workflow_id": workflow_id,
                 "node_id": node_id,
                 "task_args_hash": arg_hash,
+                "array_id": array_id,
+                "task_resources_id": task_resources_id,
                 "name": name,
                 "command": command,
                 "max_attempts": max_att,
@@ -492,32 +498,18 @@ def _transform_mem_to_gb(mem_str: Any) -> float:
     return mem
 
 
-@finite_state_machine.route("/task/<task_id>/bind_resources", methods=["POST"])
-def bind_task_resources(task_id: int) -> Any:
-    """Add the task resources for a given task.
-
-    Args:
-        task_id (int): id of the task for which task resources will be added
-    """
-    bind_to_logger(task_id=task_id)
+@finite_state_machine.route("/task/bind_resources", methods=["POST"])
+def bind_task_resources() -> Any:
+    """Add the task resources for a given task."""
     data = request.get_json()
 
-    try:
-        task_id_int = int(task_id)
-    except ValueError:
-        resp = jsonify(msg="task_id {} is not a number".format(task_id))
-        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
-        return resp
-
     new_resources = TaskResources(
-        task_id=task_id_int,
         queue_id=data.get("queue_id", None),
         task_resources_type_id=data.get("task_resources_type_id", None),
         requested_resources=data.get("requested_resources", None),
     )
     DB.session.add(new_resources)
     DB.session.flush()  # get auto increment
-    new_resources.activate()
     DB.session.commit()
 
     resp = jsonify(new_resources.id)

@@ -160,7 +160,6 @@ class WorkflowRun(object):
         chunk_size: int = 500,
     ) -> Dict[int, Task]:
         app_route = "/task/bind_tasks"
-        parameters = {}
         remaining_task_hashes = list(tasks.keys())
 
         while remaining_task_hashes:
@@ -175,23 +174,36 @@ class WorkflowRun(object):
             remaining_task_hashes = remaining_task_hashes[chunk_size:]
 
             # send to server in a format of:
-            # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), name(3),
-            # command(4), max_attempts(5)], reset_if_running(6), task_args(7),
-            # task_attributes(8)}
+            # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), array_id(3),
+            # name(4), command(5), max_attempts(6)], reset_if_running(7), task_args(8),
+            # task_attributes(9)}
             # flat the data structure so that the server won't depend on the client
             task_metadata: Dict[int, List] = {}
             for task_hash in task_hashes_chunk:
+                # Bind task resources first
+                task = tasks[task_hash]
+                task_resources_id = None
+                try:
+                    task.task_resources.bind()
+                    task_resources_id = task.task_resources.id
+                except AttributeError as e:
+                    # task resources should only raise this error if callable is not None
+                    if task.compute_resources_callable is None:
+                        raise e
+
                 task_metadata[task_hash] = [
-                    tasks[task_hash].node.node_id,
-                    str(tasks[task_hash].task_args_hash),
-                    tasks[task_hash].name,
-                    tasks[task_hash].command,
-                    tasks[task_hash].max_attempts,
+                    task.node.node_id,
+                    task.task_args_hash,
+                    task.array_id,
+                    task_resources_id,
+                    task.name,
+                    task.command,
+                    task.max_attempts,
                     reset_if_running,
-                    tasks[task_hash].task_args,
-                    tasks[task_hash].task_attributes,
-                    tasks[task_hash].resource_scales,
-                    tasks[task_hash].fallback_queues,
+                    task.task_args,
+                    task.task_attributes,
+                    task.resource_scales,
+                    task.fallback_queues,
                 ]
             parameters = {
                 "workflow_id": self.workflow_id,
@@ -216,13 +228,5 @@ class WorkflowRun(object):
                 task = tasks[int(k)]
                 task.task_id = return_tasks[k][0]
                 task.initial_status = return_tasks[k][1]
-
-                # Bind the task resources
-                try:
-                    task.task_resources.bind(task.task_id)
-                except AttributeError as e:
-                    # task resources should only raise this error if callable is not None
-                    if task.compute_resources_callable is None:
-                        raise e
 
         return tasks

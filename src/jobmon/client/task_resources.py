@@ -52,15 +52,6 @@ class TaskResources:
         return self._id
 
     @property
-    def task_id(self) -> int:
-        """If the task resources has been bound to the database."""
-        if not self.is_bound:
-            raise AttributeError(
-                "Cannot access task_id until TaskResources is bound to database"
-            )
-        return self._task_id
-
-    @property
     def queue(self) -> ClusterQueue:
         """Return the queue."""
         return self._concrete_resources.queue
@@ -80,14 +71,21 @@ class TaskResources:
         """Return the requester."""
         return self._requester
 
-    def bind(self, task_id: int, task_resources_type_id: str = None) -> None:
+    def bind(self, task_resources_type_id: str = None) -> None:
         """Bind TaskResources to the database."""
-        app_route = f"/task/{task_id}/bind_resources"
+        # Check if it's already been bound
+        if self.is_bound:
+            logger.warning(
+                "This task resource has already been bound, and assigned"
+                f"task_resources_id {self.id}"
+            )
+            return
+
+        app_route = "/task/bind_resources"
         if task_resources_type_id is None:
             task_resources_type_id = self._task_resources_type_id
         msg = {
             "queue_id": self.queue.queue_id,
-            "task_id": task_id,
             "task_resources_type_id": task_resources_type_id,
             "requested_resources": self._requested_resources,
         }
@@ -101,15 +99,12 @@ class TaskResources:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-
         self._id = response
-        self._task_id = task_id
 
     def to_wire(self) -> Dict:
         """Resources to dictionary."""
         return {
             "queue_id": self.queue.queue_id,
-            "task_id": self.task_id,
             "task_resources_type_id": self._task_resources_type_id,
             "requested_resources": self._requested_resources,
         }

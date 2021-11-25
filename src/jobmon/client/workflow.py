@@ -8,6 +8,7 @@ import time
 from typing import Any, Dict, List, Optional, Sequence, Union
 import uuid
 
+from jobmon.client.array import Array
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.client_logging import ClientLogging
 from jobmon.client.cluster import Cluster
@@ -115,6 +116,7 @@ class Workflow(object):
         self._dag = Dag(requester)
         # hash to task object mapping. ensure only 1
         self.tasks: Dict[int, Task] = {}
+        self.arrays: List = []
         self._chunk_size: int = chunk_size
 
         if workflow_args:
@@ -257,6 +259,35 @@ class Workflow(object):
             # add the task
             self.add_task(task)
 
+    def add_array(self, array: Array) -> None:
+        """Add an array and its tasks to the workflow."""
+        if len(array.tasks) == 0:
+            raise ValueError("Cannot bind an array with no tasks.")
+        self.arrays.append(array)
+        self.add_tasks(array.tasks)
+
+    def add_arrays(self, arrays: List[Array]) -> None:
+        """Add multiple arrays to the workflow."""
+        for array in arrays:
+            self.add_array(array)
+
+    def bind_arrays(self) -> None:
+        """Add the arrays to the database.
+
+        Done sequentially instead of in bulk, since scaling not assumed to be a problem
+        with arrays.
+        """
+        for array in self.arrays:
+            cluster = self._get_cluster_by_name(array.default_cluster_name)
+            # Create a task resources object and bind to the array
+            task_resources = cluster.create_valid_task_resources(
+                resource_params=array.default_compute_resources_set,
+                task_resources_type_id=TaskResourcesType.VALIDATED,
+            )
+            task_resources.bind(TaskResourcesType.VALIDATED)
+            array.set_task_resources(task_resources)
+            array.bind(workflow_id=self.workflow_id, cluster_id=cluster.id)
+
     def set_default_compute_resources_from_yaml(
         self, cluster_name: str, yaml_file: str
     ) -> None:
@@ -290,6 +321,17 @@ class Workflow(object):
             cluster_name: name of cluster to set as default.
         """
         self.default_cluster_name = cluster_name
+
+    def get_tasks_by_node_args(
+        self, task_template_name: str, **kwargs: Any
+    ) -> List["Task"]:
+        """Query tasks by node args. Used for setting dependencies."""
+        tasks: List["Task"] = []
+        if self.arrays:
+            for array in self.arrays:
+                if task_template_name == array.task_template_name:
+                    tasks.extend(array.get_tasks_by_node_args(**kwargs))
+        return tasks
 
     def run(
         self,
@@ -425,7 +467,6 @@ class Workflow(object):
             return
 
         self.validate()
-
         # bind dag
         self._dag.bind(self._chunk_size)
 
@@ -496,7 +537,7 @@ class Workflow(object):
         # from it
 
         # Check if there are compute resources for given task, if not set at workflow level
-        # copy params for idepotent operation
+        # copy params for idempotent operation
         resource_params = self.default_compute_resources_set.get(
             cluster_name, {}
         ).copy()
@@ -529,6 +570,9 @@ class Workflow(object):
         client_wfr = ClientWorkflowRun(
             workflow_id=self.workflow_id, requester=self.requester
         )
+
+        # Bind arrays, then tasks
+        self.bind_arrays()
         client_wfr.bind(self.tasks, reset_running_jobs, self._chunk_size)
         self._status = WorkflowStatus.QUEUED
 
@@ -588,7 +632,7 @@ class Workflow(object):
                 for swarm_task in swarm.queue_tasks():
                     task = self.tasks[swarm_task.task_hash]
                     task_resources = self._get_dyamic_task_resources(task)
-                    task_resources.bind(task.task_id)
+                    task_resources.bind()
                     swarm_task.task_resources = task_resources
 
                 # wait till we have new work

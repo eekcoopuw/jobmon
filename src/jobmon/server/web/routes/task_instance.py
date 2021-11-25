@@ -475,7 +475,8 @@ def add_task_instance() -> Any:
     try:
         data = request.get_json()
         task_id = data["task_id"]
-        bind_to_logger(task_id=task_id)
+        array_id = data["array_id"]
+        bind_to_logger(task_id=task_id, array_id=array_id)
         logger.info(f"Add task instance for task {task_id}")
         # query task
         task = DB.session.query(Task).filter_by(id=task_id).first()
@@ -484,8 +485,8 @@ def add_task_instance() -> Any:
         # create task_instance from task parameters
         task_instance = TaskInstance(
             workflow_run_id=data["workflow_run_id"],
-            cluster_type_id=data["cluster_type_id"],
-            task_id=data["task_id"],
+            task_id=task_id,
+            array_id=array_id,
             task_resources_id=task.task_resources_id,
         )
         DB.session.add(task_instance)
@@ -517,6 +518,41 @@ def add_task_instance() -> Any:
             raise ServerError(
                 f"Unexpected Jobmon Server Error in {request.path}", status_code=500
             ) from e
+
+
+@finite_state_machine.route(
+    "/get_array_task_instance_id/<array_id>/<batch_num>/<subtask_id>", methods=['GET']
+)
+def get_array_task_instance_id(array_id: int, batch_num: int, subtask_id: int) -> int:
+    """Given an array ID and an index, select a single task instance ID.
+
+    Task instance IDs that are associated with the array are ordered, and selected by index.
+    This route will be called once per array task instance worker node, so must be scalable."""
+
+    bind_to_logger(array_id=array_id)
+
+    # The subquery will always return values indexed from 1, provided subtask ID must follow
+    # the same pattern.
+    query = """
+        SELECT id
+        FROM
+            (SELECT id, ROW_NUMBER() OVER 
+                (PARTITION BY array_id, array_batch_num ORDER BY id) as rownum
+            FROM task_instance
+            WHERE array_id = :array_id
+            AND array_batch_num = :batch_num) as ranked_ids
+        WHERE rownum = :subtask_id
+    """
+    task_instance_id = (
+        DB.session.query(TaskInstance)
+        .from_statement(text(query))
+        .params(array_id=array_id, batch_num=batch_num, subtask_id=subtask_id)
+        .one()
+    )
+
+    resp = jsonify(task_instance_id=task_instance_id.id)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @finite_state_machine.route(
@@ -660,6 +696,74 @@ def log_unknown_error(task_instance_id: int) -> Any:
     return resp
 
 
+@finite_state_machine.route(
+    "/task_instance/record_array_batch_num/<batch_num>", methods=["POST"]
+)
+def record_array_batch_num(batch_num: int) -> Any:
+    """Record a batch number to associate sets of task instances with an array submission."""
+    data = request.get_json()
+    task_instance_ids = data['task_instance_ids']
+
+    task_instance_ids = ",".join(f'{x}' for x in task_instance_ids)
+
+    update_stmt = f"""
+        UPDATE task_instance
+        SET array_batch_num = {batch_num}
+        WHERE id IN ({task_instance_ids})
+    """
+    DB.session.execute(update_stmt)
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route("/task_instance/transition/<new_status>", methods=["POST"])
+def transition_task_instances(new_status: str) -> Any:
+    """Attempt to transition a task instance to the new status"""
+    data = request.get_json()
+    task_instance_ids = data['task_instance_ids']
+    array_id = data.get('array_id', None)
+    distributor_id = data['distributor_id']
+
+    if array_id is not None:
+        bind_to_logger(array_id=array_id)
+
+    task_instance_ids = ",".join(f'{x}' for x in task_instance_ids)
+
+    query = f"""
+        SELECT
+            task_instance.*
+        FROM
+            task_instance
+        WHERE
+            task_instance.id IN ({task_instance_ids})
+    """
+    task_instances = (
+        DB.session.query(TaskInstance)
+        .from_statement(text(query))
+        .all()
+    )
+
+    # Attempt a transition for each task instance
+    erroneous_transitions = []
+    for ti in task_instances:
+        # Attach the distributor ID
+        ti.distributor_id = distributor_id
+        response = _update_task_instance_state(ti, new_status)
+        if len(response) > 0:
+            # Task instances that fail to transition log a message, but are returned with
+            # their existing state (no exceptions raised).
+            erroneous_transitions.append(ti)
+
+    DB.session.flush()
+    DB.session.commit()
+    resp = jsonify(erroneous_transitions={ti.id: ti.status for ti in erroneous_transitions})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 # ############################ HELPER FUNCTIONS ###############################
 def _update_task_instance_state(task_instance: TaskInstance, status_id: str) -> Any:
     """Advance the states of task_instance and it's associated Task.
@@ -683,6 +787,7 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str) -> 
                 f"{status_id}"
             )
             logger.warning(msg)
+            response += msg
         else:
             # Tried to move to an illegal state
             msg = (
@@ -691,23 +796,18 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str) -> 
                 f"{status_id}"
             )
             logger.error(msg)
+            response += msg
     except KillSelfTransition:
         msg = f"kill self, cannot transition tid={task_instance.id}"
         logger.warning(msg)
-        response = "kill self"
+        response += msg
     except Exception as e:
-        msg = (
-            f"General exception in _update_task_instance_state, "
-            f"jid {task_instance}, transitioning to {task_instance}. "
-            f"Not transitioning task. {e}"
-        )
         raise ServerError(
             f"General exception in _update_task_instance_state, jid "
             f"{task_instance}, transitioning to {task_instance}. Not "
             f"transitioning task. Server Error in {request.path}",
             status_code=500,
         ) from e
-
     return response
 
 

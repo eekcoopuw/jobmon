@@ -68,6 +68,20 @@ class ClusterDistributor(Protocol):
         """Return the name of the cluster type."""
         raise NotImplementedError
 
+    @staticmethod
+    @abstractmethod
+    def array_subtask_id() -> int:
+        """Pull a distinguishing variable that allows separation of array subtasks.
+
+        For clusters that support array task submission, the plugin must implement
+        a method that returns a distinguishing variable to separate task instances.
+        For example, UGE and SLURM array sub-tasks can pull this variable from the
+        environment.
+
+        Always assumed to be a value in the range [0, len(array)).
+        """
+        raise NotImplementedError
+
     @abstractmethod
     def start(self) -> None:
         """Start the distributor."""
@@ -120,24 +134,47 @@ class ClusterDistributor(Protocol):
         """
         raise NotImplementedError
 
-    def build_worker_node_command(self, task_instance_id: int) -> str:
+    @abstractmethod
+    def submit_array_to_batch_distributor(
+        self, command: str, name: str, requested_resources: Dict[str, Any]
+    ) -> int:
+        """Submit an array task to the underlying distributor and return a distributor_id.
+
+        The distributor ID represents the ID of the overall array job, sub-tasks will have
+        their own associated IDs.
+
+        Args:
+            command: the array worker node command to run
+            name: name of the array
+            requested_resources: resources with which to run the array
+
+        Returns:
+             distributor_id of the overall array
+        """
+        raise NotImplementedError
+
+    def build_worker_node_command(
+            self, task_instance_id: Optional[int] = None, array_id: Optional[int] = None,
+            batch_number: Optional[int] = None
+    ) -> str:
         """Build a command that can be executed by the worker_node.
 
         Args:
             task_instance_id: id for the given instance of this task
+            array_id: id for the array if using an array strategy
+            batch_number: if array strategy is used, the submission counter index to use
 
         Returns:
             (str) unwrappable command
         """
-        wrapped_cmd = [
-            "worker_node",
-            "--task_instance_id",
-            task_instance_id,
-            "--expected_jobmon_version",
-            __version__,
-            "--cluster_type_name",
-            self.cluster_type_name,
-        ]
+        wrapped_cmd = ["worker_node"]
+        if task_instance_id is not None:
+            wrapped_cmd.extend(["--task_instance_id", task_instance_id])
+        if array_id is not None:
+            wrapped_cmd.extend(["--array_id", array_id])
+        if batch_number is not None:
+            wrapped_cmd.extend(["--batch_number", batch_number])
+        wrapped_cmd.extend(["--expected_jobmon_version", __version__, "--cluster_type_name", self.cluster_type_name])
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         return str_cmd
 
