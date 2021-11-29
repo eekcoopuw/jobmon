@@ -510,7 +510,7 @@ class DistributorService:
             report_by_buffer = (
                 self._task_instance_heartbeat_interval * self._report_by_buffer
             )
-            task_instance.register_submission_to_batch_distributor(
+            task_instance.transition_to_launched(
                 distributor_id, report_by_buffer
             )
             self._submitted_or_running[distributor_id] = task_instance
