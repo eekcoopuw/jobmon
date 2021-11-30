@@ -467,7 +467,10 @@ class DistributorService:
 
         tasks = [
             DistributorTask.from_wire(
-                t, self.distributor.__class__.__name__, self.requester
+                task_id=t,
+                name=self.distributor.__class__.__name__,
+                requester=self.requester,
+                cluster_type_id=self.cluster_type_id
             )
             for t in response["task_dcts"]
         ]

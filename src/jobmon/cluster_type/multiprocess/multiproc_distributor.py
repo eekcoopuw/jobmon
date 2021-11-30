@@ -239,7 +239,7 @@ class MultiprocessDistributor(ClusterDistributor):
         return list(self._running_or_submitted.keys())
 
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: dict
+        self, command: str, name: str, requested_resources: dict, array_length: int = 0
     ) -> int:
         """Execute a task instance."""
         distributor_id = self._next_distributor_id

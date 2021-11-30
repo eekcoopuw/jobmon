@@ -118,7 +118,7 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any]
+        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int = 0
     ) -> int:
         """Submit the command on the cluster technology and return a distributor_id.
 
@@ -131,6 +131,7 @@ class ClusterDistributor(Protocol):
             command: command to be run
             name: name of task
             requested_resources: resource requests sent to distributor API
+            array_length: the length of the array job
         """
         raise NotImplementedError
 
@@ -150,11 +151,11 @@ class ClusterDistributor(Protocol):
         """
         wrapped_cmd = ["worker_node"]
         if task_instance_id is not None:
-            wrapped_cmd.extend(["--task_instance_id", task_instance_id])
+            wrapped_cmd.extend(["--task_instance_id", str(task_instance_id)])
         if array_id is not None:
-            wrapped_cmd.extend(["--array_id", array_id])
+            wrapped_cmd.extend(["--array_id", str(array_id)])
         if batch_number is not None:
-            wrapped_cmd.extend(["--batch_number", batch_number])
+            wrapped_cmd.extend(["--batch_number", str(batch_number)])
         wrapped_cmd.extend(["--expected_jobmon_version", __version__, "--cluster_type_name", self.cluster_type_name])
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         return str_cmd

@@ -71,6 +71,20 @@ def call_get_array_task_instance_id(array_id, batch_num, client_env):
 
 
 def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array_template):
+    from jobmon.serializers import SerializeClusterType
+
+    app_route = f"/cluster_type/sequential"
+    requester = Requester(client_env)
+    rc, resp = requester.send_request(
+        app_route=app_route,
+        message={},
+        request_type='get'
+    )
+    cluster_type_kwargs = SerializeClusterType.kwargs_from_wire(
+        resp["cluster_type"]
+    )
+    cluster_type_id = cluster_type_kwargs["id"]
+
     array1 = array_template.create_array(arg=[1, 2, 3], cluster_name="sequential",
                                          compute_resources={"queue": "null.q"})
 
@@ -98,7 +112,8 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
                         name='array_ti',
                         command=t.command,
                         requested_resources=t.compute_resources,
-                        requester=requester)
+                        requester=requester,
+                        cluster_type_id=cluster_type_id)
         for t in array1.tasks
     ]
 
@@ -106,7 +121,8 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
                                               array_id=None,
                                               command=task_1.command,
                                               requested_resources=task_1.compute_resources,
-                                              requester=requester)
+                                              requester=requester,
+                                              cluster_type_id=cluster_type_id)
 
     # Move all tasks to Q state
     for tid in (t.task_id for t in array1.tasks):

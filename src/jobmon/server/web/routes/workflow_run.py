@@ -363,25 +363,3 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/workflow_run/<workflow_run_id>/get_task_by_status", methods=["GET"])
-def get_task_instances_by_status(workflow_run_id: int) -> Any:
-    bind_to_logger(workflow_run_id=workflow_run_id)
-    logger.info(f"get_task_instances_by_status wfr: {workflow_run_id}")
-    status = request.args.get("status")
-    tis = []
-    if status is not None:
-        sql = """
-            SELECT id
-            FROM task_instance, workflow_run
-            WHERE workflow_run.id = {wfr_id}
-            AND task_instance.workflow_run_id = workflow_run.id
-            AND task_instance.status = {s}
-        """.format(wfr_id=workflow_run_id, s=status)
-        rows = DB.session.execute(sql).fetchall()
-        if rows is not None:
-            for r in rows:
-                tis.append(r["id"])
-    resp = jsonify(tis=tis)
-    resp.status_code = StatusCodes.OK
-    return resp
-

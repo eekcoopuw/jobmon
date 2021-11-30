@@ -107,7 +107,7 @@ class SequentialDistributor(ClusterDistributor):
         )
 
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any]
+        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int = 0
     ) -> int:
         """Execute sequentially."""
         # add an executor id to the environment

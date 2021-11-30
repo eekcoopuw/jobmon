@@ -103,7 +103,7 @@ class DummyDistributor(ClusterDistributor):
         raise NotImplementedError
 
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any]
+        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int = 0
     ) -> int:
         """Run a fake execution of the task.
 
