@@ -90,8 +90,9 @@ class DistributorWorkflowRun:
 
     @property
     def running_array_task_instances(self) -> List[DistributorTaskInstance]:
-        """Return a list of launched task_instances"""
-        pass
+        """Return a list of running task_instances"""
+        all_tis = self._task_instances.keys()
+
 
     def get_queued_tasks(self, queued_tasks_bulk_query_size: int) -> List[DistributorTask]:
         """Retrieve a list of task that are in queued state"""
