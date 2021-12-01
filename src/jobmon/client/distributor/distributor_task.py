@@ -26,7 +26,6 @@ class DistributorTask:
         command: str,
         requested_resources: dict,
         requester: Requester,
-        cluster_type_id: Optional[int]
     ) -> None:
         """This is a Task object used on the client side when constructing task instances.
 
@@ -43,7 +42,6 @@ class DistributorTask:
         self.name = name
         self.command = command
         self.requested_resources = requested_resources
-        self.cluster_type_id = cluster_type_id
         self.requester = requester
 
     @classmethod
@@ -99,11 +97,11 @@ class DistributorTask:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-
+        import pdb
+        pdb.set_trace()
         distributor_ti = DistributorTaskInstance.from_wire(
             response["task_instance"],
             requester=self.requester,
-            cluster_type_id=self.cluster_type_id
         )
         distributor_ti.name = self.name
         distributor_ti.requested_resources = self.requested_resources

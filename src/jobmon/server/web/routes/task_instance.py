@@ -336,7 +336,7 @@ def get_suspicious_task_instances(workflow_run_id: int) -> Any:
     query = """
         SELECT
             task_instance.id, task_instance.workflow_run_id,
-            task_instance.distributor_id
+            task_instance.distributor_id, task_instance.cluster_type_id
         FROM
             task_instance
         WHERE
@@ -384,7 +384,7 @@ def get_task_instances_to_terminate(workflow_run_id: int) -> Any:
     query = """
         SELECT
             task_instance.id, task_instance.workflow_run_id,
-            task_instance.distributor_id
+            task_instance.distributor_id, task_instance.cluster_type_id
         FROM
             task_instance
         WHERE

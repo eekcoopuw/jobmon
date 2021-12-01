@@ -470,8 +470,7 @@ class DistributorService:
                 task_id=t,
                 name=self.distributor.__class__.__name__,
                 requester=self.requester,
-                cluster_type_id=self.cluster_type_id
-            )
+                )
             for t in response["task_dcts"]
         ]
         self._to_instantiate = tasks

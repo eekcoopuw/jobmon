@@ -224,8 +224,6 @@ class WorkflowRun:
 
         # While something is running and there is nothing ready to run
         while self.active_tasks and not self.ready_to_run:
-            import pdb
-            pdb.set_trace()
             # make sure we haven't timed out
             if time_since_last_update > seconds_until_timeout:
                 raise RuntimeError(

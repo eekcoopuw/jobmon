@@ -51,7 +51,7 @@ class DistributorTaskInstance:
 
     @classmethod
     def from_wire(
-        cls: Any, wire_tuple: tuple, cluster_type_id: str, requester: Requester
+        cls: Any, wire_tuple: tuple, requester: Requester
     ) -> DistributorTaskInstance:
         """Create an instance from json that the JQS returns.
 
@@ -69,7 +69,7 @@ class DistributorTaskInstance:
         ti = cls(
             task_instance_id=kwargs["task_instance_id"],
             workflow_run_id=kwargs["workflow_run_id"],
-            cluster_type_id=cluster_type_id,
+            cluster_type_id=kwargs["cluster_type_id"],
             distributor_id=kwargs["distributor_id"],
             requester=requester,
         )

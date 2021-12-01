@@ -14,6 +14,7 @@ class SerializeDistributorTask:
         name: str,
         command: str,
         requested_resources: dict,
+        cluster_type_id: int,
     ) -> tuple:
         """Submitting the above args to the database for an DistributorTask object."""
         return (
@@ -22,6 +23,7 @@ class SerializeDistributorTask:
             name,
             command,
             requested_resources,
+            cluster_type_id,
         )
 
     @staticmethod
@@ -39,6 +41,7 @@ class SerializeDistributorTask:
             "requested_resources": {}
             if wire_tuple[4] is None
             else ast.literal_eval(wire_tuple[4]),
+            "cluster_type_id": wire_tuple[5]
         }
 
 
@@ -61,10 +64,11 @@ class SerializeTaskInstance:
 
     @staticmethod
     def to_wire(
-        task_instance_id: int, workflow_run_id: int, distributor_id: Union[int, None]
+        task_instance_id: int, workflow_run_id: int, distributor_id: Union[int, None],
+        cluster_type_id: Optional[int] = 0
     ) -> tuple:
         """Submit the above args for an DistributorTaskInstance object to the database."""
-        return task_instance_id, workflow_run_id, distributor_id
+        return task_instance_id, workflow_run_id, distributor_id, cluster_type_id
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
@@ -74,6 +78,7 @@ class SerializeTaskInstance:
             "task_instance_id": int(wire_tuple[0]),
             "workflow_run_id": int(wire_tuple[1]),
             "distributor_id": distributor_id,
+            "cluster_type_id": int(wire_tuple[3])
         }
 
 
