@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_task import DistributorTask
@@ -165,6 +165,27 @@ class DistributorWorkflowRun:
         else:
             self._registered_task_instance_ids.append(task_instance.task_instance_id)
 
+    def transition_task_instance(self, array_id: Optional[int], task_instance_ids: List[int],
+                                 distributor_id: int, status: TaskInstanceStatus):
+        app_route = f"/task_instance/transition/{status}"
+        rc, resp = self.requester.send_request(
+            app_route=app_route,
+            message={
+                'array_id': array_id,
+                # TODO: Will bulk update be too slow? Should we chunk?
+                'task_instance_ids': task_instance_ids,
+                'distributor_id': distributor_id
+            },
+            request_type='post'
+        )
+        if not http_request_ok(rc):
+            raise InvalidResponse(
+                f"Unexpected status code {rc} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {resp}"
+            )
+        return resp
+
     def launch_task_instance(
         self,
         task_instance: DistributorTaskInstance,
@@ -172,10 +193,30 @@ class DistributorWorkflowRun:
     ):
         """
         submits a task instance on a given distributor.
-
         adds the new task instance to self.submitted_or_running_task_instances
         """
-        pass
+        # Fetch the worker node command
+        command = cluster.build_worker_node_command(
+            task_instance_id=task_instance.task_instance_id
+        )
+        # Submit to batch distributor
+        distributor_id = cluster.submit_to_batch_distributor(
+            command=command,
+            name=task_instance.name,
+            requested_resources=task_instance.requested_resources
+        )
+
+        resp = self.transition_task_instance(array_id=None,
+                                             task_instance_ids=[task_instance.task_instance_id],
+                                             distributor_id=distributor_id,
+                                             status=TaskInstanceStatus.LAUNCHED)
+
+        # Pull unsuccessful transitions from the response, and add to a triaging queue
+        erroneous_ti_transitions = resp['erroneous_transitions']
+        self._triaging_queue.extend(erroneous_ti_transitions)
+
+        # Return ti_distributor_id
+        return distributor_id
 
     def launch_array_instance(
         self,
@@ -206,23 +247,10 @@ class DistributorWorkflowRun:
         self._launched_array_task_instance_ids.extend(ids_to_launch)
         array.clear_registered_task_registry()
 
-        app_route = f"/task_instance/transition/{TaskInstanceStatus.LAUNCHED}"
-        rc, resp = self.requester.send_request(
-            app_route=app_route,
-            message={
-                'array_id': array.array_id,
-                # TODO: Will bulk update be too slow? Should we chunk?
-                'task_instance_ids': tuple(ids_to_launch),
-                'distributor_id': array_distributor_id
-            },
-            request_type='post'
-        )
-        if not http_request_ok(rc):
-            raise InvalidResponse(
-                f"Unexpected status code {rc} from POST "
-                f"request through route {app_route}. Expected "
-                f"code 200. Response content: {resp}"
-            )
+        resp = self.transition_task_instance(array_id=array.array_id,
+                                             task_instance_ids=ids_to_launch,
+                                             distributor_id=array_distributor_id,
+                                             status=TaskInstanceStatus.LAUNCHED)
 
         # Pull unsuccessful transitions from the response, and add to a triaging queue
         erroneous_ti_transitions = resp['erroneous_transitions']

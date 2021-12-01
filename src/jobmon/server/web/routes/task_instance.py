@@ -724,15 +724,27 @@ def transition_task_instances(new_status: str) -> Any:
     """Attempt to transition a task instance to the new status"""
     data = request.get_json()
     task_instance_ids = data['task_instance_ids']
-    array_id = data['array_id']
+    array_id = data.get('array_id', None)
     distributor_id = data['distributor_id']
 
-    bind_to_logger(array_id=array_id)
+    if array_id is not None:
+        bind_to_logger(array_id=array_id)
 
+    task_instance_ids = ",".join(f'{x}' for x in task_instance_ids)
+
+    query = f"""
+        SELECT
+            task_instance.*
+        FROM
+            task_instance
+        WHERE
+            task_instance.id IN ({task_instance_ids})
+    """
     task_instances = (
         DB.session.query(TaskInstance)
-        .filter(TaskInstance.id.in_(task_instance_ids))
-    ).all()
+        .from_statement(text(query))
+        .all()
+    )
 
     # Attempt a transition for each task instance
     erroneous_transitions = []
