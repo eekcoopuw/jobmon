@@ -120,6 +120,25 @@ class ClusterDistributor(Protocol):
         """
         raise NotImplementedError
 
+    @abstractmethod
+    def submit_array_to_batch_distributor(
+        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
+    ) -> int:
+        """Submit an array task to the underlying distributor and return a distributor_id.
+
+        The distributor ID represents the ID of the overall array job, sub-tasks will have
+        their own associated IDs.
+
+        Args:
+            command: the array worker node command to run
+            name: name of the array
+            requested_resources: resources with which to run the array
+            array_length: how many tasks associated with the array
+        Returns:
+             distributor_id of the overall array
+        """
+        raise NotImplementedError
+
     def build_worker_node_command(
             self, task_instance_id: Optional[int] = None, array_id: Optional[int] = None,
             batch_number: Optional[int] = None

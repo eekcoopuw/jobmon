@@ -107,14 +107,9 @@ class SequentialDistributor(ClusterDistributor):
         )
 
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any],
-        array_length: int = 0
+        self, command: str, name: str, requested_resources: Dict[str, Any]
     ) -> int:
         """Execute sequentially."""
-        # Array submission for sequential execution not supported, runs a single instance.
-        if array_length > 0:
-            logger.warning("Array submission for sequential execution not supported, "
-                           "only a single instance will be run.")
         # add an executor id to the environment
         os.environ["JOB_ID"] = str(self._next_distributor_id)
         distributor_id = self._next_distributor_id
@@ -133,6 +128,15 @@ class SequentialDistributor(ClusterDistributor):
 
         self._exit_info[distributor_id] = exit_code
         return distributor_id
+
+    def submit_array_to_batch_distributor(
+        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
+    ) -> int:
+        """Submit an array task to the sequential cluster."""
+        logger.warning("Array tasks are not actually implemented in the sequential "
+                       "distributor. This method just returns sequential submission.")
+        return self.submit_to_batch_distributor(command=command, name=name,
+                                                requested_resources=requested_resources)
 
 
 class SequentialWorkerNode(ClusterWorkerNode):

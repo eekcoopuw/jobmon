@@ -103,8 +103,7 @@ class DummyDistributor(ClusterDistributor):
         raise NotImplementedError
 
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any],
-        array_length: int = 0
+        self, command: str, name: str, requested_resources: Dict[str, Any]
     ) -> int:
         """Run a fake execution of the task.
 
@@ -131,6 +130,12 @@ class DummyDistributor(ClusterDistributor):
         worker_node_task_instance.log_done()
 
         return distributor_id
+
+    def submit_array_to_batch_distributor(
+        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
+    ) -> int:
+        """Runs a fake execution of the task, exactly like regular submit to batch."""
+        return self.submit_to_batch_distributor(command, name, requested_resources)
 
     def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
