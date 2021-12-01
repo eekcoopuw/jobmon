@@ -97,11 +97,10 @@ class DistributorTask:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-        import pdb
-        pdb.set_trace()
         distributor_ti = DistributorTaskInstance.from_wire(
             response["task_instance"],
             requester=self.requester,
+            array_id=self.array_id
         )
         distributor_ti.name = self.name
         distributor_ti.requested_resources = self.requested_resources

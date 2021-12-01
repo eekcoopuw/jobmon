@@ -24,6 +24,7 @@ class DistributorTaskInstance:
         cluster_type_id: int,
         requester: Requester,
         distributor_id: Optional[int] = None,
+        array_id: Optional[int] = None
     ) -> None:
         """Initialization of distributor task instance.
 
@@ -46,7 +47,7 @@ class DistributorTaskInstance:
         self.error_msg = ""
 
         self.cluster_type_id = cluster_type_id
-
+        self.array_id = array_id
         self.requester = requester
 
     @classmethod
