@@ -65,20 +65,24 @@ class SerializeTaskInstance:
     @staticmethod
     def to_wire(
         task_instance_id: int, workflow_run_id: int, distributor_id: Union[int, None],
-        cluster_type_id: Optional[int] = 0
+        cluster_type_id: Optional[int] = 0, array_id: Optional[int] = None
     ) -> tuple:
         """Submit the above args for an DistributorTaskInstance object to the database."""
-        return task_instance_id, workflow_run_id, distributor_id, cluster_type_id
+        return task_instance_id, workflow_run_id, distributor_id, cluster_type_id, array_id
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Retrieve the DistributorTaskInstance information from the database."""
         distributor_id = int(wire_tuple[2]) if wire_tuple[2] else None
+        # TODO: This should not be None.
+        cluster_type_id = int(wire_tuple[3]) if wire_tuple[3] else None
+        array_id = int(wire_tuple[4]) if wire_tuple[4] else None
         return {
             "task_instance_id": int(wire_tuple[0]),
             "workflow_run_id": int(wire_tuple[1]),
             "distributor_id": distributor_id,
-            "cluster_type_id": int(wire_tuple[3])
+            "cluster_type_id": cluster_type_id,
+            "array_id": array_id
         }
 
 

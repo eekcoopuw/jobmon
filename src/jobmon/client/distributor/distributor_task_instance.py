@@ -72,6 +72,7 @@ class DistributorTaskInstance:
             workflow_run_id=kwargs["workflow_run_id"],
             cluster_type_id=kwargs["cluster_type_id"],
             distributor_id=kwargs["distributor_id"],
+            array_id=kwargs["array_id"],
             requester=requester,
         )
         return ti

@@ -100,7 +100,6 @@ class DistributorTask:
         distributor_ti = DistributorTaskInstance.from_wire(
             response["task_instance"],
             requester=self.requester,
-            array_id=self.array_id
         )
         distributor_ti.name = self.name
         distributor_ti.requested_resources = self.requested_resources
