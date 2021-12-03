@@ -160,7 +160,12 @@ class DistributorWorkflowRun:
         self._running_array_task_instance_ids: _tiList= _tiList()
 
         # Triaging queue
+        # I may not need this; haven't decided yet
         self._triaging_queue = _tiList()
+
+        # flags to mark whether workflow_run completes w/o errors
+        self.wfr_completed = False
+        self.wfr_has_failed_tis = False
 
     @property
     def arrays(self) -> List[DistributorArray]:
@@ -416,6 +421,8 @@ class DistributorWorkflowRun:
                                          
               remove list(1) from _running_task_instance_ids
               get status of tis in list(2) from distributor; update their status if D or E; otherwise, E
+              
+              If any E, set self.wfr_has_failed_tis = True
         """
 
         # checking launching ti
@@ -427,6 +434,7 @@ class DistributorWorkflowRun:
               remove list(1) from _launched_array_task_instance_ids and add it to _running_task_instance_ids if in R
               get status of tis in list(2) from distributor; update their status update their status if R, D or E; otherwise, E; move to _running_task_instance_ids if R
              
+              If any E, set self.wfr_has_failed_tis = True
         """
 
         # checking registered ti
@@ -437,4 +445,9 @@ class DistributorWorkflowRun:
         # ****************************************************************
         """
         TODO: do above for array
+        """
+        # ****************************************************************
+
+        """
+        TODO: if all the _tiLink queues are empty, set self.wfr_completed = True
         """
