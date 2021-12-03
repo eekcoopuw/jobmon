@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_task import DistributorTask
@@ -17,12 +17,13 @@ class _WorkflowRunMaps:
     """
     This class holds the datastructure to map wfr ID, distributor ID, and DistributorTaskInstance.
     """
+
     def __init__(self):
         #  map of task instance id and DistributorTaskInstance
         self._map_tiid_DistributorTaskInstance = dict()
         # map of task instance id and distributor id
         self._map_tiid_did = dict()
-        # map of distributor id and task instance id
+        # map of distributor id and task instance id; one to many
         self._map_did_tiid = dict()
         # map for array id and DistributorArray
         self._map_aid_DistributorArray = dict()
@@ -48,21 +49,19 @@ class _WorkflowRunMaps:
             self._map_tiid_DistributorTaskInstance[tiid] = ti
             self._map_tiid_did[tiid] = distributorid
             if distributorid is not None:
-                self._map_did_tiid = tiid
+                if distributorid in self._map_did_tiid.keys():
+                    self._map_did_tiid[distributorid].add(tiid)
+                else:
+                    self._map_did_tiid[distributorid] = set(tiid)
 
     def get_DistributorTaskInstance_by_id(self, tid: int) -> DistributorTaskInstance:
         """Return DistributorTaskInstance by task instance id."""
-        if tid in self._map_tiid_DistributorTaskInstance.keys():
-            return self._map_tiid_DistributorTaskInstance[tid]
-        else:
-            return None
+        return self._map_tiid_DistributorTaskInstance[tid]
 
-    def get_DistributorTaskInstance_by_did(self, did: int) -> DistributorTaskInstance:
+    def get_DistributorTaskInstance_by_did(self, did: int) -> List[DistributorTaskInstance]:
         """Return DistributorTaskInstance by distributor id."""
-        if did in self._map_did_tiid.keys():
-            return self._map_tiid_DistributorTaskInstance[self._map_did_tiid[did]]
-        else:
-            return None
+        tiids = list(self._map_did_tiid[did])
+        return [self._map_tiid_DistributorTaskInstance[tiid] for tiid in tiids]
 
     def get_task_instance_ids(self) -> List[int]:
         """Returns all task instance ids."""
@@ -70,7 +69,7 @@ class _WorkflowRunMaps:
 
     def get_task_instances(self) -> List[DistributorTaskInstance]:
         """Return all task instances."""
-        return self._map_tiid_did.values()
+        return self._map_tiid_DistributorTaskInstance.values()
 
     def get_DistributorArray(self, a_id: int) -> DistributorArray:
         """Return DistributorArray by array id."""
@@ -84,6 +83,50 @@ class _WorkflowRunMaps:
         """Return all arrays."""
         return self._map_aid_DistributorArray.values()
 
+
+class _tiList:
+    """This is the linked list for ti in different states."""
+
+    def __init__(self):
+        self.tis = set()
+
+    @property
+    def ids(self) -> List[int]:
+        return list(self.tis)
+
+    @property
+    def length(self) -> int:
+        return len(self.tis)
+
+    def add(self, i: int):
+        self.tis.add(i)
+
+    def extend(self, ids: List[int]):
+        for i in ids:
+            self.add(i)
+
+    def pop(self, i: int) -> Optional[int]:
+        """Remove one ti."""
+        if i in self.tis:
+            self.tis.pop(i)
+            return i
+        else:
+            return None
+
+    def remove(self, tis: List[int]) -> List:
+        """Remove a list of tis."""
+        return_list = []
+        for ti in tis:
+            t = self.pop(ti)
+            if t:
+                return_list.append(t)
+        return return_list
+
+    def get_distributortis(self, map: _WorkflowRunMaps) -> List[DistributorTaskInstance]:
+        return_list = set()
+        for ti in self.tis:
+            return_list.add(map.get_DistributorTaskInstance_by_id(ti))
+        return list(return_list)
 
 class DistributorWorkflowRun:
     """
@@ -107,17 +150,17 @@ class DistributorWorkflowRun:
         # lists of task_instance_ids in different states. used for property views into
         # self._task_instances dict. This gets refreshed from the db during
         # self.get_task_instance_status_updates
-        self._registered_task_instance_ids: List[int] = []
-        self._launched_task_instance_ids: List[int] = []
-        self._running_task_instance_ids: List[int] = []
+        self._registered_task_instance_ids: _tiList = _tiList()
+        self._launched_task_instance_ids: _tiList = _tiList()
+        self._running_task_instance_ids: _tiList = _tiList()
 
         # mapping of array_id to DistributorArray. stores the queue of task_instances to be
         # instantiated using the array strategy.
-        self._launched_array_task_instance_ids: List[int] = []
-        self._running_array_task_instance_ids: List[int] = []
+        self._launched_array_task_instance_ids: _tiList = _tiList()
+        self._running_array_task_instance_ids: _tiList= _tiList()
 
         # Triaging queue
-        self._triaging_queue = []
+        self._triaging_queue = _tiList()
 
     @property
     def arrays(self) -> List[DistributorArray]:
@@ -133,19 +176,19 @@ class DistributorWorkflowRun:
     def registered_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of registered task_instances"""
         return [DistributorTaskInstance(tid, self.workflow_run_id) for tid in
-                self._registered_task_instance_ids]
+                self._registered_task_instance_ids.ids]
 
     @property
     def launched_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of launched task_instances"""
         return [DistributorTaskInstance(tid, self.workflow_run_id) for tid in
-                self._launched_array_task_instance_ids]
+                self._launched_array_task_instance_ids.ids]
 
     @property
     def running_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of running task_instances"""
         return [DistributorTaskInstance(tid, self.workflow_run_id) for tid in
-                self._running_array_task_instance_ids]
+                self._running_array_task_instance_ids.ids]
 
     @property
     def registered_array_task_instances(self) -> List[DistributorTaskInstance]:
@@ -166,7 +209,7 @@ class DistributorWorkflowRun:
         task_instances: List[DistributorTaskInstance] = []
         for array in self.arrays:
             array_task_instances = [self._map.get_DistributorTaskInstance_by_id(tiid)
-                                    for tiid in array._launched_array_task_instance_ids]
+                                    for tiid in array._launched_array_task_instance_ids.ids]
             task_instances.extend(array_task_instances)
         return task_instances
 
@@ -176,7 +219,7 @@ class DistributorWorkflowRun:
         task_instances: List[DistributorTaskInstance] = []
         for array in self.arrays:
             array_task_instances = [self._map.get_DistributorTaskInstance_by_id(tiid)
-                                    for tiid in array._running_array_task_instance_ids]
+                                    for tiid in array._running_array_task_instance_ids.ids]
             task_instances.extend(array_task_instances)
         return task_instances
 
@@ -251,10 +294,10 @@ class DistributorWorkflowRun:
 
         # otherwise add to the registered list
         else:
-            self._registered_task_instance_ids.append(task_instance.task_instance_id)
+            self._registered_task_instance_ids.add(task_instance.task_instance_id)
 
     def transition_task_instance(self, array_id: Optional[int], task_instance_ids: List[int],
-                                 distributor_id: int, status: TaskInstanceStatus):
+                                 distributor_id: int, status: TaskInstanceStatus) -> Any:
         app_route = f"/task_instance/transition/{status}"
         rc, resp = self.requester.send_request(
             app_route=app_route,
@@ -274,7 +317,7 @@ class DistributorWorkflowRun:
             )
         return resp
 
-    def launch_task_instance(
+       def launch_task_instance(
         self,
         task_instance: DistributorTaskInstance,
         cluster: ClusterDistributor
@@ -346,3 +389,52 @@ class DistributorWorkflowRun:
         self._triaging_queue.extend(erroneous_ti_transitions)
 
         return array_distributor_id
+
+    def _log_workflow_run_heartbeat(self) -> None:
+        """Log heartbeat to db and increase next expected time."""
+        """TODO: """
+        pass
+
+    def heartbeat(self) -> None:
+        """Log heartbeats."""
+        # log heartbeats for tasks queued for batch execution and for the
+        # workflow run
+        logger.debug("Distributor: logging heartbeat")
+        self._log_workflow_run_heartbeat()  # update hearbeat time in DB
+
+        # a dict of listed ti by state that needs to move to other queue
+        ti_queues = {"B":[],  # launch
+                     "R": []  # run
+                     }
+        array_queues = {"B": [], "R": []}
+
+        # Checking running ti
+        """
+        TODO: query the server status of _running_task_instance_ids
+              get two lists from server: the list(1) of tis that no longer in R
+                                         the list(2) of tis in R but exceeds ti heartbeat time
+                                         
+              remove list(1) from _running_task_instance_ids
+              get status of tis in list(2) from distributor; update their status if D or E; otherwise, E
+        """
+
+        # checking launching ti
+        """
+        TODO: query the server status of _launched_array_task_instance_ids
+              get two lists from server: the list(1) of tis that no longer in R
+                                         the list(2) of tis in R but exceeds ti heartbeat time
+                                         
+              remove list(1) from _launched_array_task_instance_ids and add it to _running_task_instance_ids if in R
+              get status of tis in list(2) from distributor; update their status update their status if R, D or E; otherwise, E; move to _running_task_instance_ids if R
+             
+        """
+
+        # checking registered ti
+        """
+        TODO: submit those tis that are ready, and move them to _launched_array_task_instance_ids
+        """
+
+        # ****************************************************************
+        """
+        TODO: do above for array
+        """

@@ -97,8 +97,23 @@ class DistributorTask:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
+        # get the cluster_type_id
+        app_route = f"/cluster_type/task_id/{self.task_id}"
+        return_code, resp = self.requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type="get",
+        )
+        assert return_code == 200
+        ctid_from_restful = resp["cluster_type_id"]
+        import pdb
+        pdb.set_trace()
+        # at this point cluster type can be None; replace it
+        wire_tuple = response["task_instance"]
+        wire_tuple[4] = ctid_from_restful
+
         distributor_ti = DistributorTaskInstance.from_wire(
-            response["task_instance"],
+            wire_tuple,
             requester=self.requester,
         )
         distributor_ti.name = self.name

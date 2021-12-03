@@ -752,6 +752,7 @@ def transition_task_instances(new_status: str) -> Any:
     erroneous_transitions = []
     for ti in task_instances:
         # Attach the distributor ID
+        # this will cause problem for non array tasks
         ti.distributor_id = distributor_id
         response = _update_task_instance_state(ti, new_status)
         if len(response) > 0:
@@ -764,6 +765,15 @@ def transition_task_instances(new_status: str) -> Any:
     resp = jsonify(erroneous_transitions={ti.id: ti.status for ti in erroneous_transitions})
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@finite_state_machine.route("/task_instance/status_check/<status>", methods=["GET"])
+def task_instances_status_check(status: str) -> Any:
+    """Sync status of given task intance IDs.
+    Return two list of ids: dict of ids no longer in <status>
+                            list of ids missed more than one heartbeat
+    """
+    pass
 
 
 # ############################ HELPER FUNCTIONS ###############################
