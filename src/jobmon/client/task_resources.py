@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from http import HTTPStatus as StatusCodes
+import json
 import logging
 from typing import Dict, Optional
 
@@ -108,3 +109,17 @@ class TaskResources:
             "task_resources_type_id": self._task_resources_type_id,
             "requested_resources": self._requested_resources,
         }
+
+    def __hash__(self) -> int:
+        """Determine the hash of a task resources object."""
+        resource_dict = self.concrete_resources.resources
+        # Note: this algorithm assumes all keys and values in the resources dict are
+        # JSON-serializable. Since that's a requirement for logging in the database,
+        # this assumption should be safe.
+        return hash(json.dumps(resource_dict, sort_keys=True))
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality of task resources objects."""
+        if not isinstance(other, TaskResources):
+            return False
+        return hash(self) == hash(other)
