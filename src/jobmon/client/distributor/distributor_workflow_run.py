@@ -96,7 +96,7 @@ class DistributorWorkflowRun:
         return [DistributorTaskInstance(tid, self.workflow_run_id, self.requester) for tid in
                 self._running_array_task_instance_ids]
 
-    def get_queued_tasks(self, array, workflow,  queued_tasks_bulk_query_size: int) -> \
+    def get_queued_tasks(self, queued_tasks_bulk_query_size: int) -> \
             List[DistributorTask]:
         """Retrieve a list of task that are in queued state."""
 

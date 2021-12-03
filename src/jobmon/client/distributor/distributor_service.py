@@ -571,7 +571,7 @@ class DistributorService:
         concurrency_limit = min(array.max_concurrently_running, self.wf_max_concurrently_running)
 
         # Calculate total launched and running task instances in workflow
-        running_launched_tasks = len(self.distributor_wfr.launched_task_instance) + \
+        running_launched_tasks = len(self.distributor_wfr.launched_task_instances) + \
                                  len(self.distributor_wfr.running_task_instances)
 
         # Calculate total tasks running and launched in Array
@@ -583,25 +583,26 @@ class DistributorService:
 
         # Take the lower capacity amount
         capacity = min(array_capacity, workflow_capacity)
-        array.instantiated_array_task_instance_ids = array_instantiated_tiids[:capacity]
+        tiids_to_launch = array_instantiated_tiids[:capacity]
+        array.instantiated_array_task_instance_ids = tiids_to_launch
 
         # launch array
-        self.distributor_wfr.launched_array_task_instances(array, self.distributor)
+        self.distributor_wfr.launch_array_instance(array, self.distributor)
 
         # return a list of the task instance ids that were launched
-        return array.instantiated_array_task_instance_ids
+        return tiids_to_launch
 
-    def launch_task_instances(self, instantiated_tiids: List[int]) -> List[int]:
+    def launch_task_instances(self, instantiated_task_instances: List[DistributorTaskInstance]) -> List[DistributorTaskInstance]:
 
         # Calculate total launched and running task instances in workflow
-        running_launched_tasks = len(self.distributor_wfr.launched_task_instance) + \
+        running_launched_tasks = len(self.distributor_wfr.launched_task_instances) + \
                                  len(self.distributor_wfr.running_task_instances)
 
         # Calculate wf capacity (max_concurrently_running - (running and launched))
         workflow_capacity = self.wf_max_concurrently_running - running_launched_tasks
 
-        for ti in instantiated_tiids[:workflow_capacity]:
+        for ti in instantiated_task_instances[:workflow_capacity]:
             self.distributor_wfr.launched_task_instance(ti, self.distributor)
 
         # return a list of the task instance ids that were launched
-        return instantiated_tiids[:workflow_capacity]
+        return instantiated_task_instances[:workflow_capacity]
