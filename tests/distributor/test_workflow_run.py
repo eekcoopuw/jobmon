@@ -252,24 +252,87 @@ def test_array_concurrency(tool, db_cfg, client_env, array_template, wf_limit, a
 def test_single_array_task_limits(tool, db_cfg, client_env, array_template, task_template):
     # Use case 5: Concurrency limit set on both wf and array objects, other tasks are added to
     # wf besides array.
-    array5 = array_template.create_array(arg=[13, 14, 15], cluster_name="multiprocess",
-                                         compute_resources={"queue": "null.q"},
-                                         max_concurrently_running=1)
-    workflow_5 = tool.create_workflow(name="test_array_concurrency_2",
-                                      max_concurrently_running=3)
+    array = array_template.create_array(arg=[13, 14, 15], cluster_name="multiprocess",
+                                        compute_resources={"queue": "null.q"},
+                                        max_concurrently_running=3)
+    workflow = tool.create_workflow(name="test_array_concurrency_2",
+                                    max_concurrently_running=4)
+
     task_1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
     task_2 = task_template.create_task(arg="echo 2", cluster_name="sequential")
-    task_3 = task_template.create_task(arg="echo 1", cluster_name="sequential")
-    workflow_5.add_array(array5)
-    workflow_5.add_tasks([task_1, task_2, task_3])
-    workflow_5.bind()
-    workflow_5.bind_arrays()
-    wfr_5 = workflow_5._create_workflow_run()
+    task_3 = task_template.create_task(arg="echo 3", cluster_name="sequential")
 
-    # Use case 6: Boundary limit - add 0 or negative test
+    workflow.add_array(array)
+    workflow.add_tasks([task_1, task_2, task_3])
+    workflow.bind()
+    workflow.bind_arrays()
+    wfr = workflow._create_workflow_run()
 
-    # TODO: CREATE A DISTRIBUTOR SERVICE, CALL THE LAUNCH METHODS AND MAKE SURE WHAT'S COMING
-    # BACK IS EXPECTED
-    # TODO: HAVE LAUNCH METHODS RETURN THE TASKS THEY SUBMITTED
+    requester = Requester(client_env)
 
-    assert "hello" == "hi"
+    distributor_array = DistributorArray(array_id=array.array_id,
+                                         task_resources_id=array.task_resources.id,
+                                         requested_resources=array.default_compute_resources_set,
+                                         name="example_array",
+                                         requester=requester,
+                                         max_concurrently_running=3
+                                         )
+
+    dts = [
+        DistributorTask(task_id=t.task_id,
+                        array_id=array.array_id,
+                        name='array_ti',
+                        command=t.command,
+                        requested_resources=t.compute_resources,
+                        requester=requester)
+        for t in array.tasks
+    ]
+
+    single_dts = [
+        DistributorTask(task_id=t.task_id,
+                        array_id=None,
+                        name=f'single_ti_{t.task_id}',
+                        command=t.command,
+                        requested_resources=t.compute_resources,
+                        requester=requester)
+        for t in [task_1, task_2, task_3]
+    ]
+
+    # Move all tasks in array to Q state
+    for tid in (t.task_id for t in array.tasks):
+        _, _ = requester._send_request(
+            app_route=f"/task/{tid}/queue",
+            message={},
+            request_type='post'
+        )
+
+    # Move all single tasks to Q state
+    for tid in (t.task_id for t in [task_1, task_2, task_3]):
+        _, _ = requester._send_request(
+            app_route=f"/task/{tid}/queue",
+            message={},
+            request_type='post'
+        )
+
+    # Register TIs
+    dtis_1 = dts[0].register_task_instance(workflow_run_id=wfr.workflow_run_id)
+    dtis_2 = dts[1].register_task_instance(workflow_run_id=wfr.workflow_run_id)
+    dtis_3 = dts[2].register_task_instance(workflow_run_id=wfr.workflow_run_id)
+    dtis_4 = single_dts[0].register_task_instance(workflow_run_id=wfr.workflow_run_id)
+    dtis_5 = single_dts[1].register_task_instance(workflow_run_id=wfr.workflow_run_id)
+    dtis_6 = single_dts[2].register_task_instance(workflow_run_id=wfr.workflow_run_id)
+
+    distributor_service = DistributorService(
+        workflow.workflow_id,
+        wfr.workflow_run_id,
+        MultiprocessDistributor(parallelism=3),
+        requester=requester,
+        wf_max_concurrently_running=4
+    )
+
+    launched_array_tis = distributor_service.launch_array_task_instances(distributor_array, [dtis_1.task_instance_id, dtis_2.task_instance_id, dtis_3.task_instance_id])
+    launched_single_tis = distributor_service.launch_task_instances([dtis_4, dtis_5, dtis_6])
+
+    breakpoint()
+    assert len(launched_array_tis) == 3
+    assert len(launched_single_tis) == 1

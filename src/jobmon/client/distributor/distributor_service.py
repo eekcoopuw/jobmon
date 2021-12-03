@@ -566,6 +566,10 @@ class DistributorService:
         self.distributor.terminate_task_instances(to_terminate)
 
     def launch_array_task_instances(self, array, array_instantiated_tiids: List[int]) -> List[int]:
+        # Don't allow the array limit to be greater than the workflow limit
+        if array.max_concurrently_running > self.wf_max_concurrently_running:
+            array.max_concurrently_running = self.wf_max_concurrently_running
+            
         # Take the lower concurrency limit (since array limit should never be greater than
         # workflow limit).
         concurrency_limit = min(array.max_concurrently_running, self.wf_max_concurrently_running)
@@ -588,6 +592,9 @@ class DistributorService:
 
         # launch array
         self.distributor_wfr.launch_array_instance(array, self.distributor)
+        # TODO: Have the workflow capacity cull the list down, then have the array capacity
+        # cull down the list
+        #TODO: ADD TASK INSTANCES TO LAUNCH
 
         # return a list of the task instance ids that were launched
         return tiids_to_launch
@@ -598,11 +605,12 @@ class DistributorService:
         running_launched_tasks = len(self.distributor_wfr.launched_task_instances) + \
                                  len(self.distributor_wfr.running_task_instances)
 
+        # TODO: Also check that that array limits are included in overall running
         # Calculate wf capacity (max_concurrently_running - (running and launched))
         workflow_capacity = self.wf_max_concurrently_running - running_launched_tasks
 
         for ti in instantiated_task_instances[:workflow_capacity]:
-            self.distributor_wfr.launched_task_instance(ti, self.distributor)
+            self.distributor_wfr.launch_task_instance(ti, self.distributor)
 
         # return a list of the task instance ids that were launched
         return instantiated_task_instances[:workflow_capacity]

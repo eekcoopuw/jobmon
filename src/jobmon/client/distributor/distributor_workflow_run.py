@@ -212,6 +212,7 @@ class DistributorWorkflowRun:
             name=task_instance.name,
             requested_resources=task_instance.requested_resources
         )
+        self._launched_task_instance_ids.append(task_instance.task_instance_id)
         resp = self.transition_task_instance(array_id=None,
                                              task_instance_ids=[task_instance.task_instance_id],
                                              distributor_id=distributor_id,
