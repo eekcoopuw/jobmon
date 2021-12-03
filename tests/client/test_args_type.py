@@ -48,8 +48,8 @@ def test_node_args(db_cfg, tool, test_script, input, expect):
     )
     workflow1.add_tasks([t1])
     workflow1.bind()
-    workflow_run_status = workflow1.run()
-    assert workflow_run_status == WorkflowRunStatus.DONE
+    wfr = workflow1._create_workflow_run()
+    assert wfr.status == WorkflowRunStatus.BOUND
 
 
 @pytest.mark.parametrize(
@@ -75,8 +75,8 @@ def test_task_args(db_cfg, tool, test_script, input, expect):
     )
     workflow1.add_tasks([t1])
     workflow1.bind()
-    workflow_run_status = workflow1.run()
-    assert workflow_run_status == WorkflowRunStatus.DONE
+    wfr = workflow1._create_workflow_run()
+    assert wfr.status == WorkflowRunStatus.BOUND
 
 
 @pytest.mark.parametrize(
@@ -102,5 +102,5 @@ def test_op_args(db_cfg, tool, test_script, input, expect):
     )
     workflow1.add_tasks([t1])
     workflow1.bind()
-    workflow_run_status = workflow1.run()
-    assert workflow_run_status == WorkflowRunStatus.DONE
+    wfr = workflow1._create_workflow_run()
+    assert wfr.status == WorkflowRunStatus.BOUND

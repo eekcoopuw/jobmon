@@ -7,7 +7,7 @@ from __future__ import annotations
 import hashlib
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.cluster import Cluster
@@ -19,6 +19,9 @@ from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeTaskInstanceErrorLog, SerializeTaskResourceUsage
 
+if TYPE_CHECKING:
+    from jobmon.client.array import Array
+
 logger = logging.getLogger(__name__)
 
 
@@ -28,8 +31,8 @@ class Task:
     Task Instances will be created from it for every execution.
     """
 
-    @classmethod
-    def is_valid_job_name(cls: Any, name: str) -> bool:
+    @staticmethod
+    def is_valid_job_name(name: str):
         """If the name is invalid it will raises an exception.
 
         Primarily based on the restrictions SGE places on job names. The list of illegal
@@ -62,18 +65,18 @@ class Task:
 
     def __init__(
         self,
-        command: str,
-        task_template_version_id: int,
-        node_args: dict,
-        task_args: dict,
+        node: Node,
+        task_args: Dict[str, Any],
+        op_args: Dict[str, Any],
+        array: Optional[Array] = None,
         cluster_name: str = "",
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, float]] = None,
         fallback_queues: Optional[List[ClusterQueue]] = None,
-        name: Optional[str] = None,
+        name: str = "",
         max_attempts: int = 3,
-        upstream_tasks: Optional[List["Task"]] = None,
+        upstream_tasks: Optional[List[Task]] = None,
         task_attributes: Union[List, dict] = None,
         requester: Optional[Requester] = None,
     ) -> None:
@@ -83,28 +86,29 @@ class Task:
         context of your workflow.
 
         Args:
-            command (str): the unique command for this Task, also readable by humans. Should
+            command: the unique command for this Task, also readable by humans. Should
                 include all parameters. Two Tasks are equal (__eq__) iff they have the same
                 command.
-            task_template_version_id (int): identifier for the associated Task Template.
-            node_args (dict): Task arguments that identify a unique node in the DAG.
-            task_args (dict): Task arguments that make the command unique across workflows
+            node: Node this task is associated with.
+            task_args: Task arguments that make the command unique across workflows
                 usually pertaining to data flowing through the task.
-            cluster_name (str): the name of the cluster the user wants to run their task on.
-            compute_resources (dict): A dictionary that includes the users requested resources
+            task_args: Task arguments that can change across runs of the same workflow.
+                usually pertaining to trivial things like log level or code location.
+            cluster_name: the name of the cluster the user wants to run their task on.
+            compute_resources: A dictionary that includes the users requested resources
                 for the current run. E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
-            compute_resources_callable (callable): callable compute resources.
-            resource_scales (dict): how much users want to scale their resource request if the
+            compute_resources_callable: callable compute resources.
+            resource_scales: how much users want to scale their resource request if the
                 the initial request fails.
-            fallback_queues (List): a list of queues that a user wants to try if their original
+            fallback_queues: a list of queues that a user wants to try if their original
                 queue is unable to accommodate their requested resources.
-            name (str): name that will be visible in qstat for this job
-            max_attempts (int): number of attempts to allow the cluster to try before giving
+            name: name that will be visible in qstat for this job
+            max_attempts: number of attempts to allow the cluster to try before giving
                 up. Default is 3.
-            upstream_tasks (List): Task objects that must be run prior to this
-            task_attributes (list or dict): dictionary of attributes and their values or list
+            upstream_tasks: Task objects that must be run prior to this
+            task_attributes: dictionary of attributes and their values or list
                 of attributes that will be assigned later.
-            requester (Requester): requester object to communicate with the flask services.
+            requester: requester object to communicate with the flask services.
 
         Raise:
             ValueError: If the hashed command is not allowed as an SGE job name; see
@@ -116,31 +120,31 @@ class Task:
         self.requester = requester
 
         # pre bind hash defining attributes
+        self.node = node
         self.task_args = task_args
+        self._mapped_task_args = self.node.task_template_version.convert_arg_names_to_ids(
+            **self.task_args
+        )
         self.task_args_hash = self._hash_task_args()
-        self.node = Node(task_template_version_id, node_args, requester)
+        self.op_args = op_args
 
         # pre bind mutable attributes
-        self.command = command
+        self.command = self.node.task_template_version.command_template.format(
+            **self.node.node_args, **self.task_args, **self.op_args
+        )
 
-        # Initialize array_id as None
-        # Not all tasks bound to an array
-        self.array_id = None
+        # Not all tasks bound to an array initially
+        self.array = array
 
         # Names of jobs can't start with a numeric.
-        if name is None:
-            self.name = f"task_{hash(self)}"
-        else:
-            self.name = name
-        self.is_valid_job_name(self.name)
-
-        # number of attempts
-        self.max_attempts = max_attempts
+        if not name:
+            name = self.node.default_name
+        self.is_valid_job_name(name)
+        self.name = name
 
         # upstream and downstream task relationships
         self.upstream_tasks = set(upstream_tasks) if upstream_tasks else set()
         self.downstream_tasks: set = set()
-
         for task in self.upstream_tasks:
             self.add_upstream(task)
 
@@ -157,26 +161,29 @@ class Task:
                 "dictionary of attributes and their values"
             )
 
-        if compute_resources is None:
-            self.compute_resources = {}
-        else:
-            self.compute_resources = compute_resources.copy()
-        self.compute_resources_callable = compute_resources_callable
-        self.resource_scales = (
-            resource_scales
-            if resource_scales is not None
-            else {"memory": 0.5, "runtime": 0.5}
-        )
+        # mutable operational/cluster behaviour
+        self.max_attempts = max_attempts
         self.cluster_name = cluster_name
+        self.compute_resources = compute_resources if compute_resources is not None else {}
+        self.compute_resources_callable = compute_resources_callable
+        self.resource_scales = (resource_scales if resource_scales is not None else
+                                {"memory": 0.5, "runtime": 0.5})
         self.fallback_queues = fallback_queues if fallback_queues is not None else []
+
+        # error api
         self._errors: Union[
             None, Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]
         ] = None
 
     @property
+    def is_bound(self) -> bool:
+        """If the task template version has been bound to the database."""
+        return hasattr(self, "_task_id")
+
+    @property
     def task_id(self) -> int:
         """Get the id of the task if it has been bound to the db otherwise raise an error."""
-        if not hasattr(self, "_task_id"):
+        if not self.is_bound:
             raise AttributeError("task_id cannot be accessed before task is bound")
         return self._task_id
 
@@ -188,9 +195,7 @@ class Task:
     def task_resources(self) -> TaskResources:
         """Get the id of the task if it has been bound to the db otherwise raise an error."""
         if not hasattr(self, "_task_resources"):
-            raise AttributeError(
-                "task_resources cannot be accessed before workflow is bound"
-            )
+            raise AttributeError("task_resources cannot be accessed before workflow is bound")
         return self._task_resources
 
     @task_resources.setter
@@ -243,7 +248,7 @@ class Task:
         """Get the workflow id if it has been bound to the db."""
         if not hasattr(self, "_workflow_id"):
             raise AttributeError(
-                "workflow_id cannot be accessed via task before a workflow " "is bound"
+                "workflow_id cannot be accessed via task before workflow is bound"
             )
         return self._workflow_id
 
@@ -370,14 +375,14 @@ class Task:
 
     def _hash_task_args(self) -> int:
         """A hash of the encoded result of the args and values concatenated together."""
-        arg_ids = list(self.task_args.keys())
+        arg_ids = list(self._mapped_task_args.keys())
         arg_ids.sort()
 
-        arg_values = [str(self.task_args[key]) for key in arg_ids]
-        arg_ids = [str(arg) for arg in arg_ids]
+        arg_values = [str(self._mapped_task_args[key]) for key in arg_ids]
+        str_arg_ids = [str(arg) for arg in arg_ids]
 
         hash_value = int(
-            hashlib.sha1("".join(arg_ids + arg_values).encode("utf-8")).hexdigest(), 16
+            hashlib.sha1("".join(str_arg_ids + arg_values).encode("utf-8")).hexdigest(), 16
         )
         return hash_value
 
@@ -430,13 +435,13 @@ class Task:
             {
                 "workflow_id": self.workflow_id,
                 "node_id": self.node.node_id,
-                "array_id": self.array_id,
+                "array_id": self.array.id,
                 "task_resources_id": self.task_resources.id,
                 "task_args_hash": self.task_args_hash,
                 "name": self.name,
                 "command": self.command,
                 "max_attempts": self.max_attempts,
-                "task_args": self.task_args,
+                "task_args": self._mapped_task_args,
                 "task_attributes": self.task_attributes,
             }
         ]

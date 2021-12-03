@@ -30,10 +30,7 @@ def task_template(tool):
 def test_create_array(db_cfg, client_env, task_template):
 
     array = task_template.create_array(arg="echo 1")
-    assert (
-        array.default_compute_resources_set
-        == task_template.default_compute_resources_set["sequential"]
-    )
+    assert array.compute_resources == task_template.default_compute_resources_set["sequential"]
 
 
 def test_array_bind(db_cfg, client_env, task_template, tool):

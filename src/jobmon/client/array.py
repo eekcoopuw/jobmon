@@ -5,6 +5,7 @@ import logging
 from typing import Any, Callable, Dict, Iterator, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.node import Node
 from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
 from jobmon.client.task_template_version import TaskTemplateVersion
@@ -23,44 +24,58 @@ class Array:
 
     def __init__(
         self,
-        task_template_name: str,
         task_template_version: TaskTemplateVersion,
-        max_concurrently_running: int,
-        cluster_name: str,
         task_args: Dict[str, Any],
         op_args: Dict[str, Any],
-        name: str = "",
+        cluster_name: str,
+        max_concurrently_running: int = 10_000,
         max_attempts: int = 3,
         threshold_to_submit: int = 100,
-        upstream_tasks: Optional[List["Task"]] = None,
+        upstream_tasks: Optional[List[Task]] = None,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, Any]] = None,
         requester: Optional[Requester] = None,
     ) -> None:
         """Initialize the array object."""
-        self.task_template_name = task_template_name
+        # task template attributes
         self.task_template_version = task_template_version
+
+        # array attributes
         self.max_concurrently_running = max_concurrently_running
+        self.threshold_to_submit = threshold_to_submit
+
+        # task passthrough attributes
         self.task_args = task_args
         self.op_args = op_args
-        self.name = name
-        self.max_attempts = max_attempts
-        self.threshold_to_submit = threshold_to_submit
+
+        # global upstreams
         if upstream_tasks is None:
             upstream_tasks = []
         self.upstream_tasks = upstream_tasks
+
+        # task resources
+        if not cluster_name:
+            cluster_name = self.task_template_version.default_cluster_name
+        self.cluster_name = cluster_name
         if compute_resources is None:
-            compute_resources = task_template_version.default_compute_resources_set
-        self.default_compute_resources_set = compute_resources
+            compute_resources = {}
+        resources = (
+            self.task_template_version.default_compute_resources_set.get(self.cluster_name, {})
+        )
+        resources.update(compute_resources)
+
+        self.compute_resources = resources
         self.compute_resources_callable = compute_resources_callable
         self.resource_scales = resource_scales
-        self.default_cluster_name = cluster_name
+        self.max_attempts = max_attempts
         self._task_resources: Optional[TaskResources] = None  # Initialize to None
+
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
             requester = Requester(requester_url)
         self.requester = requester
+
         self.tasks: Dict[int, Task] = {}  # Initialize to empty dict
 
     @property
@@ -122,91 +137,68 @@ class Array:
         for task in self.tasks.values():
             task.task_resources = task_resources
 
+    def add_task(self, task: Task):
+        task_hash = hash(task)
+        if task_hash in self.tasks.keys():
+            raise ValueError(
+                f"A task with hash {task_hash} already exists. All tasks in an Array must have"
+                f" unique commands. Your command was: {task.command}"
+            )
+        self.tasks[task_hash] = task
+
+        # populate backref
+        task.array = self
+
     def create_tasks(
         self,
-        name: Optional[str] = None,
         upstream_tasks: Optional[List[Task]] = None,
         task_attributes: Union[List, dict] = {},
         max_attempts: int = 3,
-        compute_resources: Optional[Dict[str, Any]] = None,
-        compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, Any]] = None,
-        cluster_name: str = "",
         **node_kwargs: Any,
     ) -> List[Task]:
         """Create an task associated with the array.
 
         Args:
-            name: a name associated with this specific task
             upstream_tasks: Task objects that must be run prior to this one
             task_attributes (dict or list): attributes and their values or just the attributes
                 that will be given values later
             max_attempts: Number of attempts to try this task before giving up. Default is 3.
-            cluster_name: name of cluster to run task on.
-            compute_resources: dictionary of default compute resources to run tasks
-                with. Can be overridden at task template or task level.
-                dict of {resource_name: resource_value}
-            compute_resources_callable: a function that can dynamically generate compute
-                resources when a task's resources are adjusted
             resource_scales: determines the scaling factor for how aggressive resource
                 adjustments will be scaled up
             **node_kwargs: values for each node argument specified in command_template
-
-        Returns:
-            ExecutableTask
 
         Raises:
             ValueError: if the args that are supplied do not match the args in the command
                 template.
         """
-        if name is None:
-            name = self.name
-
         if upstream_tasks is None:
             # If not specified, defined from the array upstreams
             upstream_tasks = self.upstream_tasks
 
         # Expand the node_args
+        if not set(node_kwargs.keys()).issuperset(self.task_template_version.node_args):
+            raise ValueError(
+                f"Missing node_args for this array. Task Template requires node_args="
+                f"{self.task_template_version.node_args}, got {set(node_kwargs.keys())}"
+            )
         node_args_expanded = Array.expand_dict(**node_kwargs)
-
-        # set cluster_name, function level overrides default
-        if cluster_name is None:
-            cluster_name = self.default_cluster_name
-
-        # Set compute resources, task compute resources override array defaults
-        if compute_resources is None:
-            compute_resources = {}
-
-        if compute_resources_callable is None:
-            compute_resources_callable = self.compute_resources_callable
-
-        resources = self.default_compute_resources_set.copy()
-        resources.update(compute_resources)
 
         # build tasks over node_args
         tasks = []
-        for node_arg in node_args_expanded:
-            # Template and map to IDs
-            task_arguments = dict(**node_arg, **self.task_args, **self.op_args)
-            command = self.task_template_version.command_template.format(
-                **task_arguments
-            )
+        for node_args in node_args_expanded:
 
-            node_args_mapped = {
-                self.task_template_version.id_name_map[k]: v
-                for k, v in node_arg.items()
-            }
+            # build node
+            node = Node(self.task_template_version, node_args, self.requester)
 
             task = Task(
-                command=command,
-                task_template_version_id=self.task_template_version.id,
-                node_args=node_args_mapped,
-                task_args=self.task_args_mapped,
-                compute_resources=resources,
-                compute_resources_callable=compute_resources_callable,
+                node=node,
+                task_args=self.task_args,
+                op_args=self.op_args,
+                compute_resources=self.compute_resources,
+                compute_resources_callable=self.compute_resources_callable,
                 resource_scales=resource_scales,
-                cluster_name=cluster_name,
-                name=name,
+                cluster_name=self.cluster_name,
                 max_attempts=max_attempts,
                 upstream_tasks=upstream_tasks,
                 task_attributes=task_attributes,
@@ -221,7 +213,7 @@ class Array:
                     f"All tasks in a workflow must have unique "
                     f"commands. Your command was: {task.command}"
                 )
-            self.tasks[hash(task)] = task
+            self.add_task(task)
 
         return tasks
 
@@ -242,13 +234,10 @@ class Array:
     def get_tasks_by_node_args(self, **kwargs: Any) -> List["Task"]:
         """Query tasks by node args. Used for setting dependencies."""
         tasks: List["Task"] = []
-        node_args_mapped = {
-            self.task_template_version.id_name_map[k]: v for k, v in kwargs.items()
-        }
 
-        for task in self.tasks:
-            key_count_to_meet = len(node_args_mapped)
-            for key, val in node_args_mapped.items():
+        for task in self.tasks.values():
+            key_count_to_meet = len(kwargs)
+            for key, val in kwargs.items():
                 if (
                     isinstance(val, Iterable)
                     and task.node.node_args[key] in val
@@ -291,5 +280,5 @@ class Array:
         self.array_id = array_id
 
         # Assign array_id to all tasks
-        for task in self.tasks:
+        for task in self.tasks.values():
             task.array_id = array_id

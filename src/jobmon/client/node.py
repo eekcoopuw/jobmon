@@ -5,9 +5,11 @@ import hashlib
 from http import HTTPStatus as StatusCodes
 import json
 import logging
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.task_template_version import TaskTemplateVersion
+from jobmon.constants import SpecialChars
 from jobmon.requester import Requester
 
 
@@ -19,8 +21,8 @@ class Node:
 
     def __init__(
         self,
-        task_template_version_id: int,
-        node_args: Dict,
+        task_template_version: TaskTemplateVersion,
+        node_args: Dict[str, Any],
         requester: Optional[Requester] = None,
     ) -> None:
         """A node represents an individual task within a Dag.
@@ -32,13 +34,16 @@ class Node:
         Jobmon Query Service and the Jobmon State Manager.
 
         Args:
-            task_template_version_id: The associated task_template_version_id.
-            node_args: key-value pairs of arg_id and a value.
-            requester (Requester): Requester object to communicate with the flask services.
+            task_template_version: The associated TaskTemplateVersion.
+            node_args: key-value pairs of arg_name and a value.
+            requester: Requester object to communicate with the flask services.
         """
-        self.task_template_version_id = task_template_version_id
+        self.task_template_version = task_template_version
         self.node_args = node_args
-        self.node_args_hash = self._hash_node()
+        self.mapped_node_args = self.task_template_version.convert_arg_names_to_ids(
+            **self.node_args
+        )
+        self.node_args_hash = self._hash_node_args()
         self.upstream_nodes: Set[Node] = set()
         self.downstream_nodes: Set[Node] = set()
 
@@ -53,6 +58,30 @@ class Node:
         if not hasattr(self, "_node_id"):
             raise AttributeError("node_id cannot be accessed before node is bound")
         return self._node_id
+
+    @property
+    def task_template_version_id(self) -> int:
+        return self.task_template_version.id
+
+    @property
+    def default_name(self):
+        name = (
+            self.task_template_version.task_template.template_name
+            + "_"
+            + "_".join([str(k) + "-" + str(self.node_args[k]) for k in self.node_args.keys()])
+        )
+
+        # special char protection
+        name = "".join(
+            [
+                c if c not in SpecialChars.ILLEGAL_SPECIAL_CHARACTERS else "_"
+                for c in name
+            ]
+        )
+
+        # long name protection
+        name = name if len(name) < 250 else name[0:249]
+        return name
 
     def bind(self) -> int:
         """Retrieve an id for a matching node from the server.
@@ -71,25 +100,19 @@ class Node:
         self._node_id = node_id
         return self.node_id
 
-    def _hash_node(self) -> int:
+    def _hash_node_args(self) -> int:
         """A hash of the node.
 
-        The hash is the encoded result of the args and values concatenated together and
-        concatenated with the task_template_version_id.
+        The hash is the encoded result of the args and values concatenated together.
         """
-        arg_ids = list(self.node_args.keys())
+        arg_ids = list(self.mapped_node_args.keys())
         arg_ids.sort()
 
-        arg_values = [str(self.node_args[key]) for key in arg_ids]
-        arg_ids = [str(arg) for arg in arg_ids]
+        arg_values = [str(self.mapped_node_args[key]) for key in arg_ids]
+        str_arg_ids = [str(arg) for arg in arg_ids]
 
         hash_value = int(
-            hashlib.sha1(
-                "".join(
-                    arg_ids + arg_values + [str(self.task_template_version_id)]
-                ).encode("utf-8")
-            ).hexdigest(),
-            16,
+            hashlib.sha1("".join(str_arg_ids + arg_values).encode("utf-8")).hexdigest(), 16
         )
         return hash_value
 
@@ -121,7 +144,7 @@ class Node:
             message={
                 "task_template_version_id": self.task_template_version_id,
                 "node_args_hash": self.node_args_hash,
-                "node_args": json.dumps(self.node_args),
+                "node_args": json.dumps(self.mapped_node_args),
             },
             request_type="post",
             logger=logger,
@@ -135,7 +158,7 @@ class Node:
                 f" Response content: {response}"
             )
 
-    def add_upstream_node(self, upstream_node: "Node") -> None:
+    def add_upstream_node(self, upstream_node: Node) -> None:
         """Add a single node to this one's upstream Nodes.
 
         Args:
@@ -145,7 +168,7 @@ class Node:
         # Add this node to the upstream nodes' downstream
         upstream_node.downstream_nodes.add(self)
 
-    def add_upstream_nodes(self, upstream_nodes: List["Node"]) -> None:
+    def add_upstream_nodes(self, upstream_nodes: List[Node]) -> None:
         """Add many nodes to this one's upstream Nodes.
 
         Args:
@@ -154,7 +177,7 @@ class Node:
         for node in upstream_nodes:
             self.add_upstream_node(node)
 
-    def add_downstream_node(self, downstream_node: "Node") -> None:
+    def add_downstream_node(self, downstream_node: Node) -> None:
         """Add a node to this one's downstream Nodes.
 
         Args:
@@ -164,7 +187,7 @@ class Node:
         # avoid endless recursion, set directly
         downstream_node.upstream_nodes.add(self)
 
-    def add_downstream_nodes(self, downstream_nodes: List["Node"]) -> None:
+    def add_downstream_nodes(self, downstream_nodes: List[Node]) -> None:
         """Add a list of nodes as this node's downstream nodes.
 
         Args:
@@ -188,7 +211,7 @@ class Node:
         else:
             return hash(self) == hash(other)
 
-    def __lt__(self, other: "Node") -> bool:
+    def __lt__(self, other: Node) -> bool:
         """Check if this hash is less than anothers."""
         return hash(self) < hash(other)
 

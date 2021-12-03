@@ -5,7 +5,7 @@ from multiprocessing import Event, Process, Queue
 from multiprocessing import synchronize
 from queue import Empty
 import time
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, TYPE_CHECKING, Union
 import uuid
 
 from jobmon.client.array import Array
@@ -41,6 +41,8 @@ from jobmon.exceptions import (
 )
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeCluster
+
+from jobmon.client.tool_version import ToolVersion
 
 ClientLogging().attach(__name__)
 logger = logging.getLogger(__name__)
@@ -81,7 +83,7 @@ class Workflow(object):
 
     def __init__(
         self,
-        tool_version_id: int,
+        tool_version: ToolVersion,
         workflow_args: str = "",
         name: str = "",
         description: str = "",
@@ -93,7 +95,7 @@ class Workflow(object):
         """Initialization of the client workflow.
 
         Args:
-            tool_version_id: id of the associated tool
+            tool_version: ToolVersion this workflow is associated
             workflow_args: Unique identifier of a workflow
             name: Name of the workflow
             description: Description of the workflow
@@ -103,7 +105,7 @@ class Workflow(object):
             requester: object to communicate with the flask services.
             chunk_size: how many tasks to bind in a single request
         """
-        self.tool_version_id = tool_version_id
+        self._tool_version = tool_version
         self.name = name
         self.description = description
         self.max_concurrently_running = max_concurrently_running
@@ -116,7 +118,7 @@ class Workflow(object):
         self._dag = Dag(requester)
         # hash to task object mapping. ensure only 1
         self.tasks: Dict[int, Task] = {}
-        self.arrays: List = []
+        self.arrays: Dict[str, Array] = {}
         self._chunk_size: int = chunk_size
 
         if workflow_args:
@@ -263,7 +265,14 @@ class Workflow(object):
         """Add an array and its tasks to the workflow."""
         if len(array.tasks) == 0:
             raise ValueError("Cannot bind an array with no tasks.")
-        self.arrays.append(array)
+        template_name = array.task_template_version.task_template.template_name
+        if template_name in self.arrays.keys():
+            raise ValueError(
+                f"An array for template_name={template_name} already exists on this workflow."
+            )
+        else:
+            self.arrays[template_name] = array
+
         self.add_tasks(list(array.tasks.values()))
 
     def add_arrays(self, arrays: List[Array]) -> None:
@@ -277,11 +286,11 @@ class Workflow(object):
         Done sequentially instead of in bulk, since scaling not assumed to be a problem
         with arrays.
         """
-        for array in self.arrays:
-            cluster = self._get_cluster_by_name(array.default_cluster_name)
+        for array in self.arrays.values():
+            cluster = self._get_cluster_by_name(array.cluster_name)
             # Create a task resources object and bind to the array
             task_resources = cluster.create_valid_task_resources(
-                resource_params=array.default_compute_resources_set,
+                resource_params=array.compute_resources,
                 task_resources_type_id=TaskResourcesType.VALIDATED,
             )
             task_resources.bind(TaskResourcesType.VALIDATED)
@@ -322,15 +331,10 @@ class Workflow(object):
         """
         self.default_cluster_name = cluster_name
 
-    def get_tasks_by_node_args(
-        self, task_template_name: str, **kwargs: Any
-    ) -> List["Task"]:
+    def get_tasks_by_node_args(self, task_template_name: str, **kwargs: Any) -> List[Task]:
         """Query tasks by node args. Used for setting dependencies."""
-        tasks: List["Task"] = []
-        if self.arrays:
-            for array in self.arrays:
-                if task_template_name == array.task_template_name:
-                    tasks.extend(array.get_tasks_by_node_args(**kwargs))
+        array = self.arrays[task_template_name]
+        tasks = array.get_tasks_by_node_args(**kwargs)
         return tasks
 
     def run(
@@ -466,6 +470,9 @@ class Workflow(object):
         if self.is_bound:
             return
 
+        # add arrays to all tasks
+        self._infer_arrays()
+
         self.validate()
         # bind dag
         self._dag.bind(self._chunk_size)
@@ -475,7 +482,7 @@ class Workflow(object):
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
-                "tool_version_id": self.tool_version_id,
+                "tool_version_id": self._tool_version.id,
                 "dag_id": self._dag.dag_id,
                 "workflow_args_hash": self.workflow_args_hash,
                 "task_hash": self.task_hash,
@@ -497,6 +504,23 @@ class Workflow(object):
         self._workflow_id = response["workflow_id"]
         self._status = response["status"]
         self._newly_created = response["newly_created"]
+
+    def _infer_arrays(self):
+        unassociated_tasks = [task for task in self.tasks.values() if task.array is None]
+        for task in unassociated_tasks:
+            template_name = task.node.task_template_version.task_template.template_name
+            try:
+                array = self.arrays[template_name]
+            except KeyError:
+                # create array from the task template version on the node
+                array = Array(
+                    task_template_version=task.node.task_template_version,
+                    task_args=task.task_args,
+                    op_args=task.op_args,
+                    cluster_name=task.cluster_name
+                )
+                self.arrays[template_name] = array
+            array.add_task(task)
 
     def _get_cluster_by_name(self, cluster_name: str) -> Cluster:
         """Check if the cluster that the task specified is in the cache.
@@ -522,7 +546,7 @@ class Workflow(object):
             self._clusters[cluster_name] = cluster
         return cluster
 
-    def _get_cluster_name(self, task: Task) -> str:
+    def _get_cluster_name(self, task: Union[Task, Array]) -> str:
         cluster_name = task.cluster_name
         if not cluster_name:
             if self.default_cluster_name:
@@ -532,7 +556,7 @@ class Workflow(object):
                 raise ValueError("No valid cluster_name found on workflow or task")
         return cluster_name
 
-    def _get_resource_params(self, task: Task, cluster_name: str) -> Dict:
+    def _get_resource_params(self, task: Union[Task, Array], cluster_name: str) -> Dict:
         # TODO: once we have concrete task template add ability to get cluster resources
         # from it
 
@@ -722,7 +746,7 @@ class Workflow(object):
         )
         bound_workflow_hashes = response["matching_workflows"]
         for task_hash, tool_version_id, dag_hash in bound_workflow_hashes:
-            match = self.tool_version_id == tool_version_id and (
+            match = self._tool_version.id == tool_version_id and (
                 str(self.task_hash) != task_hash or str(hash(self._dag)) != dag_hash
             )
             if match:
@@ -891,7 +915,7 @@ class Workflow(object):
     def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""
         hash_value = hashlib.sha1()
-        hash_value.update(str(hash(self.tool_version_id)).encode("utf-8"))
+        hash_value.update(str(hash(self._tool_version.id)).encode("utf-8"))
         hash_value.update(str(self.workflow_args_hash).encode("utf-8"))
         hash_value.update(str(self.task_hash).encode("utf-8"))
         hash_value.update(str(hash(self._dag)).encode("utf-8"))
