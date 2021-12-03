@@ -130,20 +130,13 @@ class SequentialDistributor(ClusterDistributor):
         return distributor_id
 
     def submit_array_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any]
+        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
     ) -> int:
         """Submit an array task to the sequential cluster."""
         logger.warning("Array tasks are not actually implemented in the sequential "
                        "distributor. This method just returns sequential submission.")
         return self.submit_to_batch_distributor(command=command, name=name,
                                                 requested_resources=requested_resources)
-
-    @staticmethod
-    def array_subtask_id() -> int:
-        """Sequential distributor doesn't support array tasks.
-
-        Each call will return a hardcoded value corresponding to the first task instance."""
-        return 1
 
 
 class SequentialWorkerNode(ClusterWorkerNode):
@@ -171,3 +164,10 @@ class SequentialWorkerNode(ClusterWorkerNode):
     def get_usage_stats() -> Dict:
         """Usage information specific to the exector."""
         return {}
+
+    @staticmethod
+    def array_subtask_id() -> int:
+        """Sequential distributor doesn't support array tasks.
+
+        Each call will return a hardcoded value corresponding to the first task instance."""
+        return 1

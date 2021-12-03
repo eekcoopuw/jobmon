@@ -163,8 +163,9 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
     # Task 3 has not been launched yet and should not have a batch number
     assert ti_3_batch_num is None
     # The first result in the array is always the lowest task instance ID
-    assert call_get_array_task_instance_id(array_id, ti_1_batch_num, client_env) == \
-           dtis_1.task_instance_id
+    assert call_get_array_task_instance_id(
+        distributor_array.array_id, ti_1_batch_num, client_env) == \
+        dtis_1.task_instance_id
 
     # Add task 3 to the registered queue, and launch
     distributor_array.registered_array_task_instance_ids = [dtis_3.task_instance_id]
@@ -177,5 +178,6 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
     assert ti_3_batch_num == 1
     assert distributor_wfr.registered_array_task_instances == []
     # Assert that the task instance ID can be associated
-    assert call_get_array_task_instance_id(array_id, ti_3_batch_num, client_env) == \
-           dtis_3.task_instance_id
+    assert call_get_array_task_instance_id(
+        distributor_array.array_id, ti_3_batch_num, client_env) == \
+        dtis_3.task_instance_id

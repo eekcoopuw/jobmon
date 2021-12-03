@@ -240,7 +240,8 @@ class DistributorWorkflowRun:
         array_distributor_id = cluster.submit_array_to_batch_distributor(
             command=command,
             name=array.name,  # TODO: array class should have a name in the client model
-            requested_resources=array.requested_resources)
+            requested_resources=array.requested_resources,
+            array_length=len(ids_to_launch))
 
         # Clear the registered tasks and move into launched
         self._launched_array_task_instance_ids.extend(ids_to_launch)
