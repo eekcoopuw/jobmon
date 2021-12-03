@@ -185,16 +185,20 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
            dtis_3.task_instance_id
 
 
-
-def test_array_concurrency(tool, db_cfg, client_env, array_template, task_template):
+@pytest.mark.parametrize("wf_limit, array_limit, expected_len", [(10_000, 2, 2),
+                                                                 (2, 10_000, 2),
+                                                                 (2, 3, 2),
+                                                                 (3, 2, 2)])
+def test_array_concurrency(tool, db_cfg, client_env, array_template, wf_limit, array_limit, expected_len):
     """Use Case 1: Array concurrency limit is set, workflow is not. Array should be limited by
     the array's max_concurrently running value"""
     # Use Case 1: Array concurrency limit is set, workflow concurrency limit not set
     array1 = array_template.create_array(arg=[1, 2, 3], cluster_name="multiprocess",
                                          compute_resources={"queue": "null.q"},
-                                         max_concurrently_running=3)
+                                         max_concurrently_running=array_limit)
 
-    workflow_1 = tool.create_workflow(name="test_array_concurrency_1")
+    workflow_1 = tool.create_workflow(name="test_array_concurrency_1",
+                                      max_concurrently_running=wf_limit)
     workflow_1.add_array(array1)
     workflow_1.bind()
     workflow_1.bind_arrays()
@@ -207,7 +211,7 @@ def test_array_concurrency(tool, db_cfg, client_env, array_template, task_templa
                                          requested_resources=array1.default_compute_resources_set,
                                          name="example_array",
                                          requester=requester,
-                                         max_concurrently_running=3
+                                         max_concurrently_running=array_limit
                                          )
 
     dts = [
@@ -237,56 +241,15 @@ def test_array_concurrency(tool, db_cfg, client_env, array_template, task_templa
         wfr_1.workflow_run_id,
         MultiprocessDistributor(parallelism=3),
         requester=requester,
-        wf_max_concurrently_running=10_000
+        wf_max_concurrently_running=wf_limit
     )
 
     launched_tis = distributor_service.launch_array_task_instances(distributor_array, [dtis_1.task_instance_id, dtis_2.task_instance_id, dtis_3.task_instance_id])
 
-    assert len(launched_tis) == 2
+    assert len(launched_tis) == expected_len
 
 
-def test_wf_limit_with_array(tool, db_cfg, client_env, array_template, task_template):
-    """Use Case 2: Array concurrency limit is not set, but workflow is. Array should be limited
-    by the workflow max_concurrently_running value."""
-    pass
-
-    breakpoint()
-
-    # Use Case 2: Array concurrency limit is not set, workflow concurrency limit is set
-    array2 = array_template.create_array(arg=[4, 5, 6], cluster_name="multiprocess",
-                                         compute_resources={"queue": "null.q"})
-    workflow_2 = tool.create_workflow(name="test_array_concurrency_2",
-                                      max_concurrently_running=2)
-    workflow_2.add_array(array2)
-    workflow_2.bind()
-    workflow_2.bind_arrays()
-    wfr_2 = workflow_2._create_workflow_run()
-
-    # Use Case 3: Array concurrency limit is set (higher rate than wf), workflow concurrency
-    # limit is also set (lower rate than array). TODO: EITHER RAISE VALUE ERROR OR CHANGE THE
-    # ARRAY MAX TO BE THE SAME AS WORKFLOW
-    array3 = array_template.create_array(arg=[7, 8, 9], cluster_name="multiprocess",
-                                         compute_resources={"queue": "null.q"},
-                                         max_concurrently_running=3)
-    workflow_3 = tool.create_workflow(name="test_array_concurrency_2",
-                                      max_concurrently_running=1)
-    workflow_3.add_array(array2)
-    workflow_3.bind()
-    workflow_3.bind_arrays()
-    wfr_3 = workflow_3._create_workflow_run()
-
-    # Use Case 4: Array concurrency limit is set (lower rate than wf), workflow concurrency
-    # limit is also set (higher rate than array). Should submit one job at a time.
-    array4 = array_template.create_array(arg=[10, 11, 12], cluster_name="multiprocess",
-                                         compute_resources={"queue": "null.q"},
-                                         max_concurrently_running=1)
-    workflow_4 = tool.create_workflow(name="test_array_concurrency_2",
-                                      max_concurrently_running=3)
-    workflow_4.add_array(array4)
-    workflow_4.bind()
-    workflow_4.bind_arrays()
-    wfr_4 = workflow_4._create_workflow_run()
-
+def test_single_array_task_limits(tool, db_cfg, client_env, array_template, task_template):
     # Use case 5: Concurrency limit set on both wf and array objects, other tasks are added to
     # wf besides array.
     array5 = array_template.create_array(arg=[13, 14, 15], cluster_name="multiprocess",
