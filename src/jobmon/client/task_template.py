@@ -514,9 +514,9 @@ class TaskTemplate:
     def create_array(
         self,
         max_attempts: int = 3,
-        max_concurrently_running: int = 3,
         name: str = "",
         upstream_tasks: Optional[List["Task"]] = None,
+        max_concurrently_running: Optional[int] = 10_000,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, Any]] = None,

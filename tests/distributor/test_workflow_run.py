@@ -2,6 +2,7 @@ from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.requester import Requester
 
@@ -129,8 +130,8 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
     dtis_3 = dts[2].register_task_instance(workflow_run_id=wfr.workflow_run_id)
     dtis_4 = single_distributor_task.register_task_instance(workflow_run_id=wfr.workflow_run_id)
 
-    distributor_array.registered_array_task_instance_ids = [dtis_1.task_instance_id,
-                                                            dtis_2.task_instance_id]
+    distributor_array.instantiated_array_task_instance_ids = [dtis_1.task_instance_id,
+                                                              dtis_2.task_instance_id]
     distributor_wfr = DistributorWorkflowRun(
         workflow.workflow_id, wfr.workflow_run_id, requester
     )
@@ -167,7 +168,7 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
            dtis_1.task_instance_id
 
     # Add task 3 to the registered queue, and launch
-    distributor_array.registered_array_task_instance_ids = [dtis_3.task_instance_id]
+    distributor_array.instantiated_array_task_instance_ids = [dtis_3.task_instance_id]
     distributor_wfr.launch_array_instance(array=distributor_array, cluster=distributor)
 
     # Check that the worker node is either launched, running, or done
@@ -179,3 +180,75 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
     # Assert that the task instance ID can be associated
     assert call_get_array_task_instance_id(array_id, ti_3_batch_num, client_env) == \
            dtis_3.task_instance_id
+
+
+def test_array_concurrency(tool, db_cfg, client_env, array_template, task_template):
+    # Use Case 1: Array concurrency limit is set, workflow concurrency limit not set
+    array1 = array_template.create_array(arg=[1, 2, 3], cluster_name="multiprocess",
+                                         compute_resources={"queue": "null.q"},
+                                         max_concurrently_running=2)
+
+    workflow_1 = tool.create_workflow(name="test_array_concurrency_1")
+    workflow_1.add_array(array1)
+    workflow_1.bind()
+    workflow_1.bind_arrays()
+    wfr_1 = workflow_1._create_workflow_run()
+
+    # Use Case 2: Array concurrency limit is not set, workflow concurrency limit is set
+    array2 = array_template.create_array(arg=[4, 5, 6], cluster_name="multiprocess",
+                                         compute_resources={"queue": "null.q"})
+    workflow_2 = tool.create_workflow(name="test_array_concurrency_2",
+                                      max_concurrently_running=2)
+    workflow_2.add_array(array2)
+    workflow_2.bind()
+    workflow_2.bind_arrays()
+    wfr_2 = workflow_2._create_workflow_run()
+
+    # Use Case 3: Array concurrency limit is set (higher rate than wf), workflow concurrency
+    # limit is also set (lower rate than array). TODO: EITHER RAISE VALUE ERROR OR CHANGE THE
+    # ARRAY MAX TO BE THE SAME AS WORKFLOW
+    array3 = array_template.create_array(arg=[7, 8, 9], cluster_name="multiprocess",
+                                         compute_resources={"queue": "null.q"},
+                                         max_concurrently_running=3)
+    workflow_3 = tool.create_workflow(name="test_array_concurrency_2",
+                                      max_concurrently_running=1)
+    workflow_3.add_array(array2)
+    workflow_3.bind()
+    workflow_3.bind_arrays()
+    wfr_3 = workflow_3._create_workflow_run()
+
+    # Use Case 4: Array concurrency limit is set (lower rate than wf), workflow concurrency
+    # limit is also set (higher rate than array). Should submit one job at a time.
+    array4 = array_template.create_array(arg=[10, 11, 12], cluster_name="multiprocess",
+                                         compute_resources={"queue": "null.q"},
+                                         max_concurrently_running=1)
+    workflow_4 = tool.create_workflow(name="test_array_concurrency_2",
+                                      max_concurrently_running=3)
+    workflow_4.add_array(array4)
+    workflow_4.bind()
+    workflow_4.bind_arrays()
+    wfr_4 = workflow_4._create_workflow_run()
+
+    # Use case 5: Concurrency limit set on both wf and array objects, other tasks are added to
+    # wf besides array.
+    array5 = array_template.create_array(arg=[13, 14, 15], cluster_name="multiprocess",
+                                         compute_resources={"queue": "null.q"},
+                                         max_concurrently_running=1)
+    workflow_5 = tool.create_workflow(name="test_array_concurrency_2",
+                                      max_concurrently_running=3)
+    task_1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
+    task_2 = task_template.create_task(arg="echo 2", cluster_name="sequential")
+    task_3 = task_template.create_task(arg="echo 1", cluster_name="sequential")
+    workflow_5.add_array(array5)
+    workflow_5.add_tasks([task_1, task_2, task_3])
+    workflow_5.bind()
+    workflow_5.bind_arrays()
+    wfr_5 = workflow_5._create_workflow_run()
+
+    # Use case 6: Boundary limit - add 0 or negative test
+
+    # TODO: CREATE A DISTRIBUTOR SERVICE, CALL THE LAUNCH METHODS AND MAKE SURE WHAT'S COMING
+    # BACK IS EXPECTED
+    # TODO: HAVE LAUNCH METHODS RETURN THE TASKS THEY SUBMITTED
+
+    assert "hello" == "hi"

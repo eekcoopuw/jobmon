@@ -62,13 +62,14 @@ class DistributorWorkflowRun:
     @property
     def launched_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of launched task_instances"""
-        pass
+        return [DistributorTaskInstance(tid, self.workflow_run_id, self.requester) for tid in
+                self._launched_task_instance_ids]
 
     @property
     def running_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of launched task_instances"""
-        return [DistributorTaskInstance(tid, self.workflow_run_id) for tid in
-                self._running_array_task_instance_ids]
+        return [DistributorTaskInstance(tid, self.workflow_run_id, self.requester) for tid in
+                self._running_task_instance_ids]
 
     @property
     def registered_array_task_instances(self) -> List[DistributorTaskInstance]:
@@ -79,22 +80,28 @@ class DistributorWorkflowRun:
         task_instances: List[DistributorTaskInstance] = []
         for array in self._arrays.values():
             array_task_instances = [self._task_instances[tiid] for tiid in
-                                    array.registered_array_task_instance_ids]
+                                    array.instantiated_array_task_instance_ids]
             task_instances.extend(array_task_instances)
         return task_instances
 
     @property
     def launched_array_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of launched task_instances"""
-        pass
+        return [DistributorTaskInstance(tid, self.workflow_run_id, self.requester) for tid in
+                self._launched_array_task_instance_ids]
 
     @property
     def running_array_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of launched task_instances"""
-        pass
+        return [DistributorTaskInstance(tid, self.workflow_run_id, self.requester) for tid in
+                self._running_array_task_instance_ids]
 
-    def get_queued_tasks(self, queued_tasks_bulk_query_size: int) -> List[DistributorTask]:
-        """Retrieve a list of task that are in queued state"""
+    def get_queued_tasks(self, array, workflow,  queued_tasks_bulk_query_size: int) -> \
+            List[DistributorTask]:
+        """Retrieve a list of task that are in queued state."""
+
+        # Retrieve all tasks (up till the queued_tasks_bulk_query_size) that are in queued
+        # state that are associated with the workflow.
         app_route = f"/workflow/{self.workflow_id}/queued_tasks/{queued_tasks_bulk_query_size}"
         return_code, response = self.requester.send_request(
             app_route=app_route, message={}, request_type="get", logger=logger
@@ -106,11 +113,11 @@ class DistributorWorkflowRun:
                 f"code 200. Response content: {response}"
             )
 
+        # Queued tasks associated with WF, concurrency limit hasn't been applied yet
         tasks = [
             DistributorTask.from_wire(wire_tuple=task, requester=self.requester)
             for task in response["task_dcts"]
         ]
-        return tasks
 
     def get_array(self, array_id: int) -> DistributorArray:
         """Get an array from the array cache or from the database on first access
@@ -205,7 +212,6 @@ class DistributorWorkflowRun:
             name=task_instance.name,
             requested_resources=task_instance.requested_resources
         )
-
         resp = self.transition_task_instance(array_id=None,
                                              task_instance_ids=[task_instance.task_instance_id],
                                              distributor_id=distributor_id,
@@ -229,7 +235,7 @@ class DistributorWorkflowRun:
         """
 
         # all task instances associated with an array and a batch number
-        ids_to_launch = array.registered_array_task_instance_ids
+        ids_to_launch = array.instantiated_array_task_instance_ids
         array.add_batch_number_to_task_instances()
 
         # Fetch the command

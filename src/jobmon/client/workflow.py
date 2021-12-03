@@ -819,6 +819,7 @@ class Workflow(object):
             n_queued=distributor_config.n_queued,
             distributor_poll_interval=distributor_config.distributor_poll_interval,
             requester=self.requester,
+            wf_max_concurrently_running=self.max_concurrently_running
         )
         self._status = WorkflowStatus.INSTANTIATING
 

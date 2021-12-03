@@ -12,6 +12,7 @@ from typing import Dict, List, Optional, Type
 import tblib.pickling_support
 
 from jobmon.client.client_logging import ClientLogging
+from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
@@ -48,25 +49,25 @@ class ExceptionWrapper(object):
 
 
 class DistributorService:
-    """Distributes TaskInstances when they are ready and monitors the status of active TIs."""
-
     def __init__(
         self,
         workflow_id: int,
         workflow_run_id: int,
         distributor: ClusterDistributor,
         requester: Requester,
+        wf_max_concurrently_running: int,
         workflow_run_heartbeat_interval: int = 30,
         task_instance_heartbeat_interval: int = 90,
         heartbeat_report_by_buffer: float = 3.1,
         n_queued: int = 100,
         distributor_poll_interval: int = 10,
-        worker_node_entry_point: Optional[str] = None,
+        worker_node_entry_point: Optional[str] = None
     ) -> None:
         """Initialization of distributor service."""
         # which workflow to distribute for
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
+        self.wf_max_concurrently_running = wf_max_concurrently_running
 
         # cluster_name
         self.distributor = distributor
@@ -81,6 +82,9 @@ class DistributorService:
 
         self.requester = requester
 
+        self.distributor_wfr = DistributorWorkflowRun(self.workflow_id, self.workflow_run_id,
+                                                      self.requester)
+
         logger.info(f"distributor communicating at {self.requester.url}")
 
         # Get/set cluster_type_id
@@ -92,6 +96,8 @@ class DistributorService:
 
         self._submitted_or_running: Dict[int, DistributorTaskInstance] = {}
         self._to_instantiate: List[DistributorTask] = []
+        self._to_launch_single_tis: List[DistributorTask] = []
+        self._to_launch_array_tis: List[DistributorTask] = []
         self._to_reconcile: List[DistributorTaskInstance] = []
         self._to_log_error: List[DistributorTaskInstance] = []
 
@@ -268,7 +274,7 @@ class DistributorService:
         # main thread
         while self._keep_distributing(thread_stop_event):
 
-            # instatiate queued tasks
+            # instantiate queued tasks
             if self._to_instantiate:
                 task = self._to_instantiate.pop(0)
                 self._create_task_instance(task)
@@ -558,3 +564,44 @@ class DistributorService:
                 for ti in response["task_instances"]
             ]
         self.distributor.terminate_task_instances(to_terminate)
+
+    def launch_array_task_instances(self, array, array_instantiated_tiids: List[int]) -> List[int]:
+        # Take the lower concurrency limit (since array limit should never be greater than
+        # workflow limit).
+        concurrency_limit = min(array.max_concurrently_running, self.wf_max_concurrently_running)
+
+        # Calculate total launched and running task instances in workflow
+        running_launched_tasks = len(self.distributor_wfr.launched_task_instance) + \
+                                 len(self.distributor_wfr.running_task_instances)
+
+        # Calculate total tasks running and launched in Array
+        running_launched_array_tasks = len(self.distributor_wfr.launched_array_task_instances) + \
+                                       len(self.distributor_wfr.running_array_task_instances)
+
+        array_capacity = concurrency_limit - running_launched_array_tasks
+        workflow_capacity = concurrency_limit - running_launched_tasks
+
+        # Take the lower capacity amount
+        capacity = min(array_capacity, workflow_capacity)
+        array.instantiated_array_task_instance_ids = array_instantiated_tiids[:capacity]
+
+        # launch array
+        self.distributor_wfr.launched_array_task_instances(array, self.distributor)
+
+        # return a list of the task instance ids that were launched
+        return array.instantiated_array_task_instance_ids
+
+    def launch_task_instances(self, instantiated_tiids: List[int]) -> List[int]:
+
+        # Calculate total launched and running task instances in workflow
+        running_launched_tasks = len(self.distributor_wfr.launched_task_instance) + \
+                                 len(self.distributor_wfr.running_task_instances)
+
+        # Calculate wf capacity (max_concurrently_running - (running and launched))
+        workflow_capacity = self.wf_max_concurrently_running - running_launched_tasks
+
+        for ti in instantiated_tiids[:workflow_capacity]:
+            self.distributor_wfr.launched_task_instance(ti, self.distributor)
+
+        # return a list of the task instance ids that were launched
+        return instantiated_tiids[:workflow_capacity]
