@@ -52,7 +52,7 @@ class _WorkflowRunMaps:
                 if distributorid in self._map_did_tiid.keys():
                     self._map_did_tiid[distributorid].add(tiid)
                 else:
-                    self._map_did_tiid[distributorid] = set(tiid)
+                    self._map_did_tiid[distributorid] = {tiid}
 
     def get_DistributorTaskInstance_by_id(self, tid: int) -> DistributorTaskInstance:
         """Return DistributorTaskInstance by task instance id."""
@@ -108,7 +108,7 @@ class _tiList:
     def pop(self, i: int) -> Optional[int]:
         """Remove one ti."""
         if i in self.tis:
-            self.tis.pop(i)
+            self.tis.remove(i)
             return i
         else:
             return None
@@ -271,16 +271,6 @@ class DistributorWorkflowRun:
             self._map.add_DistributorArray(array)
         return array
 
-    def refresh_task_instance_statuses_from_db(self):
-        """
-        get task instance FSM updates.
-        refresh FSM lists with any new states."""
-        pass
-
-    def refresh_array_statuses_from_db(self):
-        """compute num done in array"""
-        pass
-
     def register_task_instance(self, task: DistributorTask):
         """
         create task instances (task transitions from Queued -> Instantiating)
@@ -322,7 +312,7 @@ class DistributorWorkflowRun:
             )
         return resp
 
-       def launch_task_instance(
+    def launch_task_instance(
         self,
         task_instance: DistributorTaskInstance,
         cluster: ClusterDistributor
@@ -396,9 +386,20 @@ class DistributorWorkflowRun:
         return array_distributor_id
 
     def _log_workflow_run_heartbeat(self) -> None:
-        """Log heartbeat to db and increase next expected time."""
+        """Log wfr and tis heartbeat to db and increase next expected time."""
         """TODO: """
         pass
+
+    def refresh_status_from_db(self, list: _tiList, status: str, is_array: bool = False) -> Dict[int: str]:
+        """Got to DB to check the list tis status."""
+        """TODO: Return a list of tis with status doesn't match status."""
+        pass
+
+    def refresh_status_with_distributor(self, list: _tiList, status: str, is_array: bool =False) -> Dict[int, str]:
+        """Go to the distributor to check the list tis status."""
+        """TODO: Return a list of tis with status doesn't match status."""
+        pass
+
 
     def heartbeat(self) -> None:
         """Log heartbeats."""
@@ -413,33 +414,35 @@ class DistributorWorkflowRun:
                      }
         array_queues = {"B": [], "R": []}
 
-        # Checking running ti
-        """
-        TODO: query the server status of _running_task_instance_ids
-              get two lists from server: the list(1) of tis that no longer in R
-                                         the list(2) of tis in R but exceeds ti heartbeat time
-                                         
-              remove list(1) from _running_task_instance_ids
-              get status of tis in list(2) from distributor; update their status if D or E; otherwise, E
-              
-              If any E, set self.wfr_has_failed_tis = True
-        """
-
         # checking launching ti
         """
         TODO: query the server status of _launched_array_task_instance_ids
-              get two lists from server: the list(1) of tis that no longer in R
-                                         the list(2) of tis in R but exceeds ti heartbeat time
-                                         
-              remove list(1) from _launched_array_task_instance_ids and add it to _running_task_instance_ids if in R
-              get status of tis in list(2) from distributor; update their status update their status if R, D or E; otherwise, E; move to _running_task_instance_ids if R
-             
-              If any E, set self.wfr_has_failed_tis = True
+              get a list from server: the list(1) of tis that no longer in R
+
+              remove list from _launched_array_task_instance_ids and add it to _running_task_instance_ids if in R
+              
+              get the rest status _launched_array_task_instance_ids from distributor; 
+              update their status update their status if D or E; set self.wfr_has_failed_tis = True;
+              update DB with status and heartbeat
+              we do nothing if R
+              
+              
+
         """
 
-        # checking registered ti
+        # Checking running ti
         """
-        TODO: submit those tis that are ready, and move them to _launched_array_task_instance_ids
+        TODO: query the server status of _running_task_instance_ids
+              get a list from server: the list(1) of tis that no longer in R
+                                         
+                                         
+              remove list from _running_task_instance_ids; if any E, set self.wfr_has_failed_tis = True
+              
+              for the remining tis in _running_task_instance_ids, check distributor, 
+              and remove them from _running_task_instance_ids if any D or E; 
+              update DB with status and heartbeat
+              
+              if any E, set self.wfr_has_failed_tis = True
         """
 
         # ****************************************************************

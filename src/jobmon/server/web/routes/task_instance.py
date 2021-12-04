@@ -770,8 +770,8 @@ def transition_task_instances(new_status: str) -> Any:
 @finite_state_machine.route("/task_instance/status_check/<status>", methods=["GET"])
 def task_instances_status_check(status: str) -> Any:
     """Sync status of given task intance IDs.
-    Return two list of ids: dict of ids no longer in <status>
-                            list of ids missed more than one heartbeat
+    TODO: Return a list of ids: dict of ids no longer in <status> with their status
+
     """
     pass
 
