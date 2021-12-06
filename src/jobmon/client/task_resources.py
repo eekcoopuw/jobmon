@@ -112,11 +112,7 @@ class TaskResources:
 
     def __hash__(self) -> int:
         """Determine the hash of a task resources object."""
-        resource_dict = self.concrete_resources.resources
-        # Note: this algorithm assumes all keys and values in the resources dict are
-        # JSON-serializable. Since that's a requirement for logging in the database,
-        # this assumption should be safe.
-        return hash(json.dumps(resource_dict, sort_keys=True))
+        return hash(self.concrete_resources)
 
     def __eq__(self, other: object) -> bool:
         """Check equality of task resources objects."""
