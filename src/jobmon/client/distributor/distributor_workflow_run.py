@@ -161,6 +161,9 @@ class WorkflowRunMaps:
         tis = self._map_arrays.get_tis_by_array_batch(array_id, batch_id)
         return [self._map_tiid_DistributorTaskInstance[tiid] for tiid in tis]
 
+    def get_DistributorArray_by_tiid(self, tiid: int) -> DistributorArray:
+        return self._map_aid_DistributorArray[self.get_DistributorTaskInstance_by_id(tiid).array_id]
+
 
 class _tiList:
     """This is the linked list for ti in different states."""
@@ -231,14 +234,10 @@ class DistributorWorkflowRun:
         self._registered_task_instance_ids: _tiList = _tiList()
         self._launched_task_instance_ids: _tiList = _tiList()
         self._running_task_instance_ids: _tiList = _tiList()
-
-        # mapping of array_id to DistributorArray. stores the queue of task_instances to be
-        # instantiated using the array strategy.
-        self._launched_array_task_instance_ids: _tiList = _tiList()
-        self._running_array_task_instance_ids: _tiList= _tiList()
+        self._error_task_instance_ids: _tiList = _tiList()
 
         # Triaging queue
-        # I may not need this; haven't decided yet
+        # We may not need this; haven't decided yet
         self._triaging_queue = _tiList()
 
         # flags to mark whether workflow_run completes w/o errors
@@ -468,12 +467,17 @@ class DistributorWorkflowRun:
         """TODO: """
         pass
 
-    def refresh_status_from_db(self, list: _tiList, status: str, is_array: bool = False) -> Dict[int: str]:
+    def _log_tis_heartbeat(self, tis: List) -> None:
+        """Log heartbeat of given list of tis."""
+        """TODO:"""
+        pass
+
+    def refresh_status_from_db(self, list: _tiList, status: str) -> Dict[int: str]:
         """Got to DB to check the list tis status."""
         """TODO: Return a list of tis with status doesn't match status."""
         pass
 
-    def refresh_status_with_distributor(self, list: _tiList, status: str, is_array: bool =False) -> Dict[int, str]:
+    def refresh_status_with_distributor(self, list: _tiList, status: str) -> Dict[int, str]:
         """Go to the distributor to check the list tis status."""
         """TODO: Return a list of tis with status doesn't match status."""
         pass
@@ -484,51 +488,65 @@ class DistributorWorkflowRun:
         # log heartbeats for tasks queued for batch execution and for the
         # workflow run
         logger.debug("Distributor: logging heartbeat")
-        self._log_workflow_run_heartbeat()  # update hearbeat time in DB
+        self._log_workflow_run_heartbeat()  # update wfr hearbeat time in DB
+        self._log_tis_heartbeat([ti.task_instance_id for ti in self.task_instances])  # log heartbeat for all tis
 
-        # a dict of listed ti by state that needs to move to other queue
-        ti_queues = {"B":[],  # launch
-                     "R": []  # run
-                     }
-        array_queues = {"B": [], "R": []}
+        # check launching queue
+        # sync with DB
+        ti_dict = self.refresh_status_from_db(self._launched_task_instance_ids, "B")
+        for tiid in ti_dict.keys():
+            self._launched_task_instance_ids.pop(tiid)
+            if ti_dict[tiid] == "R":
+                # move to running Q
+                self._running_task_instance_ids.add(tiid)
+            elif ti_dict[tiid] == "D":
+                pass
+            elif ti_dict[tiid] == "I":
+                raise Exception("No way this should happen.")
+            else:
+                dwfr.wfr_has_failed_tis = True
+                dwfr._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
+        # sync with distributor
+        # only check those unchanged in DB
+        ti_dict = dwfr.refresh_status_with_distributor(dwfr._launched_task_instance_ids, "B", False)
+        for tiid in ti_dict.keys():
+            if ti_dict[tiid] == "R":
+                # do nothing
+                pass
+            else:
+                dwfr._launched_task_instance_ids.pop(tiid)
+                if ti_dict[tiid] == "D":
+                    pass
+                elif ti_dict[tiid] == "I":
+                    raise Exception("No way this should happen.")
+                else:
+                    dwfr.wfr_has_failed_tis = True
+                    dwfr._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
+        dwfr.transition_task_instance(ti_dict)
 
-        # checking launching ti
-        """
-        TODO: query the server status of _launched_array_task_instance_ids
-              get a list from server: the list(1) of tis that no longer in R
+        # check running queue
+        # sync with DB
+        ti_dict = dwfr.refresh_status_from_db(dwfr._running_task_instance_ids, "R", False)
+        for tiid in ti_dict.keys():
+            dwfr._running_task_instance_ids.pop(tiid)
+            if ti_dict[tiid] == "D":
+                pass
+            elif ti_dict[tiid] in ("I", "B"):
+                raise Exception("No way this should happen.")
+            else:
+                dwfr.wfr_has_failed_tis = True
+                dwfr._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
+        # sync with distributor
+        # only check those unchanged in DB
+        ti_dict = dwfr.refresh_status_with_distributor(dwfr._running_task_instance_ids, "R", False)
+        for tiid in ti_dict.keys():
+            dwfr._running_task_instance_ids.pop(tiid)
+            if ti_dict[tiid] == "D":
+                pass
+            elif ti_dict[tiid] in ("B"):
+                raise Exception("The cluster much be crazy.")
+            else:
+                dwfr.wfr_has_failed_tis = True
+                dwfr._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
+        dwfr.transition_task_instance(ti_dict)
 
-              remove list from _launched_array_task_instance_ids and add it to _running_task_instance_ids if in R
-              
-              get the rest status _launched_array_task_instance_ids from distributor; 
-              update their status update their status if D or E; set self.wfr_has_failed_tis = True;
-              update DB with status and heartbeat
-              we do nothing if R
-              
-              
-
-        """
-
-        # Checking running ti
-        """
-        TODO: query the server status of _running_task_instance_ids
-              get a list from server: the list(1) of tis that no longer in R
-                                         
-                                         
-              remove list from _running_task_instance_ids; if any E, set self.wfr_has_failed_tis = True
-              
-              for the remining tis in _running_task_instance_ids, check distributor, 
-              and remove them from _running_task_instance_ids if any D or E; 
-              update DB with status and heartbeat
-              
-              if any E, set self.wfr_has_failed_tis = True
-        """
-
-        # ****************************************************************
-        """
-        TODO: do above for array
-        """
-        # ****************************************************************
-
-        """
-        TODO: if all the _tiLink queues are empty, set self.wfr_completed = True
-        """

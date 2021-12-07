@@ -105,6 +105,7 @@ def test_WorkflowRunMaps():
     assert len(dwfr._map.get_array_DistributorTaskInstance(2)) == 3
     assert len(dwfr._map.get_DistributorTaskInstance_by_did(2)) == 2
     assert dwfr._map.get_DistributorTaskInstance_by_did(4)[0] == ti5
+    assert dwfr._map.get_DistributorArray_by_tiid(1) == a1
 
 
 def test_wfr_heartbeat_flow():
