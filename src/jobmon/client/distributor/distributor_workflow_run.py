@@ -266,9 +266,7 @@ class DistributorWorkflowRun:
         return array_distributor_id
 
     def prep_tis_for_launch(self, instantiated_task_instances: List[DistributorTaskInstance], wf_max_concurrently_running: int) -> List[DistributorTaskInstance]:
-        # Get all single and array tasks that are currently in launched and running
-        # Assume all tasks are associated with an array, thus do not need to check
-        # _launched_task_instance_ids and _running_task_instance_ids
+        # Get all tasks that are currently in launched and running assume all tasks are associated with an array, don't need to check workflow
         total_launched_running = len(self.launched_array_task_instances) + \
                               len(self.running_array_task_instances)
 
