@@ -12,7 +12,6 @@ from typing import Dict, List, Optional, Type
 import tblib.pickling_support
 
 from jobmon.client.client_logging import ClientLogging
-from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
@@ -49,6 +48,8 @@ class ExceptionWrapper(object):
 
 
 class DistributorService:
+    """Distributes TaskInstances when they are ready and monitors the status of active TIs."""
+
     def __init__(
         self,
         workflow_id: int,
@@ -82,9 +83,6 @@ class DistributorService:
 
         self.requester = requester
 
-        self.distributor_wfr = DistributorWorkflowRun(self.workflow_id, self.workflow_run_id,
-                                                      self.requester)
-
         logger.info(f"distributor communicating at {self.requester.url}")
 
         # Get/set cluster_type_id
@@ -96,8 +94,6 @@ class DistributorService:
 
         self._submitted_or_running: Dict[int, DistributorTaskInstance] = {}
         self._to_instantiate: List[DistributorTask] = []
-        self._to_launch_single_tis: List[DistributorTask] = []
-        self._to_launch_array_tis: List[DistributorTask] = []
         self._to_reconcile: List[DistributorTaskInstance] = []
         self._to_log_error: List[DistributorTaskInstance] = []
 
