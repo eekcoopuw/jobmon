@@ -565,52 +565,109 @@ class DistributorService:
             ]
         self.distributor.terminate_task_instances(to_terminate)
 
-    def launch_array_task_instances(self, array, array_instantiated_tiids: List[int]) -> List[int]:
-        # Don't allow the array limit to be greater than the workflow limit
-        if array.max_concurrently_running > self.wf_max_concurrently_running:
-            array.max_concurrently_running = self.wf_max_concurrently_running
-            
-        # Take the lower concurrency limit (since array limit should never be greater than
-        # workflow limit).
-        concurrency_limit = min(array.max_concurrently_running, self.wf_max_concurrently_running)
+    # TODO: Change name to prep_to_launch_array_task_instances
+    def launch_array_task_instances(self, instantiated_task_instances: List[DistributorTaskInstance]) -> None:
+        # Get all single and array tasks that are currently in launched and running
+        # Assume all tasks are associated with an array, thus do not need to check
+        # _launched_task_instance_ids and _running_task_instance_ids
+        total_launched_running = len(self.distributor_wfr.launched_array_task_instances) + \
+                              len(self.distributor_wfr.running_array_task_instances)
 
-        # Calculate total launched and running task instances in workflow
-        running_launched_tasks = len(self.distributor_wfr.launched_task_instances) + \
-                                 len(self.distributor_wfr.running_task_instances)
+        # calculate workflow capacity
+        workflow_capacity = self.wf_max_concurrently_running - total_launched_running
 
-        # Calculate total tasks running and launched in Array
-        running_launched_array_tasks = len(self.distributor_wfr.launched_array_task_instances) + \
-                                       len(self.distributor_wfr.running_array_task_instances)
+        # TODO: Optimize with cache
+        # {array_id: array_capacity_limit}
+        known_arrays = {}
 
-        array_capacity = concurrency_limit - running_launched_array_tasks
-        workflow_capacity = concurrency_limit - running_launched_tasks
+        num_instantiated_tis = len(instantiated_task_instances)
+        instantiated_ti_index = 0
+        while workflow_capacity > 0:
+            if instantiated_ti_index < num_instantiated_tis:
+                ti = instantiated_task_instances[instantiated_ti_index]
+                array = self.distributor_wfr.get_array(ti.array_id)
 
-        # Take the lower capacity amount
-        capacity = min(array_capacity, workflow_capacity)
-        tiids_to_launch = array_instantiated_tiids[:capacity]
-        array.instantiated_array_task_instance_ids = tiids_to_launch
+                # Don't allow the array limit to be greater than the workflow limit
+                if array.max_concurrently_running > self.wf_max_concurrently_running:
+                    array.max_concurrently_running = self.wf_max_concurrently_running
 
-        # launch array
-        self.distributor_wfr.launch_array_instance(array, self.distributor)
-        # TODO: Have the workflow capacity cull the list down, then have the array capacity
-        # cull down the list
-        #TODO: ADD TASK INSTANCES TO LAUNCH
+                array_launched_running = len(array.launched_array_task_instance_ids) + len(array.running_array_task_instance_ids)
+                array_capacity = array.max_concurrently_running - array_launched_running
+                if array_capacity > 0:
+                    array.queue_task_instance_id_for_array_launch(ti.task_instance_id)
+                    workflow_capacity -= 1
 
-        # return a list of the task instance ids that were launched
-        return tiids_to_launch
+                    # Add to array launched and workflow launched list, remove from instantiated list
+                    self.distributor_wfr._launched_array_task_instance_ids.append(ti.task_instance_id)
+                    array.launched_array_task_instance_ids.append(ti.task_instance_id)
+                    breakpoint()
+                    # TODO: Make this a list on distributor_workflow_run
+                    # array.instantiated_array_task_instance_ids.pop(instantiated_ti_index)
 
-    def launch_task_instances(self, instantiated_task_instances: List[DistributorTaskInstance]) -> List[DistributorTaskInstance]:
+                instantiated_ti_index += 1
+                # TODO: Something needs to loop through the arrays and call distributor_workflow_run.launch_array_instance()
 
-        # Calculate total launched and running task instances in workflow
-        running_launched_tasks = len(self.distributor_wfr.launched_task_instances) + \
-                                 len(self.distributor_wfr.running_task_instances)
+            else:
+                logger.info("Workflow capacity is greater than the number of instantiated "
+                            "task instances ready to be launched.")
+                break
 
-        # TODO: Also check that that array limits are included in overall running
-        # Calculate wf capacity (max_concurrently_running - (running and launched))
-        workflow_capacity = self.wf_max_concurrently_running - running_launched_tasks
 
-        for ti in instantiated_task_instances[:workflow_capacity]:
-            self.distributor_wfr.launch_task_instance(ti, self.distributor)
 
-        # return a list of the task instance ids that were launched
-        return instantiated_task_instances[:workflow_capacity]
+        # ### Might not need this #####
+        # # Re-calculate the total launched and running tasks now that we've launched single tasks
+        # wf_launched_running = self.distributor_wfr.launched_task_instances + \
+        #                       self.distributor_wfr.running_task_instances + \
+        #                       self.distributor_wfr.launched_array_task_instances + \
+        #                       self.distributor_wfr.running_array_task_instances
+        #
+        # # Get all array tasks that are currently in launched and running
+        # array_launched_running = len(self.distributor_wfr.launched_array_task_instances) + \
+        #                          len(self.distributor_wfr.running_array_task_instances)
+        #
+        # ###################### OLD STUFF ########################
+        # # Take the lower concurrency limit (since array limit should never be greater than
+        # # workflow limit).
+        # concurrency_limit = min(array.max_concurrently_running, self.wf_max_concurrently_running)
+        #
+        # # Calculate total launched and running task instances in workflow
+        # running_launched_tasks = len(self.distributor_wfr.launched_task_instances) + \
+        #                          len(self.distributor_wfr.running_task_instances)
+        #
+        # # Calculate total tasks running and launched in Array
+        # running_launched_array_tasks = len(self.distributor_wfr.launched_array_task_instances) + \
+        #                                len(self.distributor_wfr.running_array_task_instances)
+        #
+        # array_capacity = concurrency_limit - running_launched_array_tasks
+        # workflow_capacity = concurrency_limit - running_launched_tasks
+        #
+        # # Take the lower capacity amount
+        # capacity = min(array_capacity, workflow_capacity)
+        # tiids_to_launch = array_instantiated_tiids[:capacity]
+        # array.instantiated_array_task_instance_ids = tiids_to_launch
+        #
+        # # launch array
+        # self.distributor_wfr.launch_array_instance(array, self.distributor)
+        # # TODO: Have the workflow capacity cull the list down, then have the array capacity add to the batch to launch
+        #
+        # # cull down the list
+        # #TODO: ADD TASK INSTANCES TO LAUNCH
+        #
+        # # return a list of the task instance ids that were launched
+        # return tiids_to_launch
+
+    # def launch_task_instances(self, instantiated_task_instances: List[DistributorTaskInstance]) -> List[DistributorTaskInstance]:
+    #
+    #     # Calculate total launched and running task instances in workflow
+    #     running_launched_tasks = len(self.distributor_wfr.launched_task_instances) + \
+    #                              len(self.distributor_wfr.running_task_instances)
+    #
+    #     # TODO: Also check that that array limits are included in overall running
+    #     # Calculate wf capacity (max_concurrently_running - (running and launched))
+    #     workflow_capacity = self.wf_max_concurrently_running - running_launched_tasks
+    #
+    #     for ti in instantiated_task_instances[:workflow_capacity]:
+    #         self.distributor_wfr.launch_task_instance(ti, self.distributor)
+    #
+    #     # return a list of the task instance ids that were launched
+    #     return instantiated_task_instances[:workflow_capacity]

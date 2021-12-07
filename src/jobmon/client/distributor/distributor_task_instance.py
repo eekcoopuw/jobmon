@@ -22,6 +22,7 @@ class DistributorTaskInstance:
         task_instance_id: int,
         workflow_run_id: int,
         requester: Requester,
+        array_id: Optional[int] = None,
         requested_resources: Optional[dict] = None,
         name: Optional[str] = None,
         distributor_id: Optional[int] = None
@@ -40,6 +41,7 @@ class DistributorTaskInstance:
         self.workflow_run_id = workflow_run_id
         self.distributor_id = distributor_id
         self.name = name
+        self.array_id = array_id
         self.requested_resources = requested_resources
 
         self.report_by_date: float
@@ -70,6 +72,7 @@ class DistributorTaskInstance:
             task_instance_id=kwargs["task_instance_id"],
             workflow_run_id=kwargs["workflow_run_id"],
             distributor_id=kwargs["distributor_id"],
+            array_id=kwargs["array_id"],
             requester=requester,
         )
         return ti
