@@ -94,21 +94,38 @@ def test_cluster_resource_cache(db_cfg, client_env):
     assert tr1_copy.task_resources_id == 1
 
 
-# def test_task_resource_bind(db_cfg, client_env, tool, task_template):
-#
-#     from jobmon.client.workflow import Workflow
-#
-#     resources = {'queue': 'null.q'}
-#
-#     t1 = task_template.create_task(compute_resources=resources, arg='echo 1')
-#     t2 = task_template.create_task(compute_resources=resources, arg='echo 2')
-#     t3 = task_template.create_task(compute_resources=resources, arg='echo 3')
-#
-#     wf = tool.create_workflow()
-#     wf.set_default_cluster_name('sequential')
-#     wf.add_tasks([t1, t2, t3])
-#
-#     wf.bind()
-#     wfr = wf._create_workflow_run()
-#     wfr.bind()
-# 
+def test_task_resource_bind(db_cfg, client_env, tool, task_template):
+
+    resources = {'queue': 'null.q'}
+    task_template.set_default_compute_resources_from_dict(cluster_name='sequential',
+                                                          compute_resources=resources)
+
+    t1 = task_template.create_task(cluster_name='sequential', arg='echo 1')
+    t2 = task_template.create_task(cluster_name='sequential', arg='echo 2')
+    t3 = task_template.create_task(arg='echo 3')
+
+    wf = tool.create_workflow()
+    wf.add_tasks([t1, t2, t3])
+
+    wf.bind()
+    wfr = wf._create_workflow_run()
+    wfr._bind_tasks({hash(t): t for t in [t1, t2, t3]})
+
+    app, db = db_cfg['app'], db_cfg['DB']
+
+    with app.app_context():
+
+        q = f"""
+        SELECT DISTINCT tr.id
+        FROM task t
+        JOIN task_resources tr ON tr.id = t.task_resources_id
+        WHERE t.id IN {tuple(set([t.task_id for t in [t1, t2, t3]]))}
+        """
+        res = db.session.execute(q).fetchall()
+        db.session.commit()
+        assert len(res) == 1
+
+    tr1, tr2, tr3 = [t.task_resources for t in wf.tasks.values()]
+    assert tr1 is tr2
+    assert tr1 is tr3
+    assert tr1.id == res[0].id
