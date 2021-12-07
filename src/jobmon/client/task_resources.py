@@ -76,7 +76,7 @@ class TaskResources:
         """Bind TaskResources to the database."""
         # Check if it's already been bound
         if self.is_bound:
-            logger.warning(
+            logger.debug(
                 "This task resource has already been bound, and assigned"
                 f"task_resources_id {self.id}"
             )

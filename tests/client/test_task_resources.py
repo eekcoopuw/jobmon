@@ -64,3 +64,51 @@ def test_task_resources_hash():
             return hash(resource_1)
 
     assert not resource_1 == FakeResource()
+
+
+def test_cluster_resource_cache(db_cfg, client_env):
+    from jobmon.client.cluster import Cluster
+    cluster = Cluster.get_cluster('sequential')
+
+    resources_1 = {'runtime': 80, 'queue': 'null.q'}
+    resources_2 = {'runtime': 90, 'queue': 'null.q'}
+
+    tr1 = cluster.create_valid_task_resources(
+        resource_params=resources_1, task_resources_type_id='O'
+    )
+    tr1_copy = cluster.create_valid_task_resources(
+        resource_params=resources_1, task_resources_type_id='O'
+    )
+
+    assert tr1 is tr1_copy
+
+    tr2 = cluster.create_valid_task_resources(resources_2, 'O')
+    assert tr1 is not tr2
+
+    assert len(cluster.task_resources) == 2
+
+    # Modify an attribute on tr1 - tr1_copy should also receive the change.
+    # Mimics behavior in bind,
+    # where task resources bound to multiple tasks should all be updated in 1 bind
+    tr1.task_resources_id = 1
+    assert tr1_copy.task_resources_id == 1
+
+
+# def test_task_resource_bind(db_cfg, client_env, tool, task_template):
+#
+#     from jobmon.client.workflow import Workflow
+#
+#     resources = {'queue': 'null.q'}
+#
+#     t1 = task_template.create_task(compute_resources=resources, arg='echo 1')
+#     t2 = task_template.create_task(compute_resources=resources, arg='echo 2')
+#     t3 = task_template.create_task(compute_resources=resources, arg='echo 3')
+#
+#     wf = tool.create_workflow()
+#     wf.set_default_cluster_name('sequential')
+#     wf.add_tasks([t1, t2, t3])
+#
+#     wf.bind()
+#     wfr = wf._create_workflow_run()
+#     wfr.bind()
+# 
