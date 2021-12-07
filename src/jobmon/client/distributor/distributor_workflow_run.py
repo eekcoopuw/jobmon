@@ -296,6 +296,7 @@ class DistributorWorkflowRun:
                     # Add to array launched and workflow launched list, remove from instantiated list
                     self._launched_array_task_instance_ids.append(ti.task_instance_id)
                     array.launched_array_task_instance_ids.append(ti.task_instance_id)
+                    array.instantiated_array_task_instance_ids.remove(ti.task_instance_id)
                     launched_task_instances.append(ti)
 
                 instantiated_ti_index += 1
