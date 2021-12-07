@@ -7,6 +7,34 @@ from jobmon.client.distributor.distributor_task_instance import DistributorTaskI
 from jobmon.constants import TaskInstanceStatus
 
 
+def test_ds_arraysMap():
+    """This is a unit test to test the data structure _arraysMap.
+
+    Testing Data:
+    ********************************************************************
+    * tid   * Array id        * array_batch_id                          *
+    * 1     * 1               * 1                                   *
+    * 2     * 2               * 1                                      *
+    * 3     * 2               * 1                                      *
+    * 4     * 2               * 2                                      *
+    ********************************************************************
+    _multiwayMap: {1:{1: [1]}, 2: {1: [2, 3], 2: [4]}}
+    """
+    from jobmon.client.distributor.distributor_workflow_run import _arraysMap
+    m = _arraysMap()
+    m.add_new_element(1, 1, 1)
+    m.add_new_element(2, 1, 2)
+    m.add_new_element(2, 1, 3)
+    m.add_new_element(2, 2, 4)
+    assert m._all_data == {1: {1: [1]}, 2: {1: [2, 3], 2: [4]}}
+    assert m._all_value == [1, 2, 3, 4]
+    assert m.get_tis_by_array(1) == [1]
+    assert m.get_tis_by_array(2) == [2, 3, 4]
+    assert m.get_tis_by_array_batch(2, 2) == [4]
+
+
+
+
 def test_wfr_heartbeat_flow():
     """This is to drive the development.
 
@@ -23,7 +51,7 @@ def test_wfr_heartbeat_flow():
     ti3 = DistributorTaskInstance(task_instance_id=3, workflow_run_id=1, requester=None,
                                   distributor_id=3, cluster_type_id=1)
     ti101 = DistributorTaskInstance(task_instance_id=101, workflow_run_id=1, requester=None,
-                                   distributor_id=10, array_id=1, cluster_type_id=1)
+                                    distributor_id=10, array_id=1, cluster_type_id=1)
     ti102 = DistributorTaskInstance(task_instance_id=102, workflow_run_id=1, requester=None,
                                     distributor_id=10, array_id=1, cluster_type_id=1)
     ti201 = DistributorTaskInstance(task_instance_id=201, workflow_run_id=1, requester=None,
@@ -50,7 +78,7 @@ def test_wfr_heartbeat_flow():
     dwfr._launched_array_task_instance_ids = ti_list_array
 
     # mimic a heart beat function for testing
-    def _heatbeat():
+    def _heartbeat():
         # check launching queue
         # sync with DB
         ti_dict = dwfr.refresh_status_from_db(dwfr._launched_task_instance_ids, "B", False)
@@ -169,7 +197,7 @@ def test_wfr_heartbeat_flow():
                 dwfr._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
         dwfr.transition_task_instance(ti_dict)
 
-    # **************************mock functions******************************************
+    # mock functions
     def mock_transition_ti(*args):
         pass
 
@@ -210,7 +238,7 @@ def test_wfr_heartbeat_flow():
             with patch.object(dwfr,
                               'refresh_status_with_distributor',
                               side_effect=mock_refresh_distributor):
-                              _heatbeat()
+                              _hearrtrbeat()
                               # {1: "R", 2: "R", 3: "R", 101: "R", 102: "B", 201: "D", 202: "B"}
                               assert dwfr._launched_task_instance_ids.length == 0
                               assert dwfr._running_task_instance_ids.length == 3
@@ -256,7 +284,7 @@ def test_wfr_heartbeat_flow():
             with patch.object(dwfr,
                               'refresh_status_with_distributor',
                               side_effect=mock_refresh_distributor):
-                              _heatbeat()
+                              _heartrbeat()
                               # {1: "R", 2: "D", 3: "D", 101: "D", 102: "R", 201: "D", 202: "U"}
                               assert dwfr._launched_task_instance_ids.length == 0
                               assert set(dwfr._running_task_instance_ids.ids) == {1}

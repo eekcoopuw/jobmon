@@ -10,6 +10,7 @@ CREATE TABLE `task_instance`(
   `array_id` INTEGER DEFAULT NULL,
   `cluster_type_id` INTEGER DEFAULT NULL,
   `distributor_id` INTEGER DEFAULT NULL,
+  `subtask_id` varchar(100) DEFAULT NULL,
   `task_id` INTEGER NOT NULL,
   `task_resources_id` INTEGER DEFAULT NULL,
   `array_batch_num` INTEGER DEFAULT NULL,

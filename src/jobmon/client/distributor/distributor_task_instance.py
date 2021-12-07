@@ -24,6 +24,7 @@ class DistributorTaskInstance:
         cluster_type_id: int,
         requester: Requester,
         distributor_id: Optional[int] = None,
+        subtask_id: Optional[str] = None,
         array_id: Optional[int] = None
     ) -> None:
         """Initialization of distributor task instance.
@@ -33,13 +34,19 @@ class DistributorTaskInstance:
             workflow_run_id (int): a workflow_run_id
             cluster_type_id (int): the type of Cluster
             distributor_id (int, optional): the distributor_id associated with this
-                task_instance
+                task_instance for non array task; the parent distributor_id for array task
+            subtask_id (int, optional): the distributor_id, it should be the same as distributor_id
+                for non-array task
             requester (Requester, optional): a requester to communicate with
                 the JSM. default is shared requester
         """
         self.task_instance_id = task_instance_id
         self.workflow_run_id = workflow_run_id
         self.distributor_id = distributor_id
+        if subtask_id is None:
+            self.subtask_id = str(distributor_id)
+        else:
+            self.subtask_id = subtask_id
 
         self.report_by_date: float
 

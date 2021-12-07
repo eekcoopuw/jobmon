@@ -13,18 +13,79 @@ from jobmon.requester import http_request_ok, Requester
 
 logger = logging.getLogger(__name__)
 
-class _WorkflowRunMaps:
+
+class _arraysMap:
+    """A dict object to hold all arrays in the wfr."""
+    def __init__(self):
+        self._all_data = dict()
+        self._all_value = []
+
+    def add_new_element(self, array_id: int, array_batch_id: int, tid: int):
+        """Store two level indexes and value.
+
+        For example, array_id=1, array_batch_id=2, tid=3:
+            self.add_new_element_three_dimentaion(1, 2, 3)
+        """
+        x, y, z = array_id, array_batch_id, tid
+
+        if x in self._all_data.keys():
+            if type(self._all_data[x]) == dict:
+                if y in self._all_data[x].keys():
+                    self._all_data[x][y].append(z)
+                else:
+                    self._all_data[x][y] = [z]
+        else:
+            temp_dict = dict()
+            temp_dict[y] = [z]
+            self._all_data[x] = temp_dict
+        self._all_value.append(z)
+
+    def get_tis_by_array(self, array_id: int) -> List[int]:
+        if array_id in self._all_data.keys():
+            return_list = []
+            for v in self._all_data[array_id].values():
+                return_list.extend(v)
+            return return_list
+        else:
+            return []
+
+    def get_tis_by_array_batch(self, array_id: int, array_batch_id: int) -> List[int]:
+        if array_id in self._all_data.keys():
+            if array_batch_id in self._all_data[array_id].keys():
+                return self._all_data[array_id][array_batch_id]
+            else:
+                return []
+        else:
+            return []
+
+class WorkflowRunMaps:
     """
     This class holds the datastructure to map wfr ID, distributor ID, and DistributorTaskInstance.
+
+    For example:
+        *********************************************************************************************
+        * tid   * distributor ID    * subtask_id   * array_id    * array_batch_id  * array_step_id  *
+        * 1     * 1                 * 1            * null        * null            * null           *
+        * 2     * 2                 * 2.1          * 1           * 1               * 1              *
+        * 3     * 2                 * 2.2          * 1           * 1               * 2              *
+        *********************************************************************************************
+        _map_tiid_subtid: {1: "1", 2: "2.1", 3: "2.2"}
+        _map_subtid_tiid: {"1": 1, "2.1": 2, "2.2": 1}
+        _map_did_tiid: {1: [1], 2: [{1: [2, 3]}]}  # multiple way map
+        _map_aid_tiid: {1: [2, 3]}
+
     """
 
     def __init__(self):
         #  map of task instance id and DistributorTaskInstance
         self._map_tiid_DistributorTaskInstance = dict()
-        # map of task instance id and distributor id
-        self._map_tiid_did = dict()
+        # map of task instance id and subtaskid
+        #self._map_tiid_did = dict()
+        self._map_tiid_subtid = dict()
+        # map of subtaskid and task instance id
+        self._map_subtid_tiid = dict()
         # map of distributor id and task instance id; one to many
-        self._map_did_tiid = dict()
+        self._map_did_tiid = _multiwayMap()
         # map for array id and DistributorArray
         self._map_aid_DistributorArray = dict()
         # map for array and task instance list
@@ -36,6 +97,7 @@ class _WorkflowRunMaps:
     def add_DistributorTaskInstance(self, ti: DistributorTaskInstance):
         tiid = ti.task_instance_id
         distributorid = ti.distributor_id
+        subtaskid = ti.subtask_id
         # add ti to array in the map
         if ti.array_id is not None:
             if ti.array_id in self._map_aid_DistributorArray.keys():
@@ -122,7 +184,7 @@ class _tiList:
                 return_list.append(t)
         return return_list
 
-    def get_distributortis(self, map: _WorkflowRunMaps) -> List[DistributorTaskInstance]:
+    def get_distributortis(self, map: WorkflowRunMaps) -> List[DistributorTaskInstance]:
         return_list = set()
         for ti in self.tis:
             return_list.add(map.get_DistributorTaskInstance_by_id(ti))
@@ -145,7 +207,7 @@ class DistributorWorkflowRun:
         self.requester = requester
 
         # create the map of task_instance_id to DistributorTaskInstance and array_id to DistributorArray
-        self._map: _WorkflowRunMaps = _WorkflowRunMaps()
+        self._map: WorkflowRunMaps = WorkflowRunMaps()
 
         # lists of task_instance_ids in different states. used for property views into
         # self._task_instances dict. This gets refreshed from the db during
