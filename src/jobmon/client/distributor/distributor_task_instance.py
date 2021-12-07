@@ -25,7 +25,9 @@ class DistributorTaskInstance:
         requester: Requester,
         distributor_id: Optional[int] = None,
         subtask_id: Optional[str] = None,
-        array_id: Optional[int] = None
+        array_id: Optional[int] = None,
+        array_batch_id: Optional[int] = None,
+        array_step_id: Optional[int] = None
     ) -> None:
         """Initialization of distributor task instance.
 
@@ -47,6 +49,9 @@ class DistributorTaskInstance:
             self.subtask_id = str(distributor_id)
         else:
             self.subtask_id = subtask_id
+
+        self.array_batch_id = array_batch_id
+        self.array_step_id = array_step_id
 
         self.report_by_date: float
 

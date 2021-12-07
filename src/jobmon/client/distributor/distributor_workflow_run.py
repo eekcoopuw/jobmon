@@ -85,11 +85,13 @@ class WorkflowRunMaps:
         # map of subtaskid and task instance id
         self._map_subtid_tiid = dict()
         # map of distributor id and task instance id; one to many
-        self._map_did_tiid = _multiwayMap()
-        # map for array id and DistributorArray
-        self._map_aid_DistributorArray = dict()
+        self._map_did_tiid = dict()
         # map for array and task instance list
-        self._map_aid_tiids = dict()
+        self._map_arrays = _arraysMap()
+        # map all arrays and DistributorArray
+        self._map_aid_DistributorArray = dict()
+        # map distributorid to array array batch
+        self._map_did_array_batch = dict()
 
     def add_DistributorArray(self, a: DistributorArray):
         self._map_aid_DistributorArray[a.array_id] = a
@@ -100,21 +102,22 @@ class WorkflowRunMaps:
         subtaskid = ti.subtask_id
         # add ti to array in the map
         if ti.array_id is not None:
-            if ti.array_id in self._map_aid_DistributorArray.keys():
-                self._map_aid_DistributorArray[ti.array_id].append(tiid)
-            else:
-                self._map_aid_DistributorArray[ti.array_id] = [tiid]
+            self._map_arrays.add_new_element(ti.array_id, ti.array_batch_id, tiid)
         if tiid is None:
-            #  TODO: taks instance ID should not be None at this point. Handle it better.
+            #  TODO: task instance ID should not be None at this point. Handle it better.
             pass
         else:
             self._map_tiid_DistributorTaskInstance[tiid] = ti
-            self._map_tiid_did[tiid] = distributorid
+            self._map_tiid_subtid[tiid] = subtaskid
+            self._map_subtid_tiid[subtaskid] = tiid
             if distributorid is not None:
                 if distributorid in self._map_did_tiid.keys():
                     self._map_did_tiid[distributorid].add(tiid)
                 else:
                     self._map_did_tiid[distributorid] = {tiid}
+                # distributor id to (array_id, array_batch_id) should be unique
+                if distributorid not in self._map_did_array_batch.keys():
+                    self._map_did_array_batch[distributorid] = (ti.array_id, ti.array_batch_id)
 
     def get_DistributorTaskInstance_by_id(self, tid: int) -> DistributorTaskInstance:
         """Return DistributorTaskInstance by task instance id."""
@@ -125,9 +128,14 @@ class WorkflowRunMaps:
         tiids = list(self._map_did_tiid[did])
         return [self._map_tiid_DistributorTaskInstance[tiid] for tiid in tiids]
 
+    def get_DistributorTaskInstance_by_subtaskid(self, subtaskid: str) -> DistributorTaskInstance:
+        """Return DistributorTaskInstance by sub task id (distributor id for sub task)."""
+        tid = self._map_subtid_tiid[subtaskid]
+        return self._map_tiid_DistributorTaskInstance[tid]
+
     def get_task_instance_ids(self) -> List[int]:
         """Returns all task instance ids."""
-        return self._map_tiid_did.keys()
+        return list(self._map_tiid_subtid.keys())
 
     def get_task_instances(self) -> List[DistributorTaskInstance]:
         """Return all task instances."""
@@ -139,11 +147,19 @@ class WorkflowRunMaps:
 
     def get_array_ids(self) -> List[int]:
         """Return all array ids."""
-        return self._map_aid_DistributorArray.keys()
+        return list(self._map_aid_DistributorArray.keys())
 
     def get_arrays(self) -> List[DistributorArray]:
         """Return all arrays."""
-        return self._map_aid_DistributorArray.values()
+        return list(self._map_aid_DistributorArray.values())
+
+    def get_array_DistributorTaskInstance(self, array_id: int) -> List[DistributorTaskInstance]:
+        tis = self._map_arrays.get_tis_by_array(array_id)
+        return [self._map_tiid_DistributorTaskInstance[tiid] for tiid in tis]
+
+    def get_array_batch_DistributorTaskInstance(self, array_id: int, batch_id: int) -> List[DistributorTaskInstance]:
+        tis = self._map_arrays.get_tis_by_array_batch(array_id, batch_id)
+        return [self._map_tiid_DistributorTaskInstance[tiid] for tiid in tis]
 
 
 class _tiList:

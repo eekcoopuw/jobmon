@@ -33,6 +33,78 @@ def test_ds_arraysMap():
     assert m.get_tis_by_array_batch(2, 2) == [4]
 
 
+def test_WorkflowRunMaps():
+    """This is a unit test to test the data structure WorkflowRunMaps.
+
+        Testing Data:
+        **************************************************************************************
+        * tid   * Array id        * array_batch_id     * distributor id     * subtask_id     *
+        * 1     * 1               * 1                  * 1                  * 1.1              *
+        * 2     * 2               * 1                  * 2                  * 2.1            *
+        * 3     * 2               * 1                  * 2                  * 2.2            *
+        * 4     * 2               * 2                  * 3                  * 3.1            *
+        * 5     * None            * None               * 4                  * 4
+        ********************************************************************
+    """
+    dwfr = DistributorWorkflowRun(workflow_id=1, workflow_run_id=1, requester=None)
+    ti1 = DistributorTaskInstance(workflow_run_id=1,
+                                  requester=None,
+                                  cluster_type_id=1,
+                                  task_instance_id=1,
+                                  array_id=1,
+                                  array_batch_id=1,
+                                  distributor_id=1,
+                                  subtask_id="1.1")
+    ti2 = DistributorTaskInstance(workflow_run_id=1,
+                                  requester=None,
+                                  cluster_type_id=1,
+                                  task_instance_id=2,
+                                  array_id=2,
+                                  array_batch_id=1,
+                                  distributor_id=2,
+                                  subtask_id="2.1")
+    ti3 = DistributorTaskInstance(workflow_run_id=1,
+                                  requester=None,
+                                  cluster_type_id=1,
+                                  task_instance_id=3,
+                                  array_id=2,
+                                  array_batch_id=1,
+                                  distributor_id=2,
+                                  subtask_id="2.2")
+    ti4 = DistributorTaskInstance(workflow_run_id=1,
+                                  requester=None,
+                                  cluster_type_id=1,
+                                  task_instance_id=4,
+                                  array_id=2,
+                                  array_batch_id=2,
+                                  distributor_id=3,
+                                  subtask_id="3.1")
+    ti5 = DistributorTaskInstance(workflow_run_id=1,
+                                  requester=None,
+                                  cluster_type_id=1,
+                                  task_instance_id=5,
+                                  array_id=None,
+                                  array_batch_id=None,
+                                  distributor_id=4,
+                                  subtask_id="4")
+    a1 = DistributorArray(array_id=1, task_resources_id=1, requested_resources=[], requester=None)
+    a2 = DistributorArray(array_id=2, task_resources_id=2, requested_resources=[], requester=None)
+    dwfr._map.add_DistributorTaskInstance(ti1)
+    dwfr._map.add_DistributorTaskInstance(ti2)
+    dwfr._map.add_DistributorTaskInstance(ti3)
+    dwfr._map.add_DistributorTaskInstance(ti4)
+    dwfr._map.add_DistributorTaskInstance(ti5)
+    dwfr._map.add_DistributorArray(a1)
+    dwfr._map.add_DistributorArray(a2)
+    assert len(dwfr._map.get_task_instances()) == 5
+    assert set(dwfr._map.get_task_instance_ids()) ==  {1, 2, 3, 4, 5}
+    assert dwfr._map.get_DistributorTaskInstance_by_id(1) == ti1
+    assert dwfr._map.get_DistributorTaskInstance_by_subtaskid("3.1") == ti4
+    assert dwfr._map.get_array_batch_DistributorTaskInstance(2, 2)[0] == ti4
+    assert dwfr._map.get_array_DistributorTaskInstance(1)[0] == ti1
+    assert len(dwfr._map.get_array_DistributorTaskInstance(2)) == 3
+    assert len(dwfr._map.get_DistributorTaskInstance_by_did(2)) == 2
+    assert dwfr._map.get_DistributorTaskInstance_by_did(4)[0] == ti5
 
 
 def test_wfr_heartbeat_flow():
