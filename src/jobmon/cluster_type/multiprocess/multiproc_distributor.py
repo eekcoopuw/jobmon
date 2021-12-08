@@ -242,6 +242,7 @@ class MultiprocessDistributor(ClusterDistributor):
         self, command: str, name: str, requested_resources: dict
     ) -> int:
         """Execute a task instance."""
+        # add an executor id to the environment
         distributor_id = self._next_distributor_id
         self._next_distributor_id += 1
         task = PickableTask(
@@ -252,7 +253,7 @@ class MultiprocessDistributor(ClusterDistributor):
         return distributor_id
 
     def submit_array_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any]
+        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
     ) -> int:
         """Executes an array of tasks.
 
@@ -274,11 +275,6 @@ class MultiprocessDistributor(ClusterDistributor):
             return [int(running)]
         else:
             return []
-
-    @staticmethod
-    def array_subtask_id() -> int:
-        """Array implementation not supported for multiprocess execution, return 1."""
-        return 1
 
 
 class MultiprocessWorkerNode(ClusterWorkerNode):
@@ -305,3 +301,8 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
     def get_usage_stats(self) -> Dict:
         """Usage information specific to the distributor."""
         raise NotImplementedError
+
+    @staticmethod
+    def array_subtask_id() -> int:
+        """Array implementation not supported for multiprocess execution, return 1."""
+        return 1
