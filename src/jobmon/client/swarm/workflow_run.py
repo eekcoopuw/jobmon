@@ -195,7 +195,7 @@ class WorkflowRun:
             if swarm_task.status == TaskStatus.REGISTERED:
                 logger.debug(
                     f"Instantiating resources for newly ready task and "
-                    f"changing it to the queued state. Task: {swarm_task},"
+                    f"changing it to t he queued state. Task: {swarm_task},"
                     f" id: {swarm_task.task_id}"
                 )
                 if swarm_task.task_resources is None:

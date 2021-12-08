@@ -54,16 +54,14 @@ class Array:
             upstream_tasks = []
         self.upstream_tasks = upstream_tasks
 
-        # task resources
+        # compute resources
         if not cluster_name:
             cluster_name = self.task_template_version.default_cluster_name
         self.cluster_name = cluster_name
-        if compute_resources is None:
-            compute_resources = {}
-        resources = (
+        resources = compute_resources if compute_resources is not None else {}
+        resources.update(
             self.task_template_version.default_compute_resources_set.get(self.cluster_name, {})
         )
-        resources.update(compute_resources)
 
         self.compute_resources = resources
         self.compute_resources_callable = compute_resources_callable
@@ -138,6 +136,12 @@ class Array:
             task.task_resources = task_resources
 
     def add_task(self, task: Task):
+        if task.cluster_name and self.cluster_name != task.cluster_name:
+            raise ValueError(
+                "Task assigned to different cluster than associated array. Task.cluster_name="
+                f"{task.cluster_name}. Array.cluster_name={self.cluster_name}"
+            )
+
         task_hash = hash(task)
         if task_hash in self.tasks.keys():
             raise ValueError(
@@ -195,8 +199,6 @@ class Array:
                 node=node,
                 task_args=self.task_args,
                 op_args=self.op_args,
-                compute_resources=self.compute_resources,
-                compute_resources_callable=self.compute_resources_callable,
                 resource_scales=resource_scales,
                 cluster_name=self.cluster_name,
                 max_attempts=max_attempts,

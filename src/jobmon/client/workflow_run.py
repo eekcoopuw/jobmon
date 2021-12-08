@@ -2,7 +2,7 @@
 import getpass
 import logging
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
@@ -11,6 +11,9 @@ from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import http_request_ok, Requester
 
+
+if TYPE_CHECKING:
+    from jobmon.client.workflow import Workflow
 
 logger = logging.getLogger(__name__)
 
@@ -30,14 +33,14 @@ class WorkflowRun(object):
 
     def __init__(
         self,
-        workflow_id: int,
+        workflow: Workflow,
         requester: Optional[Requester] = None,
         workflow_run_heartbeat_interval: int = 30,
         heartbeat_report_by_buffer: float = 3.1,
     ) -> None:
         """Initialize client WorkflowRun."""
         # set attrs
-        self.workflow_id = workflow_id
+        self._workflow = workflow
         self.user = getpass.getuser()
 
         if requester is None:
@@ -51,6 +54,10 @@ class WorkflowRun(object):
 
         # workflow was created successfully
         self.status = WorkflowRunStatus.REGISTERED
+
+    @property
+    def workflow_id(self):
+        self._workflow.workflow_id
 
     def bind(
         self,
@@ -230,3 +237,20 @@ class WorkflowRun(object):
                 task.initial_status = return_tasks[k][1]
 
         return tasks
+
+    def bind_arrays(self) -> None:
+        """Add the arrays to the database.
+
+        Done sequentially instead of in bulk, since scaling not assumed to be a problem
+        with arrays.
+        """
+        for array in self._workflow.arrays.values():
+            cluster = self._get_cluster_by_name(array.cluster_name)
+            # Create a task resources object and bind to the array
+            task_resources = cluster.create_valid_task_resources(
+                resource_params=array.compute_resources,
+                task_resources_type_id=TaskResourcesType.VALIDATED,
+            )
+            task_resources.bind(TaskResourcesType.VALIDATED)
+            array.set_task_resources(task_resources)
+            array.bind(workflow_id=self.workflow_id, cluster_id=cluster.id)

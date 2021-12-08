@@ -21,6 +21,7 @@ from jobmon.client.distributor.distributor_service import (
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
+from jobmon.client.tool_version import ToolVersion
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
 from jobmon.constants import (
     TaskResourcesType,
@@ -41,8 +42,6 @@ from jobmon.exceptions import (
 )
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeCluster
-
-from jobmon.client.tool_version import ToolVersion
 
 ClientLogging().attach(__name__)
 logger = logging.getLogger(__name__)
@@ -241,6 +240,29 @@ class Workflow(object):
                 f"All tasks in a workflow must have unique "
                 f"commands. Your command was: {task.command}"
             )
+
+        # infer array
+        if task.array is None:
+            template_name = task.node.task_template_version.task_template.template_name
+            try:
+                array = self.arrays[template_name]
+                array.add_task(task)
+            except KeyError:
+                # create array from the task template version on the node
+                cluster_name = self._get_cluster_name(task)
+                array = Array(
+                    task_template_version=task.node.task_template_version,
+                    task_args=task.task_args,
+                    op_args=task.op_args,
+                    cluster_name=cluster_name
+                )
+                self.arrays[template_name] = array
+            array.add_task(task)
+        else:
+            raise AttributeError("Cannot add a Task that is already bound to an Array. Add the"
+                                 " Array directly using Workflow.add_array.")
+
+        # add node to task
         try:
             self._dag.add_node(task.node)
         except DuplicateNodeArgsError:
@@ -249,6 +271,8 @@ class Workflow(object):
                 f"Found duplicate node args for {task}. task_template_version_id="
                 f"{task.node.task_template_version_id}, node_args={task.node.node_args}"
             )
+
+        # add task to workflow
         self.tasks[hash(task)] = task
 
         logger.debug(f"Task {hash(task)} added")
@@ -279,23 +303,6 @@ class Workflow(object):
         """Add multiple arrays to the workflow."""
         for array in arrays:
             self.add_array(array)
-
-    def bind_arrays(self) -> None:
-        """Add the arrays to the database.
-
-        Done sequentially instead of in bulk, since scaling not assumed to be a problem
-        with arrays.
-        """
-        for array in self.arrays.values():
-            cluster = self._get_cluster_by_name(array.cluster_name)
-            # Create a task resources object and bind to the array
-            task_resources = cluster.create_valid_task_resources(
-                resource_params=array.compute_resources,
-                task_resources_type_id=TaskResourcesType.VALIDATED,
-            )
-            task_resources.bind(TaskResourcesType.VALIDATED)
-            array.set_task_resources(task_resources)
-            array.bind(workflow_id=self.workflow_id, cluster_id=cluster.id)
 
     def set_default_compute_resources_from_yaml(
         self, cluster_name: str, yaml_file: str
@@ -430,7 +437,7 @@ class Workflow(object):
 
         return swarm.status
 
-    def validate(self, fail: bool = False) -> None:
+    def validate(self) -> None:
         """Confirm that the tasks in this workflow are valid.
 
         This method will access the database to confirm the requested resources are valid for
@@ -445,15 +452,15 @@ class Workflow(object):
             cluster = self._get_cluster_by_name(cluster_name)
 
             # add cluster to task
-            task.cluster = cluster
+            # task.cluster = cluster
 
             # not dynamic resource request. Construct TaskResources
             if task.compute_resources_callable is None:
                 # construct the resource params by traversing from workflow to task
-                resource_params = self._get_resource_params(task, cluster_name)
+                resource_params = self._get_compute_resources(task, cluster_name)
 
-                task.task_resources = cluster.create_valid_task_resources(
-                    resource_params, TaskResourcesType.VALIDATED, fail=fail
+                cluster.create_valid_task_resources(
+                    resource_params, TaskResourcesType.VALIDATED, fail=True
                 )
 
         # check if workflow is valid
@@ -461,20 +468,14 @@ class Workflow(object):
         self._matching_wf_args_diff_hash()
 
     def bind(self) -> None:
-        """Bind objects to the database if they haven't already been.
-
-        compute_resources: A dictionary that includes the users requested resources
-            for the current run. E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
-        cluster_name: The specific cluster that the user wants to use.
-        """
+        """Get a workflow_id."""
         if self.is_bound:
             return
 
-        # add arrays to all tasks
-        self._infer_arrays()
-
-        self.validate()
+        # self.validate()
         # bind dag
+        self._matching_wf_args_diff_hash()
+        self._dag.validate()
         self._dag.bind(self._chunk_size)
 
         # bind workflow
@@ -505,23 +506,6 @@ class Workflow(object):
         self._status = response["status"]
         self._newly_created = response["newly_created"]
 
-    def _infer_arrays(self):
-        unassociated_tasks = [task for task in self.tasks.values() if task.array is None]
-        for task in unassociated_tasks:
-            template_name = task.node.task_template_version.task_template.template_name
-            try:
-                array = self.arrays[template_name]
-            except KeyError:
-                # create array from the task template version on the node
-                array = Array(
-                    task_template_version=task.node.task_template_version,
-                    task_args=task.task_args,
-                    op_args=task.op_args,
-                    cluster_name=task.cluster_name
-                )
-                self.arrays[template_name] = array
-            array.add_task(task)
-
     def _get_cluster_by_name(self, cluster_name: str) -> Cluster:
         """Check if the cluster that the task specified is in the cache.
 
@@ -546,7 +530,7 @@ class Workflow(object):
             self._clusters[cluster_name] = cluster
         return cluster
 
-    def _get_cluster_name(self, task: Union[Task, Array]) -> str:
+    def _get_cluster_name(self, task: Task) -> str:
         cluster_name = task.cluster_name
         if not cluster_name:
             if self.default_cluster_name:
@@ -556,15 +540,12 @@ class Workflow(object):
                 raise ValueError("No valid cluster_name found on workflow or task")
         return cluster_name
 
-    def _get_resource_params(self, task: Union[Task, Array], cluster_name: str) -> Dict:
-        # TODO: once we have concrete task template add ability to get cluster resources
-        # from it
-
+    def _get_compute_resources(self, task: Task, cluster_name: str) -> Dict:
         # Check if there are compute resources for given task, if not set at workflow level
         # copy params for idempotent operation
-        resource_params = self.default_compute_resources_set.get(
-            cluster_name, {}
-        ).copy()
+        resource_params = self.default_compute_resources_set.get(cluster_name, {}).copy()
+        if task.array is not None:
+            resource_params.update(task.array.compute_resources.copy())
         resource_params.update(task.compute_resources.copy())
         return resource_params
 
@@ -592,11 +573,8 @@ class Workflow(object):
 
         # create workflow run
         client_wfr = ClientWorkflowRun(
-            workflow_id=self.workflow_id, requester=self.requester
+            workflow=self, requester=self.requester
         )
-
-        # Bind arrays, then tasks
-        self.bind_arrays()
         client_wfr.bind(self.tasks, reset_running_jobs, self._chunk_size)
         self._status = WorkflowStatus.QUEUED
 
@@ -905,7 +883,7 @@ class Workflow(object):
                 "returned an invalid type. Must return dict. got "
                 f"{type(dynamic_compute_resources)}."
             )
-        resource_params = self._get_resource_params(task, task.cluster.cluster_name)
+        resource_params = self._get_compute_resources(task, task.cluster_name)
         resource_params.update(dynamic_compute_resources)
         task_resources = task.cluster.create_valid_task_resources(
             resource_params, TaskResourcesType.VALIDATED
