@@ -19,6 +19,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath('..'))
+sys.path.append(os.path.abspath("./_ext"))
 
 # -- General configuration ------------------------------------------------
 
@@ -40,7 +41,8 @@ extensions = [
     'sphinx_autodoc_typehints',
     'sphinx.ext.graphviz',
     'sphinx.ext.autosectionlabel',
-    'sphinx_code_tabs'
+    'sphinx_code_tabs',
+    'webservice',
 ]
 
 # Add any paths that contain templates here, relative to this directory.

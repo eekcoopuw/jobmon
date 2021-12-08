@@ -17,6 +17,9 @@ class WorkflowReaper(object):
 
     _version = __version__
 
+    # starting point of inconsistency query
+    _current_starting_row = 0
+
     _reaper_message = {
         WorkflowRunStatus.ERROR: (
             "{__version__} Workflow Reaper transitioned Workflow #{workflow_id} to FAILED "
@@ -70,6 +73,7 @@ class WorkflowReaper(object):
                 self._halted_state()
                 self._aborted_state()
                 self._error_state()
+                self._inconsistent_status()
                 sleep(self._poll_interval_minutes * 60)
         except RuntimeError as e:
             logger.debug(f"Error in monitor_forever() in workflow reaper: {e}")
@@ -152,3 +156,24 @@ class WorkflowReaper(object):
                     workflow_run_id=wfr.workflow_run_id,
                 )
                 self._wf_notification_sink(msg=message)
+
+    def _inconsistent_status(self) -> None:
+        """Find wf in F with all tasks in D and fix them."""
+        logger.info("Find wf in F with all tasks in D and fix them.")
+
+        app_route = (
+            f"/workflow/{WorkflowReaper._current_starting_row}/fix_status_inconsitency"
+        )
+        return_code, result = self._requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type="put",
+            logger=logger,
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {result}"
+            )
+        WorkflowReaper._current_starting_row = int(result["wfid"])
