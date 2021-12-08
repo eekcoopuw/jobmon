@@ -337,7 +337,8 @@ def get_suspicious_task_instances(workflow_run_id: int) -> Any:
         SELECT
             task_instance.id, task_instance.workflow_run_id,
             task_instance.distributor_id, task_instance.cluster_type_id,
-            task_instance.array_id
+            task_instance.array_id, task_instance.array_batch_num,
+            task_instance.array_step_id, task_instance.subtask_id
         FROM
             task_instance
         WHERE
@@ -386,7 +387,8 @@ def get_task_instances_to_terminate(workflow_run_id: int) -> Any:
         SELECT
             task_instance.id, task_instance.workflow_run_id,
             task_instance.distributor_id, task_instance.cluster_type_id,
-            task_instance.array_id
+            task_instance.array_id, task_instance.array_batch_num,
+            task_instance.array_step_id, task_instance.subtask_id
         FROM
             task_instance
         WHERE
@@ -523,9 +525,9 @@ def add_task_instance() -> Any:
 
 
 @finite_state_machine.route(
-    "/get_array_task_instance_id/<array_id>/<batch_num>/<subtask_id>", methods=['GET']
+    "/get_array_task_instance_id/<array_id>/<batch_num>/<step_id>", methods=['GET']
 )
-def get_array_task_instance_id(array_id: int, batch_num: int, subtask_id: int) -> int:
+def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> int:
     """Given an array ID and an index, select a single task instance ID.
 
     Task instance IDs that are associated with the array are ordered, and selected by index.
@@ -543,12 +545,12 @@ def get_array_task_instance_id(array_id: int, batch_num: int, subtask_id: int) -
             FROM task_instance
             WHERE array_id = :array_id
             AND array_batch_num = :batch_num) as ranked_ids
-        WHERE rownum = :subtask_id
+        WHERE rownum = :step_id
     """
     task_instance_id = (
         DB.session.query(TaskInstance)
         .from_statement(text(query))
-        .params(array_id=array_id, batch_num=batch_num, subtask_id=subtask_id)
+        .params(array_id=array_id, batch_num=batch_num, subtask_id=step_id)
         .one()
     )
 
@@ -596,6 +598,10 @@ def log_distributor_id(task_instance_id: int) -> Any:
         ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR
     )
     ti.distributor_id = data["distributor_id"]
+    if ti.array_id is None:
+        ti.subtask_id = str(ti.distributor_id)
+    else:
+        ti.subtask_id = data["subtask_id"]
     ti.report_by_date = func.ADDTIME(
         func.now(), func.SEC_TO_TIME(data["next_report_increment"])
     )

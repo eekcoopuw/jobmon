@@ -20,13 +20,13 @@ class _arraysMap:
         self._all_data = dict()
         self._all_value = []
 
-    def add_new_element(self, array_id: int, array_batch_id: int, tid: int):
+    def add_new_element(self, array_id: int, array_batch_num: int, tid: int):
         """Store two level indexes and value.
 
-        For example, array_id=1, array_batch_id=2, tid=3:
+        For example, array_id=1, array_batch_num=2, tid=3:
             self.add_new_element_three_dimentaion(1, 2, 3)
         """
-        x, y, z = array_id, array_batch_id, tid
+        x, y, z = array_id, array_batch_num, tid
 
         if x in self._all_data.keys():
             if type(self._all_data[x]) == dict:
@@ -49,10 +49,10 @@ class _arraysMap:
         else:
             return []
 
-    def get_tis_by_array_batch(self, array_id: int, array_batch_id: int) -> List[int]:
+    def get_tis_by_array_batch(self, array_id: int, array_batch_num: int) -> List[int]:
         if array_id in self._all_data.keys():
-            if array_batch_id in self._all_data[array_id].keys():
-                return self._all_data[array_id][array_batch_id]
+            if array_batch_num in self._all_data[array_id].keys():
+                return self._all_data[array_id][array_batch_num]
             else:
                 return []
         else:
@@ -64,7 +64,7 @@ class WorkflowRunMaps:
 
     For example:
         *********************************************************************************************
-        * tid   * distributor ID    * subtask_id   * array_id    * array_batch_id  * array_step_id  *
+        * tid   * distributor ID    * subtask_id   * array_id    * array_batch_num  * array_step_id  *
         * 1     * 1                 * 1            * null        * null            * null           *
         * 2     * 2                 * 2.1          * 1           * 1               * 1              *
         * 3     * 2                 * 2.2          * 1           * 1               * 2              *
@@ -102,7 +102,7 @@ class WorkflowRunMaps:
         subtaskid = ti.subtask_id
         # add ti to array in the map
         if ti.array_id is not None:
-            self._map_arrays.add_new_element(ti.array_id, ti.array_batch_id, tiid)
+            self._map_arrays.add_new_element(ti.array_id, ti.array_batch_num, tiid)
         if tiid is None:
             #  TODO: task instance ID should not be None at this point. Handle it better.
             pass
@@ -115,9 +115,9 @@ class WorkflowRunMaps:
                     self._map_did_tiid[distributorid].add(tiid)
                 else:
                     self._map_did_tiid[distributorid] = {tiid}
-                # distributor id to (array_id, array_batch_id) should be unique
+                # distributor id to (array_id, array_batch_num) should be unique
                 if distributorid not in self._map_did_array_batch.keys():
-                    self._map_did_array_batch[distributorid] = (ti.array_id, ti.array_batch_id)
+                    self._map_did_array_batch[distributorid] = (ti.array_id, ti.array_batch_num)
 
     def get_DistributorTaskInstance_by_id(self, tid: int) -> DistributorTaskInstance:
         """Return DistributorTaskInstance by task instance id."""

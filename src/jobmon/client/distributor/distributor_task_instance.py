@@ -26,7 +26,7 @@ class DistributorTaskInstance:
         distributor_id: Optional[int] = None,
         subtask_id: Optional[str] = None,
         array_id: Optional[int] = None,
-        array_batch_id: Optional[int] = None,
+        array_batch_num: Optional[int] = None,
         array_step_id: Optional[int] = None
     ) -> None:
         """Initialization of distributor task instance.
@@ -45,12 +45,12 @@ class DistributorTaskInstance:
         self.task_instance_id = task_instance_id
         self.workflow_run_id = workflow_run_id
         self.distributor_id = distributor_id
-        if subtask_id is None:
+        if subtask_id is None and array_id is None:
             self.subtask_id = str(distributor_id)
         else:
             self.subtask_id = subtask_id
 
-        self.array_batch_id = array_batch_id
+        self.array_batch_num = array_batch_num
         self.array_step_id = array_step_id
 
         self.report_by_date: float
@@ -85,6 +85,9 @@ class DistributorTaskInstance:
             cluster_type_id=kwargs["cluster_type_id"],
             distributor_id=kwargs["distributor_id"],
             array_id=kwargs["array_id"],
+            array_batch_num=kwargs["array_batch_num"],
+            array_step_id=kwargs["array_step_id"],
+            subtask_id=kwargs["subtask_id"],
             requester=requester,
         )
         return ti
@@ -93,16 +96,19 @@ class DistributorTaskInstance:
         self,
         cluster_id: int,
         distributor_id: int,
+        subtask_id: str,
         next_report_increment: float,
     ) -> None:
         """Register the submission of a new task instance to a cluster."""
         self.distributor_id = distributor_id
+        self.subtask_id = subtask_id
 
         app_route = f"/task_instance/{self.task_instance_id}/log_distributor_id"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
                 "distributor_id": str(distributor_id),
+                "subtask_id": str(subtask_id),
                 "next_report_increment": next_report_increment,
             },
             request_type="post",
