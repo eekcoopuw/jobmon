@@ -32,6 +32,7 @@ class Cluster:
         self.requester = requester
 
         self.queues: Dict[str, ClusterQueue] = {}
+        self.task_resources: Dict[int, TaskResources] = {}
 
     @classmethod
     def get_cluster(
@@ -123,6 +124,22 @@ class Cluster:
 
         return queue
 
+    def get_or_cache_task_resources(
+        self,
+        concrete_resource: ConcreteResource,
+        task_resources_type_id: str
+    ) -> TaskResources:
+        """Returns task resources from the cache, or stores it."""
+        try:
+            return self.task_resources[hash(concrete_resource)]
+        except KeyError:
+            tr = TaskResources(
+                concrete_resources=concrete_resource,
+                task_resources_type_id=task_resources_type_id
+            )
+            self.task_resources[hash(tr)] = tr
+            return tr
+
     def adjust_task_resource(
         self,
         initial_resources: Dict,
@@ -172,8 +189,8 @@ class Cluster:
         if fail and not is_valid:
             raise ValueError(f"Failed validation, reasons: {msg}")
 
-        task_resource = TaskResources(
-            concrete_resources=concrete_resources,
+        task_resource = self.get_or_cache_task_resources(
+            concrete_resource=concrete_resources,
             task_resources_type_id=task_resources_type_id,
         )
         return task_resource
