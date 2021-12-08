@@ -116,21 +116,38 @@ def test_wfr_heartbeat_flow():
     """
 
     # Prepare fake distributor data
+    """
+    Testing  Data:
+    ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** 
+    *tid  * Array id * array_batch_id * array_step_id * distributor id * subtask_id   *
+    * 1   * None     * None           * None          * 1              * 1            *
+    * 2   * None     * None           * None          * 2              * 2            *
+    * 3   * None     * None           * None          * 3              * 3            *
+    * 101 * 1        * 1              * 1             * 10             * 10.1         *
+    * 102 * 1        * 1              * 2             * 10             * 10.2         *
+    * 201 * 2        * 1              * 1             * 20             * 20.1         *
+    * 202 * 2        * 1              * 2             * 20             * 20.2         *
+    ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** 
+    """
     dwfr = DistributorWorkflowRun(workflow_id=1, workflow_run_id=1, requester=None)
     ti1 = DistributorTaskInstance(task_instance_id=1, workflow_run_id=1, requester=None,
-                                  distributor_id=1, cluster_type_id=1)
+                                  distributor_id=1, cluster_type_id=1, subtask_id="1")
     ti2 = DistributorTaskInstance(task_instance_id=2, workflow_run_id=1, requester=None,
-                                  distributor_id=2, cluster_type_id=1)
+                                  distributor_id=2, cluster_type_id=1, subtask_id="2")
     ti3 = DistributorTaskInstance(task_instance_id=3, workflow_run_id=1, requester=None,
-                                  distributor_id=3, cluster_type_id=1)
+                                  distributor_id=3, cluster_type_id=1, subtask_id="3")
     ti101 = DistributorTaskInstance(task_instance_id=101, workflow_run_id=1, requester=None,
-                                    distributor_id=10, array_id=1, cluster_type_id=1)
+                                    distributor_id=10, array_id=1, cluster_type_id=1,
+                                    array_batch_id=1, array_step_id=1, subtask_id="10.1")
     ti102 = DistributorTaskInstance(task_instance_id=102, workflow_run_id=1, requester=None,
-                                    distributor_id=10, array_id=1, cluster_type_id=1)
+                                    distributor_id=10, array_id=1, cluster_type_id=1,
+                                    array_batch_id=1, array_step_id=2, subtask_id="10.2")
     ti201 = DistributorTaskInstance(task_instance_id=201, workflow_run_id=1, requester=None,
-                                    distributor_id=20, array_id=2, cluster_type_id=1)
+                                    distributor_id=20, array_id=2, cluster_type_id=1,
+                                    array_batch_id=1, array_step_id=1, subtask_id="20.1")
     ti202 = DistributorTaskInstance(task_instance_id=202, workflow_run_id=1, requester=None,
-                                    distributor_id=20, array_id=2, cluster_type_id=1)
+                                    distributor_id=20, array_id=2, cluster_type_id=1,
+                                    array_batch_id=1, array_step_id=2, subtask_id="20.2")
     a1 = DistributorArray(array_id=1, task_resources_id=1, requested_resources=[], requester=None)
     a2 = DistributorArray(array_id=2, task_resources_id=2, requested_resources=[], requester=None)
     dwfr._map.add_DistributorTaskInstance(ti1)
@@ -144,131 +161,8 @@ def test_wfr_heartbeat_flow():
     dwfr._map.add_DistributorArray(a2)
     # assume all tis are launched before starting
     ti_list =_tiList()
-    ti_list.extend([1, 2, 3])
+    ti_list.extend([1, 2, 3, 101, 102, 201, 202])
     dwfr._launched_task_instance_ids = ti_list
-    ti_list_array = _tiList()
-    ti_list_array.extend([101, 102, 201, 202])
-    dwfr._launched_array_task_instance_ids = ti_list_array
-
-    # mimic a heart beat function for testing
-    def _heartbeat():
-        # check launching queue
-        # sync with DB
-        ti_dict = dwfr.refresh_status_from_db(dwfr._launched_task_instance_ids, "B", False)
-        for tiid in ti_dict.keys():
-            dwfr._launched_task_instance_ids.pop(tiid)
-            if ti_dict[tiid] == "R":
-                # move to running Q
-                dwfr._running_task_instance_ids.add(tiid)
-            elif ti_dict[tiid] == "D":
-                pass
-            elif ti_dict[tiid] == "I":
-                raise Exception("No way this should happen.")
-            else:
-                dwfr.wfr_has_failed_tis = True
-                dwfr._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
-        # sync with distributor
-        # only check those unchanged in DB
-        ti_dict = dwfr.refresh_status_with_distributor(dwfr._launched_task_instance_ids, "B", False)
-        for tiid in ti_dict.keys():
-            if ti_dict[tiid] == "R":
-                # do nothing
-                pass
-            else:
-                dwfr._launched_task_instance_ids.pop(tiid)
-                if ti_dict[tiid] == "D":
-                    pass
-                elif ti_dict[tiid] == "I":
-                    raise Exception("No way this should happen.")
-                else:
-                    dwfr.wfr_has_failed_tis = True
-                    dwfr._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
-        dwfr.transition_task_instance(ti_dict)
-
-        # check running queue
-        # sync with DB
-        ti_dict = dwfr.refresh_status_from_db(dwfr._running_task_instance_ids, "R", False)
-        for tiid in ti_dict.keys():
-            dwfr._running_task_instance_ids.pop(tiid)
-            if ti_dict[tiid] == "D":
-                pass
-            elif ti_dict[tiid] in ("I", "B"):
-                raise Exception("No way this should happen.")
-            else:
-                dwfr.wfr_has_failed_tis = True
-                dwfr._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
-        # sync with distributor
-        # only check those unchanged in DB
-        ti_dict = dwfr.refresh_status_with_distributor(dwfr._running_task_instance_ids, "R", False)
-        for tiid in ti_dict.keys():
-            dwfr._running_task_instance_ids.pop(tiid)
-            if ti_dict[tiid] == "D":
-                pass
-            elif ti_dict[tiid] in ("B"):
-                raise Exception("The cluster much be crazy.")
-            else:
-                dwfr.wfr_has_failed_tis = True
-                dwfr._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
-        dwfr.transition_task_instance(ti_dict)
-
-        # check launching queue array
-        # sync with DB
-        ti_dict = dwfr.refresh_status_from_db(dwfr._launched_array_task_instance_ids, "B", True)
-        for tiid in ti_dict.keys():
-            dwfr._launched_array_task_instance_ids.pop(tiid)
-            if ti_dict[tiid] == "R":
-                # move to running Q
-                dwfr._running_array_task_instance_ids.add(tiid)
-            elif ti_dict[tiid] == "D":
-                pass
-            elif ti_dict[tiid] == "I":
-                raise Exception("No way this should happen.")
-            else:
-                dwfr.wfr_has_failed_tis = True
-                dwfr._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
-        # sync with distributor
-        # only check those unchanged in DB
-        ti_dict = dwfr.refresh_status_with_distributor(dwfr._launched_array_task_instance_ids, "B", True)
-        for tiid in ti_dict.keys():
-            if ti_dict[tiid] == "R":
-                # do nothing
-                pass
-            else:
-                dwfr._launched_array_task_instance_ids.pop(tiid)
-                if ti_dict[tiid] == "D":
-                    pass
-                elif ti_dict[tiid] == "I":
-                    raise Exception("No way this should happen.")
-                else:
-                    dwfr.wfr_has_failed_tis = True
-                    dwfr._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
-        dwfr.transition_task_instance(ti_dict)
-
-        # check running queue array
-        # sync with DB
-        ti_dict = dwfr.refresh_status_from_db(dwfr._running_array_task_instance_ids, "R", True)
-        for tiid in ti_dict.keys():
-            dwfr._running_array_task_instance_ids.pop(tiid)
-            if ti_dict[tiid] == "D":
-                pass
-            elif ti_dict[tiid] in ("I", "B"):
-                raise Exception("No way this should happen.")
-            else:
-                dwfr.wfr_has_failed_tis = True
-                dwfr._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
-        # sync with distributor
-        # only check those unchanged in DB
-        ti_dict = dwfr.refresh_status_with_distributor(dwfr._running_array_task_instance_ids, "R", True)
-        for tiid in ti_dict.keys():
-            dwfr._running_array_task_instance_ids.pop(tiid)
-            if ti_dict[tiid] == "D":
-                pass
-            elif ti_dict[tiid] in ("B"):
-                raise Exception("The cluster much be crazy.")
-            else:
-                dwfr.wfr_has_failed_tis = True
-                dwfr._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
-        dwfr.transition_task_instance(ti_dict)
 
     # mock functions
     def mock_transition_ti(*args):
@@ -280,88 +174,57 @@ def test_wfr_heartbeat_flow():
         # FIRST HEAT BEAT
         def mock_refresh_db(*args):
             status = args[1]
-            is_array = args[2]
-            if is_array:
-                if status == "B":
-                    return {101: "R", 201: "D"}
-                else:
-                    return {}
+            if status == "B":
+                return {1: "R", 2: "R", 3: "R", 101: "R", 201: "D"}
             else:
-                if status == "B":
-                    return {1: "R", 2: "R", 3: "R"}
-                else:
-                    return {}
+                return {}
 
         def mock_refresh_distributor(*args):
             status = args[1]
-            is_array = args[2]
-            if is_array:
-                if status == "B":
-                    return {102: "R"}
-                else:
-                    return {}
+            if status == "B":
+                return {102: "R"}
             else:
-                if status == "B":
-                    return {}
-                else:
-                    return {}
+                return {}
+
         with patch.object(dwfr,
                           'refresh_status_from_db',
                           side_effect=mock_refresh_db):
             with patch.object(dwfr,
                               'refresh_status_with_distributor',
                               side_effect=mock_refresh_distributor):
-                              _hearrtrbeat()
+                              dwfr.heartbeat()
                               # {1: "R", 2: "R", 3: "R", 101: "R", 102: "B", 201: "D", 202: "B"}
-                              assert dwfr._launched_task_instance_ids.length == 0
-                              assert dwfr._running_task_instance_ids.length == 3
-                              assert set(dwfr._launched_array_task_instance_ids.ids) == {102, 202}
-                              assert set(dwfr._running_array_task_instance_ids.ids) == {101}
+                              assert set(dwfr._launched_task_instance_ids.tis) == {102, 202}
+                              assert set(dwfr._running_task_instance_ids.tis) == {1, 2, 3, 101}
                               assert not dwfr.wfr_has_failed_tis
 
         # SECOND HEAT BEAT
         def mock_refresh_db(*args):
             status = args[1]
-            is_array = args[2]
-            if is_array:
-                if status == "B":
-                    return {102: "R"}
-                elif status == "R":
-                    return {101: "D"}
-                else:
-                    return {}
+            if status == "B":
+                return {102: "R"}
+            elif status == "R":
+                return {2: "D", 101: "D"}
             else:
-                if status == "B":
-                    return {}
-                elif status == "R":
-                    return {2: "D"}
-                else:
-                    return {}
+                return {}
 
         def mock_refresh_distributor(*args):
             status = args[1]
-            is_array = args[2]
-            if is_array:
-                if status == "B":
-                    return {202: "U"}
-                else:
-                    return {}
+            if status == "B":
+                return {202: "U"}
             else:
-                if status == "R":
-                    return {3: "D"}
-                else:
-                    return {}
+                return {3: "D"}
+
         with patch.object(dwfr,
                           'refresh_status_from_db',
                           side_effect=mock_refresh_db):
             with patch.object(dwfr,
                               'refresh_status_with_distributor',
                               side_effect=mock_refresh_distributor):
-                              _heartrbeat()
+                              dwfr.heartbeat()
                               # {1: "R", 2: "D", 3: "D", 101: "D", 102: "R", 201: "D", 202: "U"}
-                              assert dwfr._launched_task_instance_ids.length == 0
-                              assert set(dwfr._running_task_instance_ids.ids) == {1}
-                              assert dwfr._launched_array_task_instance_ids.length == 0
-                              assert set(dwfr._running_array_task_instance_ids.ids) == {102}
+                              assert set(dwfr._launched_task_instance_ids.tis) == set()
+                              assert set(dwfr._running_task_instance_ids.tis) == {1, 102}
+                              assert set(dwfr._error_task_instance_ids.tis) == {202}
                               assert dwfr.wfr_has_failed_tis
 
