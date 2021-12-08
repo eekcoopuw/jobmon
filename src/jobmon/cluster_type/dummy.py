@@ -132,7 +132,7 @@ class DummyDistributor(ClusterDistributor):
         return distributor_id
 
     def submit_array_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any]
+        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
     ) -> int:
         """Runs a fake execution of the task, exactly like regular submit to batch."""
         return self.submit_to_batch_distributor(command, name, requested_resources)
@@ -140,11 +140,6 @@ class DummyDistributor(ClusterDistributor):
     def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
-
-    @staticmethod
-    def array_subtask_id() -> int:
-        """Always returns a value of 1, since dummy tasks don't support arrays."""
-        return 1
 
 
 class DummyWorkerNode(ClusterWorkerNode):
@@ -170,6 +165,11 @@ class DummyWorkerNode(ClusterWorkerNode):
     def get_usage_stats(self) -> Dict:
         """Usage information specific to the exector."""
         return {}
+
+    @staticmethod
+    def array_subtask_id() -> int:
+        """Always returns a value of 1, since dummy tasks don't support arrays."""
+        return 1
 
 
 class ConcreteDummyResource(ConcreteResource):
