@@ -34,10 +34,11 @@ def test_instantiate_queued_tasks(tool, db_cfg, client_env, task_template, array
         workflow.workflow_id, wfr.workflow_run_id, requester
     )
     tasks = distributor_wfr.get_queued_tasks(4)
+
     for task in tasks:
         distributor_wfr.register_task_instance(task)
 
-    assert len(distributor_wfr.registered_task_instances) == 1
+    assert len(distributor_wfr.registered_task_instances) == 4
     assert len(distributor_wfr.registered_array_task_instances) == 3
 
 

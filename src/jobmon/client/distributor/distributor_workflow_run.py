@@ -8,7 +8,7 @@ from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
-from jobmon.exceptions import InvalidResponse
+from jobmon.exceptions import DistributorUnexpected, InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 
 logger = logging.getLogger(__name__)
@@ -139,11 +139,19 @@ class WorkflowRunMaps:
 
     def get_task_instances(self) -> List[DistributorTaskInstance]:
         """Return all task instances."""
-        return self._map_tiid_DistributorTaskInstance.values()
+        return list(self._map_tiid_DistributorTaskInstance.values())
 
     def get_DistributorArray(self, a_id: int) -> DistributorArray:
-        """Return DistributorArray by array id."""
-        return self._map_aid_DistributorArray[a_id]
+        """Return DistributorArray by array id.
+
+        Create an Distributor array and add to the map if not exists.
+        """
+        if a_id in self._map_aid_DistributorArray.keys():
+            return self._map_aid_DistributorArray[a_id]
+        else:
+            raise DistributorUnexpected(f"Array Id {a_id} doesn not registered with "
+                                        f"the DistributorWorkflowRun.")
+
 
     def get_array_ids(self) -> List[int]:
         """Return all array ids."""
@@ -250,6 +258,10 @@ class DistributorWorkflowRun:
         # add to registered queue
         self._registered_task_instance_ids.add(ti.task_instance_id)
 
+    def add_new_array(self, array: DistributorArray):
+        # add to map
+        self._map.add_DistributorArray(array)
+
     @property
     def arrays(self) -> List[DistributorArray]:
         """Return a list of arrays."""
@@ -263,8 +275,9 @@ class DistributorWorkflowRun:
     @property
     def registered_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of registered task_instances"""
-        return [DistributorTaskInstance(tid, self.workflow_run_id) for tid in
-                self._registered_task_instance_ids.ids]
+        return [self._map.get_DistributorTaskInstance_by_id(ti) for
+                ti in self._registered_task_instance_ids.ids]
+
 
     @property
     def launched_task_instances(self) -> List[DistributorTaskInstance]:
@@ -285,7 +298,7 @@ class DistributorWorkflowRun:
         These ids are stored on the array object.
         """
         task_instances: List[DistributorTaskInstance] = []
-        for ti in self._registered_task_instance_ids:
+        for ti in self._registered_task_instance_ids.ids:
             dti = self._map.get_DistributorTaskInstance_by_id(ti)
             if dti.array_id is not None:
                 task_instances.append(dti)
@@ -295,7 +308,7 @@ class DistributorWorkflowRun:
     def launched_array_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of launched task_instances"""
         task_instances: List[DistributorTaskInstance] = []
-        for ti in self._launched_task_instance_ids:
+        for ti in self._launched_task_instance_ids.ids:
             dti = self._map.get_DistributorTaskInstance_by_id(ti)
             if dti.array_id is not None:
                 task_instances.append(dti)
@@ -305,7 +318,7 @@ class DistributorWorkflowRun:
     def running_array_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of running task_instances"""
         task_instances: List[DistributorTaskInstance] = []
-        for ti in self._running_task_instance_ids:
+        for ti in self._running_task_instance_ids.ids:
             dti = self._map.get_DistributorTaskInstance_by_id(ti)
             if dti.array_id is not None:
                 task_instances.append(dti)
@@ -339,7 +352,7 @@ class DistributorWorkflowRun:
         """
         try:
             array = self._map.get_DistributorArray(array_id)
-        except KeyError:
+        except DistributorUnexpected:
             app_route = f"/array/{array_id}"
             return_code, response = self.requester.send_request(
                 app_route=app_route, message={}, request_type="get", logger=logger
@@ -367,12 +380,10 @@ class DistributorWorkflowRun:
 
         # if it is an array task queue on the array
         if task.array_id is not None:
-            array = self._map.get_DistributorArray(task.array_id)
-            array.queue_task_instance_id_for_array_launch(task_instance.task_instance_id)
+            darray = self.get_array(task.array_id)
+            darray.queue_task_instance_id_for_array_launch(task_instance.task_instance_id)
 
-        # otherwise add to the registered list
-        else:
-            self._registered_task_instance_ids.add(task_instance.task_instance_id)
+        self._registered_task_instance_ids.add(task_instance.task_instance_id)
 
     def transition_task_instance(self, array_id: Optional[int], task_instance_ids: List[int],
                                  distributor_id: int, status: TaskInstanceStatus) -> Any:

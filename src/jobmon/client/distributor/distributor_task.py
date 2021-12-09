@@ -129,3 +129,10 @@ class DistributorTask:
         distributor_ti.name = self.name
         distributor_ti.requested_resources = self.requested_resources
         return distributor_ti
+
+
+    def _showSelf(self):
+        """This is a helper function to use in PDB."""
+        print(f"task_id: {self.task_id} \n"
+              f"array_id: {self.array_id} \n"
+              f"array_batch_num: {self._get_array_batch_num()} \n")
