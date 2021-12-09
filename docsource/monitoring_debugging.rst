@@ -38,6 +38,8 @@ workflow_tasks
     tasks within workflow 9876 that have the pending status. You may also query by multiple
     statuses. For example: ``jobmon workflow_tasks -w 9876 -s PENDING RUNNING``
 
+.. _task_status-commands-label:
+
 task_status
 ***********
     Entering ``jobmon task_status`` in to the command line will show you the
@@ -54,6 +56,24 @@ JSON Flag
     CLI commands. For example: ``jobmon task_status -t 1234 7652 -s done -n``
 
 Possible states: PENDING, RUNNING, DONE, FATAL
+
+task_dependencies
+*****************
+    Entering ``jobmon task_dependencies`` in to the command line will show users what tasks
+    are upstream and downstream of the task provided. Users will specify the task by adding a
+    -t flag. For example: ``jobmon task_dependencies -t 1672``. The ouput returned will look
+    like::
+
+        Upstream Tasks:
+
+           Task ID         Status
+           1               D
+
+        Downstream Tasks:
+
+           Task ID         Status
+           3               D
+           4               D
 
 Jobmon Database
 ###############

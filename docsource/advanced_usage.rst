@@ -662,6 +662,20 @@ TaskTemplate Resource Usage
     and -a to query by specific node_args. For example, ``jobmon task_template_resources -t
     12 -w 101 102 -a '{"location_id":[101,102], "sex":[1]}'``.
 
+Error Logs
+##########
+    There is a method on the Workflow object called ``get_errors`` that will return all of the
+    task instance error logs associated with a Workflow. To use it simply call the method on
+    your predefined Workflow object: ``workflow.get_errors()``. This method will return a
+    dictionary; the key will be the ID of the task and the key will be the error message.
+    By default this method will return the last 1,000 error messages. Users can specify the
+    limit by utilizing the parameter ``limit``. For example if a user wanted to only see the
+    errors for the ten most recent tasks they would call ``workflow.get_errors(limit=10)``.
+
+    .. note::
+        To see the error log for a specific task users can call the ``task_status`` CLI
+        command. For more information see :ref:`task_status-commands-label`.
+
 Logging
 #######
 To attach Jobmon's simple formatted logger use the following code.
