@@ -174,6 +174,11 @@ class ClusterWorkerNode(Protocol):
     Get exit info is used to determine the error type if the task hits a
     system error of some variety.
     """
+    @property
+    @abstractmethod
+    def is_array(self) -> bool:
+        """The flag to mark if this task instance is in an array."""
+        raise NotImplementedError
 
     @property
     @abstractmethod
@@ -191,15 +196,20 @@ class ClusterWorkerNode(Protocol):
         """Error and exit code info from the executor."""
         raise NotImplementedError
 
-    @staticmethod
+    @property
     @abstractmethod
-    def array_subtask_id() -> int:
+    def subtask_id(self) -> Optional[str]:
         """Pull a distinguishing variable that allows separation of array subtasks.
 
         For clusters that support array task submission, the plugin must implement
         a method that returns a distinguishing variable to separate task instances.
         For example, UGE and SLURM array sub-tasks can pull this variable from the
         environment.
+
+        For array job, returns the cluster job id for the task instance inside the array
+        in string format.
+
+        For non array job, returns distributor id in string format.
 
         Always assumed to be a value in the range [1, len(array)).
         """

@@ -14,6 +14,7 @@ import tblib.pickling_support
 from jobmon.client.client_logging import ClientLogging
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
+from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 from jobmon.exceptions import (
@@ -67,6 +68,9 @@ class DistributorService:
         # which workflow to distribute for
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
+        # build DistributorWorkflowRun
+        self.distributor_workflow_run = DistributorWorkflowRun(workflow_id=self.workflow_id,
+                                                               workflow_run_id=self.workflow_run_id)
 
         # cluster_name
         self.distributor = distributor
@@ -249,7 +253,7 @@ class DistributorService:
         logger.debug("distributor: logging heartbeat")
         self._purge_queueing_errors()
         self._log_distributor_report_by()
-        self._log_workflow_run_heartbeat()
+        self.distributor_workflow_run.heartbeat()
 
     def distribute(self, thread_stop_event: Optional[threading.Event] = None) -> None:
         """Distribute and reconcile on an interval."""
@@ -516,6 +520,9 @@ class DistributorService:
                 distributor_id, report_by_buffer
             )
             self._submitted_or_running[distributor_id] = task_instance
+
+        # add task instance to DistributorWorkflowRun
+        self.distributor_workflow_run.add_task_instance(task_instance)
 
         return task_instance
 

@@ -14,7 +14,6 @@ class SerializeDistributorTask:
         name: str,
         command: str,
         requested_resources: dict,
-        cluster_type_id: int,
     ) -> tuple:
         """Submitting the above args to the database for an DistributorTask object."""
         return (
@@ -22,8 +21,7 @@ class SerializeDistributorTask:
             array_id,
             name,
             command,
-            requested_resources,
-            cluster_type_id,
+            requested_resources
         )
 
     @staticmethod
@@ -40,8 +38,7 @@ class SerializeDistributorTask:
             "command": wire_tuple[3],
             "requested_resources": {}
             if wire_tuple[4] is None
-            else ast.literal_eval(wire_tuple[4]),
-            "cluster_type_id": wire_tuple[5]
+            else ast.literal_eval(wire_tuple[4])
         }
 
 

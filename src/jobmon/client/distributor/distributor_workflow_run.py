@@ -7,7 +7,7 @@ from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
-from jobmon.constants import TaskInstanceStatus
+from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 
@@ -244,6 +244,12 @@ class DistributorWorkflowRun:
         self.wfr_completed = False
         self.wfr_has_failed_tis = False
 
+    def add_new_task_instance(self, ti: DistributorTaskInstance):
+        # add to map
+        self._map.add_DistributorTaskInstance(ti)
+        # add to registered queue
+        self._registered_task_instance_ids.add(ti.task_instance_id)
+
     @property
     def arrays(self) -> List[DistributorArray]:
         """Return a list of arrays."""
@@ -279,30 +285,30 @@ class DistributorWorkflowRun:
         These ids are stored on the array object.
         """
         task_instances: List[DistributorTaskInstance] = []
-        for array in self.arrays:
-            array_task_instances = [self._task_instances[tiid] for tiid in
-                                    array.registered_array_task_instance_ids]
-            task_instances.extend(array_task_instances)
+        for ti in self._registered_task_instance_ids:
+            dti = self._map.get_DistributorTaskInstance_by_id(ti)
+            if dti.array_id is not None:
+                task_instances.append(dti)
         return task_instances
 
     @property
     def launched_array_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of launched task_instances"""
         task_instances: List[DistributorTaskInstance] = []
-        for array in self.arrays:
-            array_task_instances = [self._map.get_DistributorTaskInstance_by_id(tiid)
-                                    for tiid in array._launched_array_task_instance_ids.ids]
-            task_instances.extend(array_task_instances)
+        for ti in self._launched_task_instance_ids:
+            dti = self._map.get_DistributorTaskInstance_by_id(ti)
+            if dti.array_id is not None:
+                task_instances.append(dti)
         return task_instances
 
     @property
     def running_array_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of running task_instances"""
         task_instances: List[DistributorTaskInstance] = []
-        for array in self.arrays:
-            array_task_instances = [self._map.get_DistributorTaskInstance_by_id(tiid)
-                                    for tiid in array._running_array_task_instance_ids.ids]
-            task_instances.extend(array_task_instances)
+        for ti in self._running_task_instance_ids:
+            dti = self._map.get_DistributorTaskInstance_by_id(ti)
+            if dti.array_id is not None:
+                task_instances.append(dti)
         return task_instances
 
 
@@ -462,9 +468,19 @@ class DistributorWorkflowRun:
         return array_distributor_id
 
     def _log_workflow_run_heartbeat(self) -> None:
-        """Log wfr and tis heartbeat to db and increase next expected time."""
-        """TODO: """
-        pass
+        next_report_increment = (
+                self._task_instance_heartbeat_interval * self._report_by_buffer
+        )
+        app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={
+                "next_report_increment": next_report_increment,
+                "status": WorkflowRunStatus.RUNNING,
+            },
+            request_type="post",
+            logger=logger,
+        )
 
     def _log_tis_heartbeat(self, tis: List) -> None:
         """Log heartbeat of given list of tis."""

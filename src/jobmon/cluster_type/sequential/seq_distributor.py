@@ -165,9 +165,9 @@ class SequentialWorkerNode(ClusterWorkerNode):
         """Usage information specific to the exector."""
         return {}
 
-    @staticmethod
-    def array_subtask_id() -> int:
+    @property
+    def subtask_id(self) -> int:
         """Sequential distributor doesn't support array tasks.
 
-        Each call will return a hardcoded value corresponding to the first task instance."""
-        return 1
+        Return distributor id."""
+        return str(self._distributor_id)

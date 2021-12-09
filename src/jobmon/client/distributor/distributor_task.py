@@ -71,6 +71,15 @@ class DistributorTask:
         )
         return executor_task
 
+    def _get_array_batch_num(self) -> Optional[int]:
+        """This is to determine which train the ti will board."""
+
+        if self.array_id is None:
+            return None
+        else:
+            # TODO:
+            return 1
+
     def register_task_instance(
         self,
         workflow_run_id: int
@@ -80,12 +89,14 @@ class DistributorTask:
         Args:
             workflow_run_id (int): the workflow run id
         """
+        array_batch_num = self._get_array_batch_num()
         app_route = "/task_instance"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
                 "task_id": self.task_id,
                 "array_id": self.array_id,
+                "array_batch_num": array_batch_num,
                 "workflow_run_id": workflow_run_id,
             },
             request_type="post",
@@ -106,8 +117,7 @@ class DistributorTask:
         )
         assert return_code == 200
         ctid_from_restful = resp["cluster_type_id"]
-        import pdb
-        pdb.set_trace()
+
         # at this point cluster type can be None; replace it
         wire_tuple = response["task_instance"]
         wire_tuple[4] = ctid_from_restful

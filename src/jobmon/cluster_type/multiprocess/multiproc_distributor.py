@@ -302,7 +302,9 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
         """Usage information specific to the distributor."""
         raise NotImplementedError
 
-    @staticmethod
-    def array_subtask_id() -> int:
-        """Array implementation not supported for multiprocess execution, return 1."""
-        return 1
+    @property
+    def subtask_id(self) -> int:
+        """Sequential distributor doesn't support array tasks.
+
+        Return distributor id."""
+        return str(self._distributor_id)
