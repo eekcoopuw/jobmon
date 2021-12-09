@@ -68,20 +68,6 @@ class ClusterDistributor(Protocol):
         """Return the name of the cluster type."""
         raise NotImplementedError
 
-    @staticmethod
-    @abstractmethod
-    def array_subtask_id() -> int:
-        """Pull a distinguishing variable that allows separation of array subtasks.
-
-        For clusters that support array task submission, the plugin must implement
-        a method that returns a distinguishing variable to separate task instances.
-        For example, UGE and SLURM array sub-tasks can pull this variable from the
-        environment.
-
-        Always assumed to be a value in the range [0, len(array)).
-        """
-        raise NotImplementedError
-
     @abstractmethod
     def start(self) -> None:
         """Start the distributor."""
@@ -136,7 +122,7 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def submit_array_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any]
+        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
     ) -> int:
         """Submit an array task to the underlying distributor and return a distributor_id.
 
@@ -147,7 +133,7 @@ class ClusterDistributor(Protocol):
             command: the array worker node command to run
             name: name of the array
             requested_resources: resources with which to run the array
-
+            array_length: how many tasks associated with the array
         Returns:
              distributor_id of the overall array
         """
@@ -203,6 +189,20 @@ class ClusterWorkerNode(Protocol):
     @abstractmethod
     def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
         """Error and exit code info from the executor."""
+        raise NotImplementedError
+
+    @staticmethod
+    @abstractmethod
+    def array_subtask_id() -> int:
+        """Pull a distinguishing variable that allows separation of array subtasks.
+
+        For clusters that support array task submission, the plugin must implement
+        a method that returns a distinguishing variable to separate task instances.
+        For example, UGE and SLURM array sub-tasks can pull this variable from the
+        environment.
+
+        Always assumed to be a value in the range [1, len(array)).
+        """
         raise NotImplementedError
 
 

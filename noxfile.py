@@ -1,6 +1,7 @@
 """Nox Configuration for Jobmon."""
 import argparse
 import os
+from subprocess import Popen, PIPE
 import shutil
 
 import nox
@@ -82,6 +83,13 @@ def typecheck(session: Session) -> None:
 @nox.session(python=python, venv_backend="conda")
 def docs(session: Session) -> None:
     """Build the documentation."""
+
+    # environment variables used in build script
+    web_service_fqdn = \
+        os.environ.get("WEB_SERVICE_FQDN") if "WEB_SERVICE_FQDN" in os.environ else "TBD"
+    web_service_port = \
+        os.environ.get("WEB_SERVICE_PORT") if "WEB_SERVICE_PORT" in os.environ else "TBD"
+
     session.conda_install("graphviz")
 
     session.install("-e", ".[docs,server]")
@@ -99,7 +107,12 @@ def docs(session: Session) -> None:
         'src/jobmon/server/qpid_integration',
         'src/jobmon/server/web/main.py'
     )
-    session.run("sphinx-build", "docsource", "out/_html")
+    session.run("sphinx-build", "docsource", "out/_html",
+        env={
+            "WEB_SERVICE_FQDN": web_service_fqdn,
+            "WEB_SERVICE_PORT": web_service_port
+        }
+    )
 
 
 @nox.session(python=python, venv_backend="conda")
