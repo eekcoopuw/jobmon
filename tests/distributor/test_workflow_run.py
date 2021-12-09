@@ -132,7 +132,7 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
     dtis_3 = dts[2].register_task_instance(workflow_run_id=wfr.workflow_run_id)
     dtis_4 = single_distributor_task.register_task_instance(workflow_run_id=wfr.workflow_run_id)
 
-    distributor_array.registered_array_task_instance_ids = [dtis_1.task_instance_id,
+    distributor_array.instantiated_array_task_instance_ids = [dtis_1.task_instance_id,
                                                             dtis_2.task_instance_id]
     distributor_wfr = DistributorWorkflowRun(
         workflow.workflow_id, wfr.workflow_run_id, requester
@@ -171,7 +171,7 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
         dtis_1.task_instance_id
 
     # Add task 3 to the registered queue, and launch
-    distributor_array.registered_array_task_instance_ids = [dtis_3.task_instance_id]
+    distributor_array.instantiated_array_task_instance_ids = [dtis_3.task_instance_id]
     distributor_wfr.launch_array_instance(array=distributor_array, cluster=distributor)
 
     # Check that the worker node is either launched, running, or done

@@ -147,7 +147,7 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template):
                                   array1.task_resources.id,
                                   array1.default_compute_resources_set,
                                   requester)
-    dist_array.registered_array_task_instance_ids = [dti.task_instance_id for dti in dtis]
+    dist_array.instantiated_array_task_instance_ids = [dti.task_instance_id for dti in dtis]
     assert dist_array.batch_number == 0
     dist_array.add_batch_number_to_task_instances()
     assert dist_array.batch_number == 1

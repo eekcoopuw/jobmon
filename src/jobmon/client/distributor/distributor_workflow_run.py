@@ -449,7 +449,7 @@ class DistributorWorkflowRun:
         """
 
         # all task instances associated with an array and a batch number
-        ids_to_launch = array.registered_array_task_instance_ids
+        ids_to_launch = array.instantiated_array_task_instance_ids
         array.add_batch_number_to_task_instances()
 
         # Fetch the command
