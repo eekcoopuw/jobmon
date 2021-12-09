@@ -171,3 +171,7 @@ class SequentialWorkerNode(ClusterWorkerNode):
 
         Return distributor id."""
         return str(self._distributor_id)
+
+    @property
+    def is_array(self) -> bool:
+        return False
