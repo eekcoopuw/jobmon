@@ -111,7 +111,8 @@ class DummyDistributor(ClusterDistributor):
         we just get a random number.
         """
         logger.debug("This is the Dummy Distributor")
-        distributor_id = random.randint(1, int(1e7))
+        # even number for non array tasks
+        distributor_id = random.randint(1, int(1e6)) * 2
 
         cli = WorkerNodeCLI()
         args = cli.parse_args(command)
@@ -135,7 +136,30 @@ class DummyDistributor(ClusterDistributor):
         self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
     ) -> int:
         """Runs a fake execution of the task, exactly like regular submit to batch."""
-        return self.submit_to_batch_distributor(command, name, requested_resources)
+        logger.debug("This is the Dummy Distributor")
+        # odd number for array tasks
+        distributor_id = random.randint(1, int(1e6)) * 2 + 1
+
+        for i in range(array_length):
+
+            cli = WorkerNodeCLI()
+            args = cli.parse_args(command)
+
+            # Bring in the worker node here since dummy executor is never run
+            worker_node_task_instance = WorkerNodeTaskInstance(
+                array_id=args.array_id,
+                batch_number=args.batch_number,
+                expected_jobmon_version=args.expected_jobmon_version,
+                cluster_type_name=args.cluster_type_name,
+            )
+
+            # Log running, log done, and exit
+            _, _, _ = worker_node_task_instance.log_running(
+                self.heartbeat_report_by_buffer * self.task_instance_heartbeat_interval
+            )
+            worker_node_task_instance.log_done()
+
+        return distributor_id
 
     def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
@@ -166,10 +190,15 @@ class DummyWorkerNode(ClusterWorkerNode):
         """Usage information specific to the exector."""
         return {}
 
-    @staticmethod
-    def array_subtask_id() -> int:
-        """Always returns a value of 1, since dummy tasks don't support arrays."""
-        return 1
+    @property
+    def subtask_id(self) -> str:
+        """Return distributor id for non array. Random for array."""
+        if self._distributor_id % 2 == 0:
+            return str(self._distributor_id)
+        else:
+            # this is not right
+            return f"{self._distributor_id}.{random.randint(1, int(1e7))}"
+
 
 
 class ConcreteDummyResource(ConcreteResource):

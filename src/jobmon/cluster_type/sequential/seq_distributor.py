@@ -141,10 +141,17 @@ class SequentialDistributor(ClusterDistributor):
 
 class SequentialWorkerNode(ClusterWorkerNode):
     """Get Executor Info for a Task Instance."""
+    STEP_ID_GENERATER = 0
 
     def __init__(self) -> None:
         """Initialization of the sequential executor worker node."""
         self._distributor_id: Optional[int] = None
+        SequentialWorkerNode.STEP_ID_GENERATER += 1
+        self._array_step_id  = SequentialWorkerNode.STEP_ID_GENERATER
+
+    @property
+    def array_step_id(self) -> int:
+        return self._array_step_id
 
     @property
     def distributor_id(self) -> Optional[int]:
@@ -172,6 +179,3 @@ class SequentialWorkerNode(ClusterWorkerNode):
         Return distributor id."""
         return str(self._distributor_id)
 
-    @property
-    def is_array(self) -> bool:
-        return False

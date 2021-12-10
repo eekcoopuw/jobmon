@@ -176,12 +176,6 @@ class ClusterWorkerNode(Protocol):
     """
     @property
     @abstractmethod
-    def is_array(self) -> bool:
-        """The flag to mark if this task instance is in an array."""
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
     def distributor_id(self) -> Optional[int]:
         """Executor specific id assigned to a task instance."""
         raise NotImplementedError
@@ -194,6 +188,19 @@ class ClusterWorkerNode(Protocol):
     @abstractmethod
     def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
         """Error and exit code info from the executor."""
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def array_step_id(self) -> int:
+        """The step id in each batch.
+
+        For each array task instance, array_id, array_batch_num, and array_step_id
+        should uniquely identify a subtask_id.
+
+        It depends on the plug in whether you can generate the subtask_id using
+        array_step_id.
+        """
         raise NotImplementedError
 
     @property

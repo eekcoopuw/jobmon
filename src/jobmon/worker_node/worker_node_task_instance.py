@@ -56,6 +56,7 @@ class WorkerNodeTaskInstance:
         self.cluster_type_name = cluster_type_name
 
         self._distributor_id: Optional[int] = None
+        self._subtask_id: Optional[str] = None
         self._nodename: Optional[str] = None
         self._process_group_id: Optional[int] = None
 
@@ -79,12 +80,18 @@ class WorkerNodeTaskInstance:
                 raise ValueError("Neither task_instance_id nor array_id were provided.")
 
             # Always assumed to be a value in the range [1, len(array)]
-            subtask_id = self.executor.array_subtask_id()
+            array_step_id = self.executor.array_step_id
 
+            # The unique distributor id for each sub task
+            self._subtask_id = self.executor.subtask_id
+
+
+            # TODO: you can't get task_instance here because the array_step_id
+            # hasn't been updated to the database.
             # Fetch from the database
             app_route = \
                 f"/get_array_task_instance_id/" \
-                f"{self._array_id}/{self._batch_number}/{subtask_id}"
+                f"{self._array_id}/{self._batch_number}/{array_step_id}"
             rc, resp = self.requester.send_request(
                 app_route=app_route,
                 message={},
