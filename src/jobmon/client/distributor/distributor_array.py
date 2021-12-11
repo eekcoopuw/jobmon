@@ -66,8 +66,9 @@ class DistributorArray:
         # TODO: Safe for sequential, may have problems with async and centeralized distributor
         self.instantiated_array_task_instance_ids = []
 
-    def add_batch_number_to_task_instances(self) -> None:
+    def add_batch_number_to_task_instances(self) -> int:
         """Add the current batch number to the current set of registered task instance ids."""
+        this_batch = self.batch_number
         app_route = f'/task_instance/record_array_batch_num/{self.batch_number}'
         rc, resp = self.requester.send_request(
             app_route=app_route,
@@ -85,3 +86,4 @@ class DistributorArray:
 
         # Increment the counter for the next set of jobs
         self.batch_number += 1
+        return this_batch

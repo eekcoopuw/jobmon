@@ -445,14 +445,18 @@ class DistributorWorkflowRun:
     ):
         """
         submits an array task on a given distributor
-        adds the new task instances to self.running_array_task_instances
+        adds the new task instances to self.launched_task_instances
         """
 
         # all task instances associated with an array and a batch number
         ids_to_launch = array.instantiated_array_task_instance_ids
-        array.add_batch_number_to_task_instances()
+        batch_num = array.add_batch_number_to_task_instances()
+        # update distributor task instance array_batch_num and array_step_id
+        for tid in ids_to_launch:
+            self._map.get_DistributorTaskInstance_by_id(tid).array_batch_num = batch_num
 
         # Fetch the command
+        #
         command = cluster.build_worker_node_command(task_instance_id=None,
                                                     array_id=array.array_id,
                                                     batch_number=array.batch_number - 1)
@@ -495,8 +499,15 @@ class DistributorWorkflowRun:
 
     def _log_tis_heartbeat(self, tis: List) -> None:
         """Log heartbeat of given list of tis."""
-        """TODO:"""
-        pass
+
+        app_route = "/task_instance/log_report_by/batch"
+        return_code, response = self.requester.send_request(
+            app_route=app_route,
+            message={"task_instance_ids", tis.ids},
+            request_type="post",
+            logger=logger,
+        )
+
 
     def refresh_status_from_db(self, list: _tiList, status: str) -> Dict[int: str]:
         """Got to DB to check the list tis status."""

@@ -139,6 +139,38 @@ def log_ti_report_by(task_instance_id: int) -> Any:
 
 
 @finite_state_machine.route(
+    "/task_instance/log_report_by/batch", methods=["POST"]
+)
+def log_ti_report_by(task_instance_id: int) -> Any:
+    """Log task_instances as being responsive with a new report_by_date.
+
+    This is done at the worker node heartbeat_interval rate, so it may not happen at the same
+    rate that the reconciler updates batch submitted report_by_dates (also because it causes
+    a lot of traffic if all workers are logging report by_dates often compared to if the
+    reconciler runs often).
+
+    Args:
+        task_instance_id: id of the task_instance to log
+    """
+    data = request.get_json()
+    tis = data.get("task_instance_ids", None)
+
+    logger.debug(f"Log report_by for TI {tis}.")
+    if tis:
+        query = f"""
+            UPDATE task_instance
+            SET report_by_date = ADDTIME(
+                CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+            WHERE task_instance.id in str(tis).replace("[", "(").replace("]", ")")"""
+
+    DB.session.execute(query)
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route(
     "/task_instance/<task_instance_id>/log_usage", methods=["POST"]
 )
 def log_usage(task_instance_id: int) -> Any:
@@ -712,9 +744,9 @@ def log_unknown_error(task_instance_id: int) -> Any:
 def record_array_batch_num(batch_num: int) -> Any:
     """Record a batch number to associate sets of task instances with an array submission."""
     data = request.get_json()
-    task_instance_ids = data['task_instance_ids']
+    task_instance_ids_list = data['task_instance_ids']
 
-    task_instance_ids = ",".join(f'{x}' for x in task_instance_ids)
+    task_instance_ids = ",".join(f'{x}' for x in task_instance_ids_list)
 
     update_stmt = f"""
         UPDATE task_instance
