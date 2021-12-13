@@ -251,4 +251,4 @@ def test_array_concurrency(tool, db_cfg, client_env, array_template, wf_limit, a
 
     distributor_wfr.prep_tis_for_launch([dtis_1, dtis_2, dtis_3], wf_limit)
 
-    assert len(distributor_array.launched_array_task_instance_ids) == expected_len
+    assert len(distributor_array.prepped_for_launch_array_task_instance_ids) == expected_len

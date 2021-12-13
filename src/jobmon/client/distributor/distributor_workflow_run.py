@@ -37,13 +37,14 @@ class DistributorWorkflowRun:
         # lists of task_instance_ids in different states. used for property views into
         # self._task_instances dict. This gets refreshed from the db during
         # self.get_task_instance_status_updates
+        # TODO: Do we still need these? If each task is associated with an array.
         self._registered_task_instance_ids: List[int] = []
         self._launched_task_instance_ids: List[int] = []
         self._running_task_instance_ids: List[int] = []
 
         # mapping of array_id to DistributorArray. stores the queue of task_instances to be
         # instantiated using the array strategy.
-        # TODO: Rename to launched_task_instance_ids?
+        self._prepped_for_launch_array_task_instance_ids: List[int] = []
         self._launched_array_task_instance_ids: List[int] = []
         self._running_array_task_instance_ids: List[int] = []
 
@@ -253,6 +254,10 @@ class DistributorWorkflowRun:
 
         # Clear the registered tasks and move into launched
         self._launched_array_task_instance_ids.extend(ids_to_launch)
+        array.launched_array_task_instance_ids(ids_to_launch)
+        for ti_id in ids_to_launch:
+            array.prepped_for_launch_array_task_instance_ids.remove(ti_id)
+            self._prepped_for_launch_array_task_instance_ids.remove(ti_id)
         array.clear_registered_task_registry()
 
         resp = self.transition_task_instance(array_id=array.array_id,
@@ -269,7 +274,8 @@ class DistributorWorkflowRun:
     def prep_tis_for_launch(self, instantiated_task_instances: List[DistributorTaskInstance], wf_max_concurrently_running: int) -> List[DistributorTaskInstance]:
         # Get all tasks that are currently in launched and running assume all tasks are associated with an array, don't need to check workflow
         total_launched_running = len(self.launched_array_task_instances) + \
-                              len(self.running_array_task_instances)
+                                 len(self.running_array_task_instances) + \
+                                 len(self._prepped_for_launch_array_task_instance_ids)
 
         # calculate workflow capacity
         workflow_capacity = wf_max_concurrently_running - total_launched_running
@@ -286,15 +292,17 @@ class DistributorWorkflowRun:
                 if array.max_concurrently_running > wf_max_concurrently_running:
                     array.max_concurrently_running = wf_max_concurrently_running
 
-                array_launched_running = len(array.launched_array_task_instance_ids) + len(array.running_array_task_instance_ids)
+                array_launched_running = len(array.launched_array_task_instance_ids) + \
+                                         len(array.running_array_task_instance_ids) + \
+                                         len(array.prepped_for_launch_array_task_instance_ids)
                 array_capacity = array.max_concurrently_running - array_launched_running
                 if array_capacity > 0:
                     array.queue_task_instance_id_for_array_launch(ti.task_instance_id)
                     workflow_capacity -= 1
 
                     # Add to array launched and workflow launched list, remove from instantiated list
-                    self._launched_array_task_instance_ids.append(ti.task_instance_id)
-                    array.launched_array_task_instance_ids.append(ti.task_instance_id)
+                    self._prepped_for_launch_array_task_instance_ids.append(ti.task_instance_id)
+                    array.prepped_for_launch_array_task_instance_ids.append(ti.task_instance_id)
                     array.instantiated_array_task_instance_ids.remove(ti.task_instance_id)
                     launched_task_instances.append(ti)
 
