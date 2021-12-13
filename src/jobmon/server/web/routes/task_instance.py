@@ -141,7 +141,7 @@ def log_ti_report_by(task_instance_id: int) -> Any:
 @finite_state_machine.route(
     "/task_instance/log_report_by/batch", methods=["POST"]
 )
-def log_ti_report_by(task_instance_id: int) -> Any:
+def log_ti_report_by_batch(task_instance_id: int) -> Any:
     """Log task_instances as being responsive with a new report_by_date.
 
     This is done at the worker node heartbeat_interval rate, so it may not happen at the same
@@ -755,6 +755,15 @@ def record_array_batch_num(batch_num: int) -> Any:
     """
     DB.session.execute(update_stmt)
     DB.session.commit()
+
+    # assign arrary_step_ids ordered by task_instance_id
+    task_instance_ids_list.sort()
+    for i in range(len(task_instance_ids_list)):
+        sql = f"""UPDATE task_instance
+            SET array_step_id = {i + 1}
+            WHERE id = {task_instance_ids_list[i]}"""
+        DB.session.execute(sql)
+        DB.session.commit()
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
