@@ -21,12 +21,17 @@ class DistributorArray:
         requested_resources: Dict,
         requester: Requester,
         name: Optional[str] = None,
+        max_concurrently_running: int = 10_000
     ):
         self.array_id = array_id
         self.task_resources_id = task_resources_id
         self.requested_resources = requested_resources
         self.name = name
-        self.registered_array_task_instance_ids: List[int] = []
+        self.max_concurrently_running = max_concurrently_running
+        self.instantiated_array_task_instance_ids: List[int] = []
+        self.prepped_for_launch_array_task_instance_ids: List[int] = []
+        self.launched_array_task_instance_ids: List[int] = []
+        self.running_array_task_instance_ids: List[int] = []
         self.batch_number = 0
         self.requester = requester
 
@@ -57,14 +62,14 @@ class DistributorArray:
         """
         Add task instance to array queue
         """
-        self.registered_array_task_instance_ids.append(task_instance_id)
+        self.instantiated_array_task_instance_ids.append(task_instance_id)
 
     def clear_registered_task_registry(self) -> None:
         """Clear all registered tasks that have already been submitted.
 
         Called when the array is submitted to the batch distributor."""
         # TODO: Safe for sequential, may have problems with async and centeralized distributor
-        self.registered_array_task_instance_ids = []
+        self.instantiated_array_task_instance_ids = []
 
     def add_batch_number_to_task_instances(self) -> None:
         """Add the current batch number to the current set of registered task instance ids."""
@@ -72,7 +77,7 @@ class DistributorArray:
         rc, resp = self.requester.send_request(
             app_route=app_route,
             message={
-                'task_instance_ids': self.registered_array_task_instance_ids,
+                'task_instance_ids': self.instantiated_array_task_instance_ids,
             },
             request_type='post'
         )

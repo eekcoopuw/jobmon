@@ -1,7 +1,11 @@
+import pytest
+
 from jobmon.client.distributor.distributor_array import DistributorArray
+from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.requester import Requester
 
@@ -129,8 +133,8 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
     dtis_3 = dts[2].register_task_instance(workflow_run_id=wfr.workflow_run_id)
     dtis_4 = single_distributor_task.register_task_instance(workflow_run_id=wfr.workflow_run_id)
 
-    distributor_array.registered_array_task_instance_ids = [dtis_1.task_instance_id,
-                                                            dtis_2.task_instance_id]
+    distributor_array.instantiated_array_task_instance_ids = [dtis_1.task_instance_id,
+                                                              dtis_2.task_instance_id]
     distributor_wfr = DistributorWorkflowRun(
         workflow.workflow_id, wfr.workflow_run_id, requester
     )
@@ -168,7 +172,7 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
         dtis_1.task_instance_id
 
     # Add task 3 to the registered queue, and launch
-    distributor_array.registered_array_task_instance_ids = [dtis_3.task_instance_id]
+    distributor_array.instantiated_array_task_instance_ids = [dtis_3.task_instance_id]
     distributor_wfr.launch_array_instance(array=distributor_array, cluster=distributor)
 
     # Check that the worker node is either launched, running, or done
@@ -178,6 +182,73 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
     assert ti_3_batch_num == 1
     assert distributor_wfr.registered_array_task_instances == []
     # Assert that the task instance ID can be associated
-    assert call_get_array_task_instance_id(
-        distributor_array.array_id, ti_3_batch_num, client_env) == \
-        dtis_3.task_instance_id
+    assert call_get_array_task_instance_id(array_id, ti_3_batch_num, client_env) == \
+           dtis_3.task_instance_id
+
+
+@pytest.mark.parametrize("wf_limit, array_limit, expected_len", [(10_000, 2, 2),
+                                                                 (2, 10_000, 2),
+                                                                 (2, 3, 2),
+                                                                 (3, 2, 2)])
+def test_array_concurrency(tool, db_cfg, client_env, array_template, wf_limit, array_limit, expected_len):
+    """Use Case 1: Array concurrency limit is set, workflow is not. Array should be limited by
+    the array's max_concurrently running value"""
+    # Use Case 1: Array concurrency limit is set, workflow concurrency limit not set
+    array1 = array_template.create_array(arg=[1, 2, 3], cluster_name="multiprocess",
+                                         compute_resources={"queue": "null.q"},
+                                         max_concurrently_running=array_limit)
+
+    workflow_1 = tool.create_workflow(name="test_array_concurrency_1",
+                                      max_concurrently_running=wf_limit)
+    workflow_1.add_array(array1)
+    workflow_1.bind()
+    workflow_1.bind_arrays()
+    wfr_1 = workflow_1._create_workflow_run()
+
+    requester = Requester(client_env)
+
+    distributor_array = DistributorArray(array_id=array1.array_id,
+                                         task_resources_id=array1.task_resources.id,
+                                         requested_resources=array1.default_compute_resources_set,
+                                         name="example_array",
+                                         requester=requester,
+                                         max_concurrently_running=array_limit
+                                         )
+
+    dts = [
+        DistributorTask(task_id=t.task_id,
+                        array_id=array1.array_id,
+                        name='array_ti',
+                        command=t.command,
+                        requested_resources=t.compute_resources,
+                        requester=requester)
+        for t in array1.tasks
+    ]
+
+    # Move all tasks to Q state
+    for tid in (t.task_id for t in array1.tasks):
+        _, _ = requester._send_request(
+            app_route=f"/task/{tid}/queue",
+            message={},
+            request_type='post'
+        )
+
+    distributor_wfr = DistributorWorkflowRun(
+        workflow_1.workflow_id, wfr_1.workflow_run_id, requester
+    )
+
+    # Add array to cache
+    distributor_wfr._arrays[distributor_array.array_id] = distributor_array
+
+    # Register TIs
+    dtis_1 = dts[0].register_task_instance(workflow_run_id=wfr_1.workflow_run_id)
+    dtis_2 = dts[1].register_task_instance(workflow_run_id=wfr_1.workflow_run_id)
+    dtis_3 = dts[2].register_task_instance(workflow_run_id=wfr_1.workflow_run_id)
+
+    distributor_array.instantiated_array_task_instance_ids = [dtis_1.task_instance_id,
+                                                              dtis_2.task_instance_id,
+                                                              dtis_3.task_instance_id]
+
+    distributor_wfr.prep_tis_for_launch([dtis_1, dtis_2, dtis_3], wf_limit)
+
+    assert len(distributor_array.prepped_for_launch_array_task_instance_ids) == expected_len

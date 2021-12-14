@@ -37,12 +37,14 @@ class DistributorWorkflowRun:
         # lists of task_instance_ids in different states. used for property views into
         # self._task_instances dict. This gets refreshed from the db during
         # self.get_task_instance_status_updates
+        # TODO: Do we still need these? If each task is associated with an array.
         self._registered_task_instance_ids: List[int] = []
         self._launched_task_instance_ids: List[int] = []
         self._running_task_instance_ids: List[int] = []
 
         # mapping of array_id to DistributorArray. stores the queue of task_instances to be
         # instantiated using the array strategy.
+        self._prepped_for_launch_array_task_instance_ids: List[int] = []
         self._launched_array_task_instance_ids: List[int] = []
         self._running_array_task_instance_ids: List[int] = []
 
@@ -62,13 +64,14 @@ class DistributorWorkflowRun:
     @property
     def launched_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of launched task_instances"""
-        pass
+        return [DistributorTaskInstance(tid, self.workflow_run_id, self.requester) for tid in
+                self._launched_task_instance_ids]
 
     @property
     def running_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of launched task_instances"""
-        return [DistributorTaskInstance(tid, self.workflow_run_id) for tid in
-                self._running_array_task_instance_ids]
+        return [DistributorTaskInstance(tid, self.workflow_run_id, self.requester) for tid in
+                self._running_task_instance_ids]
 
     @property
     def registered_array_task_instances(self) -> List[DistributorTaskInstance]:
@@ -79,22 +82,28 @@ class DistributorWorkflowRun:
         task_instances: List[DistributorTaskInstance] = []
         for array in self._arrays.values():
             array_task_instances = [self._task_instances[tiid] for tiid in
-                                    array.registered_array_task_instance_ids]
+                                    array.instantiated_array_task_instance_ids]
             task_instances.extend(array_task_instances)
         return task_instances
 
     @property
     def launched_array_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of launched task_instances"""
-        pass
+        return [DistributorTaskInstance(tid, self.workflow_run_id, self.requester) for tid in
+                self._launched_array_task_instance_ids]
 
     @property
     def running_array_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of launched task_instances"""
-        pass
+        return [DistributorTaskInstance(tid, self.workflow_run_id, self.requester) for tid in
+                self._running_array_task_instance_ids]
 
-    def get_queued_tasks(self, queued_tasks_bulk_query_size: int) -> List[DistributorTask]:
-        """Retrieve a list of task that are in queued state"""
+    def get_queued_tasks(self, queued_tasks_bulk_query_size: int) -> \
+            List[DistributorTask]:
+        """Retrieve a list of task that are in queued state."""
+
+        # Retrieve all tasks (up till the queued_tasks_bulk_query_size) that are in queued
+        # state that are associated with the workflow.
         app_route = f"/workflow/{self.workflow_id}/queued_tasks/{queued_tasks_bulk_query_size}"
         return_code, response = self.requester.send_request(
             app_route=app_route, message={}, request_type="get", logger=logger
@@ -106,11 +115,11 @@ class DistributorWorkflowRun:
                 f"code 200. Response content: {response}"
             )
 
+        # Queued tasks associated with WF, concurrency limit hasn't been applied yet
         tasks = [
             DistributorTask.from_wire(wire_tuple=task, requester=self.requester)
             for task in response["task_dcts"]
         ]
-        return tasks
 
     def get_array(self, array_id: int) -> DistributorArray:
         """Get an array from the array cache or from the database on first access
@@ -205,7 +214,7 @@ class DistributorWorkflowRun:
             name=task_instance.name,
             requested_resources=task_instance.requested_resources
         )
-
+        self._launched_task_instance_ids.append(task_instance.task_instance_id)
         resp = self.transition_task_instance(array_id=None,
                                              task_instance_ids=[task_instance.task_instance_id],
                                              distributor_id=distributor_id,
@@ -229,7 +238,7 @@ class DistributorWorkflowRun:
         """
 
         # all task instances associated with an array and a batch number
-        ids_to_launch = array.registered_array_task_instance_ids
+        ids_to_launch = array.instantiated_array_task_instance_ids
         array.add_batch_number_to_task_instances()
 
         # Fetch the command
@@ -245,6 +254,10 @@ class DistributorWorkflowRun:
 
         # Clear the registered tasks and move into launched
         self._launched_array_task_instance_ids.extend(ids_to_launch)
+        array.launched_array_task_instance_ids(ids_to_launch)
+        for ti_id in ids_to_launch:
+            array.prepped_for_launch_array_task_instance_ids.remove(ti_id)
+            self._prepped_for_launch_array_task_instance_ids.remove(ti_id)
         array.clear_registered_task_registry()
 
         resp = self.transition_task_instance(array_id=array.array_id,
@@ -257,3 +270,47 @@ class DistributorWorkflowRun:
         self._triaging_queue.extend(erroneous_ti_transitions)
 
         return array_distributor_id
+
+    def prep_tis_for_launch(self, instantiated_task_instances: List[DistributorTaskInstance], wf_max_concurrently_running: int) -> List[DistributorTaskInstance]:
+        # Get all tasks that are currently in launched and running assume all tasks are associated with an array, don't need to check workflow
+        total_launched_running = len(self.launched_array_task_instances) + \
+                                 len(self.running_array_task_instances) + \
+                                 len(self._prepped_for_launch_array_task_instance_ids)
+
+        # calculate workflow capacity
+        workflow_capacity = wf_max_concurrently_running - total_launched_running
+
+        num_instantiated_tis = len(instantiated_task_instances)
+        instantiated_ti_index = 0
+        launched_task_instances = []
+        while workflow_capacity > 0:
+            if instantiated_ti_index < num_instantiated_tis:
+                ti = instantiated_task_instances[instantiated_ti_index]
+                array = self.get_array(ti.array_id)
+
+                # Don't allow the array limit to be greater than the workflow limit
+                if array.max_concurrently_running > wf_max_concurrently_running:
+                    array.max_concurrently_running = wf_max_concurrently_running
+
+                array_launched_running = len(array.launched_array_task_instance_ids) + \
+                                         len(array.running_array_task_instance_ids) + \
+                                         len(array.prepped_for_launch_array_task_instance_ids)
+                array_capacity = array.max_concurrently_running - array_launched_running
+                if array_capacity > 0:
+                    array.queue_task_instance_id_for_array_launch(ti.task_instance_id)
+                    workflow_capacity -= 1
+
+                    # Add to array launched and workflow launched list, remove from instantiated list
+                    self._prepped_for_launch_array_task_instance_ids.append(ti.task_instance_id)
+                    array.prepped_for_launch_array_task_instance_ids.append(ti.task_instance_id)
+                    array.instantiated_array_task_instance_ids.remove(ti.task_instance_id)
+                    launched_task_instances.append(ti)
+
+                instantiated_ti_index += 1
+
+            else:
+                logger.info("Workflow capacity is greater than the number of instantiated "
+                            "task instances ready to be launched.")
+                break
+
+        return [x for x in instantiated_task_instances if x not in launched_task_instances]
