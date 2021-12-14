@@ -26,19 +26,35 @@ def task_template(tool):
     )
     return tt
 
+@pytest.fixture
+def task_template_dummy(tool):
+    tt = tool.get_task_template(
+        template_name="dummy_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+        default_cluster_name="dummy",
+        default_compute_resources={"queue": "null.q"},
+    )
+    return tt
 
-def test_create_array(db_cfg, client_env, task_template):
 
-    array = task_template.create_array(arg="echo 1")
+@pytest.mark.skip(reason="GBDSCI-4189")
+def test_create_array(db_cfg, client_env, task_template_dummy):
+    """TODO: GBDSCI-4189"""
+    array = task_template_dummy.create_array(arg="echo 1")
     assert (
         array.default_compute_resources_set
-        == task_template.default_compute_resources_set["sequential"]
+        == task_template_dummy.default_compute_resources_set["dummy"]
     )
 
 
-def test_array_bind(db_cfg, client_env, task_template, tool):
+def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
+    task_template = task_template_dummy
 
-    array = task_template.create_array(arg="echo 10")
+    array = task_template.create_array(arg="echo 10",
+                                       compute_resources={"queue": "null.q"})
     wf = tool.create_workflow()
 
     wf.add_array(array)
@@ -118,7 +134,7 @@ def test_create_tasks(db_cfg, client_env, tool):
         node_args=["narg1", "narg2"],
         task_args=["task_arg"],
         op_args=["command", "op_arg"],
-        default_cluster_name="sequential",
+        default_cluster_name="dummy",
         default_compute_resources={"queue": "null.q"},
     )
 
@@ -128,6 +144,7 @@ def test_create_tasks(db_cfg, client_env, tool):
         narg1=[1, 2, 3],
         narg2=["a", "b", "c"],
         op_arg="baz",
+        compute_resources={"queue": "null.q"}
     )
 
     assert len(array.tasks) == 9  # Created on init

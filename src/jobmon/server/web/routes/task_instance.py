@@ -769,7 +769,7 @@ def record_array_batch_num(batch_num: int) -> Any:
             SET array_step_id = {i + 1}
             WHERE id = {task_instance_ids_list[i]}"""
         DB.session.execute(sql)
-        DB.session.commit()
+    DB.session.commit()
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
