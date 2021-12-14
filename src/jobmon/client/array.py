@@ -1,8 +1,10 @@
+from __future__ import annotations
+
 from collections.abc import Iterable
 from http import HTTPStatus as StatusCodes
 from itertools import product
 import logging
-from typing import Any, Callable, Dict, Iterator, List, Optional, Union
+from typing import Any, Callable, Dict, Iterator, List, Optional, TYPE_CHECKING, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
@@ -12,6 +14,8 @@ from jobmon.client.task_template_version import TaskTemplateVersion
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 
+if TYPE_CHECKING:
+    from jobmon.client.workflow import Workflow
 
 logger = logging.getLogger(__name__)
 
@@ -57,13 +61,11 @@ class Array:
         # compute resources
         if not cluster_name:
             cluster_name = self.task_template_version.default_cluster_name
-        self.cluster_name = cluster_name
-        resources = compute_resources if compute_resources is not None else {}
-        resources.update(
-            self.task_template_version.default_compute_resources_set.get(self.cluster_name, {})
-        )
+        self._instance_cluster_name = cluster_name
 
-        self.compute_resources = resources
+        self._instance_compute_resource = (
+            compute_resources if compute_resources is not None else {}
+        )
         self.compute_resources_callable = compute_resources_callable
         self.resource_scales = resource_scales
         self.max_attempts = max_attempts
@@ -114,26 +116,44 @@ class Array:
         self._task_resources = task_resources
 
     @property
-    def task_args_mapped(self) -> Dict[int, Any]:
-        """Map the task args to the arg IDs from the database."""
-        if not hasattr(self, "_task_args_mapped"):
-            task_args_mapped = {
-                self.task_template_version.id_name_map[k]: str(v)
-                for k, v in self.task_args.items()
-            }
-            self._task_args_mapped = task_args_mapped
+    def compute_resources(self) -> Dict:
+        try:
+            resources = self.workflow.default_compute_resources_set.get(self.cluster_name, {}
+                                                                        ).copy()
+        except AttributeError:
+            resources = {}
+        resources.update(
+            self.task_template_version.default_compute_resources_set.get(self.cluster_name, {}
+                                                                         ).copy()
+        )
+        resources.update(self._instance_compute_resource.copy())
+        return resources
 
-        return self._task_args_mapped
+    @property
+    def cluster_name(self) -> str:
+        cluster_name = self._instance_cluster_name
+        if not cluster_name:
+            try:
+                cluster_name = self.workflow.default_cluster_name
+            except AttributeError:
+                raise ValueError(
+                    "cluster_name must be specified on workflow, task_template, or array"
+                )
+        return cluster_name
 
-    def set_task_resources(self, task_resources: TaskResources) -> None:
-        """Set the task resources for the array and all its constituent tasks."""
-        if self._task_resources is not None:
-            logger.warning(
-                "Task resources have already been set on this array, updating"
+    @property
+    def workflow(self) -> Workflow:
+        """Get the workflow id if it has been bound to the db."""
+        if not hasattr(self, "_workflow"):
+            raise AttributeError(
+                "workflow cannot be accessed via task before workflow is added to workflow"
             )
-        self.task_resources = task_resources
-        for task in self.tasks.values():
-            task.task_resources = task_resources
+        return self._workflow
+
+    @workflow.setter
+    def workflow(self, val: Workflow) -> None:
+        """Set the workflow id."""
+        self._workflow = val
 
     def add_task(self, task: Task):
         if task.cluster_name and self.cluster_name != task.cluster_name:
@@ -200,7 +220,6 @@ class Array:
                 task_args=self.task_args,
                 op_args=self.op_args,
                 resource_scales=resource_scales,
-                cluster_name=self.cluster_name,
                 max_attempts=max_attempts,
                 upstream_tasks=upstream_tasks,
                 task_attributes=task_attributes,
@@ -280,7 +299,3 @@ class Array:
 
         array_id = resp["array_id"]
         self.array_id = array_id
-
-        # Assign array_id to all tasks
-        for task in self.tasks.values():
-            task.array_id = array_id

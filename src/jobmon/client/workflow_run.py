@@ -1,4 +1,6 @@
 """The workflow run is an instance of a workflow."""
+from __future__ import annotations
+
 import getpass
 import logging
 import time
@@ -11,9 +13,10 @@ from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import http_request_ok, Requester
 
-
+# avoid circular imports on backrefs
 if TYPE_CHECKING:
     from jobmon.client.workflow import Workflow
+
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +60,9 @@ class WorkflowRun(object):
 
     @property
     def workflow_id(self):
-        self._workflow.workflow_id
+        return self._workflow.workflow_id
 
-    def bind(
-        self,
-        tasks: Dict[int, Task],
-        reset_if_running: bool = True,
-        chunk_size: int = 500,
-    ) -> Dict[int, Task]:
+    def bind(self, reset_if_running: bool = True, chunk_size: int = 500) -> Dict[int, Task]:
         """Link this workflow run with the workflow and add all tasks."""
         next_report_increment = (
             self.heartbeat_interval * self.heartbeat_report_by_buffer
@@ -85,7 +83,7 @@ class WorkflowRun(object):
         self._last_heartbeat: float = time.time()
 
         try:
-            tasks = self._bind_tasks(tasks, reset_if_running, chunk_size)
+            tasks = self._bind_tasks(reset_if_running, chunk_size)
         except Exception:
             self._update_status(WorkflowRunStatus.ABORTED)
             raise
@@ -162,12 +160,11 @@ class WorkflowRun(object):
 
     def _bind_tasks(
         self,
-        tasks: Dict[int, Task],
         reset_if_running: bool = True,
         chunk_size: int = 500,
     ) -> Dict[int, Task]:
         app_route = "/task/bind_tasks"
-        remaining_task_hashes = list(tasks.keys())
+        remaining_task_hashes = list(self._workflow.tasks.keys())
 
         while remaining_task_hashes:
 
@@ -187,27 +184,38 @@ class WorkflowRun(object):
             # flat the data structure so that the server won't depend on the client
             task_metadata: Dict[int, List] = {}
             for task_hash in task_hashes_chunk:
-                # Bind task resources first
-                task = tasks[task_hash]
-                task_resources_id = None
-                try:
-                    task.task_resources.bind()
-                    task_resources_id = task.task_resources.id
-                except AttributeError as e:
-                    # task resources should only raise this error if callable is not None
-                    if task.compute_resources_callable is None:
-                        raise e
+                task = self._workflow.tasks[task_hash]
+
+                array = task.array
+                if not array.is_bound:
+                    task_resources = self._workflow.get_task_resources(array)
+                    task_resources.bind()
+                    array.task_resources = task_resources
+                    cluster_id = self._workflow.get_cluster_by_name(array.cluster_name).id
+                    array.bind(workflow_id=self._workflow.workflow_id, cluster_id=cluster_id)
+
+                no_resource_callable = (
+                    task.compute_resources_callable is None
+                    and task.array.compute_resources_callable is None
+                )
+                if no_resource_callable:
+                    task_resources = self._workflow.get_task_resources(task)
+                    task_resources.bind()
+                    task.task_resources = task_resources
+                    task_resources_id: Optional[int] = task.task_resources.id
+                else:
+                    task_resources_id = None
 
                 task_metadata[task_hash] = [
                     task.node.node_id,
                     task.task_args_hash,
-                    task.array_id,
+                    task.array.array_id,
                     task_resources_id,
                     task.name,
                     task.command,
                     task.max_attempts,
                     reset_if_running,
-                    task.task_args,
+                    task.mapped_task_args,
                     task.task_attributes,
                     task.resource_scales,
                     task.fallback_queues,
@@ -232,25 +240,8 @@ class WorkflowRun(object):
             # populate returned values onto task dict
             return_tasks = response["tasks"]
             for k in return_tasks.keys():
-                task = tasks[int(k)]
+                task = self._workflow.tasks[int(k)]
                 task.task_id = return_tasks[k][0]
                 task.initial_status = return_tasks[k][1]
 
-        return tasks
-
-    def bind_arrays(self) -> None:
-        """Add the arrays to the database.
-
-        Done sequentially instead of in bulk, since scaling not assumed to be a problem
-        with arrays.
-        """
-        for array in self._workflow.arrays.values():
-            cluster = self._get_cluster_by_name(array.cluster_name)
-            # Create a task resources object and bind to the array
-            task_resources = cluster.create_valid_task_resources(
-                resource_params=array.compute_resources,
-                task_resources_type_id=TaskResourcesType.VALIDATED,
-            )
-            task_resources.bind(TaskResourcesType.VALIDATED)
-            array.set_task_resources(task_resources)
-            array.bind(workflow_id=self.workflow_id, cluster_id=cluster.id)
+        return self._workflow.tasks

@@ -10,7 +10,6 @@ import logging
 from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.cluster import Cluster
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
 from jobmon.cluster_type.base import ClusterQueue
@@ -21,6 +20,7 @@ from jobmon.serializers import SerializeTaskInstanceErrorLog, SerializeTaskResou
 
 if TYPE_CHECKING:
     from jobmon.client.array import Array
+    from jobmon.client.workflow import Workflow
 
 logger = logging.getLogger(__name__)
 
@@ -122,7 +122,7 @@ class Task:
         # pre bind hash defining attributes
         self.node = node
         self.task_args = task_args
-        self._mapped_task_args = self.node.task_template_version.convert_arg_names_to_ids(
+        self.mapped_task_args = self.node.task_template_version.convert_arg_names_to_ids(
             **self.task_args
         )
         self.task_args_hash = self._hash_task_args()
@@ -134,7 +134,8 @@ class Task:
         )
 
         # Not all tasks bound to an array initially
-        self.array = array
+        if array is not None:
+            self.array = array
 
         # Names of jobs can't start with a numeric.
         if not name:
@@ -163,8 +164,10 @@ class Task:
 
         # mutable operational/cluster behaviour
         self.max_attempts = max_attempts
-        self.cluster_name = cluster_name
-        self.compute_resources = compute_resources if compute_resources is not None else {}
+        self._instance_cluster_name = cluster_name
+        self._instance_compute_resource = (
+            compute_resources if compute_resources is not None else {}
+        )
         self.compute_resources_callable = compute_resources_callable
         self.resource_scales = (resource_scales if resource_scales is not None else
                                 {"memory": 0.5, "runtime": 0.5})
@@ -174,6 +177,26 @@ class Task:
         self._errors: Union[
             None, Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]
         ] = None
+
+    @property
+    def compute_resources(self) -> Dict:
+        try:
+            resources = self.array.compute_resources
+        except AttributeError:
+            resources = {}
+        resources.update(self._instance_compute_resource.copy())
+        return resources
+
+    @property
+    def cluster_name(self) -> str:
+        cluster_name = self._instance_cluster_name
+        if not cluster_name:
+            try:
+                cluster_name = self.array.cluster_name
+            except AttributeError:
+                # array hasn't been inferred yet. safe to return empty string for now
+                pass
+        return cluster_name
 
     @property
     def is_bound(self) -> bool:
@@ -205,19 +228,6 @@ class Task:
         self._task_resources = val
 
     @property
-    def cluster(self) -> Cluster:
-        """Get the id of the task if it has been bound to the db otherwise raise an error."""
-        if not hasattr(self, "_cluster"):
-            raise AttributeError("cluster cannot be accessed before workflow is bound")
-        return self._cluster
-
-    @cluster.setter
-    def cluster(self, val: int) -> None:
-        if not isinstance(val, Cluster):
-            raise ValueError("cluster must be of type=Cluster")
-        self._cluster = val
-
-    @property
     def initial_status(self) -> str:
         """Get initial status of the task if it has been bound to the db; else raise error."""
         if not hasattr(self, "_initial_status"):
@@ -244,18 +254,31 @@ class Task:
         self._final_status = val
 
     @property
-    def workflow_id(self) -> int:
-        """Get the workflow id if it has been bound to the db."""
-        if not hasattr(self, "_workflow_id"):
+    def array(self) -> Array:
+        """Get the id of the task if it has been bound to the db otherwise raise an error."""
+        if not hasattr(self, "_array"):
             raise AttributeError(
-                "workflow_id cannot be accessed via task before workflow is bound"
+                "array cannot be accessed via task before task is added to array"
             )
-        return self._workflow_id
+        return self._array
 
-    @workflow_id.setter
-    def workflow_id(self, val: int) -> None:
+    @array.setter
+    def array(self, val: Array) -> None:
+        self._array = val
+
+    @property
+    def workflow(self) -> Workflow:
+        """Get the workflow id if it has been bound to the db."""
+        if not hasattr(self, "_workflow"):
+            raise AttributeError(
+                "workflow cannot be accessed via task before workflow is added to workflow"
+            )
+        return self._workflow
+
+    @workflow.setter
+    def workflow(self, val: Workflow) -> None:
         """Set the workflow id."""
-        self._workflow_id = val
+        self._workflow = val
 
     def bind(self, reset_if_running: bool = True) -> int:
         """Bind tasks to the db if they have not been bound already.
@@ -272,7 +295,7 @@ class Task:
         self._initial_status = status
         return task_id
 
-    def add_upstream(self, ancestor: "Task") -> None:
+    def add_upstream(self, ancestor: Task) -> None:
         """Add an upstream (ancestor) Task.
 
         This has Set semantics, an upstream task will only be added once. Symmetrically, this
@@ -283,7 +306,7 @@ class Task:
 
         self.node.add_upstream_node(ancestor.node)
 
-    def add_downstream(self, descendent: "Task") -> None:
+    def add_downstream(self, descendent: Task) -> None:
         """Add an downstream (ancestor) Task.
 
         This has Set semantics, a downstream task will only be added once. Symmetrically,
@@ -375,10 +398,10 @@ class Task:
 
     def _hash_task_args(self) -> int:
         """A hash of the encoded result of the args and values concatenated together."""
-        arg_ids = list(self._mapped_task_args.keys())
+        arg_ids = list(self.mapped_task_args.keys())
         arg_ids.sort()
 
-        arg_values = [str(self._mapped_task_args[key]) for key in arg_ids]
+        arg_values = [str(self.mapped_task_args[key]) for key in arg_ids]
         str_arg_ids = [str(arg) for arg in arg_ids]
 
         hash_value = int(
@@ -392,7 +415,7 @@ class Task:
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
-                "workflow_id": self.workflow_id,
+                "workflow_id": self.workflow.workflow_id,
                 "node_id": self.node.node_id,
                 "task_args_hash": self.task_args_hash,
             },
@@ -433,15 +456,15 @@ class Task:
         """Bind a task to the db with the node, and workflow ids that have been established."""
         tasks = [
             {
-                "workflow_id": self.workflow_id,
+                "workflow_id": self.workflow.workflow_id,
                 "node_id": self.node.node_id,
-                "array_id": self.array.id,
+                "array_id": self.array.array_id,
                 "task_resources_id": self.task_resources.id,
                 "task_args_hash": self.task_args_hash,
                 "name": self.name,
                 "command": self.command,
                 "max_attempts": self.max_attempts,
-                "task_args": self._mapped_task_args,
+                "task_args": self.mapped_task_args,
                 "task_attributes": self.task_attributes,
             }
         ]

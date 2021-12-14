@@ -1,9 +1,8 @@
-import pytest
 from jobmon.client.task_resources import TaskResources
 from jobmon.cluster_type.base import ConcreteResource
 
 
-def test_task_resources_hash():
+def test_task_resources_hash(client_env):
 
     class MockConcreteResource(ConcreteResource):
         """Mock the concrete resource object."""
@@ -108,8 +107,7 @@ def test_task_resource_bind(db_cfg, client_env, tool, task_template):
     wf.add_tasks([t1, t2, t3])
 
     wf.bind()
-    wfr = wf._create_workflow_run()
-    wfr._bind_tasks({hash(t): t for t in [t1, t2, t3]})
+    wf._create_workflow_run()
 
     app, db = db_cfg['app'], db_cfg['DB']
 

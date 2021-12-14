@@ -40,7 +40,7 @@ def test_array_bind(db_cfg, client_env, task_template, tool):
 
     wf.add_array(array)
     wf.bind()
-    wf.bind_arrays()
+    wf._create_workflow_run()
 
     assert hasattr(array, "_array_id")
 
@@ -62,21 +62,15 @@ def test_array_bind(db_cfg, client_env, task_template, tool):
             array_db.task_template_version_id
             == task_template.active_task_template_version.id
         )
-    # Assert that array.bind is idempotent
-    array_id = array.array_id
-    wf.bind_arrays()
-
-    assert array.array_id == array_id
 
     # Assert the bound task has the correct array ID
-    wf._create_workflow_run()
     with app.app_context():
         task_query = """
         SELECT array_id
         FROM task
         WHERE id = {}
         """.format(
-            array.tasks[0].task_id
+            list(array.tasks.values())[0].task_id
         )
         task = DB.session.execute(task_query).fetchone()
         DB.session.commit()
@@ -134,13 +128,12 @@ def test_create_tasks(db_cfg, client_env, tool):
     assert len(wf.tasks) == 9  # Tasks bound to workflow
 
     # Assert tasks templated correctly
-    commands = [t.command for t in array.tasks]
+    commands = [t.command for t in array.tasks.values()]
     assert "foo bar 1 c baz" in commands
     assert "foo bar 3 a baz" in commands
 
     # Check node and task args are recorded in the proper tables
     wf.bind()
-    wf.bind_arrays()
     wf._create_workflow_run()
 
     app, DB = db_cfg["app"], db_cfg["DB"]
@@ -207,10 +200,10 @@ def test_create_tasks(db_cfg, client_env, tool):
 
     # Define a task_template_name out-of-scope node_args, expect to see a list of 3 tasks
     two_node_args = {"narg1": 2}
-    two_wf_tasks = wf.get_tasks_by_node_args(
-        task_template_name="OUT_OF_SCOPE_simple_template", **two_node_args
-    )
-    assert len(two_wf_tasks) == 0
+    with pytest.raises(ValueError):
+        two_wf_tasks = wf.get_tasks_by_node_args(
+            task_template_name="OUT_OF_SCOPE_simple_template", **two_node_args
+        )
 
 
 def test_empty_array(db_cfg, client_env, tool):

@@ -2,7 +2,6 @@ import pytest
 from sqlalchemy.sql import text
 
 from jobmon.client.task import Task
-from jobmon.client.tool import Tool
 from jobmon.client.workflow_run import WorkflowRun
 from jobmon.constants import WorkflowRunStatus, TaskStatus, TaskInstanceStatus
 from jobmon.server.web.models.task_attribute import TaskAttribute
@@ -48,16 +47,16 @@ def test_default_task_name(task_template):
     """test that name based on hash"""
     # noral case
     a = task_template.create_task(arg="a")
-    assert a.name == "simple_template_1-a"
+    assert a.name == "simple_template_arg-a"
     # long name
     a = task_template.create_task(arg="a" * 256)
-    assert a.name == ("simple_template_1-" + "a" * 256)[0:249]
+    assert a.name == ("simple_template_arg-" + "a" * 256)[0:249]
     # special char
     a = task_template.create_task(arg="abc'abc/abc")
-    assert a.name == "simple_template_1-abc_abc_abc"
+    assert a.name == "simple_template_arg-abc_abc_abc"
     # spaces
     a = task_template.create_task(arg="echo 10")
-    assert a.name == "simple_template_1-echo_10"
+    assert a.name == "simple_template_arg-echo_10"
 
 
 def test_task_attribute(db_cfg, tool):
@@ -86,8 +85,8 @@ def test_task_attribute(db_cfg, tool):
     )
     workflow1.add_tasks([task1, task2, task3])
     workflow1.bind()
-    client_wfr = WorkflowRun(workflow1.workflow_id)
-    client_wfr.bind(workflow1.tasks)
+    client_wfr = WorkflowRun(workflow1)
+    client_wfr.bind()
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -309,39 +308,3 @@ def test_reset_attempts_on_resume(db_cfg, tool):
         assert t.num_attempts == 0
         assert t.status == TaskStatus.REGISTERED
         DB.session.commit()
-
-
-def test_resource_usage(db_cfg, client_env):
-    """Test Task resource usage method."""
-    from jobmon.client.tool import Tool
-
-    tool = Tool()
-    tool.set_default_compute_resources_from_dict(
-        cluster_name="sequential", compute_resources={"queue": "null.q"}
-    )
-    workflow = tool.create_workflow(name="resource_usage_test_wf")
-    template = tool.get_task_template(
-        template_name="resource_usage_test_template",
-        command_template="echo a",
-    )
-    task = template.create_task()
-    workflow.add_tasks([task])
-    workflow.run()
-
-    # Add fake resource usage to the TaskInstance
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        UPDATE task_instance
-        SET nodename = 'SequentialNode', wallclock = 12, maxpss = 1234
-        WHERE task_id = :task_id"""
-        DB.session.execute(sql, {"task_id": task.task_id})
-        DB.session.commit()
-    used_task_resources = task.resource_usage()
-    assert used_task_resources == {
-        "memory": "1234",
-        "nodename": "SequentialNode",
-        "num_attempts": 1,
-        "runtime": "12",
-    }
