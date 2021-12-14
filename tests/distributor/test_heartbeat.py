@@ -216,17 +216,26 @@ def test_wfr_heartbeat_flow():
             else:
                 return {}
 
+        def mock_log_heartbeat(*args):
+            pass
+
         with patch.object(dwfr,
                           'refresh_status_from_db',
                           side_effect=mock_refresh_db):
             with patch.object(dwfr,
                               'refresh_status_with_distributor',
                               side_effect=mock_refresh_distributor):
-                              dwfr.heartbeat()
-                              # {1: "R", 2: "R", 3: "R", 101: "R", 102: "B", 201: "D", 202: "B"}
-                              assert set(dwfr._launched_task_instance_ids.tis) == {102, 202}
-                              assert set(dwfr._running_task_instance_ids.tis) == {1, 2, 3, 101}
-                              assert not dwfr.wfr_has_failed_tis
+                with patch.object(dwfr,
+                                  '_log_workflow_run_heartbeat',
+                                  side_effect=mock_log_heartbeat()):
+                    with patch.object(dwfr,
+                                      '_log_tis_heartbeat',
+                                      side_effect=mock_log_heartbeat()):
+                        dwfr.heartbeat()
+                        # {1: "R", 2: "R", 3: "R", 101: "R", 102: "B", 201: "D", 202: "B"}
+                        assert set(dwfr._launched_task_instance_ids.tis) == {102, 202}
+                        assert set(dwfr._running_task_instance_ids.tis) == {1, 2, 3, 101}
+                        assert not dwfr.wfr_has_failed_tis
 
         # SECOND HEAT BEAT
         def mock_refresh_db(*args):
@@ -251,13 +260,18 @@ def test_wfr_heartbeat_flow():
             with patch.object(dwfr,
                               'refresh_status_with_distributor',
                               side_effect=mock_refresh_distributor):
-                              dwfr.heartbeat()
-                              # {1: "R", 2: "D", 3: "D", 101: "D", 102: "R", 201: "D", 202: "U"}
-                              assert set(dwfr._launched_task_instance_ids.tis) == set()
-                              assert set(dwfr._running_task_instance_ids.tis) == {1, 102}
-                              assert set(dwfr._error_task_instance_ids.tis) == {202}
-                              assert dwfr.wfr_has_failed_tis
-
+                with patch.object(dwfr,
+                                  '_log_workflow_run_heartbeat',
+                                  side_effect=mock_log_heartbeat()):
+                    with patch.object(dwfr,
+                                      '_log_tis_heartbeat',
+                                      side_effect=mock_log_heartbeat()):
+                        dwfr.heartbeat()
+                        # {1: "R", 2: "D", 3: "D", 101: "D", 102: "R", 201: "D", 202: "U"}
+                        assert set(dwfr._launched_task_instance_ids.tis) == set()
+                        assert set(dwfr._running_task_instance_ids.tis) == {1, 102}
+                        assert set(dwfr._error_task_instance_ids.tis) == {202}
+                        assert dwfr.wfr_has_failed_tis
 
 
 def test_heartbeat(tool, db_cfg, client_env, task_template):
@@ -296,6 +310,7 @@ def test_heartbeat(tool, db_cfg, client_env, task_template):
     assert res[0] == 1
 
 
+@pytest.mark.skip(reason="GBDSCI-4188")
 def test_heartbeat_raises_error(tool, db_cfg, client_env, task_template):
     """test that a heartbeat logged after resume will raise ResumeSet"""
     from jobmon.client.distributor.distributor_service import DistributorService
@@ -329,7 +344,7 @@ def test_heartbeat_raises_error(tool, db_cfg, client_env, task_template):
     with pytest.raises(ResumeSet):
         distributor_service.heartbeat()
 
-
+@pytest.mark.skip(reason="GBDSCI-4188")
 def test_heartbeat_propagate_error(tool, db_cfg, client_env, task_template):
     """test that a heartbeat logged after resume will raise ResumeSet through
     the message queue and can be re_raised"""
