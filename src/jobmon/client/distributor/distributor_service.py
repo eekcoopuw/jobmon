@@ -70,7 +70,14 @@ class DistributorService:
         self.workflow_run_id = workflow_run_id
         # build DistributorWorkflowRun
         self.distributor_workflow_run = DistributorWorkflowRun(workflow_id=self.workflow_id,
-                                                               workflow_run_id=self.workflow_run_id)
+                                                               workflow_run_id=self.workflow_run_id,
+                                                               workflow_run_heartbeat_interval=
+                                                               workflow_run_heartbeat_interval,
+                                                               task_instance_heartbeat_interval=
+                                                               task_instance_heartbeat_interval,
+                                                               heartbeat_report_by_buffer=
+                                                               heartbeat_report_by_buffer,
+                                                               requester=requester)
 
         # cluster_name
         self.distributor = distributor

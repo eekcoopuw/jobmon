@@ -15,7 +15,7 @@ from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 logger = logging.getLogger(__name__)
 
-
+"""TODO: GBDSCI-4186"""
 class Consumer(Process):
     """Consumes the tasks to be run."""
 

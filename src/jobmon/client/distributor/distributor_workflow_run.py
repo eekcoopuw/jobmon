@@ -228,10 +228,17 @@ class DistributorWorkflowRun:
     when pushing to the database we should work in CommandType (Workflow/Array/Task) space
     """
 
-    def __init__(self, workflow_id: int, workflow_run_id: int, requester: Requester):
+    def __init__(self, workflow_id: int, workflow_run_id: int, requester: Requester,
+                 workflow_run_heartbeat_interval: int = 30,
+                 task_instance_heartbeat_interval: int = 90,
+                 heartbeat_report_by_buffer: float = 3.1,
+                 ):
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
         self.requester = requester
+        self._workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
+        self._task_instance_heartbeat_interval = task_instance_heartbeat_interval
+        self._heartbeat_report_by_buffer = heartbeat_report_by_buffer
 
         # create the map of task_instance_id to DistributorTaskInstance and array_id to DistributorArray
         self._map: WorkflowRunMaps = WorkflowRunMaps()
@@ -480,7 +487,7 @@ class DistributorWorkflowRun:
 
         array_distributor_id = cluster.submit_array_to_batch_distributor(
             command=command,
-            name=array.name,  # TODO: array class should have a name in the client model
+            name=array.name,  # TODO: array class should have a name in the client model GBDSCI-4184
             requested_resources=array.requested_resources,
             array_length=len(ids_to_launch))
 
@@ -503,17 +510,17 @@ class DistributorWorkflowRun:
 
         return array_distributor_id
 
-    def _get_task_instance_heartbeat_interval(self) -> int:
-        # TODO: this needs real implementation
-        return 10
+    @property
+    def task_instance_heartbeat_interval(self) -> int:
+        return self._task_instance_heartbeat_interval
 
-    def _get_report_by_buffer(self) ->  int:
-        # TODO: this needs real implementation
-        return 10
+    @property
+    def report_by_buffer(self) ->  int:
+        return self._heartbeat_report_by_buffer
 
     def _log_workflow_run_heartbeat(self) -> None:
         next_report_increment = (
-                self._get_task_instance_heartbeat_interval() * self._get_report_by_buffer()
+                self.task_instance_heartbeat_interval * self.report_by_buffer
         )
         app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
@@ -532,7 +539,7 @@ class DistributorWorkflowRun:
         app_route = "/task_instance/log_report_by/batch"
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={"task_instance_ids": tis.ids},
+            message={"task_instance_ids": tis},
             request_type="post",
             logger=logger,
         )
@@ -540,7 +547,7 @@ class DistributorWorkflowRun:
 
     def refresh_status_from_db(self, list: _tiList, status: str) -> Dict[int: str]:
         """Got to DB to check the list tis status."""
-        """TODO: Return a list of tis with status doesn't match status."""
+        """TODO: Return a list of tis with status doesn't match status. GBDSCI-4178"""
         pass
 
     def refresh_status_with_distributor(self, list: _tiList, status: str) -> Dict[int, str]:
@@ -551,6 +558,8 @@ class DistributorWorkflowRun:
         TODO: Return a list of tis with status doesn't match status.
               The cluster plugin should return a dict of {subtaskid: status},
               use the map object to turn it into {tiid: status}.
+
+              GBDSCI-4179
         """
         pass
 
@@ -566,67 +575,71 @@ class DistributorWorkflowRun:
         # check launching queue
         # sync with DB
         ti_dict = self.refresh_status_from_db(self._launched_task_instance_ids, "B")
-        for tiid in ti_dict.keys():
-            self._launched_task_instance_ids.pop(tiid)
-            if ti_dict[tiid] == "R":
-                # move to running Q
-                self._running_task_instance_ids.add(tiid)
-            elif ti_dict[tiid] == "D":
-                pass
-            elif ti_dict[tiid] == "I":
-                raise Exception("No way this should happen.")
-            else:
-                self.wfr_has_failed_tis = True
-                self._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
-                self._error_task_instance_ids.append(tiid)
-        # sync with distributor
-        # only check those unchanged in DB
-        ti_dict = self.refresh_status_with_distributor(self._launched_task_instance_ids, "B")
-        second_log_heartbeat_list = []
-        for tiid in ti_dict.keys():
-            if ti_dict[tiid] == "R":
-                # do nothing
-                pass
-            else:
+        if ti_dict:
+            for tiid in ti_dict.keys():
                 self._launched_task_instance_ids.pop(tiid)
-                second_log_heartbeat_list.append(tiid)
-                if ti_dict[tiid] == "D":
+                if ti_dict[tiid] == "R":
+                    # move to running Q
+                    self._running_task_instance_ids.add(tiid)
+                elif ti_dict[tiid] == "D":
                     pass
                 elif ti_dict[tiid] == "I":
                     raise Exception("No way this should happen.")
                 else:
                     self.wfr_has_failed_tis = True
                     self._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
-                    self._error_task_instance_ids.add(tiid)
-        self.transition_task_instance(ti_dict)
+                    self._error_task_instance_ids.append(tiid)
+        # sync with distributor
+        # only check those unchanged in DB
+        ti_dict = self.refresh_status_with_distributor(self._launched_task_instance_ids, "B")
+        second_log_heartbeat_list = []
+        if ti_dict:
+            for tiid in ti_dict.keys():
+                if ti_dict[tiid] == "R":
+                    # do nothing
+                    pass
+                else:
+                    self._launched_task_instance_ids.pop(tiid)
+                    second_log_heartbeat_list.append(tiid)
+                    if ti_dict[tiid] == "D":
+                        pass
+                    elif ti_dict[tiid] == "I":
+                        raise Exception("No way this should happen.")
+                    else:
+                        self.wfr_has_failed_tis = True
+                        self._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
+                        self._error_task_instance_ids.add(tiid)
+            self.transition_task_instance(ti_dict)
         self._log_tis_heartbeat(second_log_heartbeat_list)
 
         # check running queue
         # sync with DB
-        ti_dict = self.refresh_status_from_db(self._running_task_instance_ids, "R", False)
-        for tiid in ti_dict.keys():
-            self._running_task_instance_ids.pop(tiid)
-            if ti_dict[tiid] == "D":
-                pass
-            elif ti_dict[tiid] in ("I", "B"):
-                raise Exception("No way this should happen.")
-            else:
-                self._wfr_has_failed_tis = True
-                self._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
-                self._error_task_instance_ids.add(tiid)
+        ti_dict = self.refresh_status_from_db(self._running_task_instance_ids, "R")
+        if ti_dict:
+            for tiid in ti_dict.keys():
+                self._running_task_instance_ids.pop(tiid)
+                if ti_dict[tiid] == "D":
+                    pass
+                elif ti_dict[tiid] in ("I", "B"):
+                    raise Exception("No way this should happen.")
+                else:
+                    self._wfr_has_failed_tis = True
+                    self._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
+                    self._error_task_instance_ids.add(tiid)
         # sync with distributor
         # only check those unchanged in DB
-        ti_dict = self.refresh_status_with_distributor(self._running_task_instance_ids, "R", False)
-        for tiid in ti_dict.keys():
-            self._running_task_instance_ids.pop(tiid)
-            if ti_dict[tiid] == "D":
-                pass
-            elif ti_dict[tiid] in ("B"):
-                raise Exception("The cluster much be crazy.")
-            else:
-                self.wfr_has_failed_tis = True
-                self._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
-                self._error_task_instance_ids.add(tiid)
-        self.transition_task_instance(ti_dict)
-        self._log_tis_heartbeat(list(ti_dict.keys()))
+        ti_dict = self.refresh_status_with_distributor(self._running_task_instance_ids, "R")
+        if ti_dict:
+            for tiid in ti_dict.keys():
+                self._running_task_instance_ids.pop(tiid)
+                if ti_dict[tiid] == "D":
+                    pass
+                elif ti_dict[tiid] in ("B"):
+                    raise Exception("The cluster much be crazy.")
+                else:
+                    self.wfr_has_failed_tis = True
+                    self._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
+                    self._error_task_instance_ids.add(tiid)
+            self.transition_task_instance(ti_dict)
+            self._log_tis_heartbeat(list(ti_dict.keys()))
 

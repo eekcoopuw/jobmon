@@ -141,7 +141,7 @@ def log_ti_report_by(task_instance_id: int) -> Any:
 @finite_state_machine.route(
     "/task_instance/log_report_by/batch", methods=["POST"]
 )
-def log_ti_report_by_batch(task_instance_id: int) -> Any:
+def log_ti_report_by_batch() -> Any:
     """Log task_instances as being responsive with a new report_by_date.
 
     This is done at the worker node heartbeat_interval rate, so it may not happen at the same
@@ -163,8 +163,8 @@ def log_ti_report_by_batch(task_instance_id: int) -> Any:
                 CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
             WHERE task_instance.id in str(tis).replace("[", "(").replace("]", ")")"""
 
-    DB.session.execute(query)
-    DB.session.commit()
+        DB.session.execute(query)
+        DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
