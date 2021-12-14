@@ -563,7 +563,6 @@ class DistributorWorkflowRun:
         """
         pass
 
-
     def heartbeat(self) -> None:
         """Log heartbeats."""
         # log heartbeats for tasks queued for batch execution and for the

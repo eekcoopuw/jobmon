@@ -3,8 +3,11 @@ from unittest.mock import patch
 
 from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_workflow_run import _tiList, DistributorWorkflowRun
+from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
+from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import ResumeSet
+from jobmon.requester import Requester
 
 import pytest
 
@@ -308,6 +311,80 @@ def test_heartbeat(tool, db_cfg, client_env, task_template):
         ).fetchone()
         DB.session.commit()
     assert res[0] == 1
+
+
+def test_task_instances_status_check(tool, db_cfg, client_env, task_template):
+    from jobmon.cluster_type.dummy import DummyDistributor, DummyWorkerNode
+
+    array1 = task_template.create_array(arg=[1, 2, 3], cluster_name="dummy",
+                                        compute_resources={"queue": "null.q"})
+
+    workflow = tool.create_workflow(name="test_task_instances_status_check")
+
+    workflow.add_array(array1)
+    workflow.bind()
+    workflow.bind_arrays()
+    wfr = workflow._create_workflow_run()
+
+    requester = Requester(client_env)
+    distributor_array = DistributorArray(array_id=array1.array_id,
+                                         task_resources_id=array1.task_resources.id,
+                                         requested_resources=array1.default_compute_resources_set,
+                                         name="example_array",
+                                         requester=requester
+                                         )
+    dts = [
+        DistributorTask(task_id=t.task_id,
+                        array_id=array1.array_id,
+                        name='array_ti',
+                        command=t.command,
+                        requested_resources=t.compute_resources,
+                        requester=requester)
+        for t in array1.tasks
+    ]
+
+    # Move all tasks to Q state
+    for tid in (t.task_id for t in array1.tasks):
+        _, _ = requester._send_request(
+            app_route=f"/task/{tid}/queue",
+            message={},
+            request_type='post'
+        )
+
+    distributor_wfr = DistributorWorkflowRun(
+        workflow.workflow_id, wfr.workflow_run_id, requester
+    )
+
+    # Register TIs
+    dtis_1 = distributor_wfr.register_task_instance(dts[0])
+    dtis_2 = distributor_wfr.register_task_instance(dts[0])
+    dtis_3 = distributor_wfr.register_task_instance(dts[0])
+
+    test_tiid_list = [dtis_1.task_instance_id,
+                      dtis_2.task_instance_id,
+                      dtis_3.task_instance_id]
+
+    # all ti in registered
+    _, res = requester._send_request(
+        app_route="/task_instance/status_check",
+        message={"task_instance_ids": test_tiid_list,
+                 "status": TaskInstanceStatus.INSTANTIATED},
+        request_type='post'
+    )
+    r = res["unmatches"]
+    assert len(r) == 0
+    # check status D should return all
+    _, res = requester._send_request(
+        app_route="/task_instance/status_check",
+        message={"task_instance_ids": test_tiid_list,
+                 "status": TaskInstanceStatus.DONE},
+        request_type='post'
+    )
+    r = res["unmatches"]
+    assert len(r) == 3
+    assert r[str(dtis_1.task_instance_id)] == TaskInstanceStatus.INSTANTIATED
+    assert r[str(dtis_2.task_instance_id)] == TaskInstanceStatus.INSTANTIATED
+    assert r[str(dtis_3.task_instance_id)] == TaskInstanceStatus.INSTANTIATED
 
 
 @pytest.mark.skip(reason="GBDSCI-4188")

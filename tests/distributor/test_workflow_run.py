@@ -115,7 +115,7 @@ def test_distributor_launch(tool, db_cfg, client_env, task_template, array_templ
 
 def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array_template):
     from jobmon.serializers import SerializeClusterType
-    from jobmon.cluster_type.dummy import DummyDistributor, DummyQueue, DummyWorkerNode
+    from jobmon.cluster_type.dummy import DummyDistributor, DummyWorkerNode
 
     array1 = array_template.create_array(arg=[1, 2, 3], cluster_name="dummy",
                                          compute_resources={"queue": "null.q"})

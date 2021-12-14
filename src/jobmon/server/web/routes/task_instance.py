@@ -843,13 +843,29 @@ def transition_task_instances(new_status: str) -> Any:
     return resp
 
 
-@finite_state_machine.route("/task_instance/status_check/<status>", methods=["GET"])
-def task_instances_status_check(status: str) -> Any:
-    """Sync status of given task intance IDs.
-    TODO: Return a list of ids: dict of ids no longer in <status> with their status
+@finite_state_machine.route("/task_instance/status_check", methods=["POST"])
+def task_instances_status_check() -> Any:
+    """Sync status of given task intance IDs."""
+    data = request.get_json()
+    task_instance_ids_list = data['task_instance_ids']
+    task_instance_ids = ",".join(f'{x}' for x in task_instance_ids_list)
+    status = data['status']
+    sql = f"""
+        SELECT id, status
+        FROM task_instance
+        WHERE id in ({task_instance_ids})
+        AND status != "{status}"
+        """
+    rows = DB.session.execute(sql).fetchall()
+    return_dict = dict()
+    if rows:
+        for row in rows:
+            return_dict[row["id"]] = row["status"]
+    resp = jsonify(unmatches=return_dict)
+    resp.status_code = StatusCodes.OK
+    return resp
 
-    """
-    pass
+
 
 
 # ############################ HELPER FUNCTIONS ###############################
