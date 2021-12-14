@@ -571,20 +571,26 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> i
 
     # The subquery will always return values indexed from 1, provided subtask ID must follow
     # the same pattern.
+    #query = """
+    #    SELECT id
+    #    FROM
+    #        (SELECT id, ROW_NUMBER() OVER
+    #            (PARTITION BY array_id, array_batch_num ORDER BY id) as rownum
+    #        FROM task_instance
+    #        WHERE array_id = :array_id
+    #        AND array_batch_num = :batch_num) as ranked_ids
+    #    WHERE rownum = :step_id
+    #"""
     query = """
         SELECT id
-        FROM
-            (SELECT id, ROW_NUMBER() OVER 
-                (PARTITION BY array_id, array_batch_num ORDER BY id) as rownum
-            FROM task_instance
-            WHERE array_id = :array_id
-            AND array_batch_num = :batch_num) as ranked_ids
-        WHERE rownum = :step_id
-    """
+        FROM task_instance
+        WHERE array_id=:array_id
+        AND array_batch_num=:batch_num
+        AND array_step_id=:step_id"""
     task_instance_id = (
         DB.session.query(TaskInstance)
         .from_statement(text(query))
-        .params(array_id=array_id, batch_num=batch_num, subtask_id=step_id)
+        .params(array_id=array_id, batch_num=batch_num, step_id=step_id)
         .one()
     )
 
@@ -769,6 +775,27 @@ def record_array_batch_num(batch_num: int) -> Any:
     resp.status_code = StatusCodes.OK
     return resp
 
+
+@finite_state_machine.route(
+    "/task_instance/<task_instance_id>/set_subtask_id", methods=["POST"]
+)
+def record_subtask_id(task_instance_id: int) -> Any:
+    """Update the actual distributor id of the task/subtask in array.
+
+    Keep this info in DB so we don't need to calculate it from
+    array_id, array_batch_num, and array_step_id every time.
+    """
+    data = request.get_json()
+    subtask_id = data['subtask_id']
+    sql = f"""
+        UPDATE task_instance
+        SET subtask_id={subtask_id}
+        WHERE id={task_instance_id}"""
+    DB.session.execute(sql)
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 @finite_state_machine.route("/task_instance/transition/<new_status>", methods=["POST"])
 def transition_task_instances(new_status: str) -> Any:

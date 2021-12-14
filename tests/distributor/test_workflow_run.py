@@ -169,18 +169,18 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
         request_type='post'
     )
 
-    # Register TIs
-    dtis_1 = dts[0].register_task_instance(workflow_run_id=wfr.workflow_run_id)
-    dtis_2 = dts[1].register_task_instance(workflow_run_id=wfr.workflow_run_id)
-    dtis_3 = dts[2].register_task_instance(workflow_run_id=wfr.workflow_run_id)
-    dtis_4 = single_distributor_task.register_task_instance(workflow_run_id=wfr.workflow_run_id)
-
-    distributor_array.instantiated_array_task_instance_ids = [dtis_1.task_instance_id,
-                                                            dtis_2.task_instance_id]
     distributor_wfr = DistributorWorkflowRun(
         workflow.workflow_id, wfr.workflow_run_id, requester
     )
 
+    # Register TIs
+    dtis_1 = distributor_wfr.register_task_instance(dts[0])
+    dtis_2 = distributor_wfr.register_task_instance(dts[0])
+    dtis_3 = distributor_wfr.register_task_instance(dts[0])
+    dtis_4 = distributor_wfr.register_task_instance(single_distributor_task)
+
+    distributor_array.instantiated_array_task_instance_ids = [dtis_1.task_instance_id,
+                                                              dtis_2.task_instance_id]
     #distributor = SequentialDistributor()
     distributor = DummyDistributor()
     array_id = distributor_wfr.launch_array_instance(array=distributor_array,
@@ -188,18 +188,19 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
     single_task_id = distributor_wfr.launch_task_instance(task_instance=dtis_4,
                                                           cluster=distributor)
 
-    # Sequential distributor will submit only the first task in an array.
-    # Task 1 will be running, launched, or done
-    assert get_task_instance_status(db_cfg, dtis_1.task_instance_id) in ["D", "O", "R"]
-    # Task 2 was moved to launched
-    assert get_task_instance_status(db_cfg, dtis_2.task_instance_id) == "O"
+    # Dummy cluster complete all submitted tasks.
+    # Task 1 will be done
+    assert get_task_instance_status(db_cfg, dtis_1.task_instance_id) == "D"
+    # Task 2 will be done
+    assert get_task_instance_status(db_cfg, dtis_2.task_instance_id) == "D"
     # Task 3 was not updated
     assert get_task_instance_status(db_cfg, dtis_3.task_instance_id) == "I"
     # The registry was cleared out correctly
-    assert distributor_wfr.registered_array_task_instances == []
+    assert distributor_array.instantiated_array_task_instance_ids == []
+    assert distributor_wfr.registered_array_task_instances == [dtis_3]
 
     # Check that the single non-array task is running, launched or done
-    assert get_task_instance_status(db_cfg, dtis_4.task_instance_id) in ["D", "O", "R"]
+    assert get_task_instance_status(db_cfg, dtis_4.task_instance_id) == "D"
 
     ti_1_batch_num = get_batch_number(db_cfg, dtis_1.task_instance_id)
     ti_2_batch_num = get_batch_number(db_cfg, dtis_2.task_instance_id)
@@ -208,13 +209,14 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
     assert ti_1_batch_num == 0
     assert ti_2_batch_num == 0
     # Task 3 has not been launched yet and should not have a batch number
-    assert ti_3_batch_num is None
+    assert ti_3_batch_num == 1
     # The first result in the array is always the lowest task instance ID
     assert call_get_array_task_instance_id(
         distributor_array.array_id, ti_1_batch_num, client_env) == \
         dtis_1.task_instance_id
 
     # Add task 3 to the registered queue, and launch
+    DummyWorkerNode.STEP_ID = 1
     distributor_array.instantiated_array_task_instance_ids = [dtis_3.task_instance_id]
     distributor_wfr.launch_array_instance(array=distributor_array, cluster=distributor)
 

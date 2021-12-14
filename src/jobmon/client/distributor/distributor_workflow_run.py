@@ -367,12 +367,14 @@ class DistributorWorkflowRun:
             self._map.add_DistributorArray(array)
         return array
 
-    def register_task_instance(self, task: DistributorTask):
+    def register_task_instance(self, task: DistributorTask) -> DistributorTaskInstance:
         """
         create task instances (task transitions from Queued -> Instantiating)
 
         attach task instances with Arrays to the associated array object
         add task instances without Arrays to self.registered_task_instances
+
+        Return: the DistributorTaskInstance for testing
         """
         # create task instance and add to registry
         task_instance = task.register_task_instance(self.workflow_run_id)
@@ -384,6 +386,7 @@ class DistributorWorkflowRun:
             darray.queue_task_instance_id_for_array_launch(task_instance.task_instance_id)
 
         self._registered_task_instance_ids.add(task_instance.task_instance_id)
+        return task_instance
 
     def transition_task_instance(self, array_id: Optional[int], task_instance_ids: List[int],
                                  distributor_id: int, status: TaskInstanceStatus) -> Any:
@@ -426,14 +429,20 @@ class DistributorWorkflowRun:
             requested_resources=task_instance.requested_resources
         )
 
+        # move from register queue to launch queue
+        self._launched_task_instance_ids.add(task_instance.task_instance_id)
+        self._registered_task_instance_ids.pop(task_instance.task_instance_id)
+
         resp = self.transition_task_instance(array_id=None,
                                              task_instance_ids=[task_instance.task_instance_id],
                                              distributor_id=distributor_id,
                                              status=TaskInstanceStatus.LAUNCHED)
 
         # Pull unsuccessful transitions from the response, and add to a triaging queue
-        erroneous_ti_transitions = resp['erroneous_transitions']
-        self._triaging_queue.extend(erroneous_ti_transitions)
+        erroneous_ti_transitions: Dict[int, str] = resp['erroneous_transitions']
+        if len(erroneous_ti_transitions) > 0:
+            # TODO: put the task_instance to the right queue using its status
+            pass
 
         # Return ti_distributor_id
         return distributor_id
@@ -468,7 +477,10 @@ class DistributorWorkflowRun:
             array_length=len(ids_to_launch))
 
         # Clear the registered tasks and move into launched
-        self._launched_array_task_instance_ids.extend(ids_to_launch)
+        self._launched_task_instance_ids.extend(ids_to_launch)
+        # remove from workflowrun registered list
+        self._registered_task_instance_ids.remove(ids_to_launch)
+        # remove from array registered list
         array.clear_registered_task_registry()
 
         resp = self.transition_task_instance(array_id=array.array_id,
@@ -478,13 +490,23 @@ class DistributorWorkflowRun:
 
         # Pull unsuccessful transitions from the response, and add to a triaging queue
         erroneous_ti_transitions = resp['erroneous_transitions']
-        self._triaging_queue.extend(erroneous_ti_transitions)
+        for id in erroneous_ti_transitions.keys():
+            # TODO: put the task_instance to the right queue using its status
+            pass
 
         return array_distributor_id
 
+    def _get_task_instance_heartbeat_interval(self) -> int:
+        # TODO: this needs real implementation
+        return 10
+
+    def _get_report_by_buffer(self) ->  int:
+        # TODO: this needs real implementation
+        return 10
+
     def _log_workflow_run_heartbeat(self) -> None:
         next_report_increment = (
-                self._task_instance_heartbeat_interval * self._report_by_buffer
+                _get_task_instance_heartbeat_interval() * _get_report_by_buffer()
         )
         app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
@@ -503,7 +525,7 @@ class DistributorWorkflowRun:
         app_route = "/task_instance/log_report_by/batch"
         return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={"task_instance_ids", tis.ids},
+            message={"task_instance_ids": tis.ids},
             request_type="post",
             logger=logger,
         )

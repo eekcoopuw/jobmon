@@ -113,6 +113,7 @@ class DummyDistributor(ClusterDistributor):
         logger.debug("This is the Dummy Distributor")
         # even number for non array tasks
         distributor_id = random.randint(1, int(1e6)) * 2
+        os.environ["JOB_ID"] = str(distributor_id)
 
         cli = WorkerNodeCLI()
         args = cli.parse_args(command)
@@ -139,6 +140,7 @@ class DummyDistributor(ClusterDistributor):
         logger.debug("This is the Dummy Distributor")
         # odd number for array tasks
         distributor_id = random.randint(1, int(1e6)) * 2 + 1
+        os.environ["JOB_ID"] = str(distributor_id)
 
         for i in range(array_length):
 
@@ -168,10 +170,12 @@ class DummyDistributor(ClusterDistributor):
 
 class DummyWorkerNode(ClusterWorkerNode):
     """Get Executor Info for a Task Instance."""
-
+    STEP_ID = 1
     def __init__(self) -> None:
         """Initialization of the dummy executor worker node."""
         self._distributor_id: Optional[int] = None
+        self. _array_step_id = DummyWorkerNode.STEP_ID
+        DummyWorkerNode.STEP_ID += 1
 
     @property
     def distributor_id(self) -> Optional[int]:
@@ -199,6 +203,9 @@ class DummyWorkerNode(ClusterWorkerNode):
             # this is not right
             return f"{self._distributor_id}.{random.randint(1, int(1e7))}"
 
+    @property
+    def array_step_id(self) -> int:
+        return self._array_step_id
 
 
 class ConcreteDummyResource(ConcreteResource):
