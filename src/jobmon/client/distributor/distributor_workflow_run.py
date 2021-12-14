@@ -244,10 +244,6 @@ class DistributorWorkflowRun:
         self._running_task_instance_ids: _tiList = _tiList()
         self._error_task_instance_ids: _tiList = _tiList()
 
-        # Triaging queue
-        # We may not need this; haven't decided yet
-        self._triaging_queue = _tiList()
-
         # flags to mark whether workflow_run completes w/o errors
         self.wfr_completed = False
         self.wfr_has_failed_tis = False
@@ -409,6 +405,18 @@ class DistributorWorkflowRun:
             )
         return resp
 
+    def _move_to_the_right_queue(self, tid: int, status: str):
+        """Move the failed to transit ti to the right q."""
+        if status == TaskInstanceStatus.INSTANTIATED:
+            # move to register q
+            self._registered_task_instance_ids.add(tid)
+        elif status in {TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR}:
+            self._launched_task_instance_ids.add(tid)
+        elif status == TaskInstanceStatus.RUNNING:
+            self._running_task_instance_ids.add(tid)
+        elif status != TaskInstanceStatus.DONE:
+            self._error_task_instance_ids.add(tid)
+
     def launch_task_instance(
         self,
         task_instance: DistributorTaskInstance,
@@ -439,10 +447,10 @@ class DistributorWorkflowRun:
                                              status=TaskInstanceStatus.LAUNCHED)
 
         # Pull unsuccessful transitions from the response, and add to a triaging queue
-        erroneous_ti_transitions: Dict[int, str] = resp['erroneous_transitions']
-        if len(erroneous_ti_transitions) > 0:
-            # TODO: put the task_instance to the right queue using its status
-            pass
+        erroneous_tis: Dict[int, str] = resp['erroneous_transitions']
+        if len(erroneous_tis) > 0:
+            self._move_to_the_right_queue(task_instance.task_instance_id,
+                                          erroneous_tis[str(task_instance.task_instance_id)])
 
         # Return ti_distributor_id
         return distributor_id
@@ -489,10 +497,9 @@ class DistributorWorkflowRun:
                                              status=TaskInstanceStatus.LAUNCHED)
 
         # Pull unsuccessful transitions from the response, and add to a triaging queue
-        erroneous_ti_transitions = resp['erroneous_transitions']
-        for id in erroneous_ti_transitions.keys():
-            # TODO: put the task_instance to the right queue using its status
-            pass
+        erroneous_tis = resp['erroneous_transitions']
+        for id in erroneous_tis.keys():
+            self._move_to_the_right_queue(id, erroneous_tis[id])
 
         return array_distributor_id
 
@@ -506,7 +513,7 @@ class DistributorWorkflowRun:
 
     def _log_workflow_run_heartbeat(self) -> None:
         next_report_increment = (
-                _get_task_instance_heartbeat_interval() * _get_report_by_buffer()
+                self._get_task_instance_heartbeat_interval() * self._get_report_by_buffer()
         )
         app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
