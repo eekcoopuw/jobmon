@@ -40,14 +40,9 @@ def task_template_dummy(tool):
     return tt
 
 
-@pytest.mark.skip(reason="GBDSCI-4189")
-def test_create_array(db_cfg, client_env, task_template_dummy):
-    """TODO: GBDSCI-4189"""
-    array = task_template_dummy.create_array(arg="echo 1")
-    assert (
-        array.default_compute_resources_set
-        == task_template_dummy.default_compute_resources_set["dummy"]
-    )
+def test_create_array(db_cfg, client_env, task_template):
+    array = task_template.create_array(arg="echo 1")
+    assert array.compute_resources == task_template.default_compute_resources_set["sequential"]
 
 
 def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
@@ -59,7 +54,7 @@ def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
 
     wf.add_array(array)
     wf.bind()
-    wf.bind_arrays()
+    wf._create_workflow_run()
 
     assert hasattr(array, "_array_id")
 
@@ -81,21 +76,15 @@ def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
             array_db.task_template_version_id
             == task_template.active_task_template_version.id
         )
-    # Assert that array.bind is idempotent
-    array_id = array.array_id
-    wf.bind_arrays()
-
-    assert array.array_id == array_id
 
     # Assert the bound task has the correct array ID
-    wf._create_workflow_run()
     with app.app_context():
         task_query = """
         SELECT array_id
         FROM task
         WHERE id = {}
         """.format(
-            array.tasks[0].task_id
+            list(array.tasks.values())[0].task_id
         )
         task = DB.session.execute(task_query).fetchone()
         DB.session.commit()
@@ -154,13 +143,12 @@ def test_create_tasks(db_cfg, client_env, tool):
     assert len(wf.tasks) == 9  # Tasks bound to workflow
 
     # Assert tasks templated correctly
-    commands = [t.command for t in array.tasks]
+    commands = [t.command for t in array.tasks.values()]
     assert "foo bar 1 c baz" in commands
     assert "foo bar 3 a baz" in commands
 
     # Check node and task args are recorded in the proper tables
     wf.bind()
-    wf.bind_arrays()
     wf._create_workflow_run()
 
     app, DB = db_cfg["app"], db_cfg["DB"]
@@ -227,10 +215,10 @@ def test_create_tasks(db_cfg, client_env, tool):
 
     # Define a task_template_name out-of-scope node_args, expect to see a list of 3 tasks
     two_node_args = {"narg1": 2}
-    two_wf_tasks = wf.get_tasks_by_node_args(
-        task_template_name="OUT_OF_SCOPE_simple_template", **two_node_args
-    )
-    assert len(two_wf_tasks) == 0
+    with pytest.raises(ValueError):
+        two_wf_tasks = wf.get_tasks_by_node_args(
+            task_template_name="OUT_OF_SCOPE_simple_template", **two_node_args
+        )
 
 
 def test_empty_array(db_cfg, client_env, tool):
@@ -278,12 +266,12 @@ def test_record_array_batch_num(db_cfg, client_env, tool):
     wf = tool.create_workflow()
     wf.add_array(array)
     wf.bind()
-    wf.bind_arrays()
+    #wf.bind_arrays()
     wfr = wf._create_workflow_run()
     requester = Requester(client_env)
     distributor_array = DistributorArray(array_id=array.array_id,
                                          task_resources_id=array.task_resources.id,
-                                         requested_resources=array.default_compute_resources_set,
+                                         requested_resources=array.compute_resources,
                                          name="example_array",
                                          requester=requester
                                          )
@@ -294,10 +282,10 @@ def test_record_array_batch_num(db_cfg, client_env, tool):
                         command=t.command,
                         requested_resources=t.compute_resources,
                         requester=requester)
-        for t in array.tasks
+        for t in array.tasks.values()
     ]
     # Move all tasks to Q state
-    for tid in (t.task_id for t in array.tasks):
+    for tid in (t.task_id for t in array.tasks.values()):
         _, _ = requester._send_request(
             app_route=f"/task/{tid}/queue",
             message={},

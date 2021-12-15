@@ -63,10 +63,10 @@ def test_wfargs_update(tool, task_template):
     assert hash(wf1) != hash(wf2)
 
     # Make sure the second Workflow has a distinct set of Tasks
-    wfr1 = WorkflowRun(wf1.workflow_id)
-    wfr1.bind(wf1.tasks)
-    wfr2 = WorkflowRun(wf2.workflow_id)
-    wfr2.bind(wf2.tasks)
+    wfr1 = WorkflowRun(wf1)
+    wfr1.bind()
+    wfr2 = WorkflowRun(wf2)
+    wfr2.bind()
     assert not (
         set([t.task_id for _, t in wf1.tasks.items()])
         & set([t.task_id for _, t in wf2.tasks.items()])
@@ -88,8 +88,8 @@ def test_attempt_resume_on_complete_workflow(tool, task_template):
 
     # bind workflow to db and move to done state
     wf1.bind()
-    wfr1 = WorkflowRun(wf1.workflow_id)
-    wfr1.bind(wf1.tasks)
+    wfr1 = WorkflowRun(wf1)
+    wfr1.bind()
     wfr1._update_status(WorkflowRunStatus.INSTANTIATING)
     wfr1._update_status(WorkflowRunStatus.LAUNCHED)
     wfr1._update_status(WorkflowRunStatus.RUNNING)
@@ -357,7 +357,6 @@ def test_add_tasks_dependencynotexist(db_cfg, tool, client_env, task_template):
     wf = tool.create_workflow(name="TestWF3")
     wf.add_tasks([t1, t2, t3])
     wf.bind()
-    wf.run()
     assert len(wf.tasks) == 3
     wf = tool.create_workflow(name="TestWF4")
     wf.add_tasks([t1])
@@ -367,7 +366,7 @@ def test_add_tasks_dependencynotexist(db_cfg, tool, client_env, task_template):
     assert len(wf.tasks) == 3
 
 
-def test_workflow_validation(db_cfg, client_env, tool, task_template):
+def test_workflow_validation(db_cfg, client_env, tool, task_template, capsys):
     """Test the workflow.validate() function, and ensure idempotency"""
     too_many_cores = {"cores": 1000, "queue": "null.q"}
     good_resources = {"cores": 20, "queue": "null.q"}
@@ -378,15 +377,17 @@ def test_workflow_validation(db_cfg, client_env, tool, task_template):
     wf1.add_task(t1)
 
     with pytest.raises(ValueError):
-        wf1.validate(fail=True)  # Max cores on multiprocess null.q is 20. Should fail
+        wf1.validate()  # Max cores on multiprocess null.q is 20. Should fail
 
     # Without fail set, validate and check coercion
-    wf1.validate()
-    assert t1.task_resources.concrete_resources.resources == good_resources
+    wf1.validate(fail=False)
+    captured = capsys.readouterr()
+    assert "Failed validation, reasons: ResourceError: provided cores 1000" in captured.out
 
     # Try again for idempotency
-    wf1.validate()
-    assert t1.task_resources.concrete_resources.resources == good_resources
+    wf1.validate(fail=False)
+    captured = capsys.readouterr()
+    assert "Failed validation, reasons: ResourceError: provided cores 1000" in captured.out
 
     # Try with valid resources
     t2 = task_template.create_task(
@@ -396,17 +397,14 @@ def test_workflow_validation(db_cfg, client_env, tool, task_template):
     wf2.add_task(t2)
 
     wf2.validate()
-    assert t2.task_resources.concrete_resources.resources == good_resources
 
-    wf2.validate()
-    assert t2.task_resources.concrete_resources.resources == good_resources
-
-    # Check the workflow can still run
-    wf2_status = wf2.run()
-    assert wf2_status == "D"
+    # Check the workflow can still bind
+    wf2.bind()
+    wfr = wf2._create_workflow_run()
+    assert wfr.status == "B"
 
 
-def test_workflow_get_errors(db_cfg, client_env):
+def test_workflow_get_errors(tool, task_template, db_cfg):
     """test that num attempts gets reset on a resume."""
 
     from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
@@ -414,21 +412,10 @@ def test_workflow_get_errors(db_cfg, client_env):
     from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 
     # setup workflow 1
-    tool = Tool()
-    tool.set_default_compute_resources_from_dict(
-        cluster_name="sequential", compute_resources={"queue": "null.q"}
-    )
-    task_template = tool.get_task_template(
-        template_name="cli_template_1",
-        command_template="{arg}",
-        node_args=["arg"],
-        task_args=[],
-        op_args=[],
-    )
     workflow1 = tool.create_workflow(name="test_workflow_get_errors")
-    task_a = task_template.create_task(arg="sleep 5")
+    task_a = task_template.create_task(arg="sleep 5", max_attempts=1)
     workflow1.add_task(task_a)
-    task_b = task_template.create_task(arg="sleep 6")
+    task_b = task_template.create_task(arg="sleep 6", max_attempts=1)
     workflow1.add_task(task_b)
 
     # add workflow to database
@@ -457,11 +444,11 @@ def test_workflow_get_errors(db_cfg, client_env):
             VALUES ({wfr_id}, {t_id}, '{s}')""".format(
                 wfr_id=wfr_1.workflow_run_id,
                 t_id=task_a.task_id,
-                s=TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+                s=TaskInstanceStatus.LAUNCHED,
             )
         )
         ti = DB.session.execute(
-            "SELECT max(id) from task_instance where task_id={}".format(task_a.task_id)
+            "SELECT id from task_instance where task_id={}".format(task_a.task_id)
         ).fetchone()
         ti_id_a = ti[0]
         DB.session.execute(
@@ -469,7 +456,7 @@ def test_workflow_get_errors(db_cfg, client_env):
             UPDATE task
             SET status ='{s}'
             WHERE id={t_id}""".format(
-                s=TaskStatus.RUNNING, t_id=task_a.task_id
+                s=TaskStatus.INSTANTIATED, t_id=task_a.task_id
             )
         )
         DB.session.execute(
@@ -478,11 +465,11 @@ def test_workflow_get_errors(db_cfg, client_env):
             VALUES ({wfr_id}, {t_id}, '{s}')""".format(
                 wfr_id=wfr_1.workflow_run_id,
                 t_id=task_b.task_id,
-                s=TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+                s=TaskInstanceStatus.LAUNCHED,
             )
         )
         ti = DB.session.execute(
-            "SELECT max(id) from task_instance where task_id={}".format(task_b.task_id)
+            "SELECT id from task_instance where task_id={}".format(task_b.task_id)
         ).fetchone()
         ti_id_b = ti[0]
         DB.session.execute(
@@ -490,7 +477,7 @@ def test_workflow_get_errors(db_cfg, client_env):
             UPDATE task
             SET status ='{s}'
             WHERE id={t_id}""".format(
-                s=TaskStatus.RUNNING, t_id=task_b.task_id
+                s=TaskStatus.INSTANTIATED, t_id=task_b.task_id
             )
         )
         DB.session.commit()
@@ -499,7 +486,7 @@ def test_workflow_get_errors(db_cfg, client_env):
     app_route = f"/task_instance/{ti_id_a}/log_error_worker_node"
     return_code, _ = workflow1.requester.send_request(
         app_route=app_route,
-        message={"error_state": "F", "error_message": "bla bla bla"},
+        message={"error_state": TaskInstanceStatus.ERROR, "error_message": "bla bla bla"},
         request_type="post",
     )
     assert return_code == 200
@@ -535,60 +522,3 @@ def test_workflow_get_errors(db_cfg, client_env):
     err_1st_b = error_log_b[0]
     assert type(err_1st_b) == dict
     assert err_1st_b["description"] == "cla cla cla"
-
-
-def test_inconsistent_status(db_cfg, client_env):
-    from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
-
-    # setup workflow
-    tool = Tool()
-    tool.set_default_compute_resources_from_dict(
-        cluster_name="sequential", compute_resources={"queue": "null.q"}
-    )
-    task_template = tool.get_task_template(
-        template_name="test_inconsistent_status",
-        command_template="echo {arg}",
-        node_args=["arg"],
-        task_args=[],
-        op_args=[],
-    )
-    workflow1 = tool.create_workflow(name="test_inconsistent_status")
-    task_a = task_template.create_task(arg="1")
-    workflow1.add_task(task_a)
-    task_b = task_template.create_task(arg="2")
-    workflow1.add_task(task_b)
-
-    # add workflow to database
-    workflow1.run()
-
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        # fake workflow run
-        DB.session.execute(
-            """
-            UPDATE workflow
-            SET status ='F'
-            WHERE id={}""".format(
-                workflow1.workflow_id
-            )
-        )
-        DB.session.commit()
-
-    # make sure it starts with 0
-    WorkflowReaper._current_starting_row = 0
-    WorkflowReaper(1, workflow1.requester)._inconsistent_status()
-    assert WorkflowReaper._current_starting_row == 0
-
-    # check workflow status changed
-    with app.app_context():
-        # fake workflow run
-        s = DB.session.execute(
-            """
-            select status
-            FROM workflow
-            WHERE id={}""".format(
-                workflow1.workflow_id
-            )
-        ).fetchone()["status"]
-        assert s == "D"

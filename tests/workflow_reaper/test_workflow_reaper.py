@@ -1,7 +1,8 @@
 import pytest
 from mock import patch, PropertyMock
-from jobmon.constants import WorkflowRunStatus
+from jobmon.client.tool import Tool
 from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+from jobmon.constants import WorkflowRunStatus
 
 
 def get_workflow_status(db_cfg, workflow_id):
@@ -244,3 +245,60 @@ def test_reaper_version(db_cfg, requester_no_retry, base_tool, sleepy_task_templ
 
         no_wfrs = reaper._get_lost_workflow_runs(["L", "C", "H"])
         assert len(no_wfrs) == 0
+
+
+def test_inconsistent_status(db_cfg, client_env):
+    from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
+
+    # setup workflow
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
+    task_template = tool.get_task_template(
+        template_name="test_inconsistent_status",
+        command_template="echo {arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    workflow1 = tool.create_workflow(name="test_inconsistent_status")
+    task_a = task_template.create_task(arg="1")
+    workflow1.add_task(task_a)
+    task_b = task_template.create_task(arg="2")
+    workflow1.add_task(task_b)
+
+    # add workflow to database
+    workflow1.run()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        # fake workflow run
+        DB.session.execute(
+            """
+            UPDATE workflow
+            SET status ='F'
+            WHERE id={}""".format(
+                workflow1.workflow_id
+            )
+        )
+        DB.session.commit()
+
+    # make sure it starts with 0
+    WorkflowReaper._current_starting_row = 0
+    WorkflowReaper(1, workflow1.requester)._inconsistent_status()
+    assert WorkflowReaper._current_starting_row == 0
+
+    # check workflow status changed
+    with app.app_context():
+        # fake workflow run
+        s = DB.session.execute(
+            """
+            select status
+            FROM workflow
+            WHERE id={}""".format(
+                workflow1.workflow_id
+            )
+        ).fetchone()["status"]
+        assert s == "D"

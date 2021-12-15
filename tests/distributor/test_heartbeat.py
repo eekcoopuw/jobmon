@@ -324,13 +324,12 @@ def test_task_instances_status_check(tool, db_cfg, client_env, task_template):
 
     workflow.add_array(array1)
     workflow.bind()
-    workflow.bind_arrays()
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
     distributor_array = DistributorArray(array_id=array1.array_id,
                                          task_resources_id=array1.task_resources.id,
-                                         requested_resources=array1.default_compute_resources_set,
+                                         requested_resources=array1.compute_resources,
                                          name="example_array",
                                          requester=requester
                                          )
@@ -341,11 +340,11 @@ def test_task_instances_status_check(tool, db_cfg, client_env, task_template):
                         command=t.command,
                         requested_resources=t.compute_resources,
                         requester=requester)
-        for t in array1.tasks
+        for t in array1.tasks.values()
     ]
 
     # Move all tasks to Q state
-    for tid in (t.task_id for t in array1.tasks):
+    for tid in (t.task_id for t in array1.tasks.values()):
         _, _ = requester._send_request(
             app_route=f"/task/{tid}/queue",
             message={},

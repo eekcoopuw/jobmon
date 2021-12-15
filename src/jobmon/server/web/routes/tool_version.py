@@ -31,12 +31,11 @@ def add_tool_version() -> Any:
         tool_id = data.get("tool_id")
         params = {}
         where_clause = []
+        params["tool_id"] = int(tool_id)
+        where_clause.append("tool_id = :tool_id")
         if tool_version_id is not None:
             params["id"] = int(tool_version_id)
             where_clause.append("id = :id")
-        if tool_id is not None:
-            params["tool_id"] = int(tool_id)
-            where_clause.append("tool_id = :tool_id")
         if tool_id is None and tool_version_id is None:
             raise ValueError("must specify tool_id or tool_version_id in message")
     except Exception as e:

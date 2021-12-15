@@ -7,17 +7,19 @@ from __future__ import annotations
 import hashlib
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.cluster import Cluster
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
-from jobmon.cluster_type.base import ClusterQueue
 from jobmon.constants import SpecialChars, TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeTaskInstanceErrorLog, SerializeTaskResourceUsage
+
+if TYPE_CHECKING:
+    from jobmon.client.array import Array
+    from jobmon.client.workflow import Workflow
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +30,8 @@ class Task:
     Task Instances will be created from it for every execution.
     """
 
-    @classmethod
-    def is_valid_job_name(cls: Any, name: str) -> bool:
+    @staticmethod
+    def is_valid_job_name(name: str):
         """If the name is invalid it will raises an exception.
 
         Primarily based on the restrictions SGE places on job names. The list of illegal
@@ -62,10 +64,10 @@ class Task:
 
     def __init__(
         self,
-        command: str,
-        task_template_version_id: int,
-        node_args: dict,
-        task_args: dict,
+        node: Node,
+        task_args: Dict[str, Any],
+        op_args: Dict[str, Any],
+        array: Optional[Array] = None,
         cluster_name: str = "",
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
@@ -73,7 +75,7 @@ class Task:
         fallback_queues: Optional[List[str]] = None,
         name: Optional[str] = None,
         max_attempts: int = 3,
-        upstream_tasks: Optional[List["Task"]] = None,
+        upstream_tasks: Optional[List[Task]] = None,
         task_attributes: Union[List, dict] = None,
         requester: Optional[Requester] = None,
     ) -> None:
@@ -83,28 +85,29 @@ class Task:
         context of your workflow.
 
         Args:
-            command (str): the unique command for this Task, also readable by humans. Should
+            command: the unique command for this Task, also readable by humans. Should
                 include all parameters. Two Tasks are equal (__eq__) iff they have the same
                 command.
-            task_template_version_id (int): identifier for the associated Task Template.
-            node_args (dict): Task arguments that identify a unique node in the DAG.
-            task_args (dict): Task arguments that make the command unique across workflows
+            node: Node this task is associated with.
+            task_args: Task arguments that make the command unique across workflows
                 usually pertaining to data flowing through the task.
-            cluster_name (str): the name of the cluster the user wants to run their task on.
-            compute_resources (dict): A dictionary that includes the users requested resources
+            task_args: Task arguments that can change across runs of the same workflow.
+                usually pertaining to trivial things like log level or code location.
+            cluster_name: the name of the cluster the user wants to run their task on.
+            compute_resources: A dictionary that includes the users requested resources
                 for the current run. E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
-            compute_resources_callable (callable): callable compute resources.
-            resource_scales (dict): how much users want to scale their resource request if the
+            compute_resources_callable: callable compute resources.
+            resource_scales: how much users want to scale their resource request if the
                 the initial request fails.
-            fallback_queues (List): a list of queues that a user wants to try if their original
+            fallback_queues: a list of queues that a user wants to try if their original
                 queue is unable to accommodate their requested resources.
-            name (str): name that will be visible in qstat for this job
-            max_attempts (int): number of attempts to allow the cluster to try before giving
+            name: name that will be visible in qstat for this job
+            max_attempts: number of attempts to allow the cluster to try before giving
                 up. Default is 3.
-            upstream_tasks (List): Task objects that must be run prior to this
-            task_attributes (list or dict): dictionary of attributes and their values or list
+            upstream_tasks: Task objects that must be run prior to this
+            task_attributes: dictionary of attributes and their values or list
                 of attributes that will be assigned later.
-            requester (Requester): requester object to communicate with the flask services.
+            requester: requester object to communicate with the flask services.
 
         Raise:
             ValueError: If the hashed command is not allowed as an SGE job name; see
@@ -116,31 +119,32 @@ class Task:
         self.requester = requester
 
         # pre bind hash defining attributes
+        self.node = node
         self.task_args = task_args
+        self.mapped_task_args = self.node.task_template_version.convert_arg_names_to_ids(
+            **self.task_args
+        )
         self.task_args_hash = self._hash_task_args()
-        self.node = Node(task_template_version_id, node_args, requester)
+        self.op_args = op_args
 
         # pre bind mutable attributes
-        self.command = command
+        self.command = self.node.task_template_version.command_template.format(
+            **self.node.node_args, **self.task_args, **self.op_args
+        )
 
-        # Initialize array_id as None
-        # Not all tasks bound to an array
-        self.array_id = None
+        # Not all tasks bound to an array initially
+        if array is not None:
+            self.array = array
 
         # Names of jobs can't start with a numeric.
-        if name is None:
-            self.name = f"task_{hash(self)}"
-        else:
-            self.name = name
-        self.is_valid_job_name(self.name)
-
-        # number of attempts
-        self.max_attempts = max_attempts
+        if not name:
+            name = self.node.default_name
+        self.is_valid_job_name(name)
+        self.name = name
 
         # upstream and downstream task relationships
         self.upstream_tasks = set(upstream_tasks) if upstream_tasks else set()
         self.downstream_tasks: set = set()
-
         for task in self.upstream_tasks:
             self.add_upstream(task)
 
@@ -157,29 +161,55 @@ class Task:
                 "dictionary of attributes and their values"
             )
 
-        if compute_resources is None:
-            self.compute_resources = {}
-        else:
-            self.compute_resources = compute_resources.copy()
-        self.compute_resources_callable = compute_resources_callable
-        self.resource_scales = (
-            resource_scales
-            if resource_scales is not None
-            else {"memory": 0.5, "runtime": 0.5}
+        # mutable operational/cluster behaviour
+        self.max_attempts = max_attempts
+        self._instance_cluster_name = cluster_name
+        self._instance_compute_resources = (
+            compute_resources if compute_resources is not None else {}
         )
-        self.cluster_name = cluster_name
-        self.fallback_queues: List[ClusterQueue] = []
-        if fallback_queues is not None:
-            for q in fallback_queues:
-                Cluster.get_cluster(cluster_name).get_queue(q)
+        self.compute_resources_callable = compute_resources_callable
+        self.resource_scales = (resource_scales if resource_scales is not None else
+                                {"memory": 0.5, "runtime": 0.5})
+        self.fallback_queues = fallback_queues if fallback_queues is not None else []
+
+        # error api
         self._errors: Union[
             None, Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]
         ] = None
 
     @property
+    def compute_resources(self) -> Dict[str, Any]:
+        """A dictionary that includes the users requested resources for the current run.
+
+        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}"""
+        try:
+            resources = self.array.compute_resources
+        except AttributeError:
+            resources = {}
+        resources.update(self._instance_compute_resources.copy())
+        return resources
+
+    @property
+    def cluster_name(self) -> str:
+        """The name of the cluster the user wants to run their task on."""
+        cluster_name = self._instance_cluster_name
+        if not cluster_name:
+            try:
+                cluster_name = self.array.cluster_name
+            except AttributeError:
+                # array hasn't been inferred yet. safe to return empty string for now
+                pass
+        return cluster_name
+
+    @property
+    def is_bound(self) -> bool:
+        """If the task template version has been bound to the database."""
+        return hasattr(self, "_task_id")
+
+    @property
     def task_id(self) -> int:
         """Get the id of the task if it has been bound to the db otherwise raise an error."""
-        if not hasattr(self, "_task_id"):
+        if not self.is_bound:
             raise AttributeError("task_id cannot be accessed before task is bound")
         return self._task_id
 
@@ -191,9 +221,7 @@ class Task:
     def task_resources(self) -> TaskResources:
         """Get the id of the task if it has been bound to the db otherwise raise an error."""
         if not hasattr(self, "_task_resources"):
-            raise AttributeError(
-                "task_resources cannot be accessed before workflow is bound"
-            )
+            raise AttributeError("task_resources cannot be accessed before workflow is bound")
         return self._task_resources
 
     @task_resources.setter
@@ -201,19 +229,6 @@ class Task:
         if not isinstance(val, TaskResources):
             raise ValueError("task_resources must be of type=TaskResources")
         self._task_resources = val
-
-    @property
-    def cluster(self) -> Cluster:
-        """Get the id of the task if it has been bound to the db otherwise raise an error."""
-        if not hasattr(self, "_cluster"):
-            raise AttributeError("cluster cannot be accessed before workflow is bound")
-        return self._cluster
-
-    @cluster.setter
-    def cluster(self, val: int) -> None:
-        if not isinstance(val, Cluster):
-            raise ValueError("cluster must be of type=Cluster")
-        self._cluster = val
 
     @property
     def initial_status(self) -> str:
@@ -242,18 +257,30 @@ class Task:
         self._final_status = val
 
     @property
-    def workflow_id(self) -> int:
-        """Get the workflow id if it has been bound to the db."""
-        if not hasattr(self, "_workflow_id"):
+    def array(self) -> Array:
+        """Get the array the task has been added to or else raise an AttributeError."""
+        if not hasattr(self, "_array"):
             raise AttributeError(
-                "workflow_id cannot be accessed via task before a workflow " "is bound"
+                "array cannot be accessed via task before task is added to array"
             )
-        return self._workflow_id
+        return self._array
 
-    @workflow_id.setter
-    def workflow_id(self, val: int) -> None:
-        """Set the workflow id."""
-        self._workflow_id = val
+    @array.setter
+    def array(self, val: Array) -> None:
+        self._array = val
+
+    @property
+    def workflow(self) -> Workflow:
+        """Get the workflow the task has been added to or else raise an AttributeError."""
+        if not hasattr(self, "_workflow"):
+            raise AttributeError(
+                "workflow cannot be accessed via task before workflow is added to workflow"
+            )
+        return self._workflow
+
+    @workflow.setter
+    def workflow(self, val: Workflow) -> None:
+        self._workflow = val
 
     def bind(self, reset_if_running: bool = True) -> int:
         """Bind tasks to the db if they have not been bound already.
@@ -270,7 +297,7 @@ class Task:
         self._initial_status = status
         return task_id
 
-    def add_upstream(self, ancestor: "Task") -> None:
+    def add_upstream(self, ancestor: Task) -> None:
         """Add an upstream (ancestor) Task.
 
         This has Set semantics, an upstream task will only be added once. Symmetrically, this
@@ -281,7 +308,7 @@ class Task:
 
         self.node.add_upstream_node(ancestor.node)
 
-    def add_downstream(self, descendent: "Task") -> None:
+    def add_downstream(self, descendent: Task) -> None:
         """Add an downstream (ancestor) Task.
 
         This has Set semantics, a downstream task will only be added once. Symmetrically,
@@ -373,14 +400,14 @@ class Task:
 
     def _hash_task_args(self) -> int:
         """A hash of the encoded result of the args and values concatenated together."""
-        arg_ids = list(self.task_args.keys())
+        arg_ids = list(self.mapped_task_args.keys())
         arg_ids.sort()
 
-        arg_values = [str(self.task_args[key]) for key in arg_ids]
-        arg_ids = [str(arg) for arg in arg_ids]
+        arg_values = [str(self.mapped_task_args[key]) for key in arg_ids]
+        str_arg_ids = [str(arg) for arg in arg_ids]
 
         hash_value = int(
-            hashlib.sha1("".join(arg_ids + arg_values).encode("utf-8")).hexdigest(), 16
+            hashlib.sha1("".join(str_arg_ids + arg_values).encode("utf-8")).hexdigest(), 16
         )
         return hash_value
 
@@ -390,7 +417,7 @@ class Task:
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
-                "workflow_id": self.workflow_id,
+                "workflow_id": self.workflow.workflow_id,
                 "node_id": self.node.node_id,
                 "task_args_hash": self.task_args_hash,
             },
@@ -431,15 +458,15 @@ class Task:
         """Bind a task to the db with the node, and workflow ids that have been established."""
         tasks = [
             {
-                "workflow_id": self.workflow_id,
+                "workflow_id": self.workflow.workflow_id,
                 "node_id": self.node.node_id,
-                "array_id": self.array_id,
+                "array_id": self.array.array_id,
                 "task_resources_id": self.task_resources.id,
                 "task_args_hash": self.task_args_hash,
                 "name": self.name,
                 "command": self.command,
                 "max_attempts": self.max_attempts,
-                "task_args": self.task_args,
+                "task_args": self.mapped_task_args,
                 "task_attributes": self.task_attributes,
             }
         ]
