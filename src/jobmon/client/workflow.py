@@ -650,7 +650,6 @@ class Workflow(object):
             workflow=self, requester=self.requester
         )
         client_wfr.bind(reset_running_jobs, self._chunk_size)
-
         self._status = WorkflowStatus.QUEUED
 
         return client_wfr
