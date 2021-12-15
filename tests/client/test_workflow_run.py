@@ -33,7 +33,7 @@ def test_log_heartbeat(tool, task_template, db_cfg):
     t1 = task_template.create_task(arg="sleep 1")
     wf.add_tasks([t1])
     wf.bind()
-    wfr = WorkflowRun(workflow_id=wf._workflow_id, requester=wf.requester)
+    wfr = WorkflowRun(workflow=wf, requester=wf.requester)
     id, s = wfr._link_to_workflow(89)
     assert s == WorkflowRunStatus.LINKING
     assert wf._status == WorkflowStatus.REGISTERING

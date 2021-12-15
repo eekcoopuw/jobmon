@@ -181,7 +181,8 @@ class SerializeClientTaskTemplateVersion:
         task_args: List[str],
         op_args: List[str],
         id_name_map: dict,
-    ) -> Tuple[int, str, List[str], List[str], List[str], dict]:
+        task_template_id: int,
+    ) -> Tuple[int, str, List[str], List[str], List[str], dict, int]:
         """Submit the TaskTemplateVersion information to the database."""
         return (
             task_template_version_id,
@@ -190,6 +191,7 @@ class SerializeClientTaskTemplateVersion:
             task_args,
             op_args,
             id_name_map,
+            task_template_id,
         )
 
     @staticmethod
@@ -202,6 +204,7 @@ class SerializeClientTaskTemplateVersion:
             "task_args": wire_tuple[3],
             "op_args": wire_tuple[4],
             "id_name_map": wire_tuple[5],
+            "task_template_id": wire_tuple[6]
         }
 
 

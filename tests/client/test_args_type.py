@@ -36,7 +36,7 @@ def test_script():
 )
 def test_node_args(db_cfg, tool, test_script, input, expect):
     tt = tool.get_task_template(
-        template_name="simple_template",
+        template_name="arg_template",
         command_template="python {script} {arg1} {arg2}",
         node_args=["script", "arg1", "arg2"],
         task_args=[],
@@ -48,8 +48,8 @@ def test_node_args(db_cfg, tool, test_script, input, expect):
     )
     workflow1.add_tasks([t1])
     workflow1.bind()
-    workflow_run_status = workflow1.run()
-    assert workflow_run_status == WorkflowRunStatus.DONE
+    wfr = workflow1._create_workflow_run()
+    assert wfr.status == WorkflowRunStatus.BOUND
 
 
 @pytest.mark.parametrize(
@@ -63,7 +63,7 @@ def test_node_args(db_cfg, tool, test_script, input, expect):
 )
 def test_task_args(db_cfg, tool, test_script, input, expect):
     tt = tool.get_task_template(
-        template_name="simple_template",
+        template_name="arg_template",
         command_template="python {script} {arg1} {arg2}",
         node_args=[],
         task_args=["script", "arg1", "arg2"],
@@ -75,8 +75,8 @@ def test_task_args(db_cfg, tool, test_script, input, expect):
     )
     workflow1.add_tasks([t1])
     workflow1.bind()
-    workflow_run_status = workflow1.run()
-    assert workflow_run_status == WorkflowRunStatus.DONE
+    wfr = workflow1._create_workflow_run()
+    assert wfr.status == WorkflowRunStatus.BOUND
 
 
 @pytest.mark.parametrize(
@@ -90,7 +90,7 @@ def test_task_args(db_cfg, tool, test_script, input, expect):
 )
 def test_op_args(db_cfg, tool, test_script, input, expect):
     tt = tool.get_task_template(
-        template_name="simple_template",
+        template_name="arg_template",
         command_template="python {script} {arg1} {arg2}",
         node_args=[],
         task_args=[],
@@ -102,5 +102,5 @@ def test_op_args(db_cfg, tool, test_script, input, expect):
     )
     workflow1.add_tasks([t1])
     workflow1.bind()
-    workflow_run_status = workflow1.run()
-    assert workflow_run_status == WorkflowRunStatus.DONE
+    wfr = workflow1._create_workflow_run()
+    assert wfr.status == WorkflowRunStatus.BOUND

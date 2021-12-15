@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from http import HTTPStatus as StatusCodes
+import json
 import logging
 from typing import Dict, Optional
 
@@ -75,7 +76,7 @@ class TaskResources:
         """Bind TaskResources to the database."""
         # Check if it's already been bound
         if self.is_bound:
-            logger.warning(
+            logger.debug(
                 "This task resource has already been bound, and assigned"
                 f"task_resources_id {self.id}"
             )
@@ -108,3 +109,13 @@ class TaskResources:
             "task_resources_type_id": self._task_resources_type_id,
             "requested_resources": self._requested_resources,
         }
+
+    def __hash__(self) -> int:
+        """Determine the hash of a task resources object."""
+        return hash(self.concrete_resources)
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality of task resources objects."""
+        if not isinstance(other, TaskResources):
+            return False
+        return hash(self) == hash(other)

@@ -2,14 +2,16 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+import hashlib
+import json
 from typing import Any, Dict, List, Optional, Tuple
 
 # the following try-except is to accommodate Python versions on both >=3.8 and 3.7.
 # The Protocol was officially introduced in 3.8, with typing_extensions slapped on 3.7.
 try:
-    from typing import Protocol
+    from typing import Protocol, runtime_checkable
 except ImportError:
-    from typing_extensions import Protocol  # type: ignore
+    from typing_extensions import Protocol, runtime_checkable  # type: ignore
 
 from jobmon import __version__
 from jobmon.exceptions import RemoteExitInfoNotAvailable
@@ -206,6 +208,7 @@ class ClusterWorkerNode(Protocol):
         raise NotImplementedError
 
 
+@runtime_checkable
 class ConcreteResource(Protocol):
     """The protocol class for concrete resources."""
 
@@ -256,3 +259,22 @@ class ConcreteResource(Protocol):
             resource_scales: Specifies how much to scale the failed Task's resources by.
         """
         raise NotImplementedError
+
+    def __hash__(self) -> int:
+        """Determine the hash of a concrete resources object."""
+        # Note: this algorithm assumes all keys and values in the resources dict are
+        # JSON-serializable. Since that's a requirement for logging in the database,
+        # this assumption should be safe.
+
+        # Uniqueness is determined by queue name and the resources parameter.
+        hashval = hashlib.sha1()
+        hashval.update(bytes(str(hash(self.queue.queue_name)).encode('utf-8')))
+        hashval.update(bytes(str(
+            hash(json.dumps(self.resources, sort_keys=True))).encode('utf-8')))
+        return int(hashval.hexdigest(), 16)
+
+    def __eq__(self, other: object) -> bool:
+        """Check equality of task resources objects."""
+        if not isinstance(other, ConcreteResource):
+            return False
+        return hash(self) == hash(other)
