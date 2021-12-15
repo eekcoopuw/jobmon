@@ -651,14 +651,6 @@ class Workflow(object):
         )
         client_wfr.bind(reset_running_jobs, self._chunk_size)
 
-        for task in self.tasks.values():
-            if task.fallback_queues is not None:
-                fallback_queues = []
-                for queue in task.fallback_queues:
-                    cluster_queue = Cluster.get_cluster(task.cluster_name).get_queue(queue)
-                    fallback_queues.append(cluster_queue)
-                task.fallback_queues = fallback_queues
-
         self._status = WorkflowStatus.QUEUED
 
         return client_wfr

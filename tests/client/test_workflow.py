@@ -536,3 +536,4 @@ def test_fall_back_queue(db_cfg, client_env, tool, task_template):
     workflow._create_workflow_run()
     fallback_cluster_queue = workflow.tasks[hash(fallback_task)].fallback_queues[0]
     assert type(fallback_cluster_queue) is SequentialQueue
+    assert fallback_cluster_queue.queue_name == "null2.q"

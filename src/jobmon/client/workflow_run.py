@@ -8,6 +8,7 @@ from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.cluster import Cluster
 from jobmon.client.task import Task
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
@@ -89,6 +90,15 @@ class WorkflowRun(object):
             raise
         else:
             self._update_status(WorkflowRunStatus.BOUND)
+
+        for task in tasks.values():
+            if task.fallback_queues is not None:
+                fallback_queues = []
+                for queue in task.fallback_queues:
+                    cluster_queue = Cluster.get_cluster(task.cluster_name).get_queue(queue)
+                    fallback_queues.append(cluster_queue)
+                task.fallback_queues = fallback_queues
+
         return tasks
 
     def _update_status(self, status: str) -> None:
