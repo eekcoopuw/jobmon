@@ -116,7 +116,10 @@ class Array:
         self._task_resources = task_resources
 
     @property
-    def compute_resources(self) -> Dict:
+    def compute_resources(self) -> Dict[str, Any]:
+        """A dictionary that includes the users requested resources for the current run.
+
+        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}"""
         try:
             resources = self.workflow.default_compute_resources_set.get(self.cluster_name, {}
                                                                         ).copy()
@@ -131,6 +134,7 @@ class Array:
 
     @property
     def cluster_name(self) -> str:
+        """The name of the cluster the user wants to run their task on."""
         cluster_name = self._instance_cluster_name
         if not cluster_name:
             try:
@@ -156,6 +160,13 @@ class Array:
         self._workflow = val
 
     def add_task(self, task: Task):
+        """Add a task to an array.
+
+        Set semantics - add tasks once only, based on hash name.
+
+        Args:
+            task: single task to add.
+        """
         if task.cluster_name and self.cluster_name != task.cluster_name:
             raise ValueError(
                 "Task assigned to different cluster than associated array. Task.cluster_name="

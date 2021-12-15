@@ -64,7 +64,8 @@ class Node:
         return self.task_template_version.id
 
     @property
-    def default_name(self):
+    def default_name(self) -> str:
+        """The default name of this node in the array."""
         name = (
             self.task_template_version.task_template.template_name
             + "_"

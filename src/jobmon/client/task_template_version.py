@@ -300,6 +300,12 @@ class TaskTemplateVersion:
         return int(hashlib.sha1(hashable.encode("utf-8")).hexdigest(), 16)
 
     def filter_kwargs(self, arg_type: str, **kwargs) -> Dict[str, Any]:
+        """Return the set of kwargs that are of arg_type.
+
+        Args:
+            arg_type: either node_args, task_args, op_args
+            kwargs: the key/value pairs to be filtered by type
+        """
         arg_type_set_map = {
             "node_args": self.node_args,
             "task_args": self.task_args,
@@ -313,6 +319,7 @@ class TaskTemplateVersion:
         return result
 
     def convert_arg_names_to_ids(self, **kwargs) -> Dict[int, Any]:
+        """Map from names to ids."""
         return {self.id_name_map[k]: str(v) for k, v in kwargs.items()}
 
     def update_default_compute_resources(

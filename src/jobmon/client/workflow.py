@@ -5,7 +5,7 @@ from multiprocessing import Event, Process, Queue
 from multiprocessing import synchronize
 from queue import Empty
 import time
-from typing import Any, Dict, List, Optional, Sequence, TYPE_CHECKING, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 import uuid
 
 from jobmon.client.array import Array
@@ -227,8 +227,7 @@ class Workflow(object):
     def add_task(self, task: Task) -> Task:
         """Add a task to the workflow to be executed.
 
-        Set semantics - add tasks once only, based on hash name. Also creates the job. If
-        is_no has no task_id the creates task_id and writes it onto object.
+        Set semantics - add tasks once only, based on hash name.
 
         Args:
             task: single task to add.
@@ -291,16 +290,6 @@ class Workflow(object):
             raise ValueError("Cannot bind an array with no tasks.")
         self._link_array_and_workflow(array)
         self.add_tasks(list(array.tasks.values()))
-
-    def _link_array_and_workflow(self, array: Array) -> None:
-        template_name = array.task_template_version.task_template.template_name
-        if template_name in self.arrays.keys():
-            raise ValueError(
-                f"An array for template_name={template_name} already exists on this workflow."
-            )
-        # add the references
-        self.arrays[template_name] = array
-        array.workflow = self
 
     def add_arrays(self, arrays: List[Array]) -> None:
         """Add multiple arrays to the workflow."""
@@ -592,6 +581,16 @@ class Workflow(object):
             cluster.bind()
             self._clusters[cluster_name] = cluster
         return cluster
+
+    def _link_array_and_workflow(self, array: Array) -> None:
+        template_name = array.task_template_version.task_template.template_name
+        if template_name in self.arrays.keys():
+            raise ValueError(
+                f"An array for template_name={template_name} already exists on this workflow."
+            )
+        # add the references
+        self.arrays[template_name] = array
+        array.workflow = self
 
     def _get_callable_compute_resources(self, task: Task) -> Dict:
         if task.compute_resources_callable is not None:

@@ -129,7 +129,12 @@ class Cluster:
         concrete_resource: ConcreteResource,
         task_resources_type_id: str
     ) -> TaskResources:
-        """Returns task resources from the cache, or stores it."""
+        """Returns task resources from the cache, or stores it.
+
+        Args:
+            concrete_resource: the concrete resource object to construct task resources from.
+            task_resources_type_id: is the task resource validated or adjusted
+        """
         try:
             return self.task_resources[hash(concrete_resource)]
         except KeyError:
@@ -142,12 +147,19 @@ class Cluster:
 
     def adjust_task_resource(
         self,
-        initial_resources: Dict,
-        resource_scales: Optional[Dict[str, float]],
+        initial_resources: Dict[str, Any],
+        resource_scales: Dict[str, float],
         expected_queue: ClusterQueue,
         fallback_queues: Optional[List[ClusterQueue]] = None,
     ) -> TaskResources:
-        """Adjust task resources based on the scaling factor."""
+        """Adjust compute resources based on the scaling factor.
+
+        Args:
+            initial_resources: the compute resources to be adjusted.
+            resource_scales: scaling factors to use on initial_resources.
+            expected_queue: the queue we expect to use.
+            fallback_queues: the queues we will land on if we do not fit on expected_queue
+        """
         adjusted_concrete_resource: ConcreteResource = (
             self.concrete_resource_class.adjust_and_create_concrete_resource(
                 existing_resources=initial_resources,
@@ -164,11 +176,16 @@ class Cluster:
         return adjusted_task_resource
 
     def create_valid_task_resources(
-        self, resource_params: Dict, task_resources_type_id: str, fail: bool = False
+        self, resource_params: Dict[str, Any], task_resources_type_id: str, fail: bool = False
     ) -> TaskResources:
         """Construct a TaskResources object with the specified resource parameters.
 
         Validate before constructing task resources, taskResources assumed to be valid
+
+        Args:
+            resource_params: the compute resources to be converted into TaskResources.
+            task_resources_type_id: is the task resource validated or adjusted
+            fail: whether to coerce the task resources if validation fails or raise an error.
         """
         try:
             queue_name: str = resource_params["queue"]

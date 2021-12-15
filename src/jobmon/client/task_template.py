@@ -13,7 +13,7 @@ from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
-from jobmon.constants import ExecludeTTVs, SpecialChars
+from jobmon.constants import ExecludeTTVs
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import (
@@ -496,7 +496,7 @@ class TaskTemplate:
     def create_array(
         self,
         max_attempts: int = 3,
-        upstream_tasks: Optional[List["Task"]] = None,
+        upstream_tasks: Optional[List[Task]] = None,
         max_concurrently_running: int = 10_000,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
@@ -508,8 +508,8 @@ class TaskTemplate:
 
         Args:
             max_attempts: the max number of attempts a task in the array can be retried
-            max_concurrently_running: the max number of tasks that can run at once
             upstream_tasks: dependencies for all tasks in this array
+            max_concurrently_running: the max number of tasks that can run at once
             compute_resources: resources to associate with this array, if different from
                 the task template default resources
             compute_resources_callable: a function that can dynamically generate resources on

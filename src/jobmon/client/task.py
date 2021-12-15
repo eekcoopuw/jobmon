@@ -12,7 +12,6 @@ from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Un
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
-from jobmon.cluster_type.base import ClusterQueue
 from jobmon.constants import SpecialChars, TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
@@ -179,7 +178,10 @@ class Task:
         ] = None
 
     @property
-    def compute_resources(self) -> Dict:
+    def compute_resources(self) -> Dict[str, Any]:
+        """A dictionary that includes the users requested resources for the current run.
+
+        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}"""
         try:
             resources = self.array.compute_resources
         except AttributeError:
@@ -189,6 +191,7 @@ class Task:
 
     @property
     def cluster_name(self) -> str:
+        """The name of the cluster the user wants to run their task on."""
         cluster_name = self._instance_cluster_name
         if not cluster_name:
             try:
@@ -255,7 +258,7 @@ class Task:
 
     @property
     def array(self) -> Array:
-        """Get the id of the task if it has been bound to the db otherwise raise an error."""
+        """Get the array the task has been added to or else raise an AttributeError."""
         if not hasattr(self, "_array"):
             raise AttributeError(
                 "array cannot be accessed via task before task is added to array"
@@ -268,7 +271,7 @@ class Task:
 
     @property
     def workflow(self) -> Workflow:
-        """Get the workflow id if it has been bound to the db."""
+        """Get the workflow the task has been added to or else raise an AttributeError."""
         if not hasattr(self, "_workflow"):
             raise AttributeError(
                 "workflow cannot be accessed via task before workflow is added to workflow"
@@ -277,7 +280,6 @@ class Task:
 
     @workflow.setter
     def workflow(self, val: Workflow) -> None:
-        """Set the workflow id."""
         self._workflow = val
 
     def bind(self, reset_if_running: bool = True) -> int:
