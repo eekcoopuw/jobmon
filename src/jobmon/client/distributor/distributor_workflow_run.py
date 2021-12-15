@@ -547,13 +547,15 @@ class DistributorWorkflowRun:
 
     def refresh_status_from_db(self, tids: list, status: str) -> Dict[int: str]:
         """Got to DB to check the list tis status."""
-        """TODO: Return a list of tis with status doesn't match status. GBDSCI-4178"""
         rc, res = self.requester._send_request(
             app_route="/task_instance/status_check",
             message={"task_instance_ids": tids,
                      "status": status},
             request_type='post'
         )
+        if rc != 200:
+            raise DistributorUnexpected(f"/task_instance/status_check returns "
+                                        f"{rc} for [{tids}] status {status}")
         unmatches = res["unmatches"]
         return {int(id): unmatches[id] for id in unmatches.keys()}
 
