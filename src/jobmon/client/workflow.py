@@ -645,11 +645,21 @@ class Workflow(object):
             self._set_workflow_resume(reset_running_jobs)
             self._workflow_is_resumable(resume_timeout)
 
+
         # create workflow run
         client_wfr = ClientWorkflowRun(
             workflow=self, requester=self.requester
         )
         client_wfr.bind(reset_running_jobs, self._chunk_size)
+
+        for task in self.tasks.values():
+            if task.fallback_queues is not None:
+                fallback_queues = []
+                for queue in task.fallback_queues:
+                    cluster_queue = Cluster.get_cluster(task.cluster_name).get_queue(queue)
+                    fallback_queues.append(cluster_queue)
+                task.fallback_queues = fallback_queues
+
         self._status = WorkflowStatus.QUEUED
 
         return client_wfr
