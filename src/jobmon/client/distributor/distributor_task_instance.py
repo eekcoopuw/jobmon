@@ -27,7 +27,9 @@ class DistributorTaskInstance:
         subtask_id: Optional[str] = None,
         array_id: Optional[int] = None,
         array_batch_num: Optional[int] = None,
-        array_step_id: Optional[int] = None
+        array_step_id: Optional[int] = None,
+        requested_resources: Optional[dict] = None,
+        name: Optional[str] = None,
     ) -> None:
         """Initialization of distributor task instance.
 
@@ -52,6 +54,9 @@ class DistributorTaskInstance:
 
         self.array_batch_num = array_batch_num
         self.array_step_id = array_step_id
+        self.name = name
+        self.array_id = array_id
+        self.requested_resources = requested_resources
 
         self.report_by_date: float
 
@@ -59,7 +64,6 @@ class DistributorTaskInstance:
         self.error_msg = ""
 
         self.cluster_type_id = cluster_type_id
-        self.array_id = array_id
         self.requester = requester
 
     @classmethod

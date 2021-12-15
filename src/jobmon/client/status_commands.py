@@ -212,7 +212,7 @@ def task_status(
 def concurrency_limit(
     workflow_id: int, max_tasks: int, requester_url: Optional[str] = None
 ) -> str:
-    """Update a workflow's max_running_instances field in the database.
+    """Update a workflow's max_concurrently_running field in the database.
 
     Used to dynamically adjust the allowed number of jobs concurrently running.
 
@@ -223,8 +223,7 @@ def concurrency_limit(
 
     Returns: string displaying success or failure of the update.
     """
-    msg = {}
-    msg["max_tasks"] = max_tasks
+    msg = {"max_tasks": max_tasks}
 
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url

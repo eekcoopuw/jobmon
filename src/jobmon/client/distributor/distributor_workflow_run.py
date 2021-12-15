@@ -295,6 +295,12 @@ class DistributorWorkflowRun:
                 self._running_array_task_instance_ids.ids]
 
     @property
+    def running_task_instances(self) -> List[DistributorTaskInstance]:
+        """Return a list of launched task_instances"""
+        return [DistributorTaskInstance(tid, self.workflow_run_id, self.requester) for tid in
+                self._running_task_instance_ids]
+
+    @property
     def registered_array_task_instances(self) -> List[DistributorTaskInstance]:
         """Return a list of registered array task_instances.
 
@@ -327,9 +333,11 @@ class DistributorWorkflowRun:
                 task_instances.append(dti)
         return task_instances
 
-
-    def get_queued_tasks(self, queued_tasks_bulk_query_size: int) -> List[DistributorTask]:
-        """Retrieve a list of task that are in queued state"""
+    def get_queued_tasks(self, queued_tasks_bulk_query_size: int) -> \
+            List[DistributorTask]:
+        """Retrieve a list of task that are in queued state."""
+        # Retrieve all tasks (up till the queued_tasks_bulk_query_size) that are in queued
+        # state that are associated with the workflow.
         app_route = f"/workflow/{self.workflow_id}/queued_tasks/{queued_tasks_bulk_query_size}"
         return_code, response = self.requester.send_request(
             app_route=app_route, message={}, request_type="get", logger=logger
@@ -341,6 +349,7 @@ class DistributorWorkflowRun:
                 f"code 200. Response content: {response}"
             )
 
+        # Queued tasks associated with WF, concurrency limit hasn't been applied yet
         tasks = [
             DistributorTask.from_wire(wire_tuple=task, requester=self.requester)
             for task in response["task_dcts"]
@@ -447,7 +456,6 @@ class DistributorWorkflowRun:
         # move from register queue to launch queue
         self._launched_task_instance_ids.add(task_instance.task_instance_id)
         self._registered_task_instance_ids.pop(task_instance.task_instance_id)
-
         resp = self.transition_task_instance(array_id=None,
                                              task_instance_ids=[task_instance.task_instance_id],
                                              distributor_id=distributor_id,
@@ -478,7 +486,7 @@ class DistributorWorkflowRun:
         # update distributor task instance array_batch_num and array_step_id
         for tid in ids_to_launch:
             self._map.get_DistributorTaskInstance_by_id(tid).array_batch_num = batch_num
-
+            # TODO: GBDSCI-4195. the array_step_id of these DistributorTaskInstance should get updated here.
         # Fetch the command
         #
         command = cluster.build_worker_node_command(task_instance_id=None,
@@ -650,4 +658,49 @@ class DistributorWorkflowRun:
                     self._error_task_instance_ids.add(tiid)
             self.transition_task_instance(ti_dict)
             self._log_tis_heartbeat(list(ti_dict.keys()))
+
+    def prep_tis_for_launch(self, instantiated_task_instances: List[DistributorTaskInstance], wf_max_concurrently_running: int) -> List[DistributorTaskInstance]:
+        # Get all tasks that are currently in launched and running assume all tasks are associated with an array, don't need to check workflow
+        total_launched_running = len(self.launched_array_task_instances) + \
+                                 len(self.running_array_task_instances) + \
+                                 len(self.registered_array_task_instances)
+
+        # calculate workflow capacity
+        workflow_capacity = wf_max_concurrently_running - total_launched_running
+
+        num_instantiated_tis = len(instantiated_task_instances)
+        instantiated_ti_index = 0
+        launched_task_instances = []
+        while workflow_capacity > 0:
+            if instantiated_ti_index < num_instantiated_tis:
+                ti = instantiated_task_instances[instantiated_ti_index]
+                array = self.get_array(ti.array_id)
+
+                # Don't allow the array limit to be greater than the workflow limit
+                if array.max_concurrently_running > wf_max_concurrently_running:
+                    array.max_concurrently_running = wf_max_concurrently_running
+
+                array_launched_running = len(array.launched_array_task_instance_ids) + \
+                    len(array.running_array_task_instance_ids) + \
+                    len(array.prepped_for_launch_array_task_instance_ids)
+                array_capacity = array.max_concurrently_running - array_launched_running
+                if array_capacity > 0:
+                    array.queue_task_instance_id_for_array_launch(ti.task_instance_id)
+                    workflow_capacity -= 1
+
+                    # Add to array launched and workflow launched list, remove from instantiated list
+                    self._launched_task_instance_ids.add(ti.task_instance_id)
+                    self._registered_task_instance_ids.pop(ti.task_instance_id)
+                    array.prepped_for_launch_array_task_instance_ids.append(ti.task_instance_id)
+                    array.instantiated_array_task_instance_ids.remove(ti.task_instance_id)
+                    launched_task_instances.append(ti)
+
+                instantiated_ti_index += 1
+
+            else:
+                logger.info("Workflow capacity is greater than the number of instantiated "
+                            "task instances ready to be launched.")
+                break
+
+        return [x for x in instantiated_task_instances if x not in launched_task_instances]
 

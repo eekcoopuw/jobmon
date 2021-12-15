@@ -21,12 +21,17 @@ class DistributorArray:
         requested_resources: Dict,
         requester: Requester,
         name: Optional[str] = None,
+        max_concurrently_running: int = 10_000
     ):
         self.array_id = array_id
         self.task_resources_id = task_resources_id
         self.requested_resources = requested_resources
         self.name = name
+        self.max_concurrently_running = max_concurrently_running
         self.instantiated_array_task_instance_ids: List[int] = []
+        self.prepped_for_launch_array_task_instance_ids: List[int] = []
+        self.launched_array_task_instance_ids: List[int] = []
+        self.running_array_task_instance_ids: List[int] = []
         self.batch_number = 0
         self.requester = requester
 

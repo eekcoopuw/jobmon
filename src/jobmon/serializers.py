@@ -71,7 +71,7 @@ class SerializeTaskInstance:
             subtask_id = str(distributor_id)
         return task_instance_id, workflow_run_id, distributor_id, cluster_type_id, \
                array_id, array_batch_num, array_step_id, subtask_id
-                  
+
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Retrieve the DistributorTaskInstance information from the database."""

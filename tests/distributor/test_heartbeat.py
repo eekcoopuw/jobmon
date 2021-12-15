@@ -295,6 +295,7 @@ def test_heartbeat(tool, db_cfg, client_env, task_template):
         wfr.workflow_run_id,
         SequentialDistributor(),
         requester=requester,
+        wf_max_concurrently_running=100
     )
     distributor_service.heartbeat()
 
