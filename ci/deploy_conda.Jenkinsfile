@@ -109,6 +109,43 @@ pipeline {
         } // end script
       } // end steps
     } // end upload stage
+    stage('Build Docs') {
+      steps {
+        script {
+          sh '''#!/bin/bash
+                export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
+                export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
+                ${DOCKER_ACTIVATE} && nox --session docs
+             '''
+        } // End script
+      } // end steps
+    } // end build docs stage
+    stage('Upload Docs') {
+      steps {
+        script {
+            sh '''#!/bin/bash
+                rm -rf /mnt/team/scicomp/pub/docs_temp
+                cp -r ${WORKSPACE}/out/_html /mnt/team/scicomp/pub/docs_temp
+               '''
+        } // end script
+        node('qlogin') {
+          // Download jobmon
+          checkout scm
+          script {
+            sh '''#!/bin/bash
+              ${QLOGIN_ACTIVATE} &&
+              echo ${JOBMON_VERSION}
+              if [[ ! "${JOBMON_VERSION}" =~ "dev" ]]
+              then
+                rm -rf /ihme/centralcomp/docs/jobmon/${JOBMON_VERSION}
+                cp -r /mnt/team/scicomp/pub/docs_temp /ihme/centralcomp/docs/jobmon/${JOBMON_VERSION}
+              fi
+              python $WORKSPACE/docsource/_ext/symlinks.py '/ihme/centralcomp/docs/jobmon'
+            '''
+          } // end script
+        } // end qlogin
+      } // end steps
+    } // end upload doc stage
     stage("parallel") {
       parallel {
         stage ('Test Conda Client UGE') {
@@ -156,7 +193,7 @@ pipeline {
                 """
                 echo ssh_cmd
                 sshagent(['jenkins']) {
-                   sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.hosts.ihme.washington.edu '${ssh_cmd}'"
+                   sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.cluster.ihme.washington.edu '${ssh_cmd}'"
                 } // end ssh
               } // end script
             } // end qlogin

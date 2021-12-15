@@ -73,8 +73,8 @@ class Task:
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, float]] = None,
-        fallback_queues: Optional[List[ClusterQueue]] = None,
-        name: str = "",
+        fallback_queues: Optional[List[str]] = None,
+        name: Optional[str] = None,
         max_attempts: int = 3,
         upstream_tasks: Optional[List[Task]] = None,
         task_attributes: Union[List, dict] = None,
@@ -165,7 +165,7 @@ class Task:
         # mutable operational/cluster behaviour
         self.max_attempts = max_attempts
         self._instance_cluster_name = cluster_name
-        self._instance_compute_resource = (
+        self._instance_compute_resources = (
             compute_resources if compute_resources is not None else {}
         )
         self.compute_resources_callable = compute_resources_callable
@@ -184,7 +184,7 @@ class Task:
             resources = self.array.compute_resources
         except AttributeError:
             resources = {}
-        resources.update(self._instance_compute_resource.copy())
+        resources.update(self._instance_compute_resources.copy())
         return resources
 
     @property

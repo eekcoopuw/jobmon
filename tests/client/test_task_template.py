@@ -209,4 +209,3 @@ def test_task_template_resources_yaml(client_env, db_cfg, tool):
         "max_runtime_seconds": "(60 * 60 * 24)",
         "queue": "null.q",
     }
-

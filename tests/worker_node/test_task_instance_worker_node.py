@@ -3,8 +3,12 @@ import random
 import pytest
 
 from jobmon import __version__
+from jobmon.requester import Requester
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_service import DistributorService
+from jobmon.client.distributor.distributor_task import DistributorTask
+from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.cluster_type.dummy import DummyDistributor
 from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 from jobmon.constants import TaskInstanceStatus
@@ -98,3 +102,93 @@ def test_ti_kill_self_state(db_cfg, tool, ti_state):
         DB.session.commit()
 
     assert worker_node_task_instance.in_kill_self_state()
+
+
+def test_array_task_instance(tool, db_cfg, client_env, array_template):
+    """Tests that the worker node is compatible with array task instances."""
+    array1 = array_template.create_array(arg=[1, 2, 3], cluster_name="sequential",
+                                         compute_resources={"queue": "null.q"})
+
+    workflow = tool.create_workflow(name="test_array_ti_selection")
+
+    workflow.add_array(array1)
+    workflow.bind()
+    workflow.bind_arrays()
+    wfr = workflow._create_workflow_run()
+
+    # Create distributor tasks
+    requester = Requester(client_env)
+    dts = [
+        DistributorTask(task_id=t.task_id,
+                        array_id=array1.array_id,
+                        name='array_ti',
+                        command=t.command,
+                        requested_resources=t.compute_resources,
+                        requester=requester)
+        for t in array1.tasks
+    ]
+
+    # Move all tasks to Q state
+    for tid in (t.task_id for t in array1.tasks):
+        _, _ = requester._send_request(
+            app_route=f"/task/{tid}/queue",
+            message={},
+            request_type='post'
+        )
+
+    # Register TIs
+    dtis = [
+        dt.register_task_instance(workflow_run_id=wfr.workflow_run_id)
+        for dt in dts
+    ]
+
+    # Append on batch number
+    dist_array = DistributorArray(array1.array_id,
+                                  array1.task_resources.id,
+                                  array1.default_compute_resources_set,
+                                  requester)
+    dist_array.instantiated_array_task_instance_ids = [dti.task_instance_id for dti in dtis]
+    assert dist_array.batch_number == 0
+    dist_array.add_batch_number_to_task_instances()
+    assert dist_array.batch_number == 1
+
+    # Call the array method for all tasks and ensure full coverage of task instance IDs
+    # Indices are offset by 1 since the clusters will submit using a 1:N range strategy
+    task_instance_ids = set()
+    for i in range(1, len(dtis) + 1):
+        _, resp = requester._send_request(
+            app_route=f"/get_array_task_instance_id/{array1.array_id}/0/{i}",
+            message={},
+            request_type='get'
+        )
+        assert resp['task_instance_id'] not in task_instance_ids
+        task_instance_ids.add(resp['task_instance_id'])
+
+    assert task_instance_ids == set([dti.task_instance_id for dti in dtis])
+
+    # Test array worker node functionality
+    # Sequential distributor always returns the first ID, so just test a single worker node.
+    from jobmon import __version__
+    w = WorkerNodeTaskInstance(task_instance_id=None,
+                               expected_jobmon_version=__version__,
+                               cluster_type_name='sequential',
+                               array_id=array1.array_id)
+
+    # Check that task instance ID property set correctly
+    tid = w.task_instance_id
+    assert tid == min(task_instance_ids)
+
+    proc_return_code = w.run(heartbeat_interval=90, report_by_buffer=3.1)
+    assert proc_return_code == 0
+
+    app, DB = db_cfg['app'], db_cfg['DB']
+
+    with app.app_context():
+        q = f"""
+        SELECT status
+        FROM task_instance
+        WHERE id = {tid}"""
+
+        task_instance = DB.session.execute(q).one()
+        DB.session.commit()
+        assert task_instance.status == "D"

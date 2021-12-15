@@ -5,7 +5,7 @@ import os
 import queue
 import shutil
 import subprocess
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import psutil
 
@@ -242,6 +242,7 @@ class MultiprocessDistributor(ClusterDistributor):
         self, command: str, name: str, requested_resources: dict
     ) -> int:
         """Execute a task instance."""
+        # add an executor id to the environment
         distributor_id = self._next_distributor_id
         self._next_distributor_id += 1
         task = PickableTask(
@@ -250,6 +251,14 @@ class MultiprocessDistributor(ClusterDistributor):
         self.task_queue.put(task)
         self._running_or_submitted.update({distributor_id: None})
         return distributor_id
+
+    def submit_array_to_batch_distributor(
+        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
+    ) -> int:
+        """Executes an array of tasks.
+
+        For the multiprocess executor this will be the same as regular submission."""
+        return self.submit_to_batch_distributor(command, name, requested_resources)
 
     def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
         """Get the task instances that have errored out."""
@@ -292,3 +301,8 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
     def get_usage_stats(self) -> Dict:
         """Usage information specific to the distributor."""
         raise NotImplementedError
+
+    @staticmethod
+    def array_subtask_id() -> int:
+        """Array implementation not supported for multiprocess execution, return 1."""
+        return 1

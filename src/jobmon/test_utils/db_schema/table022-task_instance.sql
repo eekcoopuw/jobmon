@@ -12,6 +12,8 @@ CREATE TABLE `task_instance`(
   `distributor_id` INTEGER DEFAULT NULL,
   `task_id` INTEGER NOT NULL,
   `task_resources_id` INTEGER DEFAULT NULL,
+  `array_batch_num` INTEGER DEFAULT NULL,
+  `array_step_id` INTEGER DEFAULT NULL,
   `nodename` varchar(150) DEFAULT NULL,
   `process_group_id` INTEGER DEFAULT NULL,
   `usage_str` varchar(250) DEFAULT NULL,

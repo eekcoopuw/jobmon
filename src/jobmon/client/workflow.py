@@ -255,7 +255,6 @@ class Workflow(object):
                     task_args=task.task_args,
                     op_args=task.op_args,
                     cluster_name=task.cluster_name,
-                    compute_resources=task.compute_resources
                 )
                 self._link_array_and_workflow(array)
 
@@ -897,6 +896,7 @@ class Workflow(object):
             n_queued=distributor_config.n_queued,
             distributor_poll_interval=distributor_config.distributor_poll_interval,
             requester=self.requester,
+            wf_max_concurrently_running=self.max_concurrently_running
         )
         self._status = WorkflowStatus.INSTANTIATING
 

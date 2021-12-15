@@ -413,9 +413,9 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
 
     # setup workflow 1
     workflow1 = tool.create_workflow(name="test_workflow_get_errors")
-    task_a = task_template.create_task(arg="sleep 5")
+    task_a = task_template.create_task(arg="sleep 5", max_attempts=1)
     workflow1.add_task(task_a)
-    task_b = task_template.create_task(arg="sleep 6")
+    task_b = task_template.create_task(arg="sleep 6", max_attempts=1)
     workflow1.add_task(task_b)
 
     # add workflow to database
@@ -444,11 +444,11 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
             VALUES ({wfr_id}, {t_id}, '{s}')""".format(
                 wfr_id=wfr_1.workflow_run_id,
                 t_id=task_a.task_id,
-                s=TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+                s=TaskInstanceStatus.LAUNCHED,
             )
         )
         ti = DB.session.execute(
-            "SELECT max(id) from task_instance where task_id={}".format(task_a.task_id)
+            "SELECT id from task_instance where task_id={}".format(task_a.task_id)
         ).fetchone()
         ti_id_a = ti[0]
         DB.session.execute(
@@ -456,7 +456,7 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
             UPDATE task
             SET status ='{s}'
             WHERE id={t_id}""".format(
-                s=TaskStatus.RUNNING, t_id=task_a.task_id
+                s=TaskStatus.INSTANTIATED, t_id=task_a.task_id
             )
         )
         DB.session.execute(
@@ -465,11 +465,11 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
             VALUES ({wfr_id}, {t_id}, '{s}')""".format(
                 wfr_id=wfr_1.workflow_run_id,
                 t_id=task_b.task_id,
-                s=TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+                s=TaskInstanceStatus.LAUNCHED,
             )
         )
         ti = DB.session.execute(
-            "SELECT max(id) from task_instance where task_id={}".format(task_b.task_id)
+            "SELECT id from task_instance where task_id={}".format(task_b.task_id)
         ).fetchone()
         ti_id_b = ti[0]
         DB.session.execute(
@@ -477,7 +477,7 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
             UPDATE task
             SET status ='{s}'
             WHERE id={t_id}""".format(
-                s=TaskStatus.RUNNING, t_id=task_b.task_id
+                s=TaskStatus.INSTANTIATED, t_id=task_b.task_id
             )
         )
         DB.session.commit()
@@ -486,7 +486,7 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
     app_route = f"/task_instance/{ti_id_a}/log_error_worker_node"
     return_code, _ = workflow1.requester.send_request(
         app_route=app_route,
-        message={"error_state": "F", "error_message": "bla bla bla"},
+        message={"error_state": TaskInstanceStatus.ERROR, "error_message": "bla bla bla"},
         request_type="post",
     )
     assert return_code == 200

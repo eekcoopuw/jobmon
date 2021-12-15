@@ -15,6 +15,7 @@ class TaskInstanceStatus:
     INSTANTIATED = "I"
     NO_DISTRIBUTOR_ID = "W"
     SUBMITTED_TO_BATCH_DISTRIBUTOR = "B"
+    LAUNCHED = "O"
     RUNNING = "R"
     RESOURCE_ERROR = "Z"
     UNKNOWN_ERROR = "U"
@@ -93,3 +94,12 @@ class SpecialChars:
     """
 
     ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\" "
+
+
+class ExecludeTTVs:
+    """A hard-coded list.
+
+    Used to exclude task template versions with huge tasks that cause DB crash.
+    """
+
+    EXECLUDE_TTVS = {1}  # bashtask

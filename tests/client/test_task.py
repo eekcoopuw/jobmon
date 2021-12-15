@@ -161,7 +161,8 @@ def test_get_errors(db_cfg, tool):
 
     # setup workflow 1
     workflow1 = tool.create_workflow(name="test_task_instance_error_fatal")
-    task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 5")
+    task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 5",
+                                                                       max_attempts=1)
     workflow1.add_task(task_a)
 
     # add workflow to database
@@ -191,11 +192,11 @@ def test_get_errors(db_cfg, tool):
             """.format(
                 wfr_id=wfr_1.workflow_run_id,
                 t_id=task_a.task_id,
-                s=TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+                s=TaskInstanceStatus.LAUNCHED,
             )
         )
         ti = DB.session.execute(
-            "SELECT max(id) from task_instance where task_id={}".format(task_a.task_id)
+            "SELECT id from task_instance where task_id={}".format(task_a.task_id)
         ).fetchone()
         ti_id = ti[0]
         DB.session.execute(
@@ -203,7 +204,7 @@ def test_get_errors(db_cfg, tool):
             UPDATE task
             SET status ='{s}'
             WHERE id={t_id}""".format(
-                s=TaskStatus.RUNNING, t_id=task_a.task_id
+                s=TaskStatus.INSTANTIATED, t_id=task_a.task_id
             )
         )
         DB.session.commit()

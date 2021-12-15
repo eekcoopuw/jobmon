@@ -13,6 +13,7 @@ from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
+from jobmon.constants import ExecludeTTVs, SpecialChars
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import (
@@ -421,6 +422,7 @@ class TaskTemplate:
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, Any]] = None,
         cluster_name: str = "",
+        fallback_queues: Optional[List[str]] = None,
         **kwargs: Any,
     ) -> Task:
         """Create an instance of a task associated with this template.
@@ -487,14 +489,15 @@ class TaskTemplate:
             upstream_tasks=upstream_tasks,
             task_attributes=task_attributes,
             requester=self.requester,
+            fallback_queues=fallback_queues,
         )
         return task
 
     def create_array(
         self,
         max_attempts: int = 3,
-        max_concurrently_running: int = 10_000,
         upstream_tasks: Optional[List["Task"]] = None,
+        max_concurrently_running: int = 10_000,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, Any]] = None,
@@ -573,10 +576,22 @@ class TaskTemplate:
         workflows: List[int] = None,
         node_args: Dict[str, Any] = None,
         ci: float = None,
-    ) -> dict:
+    ) -> Optional[dict]:
         """Get the aggregate resource usage for a TaskTemplate."""
         message: Dict[Any, Any] = dict()
         message["task_template_version_id"] = self._active_task_template_version.id
+
+        # exclude ttv with huge number of tasks
+        exclue_list = ExecludeTTVs.EXECLUDE_TTVS
+        if self._active_task_template_version.id in exclue_list:
+            msg = (
+                f"Resource usage query for task_template_version "
+                f"{self._active_task_template_version.id}"
+                f"  is restricted."
+            )
+            logger.warning(msg)
+            return None
+
         if workflows:
             message["workflows"] = workflows
         if node_args:

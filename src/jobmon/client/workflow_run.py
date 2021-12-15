@@ -186,14 +186,6 @@ class WorkflowRun(object):
             for task_hash in task_hashes_chunk:
                 task = self._workflow.tasks[task_hash]
 
-                array = task.array
-                if not array.is_bound:
-                    task_resources = self._workflow.get_task_resources(array)
-                    task_resources.bind()
-                    array.task_resources = task_resources
-                    cluster_id = self._workflow.get_cluster_by_name(array.cluster_name).id
-                    array.bind(workflow_id=self._workflow.workflow_id, cluster_id=cluster_id)
-
                 no_resource_callable = (
                     task.compute_resources_callable is None
                     and task.array.compute_resources_callable is None
@@ -205,6 +197,12 @@ class WorkflowRun(object):
                     task_resources_id: Optional[int] = task.task_resources.id
                 else:
                     task_resources_id = None
+
+                array = task.array
+                if not array.is_bound:
+                    array.task_resources = task_resources
+                    cluster_id = self._workflow.get_cluster_by_name(array.cluster_name).id
+                    array.bind(workflow_id=self._workflow.workflow_id, cluster_id=cluster_id)
 
                 task_metadata[task_hash] = [
                     task.node.node_id,

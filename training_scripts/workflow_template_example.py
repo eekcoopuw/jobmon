@@ -1,62 +1,88 @@
-import os
-import getpass
-import uuid
-
-from jobmon.client.templates.unknown_workflow import UnknownWorkflow as Workflow
-from jobmon.client.templates.bash_task import BashTask
-from jobmon.client.templates.python_task import PythonTask
-
-
 def workflow_template_example():
-    """
-    Instraction:
-        This workflow use workflow template (UnknownWorkflow, BashTaks / PythonTasks).
-        One of benefit to use template is its compatibility with previous jobmon and new jobmon. (guppy relase)
-        It will create node and dag object in jobmon database, it helps to clarify task's dependant info.
-        The flow in this example is:
-        1. create workflow (use Unknown Template)
-        2. define executor params
-        3. create tasks (use BashTask / PythonTask template)
-        4. add tasks to workflow
-        5. run workflow
+    import getpass
+    import os
+    import sys
+    import uuid
 
-    To Run:
-        with jobmon installed in your conda environment from the root of the repo, run:
-           $ python training_scripts/workflow_template_example.py
+    from jobmon.client.tool import Tool
+
+    """
+    Instructions:
+
+      The steps in this example are:
+      1. Create a tool
+      2. Create  workflow using the tool from step 1
+      3. Create task templates using the tool from step 1
+      4. Create tasks using the template from step 3
+      5. Add created tasks to the workflow
+      6. Run the workflow
+
+    To actually run the provided example:
+      Make sure Jobmon is installed in your activated conda environment, and that you're on
+      the Slurm cluster in a srun session. From the root of the repo, run:
+         $ python training_scripts/workflow_template_example.py
     """
 
-    user = getpass.getuser()    
+    user = getpass.getuser()
     wf_uuid = uuid.uuid4()
     script_path = os.path.abspath(os.path.dirname(__file__))
 
+    # Create a tool
+    tool = Tool(name="example_tool")
 
-    # create workflow
-    workflow = Workflow(
-        name = f"template_workflow_{wf_uuid}",
-        description = "template_workflow",
-        executor_class = "SGEExecutor",
-        stderr = f"/ihme/scratch/users/{user}/{wf_uuid}",
-        stdout = f"/ihme/scratch/users/{user}/{wf_uuid}",
-        project = "proj_scicomp"  # specify your team's project
+    # Create a workflow, and set the executor
+    workflow = tool.create_workflow(
+        name=f"template_workflow_{wf_uuid}",
     )
 
-    # create tasks
-    task1 = BashTask(
-        command = "echo task1", 
-        executor_class = "SGEExecutor"
+    # Create task templates
+    echo_template = tool.get_task_template(
+        default_compute_resources={
+            "queue": "all.q",
+            "cores": 1,
+            "memory": "1G",
+            "runtime": "1m",
+            "stdout": f"/ihme/scratch/users/{user}",
+            "stderr": f"/ihme/scratch/users/{user}",
+            "project": "proj_scicomp"
+        },
+        template_name="quickstart_echo_template",
+        default_cluster_name="slurm",
+        command_template="echo {output}",
+        node_args=["output"],
     )
 
-    task2 = BashTask(
-        command = "echo task2", 
-        executor_class = "SGEExecutor",
-        upstream_tasks = [task1]
+    python_template = tool.get_task_template(
+        default_compute_resources={
+            "queue": "all.q",
+            "cores": 2,
+            "memory": "2G",
+            "runtime": "10m",
+            "stdout": f"/ihme/scratch/users/{user}",
+            "stderr": f"/ihme/scratch/users/{user}",
+            "project": "proj_scicomp"
+        },
+        template_name="quickstart_python_template",
+        default_cluster_name="slurm",
+        command_template="{python} {script_path} --args1 {val1} --args2 {val2}",
+        node_args=["val1", "val2"],
+        op_args=["python", "script_path"],
     )
 
-    task3 = PythonTask(
-        script = os.path.join(script_path, 'test_scripts/test.py'),
-        args = ["--args1", "val1", "--args2", "val2"],
-        executor_class = "SGEExecutor",
-        upstream_tasks = [task2]
+    # Create tasks
+    task1 = echo_template.create_task(name="task1", output="task1")
+
+    task2 = echo_template.create_task(
+        name="task2", upstream_tasks=[task1], output="task2"
+    )
+
+    task3 = python_template.create_task(
+        name="task3",
+        upstream_tasks=[task2],
+        python=sys.executable,
+        script_path=os.path.join(script_path, "test_scripts/test.py"),
+        val1="val1",
+        val2="val2",
     )
 
     # add task to workflow

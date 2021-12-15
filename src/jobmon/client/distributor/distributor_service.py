@@ -56,17 +56,19 @@ class DistributorService:
         workflow_run_id: int,
         distributor: ClusterDistributor,
         requester: Requester,
+        wf_max_concurrently_running: int,
         workflow_run_heartbeat_interval: int = 30,
         task_instance_heartbeat_interval: int = 90,
         heartbeat_report_by_buffer: float = 3.1,
         n_queued: int = 100,
         distributor_poll_interval: int = 10,
-        worker_node_entry_point: Optional[str] = None,
+        worker_node_entry_point: Optional[str] = None
     ) -> None:
         """Initialization of distributor service."""
         # which workflow to distribute for
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
+        self.wf_max_concurrently_running = wf_max_concurrently_running
 
         # cluster_name
         self.distributor = distributor
@@ -268,7 +270,7 @@ class DistributorService:
         # main thread
         while self._keep_distributing(thread_stop_event):
 
-            # instatiate queued tasks
+            # instantiate queued tasks
             if self._to_instantiate:
                 task = self._to_instantiate.pop(0)
                 self._create_task_instance(task)
