@@ -515,7 +515,7 @@ class DistributorWorkflowRun:
         return self._task_instance_heartbeat_interval
 
     @property
-    def report_by_buffer(self) ->  int:
+    def report_by_buffer(self) -> int:
         return self._heartbeat_report_by_buffer
 
     def _log_workflow_run_heartbeat(self) -> None:
@@ -545,12 +545,19 @@ class DistributorWorkflowRun:
         )
 
 
-    def refresh_status_from_db(self, list: _tiList, status: str) -> Dict[int: str]:
+    def refresh_status_from_db(self, tids: list, status: str) -> Dict[int: str]:
         """Got to DB to check the list tis status."""
         """TODO: Return a list of tis with status doesn't match status. GBDSCI-4178"""
-        pass
+        rc, res = self.requester._send_request(
+            app_route="/task_instance/status_check",
+            message={"task_instance_ids": tids,
+                     "status": status},
+            request_type='post'
+        )
+        unmatches = res["unmatches"]
+        return {int(id): unmatches[id] for id in unmatches.keys()}
 
-    def refresh_status_with_distributor(self, list: _tiList, status: str) -> Dict[int, str]:
+    def refresh_status_with_distributor(self, tids: list, status: str) -> Dict[int, str]:
         """Go to the distributor to check the list tis status.
 
            Return: a dict of {task_instanc_id: status}
@@ -573,7 +580,7 @@ class DistributorWorkflowRun:
 
         # check launching queue
         # sync with DB
-        ti_dict = self.refresh_status_from_db(self._launched_task_instance_ids, "B")
+        ti_dict = self.refresh_status_from_db(self._launched_task_instance_ids.ids, "B")
         if ti_dict:
             for tiid in ti_dict.keys():
                 self._launched_task_instance_ids.pop(tiid)
@@ -590,7 +597,7 @@ class DistributorWorkflowRun:
                     self._error_task_instance_ids.append(tiid)
         # sync with distributor
         # only check those unchanged in DB
-        ti_dict = self.refresh_status_with_distributor(self._launched_task_instance_ids, "B")
+        ti_dict = self.refresh_status_with_distributor(self._launched_task_instance_ids.ids, "B")
         second_log_heartbeat_list = []
         if ti_dict:
             for tiid in ti_dict.keys():
@@ -613,7 +620,7 @@ class DistributorWorkflowRun:
 
         # check running queue
         # sync with DB
-        ti_dict = self.refresh_status_from_db(self._running_task_instance_ids, "R")
+        ti_dict = self.refresh_status_from_db(self._running_task_instance_ids.ids, "R")
         if ti_dict:
             for tiid in ti_dict.keys():
                 self._running_task_instance_ids.pop(tiid)
@@ -627,7 +634,7 @@ class DistributorWorkflowRun:
                     self._error_task_instance_ids.add(tiid)
         # sync with distributor
         # only check those unchanged in DB
-        ti_dict = self.refresh_status_with_distributor(self._running_task_instance_ids, "R")
+        ti_dict = self.refresh_status_with_distributor(self._running_task_instance_ids.ids, "R")
         if ti_dict:
             for tiid in ti_dict.keys():
                 self._running_task_instance_ids.pop(tiid)

@@ -385,6 +385,12 @@ def test_task_instances_status_check(tool, db_cfg, client_env, task_template):
     assert r[str(dtis_1.task_instance_id)] == TaskInstanceStatus.INSTANTIATED
     assert r[str(dtis_2.task_instance_id)] == TaskInstanceStatus.INSTANTIATED
     assert r[str(dtis_3.task_instance_id)] == TaskInstanceStatus.INSTANTIATED
+    # verify refresh_status_from_db returns the same value
+    r = distributor_wfr.refresh_status_from_db(test_tiid_list, TaskInstanceStatus.RUNNING)
+    assert len(r) == 3
+    assert r[dtis_1.task_instance_id] == TaskInstanceStatus.INSTANTIATED
+    assert r[dtis_2.task_instance_id] == TaskInstanceStatus.INSTANTIATED
+    assert r[dtis_3.task_instance_id] == TaskInstanceStatus.INSTANTIATED
 
 
 @pytest.mark.skip(reason="GBDSCI-4188")
