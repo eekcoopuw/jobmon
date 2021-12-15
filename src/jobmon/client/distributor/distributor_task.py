@@ -77,7 +77,7 @@ class DistributorTask:
         if self.array_id is None:
             return None
         else:
-            # TODO:
+            # TODO: GBDSCI-4193
             return 1
 
     def register_task_instance(
