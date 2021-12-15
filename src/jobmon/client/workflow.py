@@ -645,7 +645,6 @@ class Workflow(object):
             self._set_workflow_resume(reset_running_jobs)
             self._workflow_is_resumable(resume_timeout)
 
-
         # create workflow run
         client_wfr = ClientWorkflowRun(
             workflow=self, requester=self.requester
