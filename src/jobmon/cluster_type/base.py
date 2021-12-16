@@ -106,7 +106,7 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any]
+            self, command: str, name: str, requested_resources: Dict[str, Any]
     ) -> int:
         """Submit the command on the cluster technology and return a distributor_id.
 
@@ -124,7 +124,7 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def submit_array_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
+            self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
     ) -> int:
         """Submit an array task to the underlying distributor and return a distributor_id.
 
@@ -157,11 +157,11 @@ class ClusterDistributor(Protocol):
         """
         wrapped_cmd = ["worker_node"]
         if task_instance_id is not None:
-            wrapped_cmd.extend(["--task_instance_id", task_instance_id])
+            wrapped_cmd.extend(["--task_instance_id", str(task_instance_id)])
         if array_id is not None:
-            wrapped_cmd.extend(["--array_id", array_id])
+            wrapped_cmd.extend(["--array_id", str(array_id)])
         if batch_number is not None:
-            wrapped_cmd.extend(["--batch_number", batch_number])
+            wrapped_cmd.extend(["--batch_number", str(batch_number)])
         wrapped_cmd.extend(["--expected_jobmon_version", __version__, "--cluster_type_name", self.cluster_type_name])
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         return str_cmd
@@ -176,7 +176,6 @@ class ClusterWorkerNode(Protocol):
     Get exit info is used to determine the error type if the task hits a
     system error of some variety.
     """
-
     @property
     @abstractmethod
     def distributor_id(self) -> Optional[int]:
@@ -193,15 +192,33 @@ class ClusterWorkerNode(Protocol):
         """Error and exit code info from the executor."""
         raise NotImplementedError
 
-    @staticmethod
+    @property
     @abstractmethod
-    def array_subtask_id() -> int:
+    def array_step_id(self) -> int:
+        """The step id in each batch.
+
+        For each array task instance, array_id, array_batch_num, and array_step_id
+        should uniquely identify a subtask_id.
+
+        It depends on the plug in whether you can generate the subtask_id using
+        array_step_id.
+        """
+        raise NotImplementedError
+
+    @property
+    @abstractmethod
+    def subtask_id(self) -> Optional[str]:
         """Pull a distinguishing variable that allows separation of array subtasks.
 
         For clusters that support array task submission, the plugin must implement
         a method that returns a distinguishing variable to separate task instances.
         For example, UGE and SLURM array sub-tasks can pull this variable from the
         environment.
+
+        For array job, returns the cluster job id for the task instance inside the array
+        in string format.
+
+        For non array job, returns distributor id in string format.
 
         Always assumed to be a value in the range [1, len(array)).
         """

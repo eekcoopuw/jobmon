@@ -139,6 +139,38 @@ def log_ti_report_by(task_instance_id: int) -> Any:
 
 
 @finite_state_machine.route(
+    "/task_instance/log_report_by/batch", methods=["POST"]
+)
+def log_ti_report_by_batch() -> Any:
+    """Log task_instances as being responsive with a new report_by_date.
+
+    This is done at the worker node heartbeat_interval rate, so it may not happen at the same
+    rate that the reconciler updates batch submitted report_by_dates (also because it causes
+    a lot of traffic if all workers are logging report by_dates often compared to if the
+    reconciler runs often).
+
+    Args:
+        task_instance_id: id of the task_instance to log
+    """
+    data = request.get_json()
+    tis = data.get("task_instance_ids", None)
+
+    logger.debug(f"Log report_by for TI {tis}.")
+    if tis:
+        query = f"""
+            UPDATE task_instance
+            SET report_by_date = ADDTIME(
+                CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
+            WHERE task_instance.id in str(tis).replace("[", "(").replace("]", ")")"""
+
+        DB.session.execute(query)
+        DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route(
     "/task_instance/<task_instance_id>/log_usage", methods=["POST"]
 )
 def log_usage(task_instance_id: int) -> Any:
@@ -336,7 +368,9 @@ def get_suspicious_task_instances(workflow_run_id: int) -> Any:
     query = """
         SELECT
             task_instance.id, task_instance.workflow_run_id,
-            task_instance.distributor_id
+            task_instance.distributor_id, task_instance.cluster_type_id,
+            task_instance.array_id, task_instance.array_batch_num,
+            task_instance.array_step_id, task_instance.subtask_id
         FROM
             task_instance
         WHERE
@@ -384,7 +418,9 @@ def get_task_instances_to_terminate(workflow_run_id: int) -> Any:
     query = """
         SELECT
             task_instance.id, task_instance.workflow_run_id,
-            task_instance.distributor_id
+            task_instance.distributor_id, task_instance.cluster_type_id,
+            task_instance.array_id, task_instance.array_batch_num,
+            task_instance.array_step_id, task_instance.subtask_id
         FROM
             task_instance
         WHERE
@@ -476,6 +512,7 @@ def add_task_instance() -> Any:
         data = request.get_json()
         task_id = data["task_id"]
         array_id = data["array_id"]
+        array_batch_num = data["array_batch_num"]
         bind_to_logger(task_id=task_id, array_id=array_id)
         logger.info(f"Add task instance for task {task_id}")
         # query task
@@ -487,6 +524,7 @@ def add_task_instance() -> Any:
             workflow_run_id=data["workflow_run_id"],
             task_id=task_id,
             array_id=array_id,
+            array_batch_num=array_batch_num,
             task_resources_id=task.task_resources_id,
         )
         DB.session.add(task_instance)
@@ -521,9 +559,9 @@ def add_task_instance() -> Any:
 
 
 @finite_state_machine.route(
-    "/get_array_task_instance_id/<array_id>/<batch_num>/<subtask_id>", methods=['GET']
+    "/get_array_task_instance_id/<array_id>/<batch_num>/<step_id>", methods=['GET']
 )
-def get_array_task_instance_id(array_id: int, batch_num: int, subtask_id: int) -> int:
+def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> int:
     """Given an array ID and an index, select a single task instance ID.
 
     Task instance IDs that are associated with the array are ordered, and selected by index.
@@ -533,20 +571,26 @@ def get_array_task_instance_id(array_id: int, batch_num: int, subtask_id: int) -
 
     # The subquery will always return values indexed from 1, provided subtask ID must follow
     # the same pattern.
+    #query = """
+    #    SELECT id
+    #    FROM
+    #        (SELECT id, ROW_NUMBER() OVER
+    #            (PARTITION BY array_id, array_batch_num ORDER BY id) as rownum
+    #        FROM task_instance
+    #        WHERE array_id = :array_id
+    #        AND array_batch_num = :batch_num) as ranked_ids
+    #    WHERE rownum = :step_id
+    #"""
     query = """
         SELECT id
-        FROM
-            (SELECT id, ROW_NUMBER() OVER 
-                (PARTITION BY array_id, array_batch_num ORDER BY id) as rownum
-            FROM task_instance
-            WHERE array_id = :array_id
-            AND array_batch_num = :batch_num) as ranked_ids
-        WHERE rownum = :subtask_id
-    """
+        FROM task_instance
+        WHERE array_id=:array_id
+        AND array_batch_num=:batch_num
+        AND array_step_id=:step_id"""
     task_instance_id = (
         DB.session.query(TaskInstance)
         .from_statement(text(query))
-        .params(array_id=array_id, batch_num=batch_num, subtask_id=subtask_id)
+        .params(array_id=array_id, batch_num=batch_num, step_id=step_id)
         .one()
     )
 
@@ -594,6 +638,10 @@ def log_distributor_id(task_instance_id: int) -> Any:
         ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR
     )
     ti.distributor_id = data["distributor_id"]
+    if ti.array_id is None:
+        ti.subtask_id = str(ti.distributor_id)
+    else:
+        ti.subtask_id = data["subtask_id"]
     ti.report_by_date = func.ADDTIME(
         func.now(), func.SEC_TO_TIME(data["next_report_increment"])
     )
@@ -702,9 +750,9 @@ def log_unknown_error(task_instance_id: int) -> Any:
 def record_array_batch_num(batch_num: int) -> Any:
     """Record a batch number to associate sets of task instances with an array submission."""
     data = request.get_json()
-    task_instance_ids = data['task_instance_ids']
+    task_instance_ids_list = data['task_instance_ids']
 
-    task_instance_ids = ",".join(f'{x}' for x in task_instance_ids)
+    task_instance_ids = ",".join(f'{x}' for x in task_instance_ids_list)
 
     update_stmt = f"""
         UPDATE task_instance
@@ -714,10 +762,40 @@ def record_array_batch_num(batch_num: int) -> Any:
     DB.session.execute(update_stmt)
     DB.session.commit()
 
+    # assign arrary_step_ids ordered by task_instance_id
+    task_instance_ids_list.sort()
+    for i in range(len(task_instance_ids_list)):
+        sql = f"""UPDATE task_instance
+            SET array_step_id = {i + 1}
+            WHERE id = {task_instance_ids_list[i]}"""
+        DB.session.execute(sql)
+    DB.session.commit()
+
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
 
+
+@finite_state_machine.route(
+    "/task_instance/<task_instance_id>/set_subtask_id", methods=["POST"]
+)
+def record_subtask_id(task_instance_id: int) -> Any:
+    """Update the actual distributor id of the task/subtask in array.
+
+    Keep this info in DB so we don't need to calculate it from
+    array_id, array_batch_num, and array_step_id every time.
+    """
+    data = request.get_json()
+    subtask_id = data['subtask_id']
+    sql = f"""
+        UPDATE task_instance
+        SET subtask_id={subtask_id}
+        WHERE id={task_instance_id}"""
+    DB.session.execute(sql)
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 @finite_state_machine.route("/task_instance/transition/<new_status>", methods=["POST"])
 def transition_task_instances(new_status: str) -> Any:
@@ -750,6 +828,7 @@ def transition_task_instances(new_status: str) -> Any:
     erroneous_transitions = []
     for ti in task_instances:
         # Attach the distributor ID
+        # this will cause problem for non array tasks
         ti.distributor_id = distributor_id
         response = _update_task_instance_state(ti, new_status)
         if len(response) > 0:
@@ -762,6 +841,33 @@ def transition_task_instances(new_status: str) -> Any:
     resp = jsonify(erroneous_transitions={ti.id: ti.status for ti in erroneous_transitions})
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@finite_state_machine.route("/task_instance/status_check", methods=["POST"])
+def task_instances_status_check() -> Any:
+    """Sync status of given task intance IDs."""
+    data = request.get_json()
+    task_instance_ids_list = data['task_instance_ids']
+    return_dict = dict()
+    if len(task_instance_ids_list) > 0:
+        task_instance_ids = ",".join(f'{x}' for x in task_instance_ids_list)
+        status = data['status']
+        sql = f"""
+            SELECT id, status
+            FROM task_instance
+            WHERE id in ({task_instance_ids})
+            AND status != "{status}"
+            """
+        rows = DB.session.execute(sql).fetchall()
+
+        if rows:
+            for row in rows:
+                return_dict[row["id"]] = row["status"]
+    resp = jsonify(unmatches=return_dict)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 
 
 # ############################ HELPER FUNCTIONS ###############################

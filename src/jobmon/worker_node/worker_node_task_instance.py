@@ -30,9 +30,9 @@ class WorkerNodeTaskInstance:
 
     def __init__(
         self,
-        task_instance_id: Optional[int],
         expected_jobmon_version: str,
         cluster_type_name: str,
+        task_instance_id: Optional[int] = None,
         array_id: Optional[int] = None,
         batch_number: Optional[int] = None,
         requester_url: Optional[str] = None,
@@ -66,25 +66,27 @@ class WorkerNodeTaskInstance:
 
         self.executor = self._get_worker_node(cluster_type_name)
 
-    @property
-    def task_instance_id(self) -> int:
-        """Returns a task instance ID if it's been bound.
-
-        If not, infer it from the array_id and environment."""
-
-        if self._task_instance_id is not None:
-            return self._task_instance_id
+        # get distributor id from executor
+        if self._distributor_id is None and self.executor.distributor_id is not None:
+            self._distributor_id = self.executor.distributor_id
+        # get subtask_id
+        if self._array_id:
+            self._subtask_id = str(self._distributor_id)
         else:
+            self._subtask_id = self.executor.subtask_id
+
+        # get task_instance_id for array task
+        if self._task_instance_id is None:
             if self._array_id is None:
                 raise ValueError("Neither task_instance_id nor array_id were provided.")
 
-            # Always assumed to be a value in the range [1, len(array)]
-            subtask_id = self.executor.array_subtask_id()
+                # Always assumed to be a value in the range [1, len(array)]
+            array_step_id = self.executor.array_step_id
 
             # Fetch from the database
             app_route = \
                 f"/get_array_task_instance_id/" \
-                f"{self._array_id}/{self._batch_number}/{subtask_id}"
+                f"{self._array_id}/{self._batch_number}/{array_step_id}"
             rc, resp = self.requester.send_request(
                 app_route=app_route,
                 message={},
@@ -96,9 +98,28 @@ class WorkerNodeTaskInstance:
                     f"request through route {app_route}. Expected code "
                     f"200. Response content: {rc}"
                 )
-
             self._task_instance_id = resp['task_instance_id']
-            return self._task_instance_id
+
+            # update the subtask id
+            app_route = \
+                f"/task_instance/{self._task_instance_id}/set_subtask_id"
+            rc, resp = self.requester.send_request(
+                app_route=app_route,
+                message={"subtask_id": self._subtask_id},
+                request_type='post'
+            )
+            if http_request_ok(rc) is False:
+                raise InvalidResponse(
+                    f"Unexpected status code {rc} from POST "
+                    f"request through route {app_route}. Expected code "
+                    f"200. Response content: {rc}"
+                )
+
+    @property
+    def task_instance_id(self) -> int:
+        """Returns a task instance ID if it's been bound."""
+        return self._task_instance_id
+
 
     @property
     def module(self) -> ModuleType:
@@ -144,8 +165,6 @@ class WorkerNodeTaskInstance:
     @property
     def distributor_id(self) -> Optional[int]:
         """Executor id given from the executor it is being run on."""
-        if self._distributor_id is None and self.executor.distributor_id is not None:
-            self._distributor_id = self.executor.distributor_id
         logger.debug("distributor_id: " + str(self._distributor_id))
         return self._distributor_id
 

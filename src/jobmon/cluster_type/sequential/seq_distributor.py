@@ -13,7 +13,7 @@ from jobmon.worker_node.cli import WorkerNodeCLI
 
 logger = logging.getLogger(__name__)
 
-
+"""TODO: GBDSCI-4185"""
 class LimitedSizeDict(OrderedDict):
     """Dictionary for exit info."""
 
@@ -107,7 +107,7 @@ class SequentialDistributor(ClusterDistributor):
         )
 
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any]
+        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int = 0
     ) -> int:
         """Execute sequentially."""
         # add an executor id to the environment
@@ -141,10 +141,17 @@ class SequentialDistributor(ClusterDistributor):
 
 class SequentialWorkerNode(ClusterWorkerNode):
     """Get Executor Info for a Task Instance."""
+    STEP_ID_GENERATER = 0
 
     def __init__(self) -> None:
         """Initialization of the sequential executor worker node."""
         self._distributor_id: Optional[int] = None
+        SequentialWorkerNode.STEP_ID_GENERATER += 1
+        self._array_step_id  = SequentialWorkerNode.STEP_ID_GENERATER
+
+    @property
+    def array_step_id(self) -> int:
+        return self._array_step_id
 
     @property
     def distributor_id(self) -> Optional[int]:
@@ -165,9 +172,10 @@ class SequentialWorkerNode(ClusterWorkerNode):
         """Usage information specific to the exector."""
         return {}
 
-    @staticmethod
-    def array_subtask_id() -> int:
+    @property
+    def subtask_id(self) -> int:
         """Sequential distributor doesn't support array tasks.
 
-        Each call will return a hardcoded value corresponding to the first task instance."""
-        return 1
+        Return distributor id."""
+        return str(self._distributor_id)
+

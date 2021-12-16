@@ -15,7 +15,7 @@ from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 logger = logging.getLogger(__name__)
 
-
+"""TODO: GBDSCI-4186"""
 class Consumer(Process):
     """Consumes the tasks to be run."""
 
@@ -239,7 +239,7 @@ class MultiprocessDistributor(ClusterDistributor):
         return list(self._running_or_submitted.keys())
 
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: dict
+        self, command: str, name: str, requested_resources: dict, array_length: int = 0
     ) -> int:
         """Execute a task instance."""
         # add an executor id to the environment
@@ -302,7 +302,9 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
         """Usage information specific to the distributor."""
         raise NotImplementedError
 
-    @staticmethod
-    def array_subtask_id() -> int:
-        """Array implementation not supported for multiprocess execution, return 1."""
-        return 1
+    @property
+    def subtask_id(self) -> int:
+        """Sequential distributor doesn't support array tasks.
+
+        Return distributor id."""
+        return str(self._distributor_id)

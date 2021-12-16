@@ -17,6 +17,7 @@ class TaskInstanceStatus(DB.Model):
     DONE = Statuses.DONE
     KILL_SELF = Statuses.KILL_SELF
     ERROR_FATAL = Statuses.ERROR_FATAL
+    SUBMITTED_TO_BATCH_DISTRIBUTOR = Statuses.SUBMITTED_TO_BATCH_DISTRIBUTOR
 
     id = DB.Column(DB.String(1), primary_key=True)
     label = DB.Column(DB.String(150))

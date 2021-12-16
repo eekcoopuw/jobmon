@@ -65,6 +65,11 @@ class DistributorNotAlive(Exception):
 
     pass
 
+class DistributorUnexpected(Exception):
+    """Unexpected situation in Distributor."""
+
+    pass
+
 
 class WorkflowRunStateError(Exception):
     """Error with the Workflow Run status."""
