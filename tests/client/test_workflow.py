@@ -522,3 +522,18 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
     err_1st_b = error_log_b[0]
     assert type(err_1st_b) == dict
     assert err_1st_b["description"] == "cla cla cla"
+
+
+def test_fall_back_queue(db_cfg, client_env, tool, task_template):
+    """Test of bugfix in GBDSCI-4153."""
+    from jobmon.cluster_type.sequential.seq_client import SequentialQueue
+    workflow = tool.create_workflow(name="test_fallback", workflow_args="fallback",
+                                    default_cluster_name="sequential")
+    fallback_task = task_template.create_task(arg="echo a", name="fallback_task",
+                                              fallback_queues=["null2.q"])
+    workflow.add_tasks([fallback_task])
+    workflow.bind()
+    workflow._create_workflow_run()
+    fallback_cluster_queue = workflow.tasks[hash(fallback_task)].fallback_queues[0]
+    assert type(fallback_cluster_queue) is SequentialQueue
+    assert fallback_cluster_queue.queue_name == "null2.q"
