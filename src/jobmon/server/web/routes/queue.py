@@ -13,7 +13,7 @@ from jobmon.server.web.routes import finite_state_machine
 
 @finite_state_machine.route("/cluster/<cluster_name>/all_queues", methods=["GET"])
 def get_queues_by_cluster_name(cluster_name: str) -> Any:
-    """Get the id, name, cluster_name and parameters and connection_string of a Cluster."""
+    """Get the id, name, cluster_name and parameters and connection_parameters of a Cluster."""
     result = (
         DB.session.query(Queue)
         .join(Cluster, Queue.cluster_id == Cluster.id)

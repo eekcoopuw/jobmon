@@ -66,6 +66,7 @@ class Cluster:
         register_cluster_plugin(
             self._cluster_type_name, cluster_kwargs["package_location"]
         )
+        self._connection_parameters = cluster_kwargs["connection_parameters"]
 
     @property
     def is_bound(self) -> bool:
