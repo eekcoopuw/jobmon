@@ -22,6 +22,10 @@ class QPIDConfig:
         ParserDefaults.qpid_max_update_per_second(cli.parser)
         ParserDefaults.qpid_cluster(cli.parser)
         ParserDefaults.qpid_uri(cli.parser)
+        # squid new config
+        ParserDefaults.squid_polling_interval(cli.parser)
+        ParserDefaults.squid_max_update_per_second(cli.parser)
+        ParserDefaults.squid_cluster(cli.parser)
 
         # passing an empty string forces this method to ignore sys.argv
         args = cli.parse_args("")
@@ -36,6 +40,10 @@ class QPIDConfig:
             qpid_max_update_per_second=args.qpid_max_update_per_second,
             qpid_cluster=args.qpid_cluster,
             qpid_uri=args.qpid_uri,
+            # squid
+            squid_polling_interval=args.squid_polling_interval,
+            squid_max_update_per_second=args.squid_max_update_per_second,
+            squid_cluster=args.squid_cluster,
         )
 
     def __init__(
@@ -49,6 +57,10 @@ class QPIDConfig:
         qpid_max_update_per_second: int,
         qpid_cluster: str,
         qpid_uri: str,
+        # squid
+        squid_polling_interval: int,
+        squid_max_update_per_second: int,
+        squid_cluster: str,
     ) -> None:
         """Initialization of the QPID configuration."""
         self.db_host = db_host
@@ -60,6 +72,10 @@ class QPIDConfig:
         self.qpid_max_update_per_second = qpid_max_update_per_second
         self.qpid_cluster = qpid_cluster
         self.qpid_uri = qpid_uri
+        # squid
+        self.squid_polling_interval = squid_polling_interval
+        self.squid_max_update_per_second = squid_max_update_per_second
+        self.squid_cluster = squid_cluster
 
     @property
     def conn_str(self) -> str:

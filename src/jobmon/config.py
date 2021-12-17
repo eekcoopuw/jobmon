@@ -355,6 +355,48 @@ class ParserDefaults:
         return parser
 
     @staticmethod
+    def squid_polling_interval(
+            parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
+        """Interval between squid polling cycles if connecting qpid service."""
+        parser.add_argument(
+            "--squid_polling_interval",
+            type=int,
+            help="Interval between qpid polling cycles",
+            default=600,
+            env_var="SQUID_POLLING_INTERVAL",
+        )
+        return parser
+
+    @staticmethod
+    def squid_max_update_per_second(
+            parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
+        """Number of maxrss updates per second."""
+        parser.add_argument(
+            "--squid_max_update_per_second",
+            type=int,
+            help="Amount of marrss updates per second",
+            default=10,
+            env_var="SQUID_MAX_UPDATE_PER_SECOND",
+        )
+        return parser
+
+    @staticmethod
+    def squid_cluster(
+            parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
+        """Cluster to pull maxrss data from. Default is fair."""
+        parser.add_argument(
+            "--squid_cluster",
+            type=str,
+            help="which cluster to pull maxrss for",
+            default="slurm",
+            env_var="SQUID_CLUSTER",
+        )
+        return parser
+
+    @staticmethod
     def worker_node_entry_point(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:

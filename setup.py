@@ -30,6 +30,10 @@ SERVER_REQUIRES = [
     'sqlalchemy',
 ]
 
+SQUID_REQUIRES = [
+    'slurm-rest',
+]
+
 # pip install -e .[test]
 TEST_REQUIRES = [
     "pytest",
