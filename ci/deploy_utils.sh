@@ -249,7 +249,7 @@ test_k8s_uge_deployment () {
        pip install jobmon==$JOBMON_VERSION && \
        pip install jobmon_uge && \
        pip install jobmon_slurm && \
-       jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
+       jobmon_config update --web_service_fqdn $TARGET_IP --web_service_port 80 && \
        python $WORKSPACE/deployment/tests/six_job_test.py
 
     $QLOGIN_ACTIVATE &&
@@ -280,7 +280,7 @@ test_k8s_slurm_deployment () {
       pip install jobmon_slurm && \
       PATH=$PATH:/opt/slurm/bin && \
       pip freeze && \
-      jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
+      jobmon_config update --web_service_fqdn $TARGET_IP --web_service_port 80 && \
       srun -n 1 -p all.q -A general -c 1 --mem=10000 --time=100 python $WORKSPACE/deployment/tests/six_job_test.py 'slurm'
 }
 
@@ -336,7 +336,7 @@ test_server () {
     $QLOGIN_ACTIVATE &&
         conda activate $CONDA_DIR && \
         pip install jobmon==$JOBMON_VERSION && \
-        jobmon update_config --web_service_fqdn $WEB_SERVICE_FQDN --web_service_port $WEB_SERVICE_PORT && \
+        jobmon_config update --web_service_fqdn $WEB_SERVICE_FQDN --web_service_port $WEB_SERVICE_PORT && \
         python $WORKSPACE/deployment/tests/six_job_test.py sequential
     # Disable jobmonr test because it cannot pass version check
     #$QLOGIN_ACTIVATE &&

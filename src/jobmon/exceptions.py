@@ -106,3 +106,9 @@ class InvalidMemoryUnit(Exception):
     """Memory convert unit invalid."""
 
     pass
+
+
+class ConfigError(Exception):
+    """No configuration found for server."""
+
+    pass

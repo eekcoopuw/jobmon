@@ -94,6 +94,7 @@ setup(
     entry_points={
         'console_scripts': [
             'jobmon=jobmon.client.cli:main',
+            'jobmon_config=jobmon.cli:main',
             'jobmon_distributor=jobmon.client.distributor.cli:main',
             'jobmon_server=jobmon.server.cli:main [server]',
             'worker_node_entry_point=jobmon.worker_node.cli:run'
