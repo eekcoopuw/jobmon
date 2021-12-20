@@ -171,22 +171,14 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
         request_type='post'
     )
 
-    # Register TIs
-    dtis_1 = dts[0].register_task_instance(workflow_run_id=wfr.workflow_run_id)
-    dtis_2 = dts[1].register_task_instance(workflow_run_id=wfr.workflow_run_id)
-    dtis_3 = dts[2].register_task_instance(workflow_run_id=wfr.workflow_run_id)
-    dtis_4 = single_distributor_task.register_task_instance(workflow_run_id=wfr.workflow_run_id)
-
-    distributor_array.instantiated_array_task_instance_ids = [dtis_1.task_instance_id,
-                                                              dtis_2.task_instance_id]
     distributor_wfr = DistributorWorkflowRun(
         workflow.workflow_id, wfr.workflow_run_id, requester
     )
 
     # Register TIs
     dtis_1 = distributor_wfr.register_task_instance(dts[0])
-    dtis_2 = distributor_wfr.register_task_instance(dts[0])
-    dtis_3 = distributor_wfr.register_task_instance(dts[0])
+    dtis_2 = distributor_wfr.register_task_instance(dts[1])
+    dtis_3 = distributor_wfr.register_task_instance(dts[2])
     dtis_4 = distributor_wfr.register_task_instance(single_distributor_task)
 
     distributor_array.instantiated_array_task_instance_ids = [dtis_1.task_instance_id,

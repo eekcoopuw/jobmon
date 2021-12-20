@@ -526,7 +526,7 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
 
 def test_fall_back_queue(db_cfg, client_env, tool, task_template):
     """Test of bugfix in GBDSCI-4153."""
-    from jobmon.cluster_type.sequential.seq_client import SequentialQueue
+    from jobmon.cluster_type.sequential.seq_queue import SequentialQueue
     workflow = tool.create_workflow(name="test_fallback", workflow_args="fallback",
                                     default_cluster_name="sequential")
     fallback_task = task_template.create_task(arg="echo a", name="fallback_task",
