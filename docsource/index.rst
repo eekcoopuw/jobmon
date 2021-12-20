@@ -9,32 +9,40 @@ Jobmon
 Jobmon is a Scientific Workflow Management system developed at IHME specifically for the
 institute's needs. Jobmon aims to reduce human pain by providing:
 
-- An easy to use Python API that matches existing code patterns.
+- An easy to use Python API and R API.
+- Ability to run jobs on both UGE cluster (Buster) and Slurm cluster.
 - Centralized monitoring of jobs, including the job's status and errors.
 - Automatic retries to protect against random cluster failures.
 - Automatic retries following a resource failures, e.g. re-running a job with increased memory.
 - Whole-of-application resumes to handle missing data or in-flight code fixes.
 - Fine-grained job dependencies.
 
-
-
+#################
 Table of Contents
-*****************
+#################
+
+User Manual
+===========
 
 .. toctree::
     :maxdepth: 2
+    :caption: User Manual
 
     quickstart
+    core_concepts
+    monitoring_debugging
+    advanced_usage
     glossary
-    advanced_dependencies
-    architecture
-    databases
-    kubernetes_deployment
-    docker_deployment
-    tests
     API Reference <api/modules>
-    experimental_azure_kubernetes_deployment
-    design/finite_state_machine
+
+Developer's Guide
+=================
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Developer's Guide
+
+   developers_guide/index
 
 
 Indices and tables

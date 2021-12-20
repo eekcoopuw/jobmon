@@ -92,4 +92,13 @@ class SpecialChars:
     Used to define special chars.
     """
 
-    ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\""
+    ILLEGAL_SPECIAL_CHARACTERS = r"/\\'\" "
+
+
+class ExecludeTTVs:
+    """A hard-coded list.
+
+    Used to exclude task template versions with huge tasks that cause DB crash.
+    """
+
+    EXECLUDE_TTVS = {1}  # bashtask

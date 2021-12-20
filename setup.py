@@ -49,6 +49,10 @@ DOCS_REQUIRES = [
     'sphinx_code_tabs',
 ]
 
+IHME_REQUIRES = [
+    'jobmon_installer_ihme'
+]
+
 
 def read(read_file: str):
     return open(os.path.join(os.path.dirname(__file__), read_file)).read()
@@ -68,14 +72,16 @@ setup(
     classifiers="""
         Programming Language :: Python :: 3.9
         Programming Language :: Python :: 3.8
+        Programming Language :: Python :: 3.7
         """,
 
-    python_requires='>=3.8',
+    python_requires='>=3.7',
     install_requires=INSTALL_REQUIRES,
     extras_require={
         'test': TEST_REQUIRES,
         'docs': DOCS_REQUIRES,
-        'server': SERVER_REQUIRES
+        'server': SERVER_REQUIRES,
+        'ihme': IHME_REQUIRES,
     },
 
     packages=find_packages('src'),

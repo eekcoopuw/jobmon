@@ -1,6 +1,7 @@
 """Cluster objects define where a user wants their tasks run. e.g. UGE, Azure, Seq."""
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 from typing import Any, Dict, List, Optional, Type
 
@@ -153,6 +154,17 @@ class Cluster:
 
         Validate before constructing task resources, taskResources assumed to be valid
         """
+        try:
+            time_object = datetime.strptime(resource_params["runtime"], "%H:%M:%S")
+            time_seconds = (
+                time_object.hour * 60 * 60
+                + time_object.minute * 60
+                + time_object.second
+            )
+            resource_params["runtime"] = str(time_seconds) + "s"
+        except Exception:
+            pass
+
         try:
             queue_name: str = resource_params["queue"]
         except KeyError:

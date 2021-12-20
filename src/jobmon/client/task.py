@@ -70,7 +70,7 @@ class Task:
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, float]] = None,
-        fallback_queues: Optional[List[ClusterQueue]] = None,
+        fallback_queues: Optional[List[str]] = None,
         name: Optional[str] = None,
         max_attempts: int = 3,
         upstream_tasks: Optional[List["Task"]] = None,
@@ -158,9 +158,16 @@ class Task:
         else:
             self.compute_resources = compute_resources.copy()
         self.compute_resources_callable = compute_resources_callable
-        self.resource_scales = resource_scales
+        self.resource_scales = (
+            resource_scales
+            if resource_scales is not None
+            else {"memory": 0.5, "runtime": 0.5}
+        )
         self.cluster_name = cluster_name
-        self.fallback_queues = fallback_queues
+        self.fallback_queues: List[ClusterQueue] = []
+        if fallback_queues is not None:
+            for q in fallback_queues:
+                Cluster.get_cluster(cluster_name).get_queue(q)
         self._errors: Union[
             None, Dict[str, Union[int, List[Dict[str, Union[str, int]]]]]
         ] = None

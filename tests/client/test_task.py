@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy.sql import text
+from unittest.mock import patch, PropertyMock
 
 from jobmon.client.task import Task
 from jobmon.client.tool import Tool
@@ -55,6 +56,9 @@ def test_default_task_name(task_template):
     # special char
     a = task_template.create_task(arg="abc'abc/abc")
     assert a.name == "simple_template_1-abc_abc_abc"
+    # spaces
+    a = task_template.create_task(arg="echo 10")
+    assert a.name == "simple_template_1-echo_10"
 
 
 def test_task_attribute(db_cfg, tool):
@@ -335,11 +339,14 @@ def test_resource_usage(db_cfg, client_env):
         WHERE task_id = :task_id"""
         DB.session.execute(sql, {"task_id": task.task_id})
         DB.session.commit()
-    used_task_resources = task.resource_usage()
-    assert used_task_resources == {
-        "memory": "1234",
-        "nodename": "SequentialNode",
-        "num_attempts": 1,
-        "runtime": "12",
-    }
-
+    with patch(
+        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+    ) as f:
+        f.return_value = set()  # no exclude tt
+        used_task_resources = task.resource_usage()
+        assert used_task_resources == {
+            "memory": "1234",
+            "nodename": "SequentialNode",
+            "num_attempts": 1,
+            "runtime": "12",
+        }

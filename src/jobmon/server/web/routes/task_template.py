@@ -179,16 +179,17 @@ def get_requsted_cores() -> Any:
 
 @finite_state_machine.route("/get_most_popular_queue", methods=["GET"])
 def get_most_popular_queue() -> Any:
-    """Get the min, max, and arg of requested cores."""
+    """Get the most polular queue of the task template."""
     # parse args
     ttvis = request.args.get("task_template_version_ids")
     sql = f"""
-           SELECT t3.id as id, t4.requested_resources as rr
+           SELECT t3.id as id,  t4.queue_id as queue_id
            FROM task t1, node t2, task_template_version t3, task_resources t4
            WHERE t3.id in {ttvis}
            AND t2.task_template_version_id=t3.id
            AND t1.node_id=t2.id
            AND t4.task_id=t1.id
+           AND t4.queue_id is not null
     """
     rows = DB.session.execute(sql).fetchall()
     # return a "standard" json format for cli routes
@@ -197,20 +198,15 @@ def get_most_popular_queue() -> Any:
         result_dir: Dict = dict()
         for r in rows:
             ttvi = r["id"]
-            # json loads hates single quotes
-            j_str = r["rr"].replace("'", '"')
-            j_dir = json.loads(j_str)
-            # Ignore rows without queue info
-            if "queue" in j_dir.keys():
-                q = j_dir["queue"]
-                if ttvi in result_dir.keys():
-                    if q in result_dir[ttvi].keys():
-                        result_dir[ttvi][q] += 1
-                    else:
-                        result_dir[ttvi][q] = 1
+            q = r["queue_id"]
+            if ttvi in result_dir.keys():
+                if q in result_dir[ttvi].keys():
+                    result_dir[ttvi][q] += 1
                 else:
-                    result_dir[ttvi] = dict()
                     result_dir[ttvi][q] = 1
+            else:
+                result_dir[ttvi] = dict()
+                result_dir[ttvi][q] = 1
         for ttvi in result_dir.keys():
             # assign to a variable to keep typecheck happy
             max_usage = 0
@@ -218,7 +214,12 @@ def get_most_popular_queue() -> Any:
                 if result_dir[ttvi][q] > max_usage:
                     popular_q = q
                     max_usage = result_dir[ttvi][q]
-            queue_info.append({"id": ttvi, "queue": popular_q})
+            # get queue name; and return queue id with it
+            sql = f"SELECT name FROM queue WHERE id={popular_q}"
+            popular_q_name = DB.session.execute(sql).fetchone()["name"]
+            queue_info.append(
+                {"id": ttvi, "queue": popular_q_name, "queue_id": popular_q}
+            )
 
     resp = jsonify({"queue_info": queue_info})
     resp.status_code = StatusCodes.OK
@@ -370,8 +371,17 @@ def get_task_template_resource_usage() -> Any:
 
     query = """
               SELECT
-                    ti.wallclock as r,
-                    ti.maxpss as m
+                    CASE
+                        WHEN ti.wallclock is Null THEN 0
+                        ELSE ti.wallclock
+                    END AS r,
+                    CASE
+                        WHEN ti.maxpss is Null AND ti.maxrss is Null THEN 0
+                        WHEN ti.maxpss is Null AND ti.maxrss is not Null THEN ti.maxrss
+                        WHEN ti.maxpss is NOT Null AND ti.maxrss is Null THEN ti.maxpss
+                        WHEN ti.maxpss > ti.maxrss THEN ti.maxpss
+                        ELSE ti.maxrss
+                     END AS m
                 FROM
                     task_template_version AS ttv,
                     node AS n,
@@ -397,7 +407,7 @@ def get_task_template_resource_usage() -> Any:
         mems = []
         for row in result:
             runtimes.append(int(row["r"]))
-            mems.append(int(row["m"]))
+            mems.append(max(0, int(row["m"])))
         num_tasks = len(runtimes)
         min_mem = int(np.min(mems))
         max_mem = int(np.max(mems))
