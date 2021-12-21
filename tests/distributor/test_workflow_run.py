@@ -10,6 +10,7 @@ from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.requester import Requester
 
 
+@pytest.mark.skip(reason="Future task to remove cluster from task")
 def test_instantiate_queued_tasks(tool, db_cfg, client_env, task_template, array_template):
     """tests that a task can be instantiated and run and log done"""
 

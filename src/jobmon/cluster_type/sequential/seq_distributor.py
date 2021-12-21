@@ -13,7 +13,6 @@ from jobmon.worker_node.cli import WorkerNodeCLI
 
 logger = logging.getLogger(__name__)
 
-"""TODO: GBDSCI-4185"""
 class LimitedSizeDict(OrderedDict):
     """Dictionary for exit info."""
 
