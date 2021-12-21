@@ -1,4 +1,11 @@
-from ._version import __version__  # noqa F401
+import sys
+
+if sys.version_info >= (3, 8):
+    from importlib import metadata
+else:
+    import importlib_metadata as metadata
+
+__version__ = metadata.version('jobmon_installer_ihme')
 
 
 def install_config():

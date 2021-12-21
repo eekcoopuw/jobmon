@@ -67,7 +67,7 @@ upload_python_dist () {
     REG_PASSWORD=$3
     ACTIVATE=$4
 
-    $ACTIVATE && nox --session distribute
+    $ACTIVATE && nox --session build
     PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
     JOBMON_VERSION=$(basename $(find ./dist/jobmon-*.tar.gz) | sed "s/jobmon-\\(.*\\)\\.tar\\.gz/\\1/")
     if [[ "$JOBMON_VERSION" =~ "dev" ]]

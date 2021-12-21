@@ -1,15 +1,16 @@
 [metadata]
 name = jobmon-installer-ihme
-version = attr: jobmon_installer_ihme._version.__version__
+version = {{ INSTALLER_VERSION }}
 description = jobmon client for IHME staff
 long_description = file: README.rst, LICENSE
 
 [options]
 python_requires = >= 3.7
 install_requires =
-    jobmon_uge
-    jobmon_slurm
-    jobmon
+    importlib_metadata
+    jobmon == {{ JOBMON_VERSION }}
+    jobmon_uge == {{ JOBMON_UGE_VERSION }}
+    jobmon_slurm == {{ JOBMON_SLURM_VERSION }}
 package_dir=
     =src
 packages=find:
