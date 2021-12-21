@@ -3,6 +3,8 @@ import logging
 import queue
 from typing import Union
 
+from jobmon.server.squid_integration.squid_utils import QueuedTI
+
 
 logger = logging.getLogger(__name__)
 
@@ -11,17 +13,13 @@ class MaxrssQ:
     """Singleton Queue for maxpss."""
 
     _q = None
-    # Add an exit point
-    keep_running = True
-
-    def __init__(self, maxsize: int = 1000000) -> None:
-        """Initialize queue."""
-        if MaxrssQ._q is None:
-            MaxrssQ._q = queue.Queue(maxsize=maxsize)
+    _maxsize = 1000000
 
     @staticmethod
-    def get() -> Union[tuple, None]:
+    def get() -> Union[QueuedTI, None]:
         """Get an item from the queue."""
+        if MaxrssQ._q is None:
+            MaxrssQ._q = queue.Queue(maxsize=MaxrssQ._maxsize)
         try:
             return MaxrssQ._q.get_nowait()  # type: ignore
         except queue.Empty:
@@ -29,16 +27,20 @@ class MaxrssQ:
             return None
 
     @staticmethod
-    def put(execution_id: int, age: int = 0) -> None:
+    def put(queued_ti: QueuedTI, age: int = 0) -> None:
         """Put execution id in the queue."""
         try:
-            MaxrssQ._q.put_nowait((execution_id, age))  # type: ignore
+            if MaxrssQ._q is None:
+                MaxrssQ._q = queue.Queue(maxsize=MaxrssQ._maxsize)
+            MaxrssQ._q.put_nowait((queued_ti, age))  # type: ignore
         except queue.Full:
             logger.warning("Queue is full")
 
     @staticmethod
     def get_size() -> int:
         """Get the size of the queue."""
+        if MaxrssQ._q is None:
+            MaxrssQ._q = queue.Queue(maxsize=MaxrssQ._maxsize)
         return MaxrssQ._q.qsize()  # type: ignore
 
     def empty_q(self) -> None:

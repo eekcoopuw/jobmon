@@ -104,7 +104,7 @@ def docs(session: Session) -> None:
         # source dir
         'src/jobmon',
         # exclude from autodoc
-        'src/jobmon/server/qpid_integration',
+        'src/jobmon/server/squid_integration',
         'src/jobmon/server/web/main.py'
     )
     session.run("sphinx-build", "docsource", "out/_html",

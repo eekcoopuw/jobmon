@@ -87,7 +87,7 @@ class ServerCLI(CLI):
 
     def qpid_integration(self, args: configargparse.Namespace) -> None:
         """QPID integration service entrypoint logic."""
-        from jobmon.server.qpid_integration.api import start_qpid_integration
+        from jobmon.server.squid_integration.api import start_qpid_integration
 
         # TODO: need dependency injection into qpid integration
         if args.command == "start":
@@ -147,14 +147,14 @@ class ServerCLI(CLI):
         ParserDefaults.heartbeat_report_by_buffer(reaper_parser)
 
     def _add_qpid_integration_subparser(self) -> None:
-        qpid_parser = self._subparsers.add_parser("qpid_integration", **PARSER_KWARGS)
+        qpid_parser = self._subparsers.add_parser("squid_integration", **PARSER_KWARGS)
         qpid_parser.set_defaults(func=self.qpid_integration)
         qpid_parser.add_argument(
             "command",
             type=str,
             choices=["start"],
             help=(
-                "The qpid_integration sub-command to run: (start). Start command runs "
+                "The squid_integration sub-command to run: (start). Start command runs "
                 "qpid.maxpss_forever()."
             ),
         )

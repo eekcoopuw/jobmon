@@ -23,7 +23,7 @@ spec:
         imagePullPolicy: Always
         name: jobmon-qpid-integration
         command: ["jobmon_server"]
-        args: ["qpid_integration", "start"]
+        args: ["squid_integration", "start"]
         env:
         - name: DB_HOST
           valueFrom:

@@ -7,12 +7,12 @@ import requests
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from jobmon.server.qpid_integration.maxpss_queue import MaxpssQ
-from jobmon.server.qpid_integration.qpid_config import QPIDConfig
+from jobmon.server.squid_integration.maxpss_queue import MaxpssQ
+from jobmon.server.squid_integration.squid_config import SQUIDConfig
 
 logger = logging.getLogger(__name__)
 
-config = QPIDConfig.from_defaults()
+config = SQUIDConfig.from_defaults()
 
 
 def _get_pulling_interval() -> int:
