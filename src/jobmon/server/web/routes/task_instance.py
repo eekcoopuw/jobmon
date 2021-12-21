@@ -408,36 +408,6 @@ def get_task_instances_to_terminate(workflow_run_id: int) -> Any:
 
 
 @finite_state_machine.route(
-    "/task_instance/<distributor_id>/maxpss/<maxpss>", methods=["POST"]
-)
-def set_maxpss(distributor_id: int, maxpss: int) -> Any:
-    """Route to set maxpss of a job instance.
-
-    Args:
-        distributor_id (int): sge distributor id
-        maxpss (int): maxpss from QPID
-    """
-    bind_to_logger(distributor_id=distributor_id)
-    logger.info(f"Setting maxpss for distributor_id {distributor_id}")
-    try:
-        sql = f"UPDATE task_instance SET maxpss={maxpss} WHERE distributor_id={distributor_id}"
-        DB.session.execute(sql)
-        DB.session.commit()
-        resp = jsonify(message=None)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except Exception as e:
-        msg = "Error updating maxpss for distributor id {eid}: {error}".format(
-            eid=distributor_id, error=str(e)
-        )
-        logger.error(msg)
-        raise ServerError(
-            f"Unexpected Jobmon Server Error {sys.exc_info()[0]} in " f"{request.path}",
-            status_code=500,
-        ) from e
-
-
-@finite_state_machine.route(
     "/workflow_run/<workflow_run_id>/log_distributor_report_by", methods=["POST"]
 )
 def log_distributor_report_by(workflow_run_id: int) -> Any:

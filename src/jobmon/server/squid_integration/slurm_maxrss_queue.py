@@ -14,6 +14,7 @@ class MaxrssQ:
 
     _q = None
     _maxsize = 1000000
+    keep_running = True
 
     @staticmethod
     def get() -> Union[QueuedTI, None]:
@@ -43,7 +44,11 @@ class MaxrssQ:
             MaxrssQ._q = queue.Queue(maxsize=MaxrssQ._maxsize)
         return MaxrssQ._q.qsize()  # type: ignore
 
-    def empty_q(self) -> None:
+    @staticmethod
+    def empty_q() -> None:
         """This is for unit testing."""
-        while self.get_size() > 0:
-            self.get()
+        if MaxrssQ._q is None:
+            MaxrssQ._q = queue.Queue(maxsize=MaxrssQ._maxsize)
+            return
+        while MaxrssQ.get_size() > 0:
+            MaxrssQ.get()

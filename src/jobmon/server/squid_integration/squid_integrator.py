@@ -76,50 +76,9 @@ class IntegrationClusters:
         self.cluster_type_id = None
 
 
+# slurm
 def _get_slurm_api(item: QueuedTI) -> SlurmApi:
     pass
-
-
-def _get_cluster_ids(session, cluster_type: str) -> list:
-    return IntegrationClusters.get_instance(session,
-                                            cluster_type).cluster_ids
-
-
-def _get_cluster_type_id(session, cluster_type: str) -> list:
-    return IntegrationClusters.get_instance(session,
-                                            cluster_type).cluster_type_id
-
-
-def _update_maxrss_in_db(item: QueuedTI, session: Session) -> bool:
-    return_result = True
-    try:
-        if item.cluster_type_name == "uge":
-            # TODO: move qpid integration here
-            pass
-            return True
-        if item.cluster_type_name == "slurm":
-            usage_stats = _get_squid_resource(item)
-            rss = usage_stats["maxrss"]
-            wallclock = usage_stats["wallclock"]
-            # Doing single update instead of batch because if a batch update failed it's harder to
-            # tell which task_instance has been updated
-            sql = f"UPDATE task_instance SET maxrss={rss}, " \
-                  f"wallclock={wallclock}" \
-                  f" WHERE id={item.task_instance_id}"
-            session.execute(sql)
-            session.commit()
-        if item.cluster_type_name == "dummy":
-            # This is for testing only.
-            # Production code should never access this block.
-            sql = f"UPDATE task_instance SET maxrss=1314" \
-                  f" WHERE id={item.task_instance_id}"
-            session.execute(sql)
-            session.commit()
-    except Exception as e:
-        logger.error(str(e))
-        return_result = False
-    finally:
-        return return_result
 
 
 def _get_squid_resource(item: QueuedTI) -> dict:
@@ -168,6 +127,73 @@ def _get_squid_resource(item: QueuedTI) -> dict:
     return usage_stats
 
 
+# uge
+def _get_qpid_response(distributor_id: int, qpid_uri_base: str) -> Tuple:
+    qpid_api_url = f"{qpid_uri_base}/{distributor_id}"
+    logger.info(qpid_api_url)
+    resp = requests.get(qpid_api_url)
+    if resp.status_code != 200:
+        logger.info(
+            f"The maxpss of {distributor_id} is not available. Put it back to the queue."
+        )
+        return (resp, None)
+    else:
+        maxpss = resp.json()["max_pss"]
+        logger.debug(f"execution id: {distributor_id} maxpss: {maxpss}")
+        return 200, maxpss
+
+
+# common
+def _get_cluster_ids(session, cluster_type: str) -> list:
+    return IntegrationClusters.get_instance(session,
+                                            cluster_type).cluster_ids
+
+
+def _get_cluster_type_id(session, cluster_type: str) -> list:
+    return IntegrationClusters.get_instance(session,
+                                            cluster_type).cluster_type_id
+
+
+def _update_maxrss_in_db(item: QueuedTI, session: Session,
+                         qpid_uri_base: Optional[str]=None) -> bool:
+    return_result = True
+    try:
+        if item.cluster_type_name == "uge":
+            code, maxpss = _get_qpid_response(item.distributor_id, qpid_uri_base)
+            if code != 200:
+                logger.warning(f"Fail to get response from {qpid_uri_base}/{item.distributor_id} "
+                               f"with {code}")
+                return_result = False
+            else:
+                sql = f"UPDATE task_instance SET maxrss={maxpss} " \
+                      f" WHERE id={item.task_instance_id}"
+                session.execute(sql)
+                session.commit()
+        if item.cluster_type_name == "slurm":
+            usage_stats = _get_squid_resource(item)
+            rss = usage_stats["maxrss"]
+            wallclock = usage_stats["wallclock"]
+            # Doing single update instead of batch because if a batch update failed it's harder to
+            # tell which task_instance has been updated
+            sql = f"UPDATE task_instance SET maxrss={rss}, " \
+                  f"wallclock={wallclock}" \
+                  f" WHERE id={item.task_instance_id}"
+            session.execute(sql)
+            session.commit()
+        if item.cluster_type_name == "dummy":
+            # This is for testing only.
+            # Production code should never access this block.
+            sql = f"UPDATE task_instance SET maxrss=1314" \
+                  f" WHERE id={item.task_instance_id}"
+            session.execute(sql)
+            session.commit()
+    except Exception as e:
+        logger.error(str(e))
+        return_result = False
+    finally:
+        return return_result
+
+
 def _get_completed_task_instance(starttime: float, session: Session) -> None:
     """Fetch completed SLURM task instances only."""
     sql = (
@@ -196,15 +222,17 @@ def _get_config() -> dict:
     config = SQUIDConfig.from_defaults()
     return {"conn_str": config.conn_str,
             "polling_interval": config.squid_polling_interval,
-            "max_update_per_sec": config.squid_max_update_per_second}
+            "max_update_per_sec": config.squid_max_update_per_second,
+            "qpid_uri_base": config.qpid_uri_base}
 
 
-def _update_tis(max_update_per_sec: int, session: Session):
+def _update_tis(max_update_per_sec: int, session: Session,
+                qpid_uri_base: Optional[str] = None):
     for i in range(max_update_per_sec):
         r = MaxrssQ.get()
         if r is not None:
             (item, age) = r
-            if _update_maxrss_in_db(item, session):
+            if _update_maxrss_in_db(item, session, qpid_uri_base):
                 logger.info(f"Updated: {item.tostr()}")
             else:
                 MaxrssQ.put(item, age + 1)
@@ -223,15 +251,17 @@ def maxrss_forever(init_time: int = 0) -> None:
     last_heartbeat = init_time
     vars_from_config = _get_config()
     eng = create_engine(vars_from_config["conn_str"], pool_recycle=200)
-    session = sessionmaker(bind=eng)
+    Session = sessionmaker(bind=eng)
+    session = Session()
 
-    while True:
+    while MaxrssQ.keep_running:
         # Since there isn't a good way to specify the thread priority in Python,
         # put a sleep in each attempt to not overload the CPU.
         # The avg daily job instance is about 20k; thus, sleep(1) should be ok.
         sleep(1)
-        # Update qpid_max_update_per_second of jobs as defined in jobmon.cfg
-        _update_tis(vars_from_config["max_update_per_sec"], session)
+        # Update squid_max_update_per_second of jobs as defined in jobmon.cfg
+        _update_tis(vars_from_config["max_update_per_sec"], session,
+                    vars_from_config["qpid_uri_base"])
 
         # Query DB to add newly completed jobs to q and log q length
         current_time = time()

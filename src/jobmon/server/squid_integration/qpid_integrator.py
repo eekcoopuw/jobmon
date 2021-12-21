@@ -17,7 +17,7 @@ config = SQUIDConfig.from_defaults()
 
 def _get_pulling_interval() -> int:
     """This method returns the current app. The main purpose is for easy patch in testing."""
-    return config.qpid_polling_interval
+    return config.squid_polling_interval
 
 
 def _update_maxpss_in_db(distributor_id: int, pss: int, session: Session) -> bool:
@@ -86,8 +86,8 @@ def maxpss_forever() -> None:
         # put a sleep in each attempt to not overload the CPU.
         # The avg daily job instance is about 20k; thus, sleep(1) should be ok.
         sleep(1)
-        # Update qpid_max_update_per_second of jobs as defined in jobmon.cfg
-        for i in range(config.qpid_max_update_per_second):
+        # Update squid_max_update_per_second of jobs as defined in jobmon.cfg
+        for i in range(config.squid_max_update_per_second):
             r = MaxpssQ().get()
             if r is not None:
                 (distributor_id, age) = r

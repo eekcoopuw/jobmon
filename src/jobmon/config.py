@@ -299,30 +299,30 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def qpid_polling_interval(
+    def squid_polling_interval(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
         """Interval between qpid polling cycles if connecting qpid service."""
         parser.add_argument(
-            "--qpid_polling_interval",
+            "--squid_polling_interval",
             type=int,
             help="Interval between qpid polling cycles",
             default=600,
-            env_var="QPID_POLLING_INTERVAL",
+            env_var="squid_polling_interval",
         )
         return parser
 
     @staticmethod
-    def qpid_max_update_per_second(
+    def squid_max_update_per_second(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
         """Number of maxpss updates per second."""
         parser.add_argument(
-            "--qpid_max_update_per_second",
+            "--squid_max_update_per_second",
             type=int,
             help="Amount of maxpss updates per second",
             default=10,
-            env_var="QPID_MAX_UPDATE_PER_SECOND",
+            env_var="squid_max_update_per_second",
         )
         return parser
 

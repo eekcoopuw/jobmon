@@ -18,8 +18,6 @@ class SQUIDConfig:
         ParserDefaults.db_user(cli.parser)
         ParserDefaults.db_pass(cli.parser)
         ParserDefaults.db_name(cli.parser)
-        ParserDefaults.qpid_polling_interval(cli.parser)
-        ParserDefaults.qpid_max_update_per_second(cli.parser)
         ParserDefaults.qpid_cluster(cli.parser)
         ParserDefaults.qpid_uri(cli.parser)
         # squid new config
@@ -36,8 +34,6 @@ class SQUIDConfig:
             db_user=args.db_user,
             db_pass=args.db_pass,
             db_name=args.db_name,
-            qpid_polling_interval=args.qpid_polling_interval,
-            qpid_max_update_per_second=args.qpid_max_update_per_second,
             qpid_cluster=args.qpid_cluster,
             qpid_uri=args.qpid_uri,
             # squid
@@ -53,8 +49,6 @@ class SQUIDConfig:
         db_user: str,
         db_pass: str,
         db_name: str,
-        qpid_polling_interval: int,
-        qpid_max_update_per_second: int,
         qpid_cluster: str,
         qpid_uri: str,
         # squid
@@ -68,8 +62,6 @@ class SQUIDConfig:
         self.db_user = db_user
         self.db_pass = db_pass
         self.db_name = db_name
-        self.qpid_polling_interval = qpid_polling_interval
-        self.qpid_max_update_per_second = qpid_max_update_per_second
         self.qpid_cluster = qpid_cluster
         self.qpid_uri = qpid_uri
         # squid
@@ -79,7 +71,7 @@ class SQUIDConfig:
 
     @property
     def conn_str(self) -> str:
-        """Connection string to connect to the database."""
+        """Connection string to connect to the jobmonn database."""
         conn_str = "mysql://{user}:{pw}@{host}:{port}/{db}".format(
             user=self.db_user,
             pw=self.db_pass,
@@ -88,3 +80,8 @@ class SQUIDConfig:
             db=self.db_name,
         )
         return conn_str
+
+    @property
+    def qpid_uri_base(self) -> str:
+        qpid_api_url = f"{self.qpid_uri}/{self.qpid_cluster}/jobmaxpss"
+        return qpid_api_url
