@@ -43,10 +43,11 @@ def db_cfg(ephemera) -> dict:
 
 @pytest.fixture(scope="function")
 def client_env(web_server_process, monkeypatch):
-    from jobmon.client.client_config import ClientConfig
 
     monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
     monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
+
+    from jobmon.client.client_config import ClientConfig
 
     cc = ClientConfig(
         web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"], 30, 3.1
