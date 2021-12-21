@@ -1,8 +1,9 @@
-from jobmon.jobmon_utils import true_path
 import getpass
 import os
 import os.path as path
 import pytest
+
+from jobmon.jobmon_utils import true_path
 
 
 @pytest.mark.unittest

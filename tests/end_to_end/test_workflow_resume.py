@@ -3,12 +3,9 @@ import sys
 
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import ResumeSet, WorkflowAlreadyExists, WorkflowNotResumable
-from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.cluster_type.multiprocess.multiproc_distributor import (
     MultiprocessDistributor,
 )
-from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-from jobmon.client.tool import Tool
 
 from mock import patch
 
@@ -17,6 +14,8 @@ import pytest
 
 @pytest.fixture
 def tool(db_cfg, client_env):
+    from jobmon.client.tool import Tool
+
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
@@ -134,6 +133,8 @@ class MockDistributorProc:
 
 def test_cold_resume(tool, task_template):
     """"""
+    from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     # prepare first workflow
     workflow1 = tool.create_workflow(name="cold_resume")
@@ -201,6 +202,9 @@ def test_cold_resume(tool, task_template):
 
 
 def test_hot_resume(tool, task_template):
+    from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+
     workflow1 = tool.create_workflow(name="hot_resume")
     tasks = []
     for i in range(6):

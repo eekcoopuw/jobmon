@@ -1,14 +1,12 @@
 import pytest
 
-from jobmon.client.tool import Tool
 from jobmon.requester import Requester
 from jobmon.constants import WorkflowRunStatus, WorkflowStatus
-from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
-from jobmon.client.distributor.distributor_service import DistributorService
 
 
 @pytest.fixture
 def tool(db_cfg, client_env):
+    from jobmon.client.tool import Tool
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
@@ -30,6 +28,9 @@ def task_template(tool):
 
 def test_instantiating_launched(db_cfg, tool, task_template):
     """Check that the workflow and WFR are moving through appropriate states"""
+    from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+
     workflow = tool.create_workflow(name="test_instantiated_launched")
 
     t1 = task_template.create_task(arg="echo 1")

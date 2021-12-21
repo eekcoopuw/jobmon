@@ -336,50 +336,6 @@ def update_task_status(
     return resp
 
 
-def update_config(cc: ClientConfig) -> None:
-    """Update .jobmon.ini.
-
-    Args:
-        cc: new ClientConfig
-    """
-    import os
-    from jobmon.config import INSTALLED_CONFIG_FILE
-    import configparser
-
-    if os.path.isfile(INSTALLED_CONFIG_FILE):
-        edit = configparser.ConfigParser()
-        edit.read(INSTALLED_CONFIG_FILE)
-        client = edit["client"]
-        if (
-            client["web_service_fqdn"] == cc.host
-            and client["web_service_port"] == cc.port
-        ):
-            print(
-                "The new values are the same as in the config file. "
-                "No update is made to the config file."
-            )
-            return
-        else:
-            client["web_service_fqdn"] = cc.host
-            client["web_service_port"] = str(cc.port)
-            with open(INSTALLED_CONFIG_FILE, "w") as configfile:
-                edit.write(configfile)
-    else:
-        config = configparser.ConfigParser()
-        config.add_section("client")
-        config.set("client", "web_service_fqdn", cc.host)
-        config.set("client", "web_service_port", str(cc.port))
-        with open(INSTALLED_CONFIG_FILE, "w") as configfile:
-            config.write(configfile)
-
-    print(
-        f"Config file {INSTALLED_CONFIG_FILE} has been updated",
-        f"with new web_service_fqdn = {cc.host} web_service_port = {cc.port}.",
-    )
-
-    return
-
-
 def validate_username(workflow_id: int, username: str, requester: Requester) -> None:
     """Validate that the user is approved to make these changes."""
     rc, res = requester.send_request(

@@ -67,7 +67,7 @@ upload_python_dist () {
     REG_PASSWORD=$3
     ACTIVATE=$4
 
-    $ACTIVATE && nox --session distribute
+    $ACTIVATE && nox --session build
     PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
     JOBMON_VERSION=$(basename $(find ./dist/jobmon-*.tar.gz) | sed "s/jobmon-\\(.*\\)\\.tar\\.gz/\\1/")
     if [[ "$JOBMON_VERSION" =~ "dev" ]]
@@ -233,50 +233,6 @@ deploy_jobmon_to_k8s () {
     fi
 }
 
-
-test_k8s_uge_deployment () {
-    WORKSPACE=$1
-    QLOGIN_ACTIVATE=$2
-    JOBMON_VERSION=$3
-    TARGET_IP=$4
-
-    CONDA_DIR=$WORKSPACE/.conda_env/load_test
-    $QLOGIN_ACTIVATE && \
-        conda create --prefix $CONDA_DIR python==3.7
-    $QLOGIN_ACTIVATE &&
-       conda activate $CONDA_DIR && \
-       pip install pyyaml && \
-       pip install jobmon==$JOBMON_VERSION && \
-       pip install jobmon_uge && \
-       pip install jobmon_slurm && \
-       jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
-       python $WORKSPACE/deployment/tests/six_job_test.py
-
-    $QLOGIN_ACTIVATE &&
-        /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
-           --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr/jobmonr
-}
-
-
-test_k8s_slurm_deployment () {
-    WORKSPACE=$1
-    MINICONDA_PATH=$2
-    CONDA_ENV_NAME=$3
-    JOBMON_VERSION=$4
-    TARGET_IP=$5
-
-# Do not use the "source" command, because dash does not have it.
-# The default login shell on Ubuntu is dash.
-# "Source" and "." are synonyms for the same command.
-    . ${MINICONDA_PATH} ${CONDA_ENV_NAME} && \
-      conda deactivate && \
-      conda env remove --name slurm_k8s_env && \
-      conda create -n slurm_k8s_env ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
-      conda activate slurm_k8s_env && \
-      conda info --envs && \
-      srun -n 1 -p all.q -A general -c 1 --mem=10000 --time=100 python $WORKSPACE/deployment/tests/six_job_test.py 'slurm'
-}
-
 test_conda_client_uge () {
     WORKSPACE=$1
     QLOGIN_ACTIVATE=$2
@@ -329,7 +285,7 @@ test_server () {
     $QLOGIN_ACTIVATE &&
         conda activate $CONDA_DIR && \
         pip install jobmon==$JOBMON_VERSION && \
-        jobmon update_config --web_service_fqdn $WEB_SERVICE_FQDN --web_service_port $WEB_SERVICE_PORT && \
+        jobmon_config update --web_service_fqdn $WEB_SERVICE_FQDN --web_service_port $WEB_SERVICE_PORT && \
         python $WORKSPACE/deployment/tests/six_job_test.py sequential
     # Disable jobmonr test because it cannot pass version check
     #$QLOGIN_ACTIVATE &&

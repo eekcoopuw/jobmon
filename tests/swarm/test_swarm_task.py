@@ -1,10 +1,9 @@
-from jobmon.constants import WorkflowRunStatus
-from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
 
 def test_swarmtask_resources_integration(tool, task_template):
     """Check that taskresources defined in task are passed to swarmtask appropriately"""
-    from jobmon.constants import TaskResourcesType
+    from jobmon.constants import TaskResourcesType, WorkflowRunStatus
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     workflow = tool.create_workflow(default_cluster_name="multiprocess")
 
