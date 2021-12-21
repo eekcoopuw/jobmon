@@ -1,8 +1,11 @@
 import os
 import subprocess
+from typing import Optional, Union
 
 
-def true_path(file_or_dir=None, executable=None):
+def true_path(
+    file_or_dir: Optional[Union[bytes, str]] = None, executable: Optional[str] = None
+) -> str:
     """Get true path to file or executable.
 
     Args:
@@ -18,11 +21,10 @@ def true_path(file_or_dir=None, executable=None):
     elif executable is not None:
         f = subprocess.check_output(["which", str(executable)])
     else:
-        raise ValueError("true_path: file_or_dir and executable "
-                         "cannot both be null")
+        raise ValueError("true_path: file_or_dir and executable " "cannot both be null")
 
     # Be careful, in python 3 check_output returns bytes
     if not isinstance(f, str):
-        f = f.decode('utf-8')
+        f = f.decode("utf-8")
     f = os.path.abspath(os.path.expanduser(f))
-    return f.strip(' \t\r\n')
+    return f.strip(" \t\r\n")
