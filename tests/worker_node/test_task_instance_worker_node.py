@@ -3,12 +3,9 @@ import random
 import pytest
 
 from jobmon import __version__
-from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.cluster_type.dummy import DummyDistributor
 from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 from jobmon.constants import TaskInstanceStatus
-from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
 
 
 def test_seq_kill_self_state():
@@ -37,6 +34,9 @@ class DoNothingDistributor(DummyDistributor):
 def test_ti_kill_self_state(db_cfg, tool, ti_state):
     """should try to log a report by date after being set to the U or K state
     and fail"""
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
 
     workflow = tool.create_workflow(name=f"test_ti_kill_self_state_{ti_state}")
     task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 120")

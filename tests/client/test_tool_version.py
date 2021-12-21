@@ -1,3 +1,4 @@
+
 def test_load_task_templates(db_cfg, client_env):
     from jobmon.client.tool import Tool
 

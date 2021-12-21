@@ -4,7 +4,6 @@ import platform
 import pytest
 
 from jobmon.test_utils import test_server_config, WebServerProcess, ephemera_db_instance
-from jobmon.client.api import Tool
 
 logger = logging.getLogger(__name__)
 
@@ -130,6 +129,8 @@ def requester_in_memory(monkeypatch, web_server_in_memory):
 
 @pytest.fixture
 def tool(db_cfg, client_env):
+    from jobmon.client.api import Tool
+
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}

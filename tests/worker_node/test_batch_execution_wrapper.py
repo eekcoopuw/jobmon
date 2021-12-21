@@ -1,10 +1,6 @@
 import os
 
-from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.requester import Requester
-from jobmon.client.tool import Tool
-from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-
 from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
 
@@ -17,6 +13,10 @@ class MockDistributorProc:
 
 
 def test_limited_error_log(db_cfg, client_env):
+    from jobmon.client.tool import Tool
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.client.distributor.distributor_service import DistributorService
+
     tool = Tool()
     wf = tool.create_workflow(name="random_workflow")
     template = tool.get_task_template(
