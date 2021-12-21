@@ -3,7 +3,6 @@ import logging
 import os
 import time
 
-from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import CallableReturnedInvalidObject
 from jobmon.server.web.models.task_instance import TaskInstance
@@ -66,6 +65,7 @@ def test_sync_statuses(client_env, tool, task_template):
     swarm objects"""
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
     # client calls
     task = task_template.create_task(arg="fizzbuzz", name="bar", max_attempts=1)

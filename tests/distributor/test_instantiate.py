@@ -1,9 +1,6 @@
 import time
 
 
-from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
-from jobmon.cluster_type.dummy import DummyDistributor
-
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeTask
 
@@ -17,6 +14,7 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
     """tests that a task can be instantiated and run and log done"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
     t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
     workflow = tool.create_workflow(name="test_instantiate_queued_jobs")
@@ -62,6 +60,7 @@ def test_n_queued(tool, db_cfg, client_env, task_template):
     parameter"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.cluster_type.dummy import DummyDistributor
 
     tasks = []
     for i in range(20):
@@ -105,18 +104,18 @@ def test_n_queued(tool, db_cfg, client_env, task_template):
     assert len(all_jobs) == 20
 
 
-class ErrorDistributor(SequentialDistributor):
-    def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources
-    ) -> int:
-        raise ValueError("No distributor_id")
-
-
 def test_submit_raises_error(db_cfg, tool):
     """test that things move successfully into 'W' state if the executor
     returns the correct id"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+
+    class ErrorDistributor(SequentialDistributor):
+        def submit_to_batch_distributor(
+            self, command: str, name: str, requested_resources
+        ) -> int:
+            raise ValueError("No distributor_id")
 
     workflow = tool.create_workflow(name=f"test_submit_raises_error")
     task1 = tool.active_task_templates["simple_template"].create_task(arg="sleep 120")

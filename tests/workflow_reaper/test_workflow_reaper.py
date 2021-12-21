@@ -1,7 +1,6 @@
 import pytest
 from mock import patch, PropertyMock
 from jobmon.constants import WorkflowRunStatus
-from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
 
 def get_workflow_status(db_cfg, workflow_id):
@@ -50,6 +49,7 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.workflow_run import WorkflowRun
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
     # Create a workflow with one task set the workflow run status to R. log a heartbeat so it
     # doesn't get reaped
@@ -105,6 +105,7 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.workflow_run import WorkflowRun
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
     # Create first WorkflowRun and leave it in running state. log a heartbeat so it doesn't
     # get reaped

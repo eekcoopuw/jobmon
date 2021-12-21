@@ -5,7 +5,6 @@ import pytest
 import random
 from typing import Any, Dict
 
-from jobmon.cluster_type.dummy import DummyDistributor
 from jobmon.requester import Requester
 
 
@@ -45,6 +44,7 @@ def test_unknown_state(tool, db_cfg, client_env, task_template, monkeypatch):
     its report by date and the reconciler will kill it)"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.cluster_type.dummy import DummyDistributor
 
     class TestDummyDistributor(DummyDistributor):
         """a test DummyDistributor that bypasses the setting of log_running and log_done"""

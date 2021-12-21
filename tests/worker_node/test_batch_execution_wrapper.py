@@ -1,7 +1,6 @@
 import os
 
 from jobmon.requester import Requester
-from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
@@ -16,6 +15,7 @@ def test_limited_error_log(db_cfg, client_env):
     from jobmon.client.tool import Tool
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
     tool = Tool()
     wf = tool.create_workflow(name="random_workflow")

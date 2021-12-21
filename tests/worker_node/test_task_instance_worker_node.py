@@ -3,8 +3,6 @@ import random
 import pytest
 
 from jobmon import __version__
-from jobmon.cluster_type.dummy import DummyDistributor
-from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 from jobmon.constants import TaskInstanceStatus
 
 
@@ -12,20 +10,14 @@ def test_seq_kill_self_state():
     """
     mock the error status
     """
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+
     expected_words = "job was in kill self state"
     executor = SequentialDistributor()
     executor._exit_info = {1: 199}
     r_value, r_msg = executor.get_remote_exit_info(1)
     assert r_value == TaskInstanceStatus.UNKNOWN_ERROR
     assert expected_words in r_msg
-
-
-class DoNothingDistributor(DummyDistributor):
-    def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources
-    ) -> int:
-        distributor_id = random.randint(1, int(1e7))
-        return distributor_id
 
 
 @pytest.mark.parametrize(
@@ -37,6 +29,14 @@ def test_ti_kill_self_state(db_cfg, tool, ti_state):
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
+    from jobmon.cluster_type.dummy import DummyDistributor
+
+    class DoNothingDistributor(DummyDistributor):
+        def submit_to_batch_distributor(
+            self, command: str, name: str, requested_resources
+        ) -> int:
+            distributor_id = random.randint(1, int(1e7))
+            return distributor_id
 
     workflow = tool.create_workflow(name=f"test_ti_kill_self_state_{ti_state}")
     task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 120")
