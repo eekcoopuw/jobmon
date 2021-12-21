@@ -1,14 +1,16 @@
-import configargparse
 from typing import Optional
 
-from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults, INSTALLED_CONFIG_FILE
+import configargparse
+
+from jobmon.config import CLI, INSTALLED_CONFIG_FILE, PARSER_KWARGS, ParserDefaults
 
 
 def update_config(host: str, port: int) -> None:
     """Update .jobmon.ini.
 
     Args:
-        cc: new ClientConfig
+        host: web server host
+        port: web server port
     """
     import os
     import configparser
@@ -70,15 +72,12 @@ class GlobalCLI(CLI):
         Args:
             args: only --web_service_fqdn --web_service_port are expected.
         """
-
         update_config(args.web_service_fqdn, args.web_service_port)
 
     def _add_update_config_subparser(self) -> None:
         parser_kwargs = dict(PARSER_KWARGS)
         parser_kwargs.pop("args_for_setting_config_path")
-        update_config_parser = self._subparsers.add_parser(
-            "update", **parser_kwargs
-        )
+        update_config_parser = self._subparsers.add_parser("update", **parser_kwargs)
         update_config_parser.set_defaults(func=self.update_config)
         ParserDefaults.web_service_fqdn(update_config_parser)
         ParserDefaults.web_service_port(update_config_parser)
