@@ -22,7 +22,7 @@ class ServerCLI(CLI):
         # now add specific sub parsers
         self._add_web_service_subparser()
         self._add_workflow_reaper_subparser()
-        self._add_squid_integration_subparser()
+        self._add_qpid_integration_subparser()
 
     def web_service(self, args: configargparse.Namespace) -> None:
         """Web service entrypoint logic."""
@@ -85,21 +85,16 @@ class ServerCLI(CLI):
                 "Invalid command choice. Options are (start), got " f"({args.command})"
             )
 
-    def squid_integration(self, args: configargparse.Namespace) -> None:
+    def qpid_integration(self, args: configargparse.Namespace) -> None:
         """QPID integration service entrypoint logic."""
+        # TODO: need dependency injection into squid integration
         from jobmon.server.squid_integration.api import start_squid_integration
-
-        # TODO: need dependency injection into qpid integration
         if args.command == "start":
             start_squid_integration()
         else:
             raise ValueError(
                 "Invalid command choice. Options are (start), got " f"({args.command})"
             )
-
-    def qpid_integration(self, args: configargparse.Namespace) -> None:
-        """QPID integration service entrypoint logic."""
-        self.squid_integration(args)
 
     def _add_web_service_subparser(self) -> None:
         web_service_parser = self._subparsers.add_parser("web_service", **PARSER_KWARGS)
@@ -150,22 +145,9 @@ class ServerCLI(CLI):
         ParserDefaults.workflow_run_heartbeat_interval(reaper_parser)
         ParserDefaults.heartbeat_report_by_buffer(reaper_parser)
 
-    def _add_squid_integration_subparser(self) -> None:
-        squid_parser = self._subparsers.add_parser("squid_integration", **PARSER_KWARGS)
-        squid_parser.set_defaults(func=self.squid_integration)
-        squid_parser.add_argument(
-            "command",
-            type=str,
-            choices=["start"],
-            help=(
-                "The squid_integration sub-command to run: (start). Start command runs "
-                "squid.maxrss_forever()."
-            ),
-        )
-
     def _add_qpid_integration_subparser(self) -> None:
         qpid_parser = self._subparsers.add_parser("qpid_integration", **PARSER_KWARGS)
-        qpid_parser.set_defaults(func=self.squid_integration)
+        qpid_parser.set_defaults(func=self.qpid_integration)
         qpid_parser.add_argument(
             "command",
             type=str,
