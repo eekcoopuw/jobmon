@@ -92,25 +92,26 @@ def _get_squid_resource(item: QueuedTI) -> dict:
     slurm_api = _get_slurm_api(item)
 
     usage_stats = {}
-    for job in slurm_api.slurmdbd_get_job(item.distributor_id).jobs:
-        for allocated in job.tres.allocated:
-            if allocated["type"] in ("cpu", "node", "billing"):
-                usage_stats[allocated["type"]] = allocated["count"]
+    if slurm_api is not None:
+        for job in slurm_api.slurmdbd_get_job(item.distributor_id).jobs:
+            for allocated in job.tres.allocated:
+                if allocated["type"] in ("cpu", "node", "billing"):
+                    usage_stats[allocated["type"]] = allocated["count"]
 
-        # the actual mem usage should have nothing to do with the allocation
-        usage_stats["mem"] = 0
-        for step in job.steps:
-            for tres in step.tres.requested.max:
-                if tres["type"] == "mem":
-                    usage_stats["mem"] += tres["count"]
-
-        usage_stats["runtime"] = job.time.total.microseconds / 1_000_000 + \
-                                 job.time.total.seconds
-
-        if usage_stats["runtime"] == 0:
+            # the actual mem usage should have nothing to do with the allocation
+            usage_stats["mem"] = 0
             for step in job.steps:
-                usage_stats["runtime"] += step.time.total.microseconds / 1_000_000 + \
-                                          step.time.total.seconds
+                for tres in step.tres.requested.max:
+                    if tres["type"] == "mem":
+                        usage_stats["mem"] += tres["count"]
+
+            usage_stats["runtime"] = job.time.total.microseconds / 1_000_000 + \
+                                     job.time.total.seconds
+
+            if usage_stats["runtime"] == 0:
+                for step in job.steps:
+                    usage_stats["runtime"] += step.time.total.microseconds / 1_000_000 + \
+                                              step.time.total.seconds
 
     # rename keys by copying
     # Guard against null returns
@@ -243,6 +244,7 @@ def _update_tis(max_update_per_sec: int, session: Session,
                 MaxrssQ.put(item, age + 1)
                 logger.warning(f"Failed to update db, "
                                f"put {item} back to the queue.")
+            logger.debug(f"Q length: {MaxrssQ.get_size()}")
         else:
             return
 
