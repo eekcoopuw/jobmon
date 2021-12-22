@@ -60,19 +60,19 @@ pipeline {
       parallel {
         stage("Lint") {
           steps {
-            #sh "${ACTIVATE} && nox --session lint"
+            //sh "${ACTIVATE} && nox --session lint"
             sh "echo \"skipped\""
           } // End step
         } // End lint stage
         stage("Typecheck") {
           steps {
-            #sh "${ACTIVATE} && nox --session typecheck"
+            //sh "${ACTIVATE} && nox --session typecheck"
             sh "echo \"skipped\""
           } // End step
         } // End typecheck stage
         stage("Build Docs") {
           steps {
-            #sh "${ACTIVATE} && nox --session docs"
+            //sh "${ACTIVATE} && nox --session docs"
             sh "echo \"skipped\""
           } // End step
           post {
@@ -92,7 +92,8 @@ pipeline {
         } // End build docs stage
         stage('Tests') {
           steps {
-            sh "${ACTIVATE} && nox --session tests -- tests/ -n 3"
+            //sh "${ACTIVATE} && nox --session tests -- tests/ -n 3"
+            sh "echo \"skipped\""
           }
           post {
             always {
