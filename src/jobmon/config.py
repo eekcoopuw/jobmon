@@ -478,15 +478,16 @@ def install_default_config_from_plugin(cli: CLI) -> None:
     import pkgutil
     from jobmon.exceptions import ConfigError
 
-    print("Jobmon client not configured. Attempting to install configuration for plugin.")
+    print(
+        "Jobmon client not configured. Attempting to install configuration for plugin."
+    )
     configured = False
 
     # try and import any installers
     plugins = [
         plugin_name
-        for finder, plugin_name, ispkg
-        in pkgutil.iter_modules()
-        if plugin_name.startswith('jobmon_installer')
+        for finder, plugin_name, ispkg in pkgutil.iter_modules()
+        if plugin_name.startswith("jobmon_installer")
     ]
     if len(plugins) == 1:
         plugin_name = plugins[0]
@@ -496,11 +497,13 @@ def install_default_config_from_plugin(cli: CLI) -> None:
         config_installer()
         try:
             cli.parse_args("")
-            print("Successfully configured jobmon")
+            print("Successfully configured jobmon.")
             configured = True
         except SystemExit:
             pass
 
     if not configured:
-        raise ConfigError("Client not configured to access server. Please use jobmon_config "
-                          "command to specify which jobmon server you want to use.")
+        raise ConfigError(
+            "Client not configured to access server. Please use jobmon_config "
+            "command to specify which jobmon server you want to use."
+        )

@@ -1,5 +1,3 @@
-
-
 def test_node(client_env, db_cfg):
     """tests ClientNode.bind() - checks that a node created for the first time
     creates a new db entry, and if it gets bound again a new entry
