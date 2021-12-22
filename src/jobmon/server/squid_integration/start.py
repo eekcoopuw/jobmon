@@ -5,7 +5,7 @@ import sys
 import jobmon.server.squid_integration.squid_integrator as squid
 
 
-def start_qpid_integration() -> None:
+def start_squid_integration() -> None:
     """Start the qpid integration service."""
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 

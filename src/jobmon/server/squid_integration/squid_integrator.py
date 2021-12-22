@@ -157,6 +157,7 @@ def _get_cluster_type_id(session, cluster_type: str) -> list:
 def _update_maxrss_in_db(item: QueuedTI, session: Session,
                          qpid_uri_base: Optional[str]=None) -> bool:
     return_result = True
+    logger.debug(item.tostr())
     try:
         if item.cluster_type_name == "uge":
             code, maxpss = _get_qpid_response(item.distributor_id, qpid_uri_base)
@@ -269,6 +270,7 @@ def maxrss_forever(init_time: int = 0) -> None:
             logger.info("MaxrssQ length: {}".format(MaxrssQ.get_size()))
             try:
                 _get_completed_task_instance(last_heartbeat, session)
+                logger.debug(f"Q length: {MaxrssQ.get_size()}")
             except Exception as e:
                 logger.error(str(e))
             finally:
