@@ -198,11 +198,12 @@ def _update_maxrss_in_db(item: QueuedTI, session: Session,
 def _get_completed_task_instance(starttime: float, session: Session) -> None:
     """Fetch completed SLURM task instances only."""
     sql = (
-            "SELECT task_instance.id as id,  cluster_type.name as cluster_type "
+            "SELECT task_instance.id as id,  cluster_type.name as cluster_type, "
+            "    task_instance.maxrss as maxrss, task_instance.maxpss as maxpss "
             "from task_instance, cluster_type "
             'where task_instance.status not in ("B", "I", "R", "W") '
             "and UNIX_TIMESTAMP(task_instance.status_date) > {starttime} "
-            "and task_instance.maxrss is null "
+            "and (task_instance.maxrss is null  or task_instance.maxpss is null)"
             "and task_instance.cluster_type_id = cluster_type.id".format(
                 starttime=starttime
             )
@@ -211,12 +212,15 @@ def _get_completed_task_instance(starttime: float, session: Session) -> None:
     session.commit()
     for r in rs:
         if r["cluster_type"] in IntegrationClusters.get_cluster_type_requests_integration():
-            tid = int(r["id"])
-            item = QueuedTI.create_instance_from_db(session, tid)
-            if item:
-                MaxrssQ.put(item)
-            else:
-                logger.warning(f"Fail to create QueuedTI for {tid}")
+            # use maxpss for uge; maxrss for others
+            if (r["cluster_type"] == "uge" and r["maxpss"] is None) or \
+               (r["cluster_type"] != "uge" and (r["maxrss"] is None or r["maxrss"] == -1)):
+                tid = int(r["id"])
+                item = QueuedTI.create_instance_from_db(session, tid)
+                if item:
+                    MaxrssQ.put(item)
+                else:
+                    logger.warning(f"Fail to create QueuedTI for {tid}")
 
 
 def _get_config() -> dict:
