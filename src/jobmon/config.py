@@ -1,7 +1,7 @@
 """Parse configuration options and set them to be used throughout the Jobmon Architecture."""
 import os
 import shlex
-from typing import List, Optional, Type
+from typing import List, Optional
 
 import configargparse
 
@@ -466,7 +466,7 @@ class CLI:
         return args
 
 
-def install_default_config_from_plugin(cli: CLI):
+def install_default_config_from_plugin(cli: CLI) -> None:
     """Install a config from jobmon_installer plugin.
 
     Args:
@@ -496,7 +496,7 @@ def install_default_config_from_plugin(cli: CLI):
         config_installer()
         try:
             cli.parse_args("")
-            print(f"Successfully configured jobmon to access web service at {cc.url}")
+            print("Successfully configured jobmon")
             configured = True
         except SystemExit:
             pass
