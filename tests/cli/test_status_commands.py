@@ -31,6 +31,7 @@ def task_template(tool):
 @pytest.fixture
 def cli(client_env):
     from jobmon.client.cli import ClientCLI as CLI
+
     return CLI()
 
 

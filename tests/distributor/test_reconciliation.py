@@ -11,6 +11,7 @@ from jobmon.requester import Requester
 @pytest.fixture
 def tool(db_cfg, client_env):
     from jobmon.client.tool import Tool
+
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
