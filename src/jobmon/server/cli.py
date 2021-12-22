@@ -97,6 +97,10 @@ class ServerCLI(CLI):
                 "Invalid command choice. Options are (start), got " f"({args.command})"
             )
 
+    def qpid_integration(self, args: configargparse.Namespace) -> None:
+        """QPID integration service entrypoint logic."""
+        self.squid_integration(args)
+
     def _add_web_service_subparser(self) -> None:
         web_service_parser = self._subparsers.add_parser("web_service", **PARSER_KWARGS)
         web_service_parser.set_defaults(func=self.web_service)
@@ -147,7 +151,20 @@ class ServerCLI(CLI):
         ParserDefaults.heartbeat_report_by_buffer(reaper_parser)
 
     def _add_squid_integration_subparser(self) -> None:
-        qpid_parser = self._subparsers.add_parser("squid_integration", **PARSER_KWARGS)
+        squid_parser = self._subparsers.add_parser("squid_integration", **PARSER_KWARGS)
+        squid_parser.set_defaults(func=self.squid_integration)
+        squid_parser.add_argument(
+            "command",
+            type=str,
+            choices=["start"],
+            help=(
+                "The squid_integration sub-command to run: (start). Start command runs "
+                "squid.maxrss_forever()."
+            ),
+        )
+
+    def _add_qpid_integration_subparser(self) -> None:
+        qpid_parser = self._subparsers.add_parser("qpid_integration", **PARSER_KWARGS)
         qpid_parser.set_defaults(func=self.squid_integration)
         qpid_parser.add_argument(
             "command",
@@ -158,6 +175,7 @@ class ServerCLI(CLI):
                 "squid.maxrss_forever()."
             ),
         )
+
 
 
 def main(argstr: Optional[str] = None) -> None:

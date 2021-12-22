@@ -2,26 +2,26 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: jobmon-qpid-integration
+  name: jobmon-squid-integration
   namespace: {{ .Values.global.namespace }}
   labels:
-    app: jobmon-qpid-integration
+    app: jobmon-squid-integration
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: jobmon-qpid-integration
+      app: jobmon-squid-integration
   template:
     metadata:
       labels:
-        app: jobmon-qpid-integration
-        name: jobmon-qpid-integration
+        app: jobmon-squid-integration
+        name: jobmon-squid-integration
     spec:
       terminationGracePeriodSeconds: 60
       containers:
       - image: {{ .Values.global.jobmon_container_uri }}
         imagePullPolicy: Always
-        name: jobmon-qpid-integration
+        name: jobmon-squid-integration
         command: ["jobmon_server"]
         args: ["squid_integration", "start"]
         env:
