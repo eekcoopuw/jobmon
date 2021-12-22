@@ -299,34 +299,6 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def squid_polling_interval(
-        parser: configargparse.ArgumentParser,
-    ) -> configargparse.ArgumentParser:
-        """Interval between qpid polling cycles if connecting qpid service."""
-        parser.add_argument(
-            "--squid_polling_interval",
-            type=int,
-            help="Interval between qpid polling cycles",
-            default=600,
-            env_var="squid_polling_interval",
-        )
-        return parser
-
-    @staticmethod
-    def squid_max_update_per_second(
-        parser: configargparse.ArgumentParser,
-    ) -> configargparse.ArgumentParser:
-        """Number of maxpss updates per second."""
-        parser.add_argument(
-            "--squid_max_update_per_second",
-            type=int,
-            help="Amount of maxpss updates per second",
-            default=10,
-            env_var="squid_max_update_per_second",
-        )
-        return parser
-
-    @staticmethod
     def qpid_cluster(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
@@ -350,6 +322,7 @@ class ParserDefaults:
             type=str,
             help="uri for qpid service",
             required=True,
+            default="https://jobapi.ihme.washington.edu",
             env_var="QPID_URI",
         )
         return parser

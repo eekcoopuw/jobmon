@@ -22,7 +22,7 @@ class ServerCLI(CLI):
         # now add specific sub parsers
         self._add_web_service_subparser()
         self._add_workflow_reaper_subparser()
-        self._add_qpid_integration_subparser()
+        self._add_squid_integration_subparser()
 
     def web_service(self, args: configargparse.Namespace) -> None:
         """Web service entrypoint logic."""
@@ -85,7 +85,7 @@ class ServerCLI(CLI):
                 "Invalid command choice. Options are (start), got " f"({args.command})"
             )
 
-    def qpid_integration(self, args: configargparse.Namespace) -> None:
+    def squid_integration(self, args: configargparse.Namespace) -> None:
         """QPID integration service entrypoint logic."""
         from jobmon.server.squid_integration.api import start_squid_integration
 
@@ -146,9 +146,9 @@ class ServerCLI(CLI):
         ParserDefaults.workflow_run_heartbeat_interval(reaper_parser)
         ParserDefaults.heartbeat_report_by_buffer(reaper_parser)
 
-    def _add_qpid_integration_subparser(self) -> None:
+    def _add_squid_integration_subparser(self) -> None:
         qpid_parser = self._subparsers.add_parser("squid_integration", **PARSER_KWARGS)
-        qpid_parser.set_defaults(func=self.qpid_integration)
+        qpid_parser.set_defaults(func=self.squid_integration)
         qpid_parser.add_argument(
             "command",
             type=str,
