@@ -1,7 +1,7 @@
 """Configuration specific to worker node."""
 from typing import Any
 
-from jobmon.config import CLI, ParserDefaults
+from jobmon.config import CLI, install_default_config_from_plugin, ParserDefaults
 
 
 class WorkerNodeConfig:
@@ -18,7 +18,10 @@ class WorkerNodeConfig:
         ParserDefaults.web_service_port(cli.parser)
 
         # passing an empty string forces this method to ignore sys.argv
-        args = cli.parse_args("")
+        try:
+            args = cli.parse_args("")
+        except SystemExit:
+            install_default_config_from_plugin(cli)
 
         return cls(
             task_instance_heartbeat_interval=args.task_instance_heartbeat_interval,

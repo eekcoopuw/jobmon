@@ -1,7 +1,7 @@
 """Parse configuration options and set them to be used throughout the Jobmon Architecture."""
 import os
 import shlex
-from typing import List, Optional
+from typing import List, Optional, Type
 
 import configargparse
 
@@ -464,3 +464,43 @@ class CLI:
         args = self.parser.parse_args(arglist)
 
         return args
+
+
+def install_default_config_from_plugin(cli: CLI):
+    """Install a config from jobmon_installer plugin.
+
+    Args:
+        cli: CLI object to confirm installation
+
+    Raises: ConfigError
+    """
+    import importlib
+    import pkgutil
+    from jobmon.exceptions import ConfigError
+
+    print("Jobmon client not configured. Attempting to install configuration for plugin.")
+    configured = False
+
+    # try and import any installers
+    plugins = [
+        plugin_name
+        for finder, plugin_name, ispkg
+        in pkgutil.iter_modules()
+        if plugin_name.startswith('jobmon_installer')
+    ]
+    if len(plugins) == 1:
+        plugin_name = plugins[0]
+        print(f"Found one plugin: {plugin_name}")
+        module = importlib.import_module(plugin_name)
+        config_installer = getattr(module, "install_config")
+        config_installer()
+        try:
+            cli.parse_args("")
+            print(f"Successfully configured jobmon to access web service at {cc.url}")
+            configured = True
+        except SystemExit:
+            pass
+
+    if not configured:
+        raise ConfigError("Client not configured to access server. Please use jobmon_config "
+                          "command to specify which jobmon server you want to use.")
