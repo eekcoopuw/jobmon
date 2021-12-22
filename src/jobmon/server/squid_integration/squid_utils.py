@@ -1,3 +1,6 @@
+from functools import total_ordering
+
+@total_ordering
 class QueuedTI:
     """This is a class to hold the task instance.
 
@@ -10,9 +13,11 @@ class QueuedTI:
         self.cluster_type_name = None
         self.package_location = None
         self.cluster_id = None
+        self.age = 0
 
-    def tostr(self) -> str:
+    def __str__(self) -> str:
         return f"taks_instance_id: {self.task_instance_id}, " \
+               f"age: {self.age}, " \
                f"distributor_id: {self.distributor_id}, " \
                f"cluster_name: {self.cluster_type_name}, " \
                f"cluster_id: {self.cluster_id}, " \
@@ -49,4 +54,9 @@ class QueuedTI:
         else:
             return None
 
+    def __eq__(self, other):
+        """All q elements are equal."""
+        return self.age == other.age
 
+    def __lt__(self, other):
+        self.age < other.age

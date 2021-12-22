@@ -157,7 +157,7 @@ def _get_cluster_type_id(session, cluster_type: str) -> list:
 def _update_maxrss_in_db(item: QueuedTI, session: Session,
                          qpid_uri_base: Optional[str]=None) -> bool:
     return_result = True
-    logger.debug(item.tostr())
+    logger.debug(str(item))
     try:
         if item.cluster_type_name == "uge":
             code, maxpss = _get_qpid_response(item.distributor_id, qpid_uri_base)
@@ -234,11 +234,11 @@ def _update_tis(max_update_per_sec: int, session: Session,
         if r is not None:
             (item, age) = r
             if _update_maxrss_in_db(item, session, qpid_uri_base):
-                logger.info(f"Updated: {item.tostr()}")
+                logger.info(f"Updated: {item}")
             else:
                 MaxrssQ.put(item, age + 1)
                 logger.warning(f"Failed to update db, "
-                               f"put {item.tostr()} back to the queue.")
+                               f"put {item} back to the queue.")
         else:
             return
 

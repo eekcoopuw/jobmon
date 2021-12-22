@@ -1,10 +1,9 @@
 """Singleton for Max PSS Queue."""
 import logging
-import queue
+import heapq
 from typing import Union
 
 from jobmon.server.squid_integration.squid_utils import QueuedTI
-
 
 logger = logging.getLogger(__name__)
 
@@ -12,43 +11,35 @@ logger = logging.getLogger(__name__)
 class MaxrssQ:
     """Singleton Queue for maxpss."""
 
-    _q = None
-    _maxsize = 1000000
+    _q = []
+    _maxsize = 1000000000
     keep_running = True
 
     @staticmethod
-    def get() -> Union[QueuedTI, None]:
+    def get() -> Union[tuple, None]:
         """Get an item from the queue."""
-        if MaxrssQ._q is None:
-            MaxrssQ._q = queue.Queue(maxsize=MaxrssQ._maxsize)
-        try:
-            return MaxrssQ._q.get_nowait()  # type: ignore
-        except queue.Empty:
+        if len(MaxrssQ._q) == 0:
             logger.debug("Maxpss queue is empty")
             return None
+        item = heapq.heappop(MaxrssQ._q)
+        return item, item.age
+
 
     @staticmethod
     def put(queued_ti: QueuedTI, age: int = 0) -> None:
         """Put execution id in the queue."""
-        try:
-            if MaxrssQ._q is None:
-                MaxrssQ._q = queue.Queue(maxsize=MaxrssQ._maxsize)
-            MaxrssQ._q.put_nowait((queued_ti, age))  # type: ignore
-        except queue.Full:
+        if len(MaxrssQ._q) < MaxrssQ._maxsize:
+            queued_ti.age = age
+            MaxrssQ._q.append(queued_ti)  # type: ignore
+        else:
             logger.warning("Queue is full")
 
     @staticmethod
     def get_size() -> int:
         """Get the size of the queue."""
-        if MaxrssQ._q is None:
-            MaxrssQ._q = queue.Queue(maxsize=MaxrssQ._maxsize)
-        return MaxrssQ._q.qsize()  # type: ignore
+        return len(MaxrssQ._q)  # type: ignore
 
     @staticmethod
     def empty_q() -> None:
         """This is for unit testing."""
-        if MaxrssQ._q is None:
-            MaxrssQ._q = queue.Queue(maxsize=MaxrssQ._maxsize)
-            return
-        while MaxrssQ.get_size() > 0:
-            MaxrssQ.get()
+        MaxrssQ._q = []

@@ -38,7 +38,7 @@ def test_MaxrssQ(squidcfg):
     from jobmon.server.squid_integration.squid_utils import QueuedTI
 
     # clean start
-    MaxrssQ._q = None
+    MaxrssQ.empty_q()
     # set max
     MaxrssQ._maxsize = 100
     # get from empty queue
@@ -58,7 +58,7 @@ def test_MaxrssQ(squidcfg):
     item3 = QueuedTI()
     item3.task_instance_id = 3
     for i in range(110):
-        MaxrssQ().put(item3)
+        MaxrssQ().put(item3, 2)
     assert MaxrssQ().get_size() == 100
     # Test Queue Content
     # Q: ((2, 1))
