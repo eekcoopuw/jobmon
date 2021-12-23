@@ -1,7 +1,7 @@
 """The QPID service functionality."""
 import logging
 from time import sleep, time
-from typing import Optional, Tuple
+from typing import Any, List, Optional, Tuple
 
 import requests
 from slurm_rest.api import SlurmApi  # type: ignore
@@ -30,14 +30,12 @@ class IntegrationClusters:
         return list(IntegrationClusters._cluster_type_instance_dict.keys())
 
     @staticmethod
-    def get_instance(session: Session, cluster_type: str) -> None:  # type: ignore
+    def get_instance(session: Session, cluster_type: str) -> Any:  # type: ignore
         """Return an instance for given cluster type."""
         if cluster_type not in IntegrationClusters._cluster_type_instance_dict.keys():
             return None
         if IntegrationClusters._cluster_type_instance_dict[cluster_type] is None:
-            IntegrationClusters._cluster_type_instance_dict[
-                cluster_type
-            ] = IntegrationClusters()  # type: ignore
+            ic = IntegrationClusters()  # type: ignore
 
             # get cluster type id
             sql = f"""
@@ -46,11 +44,7 @@ class IntegrationClusters:
                 WHERE cluster_type.name = "{cluster_type}"
             """
             row = session.execute(sql).fetchone()
-            IntegrationClusters._cluster_type_instance_dict[
-                cluster_type
-            ].cluster_type_id = int(
-                row["id"]
-            )  # type: ignore
+            ic.cluster_type_id = int(row["id"])
 
             # get cluster ids
             sql = f"""
@@ -61,15 +55,16 @@ class IntegrationClusters:
             """
             rows = session.execute(sql).fetchall()
             cluster_ids = [int(r["id"]) for r in rows]
+            ic.cluster_ids = cluster_ids
             IntegrationClusters._cluster_type_instance_dict[
                 cluster_type
-            ].cluster_ids = cluster_ids  # type: ignore
+            ] = ic  # type: ignore
         return IntegrationClusters._cluster_type_instance_dict[cluster_type]
 
     def __init__(self) -> None:
         """Don't call."""
-        self.cluster_ids = []
-        self.cluster_type_id = None
+        self.cluster_ids: List[int] = []
+        self.cluster_type_id: int = 0  # doesn't matter
 
 
 # slurm
@@ -145,11 +140,17 @@ def _get_qpid_response(distributor_id: int, qpid_uri_base: Optional[str]) -> Tup
 
 # common
 def _get_cluster_ids(session: Session, cluster_type: str) -> list:
-    return IntegrationClusters.get_instance(session, cluster_type).cluster_ids
+    temp = IntegrationClusters.get_instance(session, cluster_type)
+    if temp:
+        return temp.cluster_ids  # type: ignore
+    return []
 
 
 def _get_cluster_type_id(session: Session, cluster_type: str) -> list:
-    return IntegrationClusters.get_instance(session, cluster_type).cluster_type_id
+    temp = IntegrationClusters.get_instance(session, cluster_type)
+    if temp:
+        return temp.cluster_type_id  # type: ignore
+    return []
 
 
 def _update_maxrss_in_db(
@@ -159,7 +160,9 @@ def _update_maxrss_in_db(
     logger.debug(str(item))
     try:
         if item.cluster_type_name == "UGE":
-            code, maxpss = _get_qpid_response(item.distributor_id, qpid_uri_base)
+            code, maxpss = _get_qpid_response(
+                item.distributor_id, qpid_uri_base  # type: ignore
+            )  # type: ignore
             if code != 200:
                 logger.warning(
                     f"Fail to get response from "

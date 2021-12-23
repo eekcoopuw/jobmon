@@ -544,6 +544,7 @@ def test_workflow_get_errors(db_cfg, client_env):
 
 def test_inconsistent_status(db_cfg, client_env):
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
+    from jobmon.client.tool import Tool
 
     # setup workflow
     tool = Tool()

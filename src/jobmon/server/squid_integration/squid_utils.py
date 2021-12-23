@@ -67,4 +67,4 @@ class QueuedTI:
 
     def __lt__(self, other: Any) -> bool:
         """Provide a method to compare."""
-        self.age < other.age
+        return self.age < other.age
