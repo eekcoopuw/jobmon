@@ -238,6 +238,7 @@ def _get_config() -> dict:
 
 def _update_tis(max_update_per_sec: int, session: Session,
                 qpid_uri_base: Optional[str] = None):
+    failed_tis = []
     for i in range(max_update_per_sec):
         r = MaxrssQ.get()
         if r is not None:
@@ -245,12 +246,14 @@ def _update_tis(max_update_per_sec: int, session: Session,
             if _update_maxrss_in_db(item, session, qpid_uri_base):
                 logger.info(f"Updated: {item}")
             else:
-                MaxrssQ.put(item, age + 1)
-                logger.warning(f"Failed to update db, "
-                               f"put {item} back to the queue.")
-            logger.debug(f"Q length: {MaxrssQ.get_size()}")
+                failed_tis.append(item)
         else:
-            return
+            break
+    for item in failed_tis:
+        MaxrssQ.put(item, item.age + 1)
+        logger.warning(f"Failed to update db, "
+                       f"put {item} back to the queue.")
+    logger.debug(f"Q length: {MaxrssQ.get_size()}")
 
 def maxrss_forever(init_time: int = 0) -> None:
     """A never stop method running in a thread that queries QPID.
