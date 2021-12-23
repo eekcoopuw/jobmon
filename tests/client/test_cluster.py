@@ -33,13 +33,14 @@ def test_validate(db_cfg, client_env):
     # Create a valid resource. In test_utils.db_schema, note that min/max cores for the multiprocess
     # cluster null.q is 1/20
     happy_resource: TaskResources = cluster.create_valid_task_resources(
-        resource_params={"cores": 10, "queue": "null.q"},
+        resource_params={"cores": 10, "queue": "null.q", "runtime": "01:02:33"},
         task_resources_type_id=TaskResourcesType.VALIDATED,
         fail=False,
     )
 
     assert happy_resource.concrete_resources.resources["cores"] == 10
     assert happy_resource.queue.queue_name == "null.q"
+    assert happy_resource.concrete_resources.resources["runtime"] == "3753s"
 
     # Create invalid resource
     # Try a fail call first

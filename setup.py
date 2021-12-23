@@ -55,6 +55,10 @@ DOCS_REQUIRES = [
     'sphinx_code_tabs',
 ]
 
+IHME_REQUIRES = [
+    'jobmon_installer_ihme'
+]
+
 
 def read(read_file: str):
     return open(os.path.join(os.path.dirname(__file__), read_file)).read()
@@ -82,7 +86,8 @@ setup(
     extras_require={
         'test': TEST_REQUIRES,
         'docs': DOCS_REQUIRES,
-        'server': SERVER_REQUIRES
+        'server': SERVER_REQUIRES,
+        'ihme': IHME_REQUIRES,
     },
 
     packages=find_packages('src'),
@@ -101,6 +106,7 @@ setup(
     entry_points={
         'console_scripts': [
             'jobmon=jobmon.client.cli:main',
+            'jobmon_config=jobmon.cli:main',
             'jobmon_distributor=jobmon.client.distributor.cli:main',
             'jobmon_server=jobmon.server.cli:main [server]',
             'worker_node_entry_point=jobmon.worker_node.cli:run'

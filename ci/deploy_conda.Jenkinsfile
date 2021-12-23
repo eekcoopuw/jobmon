@@ -32,6 +32,7 @@ pipeline {
     QLOGIN_ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
     MINICONDA_PATH = "/homes/svcscicompci/miniconda3/bin/activate"
     CONDA_ENV_NAME = "base"
+    PYPI_URL = "https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
   } // end environment
   stages {
     stage('Remote Checkout Repo') {
@@ -75,10 +76,9 @@ pipeline {
       steps {
         script {
           sh '''#!/bin/bash
-                export PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
+                export PYPI_URL="${PYPI_URL}"
                 export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
                 export JENKINS_BUILD_NUMBER="${BUILD_NUMBER}"
-                export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
                 export JOBMON_VERSION="${JOBMON_VERSION}"
                 export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
                 export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
@@ -104,6 +104,39 @@ pipeline {
                     --user "${REG_USERNAME}:${REG_PASSWORD}" \
                     -T ${FULL_FILEPATH} \
                     "https://artifactory.ihme.washington.edu/artifactory/conda-scicomp/noarch/$UPLOAD_FILEPATH"
+               '''
+          } // end credentials
+        } // end script
+      } // end steps
+    } // end upload stage
+    stage('Build IHME installer Distribution') {
+      steps {
+        script {
+          sh '''#!/bin/bash
+                export INSTALLER_VERSION="${CONDA_CLIENT_VERSION}"
+                export JOBMON_VERSION="${JOBMON_VERSION}"
+                export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
+                export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
+                export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
+                export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
+                ${DOCKER_ACTIVATE} && nox --session ihme_installer_build
+             '''
+        } // End script
+      } // end steps
+    } // end build stage
+    stage('Upload IHME installer Distribution') {
+      steps {
+        script {
+          withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
+                                            usernameVariable: 'REG_USERNAME',
+                                            passwordVariable: 'REG_PASSWORD')]) {
+            sh '''#!/bin/bash
+                  ${DOCKER_ACTIVATE} && twine upload \
+                    --repository-url ${PYPI_URL} \
+                    --username $REG_USERNAME \
+                    --password $REG_PASSWORD \
+                    --skip-existing \
+                    ./deployment/jobmon_installer_ihme/dist/*
                '''
           } // end credentials
         } // end script

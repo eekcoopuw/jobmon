@@ -3,9 +3,6 @@ import logging
 import os
 import time
 
-from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-from jobmon.client.distributor.distributor_service import DistributorService
-from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import CallableReturnedInvalidObject
 from jobmon.server.web.models.task_instance import TaskInstance
@@ -30,6 +27,7 @@ def test_blocking_update_timeout(tool, task_template):
     """This test runs a 1 task workflow and confirms that the workflow_run
     will timeout with an appropriate error message if timeout is set
     """
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     task = task_template.create_task(arg="sleep 3", name="foobarbaz")
     workflow = tool.create_workflow(name="my_simple_dag")
@@ -65,6 +63,9 @@ def test_sync_statuses(client_env, tool, task_template):
     """this test executes a single task workflow where the task fails. It
     is testing to confirm that the status updates are propagated into the
     swarm objects"""
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
     # client calls
     task = task_template.create_task(arg="fizzbuzz", name="bar", max_attempts=1)
@@ -117,6 +118,7 @@ def test_wedged_dag(db_cfg, tool, task_template):
     from jobmon.cluster_type.dummy import DummyDistributor
     from jobmon.worker_node.cli import WorkerNodeCLI
     from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     class WedgedDistributor(DummyDistributor):
 
@@ -271,6 +273,7 @@ def test_fail_fast(tool, task_template):
 
 def test_propagate_result(tool, task_template):
     """set up workflow with 3 tasks on one layer and 3 tasks as dependant"""
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     workflow = tool.create_workflow(name="test_propagate_result")
 
@@ -310,6 +313,7 @@ def test_propagate_result(tool, task_template):
 
 def test_callable_returns_valid_object(tool, task_template):
     """Test when the provided callable returns the correct parameters"""
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     def resource_file_does_exist(*args, **kwargs):
         # file contains dict with

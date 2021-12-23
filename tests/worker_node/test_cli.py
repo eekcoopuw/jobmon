@@ -2,8 +2,6 @@ import os
 import sys
 from unittest.mock import patch
 
-from jobmon.cluster_type.sequential import seq_distributor
-from jobmon.worker_node import worker_node_task_instance
 
 import pkg_resources
 
@@ -25,11 +23,14 @@ def mock_kill_self(*args, **kwargs):
 def test_distributor_id_from_env():
     """Test if the environment variable JOB_ID can be passed to
     seq_distributor.SequentialWorkerNode"""
+    from jobmon.cluster_type.sequential import seq_distributor
+
     with patch.dict(os.environ, {"JOB_ID": "77777"}):
         assert seq_distributor.SequentialWorkerNode().distributor_id == 77777
 
 
 def test_unwrap_happy_path(client_env):
+    from jobmon.worker_node import worker_node_task_instance
 
     with patch.dict(os.environ, {"JOB_ID": "77777"}), patch(
         worker_node + WNTI + "log_done"
@@ -60,6 +61,8 @@ def test_unwrap_happy_path(client_env):
 
 
 def test_stderr_buffering(capsys, client_env):
+    from jobmon.worker_node import worker_node_task_instance
+
     # this test checks 2 things.
     # 1) that we are getting logging messages from both jobmon and the
     # subprocess intermixed. This implies zero latency in stderr

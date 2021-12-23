@@ -1,6 +1,5 @@
 import logging
 from datetime import date
-import pytest
 
 
 def test_client_logging_default_format(client_env, capsys):

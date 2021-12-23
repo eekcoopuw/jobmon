@@ -1,5 +1,3 @@
-from jobmon.client.dag import Dag
-from jobmon.client.node import Node
 from jobmon.exceptions import DuplicateNodeArgsError
 
 import pytest
@@ -9,6 +7,8 @@ def test_dag(client_env, db_cfg):
     """tests ClientDag.bind() - checks that a dag created for the first time
     creates a new db entry, and if it gets bound again a new entry
     won't be created"""
+    from jobmon.client.dag import Dag
+    from jobmon.client.node import Node
 
     # create nodes for populate dag
     node_1 = Node(task_template_version_id=1, node_args={1: 1, 2: 2006, 4: "female"})
