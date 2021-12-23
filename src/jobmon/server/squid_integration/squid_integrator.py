@@ -36,7 +36,7 @@ class IntegrationClusters:
     never changes once the DB is created. Otherwise, the reboot the service.
     """
     _cluster_type_instance_dict = {"slurm": None,
-                                  "uge": None}
+                                  "UGE": None}
 
     @staticmethod
     def get_cluster_type_requests_integration():
@@ -161,7 +161,7 @@ def _update_maxrss_in_db(item: QueuedTI, session: Session,
     return_result = True
     logger.debug(str(item))
     try:
-        if item.cluster_type_name == "uge":
+        if item.cluster_type_name == "UGE":
             code, maxpss = _get_qpid_response(item.distributor_id, qpid_uri_base)
             if code != 200:
                 logger.warning(f"Fail to get response from {qpid_uri_base}/{item.distributor_id} "
@@ -218,8 +218,8 @@ def _get_completed_task_instance(starttime: float, session: Session) -> None:
     for r in rs:
         if r["cluster_type"] in IntegrationClusters.get_cluster_type_requests_integration():
             # use maxpss for uge; maxrss for others
-            if (r["cluster_type"] == "uge" and r["maxpss"] is None) or \
-               (r["cluster_type"] != "uge" and (r["maxrss"] is None or r["maxrss"] == -1)):
+            if (r["cluster_type"] == "UGE" and r["maxpss"] is None) or \
+               (r["cluster_type"] != "UGE" and (r["maxrss"] is None or r["maxrss"] == -1)):
                 tid = int(r["id"])
                 item = QueuedTI.create_instance_from_db(session, tid)
                 if item:
@@ -238,7 +238,7 @@ def _get_config() -> dict:
 
 def _update_tis(max_update_per_sec: int, session: Session,
                 qpid_uri_base: Optional[str] = None):
-    failed_tis = []
+    failed_tis = []  # no need to repeat the same ti in one cycle
     for i in range(max_update_per_sec):
         r = MaxrssQ.get()
         if r is not None:

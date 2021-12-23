@@ -92,7 +92,7 @@ def test_worker_with_mock_200(squidcfg):
         # code logic to test
         item = QueuedTI()
         item.task_instance_id = 1
-        item.cluster_type_name = "uge"
+        item.cluster_type_name = "UGE"
         MaxrssQ.put(item)
         assert MaxrssQ.get_size() == 1
         t = Thread(target=maxrss_forever)
@@ -125,7 +125,7 @@ def test_worker_with_mock_404(squidcfg):
         # code logic to test
         item = QueuedTI()
         item.task_instance_id = 1
-        item.cluster_type_name = "uge"
+        item.cluster_type_name = "UGE"
         MaxrssQ.put(item)
         assert MaxrssQ.get_size() == 1
         t = Thread(target=maxrss_forever)
@@ -162,7 +162,7 @@ def test_worker_with_mock_500(squidcfg):
         # code logic to test
         item = QueuedTI()
         item.task_instance_id = 1
-        item.cluster_type_name = "uge"
+        item.cluster_type_name = "UGE"
         MaxrssQ.put(item)
         assert MaxrssQ.get_size() == 1
         t = Thread(target=maxrss_forever)
