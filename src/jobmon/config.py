@@ -350,7 +350,7 @@ class ParserDefaults:
             "--squid_max_update_per_second",
             type=int,
             help="Amount of marrss updates per second",
-            default=1000,
+            default=100,
             env_var="SQUID_MAX_UPDATE_PER_SECOND",
         )
         return parser

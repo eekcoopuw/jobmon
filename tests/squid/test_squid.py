@@ -88,6 +88,9 @@ def test_get_slurm_resource_usages():
             assert d["wallclock"] > 0
 
 
+@pytest.mark.skip(
+    reason="This case has issue in parallel running."
+)
 def test_maxrss_forever(db_cfg, client_env, ephemera):
     from jobmon.server.squid_integration.squid_integrator import (
         _update_tis,
