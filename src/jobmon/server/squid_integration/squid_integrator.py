@@ -90,7 +90,7 @@ def _get_squid_resource(item: QueuedTI) -> dict:
        For runtime, get the total from the whole job, if 0, sum it up from the steps.
        """
     slurm_api = _get_slurm_api(item)
-    if slurm_api is not None:
+    if slurm_api is None:
         return None
 
     usage_stats = {}
