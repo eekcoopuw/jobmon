@@ -22,16 +22,16 @@ def test_IntegrationClusters(db_cfg, ephemera):
             port=ephemera["DB_PORT"],
             db=ephemera["DB_NAME"],
         )
-        return {"conn_str": conn_str,
-            "polling_interval": 10,
-            "max_update_per_sec": 10}
+        return {"conn_str": conn_str, "polling_interval": 10, "max_update_per_sec": 10}
 
-    with patch("jobmon.server.squid_integration.squid_integrator._get_config", fake_config):
+    with patch(
+        "jobmon.server.squid_integration.squid_integrator._get_config", fake_config
+    ):
         IntegrationClusters._cluster_type_instance_dict = {"dummy": None}
         app = db_cfg["app"]
         DB = db_cfg["DB"]
         with app.app_context():
-            sql = 'SELECT id FROM cluster_type WHERE name = \"dummy\"'
+            sql = 'SELECT id FROM cluster_type WHERE name = "dummy"'
             ctid = DB.session.execute(sql).fetchone()["id"]
             i1 = IntegrationClusters.get_instance(DB.session, "dummy")
             assert i1.cluster_type_id == ctid
@@ -43,15 +43,16 @@ def test_IntegrationClusters(db_cfg, ephemera):
             assert i1 is i2
 
 
-@pytest.mark.skip(reason="This is not a regress test."
-                         "But useful to verify _get_squid_resource.")
+@pytest.mark.skip(
+    reason="This is not a regress test." "But useful to verify _get_squid_resource."
+)
 def test_get_slurm_resource_usages():
     """This is to verify _get_squid_resource works.
 
     This test uses a hard coded job id.
     No need to run as regression.
     """
-    r = os.system('scontrol')
+    r = os.system("scontrol")
     if r > 0:
         pytest.skip("This test only runs on slurm nodes.")
     else:
@@ -64,17 +65,22 @@ def test_get_slurm_resource_usages():
 
         # a function to mock slurm auth token
         def get_slurm_api(*args):
-            res = os.popen(f'scontrol token lifespan={300}').read()
-            token = res.split('=')[1].strip()
+            res = os.popen(f"scontrol token lifespan={300}").read()
+            token = res.split("=")[1].strip()
             configuration = slurm_rest.Configuration(
                 host="https://api-stage.cluster.ihme.washington.edu",
                 api_key={
                     "X-SLURM-USER-NAME": getpass.getuser(),
-                    "X-SLURM-USER-TOKEN": token})
+                    "X-SLURM-USER-TOKEN": token,
+                },
+            )
             _slurm_api = slurm(slurm_rest.ApiClient(configuration))
             return _slurm_api
 
-        with patch("jobmon.server.squid_integration.squid_integrator._get_slurm_api", get_slurm_api):
+        with patch(
+            "jobmon.server.squid_integration.squid_integrator._get_slurm_api",
+            get_slurm_api,
+        ):
             qti = QueuedTI()
             qti.distributor_id = 563173
             d = _get_squid_resource(qti)
@@ -83,7 +89,10 @@ def test_get_slurm_resource_usages():
 
 
 def test_maxrss_forever(db_cfg, client_env, ephemera):
-    from jobmon.server.squid_integration.squid_integrator import _update_tis, _get_completed_task_instance
+    from jobmon.server.squid_integration.squid_integrator import (
+        _update_tis,
+        _get_completed_task_instance,
+    )
 
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
@@ -114,10 +123,11 @@ def test_maxrss_forever(db_cfg, client_env, ephemera):
             port=ephemera["DB_PORT"],
             db=ephemera["DB_NAME"],
         )
-        return {"conn_str": conn_str,
-            "polling_interval": 1,
-            "max_update_per_sec": 10}
-    with patch("jobmon.server.squid_integration.squid_integrator._get_config", fake_config):
+        return {"conn_str": conn_str, "polling_interval": 1, "max_update_per_sec": 10}
+
+    with patch(
+        "jobmon.server.squid_integration.squid_integrator._get_config", fake_config
+    ):
         IntegrationClusters._cluster_type_instance_dict = {"dummy": None}
         app = db_cfg["app"]
         DB = db_cfg["DB"]

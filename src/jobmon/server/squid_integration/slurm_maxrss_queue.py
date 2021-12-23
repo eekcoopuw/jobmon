@@ -1,7 +1,7 @@
 """Singleton for Max PSS Queue."""
-import logging
 import heapq
-from typing import Union
+import logging
+from typing import List, Union
 
 from jobmon.server.squid_integration.squid_utils import QueuedTI
 
@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 class MaxrssQ:
     """Singleton Queue for maxpss."""
 
-    _q = []
-    _maxsize = 1000000000
-    keep_running = True
+    _q: List[QueuedTI] = []
+    _maxsize: int = 1000000000
+    keep_running: bool = True
 
     @staticmethod
     def get() -> Union[tuple, None]:
@@ -23,7 +23,6 @@ class MaxrssQ:
             return None
         item = heapq.heappop(MaxrssQ._q)
         return item, item.age
-
 
     @staticmethod
     def put(queued_ti: QueuedTI, age: int = 0) -> None:

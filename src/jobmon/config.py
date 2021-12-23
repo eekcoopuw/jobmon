@@ -329,7 +329,7 @@ class ParserDefaults:
 
     @staticmethod
     def squid_polling_interval(
-            parser: configargparse.ArgumentParser,
+        parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
         """Interval between squid polling cycles if connecting qpid service."""
         parser.add_argument(
@@ -343,7 +343,7 @@ class ParserDefaults:
 
     @staticmethod
     def squid_max_update_per_second(
-            parser: configargparse.ArgumentParser,
+        parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
         """Number of maxrss updates per second."""
         parser.add_argument(
@@ -357,7 +357,7 @@ class ParserDefaults:
 
     @staticmethod
     def squid_cluster(
-            parser: configargparse.ArgumentParser,
+        parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
         """Cluster to pull maxrss data from. Default is fair."""
         parser.add_argument(

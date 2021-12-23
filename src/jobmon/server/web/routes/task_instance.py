@@ -1,7 +1,6 @@
 """Routes for TaskInstances."""
 from functools import partial
 from http import HTTPStatus as StatusCodes
-import sys
 from typing import Any, Optional
 
 from flask import jsonify, request

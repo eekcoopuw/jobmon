@@ -89,6 +89,7 @@ class ServerCLI(CLI):
         """QPID integration service entrypoint logic."""
         # TODO: need dependency injection into squid integration
         from jobmon.server.squid_integration.api import start_squid_integration
+
         if args.command == "start":
             start_squid_integration()
         else:
@@ -157,7 +158,6 @@ class ServerCLI(CLI):
                 "squid.maxrss_forever()."
             ),
         )
-
 
 
 def main(argstr: Optional[str] = None) -> None:

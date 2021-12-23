@@ -83,5 +83,6 @@ class SQUIDConfig:
 
     @property
     def qpid_uri_base(self) -> str:
+        """The uri prefix to jobmaxpss API."""
         qpid_api_url = f"{self.qpid_uri}/{self.qpid_cluster}/jobmaxpss"
         return qpid_api_url

@@ -76,7 +76,11 @@ def test_worker_with_mock_200(squidcfg):
     """This is to test the job with maxpss leaves the Q."""
     from jobmon.server.squid_integration.slurm_maxrss_queue import MaxrssQ
     from jobmon.server.squid_integration.squid_utils import QueuedTI
-    from jobmon.server.squid_integration.squid_integrator import _update_maxrss_in_db, _get_qpid_response, maxrss_forever
+    from jobmon.server.squid_integration.squid_integrator import (
+        _update_maxrss_in_db,
+        _get_qpid_response,
+        maxrss_forever,
+    )
 
     MaxrssQ.empty_q()
     assert MaxrssQ.get_size() == 0
@@ -111,8 +115,11 @@ def test_worker_with_mock_404(squidcfg):
     """This is to test the job without maxpss will be put back to the Q with age increased."""
     from jobmon.server.squid_integration.slurm_maxrss_queue import MaxrssQ
     from jobmon.server.squid_integration.squid_utils import QueuedTI
-    from jobmon.server.squid_integration.squid_integrator import _update_maxrss_in_db, _get_qpid_response, \
-        maxrss_forever
+    from jobmon.server.squid_integration.squid_integrator import (
+        _update_maxrss_in_db,
+        _get_qpid_response,
+        maxrss_forever,
+    )
 
     MaxrssQ.empty_q()
     MaxrssQ.keep_running = True
@@ -148,14 +155,17 @@ def test_worker_with_mock_500(squidcfg):
     down."""
     from jobmon.server.squid_integration.slurm_maxrss_queue import MaxrssQ
     from jobmon.server.squid_integration.squid_utils import QueuedTI
-    from jobmon.server.squid_integration.squid_integrator import _update_maxrss_in_db, _get_qpid_response, \
-        maxrss_forever
+    from jobmon.server.squid_integration.squid_integrator import (
+        _update_maxrss_in_db,
+        _get_qpid_response,
+        maxrss_forever,
+    )
 
     MaxrssQ.empty_q()
     MaxrssQ.keep_running = True
     assert MaxrssQ.get_size() == 0
     with mock.patch(
-            "jobmon.server.squid_integration.squid_integrator._get_qpid_response"
+        "jobmon.server.squid_integration.squid_integrator._get_qpid_response"
     ) as m_restful:
         # mock
         m_restful.return_value = (500, None)
