@@ -90,35 +90,36 @@ def _get_squid_resource(item: QueuedTI) -> dict:
        For runtime, get the total from the whole job, if 0, sum it up from the steps.
        """
     slurm_api = _get_slurm_api(item)
+    if slurm_api is not None:
+        return None
 
     usage_stats = {}
-    if slurm_api is not None:
-        for job in slurm_api.slurmdbd_get_job(item.distributor_id).jobs:
-            for allocated in job.tres.allocated:
-                if allocated["type"] in ("cpu", "node", "billing"):
-                    usage_stats[allocated["type"]] = allocated["count"]
 
-            # the actual mem usage should have nothing to do with the allocation
-            usage_stats["mem"] = 0
+    for job in slurm_api.slurmdbd_get_job(item.distributor_id).jobs:
+        for allocated in job.tres.allocated:
+            if allocated["type"] in ("cpu", "node", "billing"):
+                usage_stats[allocated["type"]] = allocated["count"]
+
+        # the actual mem usage should have nothing to do with the allocation
+        usage_stats["mem"] = 0
+        for step in job.steps:
+            for tres in step.tres.requested.max:
+                if tres["type"] == "mem":
+                    usage_stats["mem"] += tres["count"]
+
+        usage_stats["runtime"] = job.time.total.microseconds / 1_000_000 + \
+                                 job.time.total.seconds
+
+        if usage_stats["runtime"] == 0:
             for step in job.steps:
-                for tres in step.tres.requested.max:
-                    if tres["type"] == "mem":
-                        usage_stats["mem"] += tres["count"]
-
-            usage_stats["runtime"] = job.time.total.microseconds / 1_000_000 + \
-                                     job.time.total.seconds
-
-            if usage_stats["runtime"] == 0:
-                for step in job.steps:
-                    usage_stats["runtime"] += step.time.total.microseconds / 1_000_000 + \
-                                              step.time.total.seconds
+                usage_stats["runtime"] += step.time.total.microseconds / 1_000_000 + \
+                                          step.time.total.seconds
 
     # rename keys by copying
     # Guard against null returns
     if len(usage_stats) == 0:
-        usage_stats["usage_str"] = "No usage stats received"
-        usage_stats["wallclock"] = 0
-        usage_stats["maxrss"] = 0
+        logger.info(f"No usage stat received for {item}")
+        return None
     else:
         usage_stats["usage_str"] = usage_stats.copy()
         usage_stats["wallclock"] = usage_stats.pop("runtime")
@@ -173,15 +174,18 @@ def _update_maxrss_in_db(item: QueuedTI, session: Session,
                 session.commit()
         if item.cluster_type_name == "slurm":
             usage_stats = _get_squid_resource(item)
-            rss = usage_stats["maxrss"]
-            wallclock = usage_stats["wallclock"]
-            # Doing single update instead of batch because if a batch update failed it's harder to
-            # tell which task_instance has been updated
-            sql = f"UPDATE task_instance SET maxrss={rss}, " \
-                  f"wallclock={wallclock}" \
-                  f" WHERE id={item.task_instance_id}"
-            session.execute(sql)
-            session.commit()
+            if usage_stats:
+                rss = usage_stats["maxrss"]
+                wallclock = usage_stats["wallclock"]
+                # Doing single update instead of batch because if a batch update failed it's harder to
+                # tell which task_instance has been updated
+                sql = f"UPDATE task_instance SET maxrss={rss}, " \
+                      f"wallclock={wallclock}" \
+                      f" WHERE id={item.task_instance_id}"
+                session.execute(sql)
+                session.commit()
+            else:
+                return_result = False
         if item.cluster_type_name == "dummy":
             # This is for testing only.
             # Production code should never access this block.

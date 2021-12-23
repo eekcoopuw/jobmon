@@ -336,7 +336,7 @@ class ParserDefaults:
             "--squid_polling_interval",
             type=int,
             help="Interval between qpid polling cycles",
-            default=600,
+            default=60,
             env_var="SQUID_POLLING_INTERVAL",
         )
         return parser
@@ -350,7 +350,7 @@ class ParserDefaults:
             "--squid_max_update_per_second",
             type=int,
             help="Amount of marrss updates per second",
-            default=10,
+            default=1000,
             env_var="SQUID_MAX_UPDATE_PER_SECOND",
         )
         return parser
