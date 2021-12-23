@@ -98,7 +98,7 @@ class MultiprocessDistributor(ClusterDistributor):
         ----> subconsumerN
     """
 
-    def __init__(self, parallelism: int = 3) -> None:
+    def __init__(self, parallelism: int = 3, *args, **kwargs) -> None:
         """Initialization of the multiprocess distributor.
 
         Args:

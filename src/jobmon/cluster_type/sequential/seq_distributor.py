@@ -37,7 +37,7 @@ class LimitedSizeDict(OrderedDict):
 class SequentialDistributor(ClusterDistributor):
     """Executor to run tasks one at a time."""
 
-    def __init__(self, exit_info_queue_size: int = 1000) -> None:
+    def __init__(self, exit_info_queue_size: int = 1000, *args, **kwargs) -> None:
         """Initialization of the sequential distributor.
 
         Args:
