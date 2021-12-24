@@ -62,7 +62,7 @@ class DummyQueue(ClusterQueue):
 class DummyDistributor(ClusterDistributor):
     """The Dummy Executor fakes the execution of a Task and acts as though it succeeded."""
 
-    def __init__(self, *args, **kwargs) -> None:
+    def __init__(self, *args: tuple, **kwargs: dict) -> None:
         """Initialization of the dummy distributor."""
         self.started = False
         # Parse the config
