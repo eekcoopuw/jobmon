@@ -71,15 +71,6 @@ class DistributorTask:
         )
         return executor_task
 
-    def _get_array_batch_num(self) -> Optional[int]:
-        """This is to determine which train the ti will board."""
-
-        if self.array_id is None:
-            return None
-        else:
-            # TODO: GBDSCI-4193
-            return 1
-
     def register_task_instance(
         self,
         workflow_run_id: int
@@ -89,14 +80,13 @@ class DistributorTask:
         Args:
             workflow_run_id (int): the workflow run id
         """
-        array_batch_num = self._get_array_batch_num()
         app_route = "/task_instance"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
                 "task_id": self.task_id,
                 "array_id": self.array_id,
-                "array_batch_num": array_batch_num,
+                "array_batch_num": None,  # Assigned when launched, not when registered.
                 "workflow_run_id": workflow_run_id,
             },
             request_type="post",
@@ -129,10 +119,3 @@ class DistributorTask:
         distributor_ti.name = self.name
         distributor_ti.requested_resources = self.requested_resources
         return distributor_ti
-
-
-    def _showSelf(self):
-        """This is a helper function to use in PDB."""
-        print(f"task_id: {self.task_id} \n"
-              f"array_id: {self.array_id} \n"
-              f"array_batch_num: {self._get_array_batch_num()} \n")
