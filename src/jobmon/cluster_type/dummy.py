@@ -142,6 +142,8 @@ class DummyDistributor(ClusterDistributor):
         distributor_id = random.randint(1, int(1e6)) * 2 + 1
         os.environ["JOB_ID"] = str(distributor_id)
 
+        DummyWorkerNode.STEP_ID = 1
+
         for i in range(array_length):
 
             cli = WorkerNodeCLI()

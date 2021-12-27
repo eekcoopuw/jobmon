@@ -571,22 +571,26 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> i
 
     # The subquery will always return values indexed from 1, provided subtask ID must follow
     # the same pattern.
-    #query = """
-    #    SELECT id
-    #    FROM
-    #        (SELECT id, ROW_NUMBER() OVER
-    #            (PARTITION BY array_id, array_batch_num ORDER BY id) as rownum
-    #        FROM task_instance
-    #        WHERE array_id = :array_id
-    #        AND array_batch_num = :batch_num) as ranked_ids
-    #    WHERE rownum = :step_id
-    #"""
     query = """
-        SELECT id
-        FROM task_instance
-        WHERE array_id=:array_id
-        AND array_batch_num=:batch_num
-        AND array_step_id=:step_id"""
+       SELECT id
+       FROM
+           (SELECT id, ROW_NUMBER() OVER
+               (PARTITION BY array_id, array_batch_num ORDER BY id) as rownum
+           FROM task_instance
+           WHERE array_id = :array_id
+           AND array_batch_num = :batch_num) as ranked_ids
+       WHERE rownum = :step_id
+    """
+    # query = """
+    #     SELECT id
+    #     FROM task_instance
+    #     WHERE array_id=:array_id
+    #     AND array_batch_num=:batch_num
+    #     AND array_step_id=:step_id"""
+
+    # TODO: GBDSCI-4195 - before the worker node executes, update array_step_id in the database
+    # for all task instances in an array. Once done, deprecate the row_number query in favor
+    # of the above "AND array_step_id = :step_id" call.
     task_instance_id = (
         DB.session.query(TaskInstance)
         .from_statement(text(query))

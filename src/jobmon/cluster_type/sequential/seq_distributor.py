@@ -13,7 +13,6 @@ from jobmon.worker_node.cli import WorkerNodeCLI
 
 logger = logging.getLogger(__name__)
 
-"""TODO: GBDSCI-4185"""
 class LimitedSizeDict(OrderedDict):
     """Dictionary for exit info."""
 
@@ -23,7 +22,7 @@ class LimitedSizeDict(OrderedDict):
         OrderedDict.__init__(self, *args, **kwds)
         self._check_size_limit()
 
-    def __setitem__(self, key: int, value: Any) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         """Set item in dict."""
         OrderedDict.__setitem__(self, key, value)
         self._check_size_limit()
@@ -75,10 +74,16 @@ class SequentialDistributor(ClusterDistributor):
         """Get the task instances that have errored out."""
         raise NotImplementedError
 
-    def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
+    def get_remote_exit_info(
+            self, distributor_id: str, array_step_id: Optional[int] = None
+    ) -> Tuple[str, str]:
         """Get exit info from task instances that have run."""
+        if array_step_id is not None:
+            full_distributor_id = f"{distributor_id}.{array_step_id}"
+        else:
+            full_distributor_id = distributor_id
         try:
-            exit_code = self._exit_info[distributor_id]
+            exit_code = self._exit_info[full_distributor_id]
             if exit_code == 199:
                 msg = "job was in kill self state"
                 return TaskInstanceStatus.UNKNOWN_ERROR, msg
@@ -112,7 +117,7 @@ class SequentialDistributor(ClusterDistributor):
         """Execute sequentially."""
         # add an executor id to the environment
         os.environ["JOB_ID"] = str(self._next_distributor_id)
-        distributor_id = self._next_distributor_id
+        distributor_id = str(self._next_distributor_id)
         self._next_distributor_id += 1
 
         # run the job and log the exit code
@@ -133,21 +138,38 @@ class SequentialDistributor(ClusterDistributor):
         self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
     ) -> int:
         """Submit an array task to the sequential cluster."""
-        logger.warning("Array tasks are not actually implemented in the sequential "
-                       "distributor. This method just returns sequential submission.")
-        return self.submit_to_batch_distributor(command=command, name=name,
-                                                requested_resources=requested_resources)
+        os.environ["JOB_ID"] = str(self._next_distributor_id)
+        distributor_id = str(self._next_distributor_id)
+        self._next_distributor_id += 1
+
+        # Reset the worker node counter each time an array is launched.
+        SequentialWorkerNode.STEP_ID_GENERATOR = 1
+
+        # run the job and log the exit code
+        for _ in range(array_length):
+            full_distributor_id = f"{distributor_id}.{SequentialWorkerNode.STEP_ID_GENERATOR}"
+            try:
+                cli = WorkerNodeCLI()
+                args = cli.parse_args(command)
+                exit_code: Union[int, ReturnCodes] = cli.run_task(args)
+            except SystemExit as e:
+                if e.code == ReturnCodes.WORKER_NODE_CLI_FAILURE:
+                    exit_code = e.code
+                else:
+                    raise
+            self._exit_info[full_distributor_id] = exit_code
+        return distributor_id
 
 
 class SequentialWorkerNode(ClusterWorkerNode):
     """Get Executor Info for a Task Instance."""
-    STEP_ID_GENERATER = 0
+    STEP_ID_GENERATOR = 1
 
     def __init__(self) -> None:
         """Initialization of the sequential executor worker node."""
         self._distributor_id: Optional[int] = None
-        SequentialWorkerNode.STEP_ID_GENERATER += 1
-        self._array_step_id  = SequentialWorkerNode.STEP_ID_GENERATER
+        self._array_step_id = SequentialWorkerNode.STEP_ID_GENERATOR
+        SequentialWorkerNode.STEP_ID_GENERATOR += 1
 
     @property
     def array_step_id(self) -> int:
