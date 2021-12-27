@@ -191,6 +191,27 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
     single_task_id = distributor_wfr.launch_task_instance(task_instance=dtis_4,
                                                           cluster=distributor)
 
+    # Assert that step_ids are mapped correctly
+    # Since register_task_instance is called sequentially, we can guarantee the
+    # taskinstance IDs are sorted already.
+    assert (dtis_1.array_step_id, dtis_2.array_step_id) == (1, 2)
+    app, DB = db_cfg['app'], db_cfg['DB']
+    with app.app_context():
+
+        q = """
+        SELECT array_step_id
+        FROM task_instance
+        WHERE id = {}"""
+        res1 = DB.session.execute(q.format(dtis_1.task_instance_id)).one()
+        DB.session.commit()
+
+        assert res1.array_step_id == 1
+
+        res2 = DB.session.execute(q.format(dtis_2.task_instance_id)).one()
+        DB.session.commit()
+
+        assert res2.array_step_id == 2
+
     # Dummy cluster complete all submitted tasks.
     # Task 1 will be done
     assert get_task_instance_status(db_cfg, dtis_1.task_instance_id) == "D"

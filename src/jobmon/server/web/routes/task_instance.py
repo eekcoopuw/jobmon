@@ -569,28 +569,13 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> i
 
     bind_to_logger(array_id=array_id)
 
-    # The subquery will always return values indexed from 1, provided subtask ID must follow
-    # the same pattern.
     query = """
-       SELECT id
-       FROM
-           (SELECT id, ROW_NUMBER() OVER
-               (PARTITION BY array_id, array_batch_num ORDER BY id) as rownum
-           FROM task_instance
-           WHERE array_id = :array_id
-           AND array_batch_num = :batch_num) as ranked_ids
-       WHERE rownum = :step_id
-    """
-    # query = """
-    #     SELECT id
-    #     FROM task_instance
-    #     WHERE array_id=:array_id
-    #     AND array_batch_num=:batch_num
-    #     AND array_step_id=:step_id"""
+        SELECT id
+        FROM task_instance
+        WHERE array_id=:array_id
+        AND array_batch_num=:batch_num
+        AND array_step_id=:step_id"""
 
-    # TODO: GBDSCI-4195 - before the worker node executes, update array_step_id in the database
-    # for all task instances in an array. Once done, deprecate the row_number query in favor
-    # of the above "AND array_step_id = :step_id" call.
     task_instance_id = (
         DB.session.query(TaskInstance)
         .from_statement(text(query))
@@ -766,12 +751,12 @@ def record_array_batch_num(batch_num: int) -> Any:
     DB.session.execute(update_stmt)
     DB.session.commit()
 
-    # assign arrary_step_ids ordered by task_instance_id
+    # assign array_step_ids ordered by task_instance_id
     task_instance_ids_list.sort()
-    for i in range(len(task_instance_ids_list)):
+    for idx, tid in enumerate(task_instance_ids_list):
         sql = f"""UPDATE task_instance
-            SET array_step_id = {i + 1}
-            WHERE id = {task_instance_ids_list[i]}"""
+            SET array_step_id = {idx + 1}
+            WHERE id = {tid}"""
         DB.session.execute(sql)
     DB.session.commit()
 
@@ -812,7 +797,7 @@ def transition_task_instances(new_status: str) -> Any:
     if array_id is not None:
         bind_to_logger(array_id=array_id)
 
-    task_instance_ids = ",".join(f'{x}' for x in task_instance_ids)
+    task_instance_id_str = ",".join(f'{x}' for x in task_instance_ids)
 
     query = f"""
         SELECT
@@ -820,7 +805,7 @@ def transition_task_instances(new_status: str) -> Any:
         FROM
             task_instance
         WHERE
-            task_instance.id IN ({task_instance_ids})
+            task_instance.id IN ({task_instance_id_str})
     """
     task_instances = (
         DB.session.query(TaskInstance)

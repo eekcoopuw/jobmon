@@ -1,3 +1,4 @@
+import os
 import random
 
 import pytest
@@ -113,7 +114,6 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template):
 
     workflow.add_array(array1)
     workflow.bind()
-    workflow.bind_arrays()
     wfr = workflow._create_workflow_run()
 
     # Create distributor tasks
@@ -125,11 +125,11 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template):
                         command=t.command,
                         requested_resources=t.compute_resources,
                         requester=requester)
-        for t in array1.tasks
+        for t in array1.tasks.values()
     ]
 
     # Move all tasks to Q state
-    for tid in (t.task_id for t in array1.tasks):
+    for tid in (t.task_id for t in array1.tasks.values()):
         _, _ = requester._send_request(
             app_route=f"/task/{tid}/queue",
             message={},
@@ -145,7 +145,7 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template):
     # Append on batch number
     dist_array = DistributorArray(array1.array_id,
                                   array1.task_resources.id,
-                                  array1.default_compute_resources_set,
+                                  array1.compute_resources,
                                   requester)
     dist_array.instantiated_array_task_instance_ids = [dti.task_instance_id for dti in dtis]
     assert dist_array.batch_number == 0
@@ -167,12 +167,14 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template):
     assert task_instance_ids == set([dti.task_instance_id for dti in dtis])
 
     # Test array worker node functionality
-    # Sequential distributor always returns the first ID, so just test a single worker node.
     from jobmon import __version__
+    # Mock a value, doesn't matter. Worker node inherits from the environment.
+    os.environ['JOB_ID'] = "1"
     w = WorkerNodeTaskInstance(task_instance_id=None,
                                expected_jobmon_version=__version__,
                                cluster_type_name='sequential',
-                               array_id=array1.array_id)
+                               array_id=array1.array_id,
+                               batch_number=0)
 
     # Check that task instance ID property set correctly
     tid = w.task_instance_id
@@ -192,3 +194,12 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template):
         task_instance = DB.session.execute(q).one()
         DB.session.commit()
         assert task_instance.status == "D"
+
+    # Instantiate a second worker node instance, should correspond to the second TID
+    w2 = WorkerNodeTaskInstance(task_instance_id=None,
+                                expected_jobmon_version=__version__,
+                                cluster_type_name='sequential',
+                                array_id=array1.array_id,
+                                batch_number=0)
+    assert w2.executor.array_step_id == 2
+    assert w2.task_instance_id == sorted(list(task_instance_ids))[1]
