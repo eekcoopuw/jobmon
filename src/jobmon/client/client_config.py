@@ -22,7 +22,7 @@ class ClientConfig(object):
         try:
             args = cli.parse_args("")
         except SystemExit:
-            install_default_config_from_plugin(cli)
+            args = install_default_config_from_plugin(cli)
 
         return cls(
             host=args.web_service_fqdn,
