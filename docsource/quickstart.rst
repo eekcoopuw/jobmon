@@ -39,13 +39,13 @@ To install just core jobmon (no cluster plugins) via pip::
 
     pip install jobmon
 
-To install the UGE plugin via pip::
+To install the preconfigured UGE and Slurm plugins::
 
-    pip install jobmon_uge
+    pip install jobmon_installer_ihme
 
-To install the Slurm plugin via pip::
+To install both at once via pip::
 
-    pip install jobmon_slurm
+    pip install jobmon[ihme]
 
 Then issue the following command to configure the web service and port:
 

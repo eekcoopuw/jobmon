@@ -6,4 +6,4 @@ $PYTHON -m pip install ./wheels/slurm_rest-*.whl
 
 # configure client
 # 10.158.146.73
-$PREFIX/bin/jobmon update_config --web_service_fqdn $WEB_SERVICE_FQDN --web_service_port $WEB_SERVICE_PORT
+$PREFIX/bin/jobmon_config update --web_service_fqdn $WEB_SERVICE_FQDN --web_service_port $WEB_SERVICE_PORT

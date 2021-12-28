@@ -1,6 +1,4 @@
 # from jobmon.client.distributor.strategies.base import ExecutorParameters
-from jobmon.client.tool import Tool
-from jobmon.client.workflow_run import WorkflowRun
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import (
     WorkflowAlreadyComplete,
@@ -15,6 +13,8 @@ import pytest
 
 @pytest.fixture
 def tool(db_cfg, client_env):
+    from jobmon.client.tool import Tool
+
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
@@ -36,6 +36,7 @@ def task_template(tool):
 
 def test_wfargs_update(tool, task_template):
     """test that 2 workflows with different names, have different ids and tasks"""
+    from jobmon.client.workflow_run import WorkflowRun
 
     # Create identical dags
     t1 = task_template.create_task(arg="sleep 1")
@@ -77,6 +78,7 @@ def test_attempt_resume_on_complete_workflow(tool, task_template):
     """Should not allow a resume, but should prompt user to create a new
     workflow by modifying the WorkflowArgs (e.g. new version #)
     """
+    from jobmon.client.workflow_run import WorkflowRun
 
     # Create identical dags
     t1 = task_template.create_task(arg="sleep 1")
@@ -151,6 +153,8 @@ def test_workflow_identical_args(tool, task_template):
 
 
 def test_add_same_node_args_twice(client_env):
+    from jobmon.client.tool import Tool
+
     tool = Tool()
     tt = tool.get_task_template(
         template_name="my_template",
@@ -408,6 +412,7 @@ def test_workflow_validation(db_cfg, client_env, tool, task_template):
 
 def test_workflow_get_errors(db_cfg, client_env):
     """test that num attempts gets reset on a resume."""
+    from jobmon.client.tool import Tool
 
     from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
     from jobmon.server.web.models.task_status import TaskStatus
@@ -539,6 +544,7 @@ def test_workflow_get_errors(db_cfg, client_env):
 
 def test_inconsistent_status(db_cfg, client_env):
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
+    from jobmon.client.tool import Tool
 
     # setup workflow
     tool = Tool()
