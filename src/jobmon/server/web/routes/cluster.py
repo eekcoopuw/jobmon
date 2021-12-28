@@ -12,7 +12,7 @@ from jobmon.server.web.routes import finite_state_machine
 
 @finite_state_machine.route("/all_clusters", methods=["GET"])
 def get_clusters() -> Any:
-    """Get the id, cluster_type_name and connection_string of a Cluster."""
+    """Get the id, cluster_type_name and connection_parameters of a Cluster."""
     result = (
         DB.session.query(Cluster)
         .join(ClusterType, Cluster.cluster_type_id == ClusterType.id)
@@ -27,7 +27,7 @@ def get_clusters() -> Any:
 
 @finite_state_machine.route("/cluster/<cluster_name>", methods=["GET"])
 def get_cluster_by_name(cluster_name: str) -> Any:
-    """Get the id, cluster_type_name and connection_string of a Cluster."""
+    """Get the id, cluster_type_name and connection_parameters of a Cluster."""
     result = (
         DB.session.query(Cluster)
         .join(ClusterType, Cluster.cluster_type_id == ClusterType.id)
