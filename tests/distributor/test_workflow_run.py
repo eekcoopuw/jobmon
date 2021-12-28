@@ -233,7 +233,7 @@ def test_array_distributor_launch(tool, db_cfg, client_env, task_template, array
     assert ti_1_batch_num == 0
     assert ti_2_batch_num == 0
     # Task 3 has not been launched yet and should not have a batch number
-    assert ti_3_batch_num == 1
+    assert ti_3_batch_num is None
     # The first result in the array is always the lowest task instance ID
     assert call_get_array_task_instance_id(
         distributor_array.array_id, ti_1_batch_num, client_env) == \
