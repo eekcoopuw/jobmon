@@ -863,3 +863,78 @@ def reset_workflow(workflow_id: int) -> Any:
     resp = jsonify({})
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@finite_state_machine.route(
+    "workflow/<workflow_id>/fix_status_inconsitency", methods=["PUT"]
+)
+def fix_wf_inconsistency(workflow_id: int) -> Any:
+    """Find wf in F with all tasks in D and fix them."""
+    sql = "SELECT COUNT(*) as total FROM workflow"
+    # the id to return to reaper as next start point
+    total_wf = int(DB.session.execute(sql).fetchone()["total"])
+
+    # move the starting row forward by 3000
+    # if the starting row > max row, restart from 0
+    # this way, we can get to the unfinished the wf later
+    # without querying the whole db every time
+    increase_step = 3000
+    current_max_wf_id = int(workflow_id) + int(increase_step)
+    if current_max_wf_id > total_wf:
+        current_max_wf_id = 0
+
+    # Update wf in F with all task in D to D
+    # limit the query lines to 1k, which should finish <1s
+    # and won't shock the db when reaper restarts
+    sql = """UPDATE workflow
+            SET status = "D"
+            WHERE id IN (
+                SELECT id FROM (
+                    SELECT id, count(s), sum(s)
+                    FROM
+                        (SELECT workflow.id, (case when task.status="D" then 1 else 0 end) as s
+                        FROM workflow, task
+                        WHERE workflow.id > {wfid1}
+                        AND workflow.id <= {wfid2}
+                        AND workflow.status='F'
+                        AND workflow.id=task.workflow_id) t
+                        GROUP BY id
+                        HAVING count(s) = sum(s) ) tt
+            )
+            """.format(
+        wfid1=workflow_id, wfid2=int(workflow_id) + increase_step
+    )
+
+    DB.session.execute(sql)
+    DB.session.commit()
+
+    resp = jsonify({"wfid": current_max_wf_id})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route(
+    "workflow/<workflow_id>/workflow_name_and_args", methods=["GET"]
+)
+def get_wf_name_and_args(workflow_id: int) -> Any:
+    """Return workflow name and args associated with specified workflow ID."""
+    query = f"""
+        SELECT
+            workflow.name as workflow_name, workflow.workflow_args as workflow_args
+        FROM
+            workflow
+        WHERE
+            workflow.id = {workflow_id}
+    """
+    result = DB.session.execute(query).fetchone()
+    if result is None:
+        # return empty values in case of DB inconsistency
+        resp = jsonify(workflow_name=None, workflow_args=None)
+        resp.status_code = StatusCodes.OK
+        return resp
+
+    resp = jsonify(
+        workflow_name=result["workflow_name"], workflow_args=result["workflow_args"]
+    )
+    resp.status_code = StatusCodes.OK
+    return resp

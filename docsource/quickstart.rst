@@ -200,90 +200,87 @@ Constructing a Workflow and adding a few Tasks is simple:
     .. code-tab:: R
       :title: R
 
-      Sys.setenv("RETICULATE_PYTHON"='/mnt/team/scicomp/envs/jobmon/bin/python')  # Set the Python interpreter path
-      library(jobmonr)
+        library(jobmonr)
+        library(data.table)
 
-      # Create a workflow
-      username <- Sys.getenv("USER")
-      script_path <- '/mnt/team/scicomp/training/test_scripts/test.py'  # Update with your repository installation
+        # Create a workflow
+        username <- Sys.getenv("USER")
+        script_path <- '/mnt/team/scicomp/training/test_scripts/test.py'  # Update with your repository installation
 
-      # Templates are not supported in the R client, since there are no Jobmon 1.* R clients.
-      # Create a tool
+        # Create a tool
 
-      my_tool <- tool(name='r_example_tool')
+        my_tool <- tool(name=paste0('r_example_tool_', username))
 
-      # Bind a workflow to the tool
-      wf <- workflow(tool,
-        workflow_args=paste0('template_workflow_', Sys.Date()),
-        name='template_workflow')
+        # Bind a workflow to the tool
+        wf <- workflow(my_tool,
+          workflow_args=paste0('template_workflow_', username, '_', Sys.Date()),
+          name='template_workflow')
 
-      # Create an echoing task template
-      echo_tt <- task_template(tool=my_tool,
-        template_name='echo_templ',
-        command_template='echo {}',
-        task_args=list('echo_str'))
+        # Create an echoing task template
+        echo_tt <- task_template(tool=my_tool,
+          template_name='echo_templ',
+          command_template='echo {echo_str}',
+          node_args=list('echo_str'))
 
-
-      # Create template to run our script
-      script_tt <- task_template(tool=my_tool,
-        template_name='test_templ',
-        command_template=paste0(Sys.getenv("RETICULATE_PYTHON"), ' ', script_path, ' --args1 {val1} --args2 {val2}'),
-        task_args=list('val1', 'val2'))
-
-      # Set the echo task template compute resources
-      echo_tt_resources <- jobmonr::set_default_template_resources(
-          task_template=echo_tt,
-          default_cluster_name='buster',
-          resources=list(
-            'cores'=1,
-            'queue'='all.q',
-            'runtime'="2m",
-            'memory'='1G'
+        # Set the echo task template compute resources
+        echo_template_with_resources <- jobmonr::set_default_template_resources(
+            task_template=echo_tt,
+            default_cluster_name='buster',
+            resources=list(
+              'cores'=1,
+              'queue'='all.q',
+              'runtime'="2m",
+              'memory'='1G'
+            )
           )
-        )
 
-      # Set the script task template compute resources
-      script_tt_resources <- jobmonr::set_default_template_resources(
-          task_template=script_tt,
-          default_cluster_name='buster',
-          resources=list(
-            'cores'=1,
-            'queue'='all.q',
-            'runtime'="2m",
-            'memory'='1G'
+        # Create template to run our script
+        script_tt <- task_template(tool=my_tool,
+          template_name='test_templ',
+          command_template=paste0(Sys.getenv("RETICULATE_PYTHON"), ' ', script_path, ' --args1 {val1} --args2 {val2}'),
+          node_args=list('val1', 'val2'))
+
+        # Set the script task template compute resources
+        script_template_with_resources <- jobmonr::set_default_template_resources(
+            task_template=script_tt,
+            default_cluster_name='buster',
+            resources=list(
+              'cores'=1,
+              'queue'='all.q',
+              'runtime'="2m",
+              'memory'='1G'
+            )
           )
-        )
 
-      # Create two sleepy tasks
-      task1 <- task(task_template=echo_tt,
-        executor_parameters=copy(params),  # Copied to prevent parallel resource scaling
-        name='echo_1',
-        echo_str="task1")
+        # Create two sleepy tasks
+        task1 <- task(task_template=copy(echo_template_with_resources),  # Copied to prevent parallel resource scaling
+          name='echo_1',
+          cluster_name='buster',
+          echo_str="task1")
 
-      task2 <- task(task_template=echo_tt,
-        executor_parameters=copy(params),
-        name='echo_2',
-        upstream_tasks=list(task1), # Depends on the previous task,
-        echo_str="task2")
+        task2 <- task(task_template=copy(echo_template_with_resources),  # Copied to prevent parallel resource scaling
+          name='echo_2',
+          cluster_name='buster',
+          upstream_tasks=list(task1), # Depends on the previous task,
+          echo_str="task2")
 
-      # Add the test script task
-      test_task <- task(task_template=tt,
-        executor_parameters=copy(params),
-        name='test_task',
-        upstream_tasks=list(task2),
-        val1="val1",
-        val2="val2"
-        )
+        # Add the test script task
+        test_task <- task(task_template=copy(script_template_with_resources),  # Copied to prevent parallel resource scaling
+          name='test_task',
+          cluster_name='buster',
+          upstream_tasks=list(task2),
+          val1="val1",
+          val2="val2"
+          )
 
-      # Add tasks to the workflow
-      wf <- add_tasks(wf, list(task1, task2, task3))
+        # Add tasks to the workflow
+        wf <- add_tasks(wf, list(task1, task2, test_task))
 
-      # Run it
-      wfr <- run(
-        workflow=wf,
-        resume=FALSE,
-        seconds_until_timeout=7200)
-
+        # Run it
+        wfr <- run(
+          workflow=wf,
+          resume=FALSE,
+          seconds_until_timeout=7200)
 
 .. note::
     Unique Workflows: If you know that your Workflow is to be used for a

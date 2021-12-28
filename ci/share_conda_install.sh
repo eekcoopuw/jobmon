@@ -11,7 +11,7 @@ else
     minor_version=$(echo $jobmon_version |awk -F"." '{print $1"-"$2}')
     env_name=$env_base/jobmon_$(echo $jobmon_version | tr "." "-")
 
-    export PATH=$PATH:$conda_root/bin
+    export PATH=$PATH:$conda_root
     eval "$(conda shell.bash hook)"
 
     echo "Creating environment $env_name"
@@ -34,7 +34,8 @@ else
         exit 1
     fi
     echo "Installing jobmon for environment $env_name" &&
-    pip install jobmon==$jobmon_version &&
+    conda install ihme_jobmon -y \
+        -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge &&
     chmod -R +rx $env_name &&
     echo "linking jobmon $env_name to  jobmon_$minor_version"
     eval "$(rm -rf $env_base/jobmon_$minor_version 2>/dev/null ||true)" && # silent
