@@ -1,4 +1,5 @@
 """Parse configuration options and set them to be used throughout the Jobmon Architecture."""
+from argparse import Namespace
 import os
 import shlex
 from typing import List, Optional
@@ -466,7 +467,7 @@ class CLI:
         return args
 
 
-def install_default_config_from_plugin(cli: CLI) -> None:
+def install_default_config_from_plugin(cli: CLI) -> Namespace:
     """Install a config from jobmon_installer plugin.
 
     Args:
@@ -496,7 +497,7 @@ def install_default_config_from_plugin(cli: CLI) -> None:
         config_installer = getattr(module, "install_config")
         config_installer()
         try:
-            cli.parse_args("")
+            args = cli.parse_args("")
             print("Successfully configured jobmon.")
             configured = True
         except SystemExit:
@@ -507,3 +508,5 @@ def install_default_config_from_plugin(cli: CLI) -> None:
             "Client not configured to access server. Please use jobmon_config "
             "command to specify which jobmon server you want to use."
         )
+
+    return args
