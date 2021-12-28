@@ -288,8 +288,7 @@ def _get_completed_task_instance(starttime: float, session: Session) -> None:
             # use maxpss for uge; maxrss for others
             if (r["cluster_type"] == "UGE" and r["maxpss"] is None) or (
                 r["cluster_type"] != "UGE"
-                and (r["maxrss"] is None or r["maxrss"] == -1 or
-                     r["maxrss"] == 0)
+                and (r["maxrss"] is None or r["maxrss"] == -1 or r["maxrss"] == 0)
             ):
                 tid = int(r["id"])
                 item = QueuedTI.create_instance_from_db(session, tid)
