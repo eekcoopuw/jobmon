@@ -54,7 +54,7 @@ spec:
             valueFrom:
               secretKeyRef:
                 key: svcscicompci_pwd
-                name: { { .Values.global.svcscicompci_pwd } }
+                name: { { .Values.global.rancher_qpid_secret } }
         resources:
           limits:
             memory: 400Mi
