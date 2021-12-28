@@ -9,3 +9,4 @@ global:
   rancher_project: ""
   rancher_qpid_secret: ""
   rancher_slack_secret: ""
+  svcscicompci_pwd: ""
