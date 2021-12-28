@@ -1,13 +1,18 @@
 """The QPID service functionality."""
+from base64 import b64encode
 import logging
+import os
 from time import sleep, time
 from typing import Any, List, Optional, Tuple
 
 import requests
-from slurm_rest.api import SlurmApi  # type: ignore
+import slurm_rest  # type: ignore
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
+from jobmon.server.squid_integration.resilient_slurm_api import (
+    ResilientSlurmApi as slurm,
+)
 from jobmon.server.squid_integration.slurm_maxrss_queue import MaxrssQ
 from jobmon.server.squid_integration.squid_config import SQUIDConfig
 from jobmon.server.squid_integration.squid_utils import QueuedTI
@@ -68,8 +73,57 @@ class IntegrationClusters:
 
 
 # slurm
-def _get_slurm_api(item: QueuedTI) -> SlurmApi:
-    pass
+def _get_slurm_api_url(item: QueuedTI) -> str:
+    # TODO:GBDSCI-4224
+    return "https://slurmtool-stage.ihme.washington.edu/api/v1/token/"
+
+
+def _get_slurm_api_host(item: QueuedTI) -> str:
+    # TODO:GBDSCI-4224
+    return "https://api-stage.cluster.ihme.washington.edu"
+
+
+def _get_service_user_pwd(env_variable: str = "svcscicompci_pwd") -> Optional[str]:
+    return os.getenv(env_variable)
+
+
+def _get_slurm_api(item: QueuedTI) -> Any:
+    """The method to obtain the SlurmApi object.
+
+    This method should return SlurmApi or None, but somehow, it
+    fails the typecheck, so use the Any marker.
+    """
+    slurm_token_url = _get_slurm_api_url(item)
+    slurm_api_host = _get_slurm_api_host(item)
+    user = "svcscicompci"
+    password = _get_service_user_pwd()
+    if password is None:
+        logger.warning(f"Fail to get the password for {user}")
+        return None
+
+    # get token
+    auth_str = bytes(user + ":" + password, "utf-8")
+    encoded_auth_str = b64encode(auth_str).decode("ascii")
+
+    header = {
+        "Authorization": f"Basic {encoded_auth_str}",
+        "accept": "application/json",
+        "Content-Type": "application/json",
+    }
+
+    payload = {"lifespan": 86400}
+    response = requests.post(slurm_token_url, headers=header, json=payload)
+    if response.status_code == 200:
+        token = response.json()["access_token"]
+        configuration = slurm_rest.Configuration(
+            host=slurm_api_host,
+            api_key={
+                "X-SLURM-USER-NAME": user,
+                "X-SLURM-USER-TOKEN": token,
+            },
+        )
+        _slurm_api = slurm(slurm_rest.ApiClient(configuration))
+        return _slurm_api
 
 
 def _get_squid_resource(item: QueuedTI) -> Optional[dict]:
@@ -82,6 +136,7 @@ def _get_squid_resource(item: QueuedTI) -> Optional[dict]:
     """
     slurm_api = _get_slurm_api(item)
     if slurm_api is None:
+        logger.warning("Failed to get the slurm_api.")
         return None
 
     usage_stats = {}

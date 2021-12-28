@@ -46,7 +46,7 @@ def test_IntegrationClusters(db_cfg, ephemera):
 @pytest.mark.skip(
     reason="This is not a regress test." "But useful to verify _get_squid_resource."
 )
-def test_get_slurm_resource_usages():
+def test_get_slurm_resource_usages_on_slum():
     """This is to verify _get_squid_resource works.
 
     This test uses a hard coded job id.
@@ -58,8 +58,9 @@ def test_get_slurm_resource_usages():
     else:
         import slurm_rest  # type: ignore
         from jobmon.server.squid_integration.squid_integrator import _get_squid_resource
-        from jobmon_slurm.resilient_slurm_api import ResilientSlurmApi as slurm
-        from jobmon_slurm.slurm_constant import SlurmErrorCodes  # type: ignore
+        from jobmon.server.squid_integration.resilient_slurm_api import (
+            ResilientSlurmApi as slurm,
+        )
 
         # run a slurm job
 
@@ -86,6 +87,21 @@ def test_get_slurm_resource_usages():
             d = _get_squid_resource(qti)
             assert d["maxrss"] > 0
             assert d["wallclock"] > 0
+
+
+@pytest.mark.skip(
+    reason="This is not a regress test." "But useful to verify _get_squid_resource."
+)
+def test_get_slurm_resource_usages_via_api():
+    import slurm_rest  # type: ignore
+    from jobmon.server.squid_integration.squid_integrator import _get_squid_resource
+
+    # run a slurm job
+    qti = QueuedTI()
+    qti.distributor_id = 13461
+    d = _get_squid_resource(qti)
+    assert d["maxrss"] > 0
+    assert d["wallclock"] > 0
 
 
 @pytest.mark.skip(reason="This case has issue in parallel running.")
