@@ -272,7 +272,7 @@ def _get_completed_task_instance(starttime: float, session: Session) -> None:
         "    task_instance.maxrss as maxrss, task_instance.maxpss as maxpss "
         "from task_instance, cluster_type "
         'where task_instance.status not in ("B", "I", "R", "W") '
-        'and task_instance.distributor_id is not null '
+        "and task_instance.distributor_id is not null "
         "and UNIX_TIMESTAMP(task_instance.status_date) > {starttime} "
         "and (task_instance.maxrss is null  or task_instance.maxpss is null)"
         "and task_instance.cluster_type_id = cluster_type.id".format(
