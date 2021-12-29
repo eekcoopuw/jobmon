@@ -1,5 +1,6 @@
 """The QPID service functionality."""
 from base64 import b64encode
+import json
 import logging
 import os
 from time import sleep, time
@@ -73,28 +74,32 @@ class IntegrationClusters:
 
 
 # slurm
-def _get_slurm_api_url(item: QueuedTI) -> str:
-    # TODO:GBDSCI-4224
-    return "https://slurmtool-stage.ihme.washington.edu/api/v1/token/"
-
-
-def _get_slurm_api_host(item: QueuedTI) -> str:
-    # TODO:GBDSCI-4224
-    return "https://api-stage.cluster.ihme.washington.edu"
+def _get_slurm_api_parameter(item: QueuedTI, session: Session) -> Tuple[str, str]:
+    token_url = "https://slurmtool-stage.ihme.washington.edu/api/v1/token/"
+    host_url = ""
+    sql = (
+        f"SELECT connection_parameters "
+        f"FROM cluster "
+        f"WHERE id = {item.cluster_id}"
+    )
+    row = session.execute(sql).fetchone()
+    if row:
+        d = json.loads(row["connection_parameters"])
+        host_url = d["slurm_rest_host"]
+    return host_url, token_url
 
 
 def _get_service_user_pwd(env_variable: str = "SVCSCICOMPCI_PWD") -> Optional[str]:
     return os.getenv(env_variable)
 
 
-def _get_slurm_api(item: QueuedTI) -> Any:
+def _get_slurm_api(item: QueuedTI, session: Session) -> Any:
     """The method to obtain the SlurmApi object.
 
     This method should return SlurmApi or None, but somehow, it
     fails the typecheck, so use the Any marker.
     """
-    slurm_token_url = _get_slurm_api_url(item)
-    slurm_api_host = _get_slurm_api_host(item)
+    slurm_api_host, slurm_token_url = _get_slurm_api_parameter(item, session)
     user = "svcscicompci"
     password = _get_service_user_pwd()
     if password is None:
@@ -126,7 +131,7 @@ def _get_slurm_api(item: QueuedTI) -> Any:
         return _slurm_api
 
 
-def _get_squid_resource(item: QueuedTI) -> Optional[dict]:
+def _get_squid_resource(item: QueuedTI, session: Session) -> Optional[dict]:
     """Collect the Slurm reported resource usage for a given task instance.
 
     Return 5 values: cpu, mem, node, billing and runtime that are available from tres.
@@ -134,7 +139,7 @@ def _get_squid_resource(item: QueuedTI) -> Optional[dict]:
     (only this way it will match results from "sacct -j nnnn --format="JobID,MaxRSS"").
     For runtime, get the total from the whole job, if 0, sum it up from the steps.
     """
-    slurm_api = _get_slurm_api(item)
+    slurm_api = _get_slurm_api(item, session)
     if slurm_api is None:
         logger.warning("Failed to get the slurm_api.")
         return None
@@ -233,7 +238,7 @@ def _update_maxrss_in_db(
                 session.execute(sql)
                 session.commit()
         if item.cluster_type_name == "slurm":
-            usage_stats = _get_squid_resource(item)
+            usage_stats = _get_squid_resource(item, session)
             if usage_stats:
                 rss = usage_stats["maxrss"]
                 wallclock = usage_stats["wallclock"]

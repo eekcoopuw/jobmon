@@ -175,3 +175,23 @@ def test_maxrss_forever(db_cfg, client_env, ephemera):
             assert rows is not None
             for r in rows:
                 assert r["maxrss"] == "1314"
+
+
+def test_get_slurm_api_host(db_cfg):
+    from jobmon.server.squid_integration.squid_integrator import (
+        _get_slurm_api_parameter,
+    )
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """UPDATE cluster 
+             SET connection_parameters = '{"slurm_rest_host": "https://api-stage.cluster.ihme.washington.edu"}'
+             """
+        DB.session.execute(sql)
+
+        item = QueuedTI()
+        item.cluster_id = 1
+        h, t = _get_slurm_api_parameter(item, DB.session)
+        assert h == "https://api-stage.cluster.ihme.washington.edu"
+        assert t == "https://slurmtool-stage.ihme.washington.edu/api/v1/token/"
