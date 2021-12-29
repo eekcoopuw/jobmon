@@ -83,7 +83,7 @@ def _get_slurm_api_host(item: QueuedTI) -> str:
     return "https://api-stage.cluster.ihme.washington.edu"
 
 
-def _get_service_user_pwd(env_variable: str = "svcscicompci_pwd") -> Optional[str]:
+def _get_service_user_pwd(env_variable: str = "SVCSCICOMPCI_PWD") -> Optional[str]:
     return os.getenv(env_variable)
 
 
