@@ -53,7 +53,7 @@ spec:
         - name: SVCSCICOMPCI_PWD
             valueFrom:
               secretKeyRef:
-                key: svcscicompci_pwd
+                key: SVCSCICOMPCI_PWD
                 name: {{ .Values.global.rancher_qpid_secret }}
         resources:
           limits:
