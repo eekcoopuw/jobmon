@@ -11,7 +11,7 @@ else
     minor_version=$(echo $jobmon_version |awk -F"." '{print $1"-"$2}')
     env_name=$env_base/jobmon_$(echo $jobmon_version | tr "." "-")
 
-    export PATH=$PATH:$conda_root
+    export PATH=$PATH:$conda_root/bin
     eval "$(conda shell.bash hook)"
 
     echo "Creating environment $env_name"
