@@ -244,7 +244,7 @@ test_conda_client_uge () {
     $QLOGIN_ACTIVATE && \
       conda deactivate && \
       conda env remove --name uge_six_job_env && \
-      conda create -n uge_six_job_env ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
+      conda create -n uge_six_job_env python==3.7 ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
       conda activate uge_six_job_env && \
       conda info --envs && \
       python $WORKSPACE/deployment/tests/six_job_test.py 'buster'
@@ -264,7 +264,7 @@ test_conda_client_slurm () {
     . ${MINICONDA_PATH} ${CONDA_ENV_NAME} && \
       conda deactivate && \
       conda env remove --name slurm_six_job_env && \
-      conda create -n slurm_six_job_env ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
+      conda create -n slurm_six_job_env python==3.7 ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
       conda activate slurm_six_job_env && \
       conda info --envs && \
       PATH=$PATH:/opt/slurm/bin && \

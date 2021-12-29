@@ -749,7 +749,6 @@ class Workflow(object):
     ) -> Process:
         if distributor_config is None:
             distributor_config = DistributorConfig.from_defaults()
-
         cluster_names = list(self._clusters.keys())
         if len(cluster_names) > 1:
             raise RuntimeError(
@@ -758,7 +757,11 @@ class Workflow(object):
         else:
             cluster_plugin = self._clusters[cluster_names[0]].plugin
             DistributorCls = cluster_plugin.get_cluster_distributor_class()
-            distributor = DistributorCls()
+            distributor = DistributorCls(
+                connection_parameters=self._clusters[
+                    cluster_names[0]
+                ]._connection_parameters
+            )
 
         logger.info("Instantiating Distributor Process")
 
