@@ -59,7 +59,10 @@ def workflow_status(
     if json:
         return res["workflows"]
     else:
-        return pd.read_json(res["workflows"])
+        df = pd.read_json(res["workflows"])
+        # Cast CREATED_DATE back to a date-like object, serialized as an int
+        df['CREATED_DATE'] = pd.to_datetime(df['CREATED_DATE'], unit='ms')
+        return df
 
 
 def workflow_tasks(

@@ -535,6 +535,7 @@ def get_workflow_status() -> Any:
             workflow_status.label as WF_STATUS,
             count(task.status) as TASKS,
             task.status AS STATUS,
+            workflow.created_date as CREATED_DATE,
             sum(
                 CASE
                     WHEN num_attempts <= 1 THEN 0
@@ -565,14 +566,14 @@ def get_workflow_status() -> Any:
         df.STATUS.replace(to_replace=_cli_label_mapping, inplace=True)
 
         # aggregate totals by workflow and status
-        df = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS", "STATUS"]).agg(
+        df = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS", "STATUS", "CREATED_DATE"]).agg(
             {"TASKS": "sum", "RETRIES": "sum"}
         )
 
         # pivot wide by task status
         tasks = df.pivot_table(
             values="TASKS",
-            index=["WF_ID", "WF_NAME", "WF_STATUS"],
+            index=["WF_ID", "WF_NAME", "WF_STATUS", "CREATED_DATE"],
             columns="STATUS",
             fill_value=0,
         )
@@ -582,7 +583,7 @@ def get_workflow_status() -> Any:
         tasks = tasks[_cli_order]
 
         # aggregate again without status to get the totals by workflow
-        retries = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS"]).agg(
+        retries = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS", "CREATED_DATE"]).agg(
             {"TASKS": "sum", "RETRIES": "sum"}
         )
 
@@ -613,6 +614,7 @@ def get_workflow_status() -> Any:
                 "WF_ID",
                 "WF_NAME",
                 "WF_STATUS",
+                "CREATED_DATE",
                 "TASKS",
                 "PENDING",
                 "RUNNING",
