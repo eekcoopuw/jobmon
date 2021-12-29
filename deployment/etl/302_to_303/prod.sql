@@ -5,7 +5,7 @@ USE docker;
 ALTER TABLE cluster CHANGE connection_string connection_parameters VARCHAR(2500);
 
 UPDATE cluster
-SET connection_parameters = '{"slurm_rest_host": "https://api.cluster.ihme.washington.edu"}'
+SET connection_parameters = '{"slurm_rest_host": "https://api.cluster.ihme.washington.edu", "slurmtool_token_host": "https://slurmtool.ihme.washington.edu/api/v1/token/"}'
 WHERE id IN (
 	SELECT c.id
     FROM cluster c
