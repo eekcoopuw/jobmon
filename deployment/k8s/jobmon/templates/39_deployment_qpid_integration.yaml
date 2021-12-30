@@ -45,11 +45,6 @@ spec:
             secretKeyRef:
               key: DB_PASS
               name: {{ .Values.global.rancher_db_secret }}
-        - name: SVCSCICOMPCI_PWD
-          valueFrom:
-            secretKeyRef:
-              key: SVCSCICOMPCI_PWD
-              name: {{ .Values.global.rancher_qpid_secret }}
         - name: QPID_URI
           valueFrom:
             secretKeyRef:
