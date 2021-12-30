@@ -22,7 +22,7 @@ class QueuedTI:
     def __str__(self) -> str:
         """Turn to string."""
         return (
-            f"taks_instance_id: {self.task_instance_id}, "
+            f"task_instance_id: {self.task_instance_id}, "
             f"age: {self.age}, "
             f"distributor_id: {self.distributor_id}, "
             f"cluster_name: {self.cluster_type_name}, "
