@@ -104,7 +104,7 @@ def test_get_slurm_resource_usages_via_api():
     assert d["wallclock"] > 0
 
 
-@pytest.mark.skip(reason="This case has issue in parallel running.")
+@pytest.mark.skip(reason="Probalem to run in parallel.")
 def test_maxrss_forever(db_cfg, client_env, ephemera):
     from jobmon.server.squid_integration.squid_integrator import (
         _update_tis,
@@ -161,6 +161,20 @@ def test_maxrss_forever(db_cfg, client_env, ephemera):
             for r in rows:
                 assert r["maxrss"] is None
                 tis.append(int(r["id"]))
+            # set a -1
+            sql_update = f"""
+                UPDATE task_instance
+                SET maxrss=-1
+                WHERE id={tis[0]}
+            """
+            DB.session.execute(sql_update)
+            # set a 0
+            sql_update = f"""
+                UPDATE task_instance
+                SET maxrss=0
+                WHERE id={tis[1]}
+                """
+            DB.session.execute(sql_update)
 
             assert MaxrssQ.get_size() == 0
 
@@ -186,7 +200,7 @@ def test_get_slurm_api_host(db_cfg):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """UPDATE cluster 
-             SET connection_parameters = '{"slurm_rest_host": "https://api-stage.cluster.ihme.washington.edu"}'
+             SET connection_parameters = '{"slurm_rest_host": "https://api-stage.cluster.ihme.washington.edu", "slurmtool_token_host": "https://slurmtool-stage.ihme.washington.edu/api/v1/token/"}'
              """
         DB.session.execute(sql)
 

@@ -75,7 +75,7 @@ class IntegrationClusters:
 
 # slurm
 def _get_slurm_api_parameter(item: QueuedTI, session: Session) -> Tuple[str, str]:
-    token_url = "https://slurmtool-stage.ihme.washington.edu/api/v1/token/"
+    token_url = ""
     host_url = ""
     sql = (
         f"SELECT connection_parameters "
@@ -85,7 +85,10 @@ def _get_slurm_api_parameter(item: QueuedTI, session: Session) -> Tuple[str, str
     row = session.execute(sql).fetchone()
     if row:
         d = json.loads(row["connection_parameters"])
-        host_url = d["slurm_rest_host"]
+        if "slurm_rest_host" in d.keys():
+            host_url = d["slurm_rest_host"]
+        if "slurmtool_token_host" in d.keys():
+            token_url = d["slurmtool_token_host"]
     return host_url, token_url
 
 
@@ -294,7 +297,11 @@ def _get_completed_task_instance(starttime: float, session: Session) -> None:
             # use maxpss for uge; maxrss for others
             if (r["cluster_type"] == "UGE" and r["maxpss"] is None) or (
                 r["cluster_type"] != "UGE"
-                and (r["maxrss"] is None or r["maxrss"] == -1 or r["maxrss"] == 0)
+                and (
+                    r["maxrss"] is None
+                    or int(r["maxrss"]) == -1
+                    or int(r["maxrss"]) == 0
+                )
             ):
                 tid = int(r["id"])
                 item = QueuedTI.create_instance_from_db(session, tid)
@@ -302,6 +309,7 @@ def _get_completed_task_instance(starttime: float, session: Session) -> None:
                     MaxrssQ.put(item)
                 else:
                     logger.warning(f"Fail to create QueuedTI for {tid}")
+    logger.debug(f"Q length: {MaxrssQ.get_size()}")
 
 
 def _get_config() -> dict:
