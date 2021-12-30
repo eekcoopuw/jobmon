@@ -470,9 +470,12 @@ class DistributorWorkflowRun:
         ids_to_launch = array.instantiated_array_task_instance_ids
         batch_num = array.add_batch_number_to_task_instances()
         # update distributor task instance array_batch_num and array_step_id
-        for tid in ids_to_launch:
+        for idx, tid in enumerate(sorted(ids_to_launch)):
             self._map.get_DistributorTaskInstance_by_id(tid).array_batch_num = batch_num
-            # TODO: GBDSCI-4195. the array_step_id of these DistributorTaskInstance should get updated here.
+            # Increment index by 1 since we use 1-indexing in the worker node.
+            # This will be synced with the database, since we are using the same algorithm.
+            self._map.get_DistributorTaskInstance_by_id(tid).array_step_id = idx + 1
+
         # Fetch the command
         #
         command = cluster.build_worker_node_command(task_instance_id=None,
@@ -537,7 +540,6 @@ class DistributorWorkflowRun:
             request_type="post",
             logger=logger,
         )
-
 
     def refresh_status_from_db(self, tids: list, status: str) -> Dict[int: str]:
         """Got to DB to check the list tis status."""

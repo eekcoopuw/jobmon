@@ -195,9 +195,7 @@ class SequentialWorkerNode(ClusterWorkerNode):
         return {}
 
     @property
-    def subtask_id(self) -> int:
-        """Sequential distributor doesn't support array tasks.
-
-        Return distributor id."""
-        return str(self._distributor_id)
+    def subtask_id(self) -> str:
+        """Subtask ID, in the format of 1234.1"""
+        return str(self.distributor_id) + "." + str(self.array_step_id)
 

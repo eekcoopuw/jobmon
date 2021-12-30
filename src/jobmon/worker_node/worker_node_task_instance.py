@@ -70,10 +70,7 @@ class WorkerNodeTaskInstance:
         if self._distributor_id is None and self.executor.distributor_id is not None:
             self._distributor_id = self.executor.distributor_id
         # get subtask_id
-        if self._array_id:
-            self._subtask_id = str(self._distributor_id)
-        else:
-            self._subtask_id = self.executor.subtask_id
+        self._subtask_id = self.executor.subtask_id
 
         # get task_instance_id for array task
         if self._task_instance_id is None:
