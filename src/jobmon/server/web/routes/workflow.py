@@ -15,12 +15,16 @@ from jobmon.constants import WorkflowStatus as Statuses
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.dag import Dag
+from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_status import TaskStatus
+from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.workflow import Workflow
+from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
 from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
 from jobmon.server.web.routes import finite_state_machine
-from jobmon.server.web.server_side_exception import InvalidUsage
+from jobmon.server.web.server_side_exception import InvalidUsage, ServerError
 
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
@@ -535,6 +539,7 @@ def get_workflow_status() -> Any:
             workflow_status.label as WF_STATUS,
             count(task.status) as TASKS,
             task.status AS STATUS,
+            workflow.created_date as CREATED_DATE,
             sum(
                 CASE
                     WHEN num_attempts <= 1 THEN 0
@@ -565,14 +570,14 @@ def get_workflow_status() -> Any:
         df.STATUS.replace(to_replace=_cli_label_mapping, inplace=True)
 
         # aggregate totals by workflow and status
-        df = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS", "STATUS"]).agg(
+        df = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS", "STATUS", "CREATED_DATE"]).agg(
             {"TASKS": "sum", "RETRIES": "sum"}
         )
 
         # pivot wide by task status
         tasks = df.pivot_table(
             values="TASKS",
-            index=["WF_ID", "WF_NAME", "WF_STATUS"],
+            index=["WF_ID", "WF_NAME", "WF_STATUS", "CREATED_DATE"],
             columns="STATUS",
             fill_value=0,
         )
@@ -582,7 +587,7 @@ def get_workflow_status() -> Any:
         tasks = tasks[_cli_order]
 
         # aggregate again without status to get the totals by workflow
-        retries = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS"]).agg(
+        retries = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS", "CREATED_DATE"]).agg(
             {"TASKS": "sum", "RETRIES": "sum"}
         )
 
@@ -613,6 +618,7 @@ def get_workflow_status() -> Any:
                 "WF_ID",
                 "WF_NAME",
                 "WF_STATUS",
+                "CREATED_DATE",
                 "TASKS",
                 "PENDING",
                 "RUNNING",
@@ -742,9 +748,9 @@ def get_workflow_user_validation(workflow_id: int, username: str) -> Any:
 
 
 @finite_state_machine.route(
-    "/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>", methods=["GET"]
+    "/workflow/<workflow_run_id>/queued_tasks/<n_queued_tasks>", methods=["POST"]
 )
-def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Any:
+def get_queued_jobs(workflow_run_id: int, n_queued_tasks: int) -> Any:
     """Returns oldest n tasks (or all tasks if total queued tasks < n) to be instantiated.
 
     Because the SGE can only qsub tasks at a certain rate, and we poll every 10 seconds, it
@@ -752,54 +758,59 @@ def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Any:
     actually be instantiated.
 
     Args:
-        workflow_id: id of workflow
+        workflow_run_id: id of workflow run
         n_queued_tasks: number of tasks to queue
-        last_sync (datetime): time since when to get tasks
     """
     # <usertablename>_<columnname>.
 
     # If we want to prioritize by task or workflow level it would be done in this query
-    bind_to_logger(workflow_id=workflow_id)
-    logger.info("Getting queued jobs for workflow")
-    # queue_limit_query = """
-    #     SELECT (
-    #         SELECT
-    #             max_concurrently_running
-    #         FROM
-    #             workflow
-    #         WHERE
-    #             id = :workflow_id
-    #         ) - (
-    #         SELECT
-    #             count(*)
-    #         FROM
-    #             task
-    #         WHERE
-    #             task.workflow_id = :workflow_id
-    #             AND task.status IN ("I", "R")
-    #         )
-    #     AS queue_limit
-    # """
-    # concurrency_limit = DB.session.execute(
-    #     queue_limit_query, {"workflow_id": int(workflow_id)}
-    # ).fetchone()[0]
-
-    # # query if we aren't at the concurrency_limit
-    # if concurrency_limit > 0:
-    #     concurrency_limit = min(int(concurrency_limit), int(n_queued_tasks))
+    bind_to_logger(workflow_run_id=workflow_run_id)
+    logger.info("Getting queued jobs for workflow run")
 
     tasks = (
         DB.session.query(Task)
-        .options(joinedload(Task.task_resources))
-        .options(joinedload(Task.array))
-        .filter(Task.workflow_id == workflow_id, Task.status == "Q")
+        .join(Workflow, Task.workflow_id == Workflow.id)
+        .join(WorkflowRun, Workflow.id == WorkflowRun.workflow_id)
+        .filter(WorkflowRun.id == workflow_run_id)
+        .filter(Task.status == "Q")
         .limit(int(n_queued_tasks))
         .all()
     )
+
+    # Create task instances from bound tasks
+    tis = []
+    for t in tasks:
+        ti = TaskInstance(
+            workflow_run_id=workflow_run_id,
+            array_id=t.array_id,
+            cluster_type_id=t.task_resources.queue.cluster.id,
+            task_id=t.id,
+            task_resources_id=t.task_resources_id
+        )
+        tis.append(ti)
+        DB.session.add(ti)
+        try:
+            t.transition(TaskStatus.INSTANTIATED)
+        except InvalidStateTransition as e:
+            if t.status == TaskStatus.INSTANTIATED:
+                msg = (
+                    "Caught InvalidStateTransition. Not transitioning task "
+                    "{}'s task_instance_id {} from I to I".format(
+                        t.id, ti.id
+                    )
+                )
+                logger.warning(msg)
+            else:
+                DB.session.rollback()
+                raise ServerError(
+                    f"Unexpected Jobmon Server Error in {request.path}", status_code=500
+                ) from e
+
     DB.session.commit()
-    task_dcts = [t.to_wire_as_distributor_task() for t in tasks]
-    logger.debug(f"Got the following queued tasks: {task_dcts}")
-    resp = jsonify(task_dcts=task_dcts)
+    task_dcts = [ti.to_wire_as_distributor_task_instance() for ti in tis]
+    logger.debug(f"Got the following task instances: {task_dcts}")
+    resp = jsonify(task_instances=task_dcts)
+    resp.status_code = StatusCodes.OK
     return resp
 
 

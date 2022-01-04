@@ -4,7 +4,6 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from jobmon.client.distributor.distributor_array import DistributorArray
-from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
@@ -333,14 +332,15 @@ class DistributorWorkflowRun:
                 task_instances.append(dti)
         return task_instances
 
-    def get_queued_tasks(self, queued_tasks_bulk_query_size: int) -> \
-            List[DistributorTask]:
+    def get_queued_task_instances(self, queued_tasks_bulk_query_size: int) -> \
+            List[DistributorTaskInstance]:
         """Retrieve a list of task that are in queued state."""
         # Retrieve all tasks (up till the queued_tasks_bulk_query_size) that are in queued
         # state that are associated with the workflow.
-        app_route = f"/workflow/{self.workflow_id}/queued_tasks/{queued_tasks_bulk_query_size}"
+        app_route = \
+            f"/workflow/{self.workflow_run_id}/queued_tasks/{queued_tasks_bulk_query_size}"
         return_code, response = self.requester.send_request(
-            app_route=app_route, message={}, request_type="get", logger=logger
+            app_route=app_route, message={}, request_type="post", logger=logger
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -349,12 +349,20 @@ class DistributorWorkflowRun:
                 f"code 200. Response content: {response}"
             )
 
-        # Queued tasks associated with WF, concurrency limit hasn't been applied yet
-        tasks = [
-            DistributorTask.from_wire(wire_tuple=task, requester=self.requester)
-            for task in response["task_dcts"]
-        ]
-        return tasks
+        # concurrency limit hasn't been applied yet
+        task_instances = []
+        for server_ti in response["task_instances"]:
+            distributor_ti = DistributorTaskInstance.from_wire(
+                wire_tuple=server_ti, requester=self.requester)
+            self._registered_task_instance_ids.add(distributor_ti.task_instance_id)
+            self._map.add_DistributorTaskInstance(distributor_ti)
+
+            if distributor_ti.array_id is not None:
+                darray = self.get_array(distributor_ti.array_id)
+                darray.queue_task_instance_id_for_array_launch(distributor_ti.task_instance_id)
+
+            task_instances.append(distributor_ti)
+        return task_instances
 
     def get_array(self, array_id: int) -> DistributorArray:
         """Get an array from the array cache or from the database on first access
@@ -378,27 +386,6 @@ class DistributorWorkflowRun:
             array = DistributorArray.from_wire(response["array"], requester=self.requester)
             self._map.add_DistributorArray(array)
         return array
-
-    def register_task_instance(self, task: DistributorTask) -> DistributorTaskInstance:
-        """
-        create task instances (task transitions from Queued -> Instantiating)
-
-        attach task instances with Arrays to the associated array object
-        add task instances without Arrays to self.registered_task_instances
-
-        Return: the DistributorTaskInstance for testing
-        """
-        # create task instance and add to registry
-        task_instance = task.register_task_instance(self.workflow_run_id)
-        self._map.add_DistributorTaskInstance(task_instance)
-
-        # if it is an array task queue on the array
-        if task.array_id is not None:
-            darray = self.get_array(task.array_id)
-            darray.queue_task_instance_id_for_array_launch(task_instance.task_instance_id)
-
-        self._registered_task_instance_ids.add(task_instance.task_instance_id)
-        return task_instance
 
     def transition_task_instance(self, array_id: Optional[int], task_instance_ids: List[int],
                                  distributor_id: int, status: TaskInstanceStatus) -> Any:
