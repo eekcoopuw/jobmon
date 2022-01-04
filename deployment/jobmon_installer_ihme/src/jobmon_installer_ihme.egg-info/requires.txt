@@ -1,0 +1,4 @@
+importlib_metadata
+jobmon==3.1.0.dev12
+jobmon_uge==1.0.0
+jobmon_slurm==1.0.2

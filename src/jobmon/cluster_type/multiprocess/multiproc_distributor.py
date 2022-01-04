@@ -15,7 +15,7 @@ from jobmon.exceptions import RemoteExitInfoNotAvailable
 
 logger = logging.getLogger(__name__)
 
-"""TODO: GBDSCI-4186"""
+
 class Consumer(Process):
     """Consumes the tasks to be run."""
 
@@ -52,22 +52,30 @@ class Consumer(Process):
                     break
 
                 else:
-                    os.environ["JOB_ID"] = str(task.distributor_id)
                     logger.debug(f"consumer received {task.command}")
+
                     # run the job
+                    env = os.environ.copy()
+                    env["JOB_ID"] = task.distributor_id
+                    if task.sub_task_id is not None:
+                        env["SUBTASK_ID"] = task.sub_task_id
+                        job_index = (task.distributor_id, task.sub_task_id)
+                    else:
+                        job_index = (task.distributor_id, None)
+
                     proc = subprocess.Popen(
-                        task.command, env=os.environ.copy(), shell=True
+                        task.command, env=env, shell=True
                     )
 
                     # log the pid with the distributor class
-                    self.response_queue.put((task.distributor_id, proc.pid))
+                    self.response_queue.put((job_index, proc.pid))
 
                     # wait till the process finishes
                     proc.communicate()
 
                     # tell the queue this job is done so it can be shut down
                     # someday
-                    self.response_queue.put((task.distributor_id, None))
+                    self.response_queue.put((job_index, None))
                     self.task_queue.task_done()
 
             except queue.Empty:
@@ -77,7 +85,7 @@ class Consumer(Process):
 class PickableTask:
     """Object passed between processes."""
 
-    def __init__(self, distributor_id: int, command: str) -> None:
+    def __init__(self, distributor_id: int, sub_task_id: int = None, command: str) -> None:
         """Initialization of PickableTask."""
         self.distributor_id = distributor_id
         self.command = command
@@ -88,7 +96,7 @@ class MultiprocessDistributor(ClusterDistributor):
 
     It uses the multiprocessing Python library and queues to parallelize the execution of
     tasks. The subprocessing pattern looks like this:
-        LocalExec
+        MultiprocessDistributor
         --> consumer1
         ----> subconsumer1
         --> consumer2
@@ -119,7 +127,7 @@ class MultiprocessDistributor(ClusterDistributor):
         self._next_distributor_id = 1
 
         # mapping of distributor_id to pid. if pid is None then it is queued
-        self._running_or_submitted: Dict[int, Optional[int]] = {}
+        self._running_or_submitted: Dict[Tuple[int, Optional[int]], Optional[int]] = {}
 
         # ipc queues
         self.task_queue: JoinableQueue = JoinableQueue()
@@ -258,7 +266,15 @@ class MultiprocessDistributor(ClusterDistributor):
         """Executes an array of tasks.
 
         For the multiprocess executor this will be the same as regular submission."""
-        return self.submit_to_batch_distributor(command, name, requested_resources)
+        distributor_id = self._next_distributor_id
+        self._next_distributor_id += 1
+        for sub_task_id in range(len(array_length)):
+            task = PickableTask(
+                distributor_id, sub_task_id, self.worker_node_entry_point + " " + command
+            )
+            self.task_queue.put(task)
+            self._running_or_submitted.update({distributor_id: None})
+        return distributor_id
 
     def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
         """Get the task instances that have errored out."""

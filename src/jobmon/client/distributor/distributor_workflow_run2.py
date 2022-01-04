@@ -229,17 +229,11 @@ class DistributorWorkflowRun:
     when pushing to the database we should work in CommandType (Workflow/Array/Task) space
     """
 
-    def __init__(self, workflow_id: int, workflow_run_id: int, requester: Requester,
-                 workflow_run_heartbeat_interval: int = 30,
-                 task_instance_heartbeat_interval: int = 90,
-                 heartbeat_report_by_buffer: float = 3.1,
-                 ):
+    def __init__(self, workflow_id: int, workflow_run_id: int, requester: Requester):
         self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
+        self.max_concurrently_running = 100
         self.requester = requester
-        self._workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
-        self._task_instance_heartbeat_interval = task_instance_heartbeat_interval
-        self._heartbeat_report_by_buffer = heartbeat_report_by_buffer
 
         # create the map of task_instance_id to DistributorTaskInstance and array_id to DistributorArray
         self._map: WorkflowRunMaps = WorkflowRunMaps()
@@ -247,14 +241,12 @@ class DistributorWorkflowRun:
         # lists of task_instance_ids in different states. used for property views into
         # self._task_instances dict. This gets refreshed from the db during
         # self.get_task_instance_status_updates
-        self._registered_task_instance_ids: _tiList = _tiList()
-        self._launched_task_instance_ids: _tiList = _tiList()
-        self._running_task_instance_ids: _tiList = _tiList()
-        self._error_task_instance_ids: _tiList = _tiList()
-
-        # flags to mark whether workflow_run completes w/o errors
-        self.wfr_completed = False
-        self.wfr_has_failed_tis = False
+        self.distributor_state_map = {
+            TaskInstanceStatus.INSTANTIATED: set(),
+            TaskInstanceStatus.LAUNCHED: set(),
+            TaskInstanceStatus.RUNNING: set(),
+            TaskInstanceStatus.UNKNOWN_ERROR: set()
+        }
 
     def add_new_task_instance(self, ti: DistributorTaskInstance):
         # add to map
@@ -525,13 +517,9 @@ class DistributorWorkflowRun:
     def task_instance_heartbeat_interval(self) -> int:
         return self._task_instance_heartbeat_interval
 
-    @property
-    def report_by_buffer(self) -> int:
-        return self._heartbeat_report_by_buffer
-
     def _log_workflow_run_heartbeat(self) -> None:
         next_report_increment = (
-                self.task_instance_heartbeat_interval * self.report_by_buffer
+            self.task_instance_heartbeat_interval * self.report_by_buffer
         )
         app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
@@ -582,7 +570,7 @@ class DistributorWorkflowRun:
         """
         pass
 
-    def heartbeat(self) -> None:
+    def syncronize_status(self) -> None:
         """Log heartbeats."""
         # log heartbeats for tasks queued for batch execution and for the
         # workflow run
@@ -607,6 +595,7 @@ class DistributorWorkflowRun:
                     self.wfr_has_failed_tis = True
                     self._map.get_DistributorTaskInstance_by_id(tiid).error_state = ti_dict[tiid]
                     self._error_task_instance_ids.append(tiid)
+
         # sync with distributor
         # only check those unchanged in DB
         ti_dict = self.refresh_status_with_distributor(self._launched_task_instance_ids.ids, "B")
@@ -661,53 +650,8 @@ class DistributorWorkflowRun:
             self.transition_task_instance(ti_dict)
             self._log_tis_heartbeat(list(ti_dict.keys()))
 
-    def prep_tis_for_launch(self, instantiated_task_instances: List[DistributorTaskInstance], wf_max_concurrently_running: int) -> List[DistributorTaskInstance]:
-        # Get all tasks that are currently in launched and running assume all tasks are associated with an array, don't need to check workflow
-        total_launched_running = len(self.launched_array_task_instances) + \
-                                 len(self.running_array_task_instances) + \
-                                 len(self.registered_array_task_instances)
-
-        # calculate workflow capacity
-        workflow_capacity = wf_max_concurrently_running - total_launched_running
-
-        num_instantiated_tis = len(instantiated_task_instances)
-        instantiated_ti_index = 0
-        launched_task_instances = []
-        while workflow_capacity > 0:
-            if instantiated_ti_index < num_instantiated_tis:
-                ti = instantiated_task_instances[instantiated_ti_index]
-                array = self.get_array(ti.array_id)
-
-                # Don't allow the array limit to be greater than the workflow limit
-                if array.max_concurrently_running > wf_max_concurrently_running:
-                    array.max_concurrently_running = wf_max_concurrently_running
-
-                array_launched_running = len(array.launched_array_task_instance_ids) + \
-                    len(array.running_array_task_instance_ids) + \
-                    len(array.prepped_for_launch_array_task_instance_ids)
-                array_capacity = array.max_concurrently_running - array_launched_running
-                if array_capacity > 0:
-                    array.queue_task_instance_id_for_array_launch(ti.task_instance_id)
-                    workflow_capacity -= 1
-
-                    # Add to array launched and workflow launched list, remove from instantiated list
-                    self._launched_task_instance_ids.add(ti.task_instance_id)
-                    self._registered_task_instance_ids.pop(ti.task_instance_id)
-                    array.prepped_for_launch_array_task_instance_ids.append(ti.task_instance_id)
-                    array.instantiated_array_task_instance_ids.remove(ti.task_instance_id)
-                    launched_task_instances.append(ti)
-
-                instantiated_ti_index += 1
-
-            else:
-                logger.info("Workflow capacity is greater than the number of instantiated "
-                            "task instances ready to be launched.")
-                break
-
-        return [x for x in instantiated_task_instances if x not in launched_task_instances]
-
     @property
-    def capacity(self) -> int:
+    def _capacity(self) -> int:
         capacity = (
             max_concurrently_running
             - len(self.launched_task_instances)

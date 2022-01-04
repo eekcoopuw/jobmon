@@ -17,19 +17,15 @@ class DistributorArray:
     def __init__(
         self,
         array_id: int,
-        task_resources_id: int,
-        requested_resources: Dict,
         requester: Requester,
         name: Optional[str] = None,
         max_concurrently_running: int = 10_000
     ):
         self.array_id = array_id
-        self.task_resources_id = task_resources_id
-        self.requested_resources = requested_resources
         self.name = name
         self.max_concurrently_running = max_concurrently_running
+
         self.instantiated_array_task_instance_ids: List[int] = []
-        self.prepped_for_launch_array_task_instance_ids: List[int] = []
         self.launched_array_task_instance_ids: List[int] = []
         self.running_array_task_instance_ids: List[int] = []
         self.batch_number = 0
@@ -50,13 +46,17 @@ class DistributorArray:
         kwargs = SerializeDistributorArray.kwargs_from_wire(wire_tuple)
 
         # instantiate job
-        array = cls(
-            array_id=kwargs["array_id"],
-            task_resources_id=kwargs["task_resources_id"],
-            requested_resources=kwargs["requested_resources"],
-            requester=requester,
-        )
+        array = cls(array_id=kwargs["array_id"], requester=requester)
         return array
+
+    @property
+    def _capacity(self) -> int:
+        capacity = (
+            self.max_concurrently_running
+            - len(self.launched_array_task_instance_ids)
+            - len(self.running_array_task_instance_ids)
+        )
+        return capacity
 
     def queue_task_instance_id_for_array_launch(self, task_instance_id: int):
         """
