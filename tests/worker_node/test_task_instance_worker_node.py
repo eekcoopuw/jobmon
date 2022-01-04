@@ -8,7 +8,6 @@ from jobmon.requester import Requester
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_service import DistributorService
-from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.cluster_type.dummy import DummyDistributor
 from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
@@ -116,17 +115,7 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template):
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
-    # Create distributor tasks
     requester = Requester(client_env)
-    dts = [
-        DistributorTask(task_id=t.task_id,
-                        array_id=array1.array_id,
-                        name='array_ti',
-                        command=t.command,
-                        requested_resources=t.compute_resources,
-                        requester=requester)
-        for t in array1.tasks.values()
-    ]
 
     # Move all tasks to Q state
     for tid in (t.task_id for t in array1.tasks.values()):
@@ -137,10 +126,12 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template):
         )
 
     # Register TIs
-    dtis = [
-        dt.register_task_instance(workflow_run_id=wfr.workflow_run_id)
-        for dt in dts
-    ]
+    distributor_wfr = DistributorWorkflowRun(
+        workflow_id=workflow.workflow_id,
+        workflow_run_id=wfr.workflow_run_id,
+        requester=requester
+    )
+    dtis = distributor_wfr.get_queued_task_instances(1000)
 
     # Append on batch number
     dist_array = DistributorArray(array1.array_id,

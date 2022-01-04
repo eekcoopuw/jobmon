@@ -12,7 +12,6 @@ from typing import Dict, List, Optional, Type
 import tblib.pickling_support
 
 from jobmon.client.client_logging import ClientLogging
-from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.cluster_type.base import ClusterDistributor
@@ -105,7 +104,6 @@ class DistributorService:
         self._instantiate_workflows()
 
         self._submitted_or_running: Dict[int, DistributorTaskInstance] = {}
-        self._to_instantiate: List[DistributorTask] = []
         self._to_reconcile: List[DistributorTaskInstance] = []
         self._to_log_error: List[DistributorTaskInstance] = []
 
@@ -272,7 +270,7 @@ class DistributorService:
         )
 
         # get work if there isn't any in the queues
-        if not self._to_instantiate and not self._to_reconcile:
+        if not self._to_reconcile:
             self._get_tasks_queued_for_instantiation()
             logger.debug(f"Found {len(self._to_instantiate)} Queued Tasks")
             self._get_lost_task_instances()
@@ -282,11 +280,7 @@ class DistributorService:
         # main thread
         while self._keep_distributing(thread_stop_event):
 
-            # instantiate queued tasks
-            if self._to_instantiate:
-                task = self._to_instantiate.pop(0)
-                self._create_task_instance(task)
-
+            self._get_tasks_queued_for_instantiation()
             # infer errors and move from reconciliation queue to error queue
             if self._to_reconcile:
                 task_instance = self._to_reconcile.pop(0)
@@ -467,74 +461,9 @@ class DistributorService:
                 "Aborting distributor."
             )
 
-    def _get_tasks_queued_for_instantiation(self) -> List[DistributorTask]:
-        app_route = f"/workflow/{self.workflow_id}/queued_tasks/{self._n_queued}"
-        return_code, response = self.requester.send_request(
-            app_route=app_route, message={}, request_type="get", logger=logger
-        )
-        if http_request_ok(return_code) is False:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from POST "
-                f"request through route {app_route}. Expected "
-                f"code 200. Response content: {response}"
-            )
-
-        tasks = [
-            DistributorTask.from_wire(
-                task_id=t,
-                name=self.distributor.__class__.__name__,
-                requester=self.requester,
-                )
-            for t in response["task_dcts"]
-        ]
-        self._to_instantiate = tasks
-        return tasks
-
-    def _create_task_instance(
-        self, task: DistributorTask
-    ) -> Optional[DistributorTaskInstance]:
-        """Creates a TaskInstance based on the parameters of Task.
-
-        Tells the TaskStateManager to react accordingly.
-
-        Args:
-            task (DistributorTask): A Task that we want to execute
-        """
-        task_instance = DistributorTaskInstance.register_task_instance(
-            task.task_id,
-            self.workflow_run_id,
-            self.cluster_type_id,
-            self.requester,
-        )
-        logger.debug("Executing {}".format(task.command))
-        command = self.distributor.build_worker_node_command(
-            task_instance.task_instance_id
-        )
-
-        try:
-            logger.debug(
-                f"Using the following resources in execution {task.requested_resources}"
-            )
-            distributor_id = self.distributor.submit_to_batch_distributor(
-                command=command,
-                name=task.name,
-                requested_resources=task.requested_resources,
-            )
-        except Exception as e:
-            task_instance.register_no_distributor_id(no_id_err_msg=str(e))
-        else:
-            report_by_buffer = (
-                self._task_instance_heartbeat_interval * self._report_by_buffer
-            )
-            task_instance.register_submission_to_batch_distributor(
-                distributor_id, report_by_buffer
-            )
-            self._submitted_or_running[distributor_id] = task_instance
-
-        # add task instance to DistributorWorkflowRun
-        self.distributor_workflow_run.add_task_instance(task_instance)
-
-        return task_instance
+    def _get_tasks_queued_for_instantiation(self) -> List[DistributorTaskInstance]:
+        # TODO: add distributorworkflowrun, or pass into this method
+        return self.distributor_workflow_run.get_queued_task_instances(1000)
 
     def _get_lost_task_instances(self) -> None:
         app_route = (
