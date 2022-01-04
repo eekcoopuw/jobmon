@@ -2,11 +2,11 @@
 import logging
 import sys
 
-import jobmon.server.squid_integration.squid_integrator as squid
+import jobmon.server.usage_integration.usage_integrator as usage_integrator
 
 
-def start_squid_integration() -> None:
+def start_usage_integration() -> None:
     """Start the qpid integration service."""
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
-    squid.maxrss_forever()
+    usage_integrator.q_forever()

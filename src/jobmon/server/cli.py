@@ -88,10 +88,10 @@ class ServerCLI(CLI):
     def qpid_integration(self, args: configargparse.Namespace) -> None:
         """QPID integration service entrypoint logic."""
         # TODO: need dependency injection into squid integration
-        from jobmon.server.squid_integration.api import start_squid_integration
+        from jobmon.server.usage_integration.api import start_usage_integration
 
         if args.command == "start":
-            start_squid_integration()
+            start_usage_integration()
         else:
             raise ValueError(
                 "Invalid command choice. Options are (start), got " f"({args.command})"

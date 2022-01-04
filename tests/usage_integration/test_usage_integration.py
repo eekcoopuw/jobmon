@@ -1,16 +1,13 @@
 import getpass
 import os
-import sys
 
 import pytest
-import time
 from unittest.mock import patch
 
 from jobmon.client.tool import Tool
-from jobmon.server.squid_integration.slurm_maxrss_queue import MaxrssQ
-import jobmon.server.squid_integration.squid_integrator as squid
-from jobmon.server.squid_integration.squid_integrator import IntegrationClusters
-from jobmon.server.squid_integration.squid_utils import QueuedTI
+from jobmon.server.usage_integration.usage_queue import UsageQ
+from jobmon.server.usage_integration.usage_integrator import IntegrationClusters
+from jobmon.server.usage_integration.usage_utils import QueuedTI
 
 
 def test_IntegrationClusters(db_cfg, ephemera):
@@ -25,7 +22,7 @@ def test_IntegrationClusters(db_cfg, ephemera):
         return {"conn_str": conn_str, "polling_interval": 10, "max_update_per_sec": 10}
 
     with patch(
-        "jobmon.server.squid_integration.squid_integrator._get_config", fake_config
+        "jobmon.server.usage_integration.usage_integrator._get_config", fake_config
     ):
         IntegrationClusters._cluster_type_instance_dict = {"dummy": None}
         app = db_cfg["app"]
@@ -57,8 +54,8 @@ def test_get_slurm_resource_usages_on_slum():
         pytest.skip("This test only runs on slurm nodes.")
     else:
         import slurm_rest  # type: ignore
-        from jobmon.server.squid_integration.squid_integrator import _get_squid_resource
-        from jobmon.server.squid_integration.resilient_slurm_api import (
+        from jobmon.server.usage_integration.usage_integrator import _get_squid_resource
+        from jobmon.server.usage_integration.resilient_slurm_api import (
             ResilientSlurmApi as slurm,
         )
 
@@ -79,7 +76,7 @@ def test_get_slurm_resource_usages_on_slum():
             return _slurm_api
 
         with patch(
-            "jobmon.server.squid_integration.squid_integrator._get_slurm_api",
+            "jobmon.server.usage_integration.usage_integrator._get_slurm_api",
             get_slurm_api,
         ):
             qti = QueuedTI()
@@ -94,7 +91,7 @@ def test_get_slurm_resource_usages_on_slum():
 )
 def test_get_slurm_resource_usages_via_api():
     import slurm_rest  # type: ignore
-    from jobmon.server.squid_integration.squid_integrator import _get_squid_resource
+    from jobmon.server.usage_integration.usage_integrator import _get_squid_resource
 
     # run a slurm job
     qti = QueuedTI()
@@ -106,7 +103,7 @@ def test_get_slurm_resource_usages_via_api():
 
 @pytest.mark.skip(reason="Probalem to run in parallel.")
 def test_maxrss_forever(db_cfg, client_env, ephemera):
-    from jobmon.server.squid_integration.squid_integrator import (
+    from jobmon.server.usage_integration.usage_integrator import (
         _update_tis,
         _get_completed_task_instance,
     )
@@ -122,7 +119,7 @@ def test_maxrss_forever(db_cfg, client_env, ephemera):
         task_args=[],
         op_args=[],
     )
-    workflow = tool.create_workflow(name="test_maxrss_forever")
+    workflow = tool.create_workflow(name="test_q_forever")
     tasks = []
     for i in range(5):
         t = tt.create_task(arg=f"echo {i}")
@@ -143,7 +140,7 @@ def test_maxrss_forever(db_cfg, client_env, ephemera):
         return {"conn_str": conn_str, "polling_interval": 1, "max_update_per_sec": 10}
 
     with patch(
-        "jobmon.server.squid_integration.squid_integrator._get_config", fake_config
+        "jobmon.server.usage_integration.usage_integrator._get_config", fake_config
     ):
         IntegrationClusters._cluster_type_instance_dict = {"dummy": None}
         app = db_cfg["app"]
@@ -176,15 +173,15 @@ def test_maxrss_forever(db_cfg, client_env, ephemera):
                 """
             DB.session.execute(sql_update)
 
-            assert MaxrssQ.get_size() == 0
+            assert UsageQ.get_size() == 0
 
             # add completed tasks to Q
             _get_completed_task_instance(0, DB.session)
-            assert MaxrssQ.get_size() == 5
+            assert UsageQ.get_size() == 5
 
             # update maxrss
             _update_tis(5, DB.session)
-            assert MaxrssQ.get_size() == 0
+            assert UsageQ.get_size() == 0
             rows = DB.session.execute(sql).fetchall()
             assert rows is not None
             for r in rows:
@@ -192,7 +189,7 @@ def test_maxrss_forever(db_cfg, client_env, ephemera):
 
 
 def test_get_slurm_api_host(db_cfg):
-    from jobmon.server.squid_integration.squid_integrator import (
+    from jobmon.server.usage_integration.usage_integrator import (
         _get_slurm_api_parameter,
     )
 

@@ -6,11 +6,11 @@ from typing import Any
 from jobmon.config import CLI, ParserDefaults
 
 
-class SQUIDConfig:
+class UsageConfig:
     """QPID specific configuration."""
 
     @classmethod
-    def from_defaults(cls: Any) -> SQUIDConfig:
+    def from_defaults(cls: Any) -> UsageConfig:
         """Set up config from defaults if no alternates specified."""
         cli = CLI()
         ParserDefaults.db_host(cli.parser)

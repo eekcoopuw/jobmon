@@ -11,12 +11,12 @@ import slurm_rest  # type: ignore
 from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 
-from jobmon.server.squid_integration.resilient_slurm_api import (
+from jobmon.server.usage_integration.config import UsageConfig
+from jobmon.server.usage_integration.resilient_slurm_api import (
     ResilientSlurmApi as slurm,
 )
-from jobmon.server.squid_integration.slurm_maxrss_queue import MaxrssQ
-from jobmon.server.squid_integration.squid_config import SQUIDConfig
-from jobmon.server.squid_integration.squid_utils import QueuedTI
+from jobmon.server.usage_integration.usage_queue import UsageQ
+from jobmon.server.usage_integration.usage_utils import QueuedTI
 
 logger = logging.getLogger(__name__)
 
@@ -306,14 +306,14 @@ def _get_completed_task_instance(starttime: float, session: Session) -> None:
                 tid = int(r["id"])
                 item = QueuedTI.create_instance_from_db(session, tid)
                 if item:
-                    MaxrssQ.put(item)
+                    UsageQ.put(item)
                 else:
                     logger.warning(f"Fail to create QueuedTI for {tid}")
-    logger.debug(f"Q length: {MaxrssQ.get_size()}")
+    logger.debug(f"Q length: {UsageQ.get_size()}")
 
 
 def _get_config() -> dict:
-    config = SQUIDConfig.from_defaults()
+    config = UsageConfig.from_defaults()
     return {
         "conn_str": config.conn_str,
         "polling_interval": config.squid_polling_interval,
@@ -327,7 +327,7 @@ def _update_tis(
 ) -> None:
     failed_tis = []  # no need to repeat the same ti in one cycle
     for i in range(max_update_per_sec):
-        r = MaxrssQ.get()
+        r = UsageQ.get()
         if r is not None:
             (item, age) = r
             if _update_maxrss_in_db(item, session, qpid_uri_base):
@@ -337,12 +337,12 @@ def _update_tis(
         else:
             break
     for item in failed_tis:
-        MaxrssQ.put(item, item.age + 1)
+        UsageQ.put(item, item.age + 1)
         logger.warning(f"Failed to update db, " f"put {item} back to the queue.")
-    logger.debug(f"Q length: {MaxrssQ.get_size()}")
+    logger.debug(f"Q length: {UsageQ.get_size()}")
 
 
-def maxrss_forever(init_time: float = 0) -> None:
+def q_forever(init_time: float = 0) -> None:
     """A never stop method running in a thread that queries QPID.
 
     It constantly queries the maxpss value from qpid for completed jobmon jobs. If the maxpss
@@ -355,7 +355,7 @@ def maxrss_forever(init_time: float = 0) -> None:
     Session = sessionmaker(bind=eng)
     session = Session()
 
-    while MaxrssQ.keep_running:
+    while UsageQ.keep_running:
         # Since there isn't a good way to specify the thread priority in Python,
         # put a sleep in each attempt to not overload the CPU.
         # The avg daily job instance is about 20k; thus, sleep(1) should be ok.
@@ -370,10 +370,10 @@ def maxrss_forever(init_time: float = 0) -> None:
         # Query DB to add newly completed jobs to q and log q length
         current_time = time()
         if int(current_time - last_heartbeat) > vars_from_config["polling_interval"]:
-            logger.info("MaxrssQ length: {}".format(MaxrssQ.get_size()))
+            logger.info("UsageQ length: {}".format(UsageQ.get_size()))
             try:
                 _get_completed_task_instance(last_heartbeat, session)
-                logger.debug(f"Q length: {MaxrssQ.get_size()}")
+                logger.debug(f"Q length: {UsageQ.get_size()}")
             except Exception as e:
                 logger.error(str(e))
             finally:
