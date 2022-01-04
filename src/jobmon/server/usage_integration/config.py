@@ -71,7 +71,7 @@ class UsageConfig:
 
     @property
     def conn_str(self) -> str:
-        """Connection string to connect to the jobmonn database."""
+        """Connection string to connect to the jobmon database."""
         conn_str = "mysql://{user}:{pw}@{host}:{port}/{db}".format(
             user=self.db_user,
             pw=self.db_pass,
