@@ -233,4 +233,3 @@ class WorkflowRun(object):
             f"WorkflowRun(workflow_id={self.workflow_id}, "
             f"workflow_run_id={self.workflow_run_id}"
         )
-    

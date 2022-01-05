@@ -157,5 +157,7 @@ class ToolVersion:
 
     def __repr__(self) -> str:
         """A representation string for a ToolVersion instance."""
-        return (f"ToolVersion(tool_version_id={self.id},"
-                f"task_templates: {[t for t in self.task_templates.keys()]})")
+        return (
+            f"ToolVersion(tool_version_id={self.id},"
+            f"task_templates: {[t for t in self.task_templates.keys()]})"
+        )

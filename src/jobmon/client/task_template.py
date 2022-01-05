@@ -582,8 +582,7 @@ class TaskTemplate:
     def __repr__(self) -> str:
         """A representation string for a TaskTemplate instance."""
         repr_string = (
-            f"TaskTemplate("
-            f"task_template_versions={self.task_template_versions}"
+            f"TaskTemplate(" f"task_template_versions={self.task_template_versions}"
         )
 
         try:

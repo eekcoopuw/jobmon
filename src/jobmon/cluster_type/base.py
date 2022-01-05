@@ -221,4 +221,5 @@ class ConcreteResource(Protocol):
         raise NotImplementedError
 
     def __repr__(self) -> str:
+        """A representation string for a ConcreteResource instance."""
         return str({self.queue.queue_name: self.resources})

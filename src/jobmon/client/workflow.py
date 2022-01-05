@@ -883,8 +883,8 @@ class Workflow(object):
     def __repr__(self) -> str:
         """A representation string for a Workflow instance."""
         repr_string = (
-            f"Workflow(workflow_args={self.workflow_args}, "
-            f"name={self.name}")
+            f"Workflow(workflow_args={self.workflow_args}, " f"name={self.name}"
+        )
         try:
             repr_string += f", workflow_id={self.workflow_id})"
         except AttributeError:

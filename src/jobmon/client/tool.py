@@ -417,4 +417,5 @@ class Tool:
         self.id = SerializeClientTool.kwargs_from_wire(response["tool"])["id"]
 
     def __repr__(self) -> str:
+        """A representation string for a Tool instance."""
         return f"Tool(tool_id={self.id}, name={self.name}"
