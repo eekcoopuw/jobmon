@@ -879,3 +879,15 @@ class Workflow(object):
                     break
 
         return errors
+
+    def __repr__(self) -> str:
+        """A representation string for a Workflow instance."""
+        repr_string = (
+            f"Workflow(workflow_args={self.workflow_args}, "
+            f"name={self.name}")
+        try:
+            repr_string += f", workflow_id={self.workflow_id})"
+        except AttributeError:
+            # Workflow not yet bound so no ID to add to repr
+            repr_string += ")"
+        return repr_string

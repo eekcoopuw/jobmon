@@ -226,3 +226,11 @@ class WorkflowRun(object):
                         raise e
 
         return tasks
+
+    def __repr__(self) -> str:
+        """A representation string for a client WorkflowRun instance."""
+        return (
+            f"WorkflowRun(workflow_id={self.workflow_id}, "
+            f"workflow_run_id={self.workflow_run_id}"
+        )
+    

@@ -302,3 +302,18 @@ class TaskTemplateVersion:
         hash_value.update(bytes(str(self.arg_mapping_hash).encode("utf-8")))
         hash_value.update(bytes(str(self.command_template).encode("utf-8")))
         return int(hash_value.hexdigest(), 16)
+
+    def __repr__(self) -> str:
+        """A representation string for a TaskTemplateVersion instance."""
+        repr_string = (
+            f"TaskTemplateVersion(command_template={self.command_template}, "
+            f"node_args={self.node_args}, "
+            f"task_args={self.task_args}, "
+            f"op_args={self.op_args}"
+        )
+        try:
+            repr_string += f", id={self.id}"
+        except AttributeError:
+            repr_string += ")"
+
+        return repr_string

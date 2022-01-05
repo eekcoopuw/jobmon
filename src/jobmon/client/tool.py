@@ -415,3 +415,6 @@ class Tool:
                 f"{app_route}. Expected code 200. Response content: {response}"
             )
         self.id = SerializeClientTool.kwargs_from_wire(response["tool"])["id"]
+
+    def __repr__(self) -> str:
+        return f"Tool(tool_id={self.id}, name={self.name}"
