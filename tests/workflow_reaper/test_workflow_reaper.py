@@ -1,6 +1,7 @@
 import pytest
 from mock import patch, PropertyMock
 from jobmon.constants import WorkflowRunStatus
+from jobmon import __version__
 
 
 def get_workflow_status(db_cfg, workflow_id):
@@ -70,7 +71,7 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
 
     # Create a second workflow with one task. Don't log a heartbeat so that it can die
     task2 = sleepy_task_template.create_task(sleep=11)
-    wf2 = base_tool.create_workflow()
+    wf2 = base_tool.create_workflow(name="reaper_error_test", workflow_args="error_v_1")
     wf2.add_tasks([task2])
     wf2.bind()
     wfr2 = WorkflowRun(workflow_id=wf2.workflow_id, requester=wf2.requester)
@@ -80,9 +81,24 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     wfr2._update_status(WorkflowRunStatus.LAUNCHED)
     wfr2._update_status(WorkflowRunStatus.RUNNING)
 
+    def mock_slack_notifier(msg: str):
+        pass
+
     # Instantiate reaper, have it check for workflow runs in error state
-    reaper = WorkflowReaper(poll_interval_minutes=1, requester=requester_no_retry)
-    reaper._error_state()
+    reaper = WorkflowReaper(
+        poll_interval_minutes=1,
+        requester=requester_no_retry,
+        wf_notification_sink=mock_slack_notifier,
+    )
+
+    msg = reaper._error_state()
+
+    assert (
+        f"{__version__} Workflow Reaper transitioned a Workflow to FAILED state and "
+        f"associated Workflow Run to ERROR state.\nWorkflow ID: {wf2.workflow_id}\nWorkflow Name: "
+        f"reaper_error_test\nWorkflow Args: error_v_1\nWorkflowRun ID: {wfr2.workflow_run_id}"
+        in msg
+    )
 
     # Check that one workflow is running and the other failed
     workflow1_status = get_workflow_status(db_cfg, wf1.workflow_id)
@@ -127,7 +143,9 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
 
     # Create second WorkflowRun and transition to C status
     task2 = sleepy_task_template.create_task(sleep=11)
-    workflow2 = base_tool.create_workflow()
+    workflow2 = base_tool.create_workflow(
+        name="reaper_halted_test_2", workflow_args="halted_v_2"
+    )
 
     workflow2.add_tasks([task2])
     workflow2.bind()
@@ -141,7 +159,9 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
 
     # Create third WorkflowRun and transition to H status
     task3 = sleepy_task_template.create_task(sleep=12)
-    workflow3 = base_tool.create_workflow()
+    workflow3 = base_tool.create_workflow(
+        name="reaper_halted_test", workflow_args="halted_v_1"
+    )
 
     workflow3.add_tasks([task3])
     workflow3.bind()
@@ -153,9 +173,24 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
     wfr3._update_status(WorkflowRunStatus.RUNNING)
     wfr3._update_status(WorkflowRunStatus.HOT_RESUME)
 
+    def mock_slack_notifier(msg: str):
+        pass
+
     # Call workflow reaper suspended state
-    reaper = WorkflowReaper(5, requester=requester_no_retry)
-    reaper._halted_state()
+    reaper = WorkflowReaper(
+        5, requester=requester_no_retry, wf_notification_sink=mock_slack_notifier
+    )
+    msg = reaper._halted_state()
+    assert (
+        f"{__version__} Workflow Reaper transitioned a Workflow to HALTED state "
+        f"and associated Workflow Run to TERMINATED state.\nWorkflow ID:"
+        f" {workflow2.workflow_id}\nWorkflow Name: reaper_halted_test_2\nWorkflow "
+        f"Args: halted_v_2\nWorkflowRun ID: {wfr2.workflow_run_id}{__version__} "
+        f"Workflow Reaper transitioned a Workflow to HALTED state and associated "
+        f"Workflow Run to TERMINATED state.\nWorkflow ID: {workflow3.workflow_id}\n"
+        f"Workflow Name: reaper_halted_test\nWorkflow Args: halted_v_1\n"
+        f"WorkflowRun ID: {wfr3.workflow_run_id}" in msg
+    )
 
     # Check that the workflow runs are in the same state (1 R, 2 T)
     # and that there are two workflows in S state and one still in R state
@@ -190,7 +225,9 @@ def test_aborted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templa
     wfr._link_to_workflow(90)
 
     # create a workflow without binding the tasks
-    workflow1 = base_tool.create_workflow()
+    workflow1 = base_tool.create_workflow(
+        name="reaper_aborted_test", workflow_args="aborted_v_1"
+    )
     workflow1.add_tasks([task, task2])
     workflow1.bind()
     # Re-implement the logic of _create_workflow_run.
@@ -199,8 +236,19 @@ def test_aborted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templa
     wfr1._link_to_workflow(0)
 
     # Call aborted state logic
-    reaper = WorkflowReaper(5, requester=requester_no_retry)
-    reaper._aborted_state()
+    def mock_slack_notifier(msg: str):
+        pass
+
+    reaper = WorkflowReaper(
+        5, requester=requester_no_retry, wf_notification_sink=mock_slack_notifier
+    )
+    msg = reaper._aborted_state()
+    assert (
+        f"{__version__} Workflow Reaper transitioned a Workflow to ABORTED state "
+        f"and associated Workflow Run to ABORTED state.\nWorkflow ID: "
+        f"{workflow1.workflow_id}\nWorkflow Name: reaper_aborted_test\nWorkflow Args:"
+        f" aborted_v_1\nWorkflowRun ID: {wfr1.workflow_run_id}" in msg
+    )
 
     # Check that the workflow_run and workflow have both been moved to the
     # "A" state.
