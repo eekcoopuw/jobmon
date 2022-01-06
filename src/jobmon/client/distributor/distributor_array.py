@@ -2,12 +2,16 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Type
+from typing import Dict, Iterable, Optional, Set, Type, TYPE_CHECKING
 
+from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeDistributorArray
 
+if TYPE_CHECKING:
+    from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
+    from jobmon.client.distributor.distributor_workflow_run2 import DistributorWorkflowRun
 
 logger = logging.getLogger(__name__)
 
@@ -25,10 +29,8 @@ class DistributorArray:
         self.name = name
         self.max_concurrently_running = max_concurrently_running
 
-        self.instantiated_array_task_instance_ids: List[int] = []
-        self.launched_array_task_instance_ids: List[int] = []
-        self.running_array_task_instance_ids: List[int] = []
-        self.batch_number = 0
+        self.task_instances: Dict[int, DistributorTaskInstance] = {}
+        self.current_batch_number = 0
         self.requester = requester
 
     @classmethod
@@ -50,28 +52,64 @@ class DistributorArray:
         return array
 
     @property
-    def _capacity(self) -> int:
+    def workflow_run(self) -> DistributorWorkflowRun:
+        return self._distributor_workflow_run
+
+    @workflow_run.setter
+    def workflow_run(self, val: DistributorWorkflowRun):
+        self._distributor_workflow_run = val
+
+    @property
+    def instantiated_task_instances(self) -> Set[DistributorTaskInstance]:
+        task_instances = set(self.task_instances.values()).intersection(
+            self.workflow_run.state_map[TaskInstanceStatus.INSTANTIATED]
+        )
+        return task_instances
+
+    @property
+    def launched_task_instances(self) -> Set[DistributorTaskInstance]:
+        task_instances = set(self.task_instances.values()).intersection(
+            self.workflow_run.state_map[TaskInstanceStatus.LAUNCHED]
+        )
+        return task_instances
+
+    @property
+    def running_task_instances(self) -> Set[DistributorTaskInstance]:
+        task_instances = set(self.task_instances.values()).intersection(
+            self.workflow_run.state_map[TaskInstanceStatus.RUNNING]
+        )
+        return task_instances
+
+    @property
+    def capacity(self) -> int:
         capacity = (
             self.max_concurrently_running
-            - len(self.launched_array_task_instance_ids)
-            - len(self.running_array_task_instance_ids)
+            - len(self.launched_task_instances)
+            - len(self.running_task_instances)
         )
         return capacity
 
-    def queue_task_instance_id_for_array_launch(self, task_instance_id: int):
-        """
-        Add task instance to array queue
-        """
-        self.instantiated_array_task_instance_ids.append(task_instance_id)
+    def add_task_instance(self, task_instance: DistributorTaskInstance):
+        if task_instance.array_id != self.array_id:
+            raise ValueError(
+                f"array_id mismatch. TaskInstance={task_instance.array_id}. "
+                f"Array={self.array_id}."
+            )
+        self.task_instances[task_instance.task_instance_id] = task_instance
+        task_instance.array = self
 
-    def clear_registered_task_registry(self) -> None:
-        """Clear all registered tasks that have already been submitted.
+    def get_task_instance_batch(
+        self, task_resources_id: int, task_instances: Set[DistributorTaskInstance]
+    ) -> Set[DistributorTaskInstance]:
+        batch_eligable = self.instantiated_task_instances.intersection(task_instances)
+        task_instance_batch = [
+            task_instance for task_instance in batch_eligable
+            if task_instance.task_resources_id == task_resources_id
+        ]
 
-        Called when the array is submitted to the batch distributor."""
-        # TODO: Safe for sequential, may have problems with async and centeralized distributor
-        self.instantiated_array_task_instance_ids = []
-
-    def add_batch_number_to_task_instances(self) -> int:
+    def add_batch_number_to_task_instances(
+        self, task_instances: Iterable[DistributorTaskInstance]
+    ) -> int:
         """Add the current batch number to the current set of registered task instance ids."""
         this_batch = self.batch_number
         app_route = f'/task_instance/record_array_batch_num/{self.batch_number}'
@@ -90,5 +128,5 @@ class DistributorArray:
             )
 
         # Increment the counter for the next set of jobs
-        self.batch_number += 1
+        self.current_batch_number += 1
         return this_batch

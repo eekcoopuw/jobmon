@@ -3,12 +3,16 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional
+from typing import Any, Optional, TYPE_CHECKING
 
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskInstance
+
+if TYPE_CHECKING:
+    from jobmon.client.distributor.distributor_workflow_run2 import DistributorWorkflowRun
+    from jobmon.client.distributor.distributor_array import DistributorArray
 
 
 logger = logging.getLogger(__name__)
@@ -21,14 +25,14 @@ class DistributorTaskInstance:
         self,
         task_instance_id: int,
         workflow_run_id: int,
-        cluster_type_id: int,
+        array_id: int,
+        task_resources_id: int,
+        cluster_id: int,
         requester: Requester,
         distributor_id: Optional[int] = None,
         subtask_id: Optional[str] = None,
-        array_id: Optional[int] = None,
         array_batch_num: Optional[int] = None,
         array_step_id: Optional[int] = None,
-        requested_resources: Optional[dict] = None,
         name: Optional[str] = None,
     ) -> None:
         """Initialization of distributor task instance.
@@ -46,6 +50,10 @@ class DistributorTaskInstance:
         """
         self.task_instance_id = task_instance_id
         self.workflow_run_id = workflow_run_id
+        self.array_id = array_id
+        self.task_resources_id = task_resources_id
+        self.cluster_id = cluster_id
+
         self.distributor_id = distributor_id
         if subtask_id is None and array_id is None:
             self.subtask_id = str(distributor_id)
@@ -55,15 +63,12 @@ class DistributorTaskInstance:
         self.array_batch_num = array_batch_num
         self.array_step_id = array_step_id
         self.name = name
-        self.array_id = array_id
-        self.requested_resources = requested_resources
 
         self.report_by_date: float
 
         self.error_state = ""
         self.error_msg = ""
 
-        self.cluster_type_id = cluster_type_id
         self.requester = requester
 
     @classmethod
@@ -95,6 +100,22 @@ class DistributorTaskInstance:
             requester=requester,
         )
         return ti
+
+    @property
+    def workflow_run(self) -> DistributorWorkflowRun:
+        return self._distributor_workflow_run
+
+    @workflow_run.setter
+    def workflow_run(self, val: DistributorWorkflowRun):
+        self._distributor_workflow_run = val
+
+    @property
+    def array(self) -> DistributorArray:
+        return self._distributor_array
+
+    @array.setter
+    def array(self, val: DistributorArray):
+        self._distributor_array = val
 
     def transition_to_launched(
         self,
@@ -193,3 +214,17 @@ class DistributorTaskInstance:
     def transition_to_error(self, error_message: str) -> None:
         """Register that a known error occurred during reconciliation."""
         self._transition_to_error(error_message, self.error_state)
+
+    def __hash__(self):
+        return self.task_instance_id
+
+    def __eq__(self, other: object) -> bool:
+        """Check if the hashes of two tasks are equivalent."""
+        if not isinstance(other, DistributorTaskInstance):
+            return False
+        else:
+            return hash(self) == hash(other)
+
+    def __lt__(self, other: DistributorTaskInstance) -> bool:
+        """Check if one hash is less than the has of another Task."""
+        return hash(self) < hash(other)
