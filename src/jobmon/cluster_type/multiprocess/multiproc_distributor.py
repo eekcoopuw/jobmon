@@ -326,7 +326,7 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
     """Task instance info for an instance run with the Multiprocessing distributor."""
 
     def __init__(self) -> None:
-        """Initialization of the multiprocess executor worker node."""
+        """Initialization of the multiprocess distributor worker node."""
         self._distributor_id: Optional[int] = None
         self._array_step_id: Optional[int] = None
         self._subtask_id: Optional[str] = None
