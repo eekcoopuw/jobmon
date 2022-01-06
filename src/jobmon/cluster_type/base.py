@@ -219,3 +219,7 @@ class ConcreteResource(Protocol):
             resource_scales: Specifies how much to scale the failed Task's resources by.
         """
         raise NotImplementedError
+
+    def __repr__(self) -> str:
+        """A representation string for a ConcreteResource instance."""
+        return str({self.queue.queue_name: self.resources})

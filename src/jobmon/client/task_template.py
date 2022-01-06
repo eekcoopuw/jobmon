@@ -578,3 +578,17 @@ class TaskTemplate:
             "ci_runtime": kwargs["ci_runtime"],
         }
         return resources
+
+    def __repr__(self) -> str:
+        """A representation string for a TaskTemplate instance."""
+        repr_string = (
+            f"TaskTemplate(" f"task_template_versions={self.task_template_versions}"
+        )
+
+        try:
+            repr_string += f", tool_version_id={self.tool_version_id}"
+            repr_string += f", id={self.id})"
+        except AttributeError:
+            # Bind somehow not called, so terminate the repr string
+            repr_string += ")"
+        return repr_string

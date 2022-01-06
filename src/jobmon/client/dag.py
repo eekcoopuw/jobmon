@@ -235,3 +235,7 @@ class Dag(object):
                 for downstream_node in sorted(node.downstream_nodes):
                     hash_value.update(str(hash(downstream_node)).encode("utf-8"))
         return int(hash_value.hexdigest(), 16)
+
+    def __repr__(self) -> str:
+        """A representation string for a Dag instance."""
+        return f"Dag(hash={self.__hash__()}"

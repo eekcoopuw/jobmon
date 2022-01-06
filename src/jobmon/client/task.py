@@ -469,6 +469,20 @@ class Task:
         hash_value.update(bytes(str(self.task_args_hash).encode("utf-8")))
         return int(hash_value.hexdigest(), 16)
 
+    def __repr__(self) -> str:
+        """A representation string for a Task instance."""
+        repr_string = (
+            f"Task(command={self.command}, "
+            f"name={self.name}, "
+            f"node={self.node}, "
+            f"task_args={self.task_args}"
+        )
+        try:
+            repr_string += f", task_id={self.task_id})"
+        except AttributeError:
+            repr_string += ")"
+        return repr_string
+
     def resource_usage(self) -> dict:
         """Get the resource usage for the successful TaskInstance of a Task."""
         app_route = "/task_resource_usage"
