@@ -1,9 +1,12 @@
-from typing import Optional
+from typing import Optional, List, Set, TYPE_CHECKING
 
 
 from jobmon.client.distributor.distributor_workflow_run2 import DistributorWorkflowRun
 from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.requester import Requester
+
+if TYPE_CHECKING:
+    from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 
 
 class DistributorService:
@@ -28,6 +31,7 @@ class DistributorService:
         self._n_queued = n_queued
         self._distributor_poll_interval = distributor_poll_interval
 
+        self.distributors = distributor
         self.requester = requester
 
     def set_workflow_run(self, workflow_id: int, workflow_run_id: int):
@@ -40,31 +44,70 @@ class DistributorService:
             requester=self.requester
         )
 
-    def create_instances(self, workflow_run: DistributorWorkflowRun):
+    def instantiate_task_instances(self, workflow_run: DistributorWorkflowRun):
+        """given a workflow_run, instantiate all queued task instances."""
         # TODO: rename _n_queued
-        num_created = len(workflow_run.create_instances(self._n_queued))
-        while num_created == self._n_queued:
-            num_created = len(workflow_run.create_instances(self._n_queued))
+        processed_task_instances: Set[DistributorTaskInstance] = set()
+        new_task_instances = workflow_run.instantiate_queued_task_instances(self._n_queued)
+        processed_task_instances.update(new_task_instances)
 
-    def launch_instances(self, workflow_run: DistributorWorkflowRun):
-        task_instance_batches = workflow_run.get_ready_to_launch_batches()
+        while len(new_task_instances) == self._n_queued:
+            new_task_instances = workflow_run.instantiate_queued_task_instances(self._n_queued)
+            processed_task_instances.update(new_task_instances)
+
+        workflow_run.update_state_map(processed_task_instances)
+
+    def launch_task_instances(self, workflow_run: DistributorWorkflowRun):
+        processed_task_instances: Set[DistributorTaskInstance] = set()
+        task_instance_batches = workflow_run.get_task_instance_batches_for_launch()
 
         while task_instance_batches:
             task_instance_batch = task_instance_batches.pop(0)
-
             # get an element of the batch
             task_instance = next(iter(task_instance_batch))
-            cluster =
-
+            cluster = task_instance.cluster_id
+            # TODO: how do we translate task_resource_id into requested resources??? We can
+            # pass the payload from the server when we get the task instance but that is
+            # inefficient for arrays. Maybe just lookup in the submit method and keep a
+            # registry on the workflow run?
+            # task_resources = task_instance.task_resources_id
             if len(task_instance_batches) > 1:
                 try:
-                    workflow_run.launch_array_instance()
+                    task_instances = workflow_run.launch_array_instance(task_instance_batch,
+                                                                        cluster)
+                    processed_task_instances.update(task_instances)
                 except NotImplementedError:
-                    # unpack set into single element tuples if not implemented
+                    # unpack set into single element tuples if not implemented by cluster
                     task_instance_batches.extend(list(zip(task_instance_batches)))
             else:
                 # unpack single element
-                workflow_run.launch_task_instance(task_instance)
+                task_instance = workflow_run.launch_task_instance(task_instance, cluster)
+                processed_task_instances.append(task_instance)
 
-    def heartbeat(self) -> bool:
+        workflow_run.update_state_map(processed_task_instances)
+
+    def monitor_launched_task_instances(self, workflow_run: DistributorWorkflowRun):
+        # TODO: purge queueing errors. check distributor for liveliness?
         pass
+
+    def monitor_running_task_instances(self, workflow_run: DistributorWorkflowRun):
+        # TODO: Can EQW happen at this stage. check distributor for liveliness?
+        pass
+
+    def process_errored_task_instances(self, workflow_run: DistributorWorkflowRun):
+        # TODO: EQW, unknown error, other?
+        pass
+
+    def _heartbeat_interrupt(self) -> bool:
+        return False
+
+    def iterate_distributor(self):
+        self.instantiate_task_instances(self.workflow_run)  # INSTANTIATED
+        self.launch_task_instance(self.workflow_run)
+        self.monitor_launched_task_instances(self.workflow_run)
+        self.monitor_running_task_instances(self.workflow_run)
+        self.process_errored_task_instances(self.workflow_run)
+
+        # TODO: When to syncronize status with db. Perhaps once for each queue/method
+        # TODO: Should the monitoring of launched and running be treated different? Perhaps a
+        # higher priority.

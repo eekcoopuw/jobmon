@@ -89,23 +89,19 @@ class DistributorWorkflowRun:
             )
         return resp
 
-    def _move_to_the_right_queue(self, tid: int, status: str):
-        """Move the failed to transit ti to the right q."""
-        if status == TaskInstanceStatus.INSTANTIATED:
-            # move to register q
-            self._registered_task_instance_ids.add(tid)
-        elif status in {TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR}:
-            self._launched_task_instance_ids.add(tid)
-        elif status == TaskInstanceStatus.RUNNING:
-            self._running_task_instance_ids.add(tid)
-        elif status != TaskInstanceStatus.DONE:
-            self._error_task_instance_ids.add(tid)
+    def update_state_map(self, task_instances: Set[DistributorTaskInstance]):
+        """Given a set of modified task instances, update the internal state map"""
+        for task_instance_status, mapped_task_instances in self.state_map.items():
+            self.state_map[task_instance_status] = mapped_task_instances - task_instances
+
+        for task_instance in task_instances:
+            self.state_map[task_instance.status].add(task_instance)
 
     def launch_task_instance(
         self,
         task_instance: DistributorTaskInstance,
         cluster: ClusterDistributor
-    ):
+    ) -> DistributorTaskInstance:
         """
         submits a task instance on a given distributor.
         adds the new task instance to self.submitted_or_running_task_instances
@@ -138,11 +134,11 @@ class DistributorWorkflowRun:
         # Return ti_distributor_id
         return distributor_id
 
-    def launch_array_instance(
+    def launch_task_instance_batch(
         self,
-        array: DistributorArray,
+        task_instance_batch: Set[DistributorTaskInstance],
         cluster: ClusterDistributor
-    ):
+    ) -> Set[DistributorTaskInstance]:
         """
         submits an array task on a given distributor
         adds the new task instances to self.launched_task_instances
@@ -189,10 +185,34 @@ class DistributorWorkflowRun:
 
         return array_distributor_id
 
-    def get_ready_to_launch_batches(self):
+    def get_task_instance_batches_for_launch(self) -> List[Set[DistributorTaskInstance]]:
         # compute the task_instances that can be launched
-        eligable_task_instances = self._ready_to_launch
+        # capacity numbers
+        workflow_run_capacity = self.capacity
+        array_capacity_lookup: Dict[int, int] = {}
 
+        # loop through all instantiated instances while we have capacity
+        instantiated_task_instances = list(self.instantiated_task_instances)
+        eligable_task_instances: Set[DistributorTaskInstance] = set()
+        while workflow_run_capacity > 0 and instantiated_task_instances:
+            task_instance = instantiated_task_instances.pop(0)
+            array_id = task_instance.array_id
+
+            # lookup array capacity. if first iteration, compute it on the array class
+            array_capacity = array_capacity_lookup.get(
+                array_id, self.get_array(array_id).capacity
+            )
+
+            # add to eligable_task_instances set if there is capacity
+            if array_capacity > 0:
+                eligable_task_instances.add(task_instance)
+                workflow_run_capacity -= 1
+                array_capacity -= 1
+
+            # set new array capacity
+            array_capacity_lookup[array_id] = array_capacity
+
+        # loop through all eligable task instance and cluster into batches
         task_instance_batches: List[Set[DistributorTaskInstance]] = []
         while eligable_task_instances:
             # pick one task instance out of the eligable set. Find any other task instances
@@ -349,7 +369,10 @@ class DistributorWorkflowRun:
             self.transition_task_instance(ti_dict)
             self._log_tis_heartbeat(list(ti_dict.keys()))
 
-    def create_instances(self, batch_size: int) -> List[DistributorTaskInstance]:
+    def instantiate_queued_task_instances(
+        self,
+        batch_size: int
+    ) -> Set[DistributorTaskInstance]:
         """Retrieve a list of task that are in queued state."""
         # Retrieve all tasks (up till the queued_tasks_bulk_query_size) that are in queued
         # state that are associated with the workflow.
@@ -365,13 +388,12 @@ class DistributorWorkflowRun:
             )
 
         # concurrency limit hasn't been applied yet
-        task_instances = []
+        task_instances: Set[DistributorTaskInstance] = set()
         for server_task_instance in response["task_instances"]:
             distributor_ti = DistributorTaskInstance.from_wire(
                 wire_tuple=server_task_instance, requester=self.requester
             )
-            task_instances.append(distributor_ti)
-            self.add_task_instance(distributor_ti)
+            task_instances.add(distributor_ti)
         return task_instances
 
     def add_task_instance(self, task_instance: DistributorTaskInstance):
@@ -392,32 +414,3 @@ class DistributorWorkflowRun:
             - len(self.running_task_instances)
         )
         return capacity
-
-    @property
-    def _ready_to_launch(self) -> Set[DistributorTaskInstance]:
-        # capacity numbers
-        workflow_run_capacity = self.capacity
-        array_capacity_lookup: Dict[int, int] = {}
-
-        # loop through all instantiated instances while we have capacity
-        instantiated_task_instances = list(self.instantiated_task_instances)
-        ready_to_launch: Set[DistributorTaskInstance] = set()
-        while workflow_run_capacity > 0 and instantiated_task_instances:
-            task_instance = instantiated_task_instances.pop(0)
-            array_id = task_instance.array_id
-
-            # lookup array capacity. if first iteration, compute it on the array class
-            array_capacity = array_capacity_lookup.get(
-                array_id, self.get_array(array_id).capacity
-            )
-
-            # add to ready_to_launch set if there is capacity
-            if array_capacity > 0:
-                ready_to_launch.add(task_instance)
-                workflow_run_capacity -= 1
-                array_capacity -= 1
-
-            # set new array capacity
-            array_capacity_lookup[array_id] = array_capacity
-
-        return ready_to_launch
