@@ -772,12 +772,13 @@ def get_queued_jobs(workflow_run_id: int, n_queued_tasks: int) -> Any:
         .join(Workflow, Task.workflow_id == Workflow.id)
         .join(WorkflowRun, Workflow.id == WorkflowRun.workflow_id)
         .filter(WorkflowRun.id == workflow_run_id)
-        .filter(Task.status == "Q")
+        .filter(Task.status == TaskStatus.QUEUED_FOR_INSTANTIATION)
         .limit(int(n_queued_tasks))
         .all()
     )
 
-    # Create task instances from bound tasks
+    # Update the associated Queued tis to TaskInstanceStatus.INSTANTIATED,
+    # and move the tasks to TaskStatus.INSTANTIATED
     tis = []
     for t in tasks:
         ti = TaskInstance(
@@ -787,24 +788,25 @@ def get_queued_jobs(workflow_run_id: int, n_queued_tasks: int) -> Any:
             task_id=t.id,
             task_resources_id=t.task_resources_id
         )
-        tis.append(ti)
-        DB.session.add(ti)
-        try:
-            t.transition(TaskStatus.INSTANTIATED)
-        except InvalidStateTransition as e:
-            if t.status == TaskStatus.INSTANTIATED:
-                msg = (
-                    "Caught InvalidStateTransition. Not transitioning task "
-                    "{}'s task_instance_id {} from I to I".format(
-                        t.id, ti.id
+        if ti.status == TaskInstanceStatus.QUEUED:
+            ti.status = TaskInstanceStatus.INSTANTIATED
+            tis.append(ti)
+            try:
+                t.transition(TaskStatus.INSTANTIATED)
+            except InvalidStateTransition as e:
+                if t.status == TaskStatus.INSTANTIATED:
+                    msg = (
+                        "Caught InvalidStateTransition. Not transitioning task "
+                        "{}'s task_instance_id {} from I to I".format(
+                            t.id, ti.id
+                        )
                     )
-                )
-                logger.warning(msg)
-            else:
-                DB.session.rollback()
-                raise ServerError(
-                    f"Unexpected Jobmon Server Error in {request.path}", status_code=500
-                ) from e
+                    logger.warning(msg)
+                else:
+                    DB.session.rollback()
+                    raise ServerError(
+                        f"Unexpected Jobmon Server Error in {request.path}", status_code=500
+                    ) from e
 
     DB.session.commit()
     task_dcts = [ti.to_wire_as_distributor_task_instance() for ti in tis]

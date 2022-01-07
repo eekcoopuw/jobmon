@@ -71,7 +71,12 @@ class TaskInstance(DB.Model):
 
     # finite state machine transition information
     valid_transitions = [
-        # task instance is submitted normally (happy path)
+        # task instance is queued normally (new happy path)
+        (
+            TaskInstanceStatus.QUEUED,
+            TaskInstanceStatus.INSTANTIATED,
+        ),
+        # task instance is submitted normally (old happy path)
         (
             TaskInstanceStatus.INSTANTIATED,
             TaskInstanceStatus.LAUNCHED,

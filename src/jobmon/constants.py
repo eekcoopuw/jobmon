@@ -12,6 +12,7 @@ class TaskResourcesType:
 class TaskInstanceStatus:
     """Statuses used for Task Instances."""
 
+    QUEUED = "Q"
     INSTANTIATED = "I"
     NO_DISTRIBUTOR_ID = "W"
     SUBMITTED_TO_BATCH_DISTRIBUTOR = "B"
