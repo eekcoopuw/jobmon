@@ -11,7 +11,7 @@ from jobmon.serializers import SerializeDistributorArray
 
 if TYPE_CHECKING:
     from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
-    from jobmon.client.distributor.distributor_workflow_run2 import DistributorWorkflowRun
+    from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 
 logger = logging.getLogger(__name__)
 
@@ -21,17 +21,26 @@ class DistributorArray:
     def __init__(
         self,
         array_id: int,
-        requester: Requester,
-        name: Optional[str] = None,
-        max_concurrently_running: int = 10_000
+        requester: Requester
     ):
         self.array_id = array_id
-        self.name = name
-        self.max_concurrently_running = max_concurrently_running
 
         self.task_instances: Dict[int, DistributorTaskInstance] = {}
         self.current_batch_number = 0
         self.requester = requester
+
+    def get_metadata(self):
+        # app_route = f"/array/{array_id}"
+        # return_code, response = self.requester.send_request(
+        #     app_route=app_route, message={}, request_type="get", logger=logger
+        # )
+        # if http_request_ok(return_code) is False:
+        #     raise InvalidResponse(
+        #         f"Unexpected status code {return_code} from POST "
+        #         f"request through route {app_route}. Expected "
+        #         f"code 200. Response content: {response}"
+        #     )
+        pass
 
     @classmethod
     def from_wire(

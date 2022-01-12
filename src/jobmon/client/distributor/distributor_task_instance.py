@@ -11,7 +11,7 @@ from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskInstance
 
 if TYPE_CHECKING:
-    from jobmon.client.distributor.distributor_workflow_run2 import DistributorWorkflowRun
+    from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
     from jobmon.client.distributor.distributor_array import DistributorArray
 
 
@@ -25,6 +25,8 @@ class DistributorTaskInstance:
         self,
         task_instance_id: int,
         workflow_run_id: int,
+        task_id: int,
+        workflow_id: int,
         array_id: int,
         task_resources_id: int,
         cluster_id: int,
@@ -49,10 +51,13 @@ class DistributorTaskInstance:
                 the JSM. default is shared requester
         """
         self.task_instance_id = task_instance_id
-        self.workflow_run_id = workflow_run_id
+        self.task_id = task_id
+        self.workflow_id = workflow_id
         self.array_id = array_id
         self.task_resources_id = task_resources_id
         self.cluster_id = cluster_id
+
+        self.workflow_run_id = workflow_run_id
 
         self.distributor_id = distributor_id
         if subtask_id is None and array_id is None:

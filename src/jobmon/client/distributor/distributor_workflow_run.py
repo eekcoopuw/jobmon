@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, List, Optional, Set
 
+from jobmon.client.distributor.distributor_workflow import DistributorWorkflow
 from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
@@ -24,49 +25,18 @@ class DistributorWorkflowRun:
     when pushing to the database we should work in CommandType (Workflow/Array/Task) space
     """
 
-    def __init__(self, workflow_id: int, workflow_run_id: int, requester: Requester):
-        self.workflow_id = workflow_id
+    def __init__(self, workflow_run_id: int, workflow_id: int, requester: Requester):
         self.workflow_run_id = workflow_run_id
-        self.max_concurrently_running = 100
+        self.workflow_id = workflow_id
         self.requester = requester
 
-        # registries
-        self.task_instances: Dict[int, DistributorTaskInstance] = {}
-        self.arrays: Dict[int, DistributorArray] = {}
+    @property
+    def workflow(self) -> DistributorWorkflow:
+        return self._workflow
 
-        # lists of task_instance_ids in different states. used for property views into
-        # self._task_instances dict. This gets refreshed from the db during
-        # self.get_task_instance_status_updates
-        self.state_map = {
-            TaskInstanceStatus.INSTANTIATED: set(),
-            TaskInstanceStatus.LAUNCHED: set(),
-            TaskInstanceStatus.RUNNING: set(),
-            TaskInstanceStatus.UNKNOWN_ERROR: set()
-        }
-
-    def get_array(self, array_id: int) -> DistributorArray:
-        """Get an array from the array cache or from the database on first access
-
-        Args:
-            array_id: the array_id to get
-        """
-        try:
-            array = self.arrays[array_id]
-        except KeyError:
-            app_route = f"/array/{array_id}"
-            return_code, response = self.requester.send_request(
-                app_route=app_route, message={}, request_type="get", logger=logger
-            )
-            if http_request_ok(return_code) is False:
-                raise InvalidResponse(
-                    f"Unexpected status code {return_code} from POST "
-                    f"request through route {app_route}. Expected "
-                    f"code 200. Response content: {response}"
-                )
-            array = DistributorArray.from_wire(response["array"], requester=self.requester)
-            array.workflow_run = self
-            self.arrays[array.array_id] = array
-        return array
+    @workflow.setter
+    def workflow(self, val: DistributorWorkflow):
+        self._workflow = val
 
     def transition_task_instance(self, array_id: Optional[int], task_instance_ids: List[int],
                                  distributor_id: int, status: TaskInstanceStatus) -> Any:
@@ -96,43 +66,6 @@ class DistributorWorkflowRun:
 
         for task_instance in task_instances:
             self.state_map[task_instance.status].add(task_instance)
-
-    def launch_task_instance(
-        self,
-        task_instance: DistributorTaskInstance,
-        cluster: ClusterDistributor
-    ) -> DistributorTaskInstance:
-        """
-        submits a task instance on a given distributor.
-        adds the new task instance to self.submitted_or_running_task_instances
-        """
-        # Fetch the worker node command
-        command = cluster.build_worker_node_command(
-            task_instance_id=task_instance.task_instance_id
-        )
-        # Submit to batch distributor
-        distributor_id = cluster.submit_to_batch_distributor(
-            command=command,
-            name=task_instance.name,
-            requested_resources=task_instance.requested_resources
-        )
-
-        # move from register queue to launch queue
-        self._launched_task_instance_ids.add(task_instance.task_instance_id)
-        self._registered_task_instance_ids.pop(task_instance.task_instance_id)
-        resp = self.transition_task_instance(array_id=None,
-                                             task_instance_ids=[task_instance.task_instance_id],
-                                             distributor_id=distributor_id,
-                                             status=TaskInstanceStatus.LAUNCHED)
-
-        # Pull unsuccessful transitions from the response, and add to a triaging queue
-        erroneous_tis: Dict[int, str] = resp['erroneous_transitions']
-        if len(erroneous_tis) > 0:
-            self._move_to_the_right_queue(task_instance.task_instance_id,
-                                          erroneous_tis[str(task_instance.task_instance_id)])
-
-        # Return ti_distributor_id
-        return distributor_id
 
     def launch_task_instance_batch(
         self,
@@ -186,51 +119,7 @@ class DistributorWorkflowRun:
         return array_distributor_id
 
     def get_task_instance_batches_for_launch(self) -> List[Set[DistributorTaskInstance]]:
-        # compute the task_instances that can be launched
-        # capacity numbers
-        workflow_run_capacity = self.capacity
-        array_capacity_lookup: Dict[int, int] = {}
-
-        # loop through all instantiated instances while we have capacity
-        instantiated_task_instances = list(self.instantiated_task_instances)
-        eligable_task_instances: Set[DistributorTaskInstance] = set()
-        while workflow_run_capacity > 0 and instantiated_task_instances:
-            task_instance = instantiated_task_instances.pop(0)
-            array_id = task_instance.array_id
-
-            # lookup array capacity. if first iteration, compute it on the array class
-            array_capacity = array_capacity_lookup.get(
-                array_id, self.get_array(array_id).capacity
-            )
-
-            # add to eligable_task_instances set if there is capacity
-            if array_capacity > 0:
-                eligable_task_instances.add(task_instance)
-                workflow_run_capacity -= 1
-                array_capacity -= 1
-
-            # set new array capacity
-            array_capacity_lookup[array_id] = array_capacity
-
-        # loop through all eligable task instance and cluster into batches
-        task_instance_batches: List[Set[DistributorTaskInstance]] = []
-        while eligable_task_instances:
-            # pick one task instance out of the eligable set. Find any other task instances
-            # that have compatible parameters and can be launched simultaneously
-            task_instance = next(iter(eligable_task_instances))
-            task_resources_id = task_instance.task_resources_id
-            array = self.get_array(task_instance.array_id)
-            task_instance_batch = set([
-                task_instance for task_instance
-                in array.instantiated_task_instances.intersection(eligable_task_instances)
-                if task_instance.task_resources_id == task_resources_id
-            ])
-
-            # remove all members of this batch from eligable set and append to return list
-            eligable_task_instances = eligable_task_instances - task_instance_batch
-            task_instance_batches.append(task_instance_batch)
-
-        return task_instance_batches
+        pass
 
     @property
     def task_instance_heartbeat_interval(self) -> int:
@@ -414,3 +303,17 @@ class DistributorWorkflowRun:
             - len(self.running_task_instances)
         )
         return capacity
+
+    def __hash__(self):
+        return self.workflow_run_id
+
+    def __eq__(self, other: object) -> bool:
+        """Check if the hashes of two WorkflowRuns are equivalent."""
+        if not isinstance(other, DistributorWorkflowRun):
+            return False
+        else:
+            return hash(self) == hash(other)
+
+    def __lt__(self, other: DistributorWorkflowRun) -> bool:
+        """Check if one hash is less than the hash of another."""
+        return hash(self) < hash(other)
