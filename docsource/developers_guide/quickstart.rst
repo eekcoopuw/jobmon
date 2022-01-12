@@ -7,7 +7,7 @@ The standard workflow for contributing to Jobmon involves:
 #. Making your changes, on a feature branch
 #. Running the unit tests
 #. Linting and type checking the code base
-#. Creating a pull request, and ensuring that the automatic builds pass.
+#. Creating a pull request, getting approval from at least 2 members of the Scicomp team, and ensuring that the automatic builds pass.
 
 Updating code
 *************
