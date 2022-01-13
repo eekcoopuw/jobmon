@@ -266,6 +266,11 @@ def parse_arguments(argstr: Optional[str] = None) -> Namespace:
                               "jobmon/deployment/tests/sample.yaml"))
     parser.add_argument("--wfid", required=True, type=str, action='store',
                         help="a key in the yaml_path for a specific workflow entry")
+    # There is a consistency issue going on between Jobmon core and Load_test,
+    # actually more on the Jobmon core side: If we try to pass cluster_name via Jobmon core,
+    # Jobmon core has some inconsistency with kwargs and named --cluster_name parameter.
+    # I don't want to change Jobmon core at the moment, so I commented this out to get it going.
+    # Related TBD: GBDSCI-4277: cluster_name pass-through does not work as expected
     # parser.add_argument("--cluster_name", required=True, type=str, action='store',
     #                     help="cluster name that this test is conducted on")
     parser.add_argument("--scratch_dir", required=False, default="", type=str, action='store',
