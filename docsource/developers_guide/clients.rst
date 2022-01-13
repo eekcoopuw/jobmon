@@ -31,6 +31,13 @@ variable should be a file path to the Python executable within a conda environme
 ending with something like ``/miniconda3/bin/python``. If not set by a user, then the R client will default to a centrally
 installed conda environment that's managed by the Scicomp team.
 
+**Note**: A key limitation of any reticulate package is that you can only have 1 Python interpreter in memory. This means that 
+if you want to use another reticulate package in the same control script, you will need to install all dependencies needed for 
+both packages into a single conda environment. Additionally, both packages need to be flexible in allowing the user to set 
+the appropriate interpreter. For example, the widely-used (at IHME) crosswalk package, produced by MSCA, has a hardcoded, custom-built
+conda environment hardcoded in the startup section, meaning that users *cannot* use both jobmonr and crosswalk in the same memory space. 
+However, there is very little reason to do so in the first place, and a small update to the crosswalk package could solve this issue. 
+
 Future Directions
 ^^^^^^^^^^^^^^^^^
 
