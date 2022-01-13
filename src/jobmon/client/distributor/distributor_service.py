@@ -10,10 +10,10 @@ from jobmon.client.distributor.distributor_task import DistributorTask
 
 from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus
-from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 
 if TYPE_CHECKING:
+    from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
     from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
     from jobmon.client.distributor.status_processor import StatusProcessor
 
@@ -44,25 +44,19 @@ class DistributorService:
 
         # indexing of task instanes by status
         self._task_instance_status_map: Dict[str, Set[DistributorTaskInstance]] = {}
-        self._workflow_run_status_map: Dict[str, Set[DistributorWorkflowRun]] = {}
+        self._workflow_run: DistributorWorkflowRun
+        self._array_batch: Set[DistributorArrayBatch] = set()
 
         # indexing of task instance by id
         self._tasks: Dict[int, DistributorTask] = {}
         self._arrays: Dict[int, DistributorArray] = {}
         self._workflows: Dict[int, DistributorWorkflow] = {}
 
-        # poller set. Those objects that can poll the db for new work
-        self.pollers: Set[DistributorWorkflow] = set()
-        # list of tasks/arrays/workflows that need to be initialized post polling loop
-        self.initializing_queue: List[Callable] = []
-
         # priority work queues
         self.status_processor_instance_map: Dict[str, List[StatusProcessor]] = {}
         self.status_processing_order = [
             TaskInstanceStatus.INSTANTIATED,
             TaskInstanceStatus.LAUNCHED,
-            TaskInstanceStatus.RUNNING,
-            TaskInstanceStatus.UNKNOWN_ERROR,
         ]
 
         # distributor API
@@ -79,7 +73,12 @@ class DistributorService:
         for task_instance in task_instances:
             self.status_map[task_instance.status].add(task_instance)
 
-    def process_next_status(self):
+    def create_status_processors(self):
+        self.prepare_task_instance_batches_for_launch()
+        self.check_for_queuing_errors()
+
+
+    def run_status_processors(self):
         """"""
         try:
             status = self.status_processing_order.pop(0)
@@ -92,18 +91,89 @@ class DistributorService:
         finally:
             self.status_processing_order.append(status)
 
-    def poll(self):
-        for poller in self.pollers:
-            poller.instantiated_task_instances(self)
-
     def set_workflow_run(self, workflow_run_id: int, workflow_id: int):
         workflow_run = DistributorWorkflowRun(workflow_run_id, workflow_id)
         workflow = self.get_workflow(workflow_id)
         workflow.add_workflow_run(workflow_run)
+        self.workflow_run = workflow_run
 
-        # add to status map and register as an initializer
-        self._workflow_run_status_map[workflow_run.status].add(workflow_run)
-        self.pollers.add(workflow)
+    def poll_for_queued_task_instances(self) -> None:
+        """Instantiate all queued task instances for this workflow."""
+        # TODO: rename _n_queued
+        # TODO: should we consider capacity before instantiating queued tasks?
+
+        processed_task_instances = set()
+        new_task_instances = self.workflow_run.instantiate_queued_task_instances(
+            self._n_queued
+        )
+        processed_task_instances.update(new_task_instances)
+
+        # while the new task instance equal batch size get new work
+        while len(new_task_instances) == self._n_queued:
+            new_task_instances = self.workflow_run.instantiate_queued_task_instances(
+                self._n_queued
+            )
+            processed_task_instances.update(new_task_instances)
+
+        for task_instance in processed_task_instances:
+            self.add_task_instance(task_instance)
+
+    def prepare_task_instance_batches_for_launch(self) -> None:
+        # compute the task_instances that can be launched
+        # capacity numbers
+        workflow_capacity_lookup: Dict[int, int] = {}
+        array_capacity_lookup: Dict[int, int] = {}
+
+        # loop through all instantiated instances while we have capacity
+        instantiated_task_instances = list(
+            self._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]
+        )
+        eligable_task_instances: Set[DistributorTaskInstance] = set()
+        while instantiated_task_instances:
+            task_instance = instantiated_task_instances.pop(0)
+            array_id = task_instance.array_id
+            workflow_id = task_instance.workflow_id
+
+            # lookup array capacity. if first iteration, compute it on the array class
+            array_capacity = array_capacity_lookup.get(
+                array_id, task_instance.array.capacity
+            )
+            workflow_capacity = workflow_capacity_lookup.get(
+                workflow_id, task_instance.workflow.capacity
+            )
+
+            # add to eligable_task_instances set if there is capacity
+            if workflow_capacity > 0 and array_capacity > 0:
+                eligable_task_instances.add(task_instance)
+                workflow_capacity -= 1
+                array_capacity -= 1
+
+            # set the new capacities
+            array_capacity_lookup[array_id] = array_capacity
+            workflow_capacity_lookup[workflow_id] = workflow_capacity
+
+        # loop through all eligable task instance and cluster into batches
+        task_instance_batches: List[Set[DistributorTaskInstance]] = []
+        while eligable_task_instances:
+            # pick one task instance out of the eligable set. Find any other task instances
+            # that have compatible parameters and can be launched simultaneously
+            task_instance = next(iter(eligable_task_instances))
+            task_resources_id = task_instance.task_resources_id
+            array = task_instance.array
+            task_instance_batch = set([
+                task_instance for task_instance
+                in array.instantiated_task_instances.intersection(eligable_task_instances)
+                if task_instance.task_resources_id == task_resources_id
+            ])
+
+            # remove all members of this batch from eligable set and append to return list
+            eligable_task_instances = eligable_task_instances - task_instance_batch
+            task_instance_batches.append(task_instance_batch)
+
+        return task_instance_batches
+
+    def heartbeat(self) -> None:
+        pass
 
     def add_task_instance(self, task_instance: DistributorTaskInstance):
         # add associations
@@ -153,3 +223,36 @@ class DistributorService:
             self.workflows[workflow.workflow_id] = workflow
             self.initializing_queue.append(workflow)
         return workflow
+
+    def launch_task_instances(self, distributor_service: DistributorService):
+        processed_task_instances: Set[DistributorTaskInstance] = set()
+        task_instance_batches = self.workflow_run.get_task_instance_batches_for_launch()
+
+        while task_instance_batches:
+            task_instance_batch = task_instance_batches.pop(0)
+            # get an element of the batch
+            task_instance = next(iter(task_instance_batch))
+
+            # TODO: this should be stored and accessed by cluster_id
+            cluster = self.distributor
+
+            # TODO: how do we translate task_resource_id into requested resources??? We can
+            # pass the payload from the server when we get the task instance but that is
+            # inefficient for arrays. Maybe just lookup in the submit method and keep a
+            # registry on the workflow run?
+            # task_resources = task_instance.task_resources_id
+            if len(task_instance_batches) > 1:
+                try:
+                    task_instances = workflow_run.launch_task_instance_batch(
+                        task_instance_batch, cluster
+                    )
+                    processed_task_instances.update(task_instances)
+                except NotImplementedError:
+                    # unpack set into single element tuples if not implemented by cluster
+                    task_instance_batches.extend(list(zip(task_instance_batches)))
+            else:
+                # unpack single element
+                task_instance = workflow_run.launch_task_instance(task_instance, cluster)
+                processed_task_instances.add(task_instance)
+
+        workflow_run.update_state_map(processed_task_instances)

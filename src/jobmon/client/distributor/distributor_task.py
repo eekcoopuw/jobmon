@@ -16,11 +16,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DistributorTask(StatusProcessor):
+class DistributorTask:
 
     def __init__(self, task_id: int, requester: Requester):
         self.task_id = task_id
-        self.task_instances: Dict[int, DistributorTaskInstance] = {}
+        self.task_instance: DistributorTaskInstance
         self.requester = requester
 
     def add_task_instance(self, task_instance: DistributorTaskInstance):
@@ -29,7 +29,7 @@ class DistributorTask(StatusProcessor):
                 f"task_id mismatch. TaskInstance={task_instance.task_id}. "
                 f"Task={self.task_id}."
             )
-        self.task_instances[task_instance.task_instance_id] = task_instance
+        self.task_instance = task_instance
         task_instance.task = self
 
     def get_metadata(self):

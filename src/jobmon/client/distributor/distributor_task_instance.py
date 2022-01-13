@@ -11,8 +11,9 @@ from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskInstance
 
 if TYPE_CHECKING:
-    from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
     from jobmon.client.distributor.distributor_array import DistributorArray
+    from jobmon.client.distributor.distributor_task import DistributorTask
+    from jobmon.client.distributor.distributor_workflow import DistributorWorkflow
 
 
 logger = logging.getLogger(__name__)
@@ -107,11 +108,11 @@ class DistributorTaskInstance:
         return ti
 
     @property
-    def workflow_run(self) -> DistributorWorkflowRun:
+    def workflow(self) -> DistributorWorkflow:
         return self._distributor_workflow_run
 
-    @workflow_run.setter
-    def workflow_run(self, val: DistributorWorkflowRun):
+    @workflow.setter
+    def workflow(self, val: DistributorWorkflow):
         self._distributor_workflow_run = val
 
     @property
@@ -121,6 +122,14 @@ class DistributorTaskInstance:
     @array.setter
     def array(self, val: DistributorArray):
         self._distributor_array = val
+
+    @property
+    def task(self) -> DistributorTask:
+        return self._distributor_task
+
+    @task.setter
+    def task(self, val: DistributorTask):
+        self._distributor_task = val
 
     def transition_to_launched(
         self,
