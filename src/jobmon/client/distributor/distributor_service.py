@@ -253,8 +253,11 @@ class DistributorService:
 
     def distribute(self, thread_stop_event: Optional[threading.Event] = None) -> None:
         """Distribute and reconcile on an interval."""
-        logger.info(
-            "Distributing work. Reconciling queue discrepancies. Logging errors."
+        # Set it to debug level so that regular user(on Info) will not be bothered
+        # with this msg. But if they want, they can get down to debug level to see it
+        logger.debug(
+            "Jobmon is now distributing work, reconciling queue discrepancies,"
+            "and logging errors as needed..."
         )
 
         # get work if there isn't any in the queues
