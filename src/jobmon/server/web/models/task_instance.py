@@ -206,6 +206,8 @@ class TaskInstance(DB.Model):
             logger.info(f"Transitioning task_instance from {self.status} to {new_state}")
             self.status = new_state
             self.status_date = func.now()
+            if new_state == TaskInstanceStatus.INSTANTIATED:
+                self.task.transition(TaskStatus.INSTANTIATED)
             if new_state == TaskInstanceStatus.RUNNING:
                 self.task.transition(TaskStatus.RUNNING)
             elif new_state == TaskInstanceStatus.DONE:

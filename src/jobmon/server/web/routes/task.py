@@ -457,7 +457,7 @@ def queue_job(task_id: int, workflow_run_id: int) -> Any:
         .one_or_none()
     )
     # send back json for task_id not found
-    if result is None:
+    if task is None:
         resp = jsonify(msg=f"Task {task_id} does not exist!", task_instance=None)
         resp.status_code = StatusCodes.NOT_FOUND
         return resp
@@ -465,13 +465,17 @@ def queue_job(task_id: int, workflow_run_id: int) -> Any:
     # Create task instance from input task_id
     ti = TaskInstance(
         workflow_run_id=workflow_run_id,
-        array_id=t.array_id,
-        cluster_type_id=t.task_resources.queue.cluster.id,
-        task_id=t.id,
-        task_resources_id=t.task_resources_id,
+        array_id=task.array_id,
+        cluster_type_id=task.task_resources.queue.cluster.cluster_type_id,
+        task_id=task.id,
+        task_resources_id=task.task_resources_id,
         status=TaskInstanceStatus.QUEUED
     )
     DB.session.add(ti)
+
+    # We need to then put the task on QUEUED_FOR_INSTANTIATION
+    # since now ti has been QUEUED
+    task.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
 
     DB.session.commit()
     ti_as_tuple = ti.to_wire_as_distributor_task_instance()

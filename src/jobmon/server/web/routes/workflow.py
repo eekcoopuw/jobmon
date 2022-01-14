@@ -18,7 +18,7 @@ from jobmon.server.web.models.dag import Dag
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_status import TaskStatus
-from jobmon.server.web.models.task_instance import TaskInstance
+from jobmon.server.web.models.task_instance import TaskInstance, TaskInstanceStatus
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
