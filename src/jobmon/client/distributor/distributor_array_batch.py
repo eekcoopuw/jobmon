@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Set, TYPE_CHECKING
+from typing import Callable, List, Set, Tuple, TYPE_CHECKING
 
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
@@ -28,7 +28,7 @@ class DistributorArrayBatch:
         self.task_resources_id = task_resources_id
         self.task_instances = task_instances
 
-    def _add_batch_number_to_task_instances(self) -> int:
+    def add_batch_number_to_task_instances(self) -> int:
         """Add the current batch number to the current set of registered task instance ids."""
         app_route = f'/task_instance/record_array_batch_num/{self.batch_number}'
         rc, resp = self.requester.send_request(
@@ -45,3 +45,9 @@ class DistributorArrayBatch:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {resp}"
             )
+
+    def get_task_resources(self):
+        pass
+
+    def launch_array_batch(self) -> Tuple[Set[DistributorTaskInstance], List[Callable]]:
+        pass

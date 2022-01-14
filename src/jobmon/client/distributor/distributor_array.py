@@ -8,6 +8,7 @@ from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeDistributorArray
+from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
 
 if TYPE_CHECKING:
     from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
@@ -26,7 +27,7 @@ class DistributorArray:
         self.array_id = array_id
 
         self.task_instances: Set[DistributorTaskInstance] = set()
-        self.current_batch_number = 0
+        self.last_batch_number = 0
         self.requester = requester
 
     def get_metadata(self):
@@ -78,11 +79,17 @@ class DistributorArray:
         self.task_instances[task_instance.task_instance_id] = task_instance
         task_instance.array = self
 
-    def get_task_instance_batch(
-        self, task_resources_id: int, task_instances: Set[DistributorTaskInstance]
-    ) -> Set[DistributorTaskInstance]:
-        batch_eligable = self.instantiated_task_instances.intersection(task_instances)
-        task_instance_batch = [
-            task_instance for task_instance in batch_eligable
-            if task_instance.task_resources_id == task_resources_id
-        ]
+    def create_array_batch(
+        self,
+        task_resources_id: int,
+        task_instances: Set[DistributorTaskInstance]
+    ) -> DistributorArrayBatch:
+        current_batch_number = self.last_batch_number + 1
+        array_batch = DistributorArrayBatch(
+            self.array_id,
+            current_batch_number,
+            task_resources_id,
+            task_instances
+        )
+        self.last_batch_number = current_batch_number
+        return array_batch
