@@ -106,6 +106,7 @@ class DistributorService:
         self._submitted_or_running: Dict[int, DistributorTaskInstance] = {}
         self._to_reconcile: List[DistributorTaskInstance] = []
         self._to_log_error: List[DistributorTaskInstance] = []
+        self._to_instantiate: List[DistributorTaskInstance] = []
 
         # Move workflow and workflow run to launched
         self._launch_workflows()
@@ -272,7 +273,6 @@ class DistributorService:
         # get work if there isn't any in the queues
         if not self._to_reconcile:
             self._get_tasks_queued_for_instantiation()
-            logger.debug(f"Found {len(self._to_instantiate)} Queued Tasks")
             self._get_lost_task_instances()
             logger.debug(f"Found {len(self._to_reconcile)} Lost Tasks")
 

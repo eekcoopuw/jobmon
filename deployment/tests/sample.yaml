@@ -43,5 +43,5 @@ load_test_parameters:
   foo3:
     random_seed: 456
     use_array: 1
-    n_tasks: 1000
-    phase_task_ratios: [ 10, 30, 1 ]
+    n_tasks: 10
+    phase_task_ratios: [ 10, 30, 10 ]
