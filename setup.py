@@ -32,7 +32,7 @@ SERVER_REQUIRES = [
 ]
 
 SQUID_REQUIRES = [
-    'slurm-rest',
+    'slurm_rest',
 ]
 
 # pip install -e .[test]
