@@ -11,6 +11,7 @@ from typing import Dict, List, Optional, Sequence
 from yaml import load, SafeLoader
 
 from jobmon.client.api import Tool
+from jobmon.client.array import Array
 from jobmon.client.task import Task
 from jobmon.client.task_template import TaskTemplate
 
@@ -24,6 +25,7 @@ class LoadTestParameters:
 
     Args:
         wfid: unique identifier for this load test
+        array: whether to submit tasks in array
         cluster_name: cluster name under which this test is conducted
         random_seed: random seed for probabilistic params. set for repeatability
         n_tasks: approximate number of tasks to include in workflow
@@ -43,6 +45,7 @@ class LoadTestParameters:
     cluster_name: str
     random_seed: int
     n_tasks: int
+    use_array: int = 0
     phase_task_ratios: Sequence[int] = field(default=(10, 30, 1))
     phase_n_attr: Sequence[int] = field(default=(10, 5, 0))
     phase_percent_in_degree: Sequence[int] = field(default=(0, 1, 100))
@@ -112,6 +115,11 @@ class LoadTestGenerator:
         self.task_templates_by_phase: Dict[int, TaskTemplate] = {}
         self.tasks_by_phase: Dict[int, List[Task]] = {}
 
+        # for array
+        self.array_task_templates_by_phase: Dict[int, TaskTemplate] = {}
+        self.arries: List[Array] = []
+        self.array_length: List[int] = []  # used to create random relationship
+
         # task generation attributes
         self.counter = 0
 
@@ -127,17 +135,37 @@ class LoadTestGenerator:
         random.seed(parameters.random_seed)
         ltg = cls(scratch_dir=scratch_dir, wfid=parameters.wfid,
                   cluster_name=parameters.cluster_name)
-        ltg.add_tasks_to_workflow(
-            total_tasks=parameters.n_tasks,
-            phase_task_ratios=list(parameters.phase_task_ratios),
-            phase_n_attr=list(parameters.phase_n_attr),
-            phase_percent_in_degree=list(parameters.phase_percent_in_degree),
-            phase_percent_intermittent_fail=list(parameters.phase_percent_intermittent_fail),
-            phase_percent_sleep_timeout=list(parameters.phase_percent_sleep_timeout),
-            phase_percent_fail_always=list(parameters.phase_percent_fail_always)
-        )
+        if parameters.use_array:
+            ltg.add_array_to_workflow(total_tasks=parameters.n_tasks,
+                                      phase_task_ratios=list(parameters.phase_task_ratios))
+        else:
+            ltg.add_tasks_to_workflow(
+                total_tasks=parameters.n_tasks,
+                phase_task_ratios=list(parameters.phase_task_ratios),
+                phase_n_attr=list(parameters.phase_n_attr),
+                phase_percent_in_degree=list(parameters.phase_percent_in_degree),
+                phase_percent_intermittent_fail=list(parameters.phase_percent_intermittent_fail),
+                phase_percent_sleep_timeout=list(parameters.phase_percent_sleep_timeout),
+                phase_percent_fail_always=list(parameters.phase_percent_fail_always)
+            )
+
         random.seed()
         return ltg
+
+    def create_array_task_template(self, phase: int):
+        template_name = f"array_phase_{phase}_template"
+        command_template = (
+            "{python} {script} "
+            "--uid {uid} "
+            "--sleep_secs {sleep_secs} "
+        )
+        self.array_task_templates_by_phase[phase] = self.tool.get_task_template(
+            template_name=template_name,
+            command_template=command_template,
+            node_args=["uid"],
+            task_args=["sleep_secs"],
+            op_args=["python", "script"]
+        )
 
     def create_task_template(self, phase: int):
         template_name = f"phase_{phase}_template"
@@ -185,6 +213,48 @@ class LoadTestGenerator:
                 percent_fail_always=phase_percent_fail_always[phase]
             )
             self.workflow.add_tasks(tasks)
+
+    def add_array_to_workflow(self, total_tasks: int, phase_task_ratios: List[int]):
+        # calculate proportion of total tasks per phase
+        phase_multiplier = float(total_tasks) / float(sum(phase_task_ratios))
+        compute_resources = {
+            'cores': 1,
+            'memory': 1,
+            'queue': 'all.q',
+            'runtime': 60
+        }
+
+        # loop through phases
+        for phase in range(len(phase_task_ratios)):
+            self.create_array_task_template(phase)
+
+            # create tasks
+            num_phase_task = int(phase_task_ratios[phase] * phase_multiplier)
+            # protect the corner case that a phase has 0 tasks
+            if num_phase_task > 0:
+                a = self.array_task_templates_by_phase[phase].create_array(
+                    python=sys.executable,
+                    script=self.script,
+                    uid=[f"Phase-{phase}-task-{i}" for i in range(num_phase_task)],
+                    sleep_secs=30,
+                    compute_resources=compute_resources,
+                    max_attempts=2
+                )
+                self.arries.append(a)
+                self.array_length.append(num_phase_task)
+                self.workflow.add_array(a)
+
+        # create dependency
+        # simplified by first task of array depends on previous phase first task
+        for p in range(1, len(self.arries)):
+            a = self.arries[p]
+            up_a = self.arries[p-1]
+            for i in range(0, self.array_length[p]):
+                t = a.get_tasks_by_node_args(uid=f"Phase-{p}-task-{i}")
+                up_t_random = random.randint(1, self.array_length[p-1])
+                for j in range(0, up_t_random):
+                    up_t = up_a.get_tasks_by_node_args(uid=f"Phase-{p-1}-task-{j}")
+                    t[0].add_upstream(up_t[0])
 
     def _get_tasks_by_phase(self, phase: int, n_tasks: int, in_degree_percent: int = 10,
                             n_attr: int = 4, percent_intermittent_fail: int = 50,
