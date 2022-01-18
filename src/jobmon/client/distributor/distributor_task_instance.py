@@ -220,6 +220,7 @@ class DistributorTaskInstance:
     def transition_to_unknown_error(self, error_message: str) -> None:
         """Register that an unknown error was discovered during reconciliation."""
         self._transition_to_error(error_message, self.error_state)
+        return self, []
 
     def transition_to_resource_error(self, error_message: str) -> None:
         """Register that a resource error was discovered during reconciliation."""
