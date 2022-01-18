@@ -23,7 +23,8 @@ R Client
 R users, who may not have experience writing any Python but still wish to use Jobmon, can use the **jobmonr** library to
 write their control scripts. All core logic is still written in Python, but the R client uses the **reticulate** package
 to build a simple wrapper around the Python client. This allows a user to create and manipulate the necessary Jobmon
-objects without needing to write any Python.
+objects without needing to write any Python. The code for the R client does not live in this repository, but in the SCIC/jobmonr
+repository. 
 
 Because there is no self-contained execution logic in the R client, users do need to take a dependency on a Python client.
 This is done by setting the RETICULATE_PYTHON environment variable *prior* to loading the jobmonr library. This environment
