@@ -58,9 +58,9 @@ requirements:
     - tenacity
   run:
   # jobmon core dependencies
-  {% for req in jobmon_setup.get('install_requires', []) %}
-    - {{ req|replace("_", "-") }}
-  {% endfor %}
+  #{% for req in jobmon_setup.get('install_requires', []) %}
+  #  - {{ req|replace("_", "-") }}
+  #{% endfor %}
   # jobmon_uge dependencies
   {% for req in jobmon_uge_setup.get('install_requires', []) %}
   {% if req not in skip_list -%}
