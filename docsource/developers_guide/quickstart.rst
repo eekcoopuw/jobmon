@@ -1,6 +1,6 @@
-************************
+********************
 Developer Quickstart
-************************
+********************
 
 The standard workflow for contributing to Jobmon involves:
 
@@ -23,7 +23,7 @@ All code must be version controlled, so the recommended workflow is to:
 #. Make any changes, run the necessary tests, and push to an upstream branch
 
 Running unit tests
-****************
+******************
 
 To run the Jobmon test suite, navigate to the top-level folder in this repository and run ``nox -s tests -- tests/``.
 
