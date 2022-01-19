@@ -191,6 +191,7 @@ class WorkflowReaper(object):
 
         # Transitions workflow to A state and workflow run to A
         target_status = WorkflowRunStatus.ABORTED
+        messages = ""
         for wfr in workflow_runs:
             status = wfr.reap()
             if status == target_status and self._wf_notification_sink is not None:
@@ -203,7 +204,8 @@ class WorkflowReaper(object):
                     workflow_args=wf_args,
                 )
                 self._wf_notification_sink(msg=message)
-        return message
+                messages += message
+        return messages
 
     def _inconsistent_status(self) -> None:
         """Find wf in F with all tasks in D and fix them."""
