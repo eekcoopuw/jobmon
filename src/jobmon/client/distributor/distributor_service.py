@@ -220,8 +220,6 @@ class DistributorService:
         launched_task_instances = list(
             self._task_instance_status_map[TaskInstanceStatus.LAUNCHED])
         array_batches: Set[DistributorArrayBatch] = set()
-        # Make a registry of array batches?
-        # Or: add array batch reference on task instance object
         for ti in launched_task_instances:
             array_batch = DistributorArrayBatch(
                 array_id=ti.array_id,
