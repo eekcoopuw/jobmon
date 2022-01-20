@@ -12,6 +12,7 @@ from jobmon.serializers import SerializeTaskInstance
 
 if TYPE_CHECKING:
     from jobmon.client.distributor.distributor_array import DistributorArray
+    from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
     from jobmon.client.distributor.distributor_task import DistributorTask
     from jobmon.client.distributor.distributor_workflow import DistributorWorkflow
 
@@ -109,27 +110,35 @@ class DistributorTaskInstance:
 
     @property
     def workflow(self) -> DistributorWorkflow:
-        return self._distributor_workflow_run
+        return self._workflow
 
     @workflow.setter
     def workflow(self, val: DistributorWorkflow):
-        self._distributor_workflow_run = val
+        self._workflow = val
 
     @property
     def array(self) -> DistributorArray:
-        return self._distributor_array
+        return self._array
 
     @array.setter
     def array(self, val: DistributorArray):
-        self._distributor_array = val
+        self._array = val
 
     @property
     def task(self) -> DistributorTask:
-        return self._distributor_task
+        return self._task
 
     @task.setter
     def task(self, val: DistributorTask):
-        self._distributor_task = val
+        self._task = val
+
+    @property
+    def array_batch(self) -> DistributorArrayBatch:
+        return self._array_batch
+
+    @array_batch.setter
+    def array_batch(self, val: DistributorArrayBatch):
+        self._array_batch = val
 
     def transition_to_launched(
         self,

@@ -3,10 +3,11 @@ from __future__ import annotations
 import logging
 from typing import Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
-from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
-from jobmon.client.distributor.distributor_workflow import DistributorWorkflow
 from jobmon.client.distributor.distributor_array import DistributorArray
+from jobmon.client.distributor.distributor_command import DistributorCommand
 from jobmon.client.distributor.distributor_task import DistributorTask
+from jobmon.client.distributor.distributor_workflow import DistributorWorkflow
+from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 
 from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus
@@ -16,6 +17,7 @@ if TYPE_CHECKING:
     from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
     from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
     from jobmon.client.distributor.status_processor import StatusProcessor
+
 
 logger = logging.getLogger(__name__)
 
@@ -44,8 +46,8 @@ class DistributorService:
 
         # indexing of task instanes by status
         self._task_instance_status_map: Dict[str, Set[DistributorTaskInstance]] = {}
+        self._array_batches: Set[DistributorArrayBatch] = set()
         self._workflow_run: DistributorWorkflowRun
-        self._array_batch: Set[DistributorArrayBatch] = set()
 
         # indexing of task instance by id
         self._tasks: Dict[int, DistributorTask] = {}
@@ -53,11 +55,11 @@ class DistributorService:
         self._workflows: Dict[int, DistributorWorkflow] = {}
 
         # priority work queues
-        self.status_processor_instance_map: Dict[str, List[StatusProcessor]] = {}
         self.status_processing_order = [
             TaskInstanceStatus.QUEUED,
             TaskInstanceStatus.INSTANTIATED,
             TaskInstanceStatus.LAUNCHED,
+            TaskInstanceStatus.TRIAGING
         ]
 
         # distributor API
@@ -79,18 +81,18 @@ class DistributorService:
             # syncronize statuses from db
             self._refresh_status_from_db(status)
 
-            status_processor_callables = self._check_for_work(status)
-            while status_processor_callables:
+            distributor_commands = self._check_for_work(status)
+            while distributor_commands:
 
                 # check if we need to pause for a heartbeat
                 self._check_heartbeat()
 
                 # get the first callable and run it
-                status_processor_callable = status_processor_callables.pop(0)
-                processed_task_instances, new_callables = status_processor_callable(self)
+                distributor_command = distributor_commands.pop(0)
+                processed_task_instances, new_distributor_commands = distributor_command()
 
                 # append new callables to the work queue
-                status_processor_callables.append(new_callables)
+                distributor_commands.append(new_distributor_commands)
 
                 # update task mappings
                 self._update_status_map(processed_task_instances)
@@ -147,7 +149,7 @@ class DistributorService:
         for task_instance in processed_task_instances:
             self.add_task_instance(task_instance)
 
-    def _check_instantiated_for_work(self) -> List[Callable]:
+    def _check_instantiated_for_work(self) -> List[DistributorCommand]:
         # compute the task_instances that can be launched
 
         instantiated_task_instances = list(
@@ -192,7 +194,7 @@ class DistributorService:
             workflow_capacity_lookup[workflow_id] = workflow_capacity
 
         # loop through all arrays from earlier and cluster into batches
-        status_processors: List[Callable] = []
+        distributor_commands: List[DistributorCommand] = []
         for array in arrays:
 
             # limit eligable set to this array and store batches
@@ -208,9 +210,12 @@ class DistributorService:
             for key, batch_set in array_batch_sets.items():
                 array, task_resources_id = key
                 array_batch = array.create_array_batch(task_resources_id, batch_set)
-                status_processors.append(array_batch.launch_array_batch)
+                distributor_command = DistributorCommand(
+                    array_batch.launch_array_batch, self.distributor
+                )
+                distributor_commands.append(distributor_command)
 
-        return status_processors
+        return distributor_commands
 
     def add_task_instance(self, task_instance: DistributorTaskInstance):
         # add associations
