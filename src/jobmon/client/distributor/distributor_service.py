@@ -90,7 +90,7 @@ class DistributorService:
                 processed_task_instances, new_callables = status_processor_callable()
 
                 # append new callables to the work queue
-                status_processor_callables.append(new_callables)
+                status_processor_callables.extend(new_callables)
 
                 # update task mappings
                 self._update_status_map(processed_task_instances)
@@ -220,19 +220,22 @@ class DistributorService:
         launched_task_instances = list(
             self._task_instance_status_map[TaskInstanceStatus.LAUNCHED])
         array_batches: Set[DistributorArrayBatch] = set()
+        # Make a registry of array batches?
+        # Or: add array batch reference on task instance object
         for ti in launched_task_instances:
             array_batch = DistributorArrayBatch(
                 array_id=ti.array_id,
                 batch_number=ti.array_batch_num,
                 task_resources_id=ti.task_resources_id
             )
+            # TODO: array_batch = ti.array_batch
+            # Array batch should be added as a property of task instance
             array_batches.add(array_batch)
 
         for array_batch in array_batches:
-            status_processors.append(array_batch.get_queueing_errors, self.distributor)
+            status_processors.append(array_batch.get_queueing_errors)
 
         return status_processors
-
 
     def add_task_instance(self, task_instance: DistributorTaskInstance):
         # add associations

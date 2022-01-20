@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, Optional, TYPE_CHECKING
+from typing import Any, List, Optional, Set, Tuple, TYPE_CHECKING
 
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
@@ -187,7 +187,7 @@ class DistributorTaskInstance:
                 f"code 200. Response content: {response}"
             )
 
-    def _transition_to_error(self, error_message: str, error_state):
+    def _transition_to_error(self, error_message: str, error_state: str):
         if self.distributor_id is None:
             raise ValueError("distributor_id cannot be None during log_error")
         distributor_id = self.distributor_id
@@ -217,18 +217,28 @@ class DistributorTaskInstance:
                 f"code 200. Response content: {response}"
             )
 
-    def transition_to_unknown_error(self, error_message: str) -> None:
+        self.error_state = error_state
+
+    def transition_to_unknown_error(
+            self, error_message: str, error_state: str
+    ) -> Tuple[Set[DistributorTaskInstance], List]:
         """Register that an unknown error was discovered during reconciliation."""
-        self._transition_to_error(error_message, self.error_state)
-        return self, []
+        self._transition_to_error(error_message, error_state)
+        return {self}, []
 
-    def transition_to_resource_error(self, error_message: str) -> None:
+    def transition_to_resource_error(
+            self, error_message: str, error_state: str
+    ) -> Tuple[Set[DistributorTaskInstance], List]:
         """Register that a resource error was discovered during reconciliation."""
-        self._transition_to_error(error_message, self.error_state)
+        self._transition_to_error(error_message, error_state)
+        return {self}, []
 
-    def transition_to_error(self, error_message: str) -> None:
+    def transition_to_error(
+            self, error_message: str, error_state: str
+    ) -> Tuple[Set[DistributorTaskInstance], List]:
         """Register that a known error occurred during reconciliation."""
-        self._transition_to_error(error_message, self.error_state)
+        self._transition_to_error(error_message, error_state)
+        return {self}, []
 
     def __hash__(self):
         return self.task_instance_id
