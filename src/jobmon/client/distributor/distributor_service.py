@@ -16,7 +16,6 @@ from jobmon.requester import http_request_ok, Requester
 if TYPE_CHECKING:
     from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
     from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
-    from jobmon.client.distributor.status_processor import StatusProcessor
 
 
 logger = logging.getLogger(__name__)
@@ -92,7 +91,7 @@ class DistributorService:
                 processed_task_instances, new_distributor_commands = distributor_command()
 
                 # append new callables to the work queue
-                distributor_commands.append(new_distributor_commands)
+                distributor_commands.extend(new_distributor_commands)
 
                 # update task mappings
                 self._update_status_map(processed_task_instances)
@@ -112,10 +111,11 @@ class DistributorService:
     def _check_for_work(self, status: str):
         work_generator_map = {
             TaskInstanceStatus.QUEUED: self._poll_for_queued_task_instances,
-            TaskInstanceStatus.INSTANTIATED: self._check_instantiated_for_work
+            TaskInstanceStatus.INSTANTIATED: self._check_instantiated_for_work,
+            TaskInstanceStatus.LAUNCHED: self._check_for_queueing_errors,
         }
         work_generator = work_generator_map[status]
-        work_generator()
+        return work_generator()
 
     def _check_heartbeat(self):
         pass
@@ -205,6 +205,7 @@ class DistributorService:
                 if key not in array_batch_sets:
                     array_batch_sets[key] = set()
                 array_batch_sets[key].add(task_instance)
+                # Add to self._array_batch_sets?
 
             # construct the status processors for each batch
             for key, batch_set in array_batch_sets.items():
@@ -216,6 +217,27 @@ class DistributorService:
                 distributor_commands.append(distributor_command)
 
         return distributor_commands
+
+    def _check_for_queueing_errors(self) -> List[Callable]:
+
+        status_processors: List[Callable] = []
+        launched_task_instances = list(
+            self._task_instance_status_map[TaskInstanceStatus.LAUNCHED])
+        array_batches: Set[DistributorArrayBatch] = set()
+        for ti in launched_task_instances:
+            array_batch = DistributorArrayBatch(
+                array_id=ti.array_id,
+                batch_number=ti.array_batch_num,
+                task_resources_id=ti.task_resources_id
+            )
+            # TODO: array_batch = ti.array_batch
+            # Array batch should be added as a property of task instance
+            array_batches.add(array_batch)
+
+        for array_batch in array_batches:
+            status_processors.append(array_batch.get_queueing_errors)
+
+        return status_processors
 
     def add_task_instance(self, task_instance: DistributorTaskInstance):
         # add associations
