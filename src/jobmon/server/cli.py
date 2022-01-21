@@ -87,11 +87,11 @@ class ServerCLI(CLI):
 
     def qpid_integration(self, args: configargparse.Namespace) -> None:
         """QPID integration service entrypoint logic."""
-        from jobmon.server.qpid_integration.api import start_qpid_integration
+        # TODO: need dependency injection into squid integration
+        from jobmon.server.usage_integration.api import start_usage_integration
 
-        # TODO: need dependency injection into qpid integration
         if args.command == "start":
-            start_qpid_integration()
+            start_usage_integration()
         else:
             raise ValueError(
                 "Invalid command choice. Options are (start), got " f"({args.command})"
@@ -154,8 +154,8 @@ class ServerCLI(CLI):
             type=str,
             choices=["start"],
             help=(
-                "The qpid_integration sub-command to run: (start). Start command runs "
-                "qpid.maxpss_forever()."
+                "The squid_integration sub-command to run: (start). Start command runs "
+                "squid.maxrss_forever()."
             ),
         )
 

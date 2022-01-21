@@ -154,3 +154,10 @@ class ToolVersion:
                 dict of {resource_name: resource_value}
         """
         self.default_compute_resources_set[cluster_name] = compute_resources
+
+    def __repr__(self) -> str:
+        """A representation string for a ToolVersion instance."""
+        return (
+            f"ToolVersion(tool_version_id={self.id},"
+            f"task_templates: {[t for t in self.task_templates.keys()]})"
+        )

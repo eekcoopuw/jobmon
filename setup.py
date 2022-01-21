@@ -13,6 +13,7 @@ INSTALL_REQUIRES = [
     'pyyaml',
     'requests',
     'scipy',
+    'slurm_rest>=1.0.1',
     'structlog',
     'tabulate',
     'tenacity',
@@ -28,6 +29,10 @@ SERVER_REQUIRES = [
     'pymysql',  # install MySQLdb/mysqlclient for more performance
     'python-logstash-async',
     'sqlalchemy',
+]
+
+SQUID_REQUIRES = [
+    'slurm_rest',
 ]
 
 # pip install -e .[test]

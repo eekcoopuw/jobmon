@@ -89,6 +89,14 @@ def parse_arguments(argstr: Optional[str] = None) -> Namespace:
     return args
 
 
+######################
+#   Loadtest Main Entry Point
+#   1. Create a conda environ with jobmon core installed, and activate it while on a cluster node;
+#   2. Navigate to this file's directory;
+#   3. Set sample.yaml to reflect your desired testing preferences;
+#   4. Run the following command, adjusting the 2 arguments for yourself
+#       python multi_workflow_test.py --yaml_path ./sample.yaml --scratch_dir ./scratch
+######################
 if __name__ == "__main__":
 
     args = parse_arguments()

@@ -2,7 +2,7 @@ tool_resources:
   buster:
     memory: 1
     cores: 1
-    project: 'general'
+    project: 'ihme_general'
     queue: 'all.q'
     stderr: './six_job_test_stderr'
     stdout: './six_job_test_stdout'
