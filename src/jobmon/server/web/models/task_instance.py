@@ -29,14 +29,14 @@ class TaskInstance(DB.Model):
         """Serialize task instance object."""
         return SerializeTaskInstance.to_wire(
             self.id, self.workflow_run_id, self.distributor_id,
-            self.array_id, self.cluster_type_id, self.array_batch_num,
+            self.array_id, self.cluster_id, self.array_batch_num,
             self.array_step_id, self.subtask_id
         )
 
     id = DB.Column(DB.Integer, primary_key=True)
     workflow_run_id = DB.Column(DB.Integer)
     array_id = DB.Column(DB.Integer, DB.ForeignKey("array.id"), default=None)
-    cluster_type_id = DB.Column(DB.Integer, DB.ForeignKey("cluster_type.id"))
+    cluster_id = DB.Column(DB.Integer, DB.ForeignKey("cluster.id"))
     distributor_id = DB.Column(DB.Integer, index=True)
     task_id = DB.Column(DB.Integer, DB.ForeignKey("task.id"))
     task_resources_id = DB.Column(DB.Integer, DB.ForeignKey("task_resources.id"))

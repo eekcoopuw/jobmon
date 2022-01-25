@@ -33,6 +33,7 @@ class DistributorTaskInstance:
         array_id: int,
         task_resources_id: int,
         cluster_id: int,
+        status: str,
         requester: Requester,
         distributor_id: Optional[int] = None,
         subtask_id: Optional[str] = None,
@@ -54,13 +55,15 @@ class DistributorTaskInstance:
                 the JSM. default is shared requester
         """
         self.task_instance_id = task_instance_id
+        self.workflow_run_id = workflow_run_id
+
         self.task_id = task_id
         self.workflow_id = workflow_id
         self.array_id = array_id
         self.task_resources_id = task_resources_id
         self.cluster_id = cluster_id
 
-        self.workflow_run_id = workflow_run_id
+        self.status = status
 
         self.distributor_id = distributor_id
         if subtask_id is None and array_id is None:
@@ -175,14 +178,12 @@ class DistributorTaskInstance:
 
         except Exception as e:
             self.transition_to_no_distributor_id(
-                cluster_id=distributor.cluster_id,
                 no_id_err_msg=str(e)
             )
 
         else:
             # move from register queue to launch queue
             self.transition_to_launched(
-                cluster_id=distributor.cluster_id,
                 distributor_id=self.distributor_id,
                 subtask_id=None,
                 next_report_increment=next_report_increment
@@ -190,9 +191,8 @@ class DistributorTaskInstance:
 
     def transition_to_launched(
         self,
-        cluster_id: int,
         distributor_id: int,
-        subtask_id: str,
+        subtask_id: Optional[str],
         next_report_increment: float,
     ) -> None:
         """Register the submission of a new task instance to a cluster."""
@@ -219,7 +219,6 @@ class DistributorTaskInstance:
 
     def transition_to_no_distributor_id(
         self,
-        cluster_id: int,
         no_id_err_msg: str,
     ) -> None:
         """Register that submission failed with the central service.

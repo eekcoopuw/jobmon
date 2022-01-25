@@ -10,12 +10,13 @@ from werkzeug.local import LocalProxy
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
-from jobmon.server.web.models.task_instance import TaskInstanceStatus
+from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_instance import TaskInstance, TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.routes import finite_state_machine
-from jobmon.server.web.server_side_exception import InvalidUsage
+from jobmon.server.web.server_side_exception import InvalidUsage, ServerError
 
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
@@ -363,3 +364,57 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
     return resp
 
 
+@finite_state_machine.route(
+    "/workflow_run/<workflow_run_id>/instantiate_task_instances/<bulk_query_size>",
+    methods=["POST"]
+)
+def instantiate_task_instances(workflow_run_id: int, bulk_query_size: int) -> Any:
+    """Returns oldest n tasks (or all tasks if total queued tasks < n) to be instantiated.
+
+    Args:
+        workflow_run_id: id of workflow run
+        n_queued_tasks: number of tasks to queue
+    """
+    # <usertablename>_<columnname>.
+
+    # If we want to prioritize by task or workflow level it would be done in this query
+    bind_to_logger(workflow_run_id=workflow_run_id)
+    logger.info("Getting queued jobs for workflow run")
+
+    task_instances = (
+        DB.session.query(TaskInstance)
+        .join(Task, Task.id == TaskInstance.task_id)
+        .filter(TaskInstance.workflow_run_id == workflow_run_id)
+        .filter(TaskInstance.status == TaskInstanceStatus.QUEUED)
+        .limit(int(bulk_query_size))
+        .all()
+    )
+
+    # Update the associated Queued tis to TaskInstanceStatus.INSTANTIATED
+    instantiated_task_instances = []
+    for task_instance in task_instances:
+        try:
+            task_instance.transition(TaskInstanceStatus.INSTANTIATED)
+            instantiated_task_instances.append(task_instance)
+        except InvalidStateTransition as e:
+            if task_instance.status == TaskInstanceStatus.INSTANTIATED:
+                msg = (
+                    "Caught InvalidStateTransition. Not transitioning task "
+                    "{}'s task_instance_id {} from I to I".format(
+                        task_instance.task_id, task_instance.id
+                    )
+                )
+                logger.warning(msg)
+            else:
+                DB.session.rollback()
+                raise ServerError(
+                    f"Unexpected Jobmon Server Error in {request.path}", status_code=500
+                ) from e
+
+    DB.session.commit()
+    task_dcts = [ti.to_wire_as_distributor_task_instance()
+                 for ti in instantiated_task_instances]
+    logger.debug(f"Got the following task instances: {task_dcts}")
+    resp = jsonify(task_instances=task_dcts)
+    resp.status_code = StatusCodes.OK
+    return resp

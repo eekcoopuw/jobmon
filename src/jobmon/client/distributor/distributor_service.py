@@ -8,9 +8,9 @@ from jobmon.client.distributor.distributor_command import DistributorCommand
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_workflow import DistributorWorkflow
 from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
-
 from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus
+from jobmon.exceptions import DistributorUnexpected, InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 
 if TYPE_CHECKING:
@@ -49,6 +49,7 @@ class DistributorService:
         self._workflow_run: DistributorWorkflowRun
 
         # indexing of task instance by associated id
+        self._task_instances: Dict[int, DistributorTaskInstance] = {}
         self._tasks: Dict[int, DistributorTask] = {}
         self._arrays: Dict[int, DistributorArray] = {}
         self._workflows: Dict[int, DistributorWorkflow] = {}
@@ -58,7 +59,6 @@ class DistributorService:
             TaskInstanceStatus.QUEUED,
             TaskInstanceStatus.INSTANTIATED,
             TaskInstanceStatus.LAUNCHED,
-            TaskInstanceStatus.TRIAGING
         ]
 
         # distributor API
@@ -104,13 +104,35 @@ class DistributorService:
             self.status_processing_order.append(status)
 
     def set_workflow_run(self, workflow_run_id: int, workflow_id: int):
-        workflow_run = DistributorWorkflowRun(workflow_run_id, workflow_id)
-        workflow = self.get_workflow(workflow_id)
-        workflow.add_workflow_run(workflow_run)
+        workflow_run = DistributorWorkflowRun(workflow_run_id, workflow_id, self.requester)
         self.workflow_run = workflow_run
 
     def _refresh_status_from_db(self, status: str):
-        pass
+        """Got to DB to check the list tis status."""
+        tids = [task_instance.task_instance_id for task_instance in
+                self._task_instance_status_map[status]]
+        message = {"task_instance_ids": tids, "status": status}
+        return_code, res = self.requester.send_request(
+            app_route="/task_instance/status_check",
+            message=message,
+            request_type='post'
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"/task_instance/status_check Returned={return_code}. Message={message}"
+            )
+
+        # mutate the statuses in memory
+        unmatches: Dict[int, str] = res["unmatches"]
+        for task_instance_id, status in unmatches.items():
+            # remove from old status set
+            task_instance = self._task_instances[task_instance_id]
+            previous_status = task_instance.status
+            self._task_instance_status_map[previous_status].remove(task_instance)
+
+            # change to new status and move to new set
+            task_instance.status = status
+            self._task_instance_status_map[status].add(task_instance)
 
     def _check_for_work(self, status: str):
         work_generator_map = {
@@ -129,7 +151,7 @@ class DistributorService:
         task_instances = self._task_instance_status_map.pop(status)
         self._task_instance_status_map[status] = set()
         for task_instance in task_instances:
-            self.status_map[task_instance.status].add(task_instance)
+            self._task_instance_status_map[task_instance.status].add(task_instance)
 
     def _poll_for_queued_task_instances(self) -> None:
         """Instantiate all queued task instances for this workflow."""
@@ -201,7 +223,6 @@ class DistributorService:
         for array in arrays:
             # figure out batches for each array
             array_batches = array.create_array_batches(eligable_task_instances)
-            self.array_batches.update(array_batches)
 
             for array_batch in array_batches:
                 distributor_command = DistributorCommand(
@@ -234,10 +255,12 @@ class DistributorService:
 
     def add_task_instance(self, task_instance: DistributorTaskInstance):
         # add associations
+        self._task_instances[task_instance.task_instance_id] = task_instance
+        self._task_instance_status_map[task_instance.status].add(task_instance)
+
         self.get_task(task_instance.task_id).add_task_instance(task_instance)
         self.get_array(task_instance.array_id).add_task_instance(task_instance)
         self.get_workflow(task_instance.workflow_id).add_task_instance(task_instance)
-        self._task_instance_status_map[task_instance.status].add(task_instance)
 
     def get_array(self, array_id: int) -> DistributorArray:
         """Get a task from the task cache or create it and add it to the initializing queue
@@ -246,11 +269,11 @@ class DistributorService:
             task_id: the task to get
         """
         try:
-            array = self.arrays[array_id]
+            array = self._arrays[array_id]
         except KeyError:
             array = DistributorArray(array_id, requester=self.requester)
-            self.arrays[array.array_id] = array
-            self.initializing_queue.append(array)
+            array.get_metadata()
+            self._arrays[array.array_id] = array
         return array
 
     def get_task(self, task_id: int) -> DistributorTask:
@@ -260,11 +283,11 @@ class DistributorService:
             array_id: the array to get
         """
         try:
-            task = self.tasks[task_id]
+            task = self._tasks[task_id]
         except KeyError:
             task = DistributorTask(task_id, requester=self.requester)
-            self.tasks[task.task_id] = task
-            self.initializing_queue.append(task)
+            task.get_metadata()
+            self._tasks[task.task_id] = task
         return task
 
     def get_workflow(self, workflow_id) -> DistributorWorkflow:
@@ -274,11 +297,11 @@ class DistributorService:
             workflow_id: the workflow to get
         """
         try:
-            workflow_id = self.workflows[workflow_id]
+            workflow_id = self._workflows[workflow_id]
         except KeyError:
             workflow = DistributorWorkflow(workflow_id, requester=self.requester)
-            self.workflows[workflow.workflow_id] = workflow
-            self.initializing_queue.append(workflow)
+            workflow.get_metadata()
+            self._workflows[workflow.workflow_id] = workflow
         return workflow
 
     def get_workflow_capacity(self, workflow_id: int) -> int:

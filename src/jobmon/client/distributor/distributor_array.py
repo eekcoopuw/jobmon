@@ -28,7 +28,6 @@ class DistributorArray:
         self.array_id = array_id
 
         self.task_instances: Set[DistributorTaskInstance] = set()
-        self.array_batches: Set[DistributorArrayBatch] = set()
         self.last_batch_number = 0
         self.requester = requester
 
@@ -69,20 +68,20 @@ class DistributorArray:
                 f"array_id mismatch. TaskInstance={task_instance.array_id}. "
                 f"Array={self.array_id}."
             )
-        self.task_instances[task_instance.task_instance_id] = task_instance
+        self.task_instances.add(task_instance)
         task_instance.array = self
 
     def create_array_batches(
         self,
         eligable_task_instances: Set[DistributorTaskInstance]
-    ) -> DistributorArrayBatch:
+    ) -> List[DistributorArrayBatch]:
         # TODO: would this logic make more sense in the SWARM???
 
         # limit eligable set to this array and store batches
         array_eligable = self.task_instances.intersection(eligable_task_instances)
 
         # return a list of commands to run
-        array_batches: Set[DistributorArrayBatch] = []
+        array_batches: List[DistributorArrayBatch] = []
 
         # group into batches
         array_batch_sets: Dict[int, Set[DistributorTaskInstance]] = {}
@@ -95,12 +94,12 @@ class DistributorArray:
         for task_resources_id, batch_set in array_batch_sets.items():
             current_batch_number = self.last_batch_number + 1
             array_batch = DistributorArrayBatch(
-                self.array_id, current_batch_number, task_resources_id, batch_set
+                self.array_id, current_batch_number, task_resources_id, batch_set,
+                self.requester
             )
             self.last_batch_number = current_batch_number
-            array_batches.add(array_batch)
+            array_batches.append(array_batch)
 
-        self.array_batches.update(array_batches)
         return array_batches
 
     def __hash__(self):

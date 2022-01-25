@@ -3,6 +3,8 @@ from __future__ import annotations
 import logging
 from typing import Callable, Dict, List, Optional, Set, TYPE_CHECKING, Union
 
+from jobmon.requester import http_request_ok, Requester
+
 if TYPE_CHECKING:
     from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
     from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
@@ -12,9 +14,11 @@ logger = logging.getLogger(__name__)
 
 class DistributorWorkflow:
 
-    def __init__(self, workflow_id: int):
+    def __init__(self, workflow_id: int, requester: Requester):
         self.workflow_id = workflow_id
         self.task_instances: Set[DistributorTaskInstance] = set()
+
+        self.requester = requester
 
     def add_task_instance(self, task_instance: DistributorTaskInstance):
         if task_instance.workflow_id != self.workflow_id:
@@ -22,7 +26,7 @@ class DistributorWorkflow:
                 f"workflow_id mismatch. TaskInstance={task_instance.workflow_id}. "
                 f"Workflow={self.workflow_id}."
             )
-        self.task_instances[task_instance.task_instance_id] = task_instance
+        self.task_instances.add(task_instance)
         task_instance.workflow = self
 
     def get_metadata(self):

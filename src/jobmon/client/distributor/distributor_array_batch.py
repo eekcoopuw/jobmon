@@ -31,17 +31,21 @@ class DistributorArrayBatch:
         self.batch_number = batch_number
         self.task_resources_id = task_resources_id
         self.task_instances = task_instances
-        self._requested_resources = {}
+
+        self._requested_resources: Dict = {}
+
+        self.requester = requester
+
+        # TODO: array class should have a name in the client model GBDSCI-4184
+        self.name = "foo"
 
     @property
     def distributor_id(self) -> Union[str, int]:
         if self._distributor_id is None:
-            raise AttributeError("Distributor ID cannot be accessed before the task instance "
-                                 "is launched.")
+            raise AttributeError(
+                "Distributor ID cannot be accessed before the task instance is launched."
+            )
         return self._distributor_id
-
-        # TODO: array class should have a name in the client model GBDSCI-4184
-        self.name = "foo"
 
     def _record_array_batch_num(self) -> None:
         """Add the current batch number to the current set of registered task instance ids."""
@@ -98,7 +102,7 @@ class DistributorArrayBatch:
         )
         try:
             # submit array to distributor
-            self.distributor_id = distributor.submit_array_to_batch_distributor(
+            self._distributor_id = distributor.submit_array_to_batch_distributor(
                 command=command,
                 name=self.name,
                 requested_resources=self._requested_resources,
@@ -121,7 +125,6 @@ class DistributorArrayBatch:
             for task_instance in self.task_instances:
                 distributor_command = DistributorCommand(
                     task_instance.transition_to_launched,
-                    distributor.cluster_id,
                     self.distributor_id,
                     step_id,
                     next_report_increment

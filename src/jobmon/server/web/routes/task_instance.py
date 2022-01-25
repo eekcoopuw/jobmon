@@ -561,7 +561,7 @@ def add_task_instance() -> Any:
 @finite_state_machine.route(
     "/get_array_task_instance_id/<array_id>/<batch_num>/<step_id>", methods=['GET']
 )
-def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> int:
+def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int):
     """Given an array ID and an index, select a single task instance ID.
 
     Task instance IDs that are associated with the array are ordered, and selected by index.
@@ -786,6 +786,7 @@ def record_subtask_id(task_instance_id: int) -> Any:
     resp.status_code = StatusCodes.OK
     return resp
 
+
 @finite_state_machine.route("/task_instance/transition/<new_status>", methods=["POST"])
 def transition_task_instances(new_status: str) -> Any:
     """Attempt to transition a task instance to the new status"""
@@ -855,8 +856,6 @@ def task_instances_status_check() -> Any:
     resp = jsonify(unmatches=return_dict)
     resp.status_code = StatusCodes.OK
     return resp
-
-
 
 
 # ############################ HELPER FUNCTIONS ###############################

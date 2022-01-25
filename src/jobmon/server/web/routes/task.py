@@ -442,13 +442,14 @@ def update_task_attribute(task_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/task/<task_id>/<workflow_run_id>/queue", methods=["POST"])
-def queue_job(task_id: int, workflow_run_id: int) -> Any:
+@finite_state_machine.route("/task/<task_id>/queue", methods=["POST"])
+def queue_task(task_id: int) -> Any:
     """Queue a job and change its status.
 
     Args:
         task_id: id of the job to queue
     """
+    data = request.get_json()
 
     # Bring task object in
     task = (
@@ -464,9 +465,9 @@ def queue_job(task_id: int, workflow_run_id: int) -> Any:
 
     # Create task instance from input task_id
     ti = TaskInstance(
-        workflow_run_id=workflow_run_id,
+        workflow_run_id=data["workflow_run_id"],
         array_id=task.array_id,
-        cluster_type_id=task.task_resources.queue.cluster.cluster_type_id,
+        cluster_type_id=data["cluster_id"],
         task_id=task.id,
         task_resources_id=task.task_resources_id,
         status=TaskInstanceStatus.QUEUED
@@ -475,12 +476,10 @@ def queue_job(task_id: int, workflow_run_id: int) -> Any:
 
     # We need to then put the task on QUEUED_FOR_INSTANTIATION
     # since now ti has been QUEUED
-    task.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
+    task.transition(TaskStatus.QUEUED)
 
     DB.session.commit()
-    ti_as_tuple = ti.to_wire_as_distributor_task_instance()
-    logger.debug(f"Got the following task instance: {ti_as_tuple}")
-    resp = jsonify(task_instance=ti_as_tuple)
+    resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
 
