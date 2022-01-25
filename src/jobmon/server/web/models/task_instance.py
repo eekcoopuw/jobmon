@@ -71,11 +71,13 @@ class TaskInstance(DB.Model):
 
     # finite state machine transition information
     valid_transitions = [
-        # task instance is submitted normally (happy path)
-        (
-            TaskInstanceStatus.INSTANTIATED,
-            TaskInstanceStatus.LAUNCHED,
-        ),
+        # task instance is moved from queued to instantiated by distributor
+        (TaskInstanceStatus.QUEUED, TaskInstanceStatus.INSTANTIATED),
+        # task instance is queued and waiting to instantiate when a new workflow run starts and
+        # tells it to die
+        (TaskInstanceStatus.QUEUED, TaskInstanceStatus.KILL_SELF),
+        # task instance is launched by distributor
+        (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.LAUNCHED),
         # task instance submission hit weird bug and didn't get an distributor_id
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.NO_DISTRIBUTOR_ID),
         # task instance is mid submission and a new workflow run starts and
@@ -87,28 +89,18 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.RUNNING),
         # task instance disappeared from distributor heartbeat and never logged
         # running. The distributor has no accounting of why it died
-        (
-            TaskInstanceStatus.LAUNCHED,
-            TaskInstanceStatus.UNKNOWN_ERROR,
-        ),
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.UNKNOWN_ERROR),
         # task instance disappeared from distributor heartbeat and never logged
         # running. The distributor discovered a resource error exit status.
         # This seems unlikely but is valid for the purposes of the FSM
-        (
-            TaskInstanceStatus.LAUNCHED,
-            TaskInstanceStatus.RESOURCE_ERROR,
-        ),
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.RESOURCE_ERROR),
         # task instance is submitted to the batch distributor waiting to launch.
         # new workflow run is created and this task is told to kill
         # itself
-        (
-            TaskInstanceStatus.LAUNCHED,
-            TaskInstanceStatus.KILL_SELF,
-        ),
-        # Allow transitioning from launched to error states. Unlikely but valid
-        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.UNKNOWN_ERROR),
-        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.RESOURCE_ERROR),
         (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.KILL_SELF),
+        # allow task instance to transit to F to immediately fail the task if there is an env
+        # mismatch
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.ERROR_FATAL),
         # task instance hits an application error (happy path)
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.ERROR),
         # task instance stops logging heartbeats. reconciler can't find an exit
@@ -123,11 +115,6 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.KILL_SELF),
         # task instance finishes normally (happy path)
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.DONE),
-        # allow task instance to transit to F to immediately fail the task
-        (
-            TaskInstanceStatus.LAUNCHED,
-            TaskInstanceStatus.ERROR_FATAL,
-        ),
     ]
 
     untimely_transitions = [
@@ -205,7 +192,7 @@ class TaskInstance(DB.Model):
                 self.task.transition(TaskStatus.QUEUED)
             if new_state == TaskInstanceStatus.INSTANTIATED:
                 self.task.transition(TaskStatus.INSTANTIATING)
-            if new_state == TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR:
+            if new_state == TaskInstanceStatus.LAUNCHED:
                 self.task.transition(TaskStatus.LAUNCHED)
             if new_state == TaskInstanceStatus.RUNNING:
                 self.task.transition(TaskStatus.RUNNING)

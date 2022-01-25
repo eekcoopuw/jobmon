@@ -12,9 +12,9 @@ class TaskResourcesType:
 class TaskInstanceStatus:
     """Statuses used for Task Instances."""
 
+    QUEUED = "Q"
     INSTANTIATED = "I"
     NO_DISTRIBUTOR_ID = "W"
-    SUBMITTED_TO_BATCH_DISTRIBUTOR = "B"
     LAUNCHED = "O"
     RUNNING = "R"
     RESOURCE_ERROR = "Z"
@@ -28,14 +28,15 @@ class TaskInstanceStatus:
 class TaskStatus:
     """Statuses used for Tasks."""
 
-    REGISTERED = "G"
-    QUEUED_FOR_INSTANTIATION = "Q"
-    INSTANTIATED = "I"
+    REGISTERING = "G"
+    QUEUED = "Q"
+    INSTANTIATING = "I"
+    LAUNCHED = "O"
     RUNNING = "R"
+    DONE = "D"
     ERROR_RECOVERABLE = "E"
     ADJUSTING_RESOURCES = "A"
     ERROR_FATAL = "F"
-    DONE = "D"
 
 
 class WorkflowRunStatus:
@@ -62,12 +63,12 @@ class WorkflowStatus:
     REGISTERING = "G"
     QUEUED = "Q"
     ABORTED = "A"
-    RUNNING = "R"
-    HALTED = "H"
-    FAILED = "F"
-    DONE = "D"
     INSTANTIATING = "I"
     LAUNCHED = "O"
+    RUNNING = "R"
+    DONE = "D"
+    HALTED = "H"
+    FAILED = "F"
 
 
 class QsubAttribute:

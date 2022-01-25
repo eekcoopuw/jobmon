@@ -18,7 +18,7 @@ from jobmon.server.web.models.dag import Dag
 from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_status import TaskStatus
-from jobmon.server.web.models.task_instance import TaskInstance
+from jobmon.server.web.models.task_instance import TaskInstance, TaskInstanceStatus
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
@@ -767,36 +767,28 @@ def get_queued_jobs(workflow_run_id: int, n_queued_tasks: int) -> Any:
     bind_to_logger(workflow_run_id=workflow_run_id)
     logger.info("Getting queued jobs for workflow run")
 
-    tasks = (
-        DB.session.query(Task)
+    tis = (
+        DB.session.query(TaskInstance)
+        .join(Task, Task.id == TaskInstance.task_id)
         .join(Workflow, Task.workflow_id == Workflow.id)
-        .join(WorkflowRun, Workflow.id == WorkflowRun.workflow_id)
+        .join(WorkflowRun, TaskInstance.workflow_run_id == WorkflowRun.id)
         .filter(WorkflowRun.id == workflow_run_id)
-        .filter(Task.status == "Q")
+        .filter(Task.status == TaskStatus.QUEUED_FOR_INSTANTIATION)
+        .filter(TaskInstance.status == TaskInstanceStatus.QUEUED)
         .limit(int(n_queued_tasks))
         .all()
     )
 
-    # Create task instances from bound tasks
-    tis = []
-    for t in tasks:
-        ti = TaskInstance(
-            workflow_run_id=workflow_run_id,
-            array_id=t.array_id,
-            cluster_type_id=t.task_resources.queue.cluster.id,
-            task_id=t.id,
-            task_resources_id=t.task_resources_id
-        )
-        tis.append(ti)
-        DB.session.add(ti)
+    # Update the associated Queued tis to TaskInstanceStatus.INSTANTIATED
+    for ti in tis:
         try:
-            t.transition(TaskStatus.INSTANTIATED)
+            ti.transition(TaskInstanceStatus.INSTANTIATED)
         except InvalidStateTransition as e:
-            if t.status == TaskStatus.INSTANTIATED:
+            if ti.status == TaskInstanceStatus.INSTANTIATED:
                 msg = (
                     "Caught InvalidStateTransition. Not transitioning task "
                     "{}'s task_instance_id {} from I to I".format(
-                        t.id, ti.id
+                        ti.task_id, ti.id
                     )
                 )
                 logger.warning(msg)
