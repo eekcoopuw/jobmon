@@ -48,7 +48,7 @@ class DistributorService:
         self._array_batches: Set[DistributorArrayBatch] = set()
         self._workflow_run: DistributorWorkflowRun
 
-        # indexing of task instance by id
+        # indexing of task instance by associated id
         self._tasks: Dict[int, DistributorTask] = {}
         self._arrays: Dict[int, DistributorArray] = {}
         self._workflows: Dict[int, DistributorWorkflow] = {}
@@ -66,6 +66,10 @@ class DistributorService:
 
         # web service API
         self.requester = requester
+
+    @property
+    def _next_report_increment(self) -> float:
+        return self._heartbeat_report_by_buffer * self._task_instance_heartbeat_interval
 
     def run(self):
         keep_running = True
@@ -88,15 +92,15 @@ class DistributorService:
 
                 # get the first callable and run it
                 distributor_command = distributor_commands.pop(0)
-                processed_task_instances, new_distributor_commands = distributor_command()
+                new_distributor_commands = distributor_command()
 
                 # append new callables to the work queue
                 distributor_commands.extend(new_distributor_commands)
 
-                # update task mappings
-                self._update_status_map(processed_task_instances)
-
         finally:
+            # update task mappings
+            self._update_status_map(status)
+
             self.status_processing_order.append(status)
 
     def set_workflow_run(self, workflow_run_id: int, workflow_id: int):
@@ -120,11 +124,10 @@ class DistributorService:
     def _check_heartbeat(self):
         pass
 
-    def _update_status_map(self, task_instances: Set[DistributorTaskInstance]):
-        """Given a set of modified task instances, update the internal status map"""
-        for task_instance_status, mapped_task_instances in self.status_map.items():
-            self.status_map[task_instance_status] = mapped_task_instances - task_instances
-
+    def _update_status_map(self, status: str):
+        """Given a status, update the internal status map"""
+        task_instances = self._task_instance_status_map.pop(status)
+        self._task_instance_status_map[status] = set()
         for task_instance in task_instances:
             self.status_map[task_instance.status].add(task_instance)
 
@@ -172,10 +175,10 @@ class DistributorService:
 
             # lookup array capacity. if first iteration, compute it on the array class
             array_capacity = array_capacity_lookup.get(
-                array_id, task_instance.array.capacity
+                array_id, self.get_array_capacity(array_id)
             )
             workflow_capacity = workflow_capacity_lookup.get(
-                workflow_id, task_instance.workflow.capacity
+                workflow_id, self.get_workflow_capacity(workflow_id)
             )
 
             # add to eligable_task_instances set if there is capacity
@@ -196,48 +199,38 @@ class DistributorService:
         # loop through all arrays from earlier and cluster into batches
         distributor_commands: List[DistributorCommand] = []
         for array in arrays:
+            # figure out batches for each array
+            array_batches = array.create_array_batches(eligable_task_instances)
+            self.array_batches.update(array_batches)
 
-            # limit eligable set to this array and store batches
-            array_eligable = array.task_instances.intersection(eligable_task_instances)
-            array_batch_sets: Dict[Tuple[int, int], Set[DistributorTaskInstance]] = {}
-            for task_instance in array_eligable:
-                key = (task_instance.array, task_instance.task_resources_id)
-                if key not in array_batch_sets:
-                    array_batch_sets[key] = set()
-                array_batch_sets[key].add(task_instance)
-                # Add to self._array_batch_sets?
-
-            # construct the status processors for each batch
-            for key, batch_set in array_batch_sets.items():
-                array, task_resources_id = key
-                array_batch = array.create_array_batch(task_resources_id, batch_set)
+            for array_batch in array_batches:
                 distributor_command = DistributorCommand(
-                    array_batch.launch_array_batch, self.distributor
+                    array_batch.launch,
+                    self.distributor,
+                    self._next_report_increment
                 )
                 distributor_commands.append(distributor_command)
 
         return distributor_commands
 
-    def _check_for_queueing_errors(self) -> List[Callable]:
-
-        status_processors: List[Callable] = []
+    def _check_for_queueing_errors(self) -> List[DistributorCommand]:
+        distributor_commands: List[DistributorCommand] = []
         launched_task_instances = list(
-            self._task_instance_status_map[TaskInstanceStatus.LAUNCHED])
+            self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
+        )
         array_batches: Set[DistributorArrayBatch] = set()
-        for ti in launched_task_instances:
-            array_batch = DistributorArrayBatch(
-                array_id=ti.array_id,
-                batch_number=ti.array_batch_num,
-                task_resources_id=ti.task_resources_id
-            )
-            # TODO: array_batch = ti.array_batch
-            # Array batch should be added as a property of task instance
+        for task_instance in launched_task_instances:
+            array_batch = task_instance.array_batch
             array_batches.add(array_batch)
 
         for array_batch in array_batches:
-            status_processors.append(array_batch.get_queueing_errors)
+            distributor_command = DistributorCommand(
+                array_batch.get_queueing_errors,
+                self.distributor
+            )
+            distributor_commands.append(distributor_command)
 
-        return status_processors
+        return distributor_command
 
     def add_task_instance(self, task_instance: DistributorTaskInstance):
         # add associations
@@ -288,35 +281,24 @@ class DistributorService:
             self.initializing_queue.append(workflow)
         return workflow
 
-    def launch_task_instances(self, distributor_service: DistributorService):
-        processed_task_instances: Set[DistributorTaskInstance] = set()
-        task_instance_batches = self.workflow_run.get_task_instance_batches_for_launch()
+    def get_workflow_capacity(self, workflow_id: int) -> int:
+        workflow = self._workflows[workflow_id]
+        launched = workflow.task_instances.intersection(
+            self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
+        )
+        running = workflow.task_instances.intersection(
+            self._task_instance_status_map[TaskInstanceStatus.RUNNING]
+        )
+        concurrency = workflow.max_concurrently_running
+        return concurrency - len(launched) - len(running)
 
-        while task_instance_batches:
-            task_instance_batch = task_instance_batches.pop(0)
-            # get an element of the batch
-            task_instance = next(iter(task_instance_batch))
-
-            # TODO: this should be stored and accessed by cluster_id
-            cluster = self.distributor
-
-            # TODO: how do we translate task_resource_id into requested resources??? We can
-            # pass the payload from the server when we get the task instance but that is
-            # inefficient for arrays. Maybe just lookup in the submit method and keep a
-            # registry on the workflow run?
-            # task_resources = task_instance.task_resources_id
-            if len(task_instance_batches) > 1:
-                try:
-                    task_instances = workflow_run.launch_task_instance_batch(
-                        task_instance_batch, cluster
-                    )
-                    processed_task_instances.update(task_instances)
-                except NotImplementedError:
-                    # unpack set into single element tuples if not implemented by cluster
-                    task_instance_batches.extend(list(zip(task_instance_batches)))
-            else:
-                # unpack single element
-                task_instance = workflow_run.launch_task_instance(task_instance, cluster)
-                processed_task_instances.add(task_instance)
-
-        workflow_run.update_state_map(processed_task_instances)
+    def get_array_capacity(self, array_id: int) -> int:
+        array = self._arrays[array_id]
+        launched = array.task_instances.intersection(
+            self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
+        )
+        running = array.task_instances.intersection(
+            self._task_instance_status_map[TaskInstanceStatus.RUNNING]
+        )
+        concurrency = array.max_concurrently_running
+        return concurrency - len(launched) - len(running)

@@ -3,8 +3,9 @@ from __future__ import annotations
 
 import logging
 import time
-from typing import Any, List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
+from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
@@ -71,7 +72,7 @@ class DistributorTaskInstance:
         self.array_step_id = array_step_id
         self.name = name
 
-        self.report_by_date: float
+        self._requested_resources = {}
 
         self.error_state = ""
         self.error_msg = ""
@@ -140,6 +141,53 @@ class DistributorTaskInstance:
     def array_batch(self, val: DistributorArrayBatch):
         self._array_batch = val
 
+    @property
+    def requested_resources(self) -> Dict:
+        if not self._requested_resources:
+            # TODO: actually load them
+            self._requested_resources = {}
+
+    @requested_resources.setter
+    def requested_resources(self, val: Dict):
+        self._requested_resources = val
+
+    def launch(
+        self,
+        distributor: ClusterDistributor,
+        next_report_increment: int
+    ) -> None:
+        """
+        submits a task instance on a given distributor.
+        adds the new task instance to self.submitted_or_running_task_instances
+        """
+        # Fetch the worker node command
+        command = distributor.build_worker_node_command(
+            task_instance_id=self.task_instance.task_instance_id
+        )
+
+        # Submit to batch distributor
+        try:
+            self.distributor_id = distributor.submit_to_batch_distributor(
+                command=command,
+                name=self.name,
+                requested_resources=self.requested_resources
+            )
+
+        except Exception as e:
+            self.transition_to_no_distributor_id(
+                cluster_id=distributor.cluster_id,
+                no_id_err_msg=str(e)
+            )
+
+        else:
+            # move from register queue to launch queue
+            self.transition_to_launched(
+                cluster_id=distributor.cluster_id,
+                distributor_id=self.distributor_id,
+                subtask_id=None,
+                next_report_increment=next_report_increment
+            )
+
     def transition_to_launched(
         self,
         cluster_id: int,
@@ -168,8 +216,6 @@ class DistributorTaskInstance:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-
-        self.report_by_date = time.time() + next_report_increment
 
     def transition_to_no_distributor_id(
         self,

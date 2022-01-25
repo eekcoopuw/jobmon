@@ -31,7 +31,7 @@ class DistributorArrayBatch:
         self.batch_number = batch_number
         self.task_resources_id = task_resources_id
         self.task_instances = task_instances
-        self._distributor_id = None  # launch method should add distributor ID to this object
+        self._requested_resources = {}
 
     @property
     def distributor_id(self) -> Union[str, int]:
@@ -43,12 +43,13 @@ class DistributorArrayBatch:
         # TODO: array class should have a name in the client model GBDSCI-4184
         self.name = "foo"
 
-    def _record_array_batch_num(self, ids_to_launch: List[int]) -> int:
+    def _record_array_batch_num(self) -> None:
         """Add the current batch number to the current set of registered task instance ids."""
         app_route = f'/task_instance/record_array_batch_num/{self.batch_number}'
         rc, resp = self.requester.send_request(
             app_route=app_route,
-            message={'task_instance_ids': ids_to_launch},
+            message={'task_instance_ids': [task_instance.task_instance_id for task_instance
+                                           in self.task_instances]},
             request_type='post'
         )
         if not http_request_ok(rc):
@@ -58,20 +59,36 @@ class DistributorArrayBatch:
                 f"code 200. Response content: {resp}"
             )
 
-    def _get_requested_resources(self) -> Dict:
-        pass
+    def _load_requested_resources(self):
+        if not self._requested_resources:
+            # TODO: actually load them
+            self._requested_resources = {}
+        for task_instance in self.task_instances:
+            task_instance.requested_resources = self._requested_resources
 
-    def launch_array_batch(
+    def get_queueing_errors(
+        self, cluster: ClusterDistributor
+    ) -> Tuple[Set, List[DistributorCommand]]:
+
+        errors = cluster.get_array_queueing_errors(self.distributor_id)
+
+        # Add work to terminate the eqw task instances, if any
+        if len(errors) > 0:
+            return [DistributorCommand(self.terminate_task_instances, cluster, errors)]
+        else:
+            return []
+
+    def launch(
         self,
-        distributor: ClusterDistributor
-    ) -> Tuple[Set[DistributorTaskInstance], List[Callable]]:
+        distributor: ClusterDistributor,
+        next_report_increment: int
+    ) -> List[DistributorCommand]:
         # record batch info in db
-        ids_to_launch = [task_instance.task_instance_id for task_instance
-                         in self.task_instances]
-        self._record_array_batch_num(ids_to_launch)
-
+        self._record_array_batch_num()
         # get cluster specific launch info
-        requested_resources = self._get_requested_resources()
+        self._load_requested_resources()
+
+        distributor_commands: List[DistributorCommand] = []
 
         # build worker node command
         command = distributor.build_worker_node_command(
@@ -79,34 +96,40 @@ class DistributorArrayBatch:
             array_id=self.array_id,
             batch_number=self.batch_number
         )
+        try:
+            # submit array to distributor
+            self.distributor_id = distributor.submit_array_to_batch_distributor(
+                command=command,
+                name=self.name,
+                requested_resources=self._requested_resources,
+                array_length=len(self.task_instances)
+            )
 
-        # submit it
-        distributor_id = distributor.submit_array_to_batch_distributor(
-            command=command,
-            name=self.name,
-            requested_resources=requested_resources,
-            array_length=len(ids_to_launch)
-        )
+        except NotImplementedError:
+            # create DistributorCommands to submit the launch if array isn't implemented
+            for task_instance in self.task_instances:
+                distributor_command = DistributorCommand(
+                    task_instance.launch,
+                    distributor,
+                    next_report_increment
+                )
+                distributor_commands.append(distributor_command)
 
-        distributor_commands: List[DistributorCommand] = []
-        for task_instance in self.task_instances:
-            distributor_command = DistributorCommand(task_instance.transition, distributor_id,
-                                                     step_id)
-            distributor_commands.append(distributor_command)
-
-        return set(), distributor_commands
-
-    def get_queueing_errors(
-        self, cluster: ClusterDistributor
-    ) -> Tuple[Set, List[Callable]]:
-
-        errors = cluster.get_array_queueing_errors(self.distributor_id)
-
-        # Add work to terminate the eqw task instances, if any
-        if len(errors) > 0:
-            return set(), [DistributorCommand(self.terminate_task_instances, cluster, errors)]
         else:
-            return set(), []
+            # create DistributorCommands to log the transition
+            step_id = 0
+            for task_instance in self.task_instances:
+                distributor_command = DistributorCommand(
+                    task_instance.transition_to_launched,
+                    distributor.cluster_id,
+                    self.distributor_id,
+                    step_id,
+                    next_report_increment
+                )
+                distributor_commands.append(distributor_command)
+                step_id += 1
+
+        return distributor_commands
 
     def terminate_task_instances(
         self, cluster: ClusterDistributor, errors: Dict[str, str]

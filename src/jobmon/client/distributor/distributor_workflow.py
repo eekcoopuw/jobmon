@@ -37,12 +37,3 @@ class DistributorWorkflow:
         #         f"code 200. Response content: {response}"
         #     )
         self.max_concurrently_running = 100
-
-    @property
-    def capacity(self) -> int:
-        capacity = (
-            self.max_concurrently_running
-            - len(self.workflow_run.launched_task_instances)
-            - len(self.workflow_run.running_task_instances)
-        )
-        return capacity

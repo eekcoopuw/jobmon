@@ -2,13 +2,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, Iterable, Optional, Set, Type, TYPE_CHECKING
+from typing import Dict, List, Set, Tuple, Type, TYPE_CHECKING
 
-from jobmon.constants import TaskInstanceStatus
+from jobmon.client.distributor.distributor_command import DistributorCommand
+from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
+from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeDistributorArray
-from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
 
 if TYPE_CHECKING:
     from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
@@ -27,6 +28,7 @@ class DistributorArray:
         self.array_id = array_id
 
         self.task_instances: Set[DistributorTaskInstance] = set()
+        self.array_batches: Set[DistributorArrayBatch] = set()
         self.last_batch_number = 0
         self.requester = requester
 
@@ -41,7 +43,7 @@ class DistributorArray:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-        pass
+        self.max_concurrently_running = 100
 
     @classmethod
     def from_wire(
@@ -61,15 +63,6 @@ class DistributorArray:
         array = cls(array_id=kwargs["array_id"], requester=requester)
         return array
 
-    @property
-    def capacity(self) -> int:
-        capacity = (
-            self.max_concurrently_running
-            - len(self.launched_task_instances)
-            - len(self.running_task_instances)
-        )
-        return capacity
-
     def add_task_instance(self, task_instance: DistributorTaskInstance):
         if task_instance.array_id != self.array_id:
             raise ValueError(
@@ -79,17 +72,47 @@ class DistributorArray:
         self.task_instances[task_instance.task_instance_id] = task_instance
         task_instance.array = self
 
-    def create_array_batch(
+    def create_array_batches(
         self,
-        task_resources_id: int,
-        task_instances: Set[DistributorTaskInstance]
+        eligable_task_instances: Set[DistributorTaskInstance]
     ) -> DistributorArrayBatch:
-        current_batch_number = self.last_batch_number + 1
-        array_batch = DistributorArrayBatch(
-            self.array_id,
-            current_batch_number,
-            task_resources_id,
-            task_instances
-        )
-        self.last_batch_number = current_batch_number
-        return array_batch
+        # TODO: would this logic make more sense in the SWARM???
+
+        # limit eligable set to this array and store batches
+        array_eligable = self.task_instances.intersection(eligable_task_instances)
+
+        # return a list of commands to run
+        array_batches: Set[DistributorArrayBatch] = []
+
+        # group into batches
+        array_batch_sets: Dict[int, Set[DistributorTaskInstance]] = {}
+        for task_instance in array_eligable:
+            if task_instance.task_resources_id not in array_batch_sets:
+                array_batch_sets[task_instance.task_resources_id] = set()
+            array_batch_sets[task_instance.task_resources_id].add(task_instance)
+
+        # construct the array batches
+        for task_resources_id, batch_set in array_batch_sets.items():
+            current_batch_number = self.last_batch_number + 1
+            array_batch = DistributorArrayBatch(
+                self.array_id, current_batch_number, task_resources_id, batch_set
+            )
+            self.last_batch_number = current_batch_number
+            array_batches.add(array_batch)
+
+        self.array_batches.update(array_batches)
+        return array_batches
+
+    def __hash__(self):
+        return self.array_id
+
+    def __eq__(self, other: object) -> bool:
+        """Check if the hashes of two arrays are equivalent."""
+        if not isinstance(other, DistributorArray):
+            return False
+        else:
+            return hash(self) == hash(other)
+
+    def __lt__(self, other: DistributorArray) -> bool:
+        """Check if one hash is less than the has of another DistributorArray."""
+        return hash(self) < hash(other)
