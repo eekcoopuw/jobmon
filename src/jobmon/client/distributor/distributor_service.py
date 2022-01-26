@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 import logging
 from typing import Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
@@ -25,7 +26,7 @@ class DistributorService:
 
     def __init__(
         self,
-        distributor: ClusterDistributor,
+        cluster: ClusterDistributor,
         requester: Requester,
         workflow_run_heartbeat_interval: int = 30,
         task_instance_heartbeat_interval: int = 90,
@@ -55,14 +56,18 @@ class DistributorService:
         self._workflows: Dict[int, DistributorWorkflow] = {}
 
         # priority work queues
-        self.status_processing_order = [
+        self._status_processing_order = [
             TaskInstanceStatus.QUEUED,
             TaskInstanceStatus.INSTANTIATED,
             TaskInstanceStatus.LAUNCHED,
         ]
+        dt_string = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        self._last_status_sync_time = {
+            status: dt_string for status in self._status_processing_order
+        }
 
-        # distributor API
-        self.distributor = distributor
+        # cluster API
+        self.cluster = cluster
 
         # web service API
         self.requester = requester
@@ -111,8 +116,12 @@ class DistributorService:
         """Got to DB to check the list tis status."""
         tids = [task_instance.task_instance_id for task_instance in
                 self._task_instance_status_map[status]]
-        message = {"task_instance_ids": tids, "status": status}
-        return_code, res = self.requester.send_request(
+        message = {
+            "task_instance_ids": tids,
+            "status": status,
+            "last_sync": self._last_status_sync_time[status]
+        }
+        return_code, result = self.requester.send_request(
             app_route="/task_instance/status_check",
             message=message,
             request_type='post'
@@ -123,8 +132,8 @@ class DistributorService:
             )
 
         # mutate the statuses in memory
-        unmatches: Dict[int, str] = res["unmatches"]
-        for task_instance_id, status in unmatches.items():
+        status_updates: Dict[int, str] = result["status_updates"]
+        for task_instance_id, status in status_updates.items():
             # remove from old status set
             task_instance = self._task_instances[task_instance_id]
             previous_status = task_instance.status
@@ -133,6 +142,9 @@ class DistributorService:
             # change to new status and move to new set
             task_instance.status = status
             self._task_instance_status_map[status].add(task_instance)
+
+        # update the last sync time
+        self._last_status_sync_time[status] = result["time"]
 
     def _check_for_work(self, status: str):
         work_generator_map = {
@@ -150,6 +162,7 @@ class DistributorService:
         """Given a status, update the internal status map"""
         task_instances = self._task_instance_status_map.pop(status)
         self._task_instance_status_map[status] = set()
+
         for task_instance in task_instances:
             self._task_instance_status_map[task_instance.status].add(task_instance)
 
@@ -176,7 +189,6 @@ class DistributorService:
 
     def _check_instantiated_for_work(self) -> List[DistributorCommand]:
         # compute the task_instances that can be launched
-
         instantiated_task_instances = list(
             self._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]
         )
@@ -227,7 +239,7 @@ class DistributorService:
             for array_batch in array_batches:
                 distributor_command = DistributorCommand(
                     array_batch.launch,
-                    self.distributor,
+                    self.cluster,
                     self._next_report_increment
                 )
                 distributor_commands.append(distributor_command)
@@ -247,11 +259,19 @@ class DistributorService:
         for array_batch in array_batches:
             distributor_command = DistributorCommand(
                 array_batch.get_queueing_errors,
-                self.distributor
+                self.cluster
             )
             distributor_commands.append(distributor_command)
 
         return distributor_command
+
+    def _heartbeat(self):
+        task_instances = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED].union(
+            self._task_instance_status_map[TaskInstanceStatus.RUNNING]
+        )
+
+        # build maps between task_instances and distributor_ids
+        # log heartbeats
 
     def add_task_instance(self, task_instance: DistributorTaskInstance):
         # add associations
