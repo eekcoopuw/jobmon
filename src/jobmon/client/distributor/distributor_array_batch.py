@@ -47,7 +47,25 @@ class DistributorArrayBatch:
             )
         return self._distributor_id
 
-    def _record_array_batch_num(self) -> None:
+    @distributor_id.setter
+    def distributor_id(self, val: int):
+        self._distributor_id = val
+        for task_instance in self.task_instances:
+            task_instance.distributor_id = val
+
+    @property
+    def requested_resources(self) -> Dict:
+        if not self._requested_resources:
+            raise AttributeError(
+                "Requested Resources cannot be accessed before the array batch is prepared for"
+                " launch."
+            )
+        return self._requested_resources
+
+    def _load_requested_resources(self) -> None:
+        pass
+
+    def prepare_array_batch_for_launch(self) -> None:
         """Add the current batch number to the current set of registered task instance ids."""
         app_route = f'/task_instance/record_array_batch_num/{self.batch_number}'
         rc, resp = self.requester.send_request(
@@ -62,13 +80,14 @@ class DistributorArrayBatch:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {resp}"
             )
+        array_step_id = 0
+        for task_instance in sorted(self.task_instances):
+            task_instance.array_step_id = array_step_id
+            array_step_id += 1
 
-    def _load_requested_resources(self):
-        if not self._requested_resources:
-            # TODO: actually load them
-            self._requested_resources = {}
+        self._load_requested_resources()
         for task_instance in self.task_instances:
-            task_instance.requested_resources = self._requested_resources
+            task_instance.requested_resources = self.requested_resources
 
     def get_queueing_errors(
         self, cluster: ClusterDistributor
@@ -81,58 +100,6 @@ class DistributorArrayBatch:
             return [DistributorCommand(self.terminate_task_instances, cluster, errors)]
         else:
             return []
-
-    def launch(
-        self,
-        distributor: ClusterDistributor,
-        next_report_increment: int
-    ) -> List[DistributorCommand]:
-        # record batch info in db
-        self._record_array_batch_num()
-        # get cluster specific launch info
-        self._load_requested_resources()
-
-        distributor_commands: List[DistributorCommand] = []
-
-        # build worker node command
-        command = distributor.build_worker_node_command(
-            task_instance_id=None,
-            array_id=self.array_id,
-            batch_number=self.batch_number
-        )
-        try:
-            # submit array to distributor
-            self._distributor_id = distributor.submit_array_to_batch_distributor(
-                command=command,
-                name=self.name,
-                requested_resources=self._requested_resources,
-                array_length=len(self.task_instances)
-            )
-
-        except NotImplementedError:
-            # create DistributorCommands to submit the launch if array isn't implemented
-            for task_instance in self.task_instances:
-                distributor_command = DistributorCommand(
-                    task_instance.launch,
-                    distributor,
-                    next_report_increment
-                )
-                distributor_commands.append(distributor_command)
-
-        else:
-            # create DistributorCommands to log the transition
-            step_id = 0
-            for task_instance in self.task_instances:
-                distributor_command = DistributorCommand(
-                    task_instance.transition_to_launched,
-                    self.distributor_id,
-                    step_id,
-                    next_report_increment
-                )
-                distributor_commands.append(distributor_command)
-                step_id += 1
-
-        return distributor_commands
 
     def terminate_task_instances(
         self, cluster: ClusterDistributor, errors: Dict[str, str]

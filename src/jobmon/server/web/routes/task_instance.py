@@ -833,44 +833,6 @@ def transition_task_instances(new_status: str) -> Any:
     return resp
 
 
-@finite_state_machine.route("/task_instance/status_check", methods=["POST"])
-def task_instances_status_check() -> Any:
-    """Sync status of given task intance IDs."""
-    data = request.get_json()
-
-    last_sync = data["last_sync"]
-    task_instance_ids_list = data['task_instance_ids']
-    status = data['status']
-
-    # get time from db
-    db_time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()["t"]
-    str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
-    DB.session.commit()
-
-    return_dict = dict()
-    if len(task_instance_ids_list) > 0:
-        task_instance_ids = ",".join(f'{x}' for x in task_instance_ids_list)
-        id_filter = f"""(id in ({task_instance_ids}) AND status != "{status}") OR"""
-    else:
-        id_filter = ""
-
-    sql = f"""
-        SELECT id, status
-        FROM task_instance
-        WHERE
-            {id_filter}
-            (status = "{status}" AND status_date >= {last_sync})
-        """
-    rows = DB.session.execute(sql).fetchall()
-    if rows:
-        for row in rows:
-            return_dict[row["id"]] = row["status"]
-
-    resp = jsonify(status_updates=return_dict, time=str_time)
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
 # ############################ HELPER FUNCTIONS ###############################
 def _update_task_instance_state(task_instance: TaskInstance, status_id: str) -> Any:
     """Advance the states of task_instance and it's associated Task.

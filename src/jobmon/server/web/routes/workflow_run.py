@@ -418,3 +418,53 @@ def instantiate_task_instances(workflow_run_id: int, bulk_query_size: int) -> An
     resp = jsonify(task_instances=task_dcts)
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@finite_state_machine.route("/workflow_run/<workflow_run_id>/sync_status", methods=["POST"])
+def task_instances_status_check(workflow_run_id: int) -> Any:
+    """Sync status of given task intance IDs."""
+    data = request.get_json()
+    last_sync = data["last_sync"]
+    task_instance_ids_list = data['task_instance_ids']
+    status = data['status']
+
+    # get time from db
+    db_time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()["t"]
+    str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
+    DB.session.commit()
+
+    return_dict = dict()
+    if len(task_instance_ids_list) > 0:
+        task_instance_ids = ",".join(f'{x}' for x in task_instance_ids_list)
+
+        # Filters for
+        # 1) instances that have changed out of the declared status
+        # 2) instances that have changed into the declared status
+        filters = f"""
+            (id in ({task_instance_ids}) AND status != "{status}") OR
+            (status = "{status}" AND status_date >= {last_sync})
+        """
+    else:
+        # Filters for
+        # 1) instances that have changed into the declared status
+        filters = f"""
+            (status = "{status}" AND status_date >= {last_sync})
+        """
+
+    # someday, when the distributor is centralized. we will remove the workflow_run_id from
+    # this query, but not today
+    sql = f"""
+        SELECT id, status
+        FROM task_instance
+        WHERE
+            workflow_run_id = "{workflow_run_id}" AND
+            ({filters})
+        """
+    rows = DB.session.execute(sql).fetchall()
+    if rows:
+        for row in rows:
+            return_dict[row["id"]] = row["status"]
+
+    resp = jsonify(status_updates=return_dict, time=str_time)
+    resp.status_code = StatusCodes.OK
+    return resp

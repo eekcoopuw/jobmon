@@ -28,18 +28,8 @@ class DistributorTaskInstance:
         self,
         task_instance_id: int,
         workflow_run_id: int,
-        task_id: int,
-        workflow_id: int,
-        array_id: int,
-        task_resources_id: int,
-        cluster_id: int,
         status: str,
         requester: Requester,
-        distributor_id: Optional[int] = None,
-        subtask_id: Optional[str] = None,
-        array_batch_num: Optional[int] = None,
-        array_step_id: Optional[int] = None,
-        name: Optional[str] = None,
     ) -> None:
         """Initialization of distributor task instance.
 
@@ -56,13 +46,6 @@ class DistributorTaskInstance:
         """
         self.task_instance_id = task_instance_id
         self.workflow_run_id = workflow_run_id
-
-        self.task_id = task_id
-        self.workflow_id = workflow_id
-        self.array_id = array_id
-        self.task_resources_id = task_resources_id
-        self.cluster_id = cluster_id
-
         self.status = status
 
         self.distributor_id = distributor_id
@@ -73,7 +56,6 @@ class DistributorTaskInstance:
 
         self.array_batch_num = array_batch_num
         self.array_step_id = array_step_id
-        self.name = name
 
         self._requested_resources = {}
 
@@ -154,57 +136,47 @@ class DistributorTaskInstance:
     def requested_resources(self, val: Dict):
         self._requested_resources = val
 
-    def launch(
-        self,
-        distributor: ClusterDistributor,
-        next_report_increment: int
-    ) -> None:
-        """
-        submits a task instance on a given distributor.
-        adds the new task instance to self.submitted_or_running_task_instances
-        """
-        # Fetch the worker node command
-        command = distributor.build_worker_node_command(
-            task_instance_id=self.task_instance.task_instance_id
-        )
+    def transition_to_instantiated(self):
+        # this route should load metadata as well
+        # Retrieve all tasks (up till the queued_tasks_bulk_query_size) that are in queued
+        # state that are associated with the workflow.
+        # app_route = f"/workflow/{self.workflow_run_id}/queued_tasks/{batch_size}"
+        # return_code, response = self.requester.send_request(
+        #     app_route=app_route, message={}, request_type="post", logger=logger
+        # )
+        # if http_request_ok(return_code) is False:
+        #     raise InvalidResponse(
+        #         f"Unexpected status code {return_code} from POST "
+        #         f"request through route {app_route}. Expected "
+        #         f"code 200. Response content: {response}"
+        #     )
 
-        # Submit to batch distributor
-        try:
-            self.distributor_id = distributor.submit_to_batch_distributor(
-                command=command,
-                name=self.name,
-                requested_resources=self.requested_resources
-            )
+        # # concurrency limit hasn't been applied yet
+        # task_instances: Set[DistributorTaskInstance] = set()
+        # for server_task_instance in response["task_instances"]:
+        #     distributor_ti = DistributorTaskInstance.from_wire(
+        #         wire_tuple=server_task_instance, requester=self.requester
+        #     )
+        #     task_instances.add(distributor_ti)
+        # return task_instances
+        self.task_id: int = 1
+        self.workflow_id: int = 1
+        self.array_id: int = 1
+        self.task_resources_id: int = 1
+        self.cluster_id: int = 1
+        self.name: str = ""
 
-        except Exception as e:
-            self.transition_to_no_distributor_id(
-                no_id_err_msg=str(e)
-            )
+        pass
 
-        else:
-            # move from register queue to launch queue
-            self.transition_to_launched(
-                distributor_id=self.distributor_id,
-                subtask_id=None,
-                next_report_increment=next_report_increment
-            )
-
-    def transition_to_launched(
-        self,
-        distributor_id: int,
-        subtask_id: Optional[str],
-        next_report_increment: float,
-    ) -> None:
+    def transition_to_launched(self, next_report_increment: float) -> None:
         """Register the submission of a new task instance to a cluster."""
-        self.distributor_id = distributor_id
-        self.subtask_id = subtask_id
 
         app_route = f"/task_instance/{self.task_instance_id}/log_distributor_id"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
-                "distributor_id": str(distributor_id),
-                "subtask_id": str(subtask_id),
+                "distributor_id": str(self.distributor_id),
+                "subtask_id": str(self.subtask_id),
                 "next_report_increment": next_report_increment,
             },
             request_type="post",
