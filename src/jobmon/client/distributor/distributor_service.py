@@ -114,6 +114,78 @@ class DistributorService:
         workflow_run = DistributorWorkflowRun(workflow_run_id, self.requester)
         self.workflow_run = workflow_run
 
+    def instantiate_task_instance(self, task_instance: DistributorTaskInstance) -> None:
+        # add associations
+        task_instance.transition_to_instantiated()
+        self._task_instances[task_instance.task_instance_id] = task_instance
+        self._get_task(task_instance.task_id).add_task_instance(task_instance)
+        self._get_array(task_instance.array_id).add_task_instance(task_instance)
+        self._get_workflow(task_instance.workflow_id).add_task_instance(task_instance)
+
+    def launch_array_batch(self, array_batch: DistributorArrayBatch) -> None:
+        # record batch info in db
+        array_batch.prepare_array_batch_for_launch()
+
+        # build worker node command
+        command = self.cluster.build_worker_node_command(
+            task_instance_id=None,
+            array_id=array_batch.array_id,
+            batch_number=array_batch.batch_number
+        )
+        try:
+            # submit array to distributor
+            array_batch.distributor_id = self.cluster.submit_array_to_batch_distributor(
+                command=command,
+                name=array_batch.name,
+                requested_resources=array_batch.requested_resources,
+                array_length=len(array_batch.task_instances)
+            )
+
+        except NotImplementedError:
+            # create DistributorCommands to submit the launch if array isn't implemented
+            for task_instance in array_batch.task_instances:
+                distributor_command = DistributorCommand(self.launch_task_instance)
+                self.distributor_commands.append(distributor_command)
+        except Exception as e:
+            # if other error, transition to No ID status
+            for task_instance in array_batch.task_instances:
+                distributor_command = DistributorCommand(
+                    task_instance.transition_to_no_distributor_id, no_id_err_msg=str(e)
+                )
+                self.distributor_commands.append(distributor_command)
+        else:
+            # if successful log a transition to launched
+            for task_instance in array_batch.task_instances:
+                distributor_command = DistributorCommand(
+                    task_instance.transition_to_launched, self._next_report_increment
+                )
+                self.distributor_commands.append(distributor_command)
+
+    def launch_task_instance(self, task_instance: DistributorTaskInstance) -> None:
+        """
+        submits a task instance on a given distributor.
+        adds the new task instance to self.submitted_or_running_task_instances
+        """
+        # Fetch the worker node command
+        command = self.cluster.build_worker_node_command(
+            task_instance_id=task_instance.task_instance_id
+        )
+
+        # Submit to batch distributor
+        try:
+            task_instance.distributor_id = self.cluster.submit_to_batch_distributor(
+                command=command,
+                name=task_instance.name,
+                requested_resources=task_instance.requested_resources
+            )
+
+        except Exception as e:
+            task_instance.transition_to_no_distributor_id(no_id_err_msg=str(e))
+
+        else:
+            # move from register queue to launch queue
+            task_instance.transition_to_launched(self._next_report_increment)
+
     def _check_for_work(self, status: str):
         """Got to DB to check the list tis status."""
         message = {
@@ -250,78 +322,6 @@ class DistributorService:
 
         # build maps between task_instances and distributor_ids
         # log heartbeats
-
-    def instantiate_task_instance(self, task_instance: DistributorTaskInstance) -> None:
-        # add associations
-        task_instance.transition_to_instantiated()
-        self._task_instances[task_instance.task_instance_id] = task_instance
-        self._get_task(task_instance.task_id).add_task_instance(task_instance)
-        self._get_array(task_instance.array_id).add_task_instance(task_instance)
-        self._get_workflow(task_instance.workflow_id).add_task_instance(task_instance)
-
-    def launch_array_batch(self, array_batch: DistributorArrayBatch) -> None:
-        # record batch info in db
-        array_batch.prepare_array_batch_for_launch()
-
-        # build worker node command
-        command = self.cluster.build_worker_node_command(
-            task_instance_id=None,
-            array_id=array_batch.array_id,
-            batch_number=array_batch.batch_number
-        )
-        try:
-            # submit array to distributor
-            array_batch.distributor_id = self.cluster.submit_array_to_batch_distributor(
-                command=command,
-                name=array_batch.name,
-                requested_resources=array_batch.requested_resources,
-                array_length=len(array_batch.task_instances)
-            )
-
-        except NotImplementedError:
-            # create DistributorCommands to submit the launch if array isn't implemented
-            for task_instance in array_batch.task_instances:
-                distributor_command = DistributorCommand(self.launch_task_instance)
-                self.distributor_commands.append(distributor_command)
-        except Exception as e:
-            # if other error, transition to No ID status
-            for task_instance in array_batch.task_instances:
-                distributor_command = DistributorCommand(
-                    task_instance.transition_to_no_distributor_id, no_id_err_msg=str(e)
-                )
-                self.distributor_commands.append(distributor_command)
-        else:
-            # if successful log a transition to launched
-            for task_instance in array_batch.task_instances:
-                distributor_command = DistributorCommand(
-                    task_instance.transition_to_launched, self._next_report_increment
-                )
-                self.distributor_commands.append(distributor_command)
-
-    def launch_task_instance(self, task_instance: DistributorTaskInstance) -> None:
-        """
-        submits a task instance on a given distributor.
-        adds the new task instance to self.submitted_or_running_task_instances
-        """
-        # Fetch the worker node command
-        command = self.cluster.build_worker_node_command(
-            task_instance_id=task_instance.task_instance_id
-        )
-
-        # Submit to batch distributor
-        try:
-            task_instance.distributor_id = self.cluster.submit_to_batch_distributor(
-                command=command,
-                name=task_instance.name,
-                requested_resources=task_instance.requested_resources
-            )
-
-        except Exception as e:
-            task_instance.transition_to_no_distributor_id(no_id_err_msg=str(e))
-
-        else:
-            # move from register queue to launch queue
-            task_instance.transition_to_launched(self._next_report_increment)
 
     def _get_array(self, array_id: int) -> DistributorArray:
         """Get a task from the task cache or create it and add it to the initializing queue
