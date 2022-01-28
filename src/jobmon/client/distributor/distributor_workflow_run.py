@@ -1,14 +1,10 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, List, Optional, Set
+import time
 
-from jobmon.client.distributor.distributor_workflow import DistributorWorkflow
-from jobmon.client.distributor.distributor_array import DistributorArray
-from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
-from jobmon.cluster_type.base import ClusterDistributor
-from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
-from jobmon.exceptions import DistributorUnexpected, InvalidResponse
+from jobmon.constants import WorkflowRunStatus
+from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 
 logger = logging.getLogger(__name__)
@@ -27,9 +23,12 @@ class DistributorWorkflowRun:
 
     def __init__(self, workflow_run_id: int, requester: Requester):
         self.workflow_run_id = workflow_run_id
+
+        self.status = ""
+        self.last_heartbeat: float = time.time()
         self.requester = requester
 
-    def _log_workflow_run_heartbeat(self, next_report_increment: float) -> None:
+    def log_workflow_run_heartbeat(self, next_report_increment: float) -> None:
         app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -40,17 +39,15 @@ class DistributorWorkflowRun:
             request_type="post",
             logger=logger,
         )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
 
-    def _log_tis_heartbeat(self, tis: List) -> None:
-        """Log heartbeat of given list of tis."""
-
-        app_route = "/task_instance/log_report_by/batch"
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={"task_instance_ids": tis},
-            request_type="post",
-            logger=logger,
-        )
+        self.status = response["message"]
+        self.last_heartbeat = time.time()
 
     def __hash__(self):
         return self.workflow_run_id

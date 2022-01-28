@@ -2,21 +2,20 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
-from typing import Dict, List, Optional, Set, TYPE_CHECKING
+import time
+from typing import Dict, List, Optional, Set
 
 from jobmon.client.distributor.distributor_array import DistributorArray
+from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
 from jobmon.client.distributor.distributor_command import DistributorCommand
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_workflow import DistributorWorkflow
 from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
-from jobmon.constants import TaskInstanceStatus
-from jobmon.exceptions import InvalidResponse
+from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
+from jobmon.exceptions import InvalidResponse, ResumeSet, WorkflowRunStateError
 from jobmon.requester import http_request_ok, Requester
-
-if TYPE_CHECKING:
-    from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
 
 
 logger = logging.getLogger(__name__)
@@ -67,10 +66,13 @@ class DistributorService:
             TaskInstanceStatus.INSTANTIATED: self._check_instantiated_for_work,
             TaskInstanceStatus.LAUNCHED: self._check_launched_for_work,
         }
+
+        # syncronization timings
         dt_string = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self._last_status_sync_time = {
             status: dt_string for status in self._status_processing_order
         }
+        self._last_heartbeat_time = datetime.now()
 
         # cluster API
         self.cluster = cluster
@@ -82,6 +84,10 @@ class DistributorService:
     def _next_report_increment(self) -> float:
         return self._heartbeat_report_by_buffer * self._task_instance_heartbeat_interval
 
+    def set_workflow_run(self, workflow_run_id: int):
+        workflow_run = DistributorWorkflowRun(workflow_run_id, self.requester)
+        self.workflow_run = workflow_run
+
     def run(self):
         keep_running = True
         while keep_running:
@@ -90,15 +96,16 @@ class DistributorService:
     def process_next_status(self):
         """"""
         try:
-            status = self.status_processing_order.pop(0)
+            status = self._status_processing_order.pop(0)
 
             # syncronize statuses from the db and get new work
             self._check_for_work(status)
 
             while self.distributor_commands:
-
                 # check if we need to pause for a heartbeat
-                self._check_heartbeat()
+                time_diff = time.time() - self.workflow_run.last_heartbeat
+                if time_diff > self._workflow_run_heartbeat_interval:
+                    self.heartbeat()
 
                 # get the first callable and run it
                 distributor_command = self.distributor_commands.pop(0)
@@ -108,11 +115,7 @@ class DistributorService:
             # update task mappings
             self._update_status_map(status)
 
-            self.status_processing_order.append(status)
-
-    def set_workflow_run(self, workflow_run_id: int):
-        workflow_run = DistributorWorkflowRun(workflow_run_id, self.requester)
-        self.workflow_run = workflow_run
+            self._status_processing_order.append(status)
 
     def instantiate_task_instance(self, task_instance: DistributorTaskInstance) -> None:
         # add associations
@@ -146,6 +149,7 @@ class DistributorService:
             for task_instance in array_batch.task_instances:
                 distributor_command = DistributorCommand(self.launch_task_instance)
                 self.distributor_commands.append(distributor_command)
+
         except Exception as e:
             # if other error, transition to No ID status
             for task_instance in array_batch.task_instances:
@@ -153,6 +157,7 @@ class DistributorService:
                     task_instance.transition_to_no_distributor_id, no_id_err_msg=str(e)
                 )
                 self.distributor_commands.append(distributor_command)
+
         else:
             # if successful log a transition to launched
             for task_instance in array_batch.task_instances:
@@ -186,6 +191,34 @@ class DistributorService:
             # move from register queue to launch queue
             task_instance.transition_to_launched(self._next_report_increment)
 
+    def heartbeat(self) -> None:
+        task_instances = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED].union(
+            self._task_instance_status_map[TaskInstanceStatus.RUNNING]
+        )
+        # 1) build maps between task_instances and distributor_ids
+        # 2) log heartbeats for instances
+
+        # 3) log wfr heartbeat. check for resumes
+        status = self.workflow_run.status
+        if status in [WorkflowRunStatus.LAUNCHED, WorkflowRunStatus.RUNNING]:
+            self.workflow_run.log_workflow_run_heartbeat(self._next_report_increment)
+            status = self.workflow_run.status
+
+        if status in [WorkflowRunStatus.COLD_RESUME, WorkflowRunStatus.HOT_RESUME]:
+            raise ResumeSet(f"Resume status ({status}) set by other agent.")
+        elif status not in [WorkflowRunStatus.LAUNCHED, WorkflowRunStatus.RUNNING]:
+            raise WorkflowRunStateError(
+                f"Workflow run {self.workflow_run.workflow_run_id} tried to log a heartbeat"
+                f" but was in state {status}. Workflow run must be in either "
+                f"{WorkflowRunStatus.LAUNCHED} or {WorkflowRunStatus.RUNNING}. "
+                "Aborting distributor."
+            )
+
+        # 4) if resume set. create distributor commands to terminate all task instances.
+        #     a) terminate task instance should set all task instances to Kill Self state.
+        #     b) terminate task instance should emit a global qdel/scancel for all affected tis
+        # 5) workflow run should mark itself terminated and raise an exception
+
     def _check_for_work(self, status: str):
         """Got to DB to check the list tis status."""
         message = {
@@ -210,10 +243,12 @@ class DistributorService:
         for task_instance_id, status in status_updates.items():
             try:
                 task_instance = self._task_instances[task_instance_id]
+
             except KeyError:
                 task_instance = DistributorTaskInstance(
                     task_instance_id, self.workflow_run.workflow_run_id, status, self.requester
                 )
+
             else:
                 # remove from old status set
                 previous_status = task_instance.status
@@ -221,6 +256,7 @@ class DistributorService:
 
                 # change to new status and move to new set
                 task_instance.status = status
+
             finally:
                 self._task_instance_status_map[task_instance.status].add(task_instance)
 
@@ -294,7 +330,8 @@ class DistributorService:
 
         # loop through all arrays from earlier and cluster into batches
         for array in arrays:
-            # figure out batches for each array
+            # TODO: perhaps this is top level command. We need to record array batch number
+            # on the array itself for the resume case.
             array_batches = array.create_array_batches(eligable_task_instances)
 
             for array_batch in array_batches:
@@ -314,14 +351,6 @@ class DistributorService:
                 self.cluster
             )
             self.distributor_commands.append(distributor_command)
-
-    def _heartbeat(self) -> None:
-        task_instances = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED].union(
-            self._task_instance_status_map[TaskInstanceStatus.RUNNING]
-        )
-
-        # build maps between task_instances and distributor_ids
-        # log heartbeats
 
     def _get_array(self, array_id: int) -> DistributorArray:
         """Get a task from the task cache or create it and add it to the initializing queue

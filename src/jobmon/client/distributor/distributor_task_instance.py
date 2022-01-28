@@ -57,7 +57,7 @@ class DistributorTaskInstance:
         self.array_batch_num = array_batch_num
         self.array_step_id = array_step_id
 
-        self._requested_resources = {}
+        self._requested_resources: Dict = {}
 
         self.error_state = ""
         self.error_msg = ""
