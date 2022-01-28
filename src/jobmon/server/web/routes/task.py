@@ -133,7 +133,7 @@ def add_task() -> Any:
                 name=t["name"],
                 command=t["command"],
                 max_attempts=t["max_attempts"],
-                status=TaskStatus.REGISTERED,
+                status=TaskStatus.REGISTERING,
             )
             tasks.append(task)
         DB.session.add_all(tasks)
@@ -291,7 +291,7 @@ def bind_tasks() -> Any:
                 "name": name,
                 "command": command,
                 "max_attempts": max_att,
-                "status": TaskStatus.REGISTERED,
+                "status": TaskStatus.REGISTERING,
                 "resource_scales": str(resource_scales),
                 "fallback_queues": str(fallback_queues),
             }
@@ -788,7 +788,7 @@ def update_task_statuses() -> Any:
 
     try:
         # If job is supposed to be rerun, set task instances to "K"
-        if new_status == TaskStatus.REGISTERED:
+        if new_status == TaskStatus.REGISTERING:
             task_instance_q = """
                 UPDATE task_instance
                 SET status = '{k_code}'

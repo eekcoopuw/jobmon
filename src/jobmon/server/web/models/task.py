@@ -63,15 +63,15 @@ class Task(DB.Model):
 
     # Finite state machine
     valid_transitions = [
-        (TaskStatus.REGISTERED, TaskStatus.QUEUED_FOR_INSTANTIATION),
-        (TaskStatus.ADJUSTING_RESOURCES, TaskStatus.QUEUED_FOR_INSTANTIATION),
-        (TaskStatus.QUEUED_FOR_INSTANTIATION, TaskStatus.INSTANTIATED),
-        (TaskStatus.INSTANTIATED, TaskStatus.RUNNING),
-        (TaskStatus.INSTANTIATED, TaskStatus.ERROR_RECOVERABLE),
+        (TaskStatus.REGISTERING, TaskStatus.QUEUED),
+        (TaskStatus.ADJUSTING_RESOURCES, TaskStatus.QUEUED),
+        (TaskStatus.QUEUED, TaskStatus.INSTANTIATING),
+        (TaskStatus.INSTANTIATING, TaskStatus.RUNNING),
+        (TaskStatus.INSTANTIATING, TaskStatus.ERROR_RECOVERABLE),
         (TaskStatus.RUNNING, TaskStatus.DONE),
         (TaskStatus.RUNNING, TaskStatus.ERROR_RECOVERABLE),
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.ADJUSTING_RESOURCES),
-        (TaskStatus.ERROR_RECOVERABLE, TaskStatus.QUEUED_FOR_INSTANTIATION),
+        (TaskStatus.ERROR_RECOVERABLE, TaskStatus.QUEUED),
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.ERROR_FATAL),
     ]
 

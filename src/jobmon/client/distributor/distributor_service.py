@@ -3,7 +3,11 @@ from __future__ import annotations
 from datetime import datetime
 import logging
 import time
-from typing import Dict, List, Optional, Set
+import sys
+from types import TracebackType
+from typing import Dict, List, Optional, Set, Type
+
+import tblib.pickling_support
 
 from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
@@ -19,6 +23,24 @@ from jobmon.requester import http_request_ok, Requester
 
 
 logger = logging.getLogger(__name__)
+
+tblib.pickling_support.install()
+
+
+class ExceptionWrapper(object):
+    """Handle exceptions."""
+
+    def __init__(self, ee: Exception) -> None:
+        """Initialization of execution wrapper."""
+        self.ee = ee
+        self.type: Optional[Type[BaseException]]
+        self.value: Optional[BaseException]
+        self.tb: Optional[TracebackType]
+        self.type, self.value, self.tb = sys.exc_info()
+
+    def re_raise(self) -> None:
+        """Raise errors and add their traceback."""
+        raise self.ee.with_traceback(self.tb)
 
 
 class DistributorService:
@@ -195,10 +217,7 @@ class DistributorService:
         task_instances = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED].union(
             self._task_instance_status_map[TaskInstanceStatus.RUNNING]
         )
-        # 1) build maps between task_instances and distributor_ids
-        # 2) log heartbeats for instances
-
-        # 3) log wfr heartbeat. check for resumes
+        # 1) log wfr heartbeat. check for resumes
         status = self.workflow_run.status
         if status in [WorkflowRunStatus.LAUNCHED, WorkflowRunStatus.RUNNING]:
             self.workflow_run.log_workflow_run_heartbeat(self._next_report_increment)
@@ -213,6 +232,9 @@ class DistributorService:
                 f"{WorkflowRunStatus.LAUNCHED} or {WorkflowRunStatus.RUNNING}. "
                 "Aborting distributor."
             )
+
+        # 1) build maps between task_instances and distributor_ids
+        # 2) log heartbeats for instances. compute triaging tasks
 
         # 4) if resume set. create distributor commands to terminate all task instances.
         #     a) terminate task instance should set all task instances to Kill Self state.
