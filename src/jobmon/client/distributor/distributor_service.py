@@ -217,21 +217,6 @@ class DistributorService:
         task_instances = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED].union(
             self._task_instance_status_map[TaskInstanceStatus.RUNNING]
         )
-        # 1) log wfr heartbeat. check for resumes
-        status = self.workflow_run.status
-        if status in [WorkflowRunStatus.LAUNCHED, WorkflowRunStatus.RUNNING]:
-            self.workflow_run.log_workflow_run_heartbeat(self._next_report_increment)
-            status = self.workflow_run.status
-
-        if status in [WorkflowRunStatus.COLD_RESUME, WorkflowRunStatus.HOT_RESUME]:
-            raise ResumeSet(f"Resume status ({status}) set by other agent.")
-        elif status not in [WorkflowRunStatus.LAUNCHED, WorkflowRunStatus.RUNNING]:
-            raise WorkflowRunStateError(
-                f"Workflow run {self.workflow_run.workflow_run_id} tried to log a heartbeat"
-                f" but was in state {status}. Workflow run must be in either "
-                f"{WorkflowRunStatus.LAUNCHED} or {WorkflowRunStatus.RUNNING}. "
-                "Aborting distributor."
-            )
 
         # 1) build maps between task_instances and distributor_ids
         # 2) log heartbeats for instances. compute triaging tasks
@@ -364,8 +349,7 @@ class DistributorService:
         array_batches: Set[DistributorArrayBatch] = set()
         launched_task_instances = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
         for task_instance in launched_task_instances:
-            array_batch = task_instance.array_batch
-            array_batches.add(array_batch)
+            array_batches.add(task_instance.array_batch)
 
         for array_batch in array_batches:
             distributor_command = DistributorCommand(
