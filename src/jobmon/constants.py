@@ -17,6 +17,7 @@ class TaskInstanceStatus:
     NO_DISTRIBUTOR_ID = "W"
     LAUNCHED = "O"
     RUNNING = "R"
+    TRIAGING = "T"
     RESOURCE_ERROR = "Z"
     UNKNOWN_ERROR = "U"
     ERROR = "E"

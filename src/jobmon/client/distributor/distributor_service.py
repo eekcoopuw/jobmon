@@ -82,11 +82,14 @@ class DistributorService:
             TaskInstanceStatus.QUEUED,
             TaskInstanceStatus.INSTANTIATED,
             TaskInstanceStatus.LAUNCHED,
+            TaskInstanceStatus.TRIAGING,
         ]
         self._command_generator_map = {
             TaskInstanceStatus.QUEUED: self._check_queued_for_work,
             TaskInstanceStatus.INSTANTIATED: self._check_instantiated_for_work,
             TaskInstanceStatus.LAUNCHED: self._check_launched_for_work,
+            TaskInstanceStatus.TRIAGING: self._check_triaging_for_work,
+            TaskInstanceStatus.KILL_SELF: ""
         }
 
         # syncronization timings
@@ -213,18 +216,16 @@ class DistributorService:
             # move from register queue to launch queue
             task_instance.transition_to_launched(self._next_report_increment)
 
-    def heartbeat(self) -> None:
+    def triage_error(self, task_instance: DistributorTaskInstance) -> None:
+        r_value, r_msg = self.cluster.get_remote_exit_info(task_instance.distributor_id)
+        task_instance.transition_to_error(r_msg, r_value)
+
+    def log_task_instance_report_by_date(self) -> None:
         task_instances = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED].union(
             self._task_instance_status_map[TaskInstanceStatus.RUNNING]
         )
-
         # 1) build maps between task_instances and distributor_ids
-        # 2) log heartbeats for instances. compute triaging tasks
-
-        # 4) if resume set. create distributor commands to terminate all task instances.
-        #     a) terminate task instance should set all task instances to Kill Self state.
-        #     b) terminate task instance should emit a global qdel/scancel for all affected tis
-        # 5) workflow run should mark itself terminated and raise an exception
+        # 2) log heartbeats for instances.
 
     def _check_for_work(self, status: str):
         """Got to DB to check the list tis status."""
@@ -356,6 +357,14 @@ class DistributorService:
                 array_batch.get_queueing_errors,
                 self.cluster
             )
+            self.distributor_commands.append(distributor_command)
+
+    def _check_triaging_for_work(self) -> None:
+        """For TaskInstances with TRIAGING status, check the nature of no heartbeat,
+        and change the statuses accordingly"""
+        triaging_task_instances = self._task_instance_status_map[TaskInstanceStatus.TRIAGING]
+        for task_instance in triaging_task_instances:
+            distributor_command = DistributorCommand(self.triage_error, task_instance)
             self.distributor_commands.append(distributor_command)
 
     def _get_array(self, array_id: int) -> DistributorArray:

@@ -107,7 +107,7 @@ class WorkflowRun:
     def active_tasks(self) -> List[SwarmTask]:
         """List of tasks that are not currently Registered, Adjusting, Done or Error_Fatal."""
         statuses = [
-            TaskStatus.REGISTERED,
+            TaskStatus.REGISTERING,
             TaskStatus.DONE,
             TaskStatus.ERROR_FATAL,
             TaskStatus.ADJUSTING_RESOURCES,
@@ -192,7 +192,7 @@ class WorkflowRun:
             if swarm_task.is_done:
                 raise RuntimeError("Invalid DAG. Encountered a DONE node")
 
-            if swarm_task.status == TaskStatus.REGISTERED:
+            if swarm_task.status == TaskStatus.REGISTERING:
                 logger.debug(
                     f"Instantiating resources for newly ready task and "
                     f"changing it to the queued state. Task: {swarm_task},"
@@ -200,10 +200,10 @@ class WorkflowRun:
                 )
                 if swarm_task.task_resources is None:
                     yield swarm_task
-                swarm_task.queue_task()
+                swarm_task.queue_task(self.workflow_run_id)
             elif swarm_task.status == TaskStatus.ADJUSTING_RESOURCES:
                 swarm_task.adjust_task_resources()
-                swarm_task.queue_task()
+                swarm_task.queue_task(self.workflow_run_id)
             else:
                 raise RuntimeError(
                     f"Task {swarm_task.task_id} in ready_to_run queue but "
