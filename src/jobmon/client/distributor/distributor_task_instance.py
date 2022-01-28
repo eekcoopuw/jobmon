@@ -266,6 +266,10 @@ class DistributorTaskInstance:
         self._transition_to_error(error_message, error_state)
         return {self}, []
 
+    def triage_error(self, distributor: ClusterDistributor):
+        r_value, r_msg = distributor.get_remote_exit_info(self.distributor_id)
+        self.transition_to_error(r_msg, r_value)
+
     def __hash__(self):
         return self.task_instance_id
 

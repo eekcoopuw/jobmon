@@ -61,11 +61,13 @@ class DistributorService:
             TaskInstanceStatus.QUEUED,
             TaskInstanceStatus.INSTANTIATED,
             TaskInstanceStatus.LAUNCHED,
+            TaskInstanceStatus.TRIAGING,
         ]
         self._command_generator_map = {
             TaskInstanceStatus.QUEUED: self._check_queued_for_work,
             TaskInstanceStatus.INSTANTIATED: self._check_instantiated_for_work,
             TaskInstanceStatus.LAUNCHED: self._check_launched_for_work,
+            TaskInstanceStatus.TRIAGING: self._check_triaging_for_work,
         }
         dt_string = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         self._last_status_sync_time = {
@@ -314,6 +316,17 @@ class DistributorService:
                 self.cluster
             )
             self.distributor_commands.append(distributor_command)
+
+    def _check_triaging_for_work(self) -> None:
+        """For TaskInstances with TRIAGING status, check the nature of no heartbeat,
+        and change the statuses accordingly"""
+        triaging_task_instances = list(
+            self._task_instance_status_map[TaskInstanceStatus.TRIAGING]
+        )
+
+        while triaging_task_instances:
+            task_instance = triaging_task_instances.pop(0)
+            task_instance.triage_error(self.distributor)
 
     def _heartbeat(self) -> None:
         task_instances = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED].union(
