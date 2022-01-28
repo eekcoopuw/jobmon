@@ -219,10 +219,10 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
     assert workflow.tasks[hash(task_b[2])].final_status == TaskStatus.DONE
 
     assert workflow.tasks[hash(task_c[0])].final_status == TaskStatus.DONE
-    assert workflow.tasks[hash(task_c[1])].final_status == TaskStatus.REGISTERED
+    assert workflow.tasks[hash(task_c[1])].final_status == TaskStatus.REGISTERING
     assert workflow.tasks[hash(task_c[2])].final_status == TaskStatus.DONE
 
-    assert workflow.tasks[hash(task_d)].final_status == TaskStatus.REGISTERED
+    assert workflow.tasks[hash(task_d)].final_status == TaskStatus.REGISTERING
 
 
 def test_fork_and_join_tasks_with_retryable_error(task_template, tmpdir):

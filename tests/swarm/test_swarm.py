@@ -224,7 +224,7 @@ def test_wedged_dag(db_cfg, tool, task_template):
 
     assert swarm.swarm_tasks[t1.task_id].status == TaskStatus.DONE
     assert swarm.swarm_tasks[t2.task_id].status == TaskStatus.QUEUED_FOR_INSTANTIATION
-    assert swarm.swarm_tasks[t3.task_id].status == TaskStatus.REGISTERED
+    assert swarm.swarm_tasks[t3.task_id].status == TaskStatus.REGISTERING
 
     # now run wedged dag route. make sure task 2 is now in done state
     with pytest.raises(RuntimeError):

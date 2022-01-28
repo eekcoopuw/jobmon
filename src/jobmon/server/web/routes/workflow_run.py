@@ -113,10 +113,10 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
 
     if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
         logger.debug(f"HOT_RESUME {workflow_run_id}")
-        states = [TaskStatus.INSTANTIATED]
+        states = [TaskStatus.INSTANTIATING]
     elif workflow_run.status == WorkflowRunStatus.COLD_RESUME:
         logger.debug(f"COLD_RESUME {workflow_run_id}")
-        states = [TaskStatus.INSTANTIATED, TaskInstanceStatus.RUNNING]
+        states = [TaskStatus.INSTANTIATING, TaskInstanceStatus.RUNNING]
 
     # add error logs
     log_errors = """

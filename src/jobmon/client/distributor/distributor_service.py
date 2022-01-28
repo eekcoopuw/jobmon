@@ -89,7 +89,6 @@ class DistributorService:
             TaskInstanceStatus.INSTANTIATED: self._check_instantiated_for_work,
             TaskInstanceStatus.LAUNCHED: self._check_launched_for_work,
             TaskInstanceStatus.TRIAGING: self._check_triaging_for_work,
-            TaskInstanceStatus.KILL_SELF: ""
         }
 
         # syncronization timings

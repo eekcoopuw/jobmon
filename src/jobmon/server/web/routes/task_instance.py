@@ -529,7 +529,7 @@ def add_task_instance() -> Any:
         )
         DB.session.add(task_instance)
         DB.session.commit()
-        task_instance.task.transition(TaskStatus.INSTANTIATED)
+        task_instance.task.transition(TaskStatus.INSTANTIATING)
         DB.session.commit()
         resp = jsonify(
             task_instance=task_instance.to_wire_as_distributor_task_instance()
@@ -538,7 +538,7 @@ def add_task_instance() -> Any:
         return resp
     except InvalidStateTransition as e:
         # Handles race condition if the task is already instantiated state
-        if task_instance.task.status == TaskStatus.INSTANTIATED:
+        if task_instance.task.status == TaskStatus.INSTANTIATING:
             msg = (
                 "Caught InvalidStateTransition. Not transitioning task "
                 "{}'s task_instance_id {} from I to I".format(

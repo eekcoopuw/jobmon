@@ -456,7 +456,7 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
             UPDATE task
             SET status ='{s}'
             WHERE id={t_id}""".format(
-                s=TaskStatus.INSTANTIATED, t_id=task_a.task_id
+                s=TaskStatus.INSTANTIATING, t_id=task_a.task_id
             )
         )
         DB.session.execute(
@@ -477,7 +477,7 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
             UPDATE task
             SET status ='{s}'
             WHERE id={t_id}""".format(
-                s=TaskStatus.INSTANTIATED, t_id=task_b.task_id
+                s=TaskStatus.INSTANTIATING, t_id=task_b.task_id
             )
         )
         DB.session.commit()

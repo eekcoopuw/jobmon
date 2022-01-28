@@ -85,7 +85,7 @@ class Task(DB.Model):
             # only reset if the task is not currently running or if we are
             # resetting running tasks
             if self.status != TaskStatus.RUNNING or reset_if_running:
-                self.status = TaskStatus.REGISTERED
+                self.status = TaskStatus.REGISTERING
                 self.num_attempts = 0
                 self.name = name
                 self.command = command
@@ -97,7 +97,7 @@ class Task(DB.Model):
         bind_to_logger(workflow_id=self.workflow_id, task_id=self.id)
         logger.info(f"Transitioning task from {self.status} to {new_state}")
         self._validate_transition(new_state)
-        if new_state == TaskStatus.INSTANTIATED:
+        if new_state == TaskStatus.QUEUED:
             self.num_attempts = self.num_attempts + 1
         self.status = new_state
         self.status_date = func.now()

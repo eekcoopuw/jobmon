@@ -284,7 +284,7 @@ class WorkflowRun:
             # not any unfinished upstream tasks and current task is registered
             if (
                 not unfinished_upstreams
-                and swarm_task.status == TaskStatus.REGISTERED
+                and swarm_task.status == TaskStatus.REGISTERING
                 and swarm_task not in self.ready_to_run
             ):
                 self.ready_to_run += [swarm_task]
@@ -357,7 +357,7 @@ class WorkflowRun:
             # The adjusting state is not included in this branch because a task can't be in
             # adjusting state until it has already ran. So it can't be part of the new fringe
             # computed from newly done tasks
-            if not downstream_done and downstream.status == TaskStatus.REGISTERED:
+            if not downstream_done and downstream.status == TaskStatus.REGISTERING:
                 if downstream.all_upstreams_done:
                     logger.debug(" and add to fringe")
                     new_fringe += [downstream]  # make sure there's no dups

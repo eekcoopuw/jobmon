@@ -204,7 +204,7 @@ def test_get_errors(db_cfg, tool):
             UPDATE task
             SET status ='{s}'
             WHERE id={t_id}""".format(
-                s=TaskStatus.INSTANTIATED, t_id=task_a.task_id
+                s=TaskStatus.INSTANTIATING, t_id=task_a.task_id
             )
         )
         DB.session.commit()
@@ -307,5 +307,5 @@ def test_reset_attempts_on_resume(db_cfg, tool):
         t = DB.session.query(Task).filter_by(id=task_a.task_id).one()
         assert t.max_attempts == 3
         assert t.num_attempts == 0
-        assert t.status == TaskStatus.REGISTERED
+        assert t.status == TaskStatus.REGISTERING
         DB.session.commit()
