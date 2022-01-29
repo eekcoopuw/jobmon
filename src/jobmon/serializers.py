@@ -259,10 +259,14 @@ class SerializeCluster:
 
     @staticmethod
     def to_wire(
-        id: int, name: str, cluster_type_name: str, package_location: str
+        id: int,
+        name: str,
+        cluster_type_name: str,
+        package_location: str,
+        connection_parameters: str,
     ) -> tuple:
         """Submit the Cluster information to the database."""
-        return (id, name, cluster_type_name, package_location)
+        return (id, name, cluster_type_name, package_location, connection_parameters)
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
@@ -272,6 +276,7 @@ class SerializeCluster:
             "name": str(wire_tuple[1]),
             "cluster_type_name": str(wire_tuple[2]),
             "package_location": str(wire_tuple[3]),
+            "connection_parameters": str(wire_tuple[4]),
         }
 
 

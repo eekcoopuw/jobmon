@@ -31,10 +31,6 @@ __pycache__
 # Ignore build artifacts
 .idea
 
-# Ignore coverage reports
-.coverage
-htmlcov
-
 # Ignore mac files
 ._*
 .DS_Store
@@ -45,12 +41,15 @@ htmlcov
 # ignore nox envs
 .nox/
 
-# ignore coverage files
-.coverage.*
-
 # ignore auto generated docs
 docsource/api
 /out
 
 # ignore conda build
 conda_build_output/*
+
+# ignore ihme_installer build
+deployment/jobmon_installer_ihme/setup.cfg
+deployment/jobmon_installer_ihme/build/*
+deployment/jobmon_installer_ihme/dist/*
+deployment/jobmon_installer_ihme/src/jobmon_installer_ihme.egg-info/*

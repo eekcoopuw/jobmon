@@ -1,5 +1,5 @@
 """Nox Configuration for Jobmon."""
-import argparse
+import json
 import os
 from subprocess import Popen, PIPE
 import shutil
@@ -104,10 +104,11 @@ def docs(session: Session) -> None:
         # source dir
         'src/jobmon',
         # exclude from autodoc
-        'src/jobmon/server/qpid_integration',
+        'src/jobmon/server/squid_integration',
         'src/jobmon/server/web/main.py'
     )
-    session.run("sphinx-build", "docsource", "out/_html",
+    session.run(
+        "sphinx-build", "docsource", "out/_html",
         env={
             "WEB_SERVICE_FQDN": web_service_fqdn,
             "WEB_SERVICE_PORT": web_service_port
@@ -116,7 +117,7 @@ def docs(session: Session) -> None:
 
 
 @nox.session(python=python, venv_backend="conda")
-def distribute(session: Session) -> None:
+def build(session: Session) -> None:
     session.run("python", "setup.py", "sdist", "bdist_wheel")
 
 
@@ -129,10 +130,10 @@ def conda_build(session: Session) -> None:
         "PYPI_URL", "https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
     )
     conda_client_version = os.getenv("CONDA_CLIENT_VERSION", "0.0")
-    jobmon_version = os.getenv("JOBMON_VERSION", "2.2.2.dev448")
-    jobmon_uge_version = os.getenv("JOBMON_UGE_VERSION", "0.1.dev53")
+    jobmon_version = os.getenv("JOBMON_VERSION", "3.1.0.dev12")
+    jobmon_uge_version = os.getenv("JOBMON_UGE_VERSION", "1.0.0")
+    jobmon_slurm_version = os.getenv("JOBMON_SLURM_VERSION", "1.0.2")
     slurm_rest_version = os.getenv("SLURM_REST_VERSION", "1.0.0")
-    jobmon_slurm_version = os.getenv("JOBMON_SLURM_VERSION", "0.1.dev57")
     jenkins_build_number = os.getenv('JENKINS_BUILD_NUMBER', 0)
 
     # environment variables used in build script
@@ -165,9 +166,42 @@ def conda_build(session: Session) -> None:
 
 
 @nox.session(python=python, venv_backend="conda")
+def ihme_installer_build(session: Session) -> None:
+    session.install("jinja2", "jinja-cli")
+
+    installer_version = os.getenv("INSTALLER_VERSION", "0.0")
+    jobmon_version = os.getenv("JOBMON_VERSION", "3.1.0.dev12")
+    jobmon_uge_version = os.getenv("JOBMON_UGE_VERSION", "1.0.0")
+    jobmon_slurm_version = os.getenv("JOBMON_SLURM_VERSION", "1.0.2")
+
+    # environment variables used in build script
+    web_service_fqdn = os.environ["WEB_SERVICE_FQDN"]
+    web_service_port = os.environ["WEB_SERVICE_PORT"]
+    web_conn = {"host": web_service_fqdn, "port": web_service_port}
+    with open('./deployment/jobmon_installer_ihme/src/jobmon_installer_ihme/server_config.json'
+              , 'w') as f:
+        json.dump(web_conn, f)
+
+    # render the setup.cfg
+    session.run(
+        "jinja",
+        "-D", "INSTALLER_VERSION", installer_version,
+        "-D", "JOBMON_VERSION", jobmon_version,
+        "-D", "JOBMON_UGE_VERSION", jobmon_uge_version,
+        "-D", "JOBMON_SLURM_VERSION", jobmon_slurm_version,
+        "./deployment/jobmon_installer_ihme/setup.cfg.j2",
+        "-o", "./deployment/jobmon_installer_ihme/setup.cfg",
+    )
+    os.chdir("./deployment/jobmon_installer_ihme")
+    session.run("python", "setup.py", "sdist", "bdist_wheel")
+
+
+@nox.session(python=python, venv_backend="conda")
 def clean(session: Session) -> None:
     dirs_to_remove = ['out', 'jobmon_coverage_html_report', 'dist', 'build', '.eggs',
-                      '.pytest_cache', 'docsource/api', '.mypy_cache', 'conda_build_output']
+                      '.pytest_cache', 'docsource/api', '.mypy_cache', 'conda_build_output',
+                      './deployment/jobmon_installer_ihme/build',
+                      "./deployment/jobmon_installer_ihme/dist"]
     for path in dirs_to_remove:
         if os.path.exists(path):
             shutil.rmtree(path)

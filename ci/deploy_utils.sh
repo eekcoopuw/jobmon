@@ -67,7 +67,7 @@ upload_python_dist () {
     REG_PASSWORD=$3
     ACTIVATE=$4
 
-    $ACTIVATE && nox --session distribute
+    $ACTIVATE && nox --session build
     PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
     JOBMON_VERSION=$(basename $(find ./dist/jobmon-*.tar.gz) | sed "s/jobmon-\\(.*\\)\\.tar\\.gz/\\1/")
     if [[ "$JOBMON_VERSION" =~ "dev" ]]
@@ -93,15 +93,16 @@ upload_python_dist () {
 get_container_name_from_version () {
     JOBMON_VERSION=$1
     SCICOMP_DOCKER_REG_URL=$2
+    SCICOMP_DOCKER_DEV_URL=$3
 
     # check if dev is in the version string and pick a container name based on that
     if [[ "$JOBMON_VERSION" =~ "dev" ]]
     then
-      CONTAINER_NAME="jobmon_dev"
+      BASE_URL=$SCICOMP_DOCKER_DEV_URL
     else
-      CONTAINER_NAME="jobmon"
+      BASE_URL=$SCICOMP_DOCKER_REG_URL
     fi
-    echo "$SCICOMP_DOCKER_REG_URL/$CONTAINER_NAME:$JOBMON_VERSION"
+    echo "$BASE_URL/jobmon:$JOBMON_VERSION"
 }
 
 
@@ -110,20 +111,15 @@ upload_jobmon_image () {
     WORKSPACE=$2
     REG_USERNAME=$3
     REG_PASSWORD=$4
-    SCICOMP_DOCKER_REG_URL=$5
-    JOBMON_CONTAINER_URI=$6
-    GRAFANA_CONTAINER_URI=$7
+    JOBMON_CONTAINER_URI=$5
 
+    SCICOMP_DOCKER_REG_URL=$(dirname $JOBMON_CONTAINER_URI)
 
     # build jobmon container
     echo "jobmon[server]==$JOBMON_VERSION" > $WORKSPACE/requirements.txt
     docker login -u "$REG_USERNAME" -p "$REG_PASSWORD" "https://$SCICOMP_DOCKER_REG_URL"
     docker build --no-cache -t "$JOBMON_CONTAINER_URI" -f ./deployment/k8s/Dockerfile .
     docker push "$JOBMON_CONTAINER_URI"
-
-    # build grafana container
-    docker build --no-cache -t "$GRAFANA_CONTAINER_URI" -f ./deployment/k8s/grafana/Dockerfile .
-    docker push "$GRAFANA_CONTAINER_URI"
 
 }
 
@@ -134,16 +130,15 @@ deploy_jobmon_to_k8s () {
     METALLB_IP_POOL=${3}
     K8S_NAMESPACE=${4}
     RANCHER_PROJECT_ID=${5}
-    GRAFANA_CONTAINER_URI=${6}
-    RANCHER_DB_SECRET=${7}
-    RANCHER_SLACK_SECRET=${8}
-    RANCHER_QPID_SECRET=${9}
-    KUBECONFIG=${10}
-    USE_LOGSTASH=${11}
-    JOBMON_VERSION=${12}
-    K8S_REAPER_NAMESPACE=${13}
-    DEPLOY_JOBMON=${14}
-    DEPLOY_ELK=${15}
+    RANCHER_DB_SECRET=${6}
+    RANCHER_SLACK_SECRET=${7}
+    RANCHER_QPID_SECRET=${8}
+    KUBECONFIG=${9}
+    USE_LOGSTASH=${10}
+    JOBMON_VERSION=${11}
+    K8S_REAPER_NAMESPACE=${12}
+    DEPLOY_JOBMON=${13}
+    DEPLOY_ELK=${14}
 
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
     docker pull $KUBECTL_CONTAINER
@@ -205,7 +200,6 @@ deploy_jobmon_to_k8s () {
         alpine/helm \
             upgrade --install jobmon /apps/. \
             -n "$K8S_NAMESPACE" \
-            --set global.grafana_image="$GRAFANA_CONTAINER_URI" \
             --history-max 3 \
             --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI" \
             --set global.metallb_ip_pool="$METALLB_IP_POOL" \
@@ -233,50 +227,6 @@ deploy_jobmon_to_k8s () {
     fi
 }
 
-
-test_k8s_uge_deployment () {
-    WORKSPACE=$1
-    QLOGIN_ACTIVATE=$2
-    JOBMON_VERSION=$3
-    TARGET_IP=$4
-
-    CONDA_DIR=$WORKSPACE/.conda_env/load_test
-    $QLOGIN_ACTIVATE && \
-        conda create --prefix $CONDA_DIR python==3.7
-    $QLOGIN_ACTIVATE &&
-       conda activate $CONDA_DIR && \
-       pip install pyyaml && \
-       pip install jobmon==$JOBMON_VERSION && \
-       pip install jobmon_uge && \
-       pip install jobmon_slurm && \
-       jobmon update_config --web_service_fqdn $TARGET_IP --web_service_port 80 && \
-       python $WORKSPACE/deployment/tests/six_job_test.py
-
-    $QLOGIN_ACTIVATE &&
-        /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
-           --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr/jobmonr
-}
-
-
-test_k8s_slurm_deployment () {
-    WORKSPACE=$1
-    MINICONDA_PATH=$2
-    CONDA_ENV_NAME=$3
-    JOBMON_VERSION=$4
-    TARGET_IP=$5
-
-# Do not use the "source" command, because dash does not have it.
-# The default login shell on Ubuntu is dash.
-# "Source" and "." are synonyms for the same command.
-    . ${MINICONDA_PATH} ${CONDA_ENV_NAME} && \
-      conda deactivate && \
-      conda env remove --name slurm_k8s_env && \
-      conda create -n slurm_k8s_env ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
-      conda activate slurm_k8s_env && \
-      conda info --envs && \
-      srun -n 1 -p all.q -A general -c 1 --mem=10000 --time=100 python $WORKSPACE/deployment/tests/six_job_test.py 'slurm'
-}
-
 test_conda_client_uge () {
     WORKSPACE=$1
     QLOGIN_ACTIVATE=$2
@@ -288,7 +238,7 @@ test_conda_client_uge () {
     $QLOGIN_ACTIVATE && \
       conda deactivate && \
       conda env remove --name uge_six_job_env && \
-      conda create -n uge_six_job_env ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
+      conda create -n uge_six_job_env python==3.7 ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
       conda activate uge_six_job_env && \
       conda info --envs && \
       python $WORKSPACE/deployment/tests/six_job_test.py 'buster'
@@ -308,7 +258,7 @@ test_conda_client_slurm () {
     . ${MINICONDA_PATH} ${CONDA_ENV_NAME} && \
       conda deactivate && \
       conda env remove --name slurm_six_job_env && \
-      conda create -n slurm_six_job_env ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
+      conda create -n slurm_six_job_env python==3.7 ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
       conda activate slurm_six_job_env && \
       conda info --envs && \
       PATH=$PATH:/opt/slurm/bin && \
@@ -329,7 +279,7 @@ test_server () {
     $QLOGIN_ACTIVATE &&
         conda activate $CONDA_DIR && \
         pip install jobmon==$JOBMON_VERSION && \
-        jobmon update_config --web_service_fqdn $WEB_SERVICE_FQDN --web_service_port $WEB_SERVICE_PORT && \
+        jobmon_config update --web_service_fqdn $WEB_SERVICE_FQDN --web_service_port $WEB_SERVICE_PORT && \
         python $WORKSPACE/deployment/tests/six_job_test.py sequential
     # Disable jobmonr test because it cannot pass version check
     #$QLOGIN_ACTIVATE &&

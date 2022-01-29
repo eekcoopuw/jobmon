@@ -1,12 +1,12 @@
 import pytest
 
-from jobmon.client.api import Tool
-from jobmon.client.workflow_run import WorkflowRun
 from jobmon.constants import WorkflowRunStatus, WorkflowStatus
 
 
 @pytest.fixture
 def tool(db_cfg, client_env):
+    from jobmon.client.api import Tool
+
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
@@ -28,6 +28,7 @@ def task_template(tool):
 
 def test_log_heartbeat(tool, task_template, db_cfg):
     """test _log_heartbeat sets the wfr status to L"""
+    from jobmon.client.workflow_run import WorkflowRun
 
     wf = tool.create_workflow()
     t1 = task_template.create_task(arg="sleep 1")

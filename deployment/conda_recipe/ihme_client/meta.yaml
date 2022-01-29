@@ -59,7 +59,9 @@ requirements:
   run:
   # jobmon core dependencies
   {% for req in jobmon_setup.get('install_requires', []) %}
+  {% if req not in skip_list -%}
     - {{ req|replace("_", "-") }}
+  {%- endif %}
   {% endfor %}
   # jobmon_uge dependencies
   {% for req in jobmon_uge_setup.get('install_requires', []) %}

@@ -4,11 +4,11 @@ from jobmon.constants import TaskStatus, WorkflowRunStatus
 
 import pytest
 
-from jobmon.client.tool import Tool
-
 
 @pytest.fixture
 def tool(db_cfg, client_env):
+    from jobmon.client.tool import Tool
+
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
@@ -94,6 +94,7 @@ def test_fork_and_join_tasks(task_template, tmpdir):
      a->b[0..2]->c[0..2]->d
      and execute it
     """
+    from jobmon.client.tool import Tool
 
     tool = Tool()
     workflow = tool.create_workflow(
@@ -154,6 +155,7 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
     Create the same small fork and join real_dag.
     One of the b-tasks (#1) fails consistently, so c[1] will never be ready.
     """
+    from jobmon.client.tool import Tool
 
     tool = Tool()
     workflow = tool.create_workflow(
@@ -232,6 +234,8 @@ def test_fork_and_join_tasks_with_retryable_error(task_template, tmpdir):
     One of the b-tasks fails once, so the retry handler should cover that, and
     the whole real_dag should complete
     """
+    from jobmon.client.tool import Tool
+
     tool = Tool()
     workflow = tool.create_workflow(
         name="test_fork_and_join_tasks_with_retryable_error",
@@ -314,6 +318,7 @@ def test_bushy_real_dag(task_template, tmpdir):
        c depends on a
        d depends on b
     """
+    from jobmon.client.tool import Tool
 
     tool = Tool()
     workflow = tool.create_workflow(

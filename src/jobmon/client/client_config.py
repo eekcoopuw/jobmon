@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from jobmon.config import CLI, ParserDefaults
+from jobmon.config import CLI, install_default_config_from_plugin, ParserDefaults
 
 
 class ClientConfig(object):
@@ -19,7 +19,10 @@ class ClientConfig(object):
         ParserDefaults.heartbeat_report_by_buffer(cli.parser)
 
         # passing an empty string forces this method to ignore sys.argv
-        args = cli.parse_args("")
+        try:
+            args = cli.parse_args("")
+        except SystemExit:
+            args = install_default_config_from_plugin(cli)
 
         return cls(
             host=args.web_service_fqdn,

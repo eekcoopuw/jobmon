@@ -1,10 +1,9 @@
-from jobmon.client.tool import Tool
-
-import pytest
 import uuid
 
 
 def test_get_tasks_dependencynotexist(db_cfg, client_env):
+    from jobmon.client.tool import Tool
+
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
@@ -47,6 +46,8 @@ def test_get_tasks_dependencynotexist(db_cfg, client_env):
 
 
 def test_get_task_template_version(db_cfg, client_env):
+    from jobmon.client.tool import Tool
+
     t = Tool()
     wf = t.create_workflow(name="i_am_a_fake_wf")
     tt1 = t.get_task_template(
@@ -101,6 +102,8 @@ def test_get_task_template_version(db_cfg, client_env):
 
 
 def test_get_requested_cores(db_cfg, client_env):
+    from jobmon.client.tool import Tool
+
     t = Tool()
     wf = t.create_workflow(name="i_am_a_fake_wf")
     tt1 = t.get_task_template(
@@ -141,6 +144,8 @@ def test_get_requested_cores(db_cfg, client_env):
 
 
 def test_most_popular_queue(db_cfg, client_env):
+    from jobmon.client.tool import Tool
+
     t = Tool()
     wf = t.create_workflow(name="i_am_a_fake_wf")
     tt1 = t.get_task_template(

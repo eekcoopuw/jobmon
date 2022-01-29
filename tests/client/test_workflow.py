@@ -1,6 +1,4 @@
 # from jobmon.client.distributor.strategies.base import ExecutorParameters
-from jobmon.client.tool import Tool
-from jobmon.client.workflow_run import WorkflowRun
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import (
     WorkflowAlreadyComplete,
@@ -15,6 +13,8 @@ import pytest
 
 @pytest.fixture
 def tool(db_cfg, client_env):
+    from jobmon.client.tool import Tool
+
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
@@ -36,6 +36,7 @@ def task_template(tool):
 
 def test_wfargs_update(tool, task_template):
     """test that 2 workflows with different names, have different ids and tasks"""
+    from jobmon.client.workflow_run import WorkflowRun
 
     # Create identical dags
     t1 = task_template.create_task(arg="sleep 1")
@@ -77,6 +78,7 @@ def test_attempt_resume_on_complete_workflow(tool, task_template):
     """Should not allow a resume, but should prompt user to create a new
     workflow by modifying the WorkflowArgs (e.g. new version #)
     """
+    from jobmon.client.workflow_run import WorkflowRun
 
     # Create identical dags
     t1 = task_template.create_task(arg="sleep 1")
@@ -151,6 +153,8 @@ def test_workflow_identical_args(tool, task_template):
 
 
 def test_add_same_node_args_twice(client_env):
+    from jobmon.client.tool import Tool
+
     tool = Tool()
     tt = tool.get_task_template(
         template_name="my_template",
@@ -406,6 +410,7 @@ def test_workflow_validation(db_cfg, client_env, tool, task_template, capsys):
 
 def test_workflow_get_errors(tool, task_template, db_cfg):
     """test that num attempts gets reset on a resume."""
+    from jobmon.client.tool import Tool
 
     from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
     from jobmon.server.web.models.task_status import TaskStatus
@@ -537,3 +542,61 @@ def test_fall_back_queue(db_cfg, client_env, tool, task_template):
     fallback_cluster_queue = workflow.tasks[hash(fallback_task)].fallback_queues[0]
     assert type(fallback_cluster_queue) is SequentialQueue
     assert fallback_cluster_queue.queue_name == "null2.q"
+
+
+def test_inconsistent_status(db_cfg, client_env):
+    from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
+    from jobmon.client.tool import Tool
+
+    # setup workflow
+    tool = Tool()
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
+    task_template = tool.get_task_template(
+        template_name="test_inconsistent_status",
+        command_template="echo {arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    workflow1 = tool.create_workflow(name="test_inconsistent_status")
+    task_a = task_template.create_task(arg="1")
+    workflow1.add_task(task_a)
+    task_b = task_template.create_task(arg="2")
+    workflow1.add_task(task_b)
+
+    # add workflow to database
+    workflow1.run()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        # fake workflow run
+        DB.session.execute(
+            """
+            UPDATE workflow
+            SET status ='F'
+            WHERE id={}""".format(
+                workflow1.workflow_id
+            )
+        )
+        DB.session.commit()
+
+    # make sure it starts with 0
+    WorkflowReaper._current_starting_row = 0
+    WorkflowReaper(1, workflow1.requester)._inconsistent_status()
+    assert WorkflowReaper._current_starting_row == 0
+
+    # check workflow status changed
+    with app.app_context():
+        # fake workflow run
+        s = DB.session.execute(
+            """
+            select status
+            FROM workflow
+            WHERE id={}""".format(
+                workflow1.workflow_id
+            )
+        ).fetchone()["status"]
+        assert s == "D"

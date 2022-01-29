@@ -34,8 +34,7 @@ else
         exit 1
     fi
     echo "Installing jobmon for environment $env_name" &&
-    conda install ihme_jobmon -y \
-        -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge &&
+    pip install jobmon==$jobmon_version &&
     chmod -R +rx $env_name &&
     echo "linking jobmon $env_name to  jobmon_$minor_version"
     eval "$(rm -rf $env_base/jobmon_$minor_version 2>/dev/null ||true)" && # silent

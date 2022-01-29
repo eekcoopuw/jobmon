@@ -4,7 +4,6 @@ import platform
 import pytest
 
 from jobmon.test_utils import test_server_config, WebServerProcess, ephemera_db_instance
-from jobmon.client.api import Tool
 
 logger = logging.getLogger(__name__)
 
@@ -44,10 +43,11 @@ def db_cfg(ephemera) -> dict:
 
 @pytest.fixture(scope="function")
 def client_env(web_server_process, monkeypatch):
-    from jobmon.client.client_config import ClientConfig
 
     monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
     monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
+
+    from jobmon.client.client_config import ClientConfig
 
     cc = ClientConfig(
         web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"], 30, 3.1
@@ -130,6 +130,8 @@ def requester_in_memory(monkeypatch, web_server_in_memory):
 
 @pytest.fixture
 def tool(db_cfg, client_env):
+    from jobmon.client.api import Tool
+
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}

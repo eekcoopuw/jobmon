@@ -253,3 +253,10 @@ class WorkflowRun(object):
                 task.initial_status = return_tasks[k][1]
 
         return self._workflow.tasks
+
+    def __repr__(self) -> str:
+        """A representation string for a client WorkflowRun instance."""
+        return (
+            f"WorkflowRun(workflow_id={self.workflow_id}, "
+            f"workflow_run_id={self.workflow_run_id}"
+        )
