@@ -1,4 +1,5 @@
 """Parse configuration options and set them to be used throughout the Jobmon Architecture."""
+from argparse import Namespace
 import os
 import shlex
 from typing import List, Optional
@@ -299,34 +300,6 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def qpid_polling_interval(
-        parser: configargparse.ArgumentParser,
-    ) -> configargparse.ArgumentParser:
-        """Interval between qpid polling cycles if connecting qpid service."""
-        parser.add_argument(
-            "--qpid_polling_interval",
-            type=int,
-            help="Interval between qpid polling cycles",
-            default=600,
-            env_var="QPID_POLLING_INTERVAL",
-        )
-        return parser
-
-    @staticmethod
-    def qpid_max_update_per_second(
-        parser: configargparse.ArgumentParser,
-    ) -> configargparse.ArgumentParser:
-        """Number of maxpss updates per second."""
-        parser.add_argument(
-            "--qpid_max_update_per_second",
-            type=int,
-            help="Amount of maxpss updates per second",
-            default=10,
-            env_var="QPID_MAX_UPDATE_PER_SECOND",
-        )
-        return parser
-
-    @staticmethod
     def qpid_cluster(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
@@ -350,7 +323,50 @@ class ParserDefaults:
             type=str,
             help="uri for qpid service",
             required=True,
+            default="https://jobapi.ihme.washington.edu",
             env_var="QPID_URI",
+        )
+        return parser
+
+    @staticmethod
+    def squid_polling_interval(
+        parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
+        """Interval between squid polling cycles if connecting qpid service."""
+        parser.add_argument(
+            "--squid_polling_interval",
+            type=int,
+            help="Interval between qpid polling cycles",
+            default=60,
+            env_var="SQUID_POLLING_INTERVAL",
+        )
+        return parser
+
+    @staticmethod
+    def squid_max_update_per_second(
+        parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
+        """Number of maxrss updates per second."""
+        parser.add_argument(
+            "--squid_max_update_per_second",
+            type=int,
+            help="Amount of marrss updates per second",
+            default=100,
+            env_var="SQUID_MAX_UPDATE_PER_SECOND",
+        )
+        return parser
+
+    @staticmethod
+    def squid_cluster(
+        parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
+        """Cluster to pull maxrss data from. Default is fair."""
+        parser.add_argument(
+            "--squid_cluster",
+            type=str,
+            help="which cluster to pull maxrss for",
+            default="slurm",
+            env_var="SQUID_CLUSTER",
         )
         return parser
 
@@ -464,3 +480,48 @@ class CLI:
         args = self.parser.parse_args(arglist)
 
         return args
+
+
+def install_default_config_from_plugin(cli: CLI) -> Namespace:
+    """Install a config from jobmon_installer plugin.
+
+    Args:
+        cli: CLI object to confirm installation
+
+    Raises: ConfigError
+    """
+    import importlib
+    import pkgutil
+    from jobmon.exceptions import ConfigError
+
+    print(
+        "Jobmon client not configured. Attempting to install configuration for plugin."
+    )
+    configured = False
+
+    # try and import any installers
+    plugins = [
+        plugin_name
+        for finder, plugin_name, ispkg in pkgutil.iter_modules()
+        if plugin_name.startswith("jobmon_installer")
+    ]
+    if len(plugins) == 1:
+        plugin_name = plugins[0]
+        print(f"Found one plugin: {plugin_name}")
+        module = importlib.import_module(plugin_name)
+        config_installer = getattr(module, "install_config")
+        config_installer()
+        try:
+            args = cli.parse_args("")
+            print("Successfully configured jobmon.")
+            configured = True
+        except SystemExit:
+            pass
+
+    if not configured:
+        raise ConfigError(
+            "Client not configured to access server. Please use jobmon_config "
+            "command to specify which jobmon server you want to use."
+        )
+
+    return args

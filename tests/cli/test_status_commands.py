@@ -2,16 +2,14 @@ import ast
 import getpass
 import logging
 
-
 import pytest
 from unittest.mock import patch, PropertyMock
-
-from jobmon.client.cli import ClientCLI as CLI
-from jobmon.client.tool import Tool
 
 
 @pytest.fixture
 def tool(db_cfg, client_env):
+    from jobmon.client.tool import Tool
+
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
@@ -31,8 +29,14 @@ def task_template(tool):
     return tt
 
 
+@pytest.fixture
+def cli(client_env):
+    from jobmon.client.cli import ClientCLI as CLI
+
+    return CLI()
+
+
 logger = logging.getLogger(__name__)
-cli = CLI()
 
 
 class MockDistributorProc:
@@ -44,7 +48,8 @@ def mock_getuser():
     return "foo"
 
 
-def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
+def test_workflow_status(db_cfg, client_env, task_template, monkeypatch, cli):
+    from jobmon.client.tool import Tool
     from jobmon.client.status_commands import workflow_status
     import datetime
 
@@ -211,7 +216,8 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch):
     assert len(df) == 6
 
 
-def test_workflow_tasks(db_cfg, client_env, task_template):
+def test_workflow_tasks(db_cfg, client_env, task_template, cli):
+    from jobmon.client.tool import Tool
     from jobmon.client.status_commands import workflow_tasks
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
@@ -329,7 +335,7 @@ def test_workflow_tasks(db_cfg, client_env, task_template):
     assert len(df) == 6
 
 
-def test_task_status(db_cfg, client_env, tool, task_template):
+def test_task_status(db_cfg, client_env, tool, task_template, cli):
     from jobmon.client.status_commands import task_status
 
     t1 = task_template.create_task(arg="exit -9", max_attempts=2)
@@ -381,7 +387,7 @@ def test_task_reset(db_cfg, client_env, tool, task_template, monkeypatch):
         validate_username(workflow.workflow_id, "notarealuser", requester)
 
 
-def test_task_reset_wf_validation(db_cfg, client_env, tool, task_template):
+def test_task_reset_wf_validation(db_cfg, client_env, tool, task_template, cli):
     from jobmon.requester import Requester
     from jobmon.client.status_commands import update_task_status, validate_workflow
 
@@ -492,7 +498,7 @@ def test_sub_dag(db_cfg, client_env, tool, task_template):
     assert str(t2.task_id) in tree.keys()
 
 
-def test_dynamic_concurrency_limiting_cli(db_cfg, client_env):
+def test_dynamic_concurrency_limiting_cli(db_cfg, client_env, cli):
     """The server-side logic is checked in distributor/test_instantiate.
 
     This test checks the logic of the CLI only
@@ -515,10 +521,9 @@ def test_dynamic_concurrency_limiting_cli(db_cfg, client_env):
         cli.parse_args(bad_command.format(-59))
 
 
-def test_update_task_status(db_cfg, client_env, tool, task_template):
+def test_update_task_status(db_cfg, client_env, tool, task_template, cli):
     from jobmon.client.status_commands import update_task_status
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.constants import WorkflowRunStatus
 
     # Create a 5 task DAG. Tasks 1-3 should finish, 4 should error out and block 5
     def generate_workflow_and_tasks(tool, template):
@@ -608,6 +613,8 @@ def test_bad_put_route(db_cfg, client_env):
 
 
 def test_get_yaml_data(db_cfg, client_env):
+    from jobmon.client.tool import Tool
+
     t = Tool()
     wf = t.create_workflow(name="i_am_a_fake_wf")
     tt1 = t.get_task_template(

@@ -2,10 +2,9 @@ import copy
 import getpass
 import time
 import uuid
-from typing import List
 
 # for monkey patch
-from jobmon.client.swarm.swarm_task import SwarmTask
+# from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.constants import TaskStatus, WorkflowRunStatus
 
 import pytest
@@ -21,8 +20,8 @@ def mock_all_upstreams_done(self):
     return all([u.is_done for u in self.upstream_tasks])
 
 
-def mock_propagate_results(self, swarm_task: SwarmTask) -> List[SwarmTask]:
-    new_fringe: List[SwarmTask] = []
+def mock_propagate_results(self, swarm_task):
+    new_fringe = []
     logger.debug(f"Propagate {swarm_task}")
     for downstream in swarm_task.downstream_swarm_tasks:
         logger.debug(f"downstream {downstream}")

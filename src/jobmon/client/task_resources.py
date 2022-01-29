@@ -119,3 +119,16 @@ class TaskResources:
         if not isinstance(other, TaskResources):
             return False
         return hash(self) == hash(other)
+
+    def __repr__(self) -> str:
+        """A representation string for a TaskResources instance."""
+        repr_string = (
+            f"TaskResources(task_resources_type_id={self.task_resources_type_id}, "
+            f"concrete_resources={self.concrete_resources}"
+        )
+
+        try:
+            repr_string += f", id={self.id})"
+        except AttributeError:
+            repr_string += ")"
+        return repr_string

@@ -71,7 +71,7 @@ class LoadTestParameters:
             raise ValueError("all percent arguments must be less than 100")
 
     @classmethod
-    def from_yaml_file(cls, file_path: str, wfid: str, cluster_name: str) -> LoadTestParameters:
+    def from_yaml_file(cls, file_path: str, wfid: str, cluster_name: str = 'buster') -> LoadTestParameters:
         """Instantiate from a yaml file
 
         Args:
@@ -88,7 +88,7 @@ class LoadTestGenerator:
     thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
     script = os.path.join(thisdir, "sleep_and_error.py")
 
-    def __init__(self, scratch_dir: str, wfid: str, cluster_name: str):
+    def __init__(self, scratch_dir: str, wfid: str, cluster_name: str = 'buster'):
         """Factory for generating a single load test parameterized by LoadTestParameters
 
         Args:
@@ -336,8 +336,13 @@ def parse_arguments(argstr: Optional[str] = None) -> Namespace:
                               "jobmon/deployment/tests/sample.yaml"))
     parser.add_argument("--wfid", required=True, type=str, action='store',
                         help="a key in the yaml_path for a specific workflow entry")
-    parser.add_argument("--cluster_name", required=True, type=str, action='store',
-                        help="cluster name that this test is conducted on")
+    # There is a consistency issue going on between Jobmon core and Load_test,
+    # actually more on the Jobmon core side: If we try to pass cluster_name via Jobmon core,
+    # Jobmon core has some inconsistency with kwargs and named --cluster_name parameter.
+    # I don't want to change Jobmon core at the moment, so I commented this out to get it going.
+    # Related TBD: GBDSCI-4277: cluster_name pass-through does not work as expected
+    # parser.add_argument("--cluster_name", required=True, type=str, action='store',
+    #                     help="cluster name that this test is conducted on")
     parser.add_argument("--scratch_dir", required=False, default="", type=str, action='store',
                         help="location where logs and other artifacts will be written")
 
@@ -355,6 +360,6 @@ def parse_arguments(argstr: Optional[str] = None) -> Namespace:
 
 if __name__ == "__main__":
     args = parse_arguments()
-    params = LoadTestParameters.from_yaml_file(args.yaml_path, args.wfid, args.cluster_name)
+    params = LoadTestParameters.from_yaml_file(args.yaml_path, args.wfid)
     load_test_generator = LoadTestGenerator.from_parameters(args.scratch_dir, params)
     load_test_generator.workflow.run()

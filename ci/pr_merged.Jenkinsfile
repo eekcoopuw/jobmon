@@ -61,12 +61,12 @@ pipeline {
         stage("Lint") {
           steps {
             sh "${ACTIVATE} && nox --session lint"
-          } // End step
+           } // End step
         } // End lint stage
         stage("Typecheck") {
           steps {
             sh "${ACTIVATE} && nox --session typecheck"
-          } // End step
+           } // End step
         } // End typecheck stage
         stage("Build Docs") {
           steps {
@@ -90,7 +90,7 @@ pipeline {
         stage('Tests') {
           steps {
             sh "${ACTIVATE} && nox --session tests -- tests/ -n 3"
-          }
+           }
           post {
             always {
               // Publish the coverage reports.

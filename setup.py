@@ -13,6 +13,7 @@ INSTALL_REQUIRES = [
     'pyyaml',
     'requests',
     'scipy',
+    'slurm_rest>=1.0.1',
     'structlog',
     'tabulate',
     'tenacity',
@@ -28,6 +29,10 @@ SERVER_REQUIRES = [
     'pymysql',  # install MySQLdb/mysqlclient for more performance
     'python-logstash-async',
     'sqlalchemy',
+]
+
+SQUID_REQUIRES = [
+    'slurm_rest',
 ]
 
 # pip install -e .[test]
@@ -48,6 +53,10 @@ DOCS_REQUIRES = [
     'sphinx_rtd_theme',
     'graphviz',
     'sphinx_code_tabs',
+]
+
+IHME_REQUIRES = [
+    'jobmon_installer_ihme'
 ]
 
 
@@ -77,7 +86,8 @@ setup(
     extras_require={
         'test': TEST_REQUIRES,
         'docs': DOCS_REQUIRES,
-        'server': SERVER_REQUIRES
+        'server': SERVER_REQUIRES,
+        'ihme': IHME_REQUIRES,
     },
 
     packages=find_packages('src'),
@@ -96,6 +106,7 @@ setup(
     entry_points={
         'console_scripts': [
             'jobmon=jobmon.client.cli:main',
+            'jobmon_config=jobmon.cli:main',
             'jobmon_distributor=jobmon.client.distributor.cli:main',
             'jobmon_server=jobmon.server.cli:main [server]',
             'worker_node_entry_point=jobmon.worker_node.cli:run'

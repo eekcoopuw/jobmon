@@ -45,8 +45,6 @@ spec:
               containerPort: 80
             - name: admin
               containerPort: 8080
-            - name: grafana
-              containerPort: 3000
             - name: kibana
               containerPort: 5601
             - name: elasticsearch

@@ -47,6 +47,7 @@ pipeline {
     DOCKER_ACTIVATE = "source /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
     QLOGIN_ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
     SCICOMP_DOCKER_REG_URL = "docker-scicomp.artifactory.ihme.washington.edu"
+    SCICOMP_DOCKER_DEV_URL = "docker-scicomp-dev.artifactory.ihme.washington.edu"
   } // end environment
   stages {
     stage('Remote Checkout Repo') {
@@ -65,16 +66,13 @@ pipeline {
                          . ${WORKSPACE}/ci/deploy_utils.sh
                          get_container_name_from_version \
                              ${JOBMON_VERSION} \
-                             ${SCICOMP_DOCKER_REG_URL}
+                             ${SCICOMP_DOCKER_REG_URL} \
+                             ${SCICOMP_DOCKER_DEV_URL}
                       ''',
               returnStdout: true
             ).trim()
-            env.GRAFANA_CONTAINER_URI = sh (
-              script: 'echo ${SCICOMP_DOCKER_REG_URL}/${K8S_NAMESPACE}-grafana:${BUILD_NUMBER}',
-              returnStdout: true
-            ).trim()
           } // end script
-          echo "Server Container Images:\nJobmon=${env.JOBMON_CONTAINER_URI}\nGrafana=${env.GRAFANA_CONTAINER_URI}"
+          echo "Server Container Images:\nJobmon=${env.JOBMON_CONTAINER_URI}"
           // Artifactory user with write permissions
           withCredentials([usernamePassword(credentialsId: 'artifactory-docker-scicomp',
                                             usernameVariable: 'REG_USERNAME',
@@ -88,9 +86,7 @@ pipeline {
                       ${WORKSPACE} \
                       $REG_USERNAME \
                       $REG_PASSWORD \
-                      ${SCICOMP_DOCKER_REG_URL} \
-                      ${JOBMON_CONTAINER_URI} \
-                      ${GRAFANA_CONTAINER_URI}
+                      ${JOBMON_CONTAINER_URI}
                '''
           } // end credentials
         } // end node
@@ -111,7 +107,6 @@ pipeline {
                       ${METALLB_IP_POOL} \
                       ${K8S_NAMESPACE} \
                       ${RANCHER_PROJECT_ID} \
-                      ${GRAFANA_CONTAINER_URI} \
                       ${RANCHER_DB_SECRET} \
                       ${RANCHER_SLACK_SECRET} \
                       ${RANCHER_QPID_SECRET} \

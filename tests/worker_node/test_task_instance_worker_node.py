@@ -5,20 +5,15 @@ import pytest
 
 from jobmon import __version__
 from jobmon.requester import Requester
-from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-from jobmon.client.distributor.distributor_array import DistributorArray
-from jobmon.client.distributor.distributor_service import DistributorService
-from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
-from jobmon.cluster_type.dummy import DummyDistributor
-from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 from jobmon.constants import TaskInstanceStatus
-from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
 
 
 def test_seq_kill_self_state():
     """
     mock the error status
     """
+    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+
     expected_words = "job was in kill self state"
     executor = SequentialDistributor()
     executor._exit_info = {1: 199}
@@ -27,20 +22,23 @@ def test_seq_kill_self_state():
     assert expected_words in r_msg
 
 
-class DoNothingDistributor(DummyDistributor):
-    def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources
-    ) -> int:
-        distributor_id = random.randint(1, int(1e7))
-        return distributor_id
-
-
 @pytest.mark.parametrize(
     "ti_state", [TaskInstanceStatus.UNKNOWN_ERROR, TaskInstanceStatus.KILL_SELF]
 )
 def test_ti_kill_self_state(db_cfg, tool, ti_state):
     """should try to log a report by date after being set to the U or K state
     and fail"""
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
+    from jobmon.cluster_type.dummy import DummyDistributor
+
+    class DoNothingDistributor(DummyDistributor):
+        def submit_to_batch_distributor(
+            self, command: str, name: str, requested_resources
+        ) -> int:
+            distributor_id = random.randint(1, int(1e7))
+            return distributor_id
 
     workflow = tool.create_workflow(name=f"test_ti_kill_self_state_{ti_state}")
     task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 120")
@@ -106,6 +104,10 @@ def test_ti_kill_self_state(db_cfg, tool, ti_state):
 
 def test_array_task_instance(tool, db_cfg, client_env, array_template):
     """Tests that the worker node is compatible with array task instances."""
+
+    from jobmon.client.distributor.distributor_array import DistributorArray
+    from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
+
     array1 = array_template.create_array(arg=[1, 2, 3], cluster_name="sequential",
                                          compute_resources={"queue": "null.q"})
 

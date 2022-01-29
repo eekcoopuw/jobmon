@@ -326,7 +326,7 @@ For details see the documentation in the qpid repos.
 Jobmon historically relied on
 runtime and memory usage reports from ``qstat``, which are inaccurate.
 
-The Jobmon side of the code is jobmon.server.qpid_integration.
+The Jobmon side of the code is jobmon.server.squid_integration.
 This is deployed on Kubernetes as a Deployment. Essentially it is while-forever loop
 that queries qpid on the ``jobmaxpss`` route to get the maxpss for each completed jobmon job.
 It only queries for taks-instances that have recently completed and for which Jobmon does not
@@ -336,7 +336,7 @@ see https://jira.ihme.washington.edu/browse/GBDSCI-2269
 .
 
 Theory: If Jobmon is unable to get usage data from QPID for some time then the list of job
-ids in memory will grow without bound, and the qpid_integration server could run out of memory.
+ids in memory will grow without bound, and the squid_integration server could run out of memory.
 
 
 Resource Retries

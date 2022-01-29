@@ -17,12 +17,13 @@ class Cluster(DB.Model):
             self.name,
             self.cluster_type.name,
             self.cluster_type.package_location,
+            self.connection_parameters,
         )
 
     id = DB.Column(DB.Integer, primary_key=True)
     name = DB.Column(DB.String(255))
     cluster_type_id = DB.Column(DB.Integer, DB.ForeignKey("cluster_type.id"))
-    connection_string = DB.Column(DB.String(2500))
+    connection_parameters = DB.Column(DB.String(2500))
 
     # ORM relationships
     cluster_type = DB.relationship("ClusterType", back_populates="clusters")

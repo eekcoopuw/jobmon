@@ -849,3 +849,30 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
     resp = jsonify({"wfid": current_max_wf_id})
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@finite_state_machine.route(
+    "workflow/<workflow_id>/workflow_name_and_args", methods=["GET"]
+)
+def get_wf_name_and_args(workflow_id: int) -> Any:
+    """Return workflow name and args associated with specified workflow ID."""
+    query = f"""
+        SELECT
+            workflow.name as workflow_name, workflow.workflow_args as workflow_args
+        FROM
+            workflow
+        WHERE
+            workflow.id = {workflow_id}
+    """
+    result = DB.session.execute(query).fetchone()
+    if result is None:
+        # return empty values in case of DB inconsistency
+        resp = jsonify(workflow_name=None, workflow_args=None)
+        resp.status_code = StatusCodes.OK
+        return resp
+
+    resp = jsonify(
+        workflow_name=result["workflow_name"], workflow_args=result["workflow_args"]
+    )
+    resp.status_code = StatusCodes.OK
+    return resp

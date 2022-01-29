@@ -1,8 +1,11 @@
 import pytest
 from sqlalchemy.sql import text
 
-from jobmon.client.task import Task
-from jobmon.client.workflow_run import WorkflowRun
+# <<<<<<< HEAD
+# from jobmon.client.task import Task
+# from jobmon.client.workflow_run import WorkflowRun
+# =======
+# >>>>>>> 51d2d92435d3813ef1d994fa2057e35ab99ab7c1
 from jobmon.constants import WorkflowRunStatus, TaskStatus, TaskInstanceStatus
 from jobmon.server.web.models.task_attribute import TaskAttribute
 from jobmon.server.web.models.task_attribute_type import TaskAttributeType
@@ -11,6 +14,8 @@ from jobmon.serializers import SerializeTaskInstanceErrorLog
 
 def test_good_names():
     """tests that a few legal names return as valid"""
+    from jobmon.client.task import Task
+
     assert Task.is_valid_job_name("fred")
     assert Task.is_valid_job_name("fred123")
     assert Task.is_valid_job_name("fred_and-friends")
@@ -18,6 +23,8 @@ def test_good_names():
 
 def test_bad_names():
     """tests that invalid names return a ValueError"""
+    from jobmon.client.task import Task
+
     with pytest.raises(ValueError) as exc:
         Task.is_valid_job_name("")
     assert "None" in str(exc.value)
@@ -61,6 +68,7 @@ def test_default_task_name(task_template):
 
 def test_task_attribute(db_cfg, tool):
     """Test that you can add task attributes to Bash and Python tasks"""
+    from jobmon.client.workflow_run import WorkflowRun
 
     workflow1 = tool.create_workflow(name="test_task_attribute")
     task_template = tool.active_task_templates["simple_template"]

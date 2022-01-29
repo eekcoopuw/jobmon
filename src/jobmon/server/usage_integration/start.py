@@ -2,11 +2,11 @@
 import logging
 import sys
 
-import jobmon.server.qpid_integration.qpid_integrator as qpid
+import jobmon.server.usage_integration.usage_integrator as usage_integrator
 
 
-def start_qpid_integration() -> None:
+def start_usage_integration() -> None:
     """Start the qpid integration service."""
     logging.basicConfig(stream=sys.stdout, level=logging.INFO)
 
-    qpid.maxpss_forever()
+    usage_integrator.q_forever()

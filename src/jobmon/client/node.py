@@ -197,12 +197,13 @@ class Node:
         for node in downstream_nodes:
             self.add_downstream_node(node)
 
-    def __str__(self) -> str:
-        """Stringify the node attributes."""
+    def __repr__(self) -> str:
+        """Repr the node attributes."""
         return (
-            f"task_template_version_id: {self.task_template_version_id}, "
-            f"node_args: {self.node_args}, "
-            f"node_args_hash: {self.node_args_hash}"
+            "Node("
+            f"task_template_version_id={self.task_template_version_id}, "
+            f"node_args={self.node_args}, "
+            f"node_args_hash={self.node_args_hash})"
         )
 
     def __eq__(self, other: object) -> bool:
