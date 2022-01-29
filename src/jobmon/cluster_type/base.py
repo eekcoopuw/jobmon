@@ -206,7 +206,7 @@ class ClusterWorkerNode(Protocol):
 
     @property
     @abstractmethod
-    def array_step_id(self) -> int:
+    def array_step_id(self) -> Optional[int]:
         """The step id in each batch.
 
         For each array task instance, array_id, array_batch_num, and array_step_id

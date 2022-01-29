@@ -9,7 +9,7 @@ from jobmon.cluster_type.base import (
 
 
 def get_cluster_queue_class() -> Type[ClusterQueue]:
-    from jobmon.cluster_type.multiprocess.multiproc_client import MultiprocessQueue
+    from jobmon.cluster_type.multiprocess.multiproc_queue import MultiprocessQueue
 
     return MultiprocessQueue
 
