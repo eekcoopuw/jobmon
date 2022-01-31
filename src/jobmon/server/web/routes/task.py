@@ -35,6 +35,7 @@ logger = LocalProxy(partial(get_logger, __name__))
 
 
 _task_instance_label_mapping = {
+    "Q": "PENDING",
     "B": "PENDING",
     "I": "PENDING",
     "R": "RUNNING",
@@ -47,7 +48,7 @@ _task_instance_label_mapping = {
 }
 
 _reversed_task_instance_label_mapping = {
-    "PENDING": ["B", "I"],
+    "PENDING": ["Q", "B", "I"],
     "RUNNING": ["R"],
     "FATAL": ["E", "Z", "W", "U", "K"],
     "DONE": ["D"],
@@ -132,7 +133,7 @@ def add_task() -> Any:
                 name=t["name"],
                 command=t["command"],
                 max_attempts=t["max_attempts"],
-                status=TaskStatus.REGISTERED,
+                status=TaskStatus.REGISTERING,
             )
             tasks.append(task)
         DB.session.add_all(tasks)
@@ -290,7 +291,7 @@ def bind_tasks() -> Any:
                 "name": name,
                 "command": command,
                 "max_attempts": max_att,
-                "status": TaskStatus.REGISTERED,
+                "status": TaskStatus.REGISTERING,
                 "resource_scales": str(resource_scales),
                 "fallback_queues": str(fallback_queues),
             }
@@ -442,29 +443,42 @@ def update_task_attribute(task_id: int) -> Any:
 
 
 @finite_state_machine.route("/task/<task_id>/queue", methods=["POST"])
-def queue_job(task_id: int) -> Any:
+def queue_task(task_id: int) -> Any:
     """Queue a job and change its status.
 
     Args:
         task_id: id of the job to queue
     """
-    bind_to_logger(task_id=task_id)
-    logger.debug(f"Queue job {task_id}")
-    task = DB.session.query(Task).filter_by(id=task_id).one()
-    try:
-        task.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
-    except InvalidStateTransition:
-        # Handles race condition if the task has already been queued
-        if task.status == TaskStatus.QUEUED_FOR_INSTANTIATION:
-            msg = (
-                "Caught InvalidStateTransition. Not transitioning job "
-                f"{task_id} from Q to Q"
-            )
-            logger.warning(msg)
-        else:
-            raise
-    DB.session.commit()
+    data = request.get_json()
 
+    # Bring task object in
+    task = (
+        DB.session.query(Task)
+        .join(Task.id == task_id)
+        .one_or_none()
+    )
+    # send back json for task_id not found
+    if task is None:
+        resp = jsonify(msg=f"Task {task_id} does not exist!", task_instance=None)
+        resp.status_code = StatusCodes.NOT_FOUND
+        return resp
+
+    # Create task instance from input task_id
+    ti = TaskInstance(
+        workflow_run_id=data["workflow_run_id"],
+        array_id=task.array_id,
+        cluster_type_id=data["cluster_id"],
+        task_id=task.id,
+        task_resources_id=task.task_resources_id,
+        status=TaskInstanceStatus.QUEUED
+    )
+    DB.session.add(ti)
+
+    # We need to then put the task on QUEUED_FOR_INSTANTIATION
+    # since now ti has been QUEUED
+    task.transition(TaskStatus.QUEUED)
+
+    DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -774,7 +788,7 @@ def update_task_statuses() -> Any:
 
     try:
         # If job is supposed to be rerun, set task instances to "K"
-        if new_status == TaskStatus.REGISTERED:
+        if new_status == TaskStatus.REGISTERING:
             task_instance_q = """
                 UPDATE task_instance
                 SET status = '{k_code}'

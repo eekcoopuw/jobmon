@@ -290,7 +290,7 @@ class Task:
         task_id, status = self._get_task_id_and_status()
         if task_id is None:
             task_id = self._add_task()
-            status = TaskStatus.REGISTERED
+            status = TaskStatus.REGISTERING
         else:
             status = self._update_task_parameters(task_id, reset_if_running)
         self._task_id = task_id

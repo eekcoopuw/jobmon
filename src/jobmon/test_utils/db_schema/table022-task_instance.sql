@@ -8,7 +8,7 @@ CREATE TABLE `task_instance`(
   `id` INTEGER NOT NULL AUTO_INCREMENT,
   `workflow_run_id` INTEGER DEFAULT NULL,
   `array_id` INTEGER DEFAULT NULL,
-  `cluster_type_id` INTEGER DEFAULT NULL,
+  `cluster_id` INTEGER DEFAULT NULL,
   `distributor_id` INTEGER DEFAULT NULL,
   `subtask_id` varchar(100) DEFAULT NULL,
   `task_id` INTEGER NOT NULL,
@@ -37,4 +37,4 @@ ALTER TABLE `task_instance` ADD INDEX `ix_distributor_id` (`distributor_id`);
 ALTER TABLE `task_instance` ADD INDEX `ix_task_id` (`task_id`);
 ALTER TABLE `task_instance` ADD INDEX `ix_task_resources_id` (`task_resources_id`);
 ALTER TABLE `task_instance` ADD INDEX `ix_status` (`status`);
-ALTER TABLE `task_instance` ADD INDEX `ix_cluster_type_id` (`cluster_type_id`);
+ALTER TABLE `task_instance` ADD INDEX `ix_cluster_id` (`cluster_id`);

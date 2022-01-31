@@ -2,12 +2,15 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Type
+from typing import Dict, List, Set, Type, TYPE_CHECKING
 
+from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeDistributorArray
 
+if TYPE_CHECKING:
+    from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 
 logger = logging.getLogger(__name__)
 
@@ -17,23 +20,26 @@ class DistributorArray:
     def __init__(
         self,
         array_id: int,
-        task_resources_id: int,
-        requested_resources: Dict,
-        requester: Requester,
-        name: Optional[str] = None,
-        max_concurrently_running: int = 10_000
+        requester: Requester
     ):
         self.array_id = array_id
-        self.task_resources_id = task_resources_id
-        self.requested_resources = requested_resources
-        self.name = name
-        self.max_concurrently_running = max_concurrently_running
-        self.instantiated_array_task_instance_ids: List[int] = []
-        self.prepped_for_launch_array_task_instance_ids: List[int] = []
-        self.launched_array_task_instance_ids: List[int] = []
-        self.running_array_task_instance_ids: List[int] = []
-        self.batch_number = 0
+
+        self.task_instances: Set[DistributorTaskInstance] = set()
+        self.last_batch_number = 0
         self.requester = requester
+
+    def get_metadata(self):
+        app_route = f"/array/{self.array_id}"
+        return_code, response = self.requester.send_request(
+            app_route=app_route, message={}, request_type="get", logger=logger
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
+        self.max_concurrently_running = 100
 
     @classmethod
     def from_wire(
@@ -50,45 +56,59 @@ class DistributorArray:
         kwargs = SerializeDistributorArray.kwargs_from_wire(wire_tuple)
 
         # instantiate job
-        array = cls(
-            array_id=kwargs["array_id"],
-            task_resources_id=kwargs["task_resources_id"],
-            requested_resources=kwargs["requested_resources"],
-            requester=requester,
-        )
+        array = cls(array_id=kwargs["array_id"], requester=requester)
         return array
 
-    def queue_task_instance_id_for_array_launch(self, task_instance_id: int):
-        """
-        Add task instance to array queue
-        """
-        self.instantiated_array_task_instance_ids.append(task_instance_id)
-
-    def clear_registered_task_registry(self) -> None:
-        """Clear all registered tasks that have already been submitted.
-
-        Called when the array is submitted to the batch distributor."""
-        # TODO: Safe for sequential, may have problems with async and centeralized distributor
-        self.instantiated_array_task_instance_ids = []
-
-    def add_batch_number_to_task_instances(self) -> int:
-        """Add the current batch number to the current set of registered task instance ids."""
-        this_batch = self.batch_number
-        app_route = f'/task_instance/record_array_batch_num/{self.batch_number}'
-        rc, resp = self.requester.send_request(
-            app_route=app_route,
-            message={
-                'task_instance_ids': self.instantiated_array_task_instance_ids,
-            },
-            request_type='post'
-        )
-        if not http_request_ok(rc):
-            raise InvalidResponse(
-                f"Unexpected status code {rc} from POST "
-                f"request through route {app_route}. Expected "
-                f"code 200. Response content: {resp}"
+    def add_task_instance(self, task_instance: DistributorTaskInstance):
+        if task_instance.array_id != self.array_id:
+            raise ValueError(
+                f"array_id mismatch. TaskInstance={task_instance.array_id}. "
+                f"Array={self.array_id}."
             )
+        self.task_instances.add(task_instance)
+        task_instance.array = self
 
-        # Increment the counter for the next set of jobs
-        self.batch_number += 1
-        return this_batch
+    def create_array_batches(
+        self,
+        eligable_task_instances: Set[DistributorTaskInstance]
+    ) -> List[DistributorArrayBatch]:
+        # TODO: would this logic make more sense in the SWARM???
+
+        # limit eligable set to this array and store batches
+        array_eligable = self.task_instances.intersection(eligable_task_instances)
+
+        # return a list of commands to run
+        array_batches: List[DistributorArrayBatch] = []
+
+        # group into batches
+        array_batch_sets: Dict[int, Set[DistributorTaskInstance]] = {}
+        for task_instance in array_eligable:
+            if task_instance.task_resources_id not in array_batch_sets:
+                array_batch_sets[task_instance.task_resources_id] = set()
+            array_batch_sets[task_instance.task_resources_id].add(task_instance)
+
+        # construct the array batches
+        for task_resources_id, batch_set in array_batch_sets.items():
+            current_batch_number = self.last_batch_number + 1
+            array_batch = DistributorArrayBatch(
+                self.array_id, current_batch_number, task_resources_id, batch_set,
+                self.requester
+            )
+            self.last_batch_number = current_batch_number
+            array_batches.append(array_batch)
+
+        return array_batches
+
+    def __hash__(self):
+        return self.array_id
+
+    def __eq__(self, other: object) -> bool:
+        """Check if the hashes of two arrays are equivalent."""
+        if not isinstance(other, DistributorArray):
+            return False
+        else:
+            return hash(self) == hash(other)
+
+    def __lt__(self, other: DistributorArray) -> bool:
+        """Check if one hash is less than the has of another DistributorArray."""
+        return hash(self) < hash(other)

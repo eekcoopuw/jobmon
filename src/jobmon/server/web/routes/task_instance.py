@@ -498,7 +498,7 @@ def add_task_instance() -> Any:
         )
         DB.session.add(task_instance)
         DB.session.commit()
-        task_instance.task.transition(TaskStatus.INSTANTIATED)
+        task_instance.task.transition(TaskStatus.INSTANTIATING)
         DB.session.commit()
         resp = jsonify(
             task_instance=task_instance.to_wire_as_distributor_task_instance()
@@ -507,7 +507,7 @@ def add_task_instance() -> Any:
         return resp
     except InvalidStateTransition as e:
         # Handles race condition if the task is already instantiated state
-        if task_instance.task.status == TaskStatus.INSTANTIATED:
+        if task_instance.task.status == TaskStatus.INSTANTIATING:
             msg = (
                 "Caught InvalidStateTransition. Not transitioning task "
                 "{}'s task_instance_id {} from I to I".format(
@@ -530,7 +530,7 @@ def add_task_instance() -> Any:
 @finite_state_machine.route(
     "/get_array_task_instance_id/<array_id>/<batch_num>/<step_id>", methods=['GET']
 )
-def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> int:
+def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int):
     """Given an array ID and an index, select a single task instance ID.
 
     Task instance IDs that are associated with the array are ordered, and selected by index.
@@ -755,6 +755,7 @@ def record_subtask_id(task_instance_id: int) -> Any:
     resp.status_code = StatusCodes.OK
     return resp
 
+
 @finite_state_machine.route("/task_instance/transition/<new_status>", methods=["POST"])
 def transition_task_instances(new_status: str) -> Any:
     """Attempt to transition a task instance to the new status"""
@@ -799,33 +800,6 @@ def transition_task_instances(new_status: str) -> Any:
     resp = jsonify(erroneous_transitions={ti.id: ti.status for ti in erroneous_transitions})
     resp.status_code = StatusCodes.OK
     return resp
-
-
-@finite_state_machine.route("/task_instance/status_check", methods=["POST"])
-def task_instances_status_check() -> Any:
-    """Sync status of given task intance IDs."""
-    data = request.get_json()
-    task_instance_ids_list = data['task_instance_ids']
-    return_dict = dict()
-    if len(task_instance_ids_list) > 0:
-        task_instance_ids = ",".join(f'{x}' for x in task_instance_ids_list)
-        status = data['status']
-        sql = f"""
-            SELECT id, status
-            FROM task_instance
-            WHERE id in ({task_instance_ids})
-            AND status != "{status}"
-            """
-        rows = DB.session.execute(sql).fetchall()
-
-        if rows:
-            for row in rows:
-                return_dict[row["id"]] = row["status"]
-    resp = jsonify(unmatches=return_dict)
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
 
 
 # ############################ HELPER FUNCTIONS ###############################

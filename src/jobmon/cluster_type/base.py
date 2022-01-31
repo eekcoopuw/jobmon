@@ -4,7 +4,7 @@ from __future__ import annotations
 from abc import abstractmethod
 import hashlib
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 # the following try-except is to accommodate Python versions on both >=3.8 and 3.7.
 # The Protocol was officially introduced in 3.8, with typing_extensions slapped on 3.7.
@@ -81,17 +81,27 @@ class ClusterDistributor(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
+    def get_queueing_errors(
+            self, distributor_ids: List[Union[int, str]]
+    ) -> Dict[Union[int, str], str]:
         """Get the task instances that have errored out."""
         raise NotImplementedError
 
     @abstractmethod
-    def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
+    def get_array_queueing_errors(
+            self, distributor_id: Union[int, str]
+    ) -> Dict[Union[int, str], str]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_submitted_or_running(
+            self, distributor_ids: List[Union[int, str]]
+    ) -> List[Union[int, str]]:
         """Check which task instances are active."""
         raise NotImplementedError
 
     @abstractmethod
-    def terminate_task_instances(self, distributor_ids: List[int]) -> None:
+    def terminate_task_instances(self, distributor_ids: List[Union[int, str]]) -> None:
         """Terminate task instances.
 
         If implemented, return a list of (task_instance_id, hostname) tuples for any
@@ -100,7 +110,9 @@ class ClusterDistributor(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def get_remote_exit_info(self, distributor_ids: int) -> Tuple[str, str]:
+    def get_remote_exit_info(
+            self, distributor_ids: Union[int, str]
+    ) -> Tuple[Union[int, str], str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 

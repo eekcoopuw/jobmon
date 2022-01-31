@@ -111,17 +111,18 @@ class SwarmTask(object):
         """Return a list of upstream tasks."""
         return list(self.upstream_swarm_tasks)
 
-    def queue_task(self) -> None:
+    def queue_task(self, workflow_run_id: int) -> None:
         """Transition a task to the Queued for Instantiation status in the db."""
         rc, _ = self.requester.send_request(
             app_route=f"/task/{self.task_id}/queue",
-            message={},
+            message={"workflow_run_id": workflow_run_id,
+                     "cluster_id": self.cluster.id},
             request_type="post",
             logger=logger,
         )
         if http_request_ok(rc) is False:
             raise InvalidResponse(f"{rc}: Could not queue task")
-        self.status = TaskStatus.QUEUED_FOR_INSTANTIATION
+        self.status = TaskStatus.QUEUED
 
     def adjust_task_resources(self) -> None:
         """Adjust the swarm task's parameters.
@@ -136,7 +137,7 @@ class SwarmTask(object):
         expected_queue = self.task_resources.queue
 
         # adjustment params
-        resource_scales = self.resource_scales
+        resource_scales = self.resource_scales if self.resource_scales is not None else {}
         fallback_queues = self.fallback_queues
 
         new_task_resources = self.cluster.adjust_task_resource(

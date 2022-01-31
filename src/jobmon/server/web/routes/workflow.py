@@ -7,7 +7,6 @@ from flask import jsonify, request
 import pandas as pd
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
-from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import text
 from werkzeug.local import LocalProxy
 
@@ -15,16 +14,12 @@ from jobmon.constants import WorkflowStatus as Statuses
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.dag import Dag
-from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task import Task
-from jobmon.server.web.models.task_status import TaskStatus
-from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.workflow import Workflow
-from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
 from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
 from jobmon.server.web.routes import finite_state_machine
-from jobmon.server.web.server_side_exception import InvalidUsage, ServerError
+from jobmon.server.web.server_side_exception import InvalidUsage
 
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
@@ -743,73 +738,6 @@ def get_workflow_user_validation(workflow_id: int, username: str) -> Any:
 
     resp = jsonify(validation=username in usernames)
 
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@finite_state_machine.route(
-    "/workflow/<workflow_run_id>/queued_tasks/<n_queued_tasks>", methods=["POST"]
-)
-def get_queued_jobs(workflow_run_id: int, n_queued_tasks: int) -> Any:
-    """Returns oldest n tasks (or all tasks if total queued tasks < n) to be instantiated.
-
-    Because the SGE can only qsub tasks at a certain rate, and we poll every 10 seconds, it
-    does not make sense to return all tasks that are queued because only a subset of them can
-    actually be instantiated.
-
-    Args:
-        workflow_run_id: id of workflow run
-        n_queued_tasks: number of tasks to queue
-    """
-    # <usertablename>_<columnname>.
-
-    # If we want to prioritize by task or workflow level it would be done in this query
-    bind_to_logger(workflow_run_id=workflow_run_id)
-    logger.info("Getting queued jobs for workflow run")
-
-    tasks = (
-        DB.session.query(Task)
-        .join(Workflow, Task.workflow_id == Workflow.id)
-        .join(WorkflowRun, Workflow.id == WorkflowRun.workflow_id)
-        .filter(WorkflowRun.id == workflow_run_id)
-        .filter(Task.status == "Q")
-        .limit(int(n_queued_tasks))
-        .all()
-    )
-
-    # Create task instances from bound tasks
-    tis = []
-    for t in tasks:
-        ti = TaskInstance(
-            workflow_run_id=workflow_run_id,
-            array_id=t.array_id,
-            cluster_type_id=t.task_resources.queue.cluster.id,
-            task_id=t.id,
-            task_resources_id=t.task_resources_id
-        )
-        tis.append(ti)
-        DB.session.add(ti)
-        try:
-            t.transition(TaskStatus.INSTANTIATED)
-        except InvalidStateTransition as e:
-            if t.status == TaskStatus.INSTANTIATED:
-                msg = (
-                    "Caught InvalidStateTransition. Not transitioning task "
-                    "{}'s task_instance_id {} from I to I".format(
-                        t.id, ti.id
-                    )
-                )
-                logger.warning(msg)
-            else:
-                DB.session.rollback()
-                raise ServerError(
-                    f"Unexpected Jobmon Server Error in {request.path}", status_code=500
-                ) from e
-
-    DB.session.commit()
-    task_dcts = [ti.to_wire_as_distributor_task_instance() for ti in tis]
-    logger.debug(f"Got the following task instances: {task_dcts}")
-    resp = jsonify(task_instances=task_dcts)
     resp.status_code = StatusCodes.OK
     return resp
 

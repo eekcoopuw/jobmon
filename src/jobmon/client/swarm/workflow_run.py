@@ -107,7 +107,7 @@ class WorkflowRun:
     def active_tasks(self) -> List[SwarmTask]:
         """List of tasks that are not currently Registered, Adjusting, Done or Error_Fatal."""
         statuses = [
-            TaskStatus.REGISTERED,
+            TaskStatus.REGISTERING,
             TaskStatus.DONE,
             TaskStatus.ERROR_FATAL,
             TaskStatus.ADJUSTING_RESOURCES,
@@ -192,7 +192,7 @@ class WorkflowRun:
             if swarm_task.is_done:
                 raise RuntimeError("Invalid DAG. Encountered a DONE node")
 
-            if swarm_task.status == TaskStatus.REGISTERED:
+            if swarm_task.status == TaskStatus.REGISTERING:
                 logger.debug(
                     f"Instantiating resources for newly ready task and "
                     f"changing it to the queued state. Task: {swarm_task},"
@@ -200,10 +200,10 @@ class WorkflowRun:
                 )
                 if swarm_task.task_resources is None:
                     yield swarm_task
-                swarm_task.queue_task()
+                swarm_task.queue_task(self.workflow_run_id)
             elif swarm_task.status == TaskStatus.ADJUSTING_RESOURCES:
                 swarm_task.adjust_task_resources()
-                swarm_task.queue_task()
+                swarm_task.queue_task(self.workflow_run_id)
             else:
                 raise RuntimeError(
                     f"Task {swarm_task.task_id} in ready_to_run queue but "
@@ -284,7 +284,7 @@ class WorkflowRun:
             # not any unfinished upstream tasks and current task is registered
             if (
                 not unfinished_upstreams
-                and swarm_task.status == TaskStatus.REGISTERED
+                and swarm_task.status == TaskStatus.REGISTERING
                 and swarm_task not in self.ready_to_run
             ):
                 self.ready_to_run += [swarm_task]
@@ -357,7 +357,7 @@ class WorkflowRun:
             # The adjusting state is not included in this branch because a task can't be in
             # adjusting state until it has already ran. So it can't be part of the new fringe
             # computed from newly done tasks
-            if not downstream_done and downstream.status == TaskStatus.REGISTERED:
+            if not downstream_done and downstream.status == TaskStatus.REGISTERING:
                 if downstream.all_upstreams_done:
                     logger.debug(" and add to fringe")
                     new_fringe += [downstream]  # make sure there's no dups
