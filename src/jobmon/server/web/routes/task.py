@@ -452,11 +452,8 @@ def queue_task(task_id: int) -> Any:
     data = request.get_json()
 
     # Bring task object in
-    task = (
-        DB.session.query(Task)
-        .join(Task.id == task_id)
-        .one_or_none()
-    )
+    task = DB.session.query(Task).filter(Task.id == task_id).one_or_none()
+
     # send back json for task_id not found
     if task is None:
         resp = jsonify(msg=f"Task {task_id} does not exist!", task_instance=None)
@@ -467,7 +464,7 @@ def queue_task(task_id: int) -> Any:
     ti = TaskInstance(
         workflow_run_id=data["workflow_run_id"],
         array_id=task.array_id,
-        cluster_type_id=data["cluster_id"],
+        cluster_id=data["cluster_id"],
         task_id=task.id,
         task_resources_id=task.task_resources_id,
         status=TaskInstanceStatus.QUEUED

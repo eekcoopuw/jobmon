@@ -1,8 +1,8 @@
 import time
 
 
-from jobmon.requester import Requester
-from jobmon.serializers import SerializeTask
+# from jobmon.requester import Requester
+# from jobmon.serializers import SerializeTask
 
 
 class MockDistributorProc:
@@ -24,12 +24,14 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
     wfr = workflow._create_workflow_run()
 
     swarm = SwarmWorkflowRun(
-        workflow_id=wfr.workflow_id,
         workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
+        requester=workflow.requester
     )
+    swarm.from_workflow(workflow)
     swarm.compute_initial_dag_state()
     list(swarm.queue_tasks())  # expand the generator
+
+    breakpoint()
 
     requester = Requester(client_env)
     distributor_service = DistributorService(
