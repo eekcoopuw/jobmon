@@ -66,7 +66,13 @@ class DistributorService:
         self._distributor_poll_interval = distributor_poll_interval
 
         # indexing of task instanes by status
-        self._task_instance_status_map: Dict[str, Set[DistributorTaskInstance]] = {}
+        self._task_instance_status_map: Dict[str, Set[DistributorTaskInstance]] = \
+            {
+                TaskInstanceStatus.QUEUED: set(),
+                TaskInstanceStatus.INSTANTIATED: set(),
+                TaskInstanceStatus.LAUNCHED: set(),
+                TaskInstanceStatus.TRIAGING: set(),
+            }
 
         # indexing of task instance by associated id
         self._task_instances: Dict[int, DistributorTaskInstance] = {}
@@ -143,11 +149,12 @@ class DistributorService:
 
     def instantiate_task_instance(self, task_instance: DistributorTaskInstance) -> None:
         # add associations
-        task_instance.transition_to_instantiated()
+        task_instance_initiated = task_instance.transition_to_instantiated()
+
         self._task_instances[task_instance.task_instance_id] = task_instance
-        self._get_task(task_instance.task_id).add_task_instance(task_instance)
-        self._get_array(task_instance.array_id).add_task_instance(task_instance)
-        self._get_workflow(task_instance.workflow_id).add_task_instance(task_instance)
+        self._get_task(task_instance_initiated.task_id).add_task_instance(task_instance_initiated)
+        self._get_array(task_instance_initiated.array_id).add_task_instance(task_instance_initiated)
+        self._get_workflow(task_instance_initiated.workflow_id).add_task_instance(task_instance_initiated)
 
     def launch_array_batch(self, array_batch: DistributorArrayBatch) -> None:
         # record batch info in db
@@ -246,8 +253,9 @@ class DistributorService:
             )
 
         # mutate the statuses and update the status map
-        status_updates: Dict[int, str] = result["status_updates"]
-        for task_instance_id, status in status_updates.items():
+        status_updates: Dict[str, str] = result["status_updates"]
+        for task_instance_id_str, status in status_updates.items():
+            task_instance_id = int(task_instance_id_str)
             try:
                 task_instance = self._task_instances[task_instance_id]
 
@@ -255,6 +263,7 @@ class DistributorService:
                 task_instance = DistributorTaskInstance(
                     task_instance_id, self.workflow_run.workflow_run_id, status, self.requester
                 )
+                self._task_instance_status_map[task_instance.status].add(task_instance)
 
             else:
                 # remove from old status set
@@ -264,7 +273,6 @@ class DistributorService:
                 # change to new status and move to new set
                 task_instance.status = status
 
-            finally:
                 self._task_instance_status_map[task_instance.status].add(task_instance)
 
         # update the last sync time
@@ -429,3 +437,6 @@ class DistributorService:
         )
         concurrency = array.max_concurrently_running
         return concurrency - len(launched) - len(running)
+
+    def heartbeat(self):
+        pass

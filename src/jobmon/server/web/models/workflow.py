@@ -5,6 +5,7 @@ from typing import Tuple
 from sqlalchemy.sql import func
 from werkzeug.local import LocalProxy
 
+from jobmon.serializers import SerializeDistributorWorkflow
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.exceptions import InvalidStateTransition
@@ -21,6 +22,14 @@ class Workflow(DB.Model):
     """Workflow Database Table."""
 
     __tablename__ = "workflow"
+
+    def to_wire_as_distributor_workflow(self) -> tuple:
+        """Serialize workflow object."""
+        serialized = SerializeDistributorWorkflow.to_wire(
+            workflow_id=self.id,
+            max_concurrently_running=self.max_concurrently_running,
+        )
+        return serialized
 
     id = DB.Column(DB.Integer, primary_key=True)
     tool_version_id = DB.Column(DB.Integer, DB.ForeignKey("tool_version.id"))

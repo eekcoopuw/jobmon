@@ -1,16 +1,21 @@
 """Workflow Run is an distributor instance of a declared workflow."""
+from __future__ import annotations
+
 from datetime import datetime
 import logging
 import time
-from typing import Callable, Dict, Iterator, List, Optional, Set
+from typing import Callable, Dict, Iterator, List, Optional, Set, TYPE_CHECKING
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_task import SwarmTask
-from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
 from jobmon.constants import TaskStatus, WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
+
+# avoid circular imports on backrefs
+if TYPE_CHECKING:
+    from jobmon.client.workflow import Workflow
 
 
 logger = logging.getLogger(__name__)
@@ -36,49 +41,12 @@ class WorkflowRun:
 
     def __init__(
         self,
-        workflow_id: int,
         workflow_run_id: int,
-        tasks: List[Task],
         fail_after_n_executions: int = 1_000_000_000,
         requester: Optional[Requester] = None,
     ) -> None:
         """Initialization of the swarm WorkflowRun."""
-        self.workflow_id = workflow_id
         self.workflow_run_id = workflow_run_id
-
-        # construct SwarmTasks from Client Tasks
-        self.swarm_tasks: Dict[int, SwarmTask] = {}
-        for task in tasks:
-
-            task_resources: Optional[TaskResources]
-            try:
-                task_resources = task.task_resources
-            except AttributeError:
-                task_resources = None
-
-            # create swarmtasks
-            swarm_task = SwarmTask(
-                task_id=task.task_id,
-                task_hash=hash(task),
-                status=task.initial_status,
-                cluster=task.cluster,
-                task_args_hash=task.task_args_hash,
-                task_resources=task_resources,
-                resource_scales=task.resource_scales,
-                fallback_queues=task.fallback_queues,
-                max_attempts=task.max_attempts,
-            )
-            self.swarm_tasks[task.task_id] = swarm_task
-
-        # create relationships on swarm task
-        for task in tasks:
-            swarm_task = self.swarm_tasks[task.task_id]
-            swarm_task.upstream_swarm_tasks = set(
-                [self.swarm_tasks[t.task_id] for t in task.upstream_tasks]
-            )
-            swarm_task.downstream_swarm_tasks = set(
-                [self.swarm_tasks[t.task_id] for t in task.downstream_tasks]
-            )
 
         # state tracking
         self.all_done: Set[SwarmTask] = set()
@@ -115,6 +83,51 @@ class WorkflowRun:
         return [
             task for task in self.swarm_tasks.values() if task.status not in statuses
         ]
+
+    def from_workflow(self, workflow: Workflow) -> None:
+        self.workflow_id = workflow.workflow_id
+
+        # construct SwarmTasks from Client Tasks
+        self.swarm_tasks: Dict[int, SwarmTask] = {}
+        for task in workflow.tasks.values():
+
+            task_resources: Optional[TaskResources]
+            try:
+                task_resources = task.task_resources
+            except AttributeError:
+                task_resources = None
+
+            if task.fallback_queues is not None:
+                cluster = workflow.get_cluster_by_name(task.cluster_name)
+                fallback_queues = []
+                for queue in task.fallback_queues:
+                    cluster_queue = cluster.get_queue(queue)
+                    fallback_queues.append(cluster_queue)
+                fallback_queues = fallback_queues
+
+            # create swarmtasks
+            swarm_task = SwarmTask(
+                task_id=task.task_id,
+                task_hash=hash(task),
+                status=task.initial_status,
+                cluster=cluster,
+                task_args_hash=task.task_args_hash,
+                task_resources=task_resources,
+                resource_scales=task.resource_scales,
+                fallback_queues=fallback_queues,
+                max_attempts=task.max_attempts,
+            )
+            self.swarm_tasks[task.task_id] = swarm_task
+
+        # create relationships on swarm task
+        for task in workflow.tasks.values():
+            swarm_task = self.swarm_tasks[task.task_id]
+            swarm_task.upstream_swarm_tasks = set(
+                [self.swarm_tasks[t.task_id] for t in task.upstream_tasks]
+            )
+            swarm_task.downstream_swarm_tasks = set(
+                [self.swarm_tasks[t.task_id] for t in task.downstream_tasks]
+            )
 
     def update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""

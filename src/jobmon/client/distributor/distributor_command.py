@@ -24,4 +24,4 @@ class DistributorCommand:
         self._kwargs = kwargs
 
     def __call__(self):
-        return self._func(*self.args, **self.kwargs)
+        return self._func(*self._args, **self._kwargs)

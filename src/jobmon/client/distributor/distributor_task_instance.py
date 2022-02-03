@@ -30,17 +30,15 @@ class DistributorTaskInstance:
         workflow_run_id: int,
         status: str,
         requester: Requester,
+        task_id: Optional[int] = None,
+        array_id: Optional[int] = None,
+        workflow_id: Optional[int] = None,
     ) -> None:
         """Initialization of distributor task instance.
 
         Args:
             task_instance_id (int): a task_instance_id
             workflow_run_id (int): a workflow_run_id
-            cluster_type_id (int): the type of Cluster
-            distributor_id (int, optional): the distributor_id associated with this
-                task_instance for non array task; the parent distributor_id for array task
-            subtask_id (int, optional): the distributor_id, it should be the same as distributor_id
-                for non-array task
             requester (Requester, optional): a requester to communicate with
                 the JSM. default is shared requester
         """
@@ -48,21 +46,15 @@ class DistributorTaskInstance:
         self.workflow_run_id = workflow_run_id
         self.status = status
 
-        self.distributor_id = distributor_id
-        if subtask_id is None and array_id is None:
-            self.subtask_id = str(distributor_id)
-        else:
-            self.subtask_id = subtask_id
-
-        self.array_batch_num = array_batch_num
-        self.array_step_id = array_step_id
-
         self._requested_resources: Dict = {}
 
         self.error_state = ""
         self.error_msg = ""
 
         self.requester = requester
+        self.task_id = task_id
+        self.array_id = array_id
+        self.workflow_id = workflow_id
 
     @classmethod
     def from_wire(
@@ -73,8 +65,6 @@ class DistributorTaskInstance:
         Args:
             wire_tuple: tuple representing the wire format for this
                 task. format = serializers.SerializeTask.to_wire()
-            cluster_type_id: which cluster type this task instance is
-                being run on
             requester: requester for communicating with central services
 
         Returns:
@@ -84,13 +74,11 @@ class DistributorTaskInstance:
         ti = cls(
             task_instance_id=kwargs["task_instance_id"],
             workflow_run_id=kwargs["workflow_run_id"],
-            cluster_type_id=kwargs["cluster_type_id"],
-            distributor_id=kwargs["distributor_id"],
-            array_id=kwargs["array_id"],
-            array_batch_num=kwargs["array_batch_num"],
-            array_step_id=kwargs["array_step_id"],
-            subtask_id=kwargs["subtask_id"],
+            status=kwargs["status"],
             requester=requester,
+            task_id=kwargs["task_id"],
+            array_id=kwargs["array_id"],
+            workflow_id=kwargs["workflow_id"]
         )
         return ti
 
@@ -136,37 +124,24 @@ class DistributorTaskInstance:
     def requested_resources(self, val: Dict):
         self._requested_resources = val
 
-    def transition_to_instantiated(self):
-        # this route should load metadata as well
-        # Retrieve all tasks (up till the queued_tasks_bulk_query_size) that are in queued
-        # state that are associated with the workflow.
-        # app_route = f"/workflow/{self.workflow_run_id}/queued_tasks/{batch_size}"
-        # return_code, response = self.requester.send_request(
-        #     app_route=app_route, message={}, request_type="post", logger=logger
-        # )
-        # if http_request_ok(return_code) is False:
-        #     raise InvalidResponse(
-        #         f"Unexpected status code {return_code} from POST "
-        #         f"request through route {app_route}. Expected "
-        #         f"code 200. Response content: {response}"
-        #     )
+    def transition_to_instantiated(self) -> DistributorTaskInstance:
+        """Transition current ti to initiated"""
+        app_route = f"/task_instance/{self.task_instance_id}/instantiate_task_instance"
+        return_code, response = self.requester.send_request(
+            app_route=app_route, message={}, request_type="post", logger=logger
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
 
-        # # concurrency limit hasn't been applied yet
-        # task_instances: Set[DistributorTaskInstance] = set()
-        # for server_task_instance in response["task_instances"]:
-        #     distributor_ti = DistributorTaskInstance.from_wire(
-        #         wire_tuple=server_task_instance, requester=self.requester
-        #     )
-        #     task_instances.add(distributor_ti)
-        # return task_instances
-        self.task_id: int = 1
-        self.workflow_id: int = 1
-        self.array_id: int = 1
-        self.task_resources_id: int = 1
-        self.cluster_id: int = 1
-        self.name: str = ""
+        return DistributorTaskInstance.from_wire(
+            wire_tuple=response["task_instance"],
+            requester=self.requester,
+        )
 
-        pass
 
     def transition_to_launched(self, next_report_increment: float) -> None:
         """Register the submission of a new task instance to a cluster."""

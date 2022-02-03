@@ -4,6 +4,7 @@ import logging
 from typing import Callable, Dict, List, Optional, Set, TYPE_CHECKING, Union
 
 from jobmon.requester import http_request_ok, Requester
+from jobmon.serializers import SerializeDistributorWorkflow
 
 if TYPE_CHECKING:
     from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
@@ -30,14 +31,16 @@ class DistributorWorkflow:
         task_instance.workflow = self
 
     def get_metadata(self):
-        # app_route = f"/array/{array_id}"
-        # return_code, response = self.requester.send_request(
-        #     app_route=app_route, message={}, request_type="get", logger=logger
-        # )
-        # if http_request_ok(return_code) is False:
-        #     raise InvalidResponse(
-        #         f"Unexpected status code {return_code} from POST "
-        #         f"request through route {app_route}. Expected "
-        #         f"code 200. Response content: {response}"
-        #     )
-        self.max_concurrently_running = 100
+        app_route = f"/workflow/{self.workflow_id}/byid"
+        return_code, response = self.requester.send_request(
+            app_route=app_route, message={}, request_type="get", logger=logger
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
+
+        workflow_dict = SerializeDistributorWorkflow.kwargs_from_wire(response["workflow"])
+        self.max_concurrently_running = workflow_dict["max_concurrently_running"]
