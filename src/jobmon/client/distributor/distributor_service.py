@@ -151,7 +151,7 @@ class DistributorService:
         # add associations
         task_instance_initiated = task_instance.transition_to_instantiated()
 
-        self._task_instances[task_instance_initiated.task_instance_id] = task_instance_initiated
+        self._task_instances[task_instance.task_instance_id] = task_instance
         self._get_task(task_instance_initiated.task_id).add_task_instance(task_instance_initiated)
         self._get_array(task_instance_initiated.array_id).add_task_instance(task_instance_initiated)
         self._get_workflow(task_instance_initiated.workflow_id).add_task_instance(task_instance_initiated)

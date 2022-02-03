@@ -40,9 +40,9 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
 
     distributor_service.set_workflow_run(wfr.workflow_run_id)
 
-    distributor_service.run()
+    distributor_service.process_next_status()
 
-    # check the job finished
+    # check the job turned into I
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
@@ -53,7 +53,7 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
         res = DB.session.execute(sql, {"task_id": t1.task_id}).fetchone()
         print(f"foo {res}")
         DB.session.commit()
-    assert res[0] == "D"
+    assert res[0] == "I"
 
 
 def test_n_queued(tool, db_cfg, client_env, task_template):
