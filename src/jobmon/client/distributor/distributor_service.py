@@ -1,9 +1,11 @@
 from __future__ import annotations
 
+import atexit
 from datetime import datetime
 import logging
-import time
+import multiprocessing as mp
 import sys
+import time
 from types import TracebackType
 from typing import Dict, List, Optional, Set, Type
 
@@ -111,11 +113,39 @@ class DistributorService:
     def set_workflow_run(self, workflow_run_id: int):
         workflow_run = DistributorWorkflowRun(workflow_run_id, self.requester)
         self.workflow_run = workflow_run
+        self.workflow_run.transition_to_instantiated()
 
-    def run(self):
-        keep_running = True
-        while keep_running:
-            self.process_next_status()
+    def run(
+        self,
+        status_queue: Optional[mp.Queue] = None
+    ):
+        # start the cluster
+        try:
+            self.cluster.start()
+            self.workflow_run.transition_to_launched()
+            logger.info("Distributor has started")
+
+            # send response back to main
+            if status_queue is not None:
+                status_queue.put("ALIVE")
+
+            # process commands forever
+            while True:
+                self.process_next_status()
+
+        except Exception as e:
+            # send error back to main
+            if status_queue is not None:
+                status_queue.put(ExceptionWrapper(e))
+            else:
+                raise
+
+        finally:
+            # stop distributor
+            self.cluster.stop([])
+
+            if status_queue is not None:
+                status_queue.put("SHUTDOWN")
 
     def process_next_status(self):
         """"""
