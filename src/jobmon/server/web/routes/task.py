@@ -452,11 +452,8 @@ def queue_task(task_id: int) -> Any:
     data = request.get_json()
 
     # Bring task object in
-    task = (
-        DB.session.query(Task)
-        .join(Task.id == task_id)
-        .one_or_none()
-    )
+    task = DB.session.query(Task).filter(Task.id == task_id).one_or_none()
+
     # send back json for task_id not found
     if task is None:
         resp = jsonify(msg=f"Task {task_id} does not exist!", task_instance=None)
@@ -467,7 +464,7 @@ def queue_task(task_id: int) -> Any:
     ti = TaskInstance(
         workflow_run_id=data["workflow_run_id"],
         array_id=task.array_id,
-        cluster_type_id=data["cluster_id"],
+        cluster_id=data["cluster_id"],
         task_id=task.id,
         task_resources_id=task.task_resources_id,
         status=TaskInstanceStatus.QUEUED
@@ -967,5 +964,32 @@ def get_task_resource_usage() -> Any:
             result.num_attempts, result.nodename, result.wallclock, result.maxpss
         )
     resp = jsonify(resource_usage)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+@finite_state_machine.route("/task/<task_id>", methods=["GET"])
+def get_task(task_id: int) -> Any:
+    """Return an task.
+
+    If not found, bind the task.
+    """
+    bind_to_logger(task_id=task_id)
+
+    # Check if the task is already bound, if so return it
+    task_stmt = """
+        SELECT task.*
+        FROM task
+        WHERE
+            task.id = :task_id
+    """
+    task = (
+        DB.session.query(Task)
+        .from_statement(text(task_stmt))
+        .params(task_id=task_id)
+        .one()
+    )
+    DB.session.commit()
+
+    resp = jsonify(task=task.to_wire_as_distributor_task())
     resp.status_code = StatusCodes.OK
     return resp

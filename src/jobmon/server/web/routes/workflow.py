@@ -876,3 +876,29 @@ def get_wf_name_and_args(workflow_id: int) -> Any:
     )
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@finite_state_machine.route("/workflow/<workflow_id>/byid", methods=["GET"])
+def get_workflow_byid(workflow_id: int) -> Any:
+    """Return an workflow.
+    """
+    bind_to_logger(workflow_id=workflow_id)
+
+    # Check if the workflow is already bound, if so return it
+    workflow_stmt = """
+        SELECT workflow.*
+        FROM workflow
+        WHERE
+            workflow.id = :workflow_id
+    """
+    workflow = (
+        DB.session.query(Workflow)
+        .from_statement(text(workflow_stmt))
+        .params(workflow_id=workflow_id)
+        .one()
+    )
+    DB.session.commit()
+
+    resp = jsonify(workflow=workflow.to_wire_as_distributor_workflow())
+    resp.status_code = StatusCodes.OK
+    return resp

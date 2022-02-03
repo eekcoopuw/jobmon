@@ -2,7 +2,7 @@ import time
 
 
 from jobmon.requester import Requester
-from jobmon.serializers import SerializeTask
+from jobmon.serializers import SerializeDistributorTask
 
 
 class MockDistributorProc:
@@ -15,6 +15,7 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+    from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 
     t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
     workflow = tool.create_workflow(name="test_instantiate_queued_jobs")
@@ -24,22 +25,22 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
     wfr = workflow._create_workflow_run()
 
     swarm = SwarmWorkflowRun(
-        workflow_id=wfr.workflow_id,
         workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
+        requester=workflow.requester,
     )
+    swarm.from_workflow(workflow)
     swarm.compute_initial_dag_state()
     list(swarm.queue_tasks())  # expand the generator
 
     requester = Requester(client_env)
     distributor_service = DistributorService(
-        workflow.workflow_id,
-        wfr.workflow_run_id,
         SequentialDistributor(),
         requester=requester,
     )
-    distributor_service._get_tasks_queued_for_instantiation()
-    distributor_service.distribute()
+
+    distributor_service.set_workflow_run(wfr.workflow_run_id)
+
+    distributor_service.run()
 
     # check the job finished
     app = db_cfg["app"]
@@ -95,7 +96,7 @@ def test_n_queued(tool, db_cfg, client_env, task_template):
         message={},
         request_type="get",
     )
-    all_jobs = [SerializeTask.kwargs_from_wire(j) for j in response["task_dcts"]]
+    all_jobs = [SerializeDistributorTask.kwargs_from_wire(j) for j in response["task_dcts"]]
 
     # now new query that should only return 3 jobs
     select_jobs = distributor_service._get_tasks_queued_for_instantiation()

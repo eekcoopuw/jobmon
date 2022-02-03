@@ -28,9 +28,9 @@ class TaskInstance(DB.Model):
     def to_wire_as_distributor_task_instance(self) -> Tuple:
         """Serialize task instance object."""
         return SerializeTaskInstance.to_wire(
-            self.id, self.workflow_run_id, self.distributor_id,
-            self.array_id, self.cluster_id, self.array_batch_num,
-            self.array_step_id, self.subtask_id
+            self.id, self.task_id, self.workflow_run_id, self.task.workflow_id,
+            self.status, self.distributor_id, self.cluster_id,
+            self.array_id, self.array_batch_num, self.array_step_id, self.subtask_id
         )
 
     id = DB.Column(DB.Integer, primary_key=True)

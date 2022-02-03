@@ -7,7 +7,7 @@ from __future__ import annotations
 import hashlib
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
@@ -143,8 +143,8 @@ class Task:
         self.name = name
 
         # upstream and downstream task relationships
-        self.upstream_tasks = set(upstream_tasks) if upstream_tasks else set()
-        self.downstream_tasks: set = set()
+        self.upstream_tasks: Set[Task] = set(upstream_tasks) if upstream_tasks else set()
+        self.downstream_tasks: Set[Task] = set()
         for task in self.upstream_tasks:
             self.add_upstream(task)
 
@@ -162,15 +162,18 @@ class Task:
             )
 
         # mutable operational/cluster behaviour
-        self.max_attempts = max_attempts
+        self.max_attempts: int = max_attempts
         self._instance_cluster_name = cluster_name
         self._instance_compute_resources = (
             compute_resources if compute_resources is not None else {}
         )
         self.compute_resources_callable = compute_resources_callable
-        self.resource_scales = (resource_scales if resource_scales is not None else
-                                {"memory": 0.5, "runtime": 0.5})
-        self.fallback_queues = fallback_queues if fallback_queues is not None else []
+        self.resource_scales: Dict[str, float] = (
+            resource_scales if resource_scales is not None else {"memory": 0.5, "runtime": 0.5}
+        )
+        self.fallback_queues: List[str] = (
+            fallback_queues if fallback_queues is not None else []
+        )
 
         # error api
         self._errors: Union[

@@ -391,12 +391,11 @@ class Workflow(object):
 
         # set up swarm and initial DAG
         swarm = SwarmWorkflowRun(
-            workflow_id=self.workflow_id,
             workflow_run_id=wfr.workflow_run_id,
-            tasks=list(self.tasks.values()),
             fail_after_n_executions=self._fail_after_n_executions,
             requester=self.requester,
         )
+        swarm.from_workflow(self)
 
         try:
             self._run_swarm(swarm, fail_fast, seconds_until_timeout)
