@@ -9,7 +9,7 @@ from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
-from jobmon.constants import WorkflowRunStatus
+from jobmon.constants import WorkflowRunStatus, TaskResourcesType
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import http_request_ok, Requester
 
@@ -192,7 +192,9 @@ class WorkflowRun(object):
                     and task.array.compute_resources_callable is None
                 )
                 if no_resource_callable:
-                    task_resources = self._workflow.get_task_resources(task)
+                    task_resources = self._workflow.get_task_resources(
+                        task, TaskResourcesType.VALIDATED
+                    )
                     task_resources.bind()
                     task.task_resources = task_resources
                     task_resources_id: Optional[int] = task.task_resources.id

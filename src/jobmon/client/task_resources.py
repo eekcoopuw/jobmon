@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 from http import HTTPStatus as StatusCodes
-import json
 import logging
 from typing import Dict, Optional
 

@@ -61,36 +61,45 @@ class SerializeTaskInstance:
 
     @staticmethod
     def to_wire(
-        task_instance_id: int, workflow_run_id: int, distributor_id: Union[int, None],
-        cluster_type_id: Optional[int] = 0, array_id: Optional[int] = None,
+        task_instance_id: int, task_id: int, workflow_run_id: int, workflow_id: int, status: str,
+        distributor_id: Union[int, None], cluster_id: Optional[int] = None, array_id: Optional[int] = None,
         array_batch_num: Optional[int] = None, array_step_id: Optional[int] = None, 
         subtask_id: Optional[str] = None
     ) -> tuple:
         """Submit the above args for an DistributorTaskInstance object to the database."""
         if array_id is None:
             subtask_id = str(distributor_id)
-        return task_instance_id, workflow_run_id, distributor_id, cluster_type_id, \
+        return task_instance_id, task_id, workflow_run_id, workflow_id, status,\
+               distributor_id, cluster_id, \
                array_id, array_batch_num, array_step_id, subtask_id
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Retrieve the DistributorTaskInstance information from the database."""
-        distributor_id = int(wire_tuple[2]) if wire_tuple[2] else None
-        array_id = int(wire_tuple[3]) if wire_tuple[3] else None
-        array_batch_num = int(wire_tuple[5]) if wire_tuple[5] else None
-        array_step_id = int(wire_tuple[6]) if wire_tuple[6] else None
-        subtask_id = str(wire_tuple[7]) if wire_tuple[7] else None
-        if array_id is None and subtask_id is None:
-            subtask_id = str(distributor_id)
+        task_instance_id = int(wire_tuple[0])
+        task_id = int(wire_tuple[1])
+        workflow_run_id = int(wire_tuple[2])
+        workflow_id = int(wire_tuple[3])
+        status = str(wire_tuple[4])
+        distributor_id = int(wire_tuple[5]) if wire_tuple[5] else None
+        cluster_id = int(wire_tuple[6]) if wire_tuple[6] else None
+        array_id = int(wire_tuple[7]) if wire_tuple[7] else None
+        array_batch_num = int(wire_tuple[8]) if wire_tuple[8] else None
+        array_step_id = int(wire_tuple[9]) if wire_tuple[9] else None
+        subtask_id = str(wire_tuple[10]) if wire_tuple[10] else None
+
         return {
-            "task_instance_id": int(wire_tuple[0]),
-            "workflow_run_id": int(wire_tuple[1]),
+            "task_instance_id": task_instance_id,
+            "task_id": task_id,
+            "workflow_run_id": workflow_run_id,
+            "workflow_id": workflow_id,
+            "status": status,
             "distributor_id": distributor_id,
+            "cluster_id": cluster_id,
             "array_id": array_id,
-            "cluster_type_id": int(wire_tuple[4]),
             "array_batch_num": array_batch_num,
             "array_step_id": array_step_id,
-            "subtask_id": subtask_id
+            "subtask_id": subtask_id,
         }
 
 
@@ -414,12 +423,14 @@ class SerializeDistributorArray:
         array_id: int,
         task_resources_id: int,
         requested_resources: Dict,
+        max_concurrently_running: int
     ) -> tuple:
         """Submit the TaskTemplate resource usage information to the database."""
         return (
             array_id,
             task_resources_id,
             requested_resources,
+            max_concurrently_running,
         )
 
     @staticmethod
@@ -430,5 +441,28 @@ class SerializeDistributorArray:
             "task_resources_id": wire_tuple[1],
             "requested_resources": {}
             if wire_tuple[2] is None
-            else ast.literal_eval(wire_tuple[2])
+            else ast.literal_eval(wire_tuple[2]),
+            "max_concurrently_running": wire_tuple[3]
+        }
+
+
+class SerializeDistributorWorkflow:
+    """"""
+    @staticmethod
+    def to_wire(
+        workflow_id: int,
+        max_concurrently_running: int
+    ) -> tuple:
+        """"""
+        return (
+            workflow_id,
+            max_concurrently_running,
+        )
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        """"""
+        return {
+            "workflow_id": wire_tuple[0],
+            "max_concurrently_running": wire_tuple[1]
         }

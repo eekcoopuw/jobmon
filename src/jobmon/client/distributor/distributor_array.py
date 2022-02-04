@@ -39,7 +39,9 @@ class DistributorArray:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-        self.max_concurrently_running = 100
+
+        array_dict = SerializeDistributorArray.kwargs_from_wire(response["array"])
+        self.max_concurrently_running = array_dict["max_concurrently_running"]
 
     @classmethod
     def from_wire(

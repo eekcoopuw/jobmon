@@ -76,6 +76,11 @@ class SequentialDistributor(ClusterDistributor):
         """Get the task instances that have errored out."""
         raise NotImplementedError
 
+    def get_array_queueing_errors(
+            self, distributor_id: Union[int, str]
+    ) -> Dict[Union[int, str], str]:
+        raise NotImplementedError
+
     def get_remote_exit_info(
             self, distributor_id: str, array_step_id: Optional[int] = None
     ) -> Tuple[str, str]:

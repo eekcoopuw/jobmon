@@ -66,7 +66,7 @@ def test_task_resources_hash(client_env):
 
 
 def test_cluster_resource_cache(db_cfg, client_env):
-    from jobmon.client.cluster import Cluster
+    from jobmon.cluster import Cluster
     cluster = Cluster.get_cluster('sequential')
 
     resources_1 = {'runtime': 80, 'queue': 'null.q'}

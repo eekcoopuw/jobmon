@@ -2,7 +2,7 @@ import pytest
 
 
 def test_plugin_loading(client_env):
-    from jobmon.client.cluster import Cluster
+    from jobmon.cluster import Cluster
     from jobmon.cluster_type import sequential
 
     cluster = Cluster(cluster_name="sequential")
@@ -11,7 +11,7 @@ def test_plugin_loading(client_env):
 
 
 def test_get_queue(client_env):
-    from jobmon.client.cluster import Cluster
+    from jobmon.cluster import Cluster
     from jobmon.cluster_type.sequential.seq_queue import SequentialQueue
 
     cluster = Cluster(cluster_name="sequential")

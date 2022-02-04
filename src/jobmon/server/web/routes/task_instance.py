@@ -30,6 +30,55 @@ logger = LocalProxy(partial(get_logger, __name__))
 
 
 @finite_state_machine.route(
+    "/task_instance/<task_instance_id>/instantiate_task_instance",
+    methods=["POST"]
+)
+def instantiate_task_instance(task_instance_id: int) -> Any:
+    """Instantisate a task_instance.
+
+    Args:
+        task_instance_id: id of task_instance_id
+    """
+
+    bind_to_logger(task_instance_id=task_instance_id)
+    logger.info(f"Getting task_instance for input task_instance_id {task_instance_id}")
+
+    task_instance = (
+        DB.session.query(TaskInstance)
+        .join(Task, Task.id == TaskInstance.task_id)
+        .filter(TaskInstance.id == task_instance_id)
+        .filter(TaskInstance.status == TaskInstanceStatus.QUEUED)
+        .one()
+    )
+
+    # Update the associated task instance to TaskInstanceStatus.INSTANTIATED
+    try:
+        task_instance.transition(TaskInstanceStatus.INSTANTIATED)
+    except InvalidStateTransition as e:
+        if task_instance.status == TaskInstanceStatus.INSTANTIATED:
+            msg = (
+                "Caught InvalidStateTransition. Not transitioning task "
+                "{}'s task_instance_id {} from I to I".format(
+                    task_instance.task_id, task_instance.id
+                )
+            )
+            logger.warning(msg)
+        else:
+            DB.session.rollback()
+            raise ServerError(
+                f"Unexpected Jobmon Server Error in {request.path}", status_code=500
+            ) from e
+
+    DB.session.commit()
+    task_dct = task_instance.to_wire_as_distributor_task_instance()
+    logger.debug(f"Got the following task instance: {task_dct}")
+
+    resp = jsonify(task_instance=task_dct)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route(
     "/task_instance/<task_instance_id>/kill_self", methods=["GET"]
 )
 def kill_self(task_instance_id: int) -> Any:

@@ -1,9 +1,10 @@
 """The overarching framework to create tasks and dependencies within."""
+from datetime import datetime
 import hashlib
 import logging
-from multiprocessing import Event, Process, Queue
-from multiprocessing import synchronize
 from queue import Empty
+from subprocess import Popen, PIPE
+import sys
 import time
 from typing import Any, Dict, List, Optional, Sequence, Union
 import uuid
@@ -11,13 +12,8 @@ import uuid
 from jobmon.client.array import Array
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.client_logging import ClientLogging
-from jobmon.client.cluster import Cluster
+from jobmon.cluster import Cluster
 from jobmon.client.dag import Dag
-from jobmon.client.distributor.api import DistributorConfig
-from jobmon.client.distributor.distributor_service import (
-    DistributorService,
-    ExceptionWrapper,
-)
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
@@ -136,9 +132,6 @@ class Workflow(object):
             hashlib.sha1(self.workflow_args.encode("utf-8")).hexdigest(), 16
         )
 
-        self._distributor_com_queue: Queue = Queue()
-        self._distributor_stop_event: synchronize.Event = Event()
-
         self.workflow_attributes: Dict[str, Any] = {}
         if workflow_attributes:
             if isinstance(workflow_attributes, List):
@@ -157,6 +150,9 @@ class Workflow(object):
         self._clusters: Dict[str, Cluster] = {}
         self.default_cluster_name: str = ""
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
+
+        # cache for compute resources
+        self._task_resources: Dict[int, TaskResources] = {}
 
         self._fail_after_n_executions = 1_000_000_000
 
@@ -349,7 +345,6 @@ class Workflow(object):
         resume: bool = ResumeStatus.DONT_RESUME,
         reset_running_jobs: bool = True,
         distributor_response_wait_timeout: int = 180,
-        distributor_config: Optional[DistributorConfig] = None,
         resume_timeout: int = 300,
     ) -> str:
         """Run the workflow.
@@ -386,7 +381,7 @@ class Workflow(object):
 
         # start distributor
         self._distributor_proc = self._start_distributor_service(
-            wfr.workflow_run_id, distributor_response_wait_timeout, distributor_config
+            wfr.workflow_run_id, distributor_response_wait_timeout
         )
 
         # set up swarm and initial DAG
@@ -514,23 +509,53 @@ class Workflow(object):
 
     def get_task_resources(
         self,
-        command: Union[Task, Array],
+        task: Task,
+        task_resources_type_id: str,
         extra_resources: Optional[Dict[str, Any]] = None
     ) -> TaskResources:
         if extra_resources is None:
             extra_resources = {}
 
         # get cluster
-        cluster = self.get_cluster_by_name(command.cluster_name)
+        cluster = self.get_cluster_by_name(task.cluster_name)
 
         # get default params and update with extra params
-        resource_params = command.compute_resources
+        resource_params = task.compute_resources
         resource_params.update(extra_resources)
 
         # construct task_resources
-        task_resources = cluster.create_valid_task_resources(
-            resource_params, TaskResourcesType.VALIDATED
-        )
+        try:
+            time_object = datetime.strptime(resource_params["runtime"], "%H:%M:%S")
+            time_seconds = (
+                time_object.hour * 60 * 60
+                + time_object.minute * 60
+                + time_object.second
+            )
+            resource_params["runtime"] = str(time_seconds) + "s"
+        except Exception:
+            pass
+
+        try:
+            queue_name: str = resource_params["queue"]
+        except KeyError:
+            raise ValueError(
+                "A queue name must be provided in the specified compute resources."
+            )
+        queue = cluster.get_queue(queue_name)
+
+        _, _, concrete_resource = \
+            cluster.concrete_resource_class.validate_and_create_concrete_resource(
+                queue, resource_params
+            )
+        try:
+            task_resources = self._task_resources[hash(concrete_resource)]
+        except KeyError:
+            task_resources = TaskResources(
+                concrete_resources=concrete_resource,
+                task_resources_type_id=TaskResourcesType.VALIDATED
+            )
+            self._task_resources[hash(task_resources)] = task_resources
+
         return task_resources
 
     def get_errors(
@@ -863,48 +888,31 @@ class Workflow(object):
     def _start_distributor_service(
         self,
         workflow_run_id: int,
-        distributor_startup_wait_timeout: int = 180,
-        distributor_config: Optional[DistributorConfig] = None,
-    ) -> Process:
-        if distributor_config is None:
-            distributor_config = DistributorConfig.from_defaults()
+        distributor_startup_wait_timeout: int = 180
+    ):
         cluster_names = list(self._clusters.keys())
         if len(cluster_names) > 1:
             raise RuntimeError(
                 f"Workflow can only use one cluster. Found cluster_names={cluster_names}"
             )
         else:
-            cluster_plugin = self._clusters[cluster_names[0]].plugin
-            DistributorCls = cluster_plugin.get_cluster_distributor_class()
-            distributor = DistributorCls(
-                connection_parameters=self._clusters[
-                    cluster_names[0]
-                ]._connection_parameters
-            )
+            cluster_name = cluster_names[0]
 
-        logger.info("Instantiating Distributor Process")
+        logger.info("Starting Distributor Process")
 
         # instantiate DistributorService and launch in separate proc. use event to
         # signal back when distributor is started
-        ti_hi = distributor_config.task_instance_heartbeat_interval
-        tid = DistributorService(
-            workflow_id=self.workflow_id,
-            workflow_run_id=workflow_run_id,
-            distributor=distributor,
-            workflow_run_heartbeat_interval=distributor_config.workflow_run_heartbeat_interval,
-            task_instance_heartbeat_interval=ti_hi,
-            heartbeat_report_by_buffer=distributor_config.heartbeat_report_by_buffer,
-            n_queued=distributor_config.n_queued,
-            distributor_poll_interval=distributor_config.distributor_poll_interval,
-            requester=self.requester,
-            wf_max_concurrently_running=self.max_concurrently_running
-        )
+
         self._status = WorkflowStatus.INSTANTIATING
 
-        distributor_proc = Process(
-            target=tid.run_distributor,
-            args=(self._distributor_stop_event, self._distributor_com_queue),
-        )
+        cmd = [
+            sys.executable, "-m",  # safest way to find the entrypoint
+            "jobmon.client.distributor.cli", "start",
+            "--cluster_name", cluster_name,
+            "--workflow_run_id", str(workflow_run_id)
+        ]
+        distributor_proc = Popen(cmd, stdout=PIPE, stderr=PIPE, universal_newlines=True)
+
 
         try:
             # Start the distributor

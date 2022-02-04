@@ -24,6 +24,7 @@ class Array(DB.Model):
             array_id=self.id,
             task_resources_id=self.task_resources_id,
             requested_resources=self.task_resources.requested_resources,
+            max_concurrently_running=self.max_concurrently_running,
         )
         return serialized
 

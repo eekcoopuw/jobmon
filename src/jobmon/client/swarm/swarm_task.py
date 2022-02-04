@@ -5,8 +5,8 @@ import logging
 from typing import Dict, List, Optional, Set
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.cluster import Cluster
 from jobmon.client.task_resources import TaskResources
+from jobmon.cluster import Cluster
 from jobmon.cluster_type.base import ClusterQueue
 from jobmon.constants import TaskResourcesType, TaskStatus
 from jobmon.exceptions import InvalidResponse
@@ -140,11 +140,16 @@ class SwarmTask(object):
         resource_scales = self.resource_scales if self.resource_scales is not None else {}
         fallback_queues = self.fallback_queues
 
-        new_task_resources = self.cluster.adjust_task_resource(
-            initial_resources=initial_resources,
-            resource_scales=resource_scales,
-            expected_queue=expected_queue,
-            fallback_queues=fallback_queues,
+        adjusted_concrete_resource = \
+            self.cluster.concrete_resource_class.adjust_and_create_concrete_resource(
+                existing_resources=initial_resources,
+                resource_scales=resource_scales,
+                expected_queue=expected_queue,
+                fallback_queues=fallback_queues,
+            )
+        adjusted_task_resource = TaskResources(
+            concrete_resources=adjusted_concrete_resource,
+            task_resources_type_id=TaskResourcesType.ADJUSTED,
         )
-        new_task_resources.bind(TaskResourcesType.ADJUSTED)
-        self.task_resources = new_task_resources
+        adjusted_task_resource.bind(TaskResourcesType.ADJUSTED)
+        self.task_resources = adjusted_task_resource

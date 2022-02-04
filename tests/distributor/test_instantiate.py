@@ -2,7 +2,7 @@ import time
 
 
 from jobmon.requester import Requester
-from jobmon.serializers import SerializeTask
+from jobmon.serializers import SerializeDistributorTask
 
 
 class MockDistributorProc:
@@ -10,7 +10,7 @@ class MockDistributorProc:
         return True
 
 
-def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
+def test_instantiate_queued_tasks(tool, db_cfg, client_env, task_template):
     """tests that a task can be instantiated and run and log done"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
@@ -33,13 +33,13 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
 
     requester = Requester(client_env)
     distributor_service = DistributorService(
-        workflow.workflow_id,
-        wfr.workflow_run_id,
         SequentialDistributor(),
         requester=requester,
     )
-    distributor_service._get_tasks_queued_for_instantiation()
-    distributor_service.distribute()
+
+    distributor_service.set_workflow_run(wfr.workflow_run_id)
+
+    distributor_service.process_status("Q")
 
     # check the job finished
     app = db_cfg["app"]
@@ -52,7 +52,7 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
         res = DB.session.execute(sql, {"task_id": t1.task_id}).fetchone()
         print(f"foo {res}")
         DB.session.commit()
-    assert res[0] == "D"
+    assert res[0] == "I"
 
 
 def test_n_queued(tool, db_cfg, client_env, task_template):
@@ -95,7 +95,7 @@ def test_n_queued(tool, db_cfg, client_env, task_template):
         message={},
         request_type="get",
     )
-    all_jobs = [SerializeTask.kwargs_from_wire(j) for j in response["task_dcts"]]
+    all_jobs = [SerializeDistributorTask.kwargs_from_wire(j) for j in response["task_dcts"]]
 
     # now new query that should only return 3 jobs
     select_jobs = distributor_service._get_tasks_queued_for_instantiation()

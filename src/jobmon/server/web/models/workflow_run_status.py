@@ -19,7 +19,7 @@ class WorkflowRunStatus(DB.Model):
     COLD_RESUME = Statuses.COLD_RESUME
     HOT_RESUME = Statuses.HOT_RESUME
     TERMINATED = Statuses.TERMINATED
-    INSTANTIATING = Statuses.INSTANTIATING
+    INSTANTIATED = Statuses.INSTANTIATED
     LAUNCHED = Statuses.LAUNCHED
 
     id = DB.Column(DB.String(1), primary_key=True)

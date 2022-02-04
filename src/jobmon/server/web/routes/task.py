@@ -966,3 +966,30 @@ def get_task_resource_usage() -> Any:
     resp = jsonify(resource_usage)
     resp.status_code = StatusCodes.OK
     return resp
+
+@finite_state_machine.route("/task/<task_id>", methods=["GET"])
+def get_task(task_id: int) -> Any:
+    """Return an task.
+
+    If not found, bind the task.
+    """
+    bind_to_logger(task_id=task_id)
+
+    # Check if the task is already bound, if so return it
+    task_stmt = """
+        SELECT task.*
+        FROM task
+        WHERE
+            task.id = :task_id
+    """
+    task = (
+        DB.session.query(Task)
+        .from_statement(text(task_stmt))
+        .params(task_id=task_id)
+        .one()
+    )
+    DB.session.commit()
+
+    resp = jsonify(task=task.to_wire_as_distributor_task())
+    resp.status_code = StatusCodes.OK
+    return resp
