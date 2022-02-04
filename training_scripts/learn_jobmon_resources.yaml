@@ -1,0 +1,18 @@
+# task_template_resources is a hardcoded Jobmon key
+task_template_resources:
+  # correct matches the name of a TaskTemplate defined in the control script
+  correct:
+    # slurm corresponds to a cluster in the Jobmon database
+    slurm:
+      num_cores: 1
+      m_mem_free: "3G"
+      max_runtime_seconds: (60 * 60 * 4)
+      queue: "long.q"
+
+
+
+
+
+
+
+
