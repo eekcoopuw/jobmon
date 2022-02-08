@@ -7,12 +7,4 @@ task_template_resources:
       num_cores: 1
       m_mem_free: "3G"
       max_runtime_seconds: (60 * 60 * 4)
-      queue: "long.q"
-
-
-
-
-
-
-
-
+      queue: "all.q"

@@ -1,6 +1,5 @@
 from getpass import getuser
 import sys
-
 from jobmon.client.api import Tool
 
 # Setup: Pull in location IDs, sex IDs, and username
@@ -22,9 +21,8 @@ workflow.set_default_compute_resources_from_dict(
         'constraints': 'archive',
         'stdout': f"/ihme/scratch/users/{user}/out",
         'project': 'proj_scicomp',
-        'queue': 'long.q'
-    }
-)
+        'queue': 'all.q'
+    })
 
 # Create two task templates
 correct_template = codcorrect_tool.get_task_template(
@@ -37,7 +35,6 @@ aggregate_template = codcorrect_tool.get_task_template(
 # Update resources for "correct" tasks, from a YAML file
 correct_template.set_default_compute_resources_from_yaml(
     yaml_file="./learn_jobmon_resources.yaml", default_cluster_name='slurm')
-
 
 # Create our tasks
 correct_tasks = {}  # Initialize a container for the first-stage tasks
@@ -61,3 +58,6 @@ for loc in most_detailed_location_ids:
 # Run the workflow
 status = workflow.run()
 print(f"Workflow finished with status: {status}")
+
+
+
