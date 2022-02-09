@@ -200,7 +200,8 @@ Constructing a Workflow and adding a few Tasks is simple:
     .. code-tab:: R
       :title: R
 
-      library(jobmonr, lib.loc = "/ihme/jobmon/R/3.0.3")
+      Sys.setenv("RETICULATE_PYTHON"='/mnt/team/scicomp/envs/jobmon/bin/python')  # Set the Python interpreter path
+      library(jobmonr)
 
       # Create a workflow
       username <- Sys.getenv("USER")

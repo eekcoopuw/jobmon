@@ -63,14 +63,21 @@ class ClientCLI(CLI):
         self._add_create_resource_yaml_subparser()
 
     @staticmethod
+    def limit_checker(limit) -> int:
+        limit = int(limit)
+        if limit <= 0:
+            raise argparse.ArgumentTypeError(f"Limit value must be greater than 0. The limit "
+                                             f"value passed in was: {limit}")
+        return limit
+
+    @staticmethod
     def workflow_status(args: configargparse.Namespace) -> None:
         """Workflow status checking options."""
         from tabulate import tabulate
         from jobmon.client.status_commands import workflow_status as workflow_status_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        limit = args.limit if args.limit is None or args.limit > 0 else -1
-        df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url, limit)
+        df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url, args.limit)
         if args.json:
             print(df)
         else:
@@ -83,8 +90,7 @@ class ClientCLI(CLI):
         from jobmon.client.status_commands import workflow_tasks as workflow_tasks_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        limit = args.limit if args.limit is None or args.limit > 0 else -1
-        df = workflow_tasks_cmd(args.workflow_id, args.status, args.json, cc.url, limit)
+        df = workflow_tasks_cmd(args.workflow_id, args.status, args.json, cc.url, args.limit)
         if args.json:
             print(df)
         else:
@@ -244,11 +250,10 @@ class ClientCLI(CLI):
         workflow_status_parser.add_argument(
             "-l",
             "--limit",
-            nargs="*",
             default=5,
             help="limit the number of returning records; default is 5",
             required=False,
-            type=int,
+            type=self.limit_checker,
         )
         ParserDefaults.web_service_fqdn(workflow_status_parser)
         ParserDefaults.web_service_port(workflow_status_parser)
@@ -288,11 +293,10 @@ class ClientCLI(CLI):
         workflow_tasks_parser.add_argument(
             "-l",
             "--limit",
-            nargs="*",
             default=5,
             help="limit the number of returning records; default is 5",
             required=False,
-            type=int,
+            type=self.limit_checker,
         )
         ParserDefaults.web_service_fqdn(workflow_tasks_parser)
         ParserDefaults.web_service_port(workflow_tasks_parser)

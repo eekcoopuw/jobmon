@@ -496,14 +496,7 @@ def get_workflow_status() -> Any:
     logger.debug(f"Query for wf {workflow_request} status.")
     if workflow_request == "all":  # specifying all is equivalent to None
         workflow_request = []
-    limit_request = request.args.getlist("limit")
-    limit = None if len(limit_request) == 0 else limit_request[0]
-    # anything less than 0 or non number will be treated as None
-    try:
-        if int(limit_request[0]) < 0:
-            limit = None
-    except ValueError:
-        limit = None
+    limit = request.args.get("limit")
     where_clause = ""
     # convert workflow request into sql filter
     if workflow_request:
@@ -632,14 +625,7 @@ def get_workflow_tasks(workflow_id: int) -> Any:
     """Get the tasks for a given workflow."""
     params: Dict = {"workflow_id": workflow_id}
     bind_to_logger(workflow_id=workflow_id)
-    limit_request = request.args.getlist("limit")
-    limit = None if len(limit_request) == 0 else limit_request[0]
-    # anything less than 0 or non number will be treated as None
-    try:
-        if int(limit_request[0]) < 0:
-            limit = None
-    except ValueError:
-        limit = None
+    limit = request.args.get("limit")
     where_clause = "WHERE workflow.id = :workflow_id"
     status_request = request.args.getlist("status", None)
     logger.debug(f"Get tasks for workflow in status {status_request}")
