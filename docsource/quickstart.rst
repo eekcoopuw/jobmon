@@ -304,6 +304,11 @@ the hierarchy is Task -> TaskTemplate -> Workflow -> Tool. To set compute resour
 By default compute resources on the Slurm cluster: cores will be 1, memory will be 1G, and
 runtime will be 10 minutes.
 
+Users can specify that they want to run their jobs on an archive node (nodes with /snfs1
+mounted) in their compute resources. Users simply need to add the following key value pair to
+their compute resources: ``"constraints": "archive"``. This works on both the Slurm and UGE
+(Buster) clusters.
+
 Cluster name: You can specify the cluster you want to use on the Task, TaskTemplate, Workflow
 and Tool level. To set cluster name on Tasks, use "cluster_name". To set cluster_name on
 TaskTemplate, Workflow, and Tool, use "default_cluster_name". If cluster name
