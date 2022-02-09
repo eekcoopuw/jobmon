@@ -41,7 +41,7 @@ def test_instantiate_queued_tasks(tool, db_cfg, client_env, task_template):
 
     distributor_service.process_status("Q")
 
-    # check the job finished
+    # check the job turned into I
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
