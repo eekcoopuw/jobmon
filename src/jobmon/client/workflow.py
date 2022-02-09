@@ -2,11 +2,12 @@
 from datetime import datetime
 import hashlib
 import logging
+import psutil
 from queue import Empty
-from subprocess import Popen, PIPE
+from subprocess import Popen, PIPE, TimeoutExpired
 import sys
 import time
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, IO, Union
 import uuid
 
 from jobmon.client.array import Array
@@ -42,6 +43,59 @@ from jobmon.serializers import SerializeCluster
 ClientLogging().attach(__name__)
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.DEBUG)
+
+
+class DistributorContext:
+
+    def __init__(self, cluster_name: str, workflow_run_id: int, timeout: int):
+        self._cluster_name = cluster_name
+        self._workflow_run_id = workflow_run_id
+        self._timeout = timeout
+
+    def __enter__(self):
+
+        # Start the distributor. Write stderr to a file.
+        cmd = [
+            sys.executable, "-m",  # safest way to find the entrypoint
+            "jobmon.client.distributor.cli", "start",
+            "--cluster_name", self._cluster_name,
+            "--workflow_run_id", str(self._workflow_run_id)
+        ]
+        self.process = Popen(cmd, stderr=PIPE, universal_newlines=True)
+
+        # check if stderr contains "ALIVE"
+        assert self.process.stderr is not None  # keep mypy happy on optional type
+        stderr_val = self.process.stderr.read(5)
+        if stderr_val != "ALIVE":
+            err = self._shutdown()
+            raise DistributorStartupTimeout(
+                "Distributor process did not start within the alloted timeout "
+                f"t={self._timeout}s. stderr={err}"
+            )
+        return self
+
+    def __exit__(self, exc_type, exc_value, exc_traceback):
+        self._shutdown()
+
+    def alive(self) -> bool:
+        self.process.poll()
+        return self.process.returncode is None
+
+    def _shutdown(self) -> str:
+        self.process.terminate()
+        try:
+            _, err = self.process.communicate(timeout=self._timeout)
+        except TimeoutExpired:
+            err = ""
+
+        if "SHUTDOWN" not in err:
+            parent = psutil.Process(self.process.pid)
+            for child in parent.children(recursive=True):
+                child.kill()
+            self.process.kill()
+            self.process.wait()
+
+        return err
 
 
 class ResumeStatus(object):
@@ -380,52 +434,45 @@ class Workflow(object):
         logger.info(f"WorkflowRun ID {wfr.workflow_run_id} assigned")
 
         # start distributor
-        self._distributor_proc = self._start_distributor_service(
-            wfr.workflow_run_id, distributor_response_wait_timeout
-        )
+        cluster_names = list(self._clusters.keys())
+        if len(cluster_names) > 1:
+            raise RuntimeError(
+                f"Workflow can only use one cluster. Found cluster_names={cluster_names}"
+            )
+        else:
+            cluster_name = cluster_names[0]
+        logger.info("Starting Distributor Process")
+        with DistributorContext(cluster_name, wfr.workflow_run_id,
+                                distributor_response_wait_timeout) as distributor:
 
-        # set up swarm and initial DAG
-        swarm = SwarmWorkflowRun(
-            workflow_run_id=wfr.workflow_run_id,
-            fail_after_n_executions=self._fail_after_n_executions,
-            requester=self.requester,
-        )
-        swarm.from_workflow(self)
+            # set up swarm and initial DAG
+            swarm = SwarmWorkflowRun(
+                workflow_run_id=wfr.workflow_run_id,
+                fail_after_n_executions=self._fail_after_n_executions,
+                requester=self.requester,
+            )
+            swarm.from_workflow(self)
 
-        try:
-            self._run_swarm(swarm, fail_fast, seconds_until_timeout)
-        finally:
-            # deal with task instance distributor process if it was started
-            if self._distributor_alive(raise_error=False):
-                logger.info(
-                    "Terminating distributing process. This could take a few minutes."
-                )
-                self._distributor_stop_event.set()
-                try:
-                    # give it some time to shut down
-                    self._distributor_com_queue.get(
-                        timeout=distributor_response_wait_timeout
+            try:
+                self._run_swarm(swarm, distributor, fail_fast, seconds_until_timeout)
+            finally:
+
+                # figure out doneness
+                num_new_completed = len(swarm.all_done) - swarm.num_previously_complete
+                if swarm.status != WorkflowRunStatus.DONE:
+                    logger.info(
+                        f"WorkflowRun execution ended, num failed {len(swarm.all_error)}"
                     )
-                except Empty:
-                    pass
-                self._distributor_proc.terminate()
+                else:
+                    logger.info(
+                        f"WorkflowRun execute finished successfully, {num_new_completed} tasks"
+                    )
 
-            # figure out doneness
-            num_new_completed = len(swarm.all_done) - swarm.num_previously_complete
-            if swarm.status != WorkflowRunStatus.DONE:
-                logger.info(
-                    f"WorkflowRun execution ended, num failed {len(swarm.all_error)}"
-                )
-            else:
-                logger.info(
-                    f"WorkflowRun execute finished successfully, {num_new_completed} tasks"
-                )
-
-            # update workflow tasks with final status
-            for task in self.tasks.values():
-                task.final_status = swarm.swarm_tasks[task.task_id].status
-            self._num_previously_completed = swarm.num_previously_complete
-            self._num_newly_completed = num_new_completed
+                # update workflow tasks with final status
+                for task in self.tasks.values():
+                    task.final_status = swarm.swarm_tasks[task.task_id].status
+                self._num_previously_completed = swarm.num_previously_complete
+                self._num_newly_completed = num_new_completed
 
         return swarm.status
 
@@ -680,6 +727,7 @@ class Workflow(object):
     def _run_swarm(
         self,
         swarm: SwarmWorkflowRun,
+        distributor_context: DistributorContext,
         fail_fast: bool = False,
         seconds_until_timeout: int = 36000,
         wedged_workflow_sync_interval: int = 600,
@@ -731,7 +779,8 @@ class Workflow(object):
                 for swarm_task in swarm.queue_tasks():
                     task = self.tasks[swarm_task.task_hash]
                     callable_resources = self._get_callable_compute_resources(task)
-                    task_resources = self.get_task_resources(task, callable_resources)
+                    task_resources = self.get_task_resources(task, TaskResourcesType.VALIDATED,
+                                                             callable_resources)
                     task_resources.bind()
                     swarm_task.task_resources = task_resources
 
@@ -740,7 +789,7 @@ class Workflow(object):
                     fail_fast,
                     seconds_until_timeout=seconds_until_timeout,
                     wedged_workflow_sync_interval=wedged_workflow_sync_interval,
-                    distributor_alive_callable=self._distributor_alive,
+                    distributor_alive_callable=distributor_context.alive,
                 )
             # user interrupt
             except KeyboardInterrupt:
@@ -884,56 +933,6 @@ class Workflow(object):
             else:
                 sleep_time = round(float(resume_timeout) / 10.0, 1)
                 time.sleep(sleep_time)
-
-    def _start_distributor_service(
-        self,
-        workflow_run_id: int,
-        distributor_startup_wait_timeout: int = 180
-    ):
-        cluster_names = list(self._clusters.keys())
-        if len(cluster_names) > 1:
-            raise RuntimeError(
-                f"Workflow can only use one cluster. Found cluster_names={cluster_names}"
-            )
-        else:
-            cluster_name = cluster_names[0]
-
-        logger.info("Starting Distributor Process")
-
-        # instantiate DistributorService and launch in separate proc. use event to
-        # signal back when distributor is started
-
-        self._status = WorkflowStatus.INSTANTIATING
-
-        cmd = [
-            sys.executable, "-m",  # safest way to find the entrypoint
-            "jobmon.client.distributor.cli", "start",
-            "--cluster_name", cluster_name,
-            "--workflow_run_id", str(workflow_run_id)
-        ]
-        distributor_proc = Popen(cmd, stdout=PIPE, stderr=PIPE, universal_newlines=True)
-
-
-        try:
-            # Start the distributor
-            distributor_proc.start()
-
-            # wait for response from distributor
-            resp = self._distributor_com_queue.get(
-                timeout=distributor_startup_wait_timeout
-            )
-        except Empty:  # mypy complains but this is correct
-            distributor_proc.terminate()
-            raise DistributorStartupTimeout(
-                "Distributor process did not start within the alloted timeout "
-                f"t={distributor_startup_wait_timeout}s"
-            )
-        else:
-            # the first message can only be "ALIVE" or an ExceptionWrapper
-            if isinstance(resp, ExceptionWrapper):
-                resp.re_raise()
-
-        return distributor_proc
 
     def _distributor_alive(self, raise_error: bool = True) -> bool:
         """If the distributor process is still active."""

@@ -22,6 +22,11 @@ class DistributorCommand:
         self._func = func
         self._args = args
         self._kwargs = kwargs
+        self.error_raised = False
 
     def __call__(self):
-        return self._func(*self._args, **self._kwargs)
+        try:
+            self._func(*self._args, **self._kwargs)
+        except Exception as e:
+            self.exception = e
+            self.error_raised = True

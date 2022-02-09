@@ -7,7 +7,6 @@ import sys
 import time
 from typing import Dict, List, Optional, Set
 
-
 from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
 from jobmon.client.distributor.distributor_command import DistributorCommand
@@ -16,8 +15,8 @@ from jobmon.client.distributor.distributor_workflow import DistributorWorkflow
 from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
-from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
-from jobmon.exceptions import InvalidResponse, ResumeSet, WorkflowRunStateError
+from jobmon.constants import TaskInstanceStatus
+from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 
 
@@ -107,7 +106,10 @@ class DistributorService:
             self._initialize_signal_handlers()
             self.cluster.start()
             self.workflow_run.transition_to_launched()
-            logger.info("Distributor is ALIVE")
+
+            # signal via pipe that we are alive
+            sys.stderr.write("ALIVE")
+            sys.stderr.flush()
 
             # process commands forever
             while not self._signal_recieved:
@@ -131,8 +133,9 @@ class DistributorService:
             # stop distributor
             self.cluster.stop([])
 
-            # if status_queue is not None:
-            #     status_queue.put("SHUTDOWN")
+            # signal via pipe that we are shutdown
+            sys.stderr.write("SHUTDOWN")
+            sys.stderr.flush()
 
     def process_status(self, status: str):
         """"""
@@ -147,13 +150,18 @@ class DistributorService:
                 if time_diff > self._workflow_run_heartbeat_interval:
                     self.heartbeat()
 
-                # get the first callable and run it
+                # get the first callable and run it. log any errors
                 distributor_command = self.distributor_commands.pop(0)
                 distributor_command()
+                if distributor_command.error_raised:
+                    logger.error(distributor_command.exception)
 
         finally:
             # update task mappings
             self._update_status_map(status)
+
+            # make sure distributor_commands is empty
+            self.distributor_commands = []
 
     def instantiate_task_instance(self, task_instance: DistributorTaskInstance) -> None:
         # add associations
