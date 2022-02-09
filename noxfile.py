@@ -177,7 +177,7 @@ def ihme_installer_build(session: Session) -> None:
     # environment variables used in build script
     web_service_fqdn = os.environ["WEB_SERVICE_FQDN"]
     web_service_port = os.environ["WEB_SERVICE_PORT"]
-    web_conn = {"host": web_service_fqdn, "port": web_service_port}
+    web_conn = {"WEB_SERVICE_FQDN": web_service_fqdn, "WEB_SERVICE_PORT": web_service_port}
     with open('./deployment/jobmon_installer_ihme/src/jobmon_installer_ihme/server_config.json'
               , 'w') as f:
         json.dump(web_conn, f)
