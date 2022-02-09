@@ -53,6 +53,7 @@ class DistributorContext:
         self._timeout = timeout
 
     def __enter__(self):
+        logger.info("Starting Distributor Process")
 
         # Start the distributor. Write stderr to a file.
         cmd = [
@@ -75,6 +76,7 @@ class DistributorContext:
         return self
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
+        logger.info("Stopping Distributor Process")
         self._shutdown()
 
     def alive(self) -> bool:
@@ -434,14 +436,7 @@ class Workflow(object):
         logger.info(f"WorkflowRun ID {wfr.workflow_run_id} assigned")
 
         # start distributor
-        cluster_names = list(self._clusters.keys())
-        if len(cluster_names) > 1:
-            raise RuntimeError(
-                f"Workflow can only use one cluster. Found cluster_names={cluster_names}"
-            )
-        else:
-            cluster_name = cluster_names[0]
-        logger.info("Starting Distributor Process")
+        cluster_name = list(self._clusters.keys())[0]
         with DistributorContext(cluster_name, wfr.workflow_run_id,
                                 distributor_response_wait_timeout) as distributor:
 
@@ -512,9 +507,20 @@ class Workflow(object):
                 elif not is_valid:
                     print(f"Failed validation, reasons: {msg}")
 
-        # check if workflow is valid
-        self._dag.validate()
-        self._matching_wf_args_diff_hash()
+        try:
+            cluster_names = list(self._clusters.keys())
+            if len(list(self._clusters.keys())) > 1:
+                raise RuntimeError(
+                    f"Workflow can only use one cluster. Found cluster_names={cluster_names}"
+                )
+            # check if workflow is valid
+            self._dag.validate()
+            self._matching_wf_args_diff_hash()
+        except Exception as e:
+            if fail:
+                raise
+            else:
+                print(e)
 
     def bind(self) -> None:
         """Get a workflow_id."""
