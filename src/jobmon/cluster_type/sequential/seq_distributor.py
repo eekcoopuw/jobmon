@@ -64,6 +64,12 @@ class SequentialDistributor(ClusterDistributor):
         """Return the name of the cluster type."""
         return "sequential"
 
+    def get_subtask_id(
+            self, distributor_id: int, array_step_id: int
+    ) -> str:
+        """Get the subtask_id based on distributor_id and array_step_id."""
+        return str(distributor_id)
+
     def start(self) -> None:
         """Start the distributor."""
         self.started = True
