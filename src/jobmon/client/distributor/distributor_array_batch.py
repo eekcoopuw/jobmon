@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import hashlib
 import logging
 from typing import Callable, Dict, List, Set, Tuple, TYPE_CHECKING, Union
@@ -9,6 +10,7 @@ from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
+from jobmon.serializers import SerializeTaskResources
 
 if TYPE_CHECKING:
     from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
@@ -63,7 +65,19 @@ class DistributorArrayBatch:
         return self._requested_resources
 
     def _load_requested_resources(self) -> None:
-        pass
+        app_route = f"/task_resources/{self.task_resources_id}"
+        return_code, response = self.requester.send_request(
+            app_route=app_route, message={}, request_type="get", logger=logger
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
+
+        task_resources_dict = SerializeTaskResources.kwargs_from_wire(response["task_resources"])
+        self._requested_resources = ast.literal_eval(task_resources_dict["requested_resources"])
 
     def prepare_array_batch_for_launch(self) -> None:
         """Add the current batch number to the current set of registered task instance ids."""

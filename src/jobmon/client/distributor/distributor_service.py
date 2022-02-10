@@ -63,6 +63,7 @@ class DistributorService:
             TaskInstanceStatus.QUEUED: set(),
             TaskInstanceStatus.INSTANTIATED: set(),
             TaskInstanceStatus.LAUNCHED: set(),
+            TaskInstanceStatus.RUNNING: set(),
             TaskInstanceStatus.TRIAGING: set(),
         }
         # order through which we processes work
@@ -200,8 +201,11 @@ class DistributorService:
         else:
             # if successful log a transition to launched
             for task_instance in array_batch.task_instances:
+                subtask_id = self.cluster.get_subtask_id(array_batch.distributor_id,
+                                                        task_instance.array_step_id)
                 distributor_command = DistributorCommand(
-                    task_instance.transition_to_launched, self._next_report_increment
+                    task_instance.transition_to_launched, array_batch.distributor_id,
+                    subtask_id, self._next_report_increment
                 )
                 self.distributor_commands.append(distributor_command)
 
@@ -228,7 +232,10 @@ class DistributorService:
 
         else:
             # move from register queue to launch queue
-            task_instance.transition_to_launched(self._next_report_increment)
+            subtask_id = self.cluster.get_subtask_id(task_instance.distributor_id,
+                                                     task_instance.array_step_id)
+            task_instance.transition_to_launched(task_instance.distributor_id, subtask_id,
+                                                 self._next_report_increment)
 
     def triage_error(self, task_instance: DistributorTaskInstance) -> None:
         r_value, r_msg = self.cluster.get_remote_exit_info(task_instance.distributor_id)
@@ -435,7 +442,7 @@ class DistributorService:
             workflow_id: the workflow to get
         """
         try:
-            workflow_id = self._workflows[workflow_id]
+            workflow = self._workflows[workflow_id]
         except KeyError:
             workflow = DistributorWorkflow(workflow_id, requester=self.requester)
             self.distributor_commands.append(DistributorCommand(workflow.get_metadata))

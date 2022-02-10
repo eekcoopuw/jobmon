@@ -29,7 +29,7 @@ class TaskInstance(DB.Model):
         """Serialize task instance object."""
         return SerializeTaskInstance.to_wire(
             self.id, self.task_id, self.workflow_run_id, self.task.workflow_id,
-            self.status, self.distributor_id, self.cluster_id,
+            self.status, self.distributor_id, self.cluster_id, self.task_resources_id,
             self.array_id, self.array_batch_num, self.array_step_id, self.subtask_id
         )
 

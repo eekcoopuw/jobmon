@@ -62,7 +62,8 @@ class SerializeTaskInstance:
     @staticmethod
     def to_wire(
         task_instance_id: int, task_id: int, workflow_run_id: int, workflow_id: int, status: str,
-        distributor_id: Union[int, None], cluster_id: Optional[int] = None, array_id: Optional[int] = None,
+        distributor_id: Union[int, None], cluster_id: Optional[int] = None,
+        task_resources_id: Optional[int] = None, array_id: Optional[int] = None,
         array_batch_num: Optional[int] = None, array_step_id: Optional[int] = None, 
         subtask_id: Optional[str] = None
     ) -> tuple:
@@ -70,7 +71,7 @@ class SerializeTaskInstance:
         if array_id is None:
             subtask_id = str(distributor_id)
         return task_instance_id, task_id, workflow_run_id, workflow_id, status,\
-               distributor_id, cluster_id, \
+               distributor_id, cluster_id, task_resources_id,\
                array_id, array_batch_num, array_step_id, subtask_id
 
     @staticmethod
@@ -83,10 +84,11 @@ class SerializeTaskInstance:
         status = str(wire_tuple[4])
         distributor_id = int(wire_tuple[5]) if wire_tuple[5] else None
         cluster_id = int(wire_tuple[6]) if wire_tuple[6] else None
-        array_id = int(wire_tuple[7]) if wire_tuple[7] else None
-        array_batch_num = int(wire_tuple[8]) if wire_tuple[8] else None
-        array_step_id = int(wire_tuple[9]) if wire_tuple[9] else None
-        subtask_id = str(wire_tuple[10]) if wire_tuple[10] else None
+        task_resources_id = int(wire_tuple[7]) if wire_tuple[7] else None
+        array_id = int(wire_tuple[8]) if wire_tuple[8] else None
+        array_batch_num = int(wire_tuple[9]) if wire_tuple[9] else None
+        array_step_id = int(wire_tuple[10]) if wire_tuple[10] else None
+        subtask_id = str(wire_tuple[11]) if wire_tuple[11] else None
 
         return {
             "task_instance_id": task_instance_id,
@@ -96,6 +98,7 @@ class SerializeTaskInstance:
             "status": status,
             "distributor_id": distributor_id,
             "cluster_id": cluster_id,
+            "task_resources_id": task_resources_id,
             "array_id": array_id,
             "array_batch_num": array_batch_num,
             "array_step_id": array_step_id,
@@ -465,4 +468,31 @@ class SerializeDistributorWorkflow:
         return {
             "workflow_id": wire_tuple[0],
             "max_concurrently_running": wire_tuple[1]
+        }
+
+class SerializeTaskResources:
+    """"""
+    @staticmethod
+    def to_wire(
+        task_resources_id: int,
+        queue_id: int,
+        task_resources_type_id: str,
+        requested_resources: str
+    ) -> tuple:
+        """"""
+        return (
+            task_resources_id,
+            queue_id,
+            task_resources_type_id,
+            requested_resources,
+        )
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        """"""
+        return {
+            "task_resources_id": wire_tuple[0],
+            "queue_id": wire_tuple[1],
+            "task_resources_type_id": wire_tuple[2],
+            "requested_resources": wire_tuple[3]
         }
