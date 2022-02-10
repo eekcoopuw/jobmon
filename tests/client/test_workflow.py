@@ -92,7 +92,7 @@ def test_attempt_resume_on_complete_workflow(tool, task_template):
     wf1.bind()
     wfr1 = WorkflowRun(wf1)
     wfr1.bind()
-    wfr1._update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr1._update_status(WorkflowRunStatus.LAUNCHED)
     wfr1._update_status(WorkflowRunStatus.RUNNING)
     wfr1._update_status(WorkflowRunStatus.DONE)

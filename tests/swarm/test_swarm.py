@@ -37,7 +37,7 @@ def test_blocking_update_timeout(tool, task_template):
     wfr = workflow._create_workflow_run()
 
     # Move workflow and wfr through Instantiating -> Launched
-    wfr._update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr._update_status(WorkflowRunStatus.LAUNCHED)
 
     # swarm calls
@@ -336,7 +336,7 @@ def test_callable_returns_valid_object(tool, task_template):
     wfr = workflow._create_workflow_run()
 
     # Move workflow and wfr through Instantiating -> Launched
-    wfr._update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr._update_status(WorkflowRunStatus.LAUNCHED)
 
     # swarm calls

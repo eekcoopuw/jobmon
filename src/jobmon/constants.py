@@ -54,7 +54,7 @@ class WorkflowRunStatus:
     COLD_RESUME = "C"
     HOT_RESUME = "H"
     TERMINATED = "T"
-    INSTANTIATING = "I"
+    INSTANTIATED = "I"
     LAUNCHED = "O"
 
 

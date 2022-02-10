@@ -2,10 +2,8 @@
 from __future__ import annotations
 
 import logging
-import time
-from typing import Any, Dict, List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
 
-from jobmon.cluster_type.base import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
@@ -29,10 +27,7 @@ class DistributorTaskInstance:
         task_instance_id: int,
         workflow_run_id: int,
         status: str,
-        requester: Requester,
-        task_id: Optional[int] = None,
-        array_id: Optional[int] = None,
-        workflow_id: Optional[int] = None,
+        requester: Requester
     ) -> None:
         """Initialization of distributor task instance.
 
@@ -52,35 +47,6 @@ class DistributorTaskInstance:
         self.error_msg = ""
 
         self.requester = requester
-        self.task_id = task_id
-        self.array_id = array_id
-        self.workflow_id = workflow_id
-
-    @classmethod
-    def from_wire(
-        cls: Any, wire_tuple: tuple, requester: Requester
-    ) -> DistributorTaskInstance:
-        """Create an instance from json that the JQS returns.
-
-        Args:
-            wire_tuple: tuple representing the wire format for this
-                task. format = serializers.SerializeTask.to_wire()
-            requester: requester for communicating with central services
-
-        Returns:
-            DistributorTaskInstance
-        """
-        kwargs = SerializeTaskInstance.kwargs_from_wire(wire_tuple)
-        ti = cls(
-            task_instance_id=kwargs["task_instance_id"],
-            workflow_run_id=kwargs["workflow_run_id"],
-            status=kwargs["status"],
-            requester=requester,
-            task_id=kwargs["task_id"],
-            array_id=kwargs["array_id"],
-            workflow_id=kwargs["workflow_id"]
-        )
-        return ti
 
     @property
     def workflow(self) -> DistributorWorkflow:
@@ -124,7 +90,7 @@ class DistributorTaskInstance:
     def requested_resources(self, val: Dict):
         self._requested_resources = val
 
-    def transition_to_instantiated(self) -> DistributorTaskInstance:
+    def transition_to_instantiated(self):
         """Transition current ti to initiated"""
         app_route = f"/task_instance/{self.task_instance_id}/instantiate_task_instance"
         return_code, response = self.requester.send_request(
@@ -136,12 +102,11 @@ class DistributorTaskInstance:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-
-        return DistributorTaskInstance.from_wire(
-            wire_tuple=response["task_instance"],
-            requester=self.requester,
-        )
-
+        kwargs = SerializeTaskInstance.kwargs_from_wire(response["task_instance"])
+        self.task_id = kwargs["task_id"],
+        self.array_id = kwargs["array_id"],
+        self.workflow_id = kwargs["workflow_id"]
+        self.status = TaskInstanceStatus.INSTANTIATED
 
     def transition_to_launched(self, next_report_increment: float) -> None:
         """Register the submission of a new task instance to a cluster."""

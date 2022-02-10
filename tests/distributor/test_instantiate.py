@@ -10,12 +10,11 @@ class MockDistributorProc:
         return True
 
 
-def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
+def test_instantiate_queued_tasks(tool, db_cfg, client_env, task_template):
     """tests that a task can be instantiated and run and log done"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
-    from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 
     t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
     workflow = tool.create_workflow(name="test_instantiate_queued_jobs")
@@ -26,7 +25,7 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
 
     swarm = SwarmWorkflowRun(
         workflow_run_id=wfr.workflow_run_id,
-        requester=workflow.requester,
+        requester=workflow.requester
     )
     swarm.from_workflow(workflow)
     swarm.compute_initial_dag_state()
@@ -40,7 +39,7 @@ def test_instantiate_queued_jobs(tool, db_cfg, client_env, task_template):
 
     distributor_service.set_workflow_run(wfr.workflow_run_id)
 
-    distributor_service.process_next_status()
+    distributor_service.process_status("Q")
 
     # check the job turned into I
     app = db_cfg["app"]

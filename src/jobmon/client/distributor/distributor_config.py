@@ -15,7 +15,6 @@ class DistributorConfig:
         cli = CLI()
 
         ParserDefaults.worker_node_entry_point(cli.parser)
-        ParserDefaults.workflow_run_heartbeat_interval(cli.parser)
         ParserDefaults.task_instance_heartbeat_interval(cli.parser)
         ParserDefaults.heartbeat_report_by_buffer(cli.parser)
         ParserDefaults.distributor_n_queued(cli.parser)
@@ -32,7 +31,6 @@ class DistributorConfig:
 
         return cls(
             worker_node_entry_point=args.worker_node_entry_point,
-            workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
             task_instance_heartbeat_interval=args.task_instance_heartbeat_interval,
             heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
             n_queued=args.distributor_n_queued,
@@ -47,7 +45,6 @@ class DistributorConfig:
 
     def __init__(
         self,
-        workflow_run_heartbeat_interval: int,
         task_instance_heartbeat_interval: int,
         heartbeat_report_by_buffer: float,
         n_queued: int,
@@ -62,7 +59,6 @@ class DistributorConfig:
     ) -> None:
         """Initialization of the distributor config."""
         self.worker_node_entry_point = worker_node_entry_point
-        self.workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
         self.task_instance_heartbeat_interval = task_instance_heartbeat_interval
         self.heartbeat_report_by_buffer = heartbeat_report_by_buffer
         self.n_queued = n_queued

@@ -66,10 +66,10 @@ class DistributorWorkflowRun:
         self.status = status
 
     def transition_to_instantiated(self) -> None:
-        pass
+        self._update_status(WorkflowRunStatus.INSTANTIATED)
 
     def transition_to_launched(self) -> None:
-        pass
+        self._update_status(WorkflowRunStatus.LAUNCHED)
 
     def __hash__(self):
         return self.workflow_run_id

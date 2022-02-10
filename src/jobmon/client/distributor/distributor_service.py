@@ -2,12 +2,10 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
-import time
+import signal
 import sys
-from types import TracebackType
-from typing import Dict, List, Optional, Set, Type
-
-import tblib.pickling_support
+import time
+from typing import Dict, List, Optional, Set
 
 from jobmon.client.distributor.distributor_array import DistributorArray
 from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
@@ -17,30 +15,12 @@ from jobmon.client.distributor.distributor_workflow import DistributorWorkflow
 from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.cluster_type.base import ClusterDistributor
-from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
-from jobmon.exceptions import InvalidResponse, ResumeSet, WorkflowRunStateError
+from jobmon.constants import TaskInstanceStatus
+from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 
 
 logger = logging.getLogger(__name__)
-
-tblib.pickling_support.install()
-
-
-class ExceptionWrapper(object):
-    """Handle exceptions."""
-
-    def __init__(self, ee: Exception) -> None:
-        """Initialization of execution wrapper."""
-        self.ee = ee
-        self.type: Optional[Type[BaseException]]
-        self.value: Optional[BaseException]
-        self.tb: Optional[TracebackType]
-        self.type, self.value, self.tb = sys.exc_info()
-
-    def re_raise(self) -> None:
-        """Raise errors and add their traceback."""
-        raise self.ee.with_traceback(self.tb)
 
 
 class DistributorService:
@@ -65,14 +45,8 @@ class DistributorService:
         self._n_queued = n_queued
         self._distributor_poll_interval = distributor_poll_interval
 
-        # indexing of task instanes by status
-        self._task_instance_status_map: Dict[str, Set[DistributorTaskInstance]] = \
-            {
-                TaskInstanceStatus.QUEUED: set(),
-                TaskInstanceStatus.INSTANTIATED: set(),
-                TaskInstanceStatus.LAUNCHED: set(),
-                TaskInstanceStatus.TRIAGING: set(),
-            }
+        # interrupt signal
+        self._signal_recieved = False
 
         # indexing of task instance by associated id
         self._task_instances: Dict[int, DistributorTaskInstance] = {}
@@ -83,6 +57,13 @@ class DistributorService:
         # work queue
         self.distributor_commands: List[DistributorCommand] = []
 
+        # indexing of task instanes by status
+        self._task_instance_status_map: Dict[str, Set[DistributorTaskInstance]] = {
+            TaskInstanceStatus.QUEUED: set(),
+            TaskInstanceStatus.INSTANTIATED: set(),
+            TaskInstanceStatus.LAUNCHED: set(),
+            TaskInstanceStatus.TRIAGING: set(),
+        }
         # order through which we processes work
         self._status_processing_order = [
             TaskInstanceStatus.QUEUED,
@@ -102,7 +83,7 @@ class DistributorService:
         self._last_status_sync_time = {
             status: dt_string for status in self._status_processing_order
         }
-        self._last_heartbeat_time = datetime.now()
+        self._last_heartbeat_time = time.time()
 
         # cluster API
         self.cluster = cluster
@@ -117,44 +98,79 @@ class DistributorService:
     def set_workflow_run(self, workflow_run_id: int):
         workflow_run = DistributorWorkflowRun(workflow_run_id, self.requester)
         self.workflow_run = workflow_run
+        self.workflow_run.transition_to_instantiated()
 
     def run(self):
-        keep_running = True
-        while keep_running:
-            self.process_next_status()
+        # start the cluster
+        try:
+            self._initialize_signal_handlers()
+            self.cluster.start()
+            self.workflow_run.transition_to_launched()
 
-    def process_next_status(self):
+            # signal via pipe that we are alive
+            sys.stderr.write("ALIVE")
+            sys.stderr.flush()
+
+            # process commands forever
+            while not self._signal_recieved:
+
+                loop_start = time.time()
+
+                # process the next status
+                status = self._status_processing_order.pop(0)
+                self.process_status(status)
+                self._status_processing_order.append(status)
+
+                # log how long the loop took and take a break if needed
+                loop_duration = time.time() - loop_start
+                logger.info(
+                    f"Status processing loop for status={status} took {int(loop_duration)}s."
+                )
+                if loop_duration < self._distributor_poll_interval:
+                    time.sleep(self._distributor_poll_interval - loop_duration)
+
+        finally:
+            # stop distributor
+            self.cluster.stop([])
+
+            # signal via pipe that we are shutdown
+            sys.stderr.write("SHUTDOWN")
+            sys.stderr.flush()
+
+    def process_status(self, status: str):
         """"""
         try:
-            status = self._status_processing_order.pop(0)
 
             # syncronize statuses from the db and get new work
             self._check_for_work(status)
 
-            while self.distributor_commands:
+            while self.distributor_commands and not self._signal_recieved:
                 # check if we need to pause for a heartbeat
-                time_diff = time.time() - self.workflow_run.last_heartbeat
+                time_diff = time.time() - self._last_heartbeat_time
                 if time_diff > self._workflow_run_heartbeat_interval:
                     self.heartbeat()
 
-                # get the first callable and run it
+                # get the first callable and run it. log any errors
                 distributor_command = self.distributor_commands.pop(0)
                 distributor_command()
+                if distributor_command.error_raised:
+                    logger.error(distributor_command.exception)
 
         finally:
             # update task mappings
             self._update_status_map(status)
 
-            self._status_processing_order.append(status)
+            # make sure distributor_commands is empty
+            self.distributor_commands = []
 
     def instantiate_task_instance(self, task_instance: DistributorTaskInstance) -> None:
         # add associations
-        task_instance_initiated = task_instance.transition_to_instantiated()
+        task_instance.transition_to_instantiated()
 
         self._task_instances[task_instance.task_instance_id] = task_instance
-        self._get_task(task_instance_initiated.task_id).add_task_instance(task_instance_initiated)
-        self._get_array(task_instance_initiated.array_id).add_task_instance(task_instance_initiated)
-        self._get_workflow(task_instance_initiated.workflow_id).add_task_instance(task_instance_initiated)
+        self._get_task(task_instance.task_id).add_task_instance(task_instance)
+        self._get_array(task_instance.array_id).add_task_instance(task_instance)
+        self._get_workflow(task_instance.workflow_id).add_task_instance(task_instance)
 
     def launch_array_batch(self, array_batch: DistributorArrayBatch) -> None:
         # record batch info in db
@@ -232,6 +248,24 @@ class DistributorService:
         )
         # 1) build maps between task_instances and distributor_ids
         # 2) log heartbeats for instances.
+
+    def _initialize_signal_handlers(self):
+
+        def handle_sighup(signal, frame):
+            logging.info("received SIGHUP")
+            self._signal_recieved = True
+
+        def handle_sigterm(signal, frame):
+            logging.info("received SIGTERM")
+            self._signal_recieved = True
+
+        def handle_sigint(signal, frame):
+            logging.info("received SIGINT")
+            self._signal_recieved = True
+
+        signal.signal(signal.SIGTERM, handle_sigterm)
+        signal.signal(signal.SIGHUP, handle_sighup)
+        signal.signal(signal.SIGINT, handle_sigint)
 
     def _check_for_work(self, status: str):
         """Got to DB to check the list tis status."""
