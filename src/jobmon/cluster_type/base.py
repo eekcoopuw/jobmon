@@ -183,7 +183,7 @@ class ClusterDistributor(Protocol):
             self, distributor_id: int, array_step_id: int
     ) -> str:
         """Get the subtask_id based on distributor_id and array_step_id."""
-        raise RemoteExitInfoNotAvailable
+        raise NotImplementedError
 
 class ClusterWorkerNode(Protocol):
     """Base class defining interface for gathering executor info in the execution_wrapper.

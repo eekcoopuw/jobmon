@@ -68,7 +68,7 @@ class SequentialDistributor(ClusterDistributor):
             self, distributor_id: int, array_step_id: int
     ) -> str:
         """Get the subtask_id based on distributor_id and array_step_id."""
-        return str(distributor_id)
+        return str(distributor_id) + "." + str(array_step_id+1)
 
     def start(self) -> None:
         """Start the distributor."""
