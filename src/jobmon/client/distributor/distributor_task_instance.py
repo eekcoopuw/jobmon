@@ -120,7 +120,7 @@ class DistributorTaskInstance:
         self.status = TaskInstanceStatus.INSTANTIATED
 
     def transition_to_launched(self, distributor_id: int,
-                               subtask_id: int, next_report_increment: float) -> None:
+                               next_report_increment: float, subtask_id: int = None) -> None:
         """Register the submission of a new task instance to a cluster."""
 
         self.distributor_id = distributor_id

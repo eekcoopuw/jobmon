@@ -205,7 +205,7 @@ class DistributorService:
                                                         task_instance.array_step_id)
                 distributor_command = DistributorCommand(
                     task_instance.transition_to_launched, array_batch.distributor_id,
-                    subtask_id, self._next_report_increment
+                    self._next_report_increment, subtask_id
                 )
                 self.distributor_commands.append(distributor_command)
 
@@ -232,10 +232,9 @@ class DistributorService:
 
         else:
             # move from register queue to launch queue
-            subtask_id = self.cluster.get_subtask_id(task_instance.distributor_id,
-                                                     task_instance.array_step_id)
-            task_instance.transition_to_launched(task_instance.distributor_id, subtask_id,
-                                                 self._next_report_increment)
+            task_instance.transition_to_launched(task_instance.distributor_id,
+                                                 self._next_report_increment
+                                                )
 
     def triage_error(self, task_instance: DistributorTaskInstance) -> None:
         r_value, r_msg = self.cluster.get_remote_exit_info(task_instance.distributor_id)
