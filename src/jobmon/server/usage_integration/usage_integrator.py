@@ -161,15 +161,7 @@ def _get_squid_resource(item: QueuedTI, session: Session) -> Optional[dict]:
                 if tres["type"] == "mem":
                     usage_stats["mem"] += tres["count"]
 
-        usage_stats["runtime"] = (
-            job.time.total.microseconds / 1_000_000 + job.time.total.seconds
-        )
-
-        if usage_stats["runtime"] == 0:
-            for step in job.steps:
-                usage_stats["runtime"] += (
-                    step.time.total.microseconds / 1_000_000 + step.time.total.seconds
-                )
+        usage_stats["runtime"] = job.time.elapsed
 
     # rename keys by copying
     # Guard against null returns

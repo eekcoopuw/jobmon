@@ -84,6 +84,7 @@ def test_get_slurm_resource_usages_on_slum():
             d = _get_squid_resource(qti)
             assert d["maxrss"] > 0
             assert d["wallclock"] > 0
+            breakpoint()
 
 
 @pytest.mark.skip(
