@@ -42,6 +42,8 @@ class DistributorTaskInstance:
         self.status = status
 
         self._requested_resources: Dict = {}
+        self._array_batch = None
+        self._array_step_id = None
 
         self.error_state = ""
         self.error_msg = ""
@@ -86,6 +88,14 @@ class DistributorTaskInstance:
             # TODO: actually load them
             self._requested_resources = {}
 
+    @property
+    def array_step_id(self) -> int:
+        return self._array_step_id
+
+    @array_step_id.setter
+    def array_step_id(self, val: int):
+        self._array_step_id = val
+
     @requested_resources.setter
     def requested_resources(self, val: Dict):
         self._requested_resources = val
@@ -103,20 +113,23 @@ class DistributorTaskInstance:
                 f"code 200. Response content: {response}"
             )
         kwargs = SerializeTaskInstance.kwargs_from_wire(response["task_instance"])
-        self.task_id = kwargs["task_id"],
-        self.array_id = kwargs["array_id"],
+        self.task_id = kwargs["task_id"]
+        self.array_id = kwargs["array_id"]
         self.workflow_id = kwargs["workflow_id"]
+        self.task_resources_id = kwargs["task_resources_id"]
         self.status = TaskInstanceStatus.INSTANTIATED
 
-    def transition_to_launched(self, next_report_increment: float) -> None:
+    def transition_to_launched(self, distributor_id: int,
+                               next_report_increment: float, subtask_id: int = None) -> None:
         """Register the submission of a new task instance to a cluster."""
 
+        self.distributor_id = distributor_id
         app_route = f"/task_instance/{self.task_instance_id}/log_distributor_id"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
-                "distributor_id": str(self.distributor_id),
-                "subtask_id": str(self.subtask_id),
+                "distributor_id": str(distributor_id),
+                "subtask_id": str(subtask_id),
                 "next_report_increment": next_report_increment,
             },
             request_type="post",
@@ -128,6 +141,8 @@ class DistributorTaskInstance:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
+
+        self.status = TaskInstanceStatus.LAUNCHED
 
     def transition_to_no_distributor_id(
         self,

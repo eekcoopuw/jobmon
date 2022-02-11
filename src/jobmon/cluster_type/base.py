@@ -178,6 +178,12 @@ class ClusterDistributor(Protocol):
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         return str_cmd
 
+    @abstractmethod
+    def get_subtask_id(
+            self, distributor_id: int, array_step_id: int
+    ) -> str:
+        """Get the subtask_id based on distributor_id and array_step_id."""
+        raise NotImplementedError
 
 class ClusterWorkerNode(Protocol):
     """Base class defining interface for gathering executor info in the execution_wrapper.

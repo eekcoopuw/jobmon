@@ -77,6 +77,7 @@ from jobmon.server.web.routes import (
     node,
     task,
     task_instance,
+    task_resources,
     task_template,
     tool,
     tool_version,

@@ -3,6 +3,7 @@ import time
 
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeDistributorTask
+from jobmon.constants import TaskInstanceStatus
 
 
 class MockDistributorProc:
@@ -54,6 +55,39 @@ def test_instantiate_queued_tasks(tool, db_cfg, client_env, task_template):
         DB.session.commit()
     assert res[0] == "I"
 
+    # Queued status should have turned into Instantiated status as well.
+    assert \
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 0
+    assert \
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]) \
+        == 1
+    assert \
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) \
+        == 0
+
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+
+    # check the job to be Launched
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+        SELECT task_instance.status
+        FROM task_instance
+        WHERE task_id = :task_id"""
+        res = DB.session.execute(sql, {"task_id": t1.task_id}).fetchone()
+        print(f"foo {res}")
+        DB.session.commit()
+    assert res[0] == "D"
+
+    # Instantiated status should have turned into Launched status as well.
+    assert \
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 0
+    assert \
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]) == 0
+    assert \
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) \
+        == 1
 
 def test_n_queued(tool, db_cfg, client_env, task_template):
     """tests that we only return a subset of queued jobs based on the n_queued
