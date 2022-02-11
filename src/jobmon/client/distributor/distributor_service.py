@@ -187,7 +187,7 @@ class DistributorService:
         except NotImplementedError:
             # create DistributorCommands to submit the launch if array isn't implemented
             for task_instance in array_batch.task_instances:
-                distributor_command = DistributorCommand(self.launch_task_instance)
+                distributor_command = DistributorCommand(self.launch_task_instance, task_instance)
                 self.distributor_commands.append(distributor_command)
 
         except Exception as e:
