@@ -148,9 +148,9 @@ requested resources, for example:
       example_tool_name:
           # buster corresponds to a cluster in the Jobmon database
           buster:
-            num_cores: 1
-            m_mem_free: "1G"
-            max_runtime_seconds: (60 * 60 * 24 * 7)
+            cores: 1
+            memory: "1G"
+            runtime: (60 * 60 * 24 * 7)
             queue: "null.q"
           # slurm corresponds to a cluster in the Jobmon database
           slurm:
