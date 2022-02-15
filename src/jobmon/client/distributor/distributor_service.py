@@ -195,7 +195,7 @@ class DistributorService:
         except NotImplementedError:
             # create DistributorCommands to submit the launch if array isn't implemented
             for task_instance in array_batch.task_instances:
-                distributor_command = DistributorCommand(self.launch_task_instance, task_instance)
+                distributor_command = DistributorCommand(self.launch_task_instance, task_instance, array_batch.name)
                 self.distributor_commands.append(distributor_command)
 
         except Exception as e:
@@ -217,7 +217,7 @@ class DistributorService:
                 )
                 self.distributor_commands.append(distributor_command)
 
-    def launch_task_instance(self, task_instance: DistributorTaskInstance) -> None:
+    def launch_task_instance(self, task_instance: DistributorTaskInstance, name: str) -> None:
         """
         submits a task instance on a given distributor.
         adds the new task instance to self.submitted_or_running_task_instances
@@ -231,7 +231,7 @@ class DistributorService:
         try:
             task_instance.distributor_id = self.cluster.submit_to_batch_distributor(
                 command=command,
-                name=task_instance.name,
+                name=name,
                 requested_resources=task_instance.requested_resources
             )
 
@@ -252,8 +252,25 @@ class DistributorService:
         task_instances = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED].union(
             self._task_instance_status_map[TaskInstanceStatus.RUNNING]
         )
-        # 1) build maps between task_instances and distributor_ids
-        # 2) log heartbeats for instances.
+
+        task_instance_id_to_distributor_id_array_step_id_map: Dict[int, Tuple[int, int]] = {}
+        for task_instance in task_instances:
+            task_instance_id_to_distributor_id_array_step_id_map[task_instance.task_instance_id]\
+                = (task_instance.distributor_id, task_instance.array_step_id)
+
+        task_instance_ids = list(task_instance_id_to_distributor_id_array_step_id_map.keys())
+
+        """Log the heartbeat to show that the task instance is still alive."""
+        logger.debug(f"Logging heartbeat for task_instance {task_instance_ids}")
+        message: Dict = {"next_report_increment": self._next_report_increment,
+                         "task_instance_ids": task_instance_ids}
+        rc, _ = self.requester.send_request(
+            app_route=f"/task_instance/log_report_by/batch",
+            message=message,
+            request_type="post",
+            logger=logger,
+        )
+
 
     def _initialize_signal_handlers(self):
 
