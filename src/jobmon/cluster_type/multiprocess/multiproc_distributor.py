@@ -274,13 +274,14 @@ class MultiprocessDistributor(ClusterDistributor):
         for task in current_work:
             self.task_queue.put(task)
 
-    def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
+    def get_submitted_or_running(self, distributor_ids: List[int]) ->\
+            Set[Tuple[int, Optional[int]]]:
         """Get tasks that are active."""
         self._update_internal_states()
         # keys: Tuple[int, Optional[int]] = (distributor_id, array_step_id)
         keys = self._running_or_submitted.keys()
-        # return unique distributor_ids
-        return list(set([x[0] for x in keys]))
+        # return a set of tuples(distributor_id, array_step_id(optional))
+        return keys
 
     def submit_to_batch_distributor(
         self, command: str, name: str, requested_resources: dict

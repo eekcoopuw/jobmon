@@ -249,21 +249,23 @@ class DistributorService:
         task_instance.transition_to_error(r_msg, r_value)
 
     def log_task_instance_report_by_date(self) -> None:
-        task_instances = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED].union(
-            self._task_instance_status_map[TaskInstanceStatus.RUNNING]
-        )
+        task_instances_launched = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
 
-        task_instance_id_to_distributor_id_array_step_id_map: Dict[int, Tuple[int, int]] = {}
-        for task_instance in task_instances:
-            task_instance_id_to_distributor_id_array_step_id_map[task_instance.task_instance_id]\
-                = (task_instance.distributor_id, task_instance.array_step_id)
+        distributor_ids_launched = list(set([x.distributor_id for x in task_instances_launched]))
 
-        task_instance_ids = list(task_instance_id_to_distributor_id_array_step_id_map.keys())
+        submitted_or_running = \
+            self.cluster.get_submitted_or_running(distributor_ids=distributor_ids_launched)
+
+        task_instance_ids_to_heartbeat: List[int] = []
+
+        for task_instance_launched in task_instances_launched:
+            if (task_instance_launched.distributor_id, task_instance_launched.array_step_id) in submitted_or_running:
+                task_instance_ids_to_heartbeat.append(task_instance_launched.task_instance_id)
 
         """Log the heartbeat to show that the task instance is still alive."""
-        logger.debug(f"Logging heartbeat for task_instance {task_instance_ids}")
+        logger.debug(f"Logging heartbeat for task_instance {task_instance_ids_to_heartbeat}")
         message: Dict = {"next_report_increment": self._next_report_increment,
-                         "task_instance_ids": task_instance_ids}
+                         "task_instance_ids": task_instance_ids_to_heartbeat}
         rc, _ = self.requester.send_request(
             app_route=f"/task_instance/log_report_by/batch",
             message=message,

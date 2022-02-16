@@ -3,7 +3,7 @@ from collections import OrderedDict
 import logging
 import os
 import shutil
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
@@ -105,13 +105,14 @@ class SequentialDistributor(ClusterDistributor):
         except KeyError:
             raise RemoteExitInfoNotAvailable
 
-    def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
+    def get_submitted_or_running(self, distributor_ids: List[int]) -> \
+            Set[Tuple[int, Optional[int]]]:
         """Check status of running task."""
         running = os.environ.get("JOB_ID")
         if running:
-            return [int(running)]
+            return set([(int(running), None)])
         else:
-            return []
+            return set()
 
     def terminate_task_instances(self, distributor_ids: List[int]) -> None:
         """Terminate task instances.
