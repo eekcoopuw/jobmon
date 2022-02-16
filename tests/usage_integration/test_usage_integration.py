@@ -196,7 +196,7 @@ def test_get_slurm_api_host(db_cfg):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        sql = """UPDATE cluster 
+        sql = """UPDATE cluster
              SET connection_parameters = '{"slurm_rest_host": "https://api-stage.cluster.ihme.washington.edu", "slurmtool_token_host": "https://slurmtool-stage.ihme.washington.edu/api/v1/token/"}'
              """
         DB.session.execute(sql)
