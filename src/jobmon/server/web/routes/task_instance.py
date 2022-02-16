@@ -203,13 +203,15 @@ def log_ti_report_by_batch() -> Any:
     data = request.get_json()
     tis = data.get("task_instance_ids", None)
 
+    next_report_increment = data.get("next_report_increment")
+
     logger.debug(f"Log report_by for TI {tis}.")
     if tis:
         query = f"""
             UPDATE task_instance
             SET report_by_date = ADDTIME(
-                CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
-            WHERE task_instance.id in str(tis).replace("[", "(").replace("]", ")")"""
+                CURRENT_TIMESTAMP(), SEC_TO_TIME({next_report_increment}))
+            WHERE task_instance.id in {str(tis).replace("[", "(").replace("]", ")")}"""
 
         DB.session.execute(query)
         DB.session.commit()

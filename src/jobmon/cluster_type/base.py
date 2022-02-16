@@ -95,9 +95,15 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def get_submitted_or_running(
-            self, distributor_ids: List[Union[int, str]]
-    ) -> List[Union[int, str]]:
-        """Check which task instances are active."""
+            self, distributor_ids: List[int]
+    ) -> Set[Tuple[int, Optional[int]]]:
+        """Check which task instances are active.
+
+        Returns: a set of tuples(
+            distributor_id,
+            array_step_id(optional, has value only for array cases)
+            )
+        """
         raise NotImplementedError
 
     @abstractmethod

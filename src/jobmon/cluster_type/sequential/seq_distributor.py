@@ -3,7 +3,7 @@ from collections import OrderedDict
 import logging
 import os
 import shutil
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
@@ -105,13 +105,14 @@ class SequentialDistributor(ClusterDistributor):
         except KeyError:
             raise RemoteExitInfoNotAvailable
 
-    def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
+    def get_submitted_or_running(self, distributor_ids: List[int]) -> \
+            Set[Tuple[int, Optional[int]]]:
         """Check status of running task."""
         running = os.environ.get("JOB_ID")
         if running:
-            return [int(running)]
+            return set([(int(running), None)])
         else:
-            return []
+            return set()
 
     def terminate_task_instances(self, distributor_ids: List[int]) -> None:
         """Terminate task instances.
@@ -150,28 +151,8 @@ class SequentialDistributor(ClusterDistributor):
     def submit_array_to_batch_distributor(
         self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
     ) -> int:
-        """Submit an array task to the sequential cluster."""
-        os.environ["JOB_ID"] = str(self._next_distributor_id)
-        distributor_id = str(self._next_distributor_id)
-        self._next_distributor_id += 1
-
-        # Reset the worker node counter each time an array is launched.
-        SequentialWorkerNode.STEP_ID_GENERATOR = 1
-
-        # run the job and log the exit code
-        for _ in range(array_length):
-            full_distributor_id = f"{distributor_id}.{SequentialWorkerNode.STEP_ID_GENERATOR}"
-            try:
-                cli = WorkerNodeCLI()
-                args = cli.parse_args(command)
-                exit_code: Union[int, ReturnCodes] = cli.run_task(args)
-            except SystemExit as e:
-                if e.code == ReturnCodes.WORKER_NODE_CLI_FAILURE:
-                    exit_code = e.code
-                else:
-                    raise
-            self._exit_info[full_distributor_id] = exit_code
-        return distributor_id
+        """For SequentialDistributor, there is no array to speak of."""
+        raise NotImplementedError
 
 
 class SequentialWorkerNode(ClusterWorkerNode):

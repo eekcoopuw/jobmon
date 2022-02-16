@@ -5,7 +5,7 @@ import os
 import queue
 import shutil
 import subprocess
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 import psutil
 
@@ -160,6 +160,12 @@ class MultiprocessDistributor(ClusterDistributor):
         """Return the name of the cluster type."""
         return "multiprocess"
 
+    def get_subtask_id(
+            self, distributor_id: int, array_step_id: int
+    ) -> str:
+        """Get the subtask_id based on distributor_id and array_step_id."""
+        return str(distributor_id) + "." + str(array_step_id+1)
+
     def start(self) -> None:
         """Fire up N task consuming processes using Multiprocessing.
 
@@ -268,13 +274,14 @@ class MultiprocessDistributor(ClusterDistributor):
         for task in current_work:
             self.task_queue.put(task)
 
-    def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
+    def get_submitted_or_running(self, distributor_ids: List[int]) ->\
+            Set[Tuple[int, Optional[int]]]:
         """Get tasks that are active."""
         self._update_internal_states()
         # keys: Tuple[int, Optional[int]] = (distributor_id, array_step_id)
         keys = self._running_or_submitted.keys()
-        # return unique distributor_ids
-        return list(set([x[0] for x in keys]))
+        # return a set of tuples(distributor_id, array_step_id(optional))
+        return keys
 
     def submit_to_batch_distributor(
         self, command: str, name: str, requested_resources: dict
@@ -314,6 +321,11 @@ class MultiprocessDistributor(ClusterDistributor):
     def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
         """Get the task instances that have errored out."""
         return {}
+
+    def get_array_queueing_errors(
+            self, distributor_id: Union[int, str]
+    ) -> Dict[Union[int, str], str]:
+        raise NotImplementedError
 
     def get_remote_exit_info(
         self, distributor_id: int, array_step_id: Optional[int] = None

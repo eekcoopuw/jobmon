@@ -11,16 +11,17 @@ class MockDistributorProc:
         return True
 
 
-def test_instantiate_queued_tasks(tool, db_cfg, client_env, task_template):
+def test_instantiate_queued_tasks_on_sequential(tool, db_cfg, client_env, task_template):
     """tests that a task can be instantiated and run and log done"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
     t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
-    workflow = tool.create_workflow(name="test_instantiate_queued_jobs")
+    t2 = task_template.create_task(arg="echo 2", cluster_name="sequential")
+    workflow = tool.create_workflow(name="test_instantiate_queued_jobs_on_sequential")
 
-    workflow.add_tasks([t1])
+    workflow.add_tasks([t1, t2])
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
@@ -47,20 +48,109 @@ def test_instantiate_queued_tasks(tool, db_cfg, client_env, task_template):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-        SELECT task_instance.status
+        SELECT id, task_instance.status
         FROM task_instance
-        WHERE task_id = :task_id"""
-        res = DB.session.execute(sql, {"task_id": t1.task_id}).fetchone()
+        WHERE task_id in :task_ids
+        ORDER BY id"""
+        res = DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]}).all()
         print(f"foo {res}")
         DB.session.commit()
-    assert res[0] == "I"
+
+    assert len(res) == 2
+    assert res[0][1] == "I"
+    assert res[1][1] == "I"
 
     # Queued status should have turned into Instantiated status as well.
     assert \
         len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 0
     assert \
         len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]) \
-        == 1
+        == 2
+    assert \
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) \
+        == 0
+
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+
+    # Once processed from INSTANTIATED, the sequential (being a single process), would
+    # carry it all the way through to D
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+        SELECT id, task_instance.status
+        FROM task_instance
+        WHERE task_id in :task_ids
+        ORDER BY id"""
+        res = DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]}).all()
+        print(f"foo {res}")
+        DB.session.commit()
+
+    assert len(res) == 2
+    assert res[0][1] == "D"
+    assert res[1][1] == "D"
+
+
+def test_instantiate_queued_tasks_on_multiprocess(tool, db_cfg, client_env, task_template):
+    """tests that a task can be instantiated and run and log done"""
+    from datetime import datetime
+    from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
+
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="multiprocess", compute_resources={"queue": "null.q"}
+    )
+
+    t1 = task_template.create_task(arg="echo 1", cluster_name="multiprocess")
+    t2 = task_template.create_task(arg="echo 2", cluster_name="multiprocess")
+    workflow = tool.create_workflow(name="test_instantiate_queued_jobs_on_multiprocess")
+
+    workflow.add_tasks([t1, t2])
+    workflow.bind()
+    wfr = workflow._create_workflow_run()
+
+    swarm = SwarmWorkflowRun(
+        workflow_run_id=wfr.workflow_run_id,
+        requester=workflow.requester
+    )
+    swarm.from_workflow(workflow)
+    swarm.compute_initial_dag_state()
+    list(swarm.queue_tasks())  # expand the generator
+
+    requester = Requester(client_env)
+    distributor_service = DistributorService(
+        MultiprocessDistributor(),
+        requester=requester,
+    )
+
+    distributor_service.set_workflow_run(wfr.workflow_run_id)
+
+    distributor_service.process_status("Q")
+
+    # check the job turned into I
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+        SELECT id, task_instance.status
+        FROM task_instance
+        WHERE task_id in :task_ids
+        ORDER BY id"""
+        res = DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]}).all()
+        print(f"foo {res}")
+        DB.session.commit()
+
+    assert len(res) == 2
+    assert res[0][1] == "I"
+    assert res[1][1] == "I"
+
+    # Queued status should have turned into Instantiated status as well.
+    assert \
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 0
+    assert \
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]) \
+        == 2
     assert \
         len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) \
         == 0
@@ -72,22 +162,39 @@ def test_instantiate_queued_tasks(tool, db_cfg, client_env, task_template):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-        SELECT task_instance.status
+        SELECT id, task_instance.status
         FROM task_instance
-        WHERE task_id = :task_id"""
-        res = DB.session.execute(sql, {"task_id": t1.task_id}).fetchone()
+        WHERE task_id in :task_ids
+        ORDER BY id"""
+        res = DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]}).all()
         print(f"foo {res}")
         DB.session.commit()
-    assert res[0] == "D"
 
-    # Instantiated status should have turned into Launched status as well.
-    assert \
-        len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 0
-    assert \
-        len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]) == 0
-    assert \
-        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) \
-        == 1
+    assert len(res) == 2
+    assert res[0][1] == "O"
+    assert res[1][1] == "O"
+
+    # check the report_by_date based on time_base
+    time_base = datetime.now()
+
+    distributor_service.log_task_instance_report_by_date()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+        SELECT id, task_instance.status, report_by_date
+        FROM task_instance
+        WHERE task_id in :task_ids
+        ORDER BY id"""
+        res = DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]}).all()
+        print(f"foo {res}")
+        DB.session.commit()
+
+    assert len(res) == 2
+    assert res[0][2] > time_base
+    assert res[1][2] > time_base
+
 
 def test_n_queued(tool, db_cfg, client_env, task_template):
     """tests that we only return a subset of queued jobs based on the n_queued
