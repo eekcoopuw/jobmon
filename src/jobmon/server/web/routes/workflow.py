@@ -287,11 +287,12 @@ def set_resume(workflow_id: int) -> Any:
     DB.session.commit()
     logger.info(f"Resume set for wf {workflow_id}")
 
-    # update attributes
+    # upsert attributes
     if workflow_attributes:
-        logger.info("Update attributes for workflow")
-        _add_workflow_attributes(workflow.id, workflow_attributes)
-        DB.session.commit()
+        logger.info("Upsert attributes for workflow")
+        if workflow_attributes:
+            for name, val in workflow_attributes.items():
+                _upsert_wf_attribute(workflow_id, name, val)
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
