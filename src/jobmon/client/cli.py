@@ -63,11 +63,14 @@ class ClientCLI(CLI):
         self._add_create_resource_yaml_subparser()
 
     @staticmethod
-    def limit_checker(limit) -> int:
+    def limit_checker(limit: Any) -> int:
+        """Coerce to int and check that the limit is greater than 0."""
         limit = int(limit)
         if limit <= 0:
-            raise argparse.ArgumentTypeError(f"Limit value must be greater than 0. The limit "
-                                             f"value passed in was: {limit}")
+            raise argparse.ArgumentTypeError(
+                f"Limit value must be greater than 0. The limit "
+                f"value passed in was: {limit}"
+            )
         return limit
 
     @staticmethod
@@ -77,7 +80,9 @@ class ClientCLI(CLI):
         from jobmon.client.status_commands import workflow_status as workflow_status_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = workflow_status_cmd(args.workflow_id, args.user, args.json, cc.url, args.limit)
+        df = workflow_status_cmd(
+            args.workflow_id, args.user, args.json, cc.url, args.limit
+        )
         if args.json:
             print(df)
         else:
@@ -90,7 +95,9 @@ class ClientCLI(CLI):
         from jobmon.client.status_commands import workflow_tasks as workflow_tasks_cmd
 
         cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = workflow_tasks_cmd(args.workflow_id, args.status, args.json, cc.url, args.limit)
+        df = workflow_tasks_cmd(
+            args.workflow_id, args.status, args.json, cc.url, args.limit
+        )
         if args.json:
             print(df)
         else:

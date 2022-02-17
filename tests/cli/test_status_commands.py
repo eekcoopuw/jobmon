@@ -64,18 +64,32 @@ def capture_stdout(function, arguments):
     output_lines = string_df.split("\n")
 
     # Filter out any lines that make up the box around the table or between header and data
-    filtered_output_lines = filter(lambda x: ("--" not in x) or (x == "\n"), output_lines)
+    filtered_output_lines = filter(
+        lambda x: ("--" not in x) or (x == "\n"), output_lines
+    )
 
     # Merge the lines back into one string (newlines are preserved from before)
     join_filter_output_lines = "\n".join(filtered_output_lines)
 
     # Use the first row as the headers.
-    header = (pd.read_csv(StringIO(join_filter_output_lines), sep=r'\|', engine='python',
-                          nrows=1, header=None, dtype=str).dropna(how='all', axis=1))
+    header = pd.read_csv(
+        StringIO(join_filter_output_lines),
+        sep=r"\|",
+        engine="python",
+        nrows=1,
+        header=None,
+        dtype=str,
+    ).dropna(how="all", axis=1)
 
     # Extract the data (everything after row 1).
-    data = (pd.read_csv(StringIO(join_filter_output_lines), sep=r'\|', engine='python',
-                        skiprows=1, header=None, dtype=str).dropna(how='all', axis=1))
+    data = pd.read_csv(
+        StringIO(join_filter_output_lines),
+        sep=r"\|",
+        engine="python",
+        skiprows=1,
+        header=None,
+        dtype=str,
+    ).dropna(how="all", axis=1)
 
     # Iterate over each column in the data and strip out the whitespace from the data
     for col in data.columns:
