@@ -13,6 +13,7 @@ from jobmon.worker_node.cli import WorkerNodeCLI
 
 logger = logging.getLogger(__name__)
 
+
 class LimitedSizeDict(OrderedDict):
     """Dictionary for exit info."""
 
@@ -77,12 +78,12 @@ class SequentialDistributor(ClusterDistributor):
         raise NotImplementedError
 
     def get_array_queueing_errors(
-            self, distributor_id: Union[int, str]
+        self, distributor_id: Union[int, str]
     ) -> Dict[Union[int, str], str]:
         raise NotImplementedError
 
     def get_remote_exit_info(
-            self, distributor_id: str, array_step_id: Optional[int] = None
+        self, distributor_id: str, array_step_id: Optional[int] = None
     ) -> Tuple[str, str]:
         """Get exit info from task instances that have run."""
         if array_step_id is not None:
@@ -119,7 +120,11 @@ class SequentialDistributor(ClusterDistributor):
         )
 
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int = 0
+        self,
+        command: str,
+        name: str,
+        requested_resources: Dict[str, Any],
+        array_length: int = 0,
     ) -> int:
         """Execute sequentially."""
         # add an executor id to the environment
@@ -142,7 +147,11 @@ class SequentialDistributor(ClusterDistributor):
         return distributor_id
 
     def submit_array_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
+        self,
+        command: str,
+        name: str,
+        requested_resources: Dict[str, Any],
+        array_length: int,
     ) -> int:
         """Submit an array task to the sequential cluster."""
         os.environ["JOB_ID"] = str(self._next_distributor_id)
@@ -154,7 +163,9 @@ class SequentialDistributor(ClusterDistributor):
 
         # run the job and log the exit code
         for _ in range(array_length):
-            full_distributor_id = f"{distributor_id}.{SequentialWorkerNode.STEP_ID_GENERATOR}"
+            full_distributor_id = (
+                f"{distributor_id}.{SequentialWorkerNode.STEP_ID_GENERATOR}"
+            )
             try:
                 cli = WorkerNodeCLI()
                 args = cli.parse_args(command)
@@ -170,6 +181,7 @@ class SequentialDistributor(ClusterDistributor):
 
 class SequentialWorkerNode(ClusterWorkerNode):
     """Get Executor Info for a Task Instance."""
+
     STEP_ID_GENERATOR = 1
 
     def __init__(self) -> None:
@@ -205,4 +217,3 @@ class SequentialWorkerNode(ClusterWorkerNode):
     def subtask_id(self) -> str:
         """Subtask ID, in the format of 1234.1"""
         return str(self.distributor_id) + "." + str(self.array_step_id)
-

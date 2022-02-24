@@ -467,7 +467,7 @@ def queue_task(task_id: int) -> Any:
         cluster_id=data["cluster_id"],
         task_id=task.id,
         task_resources_id=task.task_resources_id,
-        status=TaskInstanceStatus.QUEUED
+        status=TaskInstanceStatus.QUEUED,
     )
     DB.session.add(ti)
 
@@ -966,6 +966,7 @@ def get_task_resource_usage() -> Any:
     resp = jsonify(resource_usage)
     resp.status_code = StatusCodes.OK
     return resp
+
 
 @finite_state_machine.route("/task/<task_id>", methods=["GET"])
 def get_task(task_id: int) -> Any:

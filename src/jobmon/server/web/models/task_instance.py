@@ -28,9 +28,17 @@ class TaskInstance(DB.Model):
     def to_wire_as_distributor_task_instance(self) -> Tuple:
         """Serialize task instance object."""
         return SerializeTaskInstance.to_wire(
-            self.id, self.task_id, self.workflow_run_id, self.task.workflow_id,
-            self.status, self.distributor_id, self.cluster_id,
-            self.array_id, self.array_batch_num, self.array_step_id, self.subtask_id
+            self.id,
+            self.task_id,
+            self.workflow_run_id,
+            self.task.workflow_id,
+            self.status,
+            self.distributor_id,
+            self.cluster_id,
+            self.array_id,
+            self.array_batch_num,
+            self.array_step_id,
+            self.subtask_id,
         )
 
     id = DB.Column(DB.Integer, primary_key=True)
@@ -185,7 +193,9 @@ class TaskInstance(DB.Model):
         )
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
-            logger.info(f"Transitioning task_instance from {self.status} to {new_state}")
+            logger.info(
+                f"Transitioning task_instance from {self.status} to {new_state}"
+            )
             self.status = new_state
             self.status_date = func.now()
             if new_state == TaskInstanceStatus.QUEUED:

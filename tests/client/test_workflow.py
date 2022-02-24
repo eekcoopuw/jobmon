@@ -386,12 +386,16 @@ def test_workflow_validation(db_cfg, client_env, tool, task_template, capsys):
     # Without fail set, validate and check coercion
     wf1.validate(fail=False)
     captured = capsys.readouterr()
-    assert "Failed validation, reasons: ResourceError: provided cores 1000" in captured.out
+    assert (
+        "Failed validation, reasons: ResourceError: provided cores 1000" in captured.out
+    )
 
     # Try again for idempotency
     wf1.validate(fail=False)
     captured = capsys.readouterr()
-    assert "Failed validation, reasons: ResourceError: provided cores 1000" in captured.out
+    assert (
+        "Failed validation, reasons: ResourceError: provided cores 1000" in captured.out
+    )
 
     # Try with valid resources
     t2 = task_template.create_task(
@@ -491,7 +495,10 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
     app_route = f"/task_instance/{ti_id_a}/log_error_worker_node"
     return_code, _ = workflow1.requester.send_request(
         app_route=app_route,
-        message={"error_state": TaskInstanceStatus.ERROR, "error_message": "bla bla bla"},
+        message={
+            "error_state": TaskInstanceStatus.ERROR,
+            "error_message": "bla bla bla",
+        },
         request_type="post",
     )
     assert return_code == 200
@@ -532,10 +539,15 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
 def test_fall_back_queue(db_cfg, client_env, tool, task_template):
     """Test of bugfix in GBDSCI-4153."""
     from jobmon.cluster_type.sequential.seq_queue import SequentialQueue
-    workflow = tool.create_workflow(name="test_fallback", workflow_args="fallback",
-                                    default_cluster_name="sequential")
-    fallback_task = task_template.create_task(arg="echo a", name="fallback_task",
-                                              fallback_queues=["null2.q"])
+
+    workflow = tool.create_workflow(
+        name="test_fallback",
+        workflow_args="fallback",
+        default_cluster_name="sequential",
+    )
+    fallback_task = task_template.create_task(
+        arg="echo a", name="fallback_task", fallback_queues=["null2.q"]
+    )
     workflow.add_tasks([fallback_task])
     workflow.bind()
     workflow._create_workflow_run()

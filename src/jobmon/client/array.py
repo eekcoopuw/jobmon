@@ -101,7 +101,9 @@ class Array:
         if self._task_resources is not None:
             return self._task_resources
         else:
-            raise AttributeError("Task resources cannot be accessed before it is assigned")
+            raise AttributeError(
+                "Task resources cannot be accessed before it is assigned"
+            )
 
     @task_resources.setter
     def task_resources(self, task_resources: TaskResources) -> None:
@@ -121,13 +123,15 @@ class Array:
 
         E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}"""
         try:
-            resources = self.workflow.default_compute_resources_set.get(self.cluster_name, {}
-                                                                        ).copy()
+            resources = self.workflow.default_compute_resources_set.get(
+                self.cluster_name, {}
+            ).copy()
         except AttributeError:
             resources = {}
         resources.update(
-            self.task_template_version.default_compute_resources_set.get(self.cluster_name, {}
-                                                                         ).copy()
+            self.task_template_version.default_compute_resources_set.get(
+                self.cluster_name, {}
+            ).copy()
         )
         resources.update(self._instance_compute_resource.copy())
         return resources

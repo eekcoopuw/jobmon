@@ -20,7 +20,10 @@ class DistributorCLI(CLI):
 
     def distributor(self, args: configargparse.Namespace) -> None:
         """Configuration for the jobmon worker node."""
-        from jobmon.client.distributor.api import get_distributor_service, DistributorConfig
+        from jobmon.client.distributor.api import (
+            get_distributor_service,
+            DistributorConfig,
+        )
 
         distributor_config = DistributorConfig(
             worker_node_entry_point=args.worker_node_entry_point,

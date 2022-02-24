@@ -356,13 +356,15 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/workflow_run/<workflow_run_id>/sync_status", methods=["POST"])
+@finite_state_machine.route(
+    "/workflow_run/<workflow_run_id>/sync_status", methods=["POST"]
+)
 def task_instances_status_check(workflow_run_id: int) -> Any:
     """Sync status of given task intance IDs."""
     data = request.get_json()
     last_sync = data["last_sync"]
-    task_instance_ids_list = data['task_instance_ids']
-    status = data['status']
+    task_instance_ids_list = data["task_instance_ids"]
+    status = data["status"]
 
     # get time from db
     db_time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()["t"]
@@ -371,7 +373,7 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
 
     return_dict = dict()
     if len(task_instance_ids_list) > 0:
-        task_instance_ids = ",".join(f'{x}' for x in task_instance_ids_list)
+        task_instance_ids = ",".join(f"{x}" for x in task_instance_ids_list)
 
         # Filters for
         # 1) instances that have changed out of the declared status

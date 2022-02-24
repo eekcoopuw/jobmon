@@ -67,7 +67,9 @@ class WorkflowRun(object):
     def workflow_id(self):
         return self._workflow.workflow_id
 
-    def bind(self, reset_if_running: bool = True, chunk_size: int = 500) -> Dict[int, Task]:
+    def bind(
+        self, reset_if_running: bool = True, chunk_size: int = 500
+    ) -> Dict[int, Task]:
         """Link this workflow run with the workflow and add all tasks."""
         next_report_increment = (
             self.heartbeat_interval * self.heartbeat_report_by_buffer
@@ -258,7 +260,7 @@ class WorkflowRun(object):
         except KeyError:
             task_resources = TaskResources(
                 concrete_resources=concrete_resources,
-                task_resources_type_id=TaskResourcesType.ORIGINAL
+                task_resources_type_id=TaskResourcesType.ORIGINAL,
             )
             task_resources.bind()
             self._task_resources[hash(task_resources)] = task_resources

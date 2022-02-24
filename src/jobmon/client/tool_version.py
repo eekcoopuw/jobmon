@@ -66,9 +66,7 @@ class ToolVersion:
         return tool_version
 
     @classmethod
-    def from_wire(
-        cls: Type[ToolVersion], wire_tuple: Tuple, tool: Tool
-    ) -> ToolVersion:
+    def from_wire(cls: Type[ToolVersion], wire_tuple: Tuple, tool: Tool) -> ToolVersion:
         """Convert from the wire format of ToolVersion to an instance.
 
         Args:
@@ -78,9 +76,11 @@ class ToolVersion:
         tool_version_kwargs = SerializeClientToolVersion.kwargs_from_wire(wire_tuple)
 
         if tool_version_kwargs["tool_id"] != tool.id:
-            raise ValueError("tool_id in wire_tuple does not match tool object. "
-                             f"Expected {tool.id} in wire_tuple. Got "
-                             f"{tool_version_kwargs['tool_id']}")
+            raise ValueError(
+                "tool_id in wire_tuple does not match tool object. "
+                f"Expected {tool.id} in wire_tuple. Got "
+                f"{tool_version_kwargs['tool_id']}"
+            )
 
         tool_version = cls(tool_version_kwargs["id"], requester=tool.requester)
         tool_version._tool = tool

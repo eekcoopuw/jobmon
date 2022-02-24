@@ -15,7 +15,6 @@ from jobmon.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
-from jobmon.client.task_resources import TaskResources
 from jobmon.client.tool_version import ToolVersion
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
 from jobmon.constants import (
@@ -24,7 +23,6 @@ from jobmon.constants import (
     WorkflowStatus,
 )
 from jobmon.exceptions import (
-    DistributorNotAlive,
     DistributorStartupTimeout,
     DuplicateNodeArgsError,
     InvalidResponse,
@@ -40,7 +38,6 @@ logger.setLevel(logging.DEBUG)
 
 
 class DistributorContext:
-
     def __init__(self, cluster_name: str, workflow_run_id: int, timeout: int):
         self._cluster_name = cluster_name
         self._workflow_run_id = workflow_run_id
@@ -51,10 +48,14 @@ class DistributorContext:
 
         # Start the distributor. Write stderr to a file.
         cmd = [
-            sys.executable, "-m",  # safest way to find the entrypoint
-            "jobmon.client.distributor.cli", "start",
-            "--cluster_name", self._cluster_name,
-            "--workflow_run_id", str(self._workflow_run_id)
+            sys.executable,
+            "-m",  # safest way to find the entrypoint
+            "jobmon.client.distributor.cli",
+            "start",
+            "--cluster_name",
+            self._cluster_name,
+            "--workflow_run_id",
+            str(self._workflow_run_id),
         ]
         self.process = Popen(cmd, stderr=PIPE, universal_newlines=True)
 
@@ -373,7 +374,9 @@ class Workflow(object):
         """
         self.default_cluster_name = cluster_name
 
-    def get_tasks_by_node_args(self, task_template_name: str, **kwargs: Any) -> List[Task]:
+    def get_tasks_by_node_args(
+        self, task_template_name: str, **kwargs: Any
+    ) -> List[Task]:
         """Query tasks by node args. Used for setting dependencies."""
         try:
             array = self.arrays[task_template_name]
@@ -427,8 +430,9 @@ class Workflow(object):
 
         # start distributor
         cluster_name = list(self._clusters.keys())[0]
-        with DistributorContext(cluster_name, wfr.workflow_run_id, distributor_startup_timeout
-                                ) as distributor:
+        with DistributorContext(
+            cluster_name, wfr.workflow_run_id, distributor_startup_timeout
+        ) as distributor:
 
             # set up swarm and initial DAG
             swarm = SwarmWorkflowRun(
@@ -443,7 +447,9 @@ class Workflow(object):
                 swarm.run(distributor.is_alive)
             finally:
                 # figure out doneness
-                num_new_completed = len(swarm.done_tasks) - swarm.num_previously_complete
+                num_new_completed = (
+                    len(swarm.done_tasks) - swarm.num_previously_complete
+                )
                 if swarm.status != WorkflowRunStatus.DONE:
                     logger.info(
                         f"WorkflowRun execution ended, num failed {len(swarm.failed_tasks)}"
@@ -490,7 +496,9 @@ class Workflow(object):
 
                 # validate the constructed resources
                 queue = cluster.get_queue(queue_name)
-                is_valid, msg, valid_resources = queue.validate_resources(**resource_params)
+                is_valid, msg, valid_resources = queue.validate_resources(
+                    **resource_params
+                )
                 if fail and not is_valid:
                     raise ValueError(f"Failed validation, reasons: {msg}")
                 elif not is_valid:
@@ -619,9 +627,7 @@ class Workflow(object):
             self._workflow_is_resumable(resume_timeout)
 
         # create workflow run
-        client_wfr = ClientWorkflowRun(
-            workflow=self, requester=self.requester
-        )
+        client_wfr = ClientWorkflowRun(workflow=self, requester=self.requester)
         client_wfr.bind(reset_running_jobs, self._chunk_size)
         self._status = WorkflowStatus.QUEUED
 

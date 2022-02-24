@@ -51,7 +51,7 @@ def test_multiprocess_distributor(
         assert x[1] is None
 
     dist.stop(dist.get_submitted_or_running([]))
- 
+
     # reset up a MultiprocessDistributor with 5 consumers.
     dist = MultiprocessDistributor(5)
 

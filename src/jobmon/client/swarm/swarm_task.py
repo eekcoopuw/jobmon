@@ -90,7 +90,9 @@ class SwarmTask(object):
     def task_resources(self) -> TaskResources:
         """Get the id of the task if it has been bound to the db otherwise raise an error."""
         if not hasattr(self, "_task_resources"):
-            raise AttributeError("task_resources cannot be accessed before workflow is bound")
+            raise AttributeError(
+                "task_resources cannot be accessed before workflow is bound"
+            )
         return self._task_resources
 
     @task_resources.setter
@@ -103,9 +105,11 @@ class SwarmTask(object):
         """Transition a task to the Queued for Instantiation status in the db."""
         rc, _ = self.requester.send_request(
             app_route=f"/task/{self.task_id}/queue",
-            message={"workflow_run_id": workflow_run_id,
-                     "cluster_id": self.cluster.id,
-                     "task_resources_id": self.task_resources.id},
+            message={
+                "workflow_run_id": workflow_run_id,
+                "cluster_id": self.cluster.id,
+                "task_resources_id": self.task_resources.id,
+            },
             request_type="post",
             logger=logger,
         )

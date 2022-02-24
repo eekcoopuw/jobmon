@@ -24,8 +24,7 @@ def test_instantiate_queued_tasks(tool, db_cfg, client_env, task_template):
     wfr = workflow._create_workflow_run()
 
     swarm = SwarmWorkflowRun(
-        workflow_run_id=wfr.workflow_run_id,
-        requester=workflow.requester
+        workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
     )
     swarm.from_workflow(workflow)
     swarm.compute_initial_dag_state()
@@ -95,7 +94,9 @@ def test_n_queued(tool, db_cfg, client_env, task_template):
         message={},
         request_type="get",
     )
-    all_jobs = [SerializeDistributorTask.kwargs_from_wire(j) for j in response["task_dcts"]]
+    all_jobs = [
+        SerializeDistributorTask.kwargs_from_wire(j) for j in response["task_dcts"]
+    ]
 
     # now new query that should only return 3 jobs
     select_jobs = distributor_service._get_tasks_queued_for_instantiation()

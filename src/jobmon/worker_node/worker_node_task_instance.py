@@ -62,7 +62,9 @@ class WorkerNodeTaskInstance:
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
         self.requester = Requester(requester_url)
-        self._module: Optional[ModuleType] = None  # Register and import the module later
+        self._module: Optional[
+            ModuleType
+        ] = None  # Register and import the module later
 
         self.executor = self._get_worker_node(cluster_type_name)
 
@@ -81,13 +83,12 @@ class WorkerNodeTaskInstance:
             array_step_id = self.executor.array_step_id
 
             # Fetch from the database
-            app_route = \
-                f"/get_array_task_instance_id/" \
+            app_route = (
+                f"/get_array_task_instance_id/"
                 f"{self._array_id}/{self._batch_number}/{array_step_id}"
+            )
             rc, resp = self.requester.send_request(
-                app_route=app_route,
-                message={},
-                request_type='get'
+                app_route=app_route, message={}, request_type="get"
             )
             if http_request_ok(rc) is False:
                 raise InvalidResponse(
@@ -95,15 +96,14 @@ class WorkerNodeTaskInstance:
                     f"request through route {app_route}. Expected code "
                     f"200. Response content: {rc}"
                 )
-            self._task_instance_id = resp['task_instance_id']
+            self._task_instance_id = resp["task_instance_id"]
 
             # update the subtask id
-            app_route = \
-                f"/task_instance/{self._task_instance_id}/set_subtask_id"
+            app_route = f"/task_instance/{self._task_instance_id}/set_subtask_id"
             rc, resp = self.requester.send_request(
                 app_route=app_route,
                 message={"subtask_id": self._subtask_id},
-                request_type='post'
+                request_type="post",
             )
             if http_request_ok(rc) is False:
                 raise InvalidResponse(
@@ -116,7 +116,6 @@ class WorkerNodeTaskInstance:
     def task_instance_id(self) -> int:
         """Returns a task instance ID if it's been bound."""
         return self._task_instance_id
-
 
     @property
     def module(self) -> ModuleType:

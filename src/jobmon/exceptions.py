@@ -65,6 +65,7 @@ class DistributorNotAlive(Exception):
 
     pass
 
+
 class DistributorUnexpected(Exception):
     """Unexpected situation in Distributor."""
 

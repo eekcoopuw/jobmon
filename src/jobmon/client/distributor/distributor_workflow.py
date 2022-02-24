@@ -7,14 +7,17 @@ from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeDistributorWorkflow
 
 if TYPE_CHECKING:
-    from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
-    from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
+    from jobmon.client.distributor.distributor_task_instance import (
+        DistributorTaskInstance,
+    )
+    from jobmon.client.distributor.distributor_workflow_run import (
+        DistributorWorkflowRun,
+    )
 
 logger = logging.getLogger(__name__)
 
 
 class DistributorWorkflow:
-
     def __init__(self, workflow_id: int, requester: Requester):
         self.workflow_id = workflow_id
         self.task_instances: Set[DistributorTaskInstance] = set()
@@ -42,5 +45,7 @@ class DistributorWorkflow:
                 f"code 200. Response content: {response}"
             )
 
-        workflow_dict = SerializeDistributorWorkflow.kwargs_from_wire(response["workflow"])
+        workflow_dict = SerializeDistributorWorkflow.kwargs_from_wire(
+            response["workflow"]
+        )
         self.max_concurrently_running = workflow_dict["max_concurrently_running"]

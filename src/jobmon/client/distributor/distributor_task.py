@@ -8,14 +8,15 @@ from jobmon.requester import http_request_ok, Requester
 
 
 if TYPE_CHECKING:
-    from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
+    from jobmon.client.distributor.distributor_task_instance import (
+        DistributorTaskInstance,
+    )
 
 
 logger = logging.getLogger(__name__)
 
 
 class DistributorTask:
-
     def __init__(self, task_id: int, requester: Requester):
         self.task_id = task_id
         self.requested_resources = {}

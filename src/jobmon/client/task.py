@@ -121,8 +121,8 @@ class Task:
         # pre bind hash defining attributes
         self.node = node
         self.task_args = task_args
-        self.mapped_task_args = self.node.task_template_version.convert_arg_names_to_ids(
-            **self.task_args
+        self.mapped_task_args = (
+            self.node.task_template_version.convert_arg_names_to_ids(**self.task_args)
         )
         self.task_args_hash = self._hash_task_args()
         self.op_args = op_args
@@ -143,7 +143,9 @@ class Task:
         self.name = name
 
         # upstream and downstream task relationships
-        self.upstream_tasks: Set[Task] = set(upstream_tasks) if upstream_tasks else set()
+        self.upstream_tasks: Set[Task] = (
+            set(upstream_tasks) if upstream_tasks else set()
+        )
         self.downstream_tasks: Set[Task] = set()
         for task in self.upstream_tasks:
             self.add_upstream(task)
@@ -169,7 +171,9 @@ class Task:
         )
         self._instance_compute_resources_callable = compute_resources_callable
         self.resource_scales: Dict[str, float] = (
-            resource_scales if resource_scales is not None else {"memory": 0.5, "runtime": 0.5}
+            resource_scales
+            if resource_scales is not None
+            else {"memory": 0.5, "runtime": 0.5}
         )
         self.fallback_queues: List[str] = (
             fallback_queues if fallback_queues is not None else []
@@ -216,7 +220,9 @@ class Task:
     def original_task_resources(self) -> TaskResources:
         """Get the id of the task if it has been bound to the db otherwise raise an error."""
         if not hasattr(self, "_origin_task_resources"):
-            raise AttributeError("task_resources cannot be accessed before workflow is bound")
+            raise AttributeError(
+                "task_resources cannot be accessed before workflow is bound"
+            )
         return self._original_task_resources
 
     @original_task_resources.setter
@@ -418,7 +424,8 @@ class Task:
         str_arg_ids = [str(arg) for arg in arg_ids]
 
         hash_value = int(
-            hashlib.sha1("".join(str_arg_ids + arg_values).encode("utf-8")).hexdigest(), 16
+            hashlib.sha1("".join(str_arg_ids + arg_values).encode("utf-8")).hexdigest(),
+            16,
         )
         return hash_value
 

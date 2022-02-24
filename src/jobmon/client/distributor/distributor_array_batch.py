@@ -11,14 +11,15 @@ from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 
 if TYPE_CHECKING:
-    from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
+    from jobmon.client.distributor.distributor_task_instance import (
+        DistributorTaskInstance,
+    )
 
 
 logger = logging.getLogger(__name__)
 
 
 class DistributorArrayBatch:
-
     def __init__(
         self,
         array_id: int,
@@ -67,12 +68,16 @@ class DistributorArrayBatch:
 
     def prepare_array_batch_for_launch(self) -> None:
         """Add the current batch number to the current set of registered task instance ids."""
-        app_route = f'/task_instance/record_array_batch_num/{self.batch_number}'
+        app_route = f"/task_instance/record_array_batch_num/{self.batch_number}"
         rc, resp = self.requester.send_request(
             app_route=app_route,
-            message={'task_instance_ids': [task_instance.task_instance_id for task_instance
-                                           in self.task_instances]},
-            request_type='post'
+            message={
+                "task_instance_ids": [
+                    task_instance.task_instance_id
+                    for task_instance in self.task_instances
+                ]
+            },
+            request_type="post",
         )
         if not http_request_ok(rc):
             raise InvalidResponse(
@@ -109,8 +114,13 @@ class DistributorArrayBatch:
         task_instances = {ti.distributor_id: ti for ti in self.task_instances}
         for distributor_id, error_msg in errors.items():
             task_instance = task_instances[distributor_id]
-            commands.append(DistributorCommand(task_instance.transition_to_error,
-                                               error_msg, TaskInstanceStatus.UNKNOWN_ERROR))
+            commands.append(
+                DistributorCommand(
+                    task_instance.transition_to_error,
+                    error_msg,
+                    TaskInstanceStatus.UNKNOWN_ERROR,
+                )
+            )
 
         cluster.terminate_task_instances(list(errors.keys()))
 

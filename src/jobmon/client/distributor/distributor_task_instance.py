@@ -27,7 +27,7 @@ class DistributorTaskInstance:
         task_instance_id: int,
         workflow_run_id: int,
         status: str,
-        requester: Requester
+        requester: Requester,
     ) -> None:
         """Initialization of distributor task instance.
 
@@ -103,8 +103,8 @@ class DistributorTaskInstance:
                 f"code 200. Response content: {response}"
             )
         kwargs = SerializeTaskInstance.kwargs_from_wire(response["task_instance"])
-        self.task_id = kwargs["task_id"],
-        self.array_id = kwargs["array_id"],
+        self.task_id = (kwargs["task_id"],)
+        self.array_id = (kwargs["array_id"],)
         self.workflow_id = kwargs["workflow_id"]
         self.status = TaskInstanceStatus.INSTANTIATED
 
@@ -135,10 +135,10 @@ class DistributorTaskInstance:
     ) -> None:
         """Register that submission failed with the central service.
 
-                Args:
-                    no_id_err_msg: The error msg from the executor when failed to obtain distributor
-                        id.
-                """
+        Args:
+            no_id_err_msg: The error msg from the executor when failed to obtain distributor
+                id.
+        """
         app_route = f"/task_instance/{self.task_instance_id}/log_no_distributor_id"
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -186,21 +186,21 @@ class DistributorTaskInstance:
         self.error_state = error_state
 
     def transition_to_unknown_error(
-            self, error_message: str, error_state: str
+        self, error_message: str, error_state: str
     ) -> Tuple[Set[DistributorTaskInstance], List]:
         """Register that an unknown error was discovered during reconciliation."""
         self._transition_to_error(error_message, error_state)
         return {self}, []
 
     def transition_to_resource_error(
-            self, error_message: str, error_state: str
+        self, error_message: str, error_state: str
     ) -> Tuple[Set[DistributorTaskInstance], List]:
         """Register that a resource error was discovered during reconciliation."""
         self._transition_to_error(error_message, error_state)
         return {self}, []
 
     def transition_to_error(
-            self, error_message: str, error_state: str
+        self, error_message: str, error_state: str
     ) -> Tuple[Set[DistributorTaskInstance], List]:
         """Register that a known error occurred during reconciliation."""
         self._transition_to_error(error_message, error_state)

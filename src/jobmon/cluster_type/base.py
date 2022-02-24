@@ -82,20 +82,20 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def get_queueing_errors(
-            self, distributor_ids: List[Union[int, str]]
+        self, distributor_ids: List[Union[int, str]]
     ) -> Dict[Union[int, str], str]:
         """Get the task instances that have errored out."""
         raise NotImplementedError
 
     @abstractmethod
     def get_array_queueing_errors(
-            self, distributor_id: Union[int, str]
+        self, distributor_id: Union[int, str]
     ) -> Dict[Union[int, str], str]:
         raise NotImplementedError
 
     @abstractmethod
     def get_submitted_or_running(
-            self, distributor_ids: List[Union[int, str]]
+        self, distributor_ids: List[Union[int, str]]
     ) -> List[Union[int, str]]:
         """Check which task instances are active."""
         raise NotImplementedError
@@ -111,14 +111,14 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def get_remote_exit_info(
-            self, distributor_ids: Union[int, str]
+        self, distributor_ids: Union[int, str]
     ) -> Tuple[Union[int, str], str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 
     @abstractmethod
     def submit_to_batch_distributor(
-            self, command: str, name: str, requested_resources: Dict[str, Any]
+        self, command: str, name: str, requested_resources: Dict[str, Any]
     ) -> int:
         """Submit the command on the cluster technology and return a distributor_id.
 
@@ -136,7 +136,11 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def submit_array_to_batch_distributor(
-            self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
+        self,
+        command: str,
+        name: str,
+        requested_resources: Dict[str, Any],
+        array_length: int,
     ) -> int:
         """Submit an array task to the underlying distributor and return a distributor_id.
 
@@ -154,8 +158,10 @@ class ClusterDistributor(Protocol):
         raise NotImplementedError
 
     def build_worker_node_command(
-            self, task_instance_id: Optional[int] = None, array_id: Optional[int] = None,
-            batch_number: Optional[int] = None
+        self,
+        task_instance_id: Optional[int] = None,
+        array_id: Optional[int] = None,
+        batch_number: Optional[int] = None,
     ) -> str:
         """Build a command that can be executed by the worker_node.
 
@@ -174,7 +180,14 @@ class ClusterDistributor(Protocol):
             wrapped_cmd.extend(["--array_id", str(array_id)])
         if batch_number is not None:
             wrapped_cmd.extend(["--batch_number", str(batch_number)])
-        wrapped_cmd.extend(["--expected_jobmon_version", __version__, "--cluster_type_name", self.cluster_type_name])
+        wrapped_cmd.extend(
+            [
+                "--expected_jobmon_version",
+                __version__,
+                "--cluster_type_name",
+                self.cluster_type_name,
+            ]
+        )
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         return str_cmd
 
@@ -188,6 +201,7 @@ class ClusterWorkerNode(Protocol):
     Get exit info is used to determine the error type if the task hits a
     system error of some variety.
     """
+
     @property
     @abstractmethod
     def distributor_id(self) -> Optional[int]:
@@ -302,9 +316,10 @@ class ConcreteResource(Protocol):
 
         # Uniqueness is determined by queue name and the resources parameter.
         hashval = hashlib.sha1()
-        hashval.update(bytes(str(hash(self.queue.queue_name)).encode('utf-8')))
-        hashval.update(bytes(str(
-            hash(json.dumps(self.resources, sort_keys=True))).encode('utf-8')))
+        hashval.update(bytes(str(hash(self.queue.queue_name)).encode("utf-8")))
+        hashval.update(
+            bytes(str(hash(json.dumps(self.resources, sort_keys=True))).encode("utf-8"))
+        )
         return int(hashval.hexdigest(), 16)
 
     def __eq__(self, other: object) -> bool:

@@ -87,20 +87,19 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch, cli):
     # Dates are hard to assert equality on, since we don't know exactly when the DB bound
     # a workflow to the millisecond.
     # Extract the datetime and evaluate separately.
-    df_time = df['CREATED_DATE']['0']
-    del df['CREATED_DATE']
-    assert (
-        df == {
-            "WF_ID": {"0": workflow.workflow_id},
-            "WF_NAME": {"0": ""},
-            "WF_STATUS": {"0": "QUEUED"},
-            "TASKS": {"0": 2},
-            "PENDING": {"0": "2 (100.0%)"},
-            "RUNNING": {"0":"0 (0.0%)"},
-            "DONE": {"0": "0 (0.0%)"},
-            "FATAL": {"0":"0 (0.0%)"},
-            "RETRIES": {"0": 0.0}}
-    )
+    df_time = df["CREATED_DATE"]["0"]
+    del df["CREATED_DATE"]
+    assert df == {
+        "WF_ID": {"0": workflow.workflow_id},
+        "WF_NAME": {"0": ""},
+        "WF_STATUS": {"0": "QUEUED"},
+        "TASKS": {"0": 2},
+        "PENDING": {"0": "2 (100.0%)"},
+        "RUNNING": {"0": "0 (0.0%)"},
+        "DONE": {"0": "0 (0.0%)"},
+        "FATAL": {"0": "0 (0.0%)"},
+        "RETRIES": {"0": 0.0},
+    }
     # Don't have millisecond precision, but can at least check our margin is +- 1 day
     now = datetime.date.today()
     df_date = datetime.datetime.fromtimestamp(df_time / 1e3).date()

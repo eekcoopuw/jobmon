@@ -56,12 +56,12 @@ class WorkerNodeCLI(CLI):
         worker_node_parser.add_argument(
             "--array_id",
             help="array_id of the worker node if this is an array task.",
-            required=False
+            required=False,
         )
         worker_node_parser.add_argument(
             "--batch_number",
             help="batch number of the array this task instance is associated with.",
-            required=False
+            required=False,
         )
         worker_node_parser.add_argument(
             "--cluster_type_name",

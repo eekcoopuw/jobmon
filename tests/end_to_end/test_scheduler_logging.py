@@ -1,4 +1,3 @@
-
 def test_scheduler_logging(client_env, caplog):
     """Test to check that scheduler logs are sent to stdout properly."""
     from jobmon.client.api import Tool

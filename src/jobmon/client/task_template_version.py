@@ -92,9 +92,7 @@ class TaskTemplateVersion:
 
     @classmethod
     def from_wire(
-        cls: Type[TaskTemplateVersion],
-        wire_tuple: Tuple,
-        task_template: TaskTemplate
+        cls: Type[TaskTemplateVersion], wire_tuple: Tuple, task_template: TaskTemplate
     ) -> TaskTemplateVersion:
         """Get a bound TaskTemplateVersion object from the http wire format.
 
@@ -109,9 +107,11 @@ class TaskTemplateVersion:
         id_name_map = kwargs.pop("id_name_map")
         task_template_id = kwargs.pop("task_template_id")
         if task_template_id != task_template.id:
-            raise ValueError("task_template_id from wire_tuple does not match task_template. "
-                             f"Expected {task_template.id} from wire_tuple. Got "
-                             f"{kwargs['task_template_id']}")
+            raise ValueError(
+                "task_template_id from wire_tuple does not match task_template. "
+                f"Expected {task_template.id} from wire_tuple. Got "
+                f"{kwargs['task_template_id']}"
+            )
 
         # instantiate and add attrs
         task_template_version = cls(
@@ -119,7 +119,7 @@ class TaskTemplateVersion:
             node_args=kwargs["node_args"],
             task_args=kwargs["task_args"],
             op_args=kwargs["op_args"],
-            requester=task_template.requester
+            requester=task_template.requester,
         )
         task_template_version._task_template = task_template
         task_template_version._task_template_version_id = task_template_version_id
@@ -180,7 +180,9 @@ class TaskTemplateVersion:
     def id(self) -> int:
         """The unique ID of the task template version if it has been bound."""
         if not self.is_bound:
-            raise AttributeError("id cannot be accessed before TaskTemplateVersion is bound")
+            raise AttributeError(
+                "id cannot be accessed before TaskTemplateVersion is bound"
+            )
         return self._task_template_version_id
 
     @property
@@ -309,7 +311,7 @@ class TaskTemplateVersion:
         arg_type_set_map = {
             "node_args": self.node_args,
             "task_args": self.task_args,
-            "op_args": self.op_args
+            "op_args": self.op_args,
         }
         arg_set = arg_type_set_map[arg_type]
         result = {}

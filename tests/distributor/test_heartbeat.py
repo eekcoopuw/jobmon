@@ -2,7 +2,10 @@ from multiprocessing import Queue
 from unittest.mock import patch
 
 from jobmon.client.distributor.distributor_array import DistributorArray
-from jobmon.client.distributor.distributor_workflow_run import _tiList, DistributorWorkflowRun
+from jobmon.client.distributor.distributor_workflow_run import (
+    _tiList,
+    DistributorWorkflowRun,
+)
 from jobmon.client.distributor.distributor_task import DistributorTask
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.constants import TaskInstanceStatus
@@ -54,6 +57,7 @@ def test_ds_arraysMap():
     _multiwayMap: {1:{1: [1]}, 2: {1: [2, 3], 2: [4]}}
     """
     from jobmon.client.distributor.distributor_workflow_run import _arraysMap
+
     m = _arraysMap()
     m.add_new_element(1, 1, 1)
     m.add_new_element(2, 1, 2)
@@ -69,59 +73,73 @@ def test_ds_arraysMap():
 def test_WorkflowRunMaps():
     """This is a unit test to test the data structure WorkflowRunMaps.
 
-        Testing Data:
-        **************************************************************************************
-        * tid   * Array id        * array_batch_num     * distributor id     * subtask_id     *
-        * 1     * 1               * 1                  * 1                  * 1.1              *
-        * 2     * 2               * 1                  * 2                  * 2.1            *
-        * 3     * 2               * 1                  * 2                  * 2.2            *
-        * 4     * 2               * 2                  * 3                  * 3.1            *
-        * 5     * None            * None               * 4                  * 4
-        ********************************************************************
+    Testing Data:
+    **************************************************************************************
+    * tid   * Array id        * array_batch_num     * distributor id     * subtask_id     *
+    * 1     * 1               * 1                  * 1                  * 1.1              *
+    * 2     * 2               * 1                  * 2                  * 2.1            *
+    * 3     * 2               * 1                  * 2                  * 2.2            *
+    * 4     * 2               * 2                  * 3                  * 3.1            *
+    * 5     * None            * None               * 4                  * 4
+    ********************************************************************
     """
     dwfr = DistributorWorkflowRun(workflow_id=1, workflow_run_id=1, requester=None)
-    ti1 = DistributorTaskInstance(workflow_run_id=1,
-                                  requester=None,
-                                  cluster_type_id=1,
-                                  task_instance_id=1,
-                                  array_id=1,
-                                  array_batch_num=1,
-                                  distributor_id=1,
-                                  subtask_id="1.1")
-    ti2 = DistributorTaskInstance(workflow_run_id=1,
-                                  requester=None,
-                                  cluster_type_id=1,
-                                  task_instance_id=2,
-                                  array_id=2,
-                                  array_batch_num=1,
-                                  distributor_id=2,
-                                  subtask_id="2.1")
-    ti3 = DistributorTaskInstance(workflow_run_id=1,
-                                  requester=None,
-                                  cluster_type_id=1,
-                                  task_instance_id=3,
-                                  array_id=2,
-                                  array_batch_num=1,
-                                  distributor_id=2,
-                                  subtask_id="2.2")
-    ti4 = DistributorTaskInstance(workflow_run_id=1,
-                                  requester=None,
-                                  cluster_type_id=1,
-                                  task_instance_id=4,
-                                  array_id=2,
-                                  array_batch_num=2,
-                                  distributor_id=3,
-                                  subtask_id="3.1")
-    ti5 = DistributorTaskInstance(workflow_run_id=1,
-                                  requester=None,
-                                  cluster_type_id=1,
-                                  task_instance_id=5,
-                                  array_id=None,
-                                  array_batch_num=None,
-                                  distributor_id=4,
-                                  subtask_id="4")
-    a1 = DistributorArray(array_id=1, task_resources_id=1, requested_resources=[], requester=None)
-    a2 = DistributorArray(array_id=2, task_resources_id=2, requested_resources=[], requester=None)
+    ti1 = DistributorTaskInstance(
+        workflow_run_id=1,
+        requester=None,
+        cluster_type_id=1,
+        task_instance_id=1,
+        array_id=1,
+        array_batch_num=1,
+        distributor_id=1,
+        subtask_id="1.1",
+    )
+    ti2 = DistributorTaskInstance(
+        workflow_run_id=1,
+        requester=None,
+        cluster_type_id=1,
+        task_instance_id=2,
+        array_id=2,
+        array_batch_num=1,
+        distributor_id=2,
+        subtask_id="2.1",
+    )
+    ti3 = DistributorTaskInstance(
+        workflow_run_id=1,
+        requester=None,
+        cluster_type_id=1,
+        task_instance_id=3,
+        array_id=2,
+        array_batch_num=1,
+        distributor_id=2,
+        subtask_id="2.2",
+    )
+    ti4 = DistributorTaskInstance(
+        workflow_run_id=1,
+        requester=None,
+        cluster_type_id=1,
+        task_instance_id=4,
+        array_id=2,
+        array_batch_num=2,
+        distributor_id=3,
+        subtask_id="3.1",
+    )
+    ti5 = DistributorTaskInstance(
+        workflow_run_id=1,
+        requester=None,
+        cluster_type_id=1,
+        task_instance_id=5,
+        array_id=None,
+        array_batch_num=None,
+        distributor_id=4,
+        subtask_id="4",
+    )
+    a1 = DistributorArray(
+        array_id=1, task_resources_id=1, requested_resources=[], requester=None
+    )
+    a2 = DistributorArray(
+        array_id=2, task_resources_id=2, requested_resources=[], requester=None
+    )
     dwfr._map.add_DistributorTaskInstance(ti1)
     dwfr._map.add_DistributorTaskInstance(ti2)
     dwfr._map.add_DistributorTaskInstance(ti3)
@@ -130,7 +148,7 @@ def test_WorkflowRunMaps():
     dwfr._map.add_DistributorArray(a1)
     dwfr._map.add_DistributorArray(a2)
     assert len(dwfr._map.get_task_instances()) == 5
-    assert set(dwfr._map.get_task_instance_ids()) ==  {1, 2, 3, 4, 5}
+    assert set(dwfr._map.get_task_instance_ids()) == {1, 2, 3, 4, 5}
     assert dwfr._map.get_DistributorTaskInstance_by_id(1) == ti1
     assert dwfr._map.get_DistributorTaskInstance_by_subtaskid("3.1") == ti4
     assert dwfr._map.get_array_batch_DistributorTaskInstance(2, 2)[0] == ti4
@@ -163,26 +181,80 @@ def test_wfr_heartbeat_flow():
     ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** ** 
     """
     dwfr = DistributorWorkflowRun(workflow_id=1, workflow_run_id=1, requester=None)
-    ti1 = DistributorTaskInstance(task_instance_id=1, workflow_run_id=1, requester=None,
-                                  distributor_id=1, cluster_type_id=1, subtask_id="1")
-    ti2 = DistributorTaskInstance(task_instance_id=2, workflow_run_id=1, requester=None,
-                                  distributor_id=2, cluster_type_id=1, subtask_id="2")
-    ti3 = DistributorTaskInstance(task_instance_id=3, workflow_run_id=1, requester=None,
-                                  distributor_id=3, cluster_type_id=1, subtask_id="3")
-    ti101 = DistributorTaskInstance(task_instance_id=101, workflow_run_id=1, requester=None,
-                                    distributor_id=10, array_id=1, cluster_type_id=1,
-                                    array_batch_num=1, array_step_id=1, subtask_id="10.1")
-    ti102 = DistributorTaskInstance(task_instance_id=102, workflow_run_id=1, requester=None,
-                                    distributor_id=10, array_id=1, cluster_type_id=1,
-                                    array_batch_num=1, array_step_id=2, subtask_id="10.2")
-    ti201 = DistributorTaskInstance(task_instance_id=201, workflow_run_id=1, requester=None,
-                                    distributor_id=20, array_id=2, cluster_type_id=1,
-                                    array_batch_num=1, array_step_id=1, subtask_id="20.1")
-    ti202 = DistributorTaskInstance(task_instance_id=202, workflow_run_id=1, requester=None,
-                                    distributor_id=20, array_id=2, cluster_type_id=1,
-                                    array_batch_num=1, array_step_id=2, subtask_id="20.2")
-    a1 = DistributorArray(array_id=1, task_resources_id=1, requested_resources=[], requester=None)
-    a2 = DistributorArray(array_id=2, task_resources_id=2, requested_resources=[], requester=None)
+    ti1 = DistributorTaskInstance(
+        task_instance_id=1,
+        workflow_run_id=1,
+        requester=None,
+        distributor_id=1,
+        cluster_type_id=1,
+        subtask_id="1",
+    )
+    ti2 = DistributorTaskInstance(
+        task_instance_id=2,
+        workflow_run_id=1,
+        requester=None,
+        distributor_id=2,
+        cluster_type_id=1,
+        subtask_id="2",
+    )
+    ti3 = DistributorTaskInstance(
+        task_instance_id=3,
+        workflow_run_id=1,
+        requester=None,
+        distributor_id=3,
+        cluster_type_id=1,
+        subtask_id="3",
+    )
+    ti101 = DistributorTaskInstance(
+        task_instance_id=101,
+        workflow_run_id=1,
+        requester=None,
+        distributor_id=10,
+        array_id=1,
+        cluster_type_id=1,
+        array_batch_num=1,
+        array_step_id=1,
+        subtask_id="10.1",
+    )
+    ti102 = DistributorTaskInstance(
+        task_instance_id=102,
+        workflow_run_id=1,
+        requester=None,
+        distributor_id=10,
+        array_id=1,
+        cluster_type_id=1,
+        array_batch_num=1,
+        array_step_id=2,
+        subtask_id="10.2",
+    )
+    ti201 = DistributorTaskInstance(
+        task_instance_id=201,
+        workflow_run_id=1,
+        requester=None,
+        distributor_id=20,
+        array_id=2,
+        cluster_type_id=1,
+        array_batch_num=1,
+        array_step_id=1,
+        subtask_id="20.1",
+    )
+    ti202 = DistributorTaskInstance(
+        task_instance_id=202,
+        workflow_run_id=1,
+        requester=None,
+        distributor_id=20,
+        array_id=2,
+        cluster_type_id=1,
+        array_batch_num=1,
+        array_step_id=2,
+        subtask_id="20.2",
+    )
+    a1 = DistributorArray(
+        array_id=1, task_resources_id=1, requested_resources=[], requester=None
+    )
+    a2 = DistributorArray(
+        array_id=2, task_resources_id=2, requested_resources=[], requester=None
+    )
     dwfr._map.add_DistributorTaskInstance(ti1)
     dwfr._map.add_DistributorTaskInstance(ti2)
     dwfr._map.add_DistributorTaskInstance(ti3)
@@ -193,7 +265,7 @@ def test_wfr_heartbeat_flow():
     dwfr._map.add_DistributorArray(a1)
     dwfr._map.add_DistributorArray(a2)
     # assume all tis are launched before starting
-    ti_list =_tiList()
+    ti_list = _tiList()
     ti_list.extend([1, 2, 3, 101, 102, 201, 202])
     dwfr._launched_task_instance_ids = ti_list
 
@@ -201,9 +273,7 @@ def test_wfr_heartbeat_flow():
     def mock_transition_ti(*args):
         pass
 
-    with patch.object(dwfr,
-                      'transition_task_instance',
-                      side_effect=mock_transition_ti):
+    with patch.object(dwfr, "transition_task_instance", side_effect=mock_transition_ti):
         # FIRST HEAT BEAT
         def mock_refresh_db(*args):
             status = args[1]
@@ -222,22 +292,29 @@ def test_wfr_heartbeat_flow():
         def mock_log_heartbeat(*args):
             pass
 
-        with patch.object(dwfr,
-                          'refresh_status_from_db',
-                          side_effect=mock_refresh_db):
-            with patch.object(dwfr,
-                              'refresh_status_with_distributor',
-                              side_effect=mock_refresh_distributor):
-                with patch.object(dwfr,
-                                  '_log_workflow_run_heartbeat',
-                                  side_effect=mock_log_heartbeat()):
-                    with patch.object(dwfr,
-                                      '_log_tis_heartbeat',
-                                      side_effect=mock_log_heartbeat()):
+        with patch.object(dwfr, "refresh_status_from_db", side_effect=mock_refresh_db):
+            with patch.object(
+                dwfr,
+                "refresh_status_with_distributor",
+                side_effect=mock_refresh_distributor,
+            ):
+                with patch.object(
+                    dwfr,
+                    "_log_workflow_run_heartbeat",
+                    side_effect=mock_log_heartbeat(),
+                ):
+                    with patch.object(
+                        dwfr, "_log_tis_heartbeat", side_effect=mock_log_heartbeat()
+                    ):
                         dwfr.heartbeat()
                         # {1: "R", 2: "R", 3: "R", 101: "R", 102: "B", 201: "D", 202: "B"}
                         assert set(dwfr._launched_task_instance_ids.tis) == {102, 202}
-                        assert set(dwfr._running_task_instance_ids.tis) == {1, 2, 3, 101}
+                        assert set(dwfr._running_task_instance_ids.tis) == {
+                            1,
+                            2,
+                            3,
+                            101,
+                        }
                         assert not dwfr.wfr_has_failed_tis
 
         # SECOND HEAT BEAT
@@ -257,18 +334,20 @@ def test_wfr_heartbeat_flow():
             else:
                 return {3: "D"}
 
-        with patch.object(dwfr,
-                          'refresh_status_from_db',
-                          side_effect=mock_refresh_db):
-            with patch.object(dwfr,
-                              'refresh_status_with_distributor',
-                              side_effect=mock_refresh_distributor):
-                with patch.object(dwfr,
-                                  '_log_workflow_run_heartbeat',
-                                  side_effect=mock_log_heartbeat()):
-                    with patch.object(dwfr,
-                                      '_log_tis_heartbeat',
-                                      side_effect=mock_log_heartbeat()):
+        with patch.object(dwfr, "refresh_status_from_db", side_effect=mock_refresh_db):
+            with patch.object(
+                dwfr,
+                "refresh_status_with_distributor",
+                side_effect=mock_refresh_distributor,
+            ):
+                with patch.object(
+                    dwfr,
+                    "_log_workflow_run_heartbeat",
+                    side_effect=mock_log_heartbeat(),
+                ):
+                    with patch.object(
+                        dwfr, "_log_tis_heartbeat", side_effect=mock_log_heartbeat()
+                    ):
                         dwfr.heartbeat()
                         # {1: "R", 2: "D", 3: "D", 101: "D", 102: "R", 201: "D", 202: "U"}
                         assert set(dwfr._launched_task_instance_ids.tis) == set()
@@ -295,7 +374,7 @@ def test_heartbeat(tool, db_cfg, client_env, task_template):
         wfr.workflow_run_id,
         SequentialDistributor(),
         requester=requester,
-        wf_max_concurrently_running=100
+        wf_max_concurrently_running=100,
     )
     distributor_service.heartbeat()
 
@@ -317,8 +396,9 @@ def test_heartbeat(tool, db_cfg, client_env, task_template):
 def test_task_instances_status_check(tool, db_cfg, client_env, task_template):
     from jobmon.cluster_type.dummy import DummyDistributor, DummyWorkerNode
 
-    array1 = task_template.create_array(arg=[1, 2, 3], cluster_name="dummy",
-                                        compute_resources={"queue": "null.q"})
+    array1 = task_template.create_array(
+        arg=[1, 2, 3], cluster_name="dummy", compute_resources={"queue": "null.q"}
+    )
 
     workflow = tool.create_workflow(name="test_task_instances_status_check")
 
@@ -327,28 +407,29 @@ def test_task_instances_status_check(tool, db_cfg, client_env, task_template):
     wfr = workflow._create_workflow_run()
 
     requester = Requester(client_env)
-    distributor_array = DistributorArray(array_id=array1.array_id,
-                                         task_resources_id=array1.task_resources.id,
-                                         requested_resources=array1.compute_resources,
-                                         name="example_array",
-                                         requester=requester
-                                         )
+    distributor_array = DistributorArray(
+        array_id=array1.array_id,
+        task_resources_id=array1.task_resources.id,
+        requested_resources=array1.compute_resources,
+        name="example_array",
+        requester=requester,
+    )
     dts = [
-        DistributorTask(task_id=t.task_id,
-                        array_id=array1.array_id,
-                        name='array_ti',
-                        command=t.command,
-                        requested_resources=t.compute_resources,
-                        requester=requester)
+        DistributorTask(
+            task_id=t.task_id,
+            array_id=array1.array_id,
+            name="array_ti",
+            command=t.command,
+            requested_resources=t.compute_resources,
+            requester=requester,
+        )
         for t in array1.tasks.values()
     ]
 
     # Move all tasks to Q state
     for tid in (t.task_id for t in array1.tasks.values()):
         _, _ = requester._send_request(
-            app_route=f"/task/{tid}/queue",
-            message={},
-            request_type='post'
+            app_route=f"/task/{tid}/queue", message={}, request_type="post"
         )
 
     distributor_wfr = DistributorWorkflowRun(
@@ -360,25 +441,31 @@ def test_task_instances_status_check(tool, db_cfg, client_env, task_template):
     dtis_2 = distributor_wfr.register_task_instance(dts[0])
     dtis_3 = distributor_wfr.register_task_instance(dts[0])
 
-    test_tiid_list = [dtis_1.task_instance_id,
-                      dtis_2.task_instance_id,
-                      dtis_3.task_instance_id]
+    test_tiid_list = [
+        dtis_1.task_instance_id,
+        dtis_2.task_instance_id,
+        dtis_3.task_instance_id,
+    ]
 
     # all ti in registered
     _, res = requester._send_request(
         app_route="/task_instance/status_check",
-        message={"task_instance_ids": test_tiid_list,
-                 "status": TaskInstanceStatus.INSTANTIATED},
-        request_type='post'
+        message={
+            "task_instance_ids": test_tiid_list,
+            "status": TaskInstanceStatus.INSTANTIATED,
+        },
+        request_type="post",
     )
     r = res["unmatches"]
     assert len(r) == 0
     # check status D should return all
     _, res = requester._send_request(
         app_route="/task_instance/status_check",
-        message={"task_instance_ids": test_tiid_list,
-                 "status": TaskInstanceStatus.DONE},
-        request_type='post'
+        message={
+            "task_instance_ids": test_tiid_list,
+            "status": TaskInstanceStatus.DONE,
+        },
+        request_type="post",
     )
     r = res["unmatches"]
     assert len(r) == 3
@@ -386,7 +473,9 @@ def test_task_instances_status_check(tool, db_cfg, client_env, task_template):
     assert r[str(dtis_2.task_instance_id)] == TaskInstanceStatus.INSTANTIATED
     assert r[str(dtis_3.task_instance_id)] == TaskInstanceStatus.INSTANTIATED
     # verify refresh_status_from_db returns the same value
-    r = distributor_wfr.refresh_status_from_db(test_tiid_list, TaskInstanceStatus.RUNNING)
+    r = distributor_wfr.refresh_status_from_db(
+        test_tiid_list, TaskInstanceStatus.RUNNING
+    )
     assert len(r) == 3
     assert r[dtis_1.task_instance_id] == TaskInstanceStatus.INSTANTIATED
     assert r[dtis_2.task_instance_id] == TaskInstanceStatus.INSTANTIATED
@@ -426,6 +515,7 @@ def test_heartbeat_raises_error(tool, db_cfg, client_env, task_template):
 
     with pytest.raises(ResumeSet):
         distributor_service.heartbeat()
+
 
 @pytest.mark.skip(reason="GBDSCI-4188")
 def test_heartbeat_propagate_error(tool, db_cfg, client_env, task_template):

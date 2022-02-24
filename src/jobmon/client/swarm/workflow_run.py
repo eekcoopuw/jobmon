@@ -10,7 +10,11 @@ from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.task_resources import TaskResources
 from jobmon.constants import TaskStatus, WorkflowRunStatus, TaskResourcesType
-from jobmon.exceptions import InvalidResponse, CallableReturnedInvalidObject
+from jobmon.exceptions import (
+    CallableReturnedInvalidObject,
+    DistributorNotAlive,
+    InvalidResponse,
+)
 
 from jobmon.requester import http_request_ok, Requester
 
@@ -28,12 +32,8 @@ ValueError = ValueError
 
 
 class SwarmCommand:
-
     def __init__(
-        self,
-        func: Callable[..., Optional[List[SwarmCommand]]],
-        *args,
-        **kwargs
+        self, func: Callable[..., Optional[List[SwarmCommand]]], *args, **kwargs
     ):
         """A command to be run by the distributor service.
 
@@ -215,10 +215,18 @@ class WorkflowRun:
                     # process any commands that we can
                     self.process_commands()
 
+                    # check that the distributor is still alive
+                    if not distributor_alive_callable():
+                        raise DistributorNotAlive(
+                            "Distributor process unexpectedly stopped. Workflow will error."
+                        )
+
                     # take a break if needed
                     if not self._needs_synchronization:
                         loop_duration = time.time() - loop_start
-                        time.sleep(self._workflow_run_heartbeat_interval - loop_duration)
+                        time.sleep(
+                            self._workflow_run_heartbeat_interval - loop_duration
+                        )
 
                     # then synchronize state
                     self.synchronize_state()
@@ -239,8 +247,9 @@ class WorkflowRun:
 
         finally:
             terminating_states = [
-                WorkflowRunStatus.COLD_RESUME, WorkflowRunStatus.HOT_RESUME,
-                WorkflowRunStatus.STOPPED
+                WorkflowRunStatus.COLD_RESUME,
+                WorkflowRunStatus.HOT_RESUME,
+                WorkflowRunStatus.STOPPED,
             ]
             if self.status in terminating_states:
                 logger.warning(
@@ -298,7 +307,9 @@ class WorkflowRun:
 
         # remove these tasks from old mapping
         for status in self._task_status_map.keys():
-            self._task_status_map[status] = self._task_status_map[status] - updated_tasks
+            self._task_status_map[status] = (
+                self._task_status_map[status] - updated_tasks
+            )
 
         num_newly_completed = 0
         num_newly_failed = 0
@@ -348,8 +359,10 @@ class WorkflowRun:
                 self._update_status(WorkflowRunStatus.ERROR)
             # fail during test path
             if self._n_executions >= self._val_fail_after_n_executions:
-                logger.info(f"WorkflowRun asked to fail after {self._n_executions} "
-                            "executions. Failing now")
+                logger.info(
+                    f"WorkflowRun asked to fail after {self._n_executions} "
+                    "executions. Failing now"
+                )
                 self._update_status(WorkflowRunStatus.ERROR)
 
     def _log_heartbeat(self):
@@ -359,8 +372,10 @@ class WorkflowRun:
         app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
         return_code, response = self._requester.send_request(
             app_route=app_route,
-            message={"status": self._status,
-                     "next_report_increment": next_report_increment},
+            message={
+                "status": self._status,
+                "next_report_increment": next_report_increment,
+            },
             request_type="put",
             logger=logger,
         )
@@ -482,8 +497,10 @@ class WorkflowRun:
         app_route = f"/workflow/{self.workflow_id}/task_status_updates"
         return_code, response = self._requester.send_request(
             app_route=app_route,
-            message={"last_sync": str(self.last_sync),
-                     "swarm_tasks_tuples": task_tuples},
+            message={
+                "last_sync": str(self.last_sync),
+                "swarm_tasks_tuples": task_tuples,
+            },
             request_type="post",
             logger=logger,
         )
@@ -552,10 +569,13 @@ class WorkflowRun:
         except Exception:
             pass
 
-        _, _, concrete_resource = \
-            cluster.concrete_resource_class.validate_and_create_concrete_resource(
-                queue, resource_params
-            )
+        (
+            _,
+            _,
+            concrete_resource,
+        ) = cluster.concrete_resource_class.validate_and_create_concrete_resource(
+            queue, resource_params
+        )
 
         # if validated concrete resources are different than original. get new resource object
         validated_resource_hash = hash(concrete_resource)
@@ -565,7 +585,7 @@ class WorkflowRun:
             except KeyError:
                 task_resources = TaskResources(
                     concrete_resources=concrete_resource,
-                    task_resources_type_id=TaskResourcesType.VALIDATED
+                    task_resources_type_id=TaskResourcesType.VALIDATED,
                 )
                 task_resources.bind()
                 self._task_resources[hash(task_resources)] = task_resources
@@ -580,13 +600,14 @@ class WorkflowRun:
         # current resources
         resource_params = task.task_resources.concrete_resources.resources.copy()
 
-        concrete_resource = \
+        concrete_resource = (
             task.cluster.concrete_resource_class.adjust_and_create_concrete_resource(
                 existing_resources=resource_params,
                 resource_scales=task.resource_scales,
                 expected_queue=task.task_resources.queue,
                 fallback_queues=task.fallback_queues,
             )
+        )
 
         try:
             task_resources = self._task_resources[hash(concrete_resource)]

@@ -1,16 +1,13 @@
 from __future__ import annotations
 
 from typing import Callable, List, Optional
+
 # from jobmon.cluster_type.base import ClusterDistributor
 
 
 class DistributorCommand:
-
     def __init__(
-        self,
-        func: Callable[..., Optional[List[DistributorCommand]]],
-        *args,
-        **kwargs
+        self, func: Callable[..., Optional[List[DistributorCommand]]], *args, **kwargs
     ):
         """A command to be run by the distributor service.
 
