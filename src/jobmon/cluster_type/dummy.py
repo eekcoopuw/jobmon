@@ -213,13 +213,13 @@ class DummyWorkerNode(ClusterWorkerNode):
 class ConcreteDummyResource(ConcreteResource):
     """A version of a private constructor in Python."""
 
-    def __init__(self, queue: ClusterQueue, valid_resources: Dict) -> None:
+    def __init__(self, queue: ClusterQueue, resources: Dict) -> None:
         """Always assumed to be valid.
 
         Don't call init directly, this object should be created by validate or adjust.
         """
         self._queue = queue
-        self._resources = valid_resources
+        self._resources = resources
 
     @property
     def queue(self) -> ClusterQueue:
@@ -243,7 +243,7 @@ class ConcreteDummyResource(ConcreteResource):
                 given queue.
         """
         is_valid, msg, valid_resources = queue.validate_resources(**requested_resources)
-        return is_valid, msg, cls(queue=queue, valid_resources=valid_resources)
+        return is_valid, msg, cls(queue=queue, resources=valid_resources)
 
     @classmethod
     def adjust_and_create_concrete_resource(

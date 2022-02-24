@@ -284,20 +284,15 @@ class Array:
 
         return tasks
 
-    def bind(self, workflow_id: int, cluster_id: int) -> None:
+    def bind(self) -> None:
         """Add an array to the database."""
         app_route = "/array"
         rc, resp = self.requester.send_request(
             app_route=app_route,
             message={
                 "task_template_version_id": self.task_template_version.id,
-                "workflow_id": workflow_id,
+                "workflow_id": self.workflow.workflow_id,
                 "max_concurrently_running": self.max_concurrently_running,
-                "threshold_to_submit": self.threshold_to_submit,
-                # assume num_completed always null on bind, computed later in distributor
-                "num_completed": None,
-                "task_resources_id": self.task_resources.id,
-                "cluster_id": cluster_id,
             },
             request_type="post",
         )

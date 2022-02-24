@@ -167,7 +167,7 @@ class Task:
         self._instance_compute_resources = (
             compute_resources if compute_resources is not None else {}
         )
-        self.compute_resources_callable = compute_resources_callable
+        self._instance_compute_resources_callable = compute_resources_callable
         self.resource_scales: Dict[str, float] = (
             resource_scales if resource_scales is not None else {"memory": 0.5, "runtime": 0.5}
         )
@@ -205,6 +205,27 @@ class Task:
         return cluster_name
 
     @property
+    def compute_resources_callable(self) -> Optional[Callable]:
+        """A callable that returns a compute resources dict."""
+        compute_resources_callable = self._instance_compute_resources_callable
+        if compute_resources_callable is None:
+            compute_resources_callable = self.array.compute_resources_callable
+        return compute_resources_callable
+
+    @property
+    def original_task_resources(self) -> TaskResources:
+        """Get the id of the task if it has been bound to the db otherwise raise an error."""
+        if not hasattr(self, "_origin_task_resources"):
+            raise AttributeError("task_resources cannot be accessed before workflow is bound")
+        return self._original_task_resources
+
+    @original_task_resources.setter
+    def original_task_resources(self, val: TaskResources) -> None:
+        if not isinstance(val, TaskResources):
+            raise ValueError("task_resources must be of type=TaskResources")
+        self._original_task_resources = val
+
+    @property
     def is_bound(self) -> bool:
         """If the task template version has been bound to the database."""
         return hasattr(self, "_task_id")
@@ -219,19 +240,6 @@ class Task:
     @task_id.setter
     def task_id(self, val: int) -> None:
         self._task_id = val
-
-    @property
-    def task_resources(self) -> TaskResources:
-        """Get the id of the task if it has been bound to the db otherwise raise an error."""
-        if not hasattr(self, "_task_resources"):
-            raise AttributeError("task_resources cannot be accessed before workflow is bound")
-        return self._task_resources
-
-    @task_resources.setter
-    def task_resources(self, val: TaskResources) -> None:
-        if not isinstance(val, TaskResources):
-            raise ValueError("task_resources must be of type=TaskResources")
-        self._task_resources = val
 
     @property
     def initial_status(self) -> str:
@@ -464,7 +472,6 @@ class Task:
                 "workflow_id": self.workflow.workflow_id,
                 "node_id": self.node.node_id,
                 "array_id": self.array.array_id,
-                "task_resources_id": self.task_resources.id,
                 "task_args_hash": self.task_args_hash,
                 "name": self.name,
                 "command": self.command,

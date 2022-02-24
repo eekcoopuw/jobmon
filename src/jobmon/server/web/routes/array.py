@@ -52,14 +52,12 @@ def add_array() -> Any:
         array = Array(
             task_template_version_id=data["task_template_version_id"],
             workflow_id=data["workflow_id"],
-            task_resources_id=data["task_resources_id"],
             max_concurrently_running=data["max_concurrently_running"],
-            threshold_to_submit=data["threshold_to_submit"],
-            num_completed=data["num_completed"],
-            cluster_id=data["cluster_id"],
         )
         DB.session.add(array)
-        DB.session.commit()
+    else:
+        array.max_concurrently_running = data["max_concurrently_running"]
+    DB.session.commit()
 
     # return result
     resp = jsonify(array_id=array.id)

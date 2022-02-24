@@ -9,9 +9,11 @@ from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
+from jobmon.client.task_resources import TaskResources
 from jobmon.constants import WorkflowRunStatus, TaskResourcesType
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import http_request_ok, Requester
+
 
 # avoid circular imports on backrefs
 if TYPE_CHECKING:
@@ -57,6 +59,9 @@ class WorkflowRun(object):
 
         # workflow was created successfully
         self.status = WorkflowRunStatus.REGISTERED
+
+        # cache for compute resources
+        self._task_resources: Dict[int, TaskResources] = {}
 
     @property
     def workflow_id(self):
@@ -187,31 +192,19 @@ class WorkflowRun(object):
             for task_hash in task_hashes_chunk:
                 task = self._workflow.tasks[task_hash]
 
-                no_resource_callable = (
-                    task.compute_resources_callable is None
-                    and task.array.compute_resources_callable is None
-                )
-                if no_resource_callable:
-                    task_resources = self._workflow.get_task_resources(
-                        task, TaskResourcesType.VALIDATED
-                    )
-                    task_resources.bind()
-                    task.task_resources = task_resources
-                    task_resources_id: Optional[int] = task.task_resources.id
-                else:
-                    task_resources_id = None
-
+                # get array id
                 array = task.array
                 if not array.is_bound:
-                    array.task_resources = task_resources
-                    cluster_id = self._workflow.get_cluster_by_name(array.cluster_name).id
-                    array.bind(workflow_id=self._workflow.workflow_id, cluster_id=cluster_id)
+                    array.bind()
+
+                # get task resources id
+                task_resources = self._get_original_task_resources(task)
 
                 task_metadata[task_hash] = [
                     task.node.node_id,
                     task.task_args_hash,
                     task.array.array_id,
-                    task_resources_id,
+                    task_resources.id,
                     task.name,
                     task.command,
                     task.max_attempts,
@@ -246,6 +239,31 @@ class WorkflowRun(object):
                 task.initial_status = return_tasks[k][1]
 
         return self._workflow.tasks
+
+    def _get_original_task_resources(self, task: Task) -> TaskResources:
+        resource_params = task.compute_resources
+        cluster = self._workflow.get_cluster_by_name(task.cluster_name)
+
+        try:
+            queue_name: str = resource_params["queue"]
+        except KeyError:
+            raise ValueError(
+                "A queue name must be provided in the specified compute resources."
+            )
+        queue = cluster.get_queue(queue_name)
+        concrete_resources = cluster.concrete_resource_class(queue, resource_params)
+
+        try:
+            task_resources = self._task_resources[hash(concrete_resources)]
+        except KeyError:
+            task_resources = TaskResources(
+                concrete_resources=concrete_resources,
+                task_resources_type_id=TaskResourcesType.ORIGINAL
+            )
+            task_resources.bind()
+            self._task_resources[hash(task_resources)] = task_resources
+
+        return task_resources
 
     def __repr__(self) -> str:
         """A representation string for a client WorkflowRun instance."""

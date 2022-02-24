@@ -241,6 +241,11 @@ class ClusterWorkerNode(Protocol):
 class ConcreteResource(Protocol):
     """The protocol class for concrete resources."""
 
+    @abstractmethod
+    def __init__(self, queue: ClusterQueue, requested_resources: Dict) -> None:
+        """Initialization of ClusterQueue."""
+        raise NotImplementedError
+
     @property
     @abstractmethod
     def queue(self) -> ClusterQueue:

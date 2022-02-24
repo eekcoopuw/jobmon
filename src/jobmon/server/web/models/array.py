@@ -22,8 +22,6 @@ class Array(DB.Model):
         """Serialize executor task object."""
         serialized = SerializeDistributorArray.to_wire(
             array_id=self.id,
-            task_resources_id=self.task_resources_id,
-            requested_resources=self.task_resources.requested_resources,
             max_concurrently_running=self.max_concurrently_running,
         )
         return serialized
@@ -31,11 +29,5 @@ class Array(DB.Model):
     id = DB.Column(DB.Integer, primary_key=True)
     task_template_version_id = DB.Column(DB.Integer)
     workflow_id = DB.Column(DB.Integer)
-    task_resources_id = DB.Column(DB.Integer, DB.ForeignKey("task_resources.id"), default=None)
     max_concurrently_running = DB.Column(DB.Integer)
-    threshold_to_submit = DB.Column(DB.Integer)
-    num_completed = DB.Column(DB.Integer, default=None)
-    cluster_id = DB.Column(DB.Integer)
     created_date = DB.Column(DB.DateTime, default=func.now())
-
-    task_resources = DB.relationship("TaskResources", foreign_keys=[task_resources_id])

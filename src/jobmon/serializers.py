@@ -61,17 +61,17 @@ class SerializeTaskInstance:
 
     @staticmethod
     def to_wire(
-        task_instance_id: int, task_id: int, workflow_run_id: int, workflow_id: int, status: str,
-        distributor_id: Union[int, None], cluster_id: Optional[int] = None, array_id: Optional[int] = None,
-        array_batch_num: Optional[int] = None, array_step_id: Optional[int] = None, 
-        subtask_id: Optional[str] = None
+        task_instance_id: int, task_id: int, workflow_run_id: int, workflow_id: int,
+        status: str, distributor_id: Union[int, None], cluster_id: Optional[int] = None,
+        array_id: Optional[int] = None, array_batch_num: Optional[int] = None,
+        array_step_id: Optional[int] = None, subtask_id: Optional[str] = None
     ) -> tuple:
         """Submit the above args for an DistributorTaskInstance object to the database."""
         if array_id is None:
             subtask_id = str(distributor_id)
-        return task_instance_id, task_id, workflow_run_id, workflow_id, status,\
-               distributor_id, cluster_id, \
-               array_id, array_batch_num, array_step_id, subtask_id
+        return (task_instance_id, task_id, workflow_run_id, workflow_id, status,
+                distributor_id, cluster_id, array_id, array_batch_num, array_step_id,
+                subtask_id)
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
@@ -421,28 +421,17 @@ class SerializeDistributorArray:
     @staticmethod
     def to_wire(
         array_id: int,
-        task_resources_id: int,
-        requested_resources: Dict,
         max_concurrently_running: int
     ) -> tuple:
         """Submit the TaskTemplate resource usage information to the database."""
-        return (
-            array_id,
-            task_resources_id,
-            requested_resources,
-            max_concurrently_running,
-        )
+        return array_id, max_concurrently_running
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Get the TaskTemplate resource usage information from the database."""
         return {
             "array_id": wire_tuple[0],
-            "task_resources_id": wire_tuple[1],
-            "requested_resources": {}
-            if wire_tuple[2] is None
-            else ast.literal_eval(wire_tuple[2]),
-            "max_concurrently_running": wire_tuple[3]
+            "max_concurrently_running": wire_tuple[1]
         }
 
 
