@@ -173,8 +173,8 @@ class DistributorTaskInstance:
             raise ValueError("distributor_id cannot be None during log_error")
         distributor_id = self.distributor_id
         logger.debug(f"log_error for distributor_id {distributor_id}")
-        if not self.error_state:
-            raise ValueError("cannot log error if self.error_state isn't set")
+        if not error_state:
+            raise ValueError("cannot log error if error_state isn't set")
 
         if error_state == TaskInstanceStatus.UNKNOWN_ERROR:
             app_route = f"/task_instance/{self.task_instance_id}/log_unknown_error"
@@ -185,7 +185,7 @@ class DistributorTaskInstance:
             app_route=app_route,
             message={
                 "error_state": error_state,
-                "error_message": self.error_msg,
+                "error_message": error_message,
                 "distributor_id": distributor_id,
             },
             request_type="post",

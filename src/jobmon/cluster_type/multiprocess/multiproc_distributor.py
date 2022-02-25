@@ -325,7 +325,7 @@ class MultiprocessDistributor(ClusterDistributor):
     def get_array_queueing_errors(
             self, distributor_id: Union[int, str]
     ) -> Dict[Union[int, str], str]:
-        raise NotImplementedError
+        return {}
 
     def get_remote_exit_info(
         self, distributor_id: int, array_step_id: Optional[int] = None

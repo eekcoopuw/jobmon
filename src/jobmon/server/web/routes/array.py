@@ -10,6 +10,7 @@ from werkzeug.local import LocalProxy
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.array import Array
+from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.routes import finite_state_machine
 
 
@@ -91,5 +92,33 @@ def get_array(array_id: int) -> Any:
     DB.session.commit()
 
     resp = jsonify(array=array.to_wire_as_distributor_array())
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route("/array/<array_id>/get_last_batch_number", methods=["GET"])
+def get_last_batch_number(array_id: int) -> int:
+    """Route to determine the last_batch_number = max(array_batch_num) from
+    the array's task_instances.
+
+    Args:
+        array_id (int): the ID of the array.
+
+    Return:
+        last_batch_number: int
+    """
+    bind_to_logger(array_id=array_id)
+
+    sql = f"""
+        SELECT array_id, max(array_batch_num) AS last_batch_number
+        FROM task_instance
+        WHERE
+            array_id = {array_id}
+        GROUP BY array_id
+    """
+
+    row = DB.session.execute(sql).fetchone()
+
+    resp = jsonify(last_batch_number=row[1])
     resp.status_code = StatusCodes.OK
     return resp
