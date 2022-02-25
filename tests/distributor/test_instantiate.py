@@ -1,6 +1,7 @@
 import time
 
 
+from unittest import mock
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeDistributorTask
 from jobmon.constants import TaskInstanceStatus
@@ -92,7 +93,7 @@ def test_instantiate_queued_tasks_on_sequential(tool, db_cfg, client_env, task_t
 
 
 def test_instantiate_queued_tasks_on_multiprocess(tool, db_cfg, client_env, task_template):
-    """tests that a task can be instantiated and run and log done"""
+    """tests that a task can be instantiated and run and log error"""
     from datetime import datetime
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
@@ -194,6 +195,46 @@ def test_instantiate_queued_tasks_on_multiprocess(tool, db_cfg, client_env, task
     assert len(res) == 2
     assert res[0][2] > time_base
     assert res[1][2] > time_base
+
+    # turn the 2 task instances from LAUNCHED to UNKOWN_ERROR
+
+    # stage the report_by_date to be 1 hour past
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+        UPDATE task_instance
+        SET report_by_date = CURRENT_TIMESTAMP() - INTERVAL 1 HOUR
+        WHERE task_id in :task_ids"""
+        DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]})
+        DB.session.commit()
+
+    mocked_return_value: Dict[Union[int, str], str] = {}
+    for task_instance in distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]:
+        mocked_return_value[task_instance.array_batch.distributor_id] = "Mocked Error"
+
+    with mock.patch(
+        "jobmon.cluster_type.multiprocess.multiproc_distributor."
+        "MultiprocessDistributor.get_array_queueing_errors",
+            return_value=mocked_return_value
+    ) :
+        # code logic to test
+        distributor_service.process_status(TaskInstanceStatus.LAUNCHED)
+
+        app = db_cfg["app"]
+        DB = db_cfg["DB"]
+        with app.app_context():
+            sql = """
+            SELECT id, task_instance.status, report_by_date
+            FROM task_instance
+            WHERE task_id in :task_ids
+            ORDER BY id"""
+            res = DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]}).all()
+            DB.session.commit()
+
+        assert len(res) == 2
+        assert res[0][1] == TaskInstanceStatus.UNKNOWN_ERROR
+        assert res[1][1] == TaskInstanceStatus.UNKNOWN_ERROR
 
 
 def test_n_queued(tool, db_cfg, client_env, task_template):

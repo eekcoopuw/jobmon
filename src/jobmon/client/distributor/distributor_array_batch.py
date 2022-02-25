@@ -103,32 +103,33 @@ class DistributorArrayBatch:
         for task_instance in self.task_instances:
             task_instance.requested_resources = self.requested_resources
 
-    def get_queueing_errors(
-        self, cluster: ClusterDistributor
-    ) -> Tuple[Set, List[DistributorCommand]]:
+    def process_queueing_errors(
+        self, cluster: ClusterDistributor, distributor_service: DistributorService
+    ) -> None:
+        assert distributor_service is not None
+
 
         errors = cluster.get_array_queueing_errors(self.distributor_id)
 
         # Add work to terminate the eqw task instances, if any
         if len(errors) > 0:
-            return [DistributorCommand(self.terminate_task_instances, cluster, errors)]
-        else:
-            return []
+            command = DistributorCommand(self.terminate_task_instances, cluster, errors, distributor_service)
+            distributor_service.distributor_commands.append(command)
 
     def terminate_task_instances(
-        self, cluster: ClusterDistributor, errors: Dict[str, str]
-    ) -> Tuple[Set, List[Callable]]:
+        self, cluster: ClusterDistributor, errors: Dict[str, str], distributor_service: DistributorService
+    ) -> None:
+        """Terminate task instances with errors."""
+        assert distributor_service is not None
 
-        commands = []
-        task_instances = {ti.distributor_id: ti for ti in self.task_instances}
-        for distributor_id, error_msg in errors.items():
-            task_instance = task_instances[distributor_id]
-            commands.append(DistributorCommand(task_instance.transition_to_error,
-                                               error_msg, TaskInstanceStatus.UNKNOWN_ERROR))
+        for task_instance in self.task_instances:
+            for distributor_id, error_msg in errors.items():
+                command = DistributorCommand(task_instance.transition_to_error,
+                                               error_msg, TaskInstanceStatus.UNKNOWN_ERROR)
+                distributor_service.distributor_commands.append(command)
 
         cluster.terminate_task_instances(list(errors.keys()))
 
-        return set(), commands
 
     def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""

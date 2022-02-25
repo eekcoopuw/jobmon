@@ -369,9 +369,9 @@ class DistributorService:
         workflow_capacity_lookup: Dict[int, int] = {}
         array_capacity_lookup: Dict[int, int] = {}
 
-        # store arrays and eligable task_instances for later
+        # store arrays and eligible task_instances for later
         arrays: Set[DistributorArray] = set()
-        eligable_task_instances: Set[DistributorTaskInstance] = set()
+        eligible_task_instances: Set[DistributorTaskInstance] = set()
 
         # loop through all instantiated instances while we have capacity
         while instantiated_task_instances:
@@ -387,9 +387,9 @@ class DistributorService:
                 workflow_id, self._get_workflow_capacity(workflow_id)
             )
 
-            # add to eligable_task_instances set if there is capacity
+            # add to eligible_task_instances set if there is capacity
             if workflow_capacity > 0 and array_capacity > 0:
-                eligable_task_instances.add(task_instance)
+                eligible_task_instances.add(task_instance)
 
                 # keep the set of arrays for later
                 arrays.add(task_instance.array)
@@ -404,24 +404,23 @@ class DistributorService:
 
         # loop through all arrays from earlier and cluster into batches
         for array in arrays:
-            # TODO: perhaps this is top level command. We need to record array batch number
-            # on the array itself for the resume case.
-            array_batches = array.create_array_batches(eligable_task_instances)
+            array_batches = array.create_array_batches(eligible_task_instances)
 
             for array_batch in array_batches:
                 distributor_command = DistributorCommand(self.launch_array_batch, array_batch)
                 self.distributor_commands.append(distributor_command)
 
     def _check_launched_for_work(self) -> None:
-        array_batches: Set[DistributorArrayBatch] = set()
+        array_batches_launched: Set[DistributorArrayBatch] = set()
         launched_task_instances = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
         for task_instance in launched_task_instances:
-            array_batches.add(task_instance.array_batch)
+            array_batches_launched.add(task_instance.array_batch)
 
-        for array_batch in array_batches:
+        for array_batch in array_batches_launched:
             distributor_command = DistributorCommand(
-                array_batch.get_queueing_errors,
-                self.cluster
+                array_batch.process_queueing_errors,
+                self.cluster,
+                self
             )
             self.distributor_commands.append(distributor_command)
 
