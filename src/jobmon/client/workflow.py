@@ -72,7 +72,8 @@ class DistributorContext:
 
     def __exit__(self, exc_type, exc_value, exc_traceback):
         logger.info("Stopping Distributor Process")
-        self._shutdown()
+        err = self._shutdown()
+        logger.info(f"Got {err} from Distributor Process")
 
     def alive(self) -> bool:
         self.process.poll()

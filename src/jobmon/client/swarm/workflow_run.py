@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 import logging
 import time
-from typing import Callable, Dict, Iterator, List, Optional, Set, TYPE_CHECKING
+from typing import Callable, Dict, Iterator, List, Numeric, Optional, Set, TYPE_CHECKING
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_task import SwarmTask
@@ -24,11 +24,6 @@ if TYPE_CHECKING:
 
 
 logger = logging.getLogger(__name__)
-
-
-# This is re-defined into the global namespace of the module so it can be
-# safely patched
-ValueError = ValueError
 
 
 class SwarmCommand:
@@ -74,6 +69,7 @@ class WorkflowRun:
         workflow_run_heartbeat_interval: int = 30,
         heartbeat_report_by_buffer: float = 3.1,
         fail_fast: bool = False,
+        wedged_workflow_sync_interval: int = 600,
         fail_after_n_executions: int = 1_000_000_000,
         requester: Optional[Requester] = None,
     ) -> None:
@@ -103,6 +99,7 @@ class WorkflowRun:
 
         # flow control
         self.fail_fast = fail_fast
+        self.wedged_workflow_sync_interval = wedged_workflow_sync_interval
 
         # test parameters to force failure
         self._val_fail_after_n_executions = fail_after_n_executions
@@ -206,14 +203,10 @@ class WorkflowRun:
         try:
             logger.info(f"Executing Workflow Run {self.workflow_run_id}")
             self._update_status(WorkflowRunStatus.RUNNING)
+            time_since_last_full_sync = 0.
 
             while self.status == WorkflowRunStatus.RUNNING:
                 try:
-
-                    loop_start = time.time()
-
-                    # process any commands that we can
-                    self.process_commands()
 
                     # check that the distributor is still alive
                     if not distributor_alive_callable():
@@ -221,15 +214,29 @@ class WorkflowRun:
                             "Distributor process unexpectedly stopped. Workflow will error."
                         )
 
+                    # process any commands that we can in the time alotted
+                    loop_start = time.time()
+                    time_till_next_heartbeat = (
+                        self._workflow_run_heartbeat_interval
+                        - (loop_start - self._last_heartbeat_time)
+                    )
+                    self.process_commands(timeout=time_till_next_heartbeat)
+
                     # take a break if needed
-                    if not self._needs_synchronization:
-                        loop_duration = time.time() - loop_start
-                        time.sleep(
-                            self._workflow_run_heartbeat_interval - loop_duration
-                        )
+                    loop_elsapsed = time.time() - loop_start
+                    if loop_elsapsed < time_till_next_heartbeat:
+                        sleep_time = time_till_next_heartbeat - loop_elsapsed
+                        time.sleep(sleep_time)
+                        loop_elsapsed += sleep_time
 
                     # then synchronize state
-                    self.synchronize_state()
+                    if time_since_last_full_sync > self.wedged_workflow_sync_interval:
+                        time_since_last_full_sync = 0.
+                        self.synchronize_state(full_sync=True)
+
+                    else:
+                        time_since_last_full_sync += loop_elsapsed
+                        self.synchronize_state()
 
                 # user interrupt
                 except KeyboardInterrupt:
@@ -259,11 +266,6 @@ class WorkflowRun:
                 self._block_until_all_stopped()
                 self._update_status(WorkflowRunStatus.TERMINATED)
 
-    @property
-    def _needs_synchronization(self) -> bool:
-        time_diff = time.time() - self._last_heartbeat_time
-        return time_diff > self._workflow_run_heartbeat_interval
-
     def get_swarm_commands(self) -> Iterator[SwarmCommand]:
         """Get and iterator of work to be done."""
         for task in self._task_status_map[TaskStatus.ADJUSTING_RESOURCES]:
@@ -272,11 +274,18 @@ class WorkflowRun:
             if task.all_upstreams_done:
                 yield SwarmCommand(self.queue_task, task)
 
-    def process_commands(self):
-        """Processes swarm commands until all work is done or we need to synchronize state."""
-        keep_processing = not self._needs_synchronization
+    def process_commands(self, timeout: Numeric = -1):
+        """Processes swarm commands until all work is done or timeout is reached.
+
+        Args:
+            timeout: time until we stop processing. -1 means process till no more work
+        """
+
         swarm_commands = self.get_swarm_commands()
 
+        # this way we always process at least 1 command
+        loop_start = time.time()
+        keep_processing = True
         while keep_processing:
 
             # run commands
@@ -289,7 +298,7 @@ class WorkflowRun:
                     logger.error(swarm_command.exception)
 
                 # keep processing commands if we don't need a status sync
-                keep_processing = not self._needs_synchronization
+                keep_processing = (time.time() - loop_start) < timeout or timeout == -1
 
             except StopIteration:
                 # stop processing commands if we are out of commands
@@ -298,12 +307,12 @@ class WorkflowRun:
     def synchronize_state(self, full_sync: bool = False) -> None:
         self._log_heartbeat()
 
-        # TODO: should we be excluding DONE and ERROR_FATAL?
+        # TODO: should we be excluding DONE and ERROR_FATAL on full_sync?
         if full_sync:
-            updated_tasks = self._sync_task_statuses(set(self.tasks.values()))
+            updated_tasks = self._get_task_status_updates(set(self.tasks.values()))
 
         else:
-            updated_tasks = self._sync_task_statuses()
+            updated_tasks = self._get_task_status_updates()
 
         # remove these tasks from old mapping
         for status in self._task_status_map.keys():
@@ -486,7 +495,7 @@ class WorkflowRun:
         if num_newly_failed > 0:
             logger.warning(f"{num_newly_failed} newly failed tasks.")
 
-    def _sync_task_statuses(self, tasks: Set[SwarmTask] = None) -> Set[SwarmTask]:
+    def _get_task_status_updates(self, tasks: Set[SwarmTask] = None) -> Set[SwarmTask]:
         """Update internal state of tasks to match the database.
 
         If no tasks are specified, get all tasks.
