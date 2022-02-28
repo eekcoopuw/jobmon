@@ -71,11 +71,11 @@ class UsageIntegrator:
             if row:
                 params = json.loads(row.connection_parameters)
                 self._connection_params = params
-                return params
+        return self._connection_params
 
     def get_slurmtool_token(self):
         slurm_api_host, slurm_token_url = self.connection_parameters['slurm_rest_host'], \
-                                          self.connection_parameters['slurmtool_token_url']
+                                          self.connection_parameters['slurmtool_token_host']
         password = _get_service_user_pwd()
         if password is None:
             logger.warning(f"Fail to get the password for {self.user}")
@@ -99,6 +99,7 @@ class UsageIntegrator:
     def populate_queue(self, starttime: float) -> None:
         sql = (
             "SELECT task_instance.id as id,  "
+            "task_instance.distributor_id as distributor_id, "
             "cluster_type.name as cluster_type, "
             "cluster.id as cluster_id, "
             "task_instance.maxrss as maxrss, "
@@ -116,24 +117,34 @@ class UsageIntegrator:
         )
         task_instances = self.session.execute(sql).fetchall()
         self.session.commit()
-
         for ti in task_instances:
             if (ti.cluster_type == "UGE" and ti.maxpss is None) or \
-                    (ti.cluster_type == "slurm" and ti.maxrss in (None, 0, -1)):
+                    (ti.cluster_type in ('slurm', 'dummy') and ti.maxrss in (None, 0, -1, '0', '-1')):
                 queued_ti = QueuedTI(
                     task_instance_id=ti.id,
                     distributor_id=ti.distributor_id,
-                    cluster_type_name=ti.cluster_type_name,
+                    cluster_type_name=ti.cluster_type,
                     cluster_id=ti.cluster_id)
                 UsageQ.put(queued_ti)
 
     def update_resources_in_db(self, task_instances: List[QueuedTI]):
         # Pull resource list from SQUID/QPID
-        slurm_tasks = [ti for ti in task_instances if ti.cluster_type_name == 'slurm']
-        uge_tasks = [ti for ti in task_instances if ti.cluster_type_name == 'UGE']
+        # Split tasks by cluster type
+        slurm_tasks, uge_tasks, dummy_tasks = [], [], []
+        for ti in task_instances:
+            if ti.cluster_type_name == 'slurm':
+                slurm_tasks.append(ti)
+            elif ti.cluster_type_name == 'UGE':
+                uge_tasks.append(ti)
+            elif ti.cluster_type_name == "dummy":
+                dummy_tasks.append(ti)
 
-        self.update_slurm_resources(slurm_tasks)
-        self.update_uge_resources(uge_tasks)
+        if any(slurm_tasks):
+            self.update_slurm_resources(slurm_tasks)
+        if any(uge_tasks):
+            self.update_uge_resources(uge_tasks)
+        if any(dummy_tasks):
+            self.update_dummy_resources(dummy_tasks)
 
     def update_slurm_resources(self, tasks: List[QueuedTI]) -> None:
         # Unfortunately, need to fetch squid resources 1x1, until we get database access
@@ -141,16 +152,19 @@ class UsageIntegrator:
 
         # This loop is a prime candidate for an async refactor, but since the rest service
         # is the fragile point we don't want to overwhelm it.
-        usage_stats = {task.task_instance_id:
+        usage_stats = {task:
                        _get_squid_resource(self.slurm_api, task.distributor_id)
                        for task in tasks}
 
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:
-            if usage_stats[task.task_instance_id] is None:
-                usage_stats.pop(task.task_instance_id)
+            if usage_stats[task] is None:
+                usage_stats.pop(task)
                 task.age += 1
-                UsageQ.put(task)
+                UsageQ.put(task, task.age)
+
+        if len(usage_stats) == 0:
+            return  # No values to update
 
         # Attempt an insert, and update resources on duplicate primary key
         # There is a hypothetical max length of this query, limited by the value of
@@ -160,7 +174,7 @@ class UsageIntegrator:
         # to a maximum of 100 task instances each time. Max packet size is ~1e9 in the DB.
         # So we probably aren't close to that limit.
         sql = (
-            "INSERT INTO task_instance(id, maxrss, usage_str, task_id, status) "
+            "INSERT INTO task_instance(id, maxrss, wallclock, task_id, status) "
             "VALUES {values} "
             "ON DUPLICATE KEY UPDATE "
             "maxrss=VALUES(maxrss), "
@@ -171,8 +185,8 @@ class UsageIntegrator:
         # since there are no defaults for those two columns. Never used since we should fail a
         # primary key uniqueness check on task instance ID
         values = ",".join(
-            [str((tid, stats['maxrss'], stats['usage_str'], 1, 'D'))
-             for tid, stats in usage_stats.items()])
+            [str((ti.task_instance_id, stats['maxrss'], stats['wallclock'], 1, 'D'))
+             for ti, stats in usage_stats.items()])
 
         self.session.execute(sql.format(values=values))
         self.session.commit()
@@ -180,17 +194,20 @@ class UsageIntegrator:
     def update_uge_resources(self, tasks: List[QueuedTI]) -> None:
 
         usage_stats = {
-            task.task_instance_id:
-            _get_qpid_response(task.distributor_id, self.config['qpid_base_uri'])
+            task:
+            _get_qpid_response(task.distributor_id, self.config['qpid_uri_base'])[1]
             for task in tasks
         }
 
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:
-            if usage_stats[task.task_instance_id] is None:
-                usage_stats.pop(task.task_instance_id)
+            if usage_stats[task] is None:
+                usage_stats.pop(task)
                 task.age += 1
-                UsageQ.put(task)
+                UsageQ.put(task, task.age)
+
+        if len(usage_stats) == 0:
+            return  # No values to update
 
         # Attempt an insert, and update resources on duplicate primary key
         # There is a hypothetical max length of this query, limited by the value of
@@ -211,10 +228,23 @@ class UsageIntegrator:
         # since there are no defaults for those two columns. Never used since we should fail a
         # primary key uniqueness check on task instance ID
         values = ",".join(
-            [str((tid, usage_stats[tid], 1, 'D'))
-             for tid, stats in usage_stats.items()])
+            [str((ti.task_instance_id, maxrss, 1, 'D'))
+             for ti, maxrss in usage_stats.items()])
 
         self.session.execute(sql.format(values=values))
+        self.session.commit()
+
+    def update_dummy_resources(self, task_instances: List[QueuedTI]):
+
+        # Hardcode a value for maxrss, just for unit testing
+        values = ",".join([str(ti.task_instance_id) for ti in task_instances])
+
+        sql = (
+            "UPDATE task_instance "
+            "SET maxrss=1314 "
+            "WHERE id IN ({})"
+        )
+        self.session.execute(sql.format(values))
         self.session.commit()
 
 
@@ -233,7 +263,7 @@ def _get_squid_resource(slurm_api: slurm, distributor_id: int) -> Optional[dict]
 
     usage_stats = {}
 
-    for job in slurm_api.slurmdbd_get_jobs(distributor_id).jobs:
+    for job in slurm_api.slurmdbd_get_job(distributor_id).jobs:
         for allocated in job.tres.allocated:
             if allocated["type"] in ("cpu", "node", "billing"):
                 usage_stats[allocated["type"]] = allocated["count"]
@@ -268,11 +298,11 @@ def _get_qpid_response(distributor_id: int, qpid_uri_base: Optional[str]) -> Opt
         logger.info(
             f"The maxpss of {distributor_id} is not available. Put it back to the queue."
         )
-        return None
+        return resp, None
     else:
         maxpss = resp.json()["max_pss"]
         logger.debug(f"execution id: {distributor_id} maxpss: {maxpss}")
-        return maxpss
+        return 200, maxpss
 
 
 def _get_config() -> dict:
