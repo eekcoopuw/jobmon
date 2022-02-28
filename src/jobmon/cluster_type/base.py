@@ -4,7 +4,7 @@ from __future__ import annotations
 from abc import abstractmethod
 import hashlib
 import json
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 # the following try-except is to accommodate Python versions on both >=3.8 and 3.7.
 # The Protocol was officially introduced in 3.8, with typing_extensions slapped on 3.7.
@@ -95,9 +95,15 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def get_submitted_or_running(
-        self, distributor_ids: List[Union[int, str]]
-    ) -> List[Union[int, str]]:
-        """Check which task instances are active."""
+            self, distributor_ids: List[int]
+    ) -> Set[Tuple[int, Optional[int]]]:
+        """Check which task instances are active.
+
+        Returns: a set of tuples(
+            distributor_id,
+            array_step_id(optional, has value only for array cases)
+            )
+        """
         raise NotImplementedError
 
     @abstractmethod
@@ -190,6 +196,13 @@ class ClusterDistributor(Protocol):
         )
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         return str_cmd
+
+    @abstractmethod
+    def get_subtask_id(
+            self, distributor_id: int, array_step_id: int
+    ) -> str:
+        """Get the subtask_id based on distributor_id and array_step_id."""
+        raise NotImplementedError
 
 
 class ClusterWorkerNode(Protocol):

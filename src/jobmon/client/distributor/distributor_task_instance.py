@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import Dict, List, Set, Tuple, TYPE_CHECKING
 
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
@@ -85,10 +85,19 @@ class DistributorTaskInstance:
         if not self._requested_resources:
             # TODO: actually load them
             self._requested_resources = {}
+        return self._requested_resources
 
     @requested_resources.setter
     def requested_resources(self, val: Dict):
         self._requested_resources = val
+
+    @property
+    def array_step_id(self) -> int:
+        return self._array_step_id
+
+    @array_step_id.setter
+    def array_step_id(self, val: int):
+        self._array_step_id = val
 
     def transition_to_instantiated(self):
         """Transition current ti to initiated"""
@@ -103,20 +112,23 @@ class DistributorTaskInstance:
                 f"code 200. Response content: {response}"
             )
         kwargs = SerializeTaskInstance.kwargs_from_wire(response["task_instance"])
-        self.task_id = (kwargs["task_id"],)
-        self.array_id = (kwargs["array_id"],)
+        self.task_id = kwargs["task_id"]
+        self.array_id = kwargs["array_id"]
         self.workflow_id = kwargs["workflow_id"]
+        self.task_resources_id = kwargs["task_resources_id"]
         self.status = TaskInstanceStatus.INSTANTIATED
 
-    def transition_to_launched(self, next_report_increment: float) -> None:
+    def transition_to_launched(self, distributor_id: int,
+                               next_report_increment: float, subtask_id: int = None) -> None:
         """Register the submission of a new task instance to a cluster."""
 
+        self.distributor_id = distributor_id
         app_route = f"/task_instance/{self.task_instance_id}/log_distributor_id"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
-                "distributor_id": str(self.distributor_id),
-                "subtask_id": str(self.subtask_id),
+                "distributor_id": str(distributor_id),
+                "subtask_id": str(subtask_id),
                 "next_report_increment": next_report_increment,
             },
             request_type="post",
@@ -128,6 +140,8 @@ class DistributorTaskInstance:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
+
+        self.status = TaskInstanceStatus.LAUNCHED
 
     def transition_to_no_distributor_id(
         self,
@@ -158,8 +172,8 @@ class DistributorTaskInstance:
             raise ValueError("distributor_id cannot be None during log_error")
         distributor_id = self.distributor_id
         logger.debug(f"log_error for distributor_id {distributor_id}")
-        if not self.error_state:
-            raise ValueError("cannot log error if self.error_state isn't set")
+        if not error_state:
+            raise ValueError("cannot log error if error_state isn't set")
 
         if error_state == TaskInstanceStatus.UNKNOWN_ERROR:
             app_route = f"/task_instance/{self.task_instance_id}/log_unknown_error"
@@ -170,7 +184,7 @@ class DistributorTaskInstance:
             app_route=app_route,
             message={
                 "error_state": error_state,
-                "error_message": self.error_msg,
+                "error_message": error_message,
                 "distributor_id": distributor_id,
             },
             request_type="post",

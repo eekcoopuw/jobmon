@@ -35,6 +35,7 @@ class TaskInstance(DB.Model):
             self.status,
             self.distributor_id,
             self.cluster_id,
+            self.task_resources_id,
             self.array_id,
             self.array_batch_num,
             self.array_step_id,

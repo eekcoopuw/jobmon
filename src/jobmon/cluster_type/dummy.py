@@ -94,7 +94,8 @@ class DummyDistributor(ClusterDistributor):
         """Dummy tasks never error, since they never run. So always return an empty dict."""
         return {}
 
-    def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
+    def get_submitted_or_running(self, distributor_ids: List[int]) -> \
+            Set[Tuple[int, Optional[int]]]:
         """Check which task instances are active."""
         raise NotImplementedError
 

@@ -200,13 +200,15 @@ def log_ti_report_by_batch() -> Any:
     data = request.get_json()
     tis = data.get("task_instance_ids", None)
 
+    next_report_increment = data.get("next_report_increment")
+
     logger.debug(f"Log report_by for TI {tis}.")
     if tis:
         query = f"""
             UPDATE task_instance
             SET report_by_date = ADDTIME(
-                CURRENT_TIMESTAMP(), SEC_TO_TIME(:next_report_increment))
-            WHERE task_instance.id in str(tis).replace("[", "(").replace("]", ")")"""
+                CURRENT_TIMESTAMP(), SEC_TO_TIME({next_report_increment}))
+            WHERE task_instance.id in {str(tis).replace("[", "(").replace("]", ")")}"""
 
         DB.session.execute(query)
         DB.session.commit()
@@ -428,7 +430,7 @@ def get_suspicious_task_instances(workflow_run_id: int) -> Any:
         .from_statement(text(query))
         .params(
             active_tasks=[
-                TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+                TaskInstanceStatus.LAUNCHED,
                 TaskInstanceStatus.RUNNING,
             ],
             workflow_run_id=workflow_run_id,
@@ -453,10 +455,10 @@ def get_task_instances_to_terminate(workflow_run_id: int) -> Any:
     workflow_run = DB.session.query(WorkflowRun).filter_by(id=workflow_run_id).one()
 
     if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
-        task_instance_states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR]
+        task_instance_states = [TaskInstanceStatus.LAUNCHED]
     if workflow_run.status == WorkflowRunStatus.COLD_RESUME:
         task_instance_states = [
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+            TaskInstanceStatus.LAUNCHED,
             TaskInstanceStatus.RUNNING,
         ]
 
@@ -639,7 +641,7 @@ def log_distributor_id(task_instance_id: int) -> Any:
     data = request.get_json()
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(
-        ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR
+        ti, TaskInstanceStatus.LAUNCHED
     )
     ti.distributor_id = data["distributor_id"]
     if ti.array_id is None:

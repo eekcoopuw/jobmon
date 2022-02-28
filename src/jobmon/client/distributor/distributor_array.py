@@ -24,8 +24,11 @@ class DistributorArray:
         self.task_instances: Set[DistributorTaskInstance] = set()
         self.last_batch_number = 0
         self.requester = requester
+        self.max_concurrently_running = None
 
     def get_metadata(self):
+
+        # refresh max_concurrently_running from db
         app_route = f"/array/{self.array_id}"
         return_code, response = self.requester.send_request(
             app_route=app_route, message={}, request_type="get", logger=logger
@@ -39,6 +42,20 @@ class DistributorArray:
 
         array_dict = SerializeDistributorArray.kwargs_from_wire(response["array"])
         self.max_concurrently_running = array_dict["max_concurrently_running"]
+
+        # refresh last_batch_number from db
+        app_route = f"/array/{self.array_id}/get_last_batch_number"
+        return_code, response = self.requester.send_request(
+            app_route=app_route, message={}, request_type="get", logger=logger
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
+        self.last_batch_number = \
+            response["last_batch_number"] if response["last_batch_number"] is not None else 0
 
     @classmethod
     def from_wire(
@@ -68,19 +85,20 @@ class DistributorArray:
         task_instance.array = self
 
     def create_array_batches(
-        self, eligable_task_instances: Set[DistributorTaskInstance]
+        self,
+        eligible_task_instances: Set[DistributorTaskInstance]
     ) -> List[DistributorArrayBatch]:
         # TODO: would this logic make more sense in the SWARM???
 
-        # limit eligable set to this array and store batches
-        array_eligable = self.task_instances.intersection(eligable_task_instances)
+        # limit eligible set to this array and store batches
+        array_eligible = self.task_instances.intersection(eligible_task_instances)
 
         # return a list of commands to run
         array_batches: List[DistributorArrayBatch] = []
 
         # group into batches
         array_batch_sets: Dict[int, Set[DistributorTaskInstance]] = {}
-        for task_instance in array_eligable:
+        for task_instance in array_eligible:
             if task_instance.task_resources_id not in array_batch_sets:
                 array_batch_sets[task_instance.task_resources_id] = set()
             array_batch_sets[task_instance.task_resources_id].add(task_instance)
@@ -95,6 +113,8 @@ class DistributorArray:
                 batch_set,
                 self.requester,
             )
+            for task_instance_in_batch in batch_set:
+                task_instance_in_batch.array_batch = array_batch
             self.last_batch_number = current_batch_number
             array_batches.append(array_batch)
 

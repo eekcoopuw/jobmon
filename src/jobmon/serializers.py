@@ -62,10 +62,12 @@ class SerializeTaskInstance:
         status: str,
         distributor_id: Union[int, None],
         cluster_id: Optional[int] = None,
+        task_resources_id: Optional[int] = None,
         array_id: Optional[int] = None,
         array_batch_num: Optional[int] = None,
         array_step_id: Optional[int] = None,
         subtask_id: Optional[str] = None,
+
     ) -> tuple:
         """Submit the above args for an DistributorTaskInstance object to the database."""
         if array_id is None:
@@ -78,6 +80,7 @@ class SerializeTaskInstance:
             status,
             distributor_id,
             cluster_id,
+            task_resources_id,
             array_id,
             array_batch_num,
             array_step_id,
@@ -94,10 +97,11 @@ class SerializeTaskInstance:
         status = str(wire_tuple[4])
         distributor_id = int(wire_tuple[5]) if wire_tuple[5] else None
         cluster_id = int(wire_tuple[6]) if wire_tuple[6] else None
-        array_id = int(wire_tuple[7]) if wire_tuple[7] else None
-        array_batch_num = int(wire_tuple[8]) if wire_tuple[8] else None
-        array_step_id = int(wire_tuple[9]) if wire_tuple[9] else None
-        subtask_id = str(wire_tuple[10]) if wire_tuple[10] else None
+        task_resources_id = int(wire_tuple[7]) if wire_tuple[7] else None
+        array_id = int(wire_tuple[8]) if wire_tuple[8] else None
+        array_batch_num = int(wire_tuple[9]) if wire_tuple[9] else None
+        array_step_id = int(wire_tuple[10]) if wire_tuple[10] else None
+        subtask_id = str(wire_tuple[11]) if wire_tuple[11] else None
 
         return {
             "task_instance_id": task_instance_id,
@@ -107,6 +111,7 @@ class SerializeTaskInstance:
             "status": status,
             "distributor_id": distributor_id,
             "cluster_id": cluster_id,
+            "task_resources_id": task_resources_id,
             "array_id": array_id,
             "array_batch_num": array_batch_num,
             "array_step_id": array_step_id,
@@ -320,39 +325,6 @@ class SerializeQueue:
         }
 
 
-class SerializeTaskResources:
-    """Serialize the data to and from the db for a TaskResources."""
-
-    @staticmethod
-    def to_wire(
-        task_id: int,
-        queue_id: int,
-        task_resources_type_id: str,
-        resource_scales: str,
-        requested_resources: str,
-    ) -> tuple:
-        """Submit the TaskResources info to the database."""
-        return (
-            task_id,
-            queue_id,
-            task_resources_type_id,
-            resource_scales,
-            requested_resources,
-        )
-
-    @staticmethod
-    def kwargs_from_wire(wire_tuple: tuple) -> dict:
-        """Get the whole  for a TaskResources."""
-        return {
-            "id": int(wire_tuple[0]),
-            "task_id": int(wire_tuple[1]),
-            "queue_id": int(wire_tuple[2]),
-            "task_resources_type_id": str(wire_tuple[3]),
-            "resource_scales": str(wire_tuple[4]),
-            "requested_resources": str(wire_tuple[5]),
-        }
-
-
 class SerializeTaskResourceUsage:
     """Serialize the data to and from the database for Task resource usage."""
 
@@ -455,4 +427,35 @@ class SerializeDistributorWorkflow:
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """"""
-        return {"workflow_id": wire_tuple[0], "max_concurrently_running": wire_tuple[1]}
+        return {
+            "workflow_id": wire_tuple[0],
+            "max_concurrently_running": wire_tuple[1]
+        }
+
+
+class SerializeTaskResources:
+    """"""
+    @staticmethod
+    def to_wire(
+        task_resources_id: int,
+        queue_id: int,
+        task_resources_type_id: str,
+        requested_resources: str
+    ) -> tuple:
+        """"""
+        return (
+            task_resources_id,
+            queue_id,
+            task_resources_type_id,
+            requested_resources,
+        )
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        """"""
+        return {
+            "task_resources_id": wire_tuple[0],
+            "queue_id": wire_tuple[1],
+            "task_resources_type_id": wire_tuple[2],
+            "requested_resources": wire_tuple[3]
+        }

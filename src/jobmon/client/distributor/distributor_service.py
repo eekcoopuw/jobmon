@@ -61,6 +61,7 @@ class DistributorService:
             TaskInstanceStatus.QUEUED: set(),
             TaskInstanceStatus.INSTANTIATED: set(),
             TaskInstanceStatus.LAUNCHED: set(),
+            TaskInstanceStatus.RUNNING: set(),
             TaskInstanceStatus.TRIAGING: set(),
         }
         # order through which we processes work
@@ -193,7 +194,11 @@ class DistributorService:
         except NotImplementedError:
             # create DistributorCommands to submit the launch if array isn't implemented
             for task_instance in array_batch.task_instances:
-                distributor_command = DistributorCommand(self.launch_task_instance)
+                distributor_command = DistributorCommand(
+                    self.launch_task_instance,
+                    task_instance,
+                    array_batch.name
+                )
                 self.distributor_commands.append(distributor_command)
 
         except Exception as e:
@@ -207,12 +212,15 @@ class DistributorService:
         else:
             # if successful log a transition to launched
             for task_instance in array_batch.task_instances:
+                subtask_id = self.cluster.get_subtask_id(array_batch.distributor_id,
+                                                         task_instance.array_step_id)
                 distributor_command = DistributorCommand(
-                    task_instance.transition_to_launched, self._next_report_increment
+                    task_instance.transition_to_launched, array_batch.distributor_id,
+                    self._next_report_increment, subtask_id
                 )
                 self.distributor_commands.append(distributor_command)
 
-    def launch_task_instance(self, task_instance: DistributorTaskInstance) -> None:
+    def launch_task_instance(self, task_instance: DistributorTaskInstance, name: str) -> None:
         """
         submits a task instance on a given distributor.
         adds the new task instance to self.submitted_or_running_task_instances
@@ -226,8 +234,8 @@ class DistributorService:
         try:
             task_instance.distributor_id = self.cluster.submit_to_batch_distributor(
                 command=command,
-                name=task_instance.name,
-                requested_resources=task_instance.requested_resources,
+                name=name,
+                requested_resources=task_instance.requested_resources
             )
 
         except Exception as e:
@@ -235,18 +243,36 @@ class DistributorService:
 
         else:
             # move from register queue to launch queue
-            task_instance.transition_to_launched(self._next_report_increment)
+            task_instance.transition_to_launched(task_instance.distributor_id,
+                                                 self._next_report_increment)
 
     def triage_error(self, task_instance: DistributorTaskInstance) -> None:
         r_value, r_msg = self.cluster.get_remote_exit_info(task_instance.distributor_id)
         task_instance.transition_to_error(r_msg, r_value)
 
     def log_task_instance_report_by_date(self) -> None:
-        task_instances = self._task_instance_status_map[
-            TaskInstanceStatus.LAUNCHED
-        ].union(self._task_instance_status_map[TaskInstanceStatus.RUNNING])
-        # 1) build maps between task_instances and distributor_ids
-        # 2) log heartbeats for instances.
+        task_instances_launched = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
+
+        distributor_ids_launched = set([x.distributor_id for x in task_instances_launched])
+
+        submitted_or_running = self.cluster.get_submitted_or_running(distributor_ids_launched)
+
+        task_instance_ids_to_heartbeat: List[int] = []
+        for task_instance_launched in task_instances_launched:
+            key = (task_instance_launched.distributor_id, task_instance_launched.array_step_id)
+            if key in submitted_or_running:
+                task_instance_ids_to_heartbeat.append(task_instance_launched.task_instance_id)
+
+        """Log the heartbeat to show that the task instance is still alive."""
+        logger.debug(f"Logging heartbeat for task_instance {task_instance_ids_to_heartbeat}")
+        message: Dict = {"next_report_increment": self._next_report_increment,
+                         "task_instance_ids": task_instance_ids_to_heartbeat}
+        rc, _ = self.requester.send_request(
+            app_route=f"/task_instance/log_report_by/batch",
+            message=message,
+            request_type="post",
+            logger=logger,
+        )
 
     def _initialize_signal_handlers(self):
         def handle_sighup(signal, frame):
@@ -347,9 +373,9 @@ class DistributorService:
         workflow_capacity_lookup: Dict[int, int] = {}
         array_capacity_lookup: Dict[int, int] = {}
 
-        # store arrays and eligable task_instances for later
+        # store arrays and eligible task_instances for later
         arrays: Set[DistributorArray] = set()
-        eligable_task_instances: Set[DistributorTaskInstance] = set()
+        eligible_task_instances: Set[DistributorTaskInstance] = set()
 
         # loop through all instantiated instances while we have capacity
         while instantiated_task_instances:
@@ -365,9 +391,9 @@ class DistributorService:
                 workflow_id, self._get_workflow_capacity(workflow_id)
             )
 
-            # add to eligable_task_instances set if there is capacity
+            # add to eligible_task_instances set if there is capacity
             if workflow_capacity > 0 and array_capacity > 0:
-                eligable_task_instances.add(task_instance)
+                eligible_task_instances.add(task_instance)
 
                 # keep the set of arrays for later
                 arrays.add(task_instance.array)
@@ -382,9 +408,7 @@ class DistributorService:
 
         # loop through all arrays from earlier and cluster into batches
         for array in arrays:
-            # TODO: perhaps this is top level command. We need to record array batch number
-            # on the array itself for the resume case.
-            array_batches = array.create_array_batches(eligable_task_instances)
+            array_batches = array.create_array_batches(eligible_task_instances)
 
             for array_batch in array_batches:
                 distributor_command = DistributorCommand(
@@ -393,16 +417,16 @@ class DistributorService:
                 self.distributor_commands.append(distributor_command)
 
     def _check_launched_for_work(self) -> None:
-        array_batches: Set[DistributorArrayBatch] = set()
-        launched_task_instances = self._task_instance_status_map[
-            TaskInstanceStatus.LAUNCHED
-        ]
+        array_batches_launched: Set[DistributorArrayBatch] = set()
+        launched_task_instances = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
         for task_instance in launched_task_instances:
-            array_batches.add(task_instance.array_batch)
+            array_batches_launched.add(task_instance.array_batch)
 
-        for array_batch in array_batches:
+        for array_batch in array_batches_launched:
             distributor_command = DistributorCommand(
-                array_batch.get_queueing_errors, self.cluster
+                array_batch.process_queueing_errors,
+                self.cluster,
+                self
             )
             self.distributor_commands.append(distributor_command)
 
@@ -451,7 +475,7 @@ class DistributorService:
             workflow_id: the workflow to get
         """
         try:
-            workflow_id = self._workflows[workflow_id]
+            workflow = self._workflows[workflow_id]
         except KeyError:
             workflow = DistributorWorkflow(workflow_id, requester=self.requester)
             self.distributor_commands.append(DistributorCommand(workflow.get_metadata))
