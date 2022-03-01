@@ -53,7 +53,7 @@ class UsageIntegrator:
                     "X-SLURM-USER-TOKEN": newtoken,
                 },
             )
-            _slurm_api = slurm(slurm_rest.ApiClient(configuration))
+            _slurm_api = slurm(slurm_rest.ApiClient(configuration, pool_threads=15))
             self._slurm_api = _slurm_api
             self.token_refresh_time = current_time
         return self._slurm_api
@@ -149,17 +149,17 @@ class UsageIntegrator:
     def update_slurm_resources(self, tasks: List[QueuedTI]) -> None:
         # Unfortunately, need to fetch squid resources 1x1, until we get database access
         # or the slurm_rest package gets an option to call slurmdbd_get_jobs on a list of ids.
+        # Somewhat mitigated by using multiprocessing.pool
 
-        # This loop is a prime candidate for an async refactor, but since the rest service
-        # is the fragile point we don't want to overwhelm it.
-        usage_stats = {task:
-                       _get_squid_resource(self.slurm_api, task.distributor_id)
-                       for task in tasks}
+        usage_stats = _get_squid_resource(self.slurm_api, tasks)
 
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:
-            if usage_stats[task] is None:
-                usage_stats.pop(task)
+            try:
+                resources = usage_stats.pop(task)
+            except KeyError:
+                continue
+            if resources is None:
                 task.age += 1
                 UsageQ.put(task, task.age)
 
@@ -201,8 +201,11 @@ class UsageIntegrator:
 
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:
-            if usage_stats[task] is None:
-                usage_stats.pop(task)
+            try:
+                resources = usage_stats.pop(task)
+            except KeyError:
+                continue
+            if resources is None:
                 task.age += 1
                 UsageQ.put(task, task.age)
 
@@ -252,8 +255,8 @@ def _get_service_user_pwd(env_variable: str = "SVCSCICOMPCI_PWD") -> Optional[st
     return os.getenv(env_variable)
 
 
-def _get_squid_resource(slurm_api: slurm, distributor_id: int) -> Optional[dict]:
-    """Collect the Slurm reported resource usage for a given task instance.
+def _get_squid_resource(slurm_api: slurm, task_instances: List[QueuedTI]) -> Optional[dict]:
+    """Collect the Slurm reported resource usage for a given list of task instances.
 
     Return 5 values: cpu, mem, node, billing and runtime that are available from tres.
     For mem, also search the highest values within each step's tres.requested.max
@@ -261,9 +264,13 @@ def _get_squid_resource(slurm_api: slurm, distributor_id: int) -> Optional[dict]
     For runtime, get the total from the whole job, if 0, sum it up from the steps.
     """
 
-    usage_stats = {}
-
-    for job in slurm_api.slurmdbd_get_job(distributor_id).jobs:
+    all_usage_stats = {}
+    # Return futures since async_req=True is passed
+    job_futures = [slurm_api.slurmdbd_get_job(ti.distributor_id) for ti in task_instances]
+    jobs = [j.get() for j in job_futures]
+    for task_instance, j in zip(task_instances, jobs):
+        usage_stats = {}
+        job = j.jobs[0]  # Always length 1 I believe? Unless it's an array task potentially?
         for allocated in job.tres.allocated:
             if allocated["type"] in ("cpu", "node", "billing"):
                 usage_stats[allocated["type"]] = allocated["count"]
@@ -277,17 +284,19 @@ def _get_squid_resource(slurm_api: slurm, distributor_id: int) -> Optional[dict]
 
         usage_stats["runtime"] = job.time.elapsed
 
-    # rename keys by copying
-    # Guard against null returns
-    if len(usage_stats) == 0:
-        return None
-    else:
-        usage_stats["usage_str"] = usage_stats.copy()
-        usage_stats["wallclock"] = usage_stats.pop("runtime")
-        # store B
-        usage_stats["maxrss"] = usage_stats.pop("mem")
-    logger.info(f"{distributor_id}: {usage_stats}")
-    return usage_stats
+        # rename keys by copying
+        # Guard against null returns
+        if len(usage_stats) == 0:
+            usage_stats = None
+        else:
+            usage_stats["usage_str"] = usage_stats.copy()
+            usage_stats["wallclock"] = usage_stats.pop("runtime")
+            # store B
+            usage_stats["maxrss"] = usage_stats.pop("mem")
+        logger.info(f"{task_instance.distributor_id}: {usage_stats}")
+        all_usage_stats[task_instance] = usage_stats
+
+    return all_usage_stats
 
 
 # uge

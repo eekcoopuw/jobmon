@@ -1,4 +1,5 @@
 import time
+from multiprocessing.pool import ApplyResult
 from typing import Any, List
 
 from slurm_rest import ApiClient  # type: ignore
@@ -28,6 +29,6 @@ class ResilientSlurmApi(SlurmApi):
         wait=wait_exponential(max=90),
         stop=stop_after_delay(180),
     )
-    def slurmdbd_get_job(self, job_id: int) -> Any:
+    def slurmdbd_get_job(self, job_id: int) -> ApplyResult:
         """Get stats for a completed job from the accounting database."""
-        return super().slurmdbd_get_job(job_id)
+        return super().slurmdbd_get_job(job_id, async_req=True)

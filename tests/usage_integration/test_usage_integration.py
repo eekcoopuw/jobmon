@@ -45,12 +45,27 @@ def test_get_slurm_resource_usages_on_slurm():
             return _slurm_api
 
         slurm_api = get_slurm_api()
-        d = _get_squid_resource(slurm_api=slurm_api, distributor_id=563173)
-        assert d["maxrss"] > 0
-        assert d["wallclock"] > 0
+        distributor_id = 563173
+        qti = QueuedTI(task_instance_id=1, distributor_id=distributor_id, cluster_type_name='slurm', cluster_id=1)
+        d = _get_squid_resource(slurm_api=slurm_api, task_instances=[qti])
+        # Known values
+        assert d[qti]["maxrss"] == 102400
+        assert d[qti]["wallclock"] == 16
 
 
-# @pytest.mark.skip(reason="Probalem to run in parallel.")
+def test_get_uge_resource(db_cfg, client_env):
+
+    from jobmon.server.usage_integration.usage_integrator import _get_qpid_response
+
+    distributor_id = 117884202
+    qpid_uri = "https://jobapi.ihme.washington.edu/fair/jobmaxpss"
+
+    resp = _get_qpid_response(distributor_id, qpid_uri)
+    # known value from qacct
+    assert resp == (200, 468998)
+
+
+@pytest.mark.skip(reason="Probalem to run in parallel.")
 def test_maxrss_forever(db_cfg, client_env, ephemera):
 
     tool = Tool()

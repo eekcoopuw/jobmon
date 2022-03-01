@@ -58,7 +58,7 @@ spec:
         resources:
           limits:
             memory: 400Mi
-            cpu: 300m
+            cpu: 1000m
           requests:
-            cpu: 100m # m = mhz
+            cpu: 1200m # m = mhz
             memory: 200Mi
