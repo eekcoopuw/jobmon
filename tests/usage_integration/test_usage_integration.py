@@ -168,9 +168,9 @@ def test_usage_integrator(db_cfg, ephemera):
             pw=ephemera["DB_PASS"],
             host=ephemera["DB_HOST"],
             port=ephemera["DB_PORT"],
-            db=ephemera["DB_NAME"],
+            db=ephemera["DB_NAME"]
         )
-        return {"conn_str": conn_str, "polling_interval": 1, "max_update_per_sec": 10}
+        return {"conn_str": conn_str, "polling_interval": 1, "max_update_per_sec": 10, 'qpid_uri_base': 'not.a.url'}
 
     with patch(
         "jobmon.server.usage_integration.usage_integrator._get_config", fake_config
@@ -218,3 +218,55 @@ def test_usage_integrator(db_cfg, ephemera):
     # Test populating the queue
     integrator.populate_queue(time.time() - 1000)
     assert UsageQ.get_size() == 4
+
+    # Test an update call
+    # Mock the slurm and qpid get methods
+    qtis = [QueuedTI(task_instance_id=i, distributor_id=1, cluster_type_name='dummy', cluster_id=1)
+            for i in range(1, 5)]
+
+    def mock_squid_resource():
+        # Mock class with a task_instance_id and distributor_id attribute
+        return {qtis[0]: {'maxrss': 10, 'wallclock': 20},
+                qtis[1]: {'maxrss': 16, 'wallclock': 18}}
+
+    def mock_qpid_response():
+        return 200, 50
+
+    with patch(
+        'jobmon.server.usage_integration.usage_integrator._get_squid_resource'
+    ) as gsr, patch(
+        'jobmon.server.usage_integration.usage_integrator._get_qpid_response'
+    ) as gqr:
+
+        gsr.return_value = mock_squid_resource()
+        gqr.return_value = mock_qpid_response()
+
+        slurm_tis = qtis[:2]
+        uge_tis = qtis[2:]
+        integrator.update_slurm_resources(slurm_tis)
+        integrator.update_uge_resources(uge_tis)
+
+    with app.app_context():
+
+        sql = """
+        SELECT id, maxrss, wallclock
+        FROM task_instance
+        WHERE id = {}
+        """
+
+        expected_vals = {
+            **mock_squid_resource(),
+            qtis[2]: {'maxrss': 50, 'wallclock': None},
+            qtis[3]: {'maxrss': 50, 'wallclock': None}
+        }
+
+        for ti, vals in expected_vals.items():
+            res = DB.session.execute(sql.format(ti.task_instance_id)).fetchone()
+            assert int(res.maxrss) == vals['maxrss']
+            if res.wallclock is None:
+                wallclock = res.wallclock
+            else:
+                wallclock = int(res.wallclock)
+            assert wallclock == vals['wallclock']
+
+        DB.session.commit()

@@ -156,10 +156,11 @@ class UsageIntegrator:
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:
             try:
-                resources = usage_stats.pop(task)
+                resources = usage_stats[task]
             except KeyError:
                 continue
             if resources is None:
+                usage_stats.pop(task)
                 task.age += 1
                 UsageQ.put(task, task.age)
 
@@ -202,10 +203,11 @@ class UsageIntegrator:
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:
             try:
-                resources = usage_stats.pop(task)
+                resources = usage_stats[task]
             except KeyError:
                 continue
             if resources is None:
+                usage_stats.pop(task)
                 task.age += 1
                 UsageQ.put(task, task.age)
 
