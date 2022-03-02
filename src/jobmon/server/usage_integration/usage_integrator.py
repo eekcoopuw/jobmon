@@ -302,7 +302,7 @@ def _get_squid_resource(slurm_api: slurm, task_instances: List[QueuedTI]) -> Opt
 
 
 # uge
-def _get_qpid_response(distributor_id: int, qpid_uri_base: Optional[str]) -> Optional[int]:
+def _get_qpid_response(distributor_id: int, qpid_uri_base: Optional[str]) -> Tuple:
     qpid_api_url = f"{qpid_uri_base}/{distributor_id}"
     resp = requests.get(qpid_api_url)
     if resp.status_code != 200:
