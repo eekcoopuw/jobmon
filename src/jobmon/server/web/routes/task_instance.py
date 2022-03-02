@@ -769,7 +769,7 @@ def record_array_batch_num(batch_num: int) -> Any:
     task_instance_ids_list.sort()
     for idx, tid in enumerate(task_instance_ids_list):
         sql = f"""UPDATE task_instance
-            SET array_step_id = {idx + 1}
+            SET array_step_id = {idx}
             WHERE id = {tid}"""
         DB.session.execute(sql)
     DB.session.commit()

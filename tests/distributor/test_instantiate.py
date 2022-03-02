@@ -1,13 +1,8 @@
-import time
+import pytest
 
 from sqlalchemy.sql import text
 
 from jobmon.constants import TaskInstanceStatus
-
-
-class MockDistributorProc:
-    def is_alive(self):
-        return True
 
 
 def test_instantiate_job(tool, db_cfg, client_env, task_template):
@@ -37,6 +32,7 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
     distributor_service = DistributorService(
         SequentialDistributor(),
         requester=workflow.requester,
+        raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
@@ -123,6 +119,7 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
     distributor_service = DistributorService(
         MultiprocessDistributor(),
         requester=workflow.requester,
+        raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
@@ -209,6 +206,7 @@ def test_job_submit_raises_error(db_cfg, tool):
     distributor_service = DistributorService(
         ErrorDistributor(),
         requester=workflow.requester,
+        raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
@@ -264,6 +262,7 @@ def test_array_submit_raises_error(db_cfg, tool):
     distributor_service = DistributorService(
         ErrorDistributor(),
         requester=workflow.requester,
+        raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
@@ -319,6 +318,7 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
     distributor_service = DistributorService(
         MultiprocessDistributor(parallelism=3),
         requester=workflow.requester,
+        raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
@@ -329,6 +329,72 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
     breakpoint()
 
     distributor_service.cluster.stop()
+
+
+@pytest.mark.skip
+@pytest.mark.parametrize(
+    "wf_limit, array_limit, expected_len",
+    [(10_000, 2, 2), (2, 10_000, 2), (2, 3, 2), (3, 2, 2)],
+)
+def test_array_concurrency(
+    tool, db_cfg, client_env, array_template, wf_limit, array_limit, expected_len
+):
+    """Use Case 1: Array concurrency limit is set, workflow is not. Array should be limited by
+    the array's max_concurrently running value"""
+    # Use Case 1: Array concurrency limit is set, workflow concurrency limit not set
+    array1 = array_template.create_array(
+        arg=[1, 2, 3],
+        cluster_name="multiprocess",
+        compute_resources={"queue": "null.q"},
+        max_concurrently_running=array_limit,
+    )
+
+    workflow_1 = tool.create_workflow(
+        name="test_array_concurrency_1", max_concurrently_running=wf_limit
+    )
+    workflow_1.add_array(array1)
+    workflow_1.bind()
+    wfr_1 = workflow_1._create_workflow_run()
+
+    requester = Requester(client_env)
+
+    distributor_array = DistributorArray(
+        array_id=array1.array_id,
+        task_resources_id=array1.task_resources.id,
+        requested_resources=array1.compute_resources,
+        name="example_array",
+        requester=requester,
+        max_concurrently_running=array_limit,
+    )
+
+    # Move all tasks to Q state
+    for tid in (t.task_id for t in array1.tasks.values()):
+        _, _ = requester._send_request(
+            app_route=f"/task/{tid}/queue", message={}, request_type="post"
+        )
+
+    distributor_wfr = DistributorWorkflowRun(
+        workflow_1.workflow_id, wfr_1.workflow_run_id, requester
+    )
+
+    # Add array to cache
+    distributor_wfr.add_new_array(distributor_array)
+
+    # Register TIs
+    dtis_1, dtis_2, dtis_3 = distributor_wfr.get_queued_task_instances(100)
+
+    distributor_array.instantiated_array_task_instance_ids = [
+        dtis_1.task_instance_id,
+        dtis_2.task_instance_id,
+        dtis_3.task_instance_id,
+    ]
+
+    distributor_wfr.prep_tis_for_launch([dtis_1, dtis_2, dtis_3], wf_limit)
+
+    assert (
+        len(distributor_array.prepped_for_launch_array_task_instance_ids)
+        == expected_len
+    )
 
 # def test_dynamic_concurrency_limiting(tool, db_cfg, client_env, task_template):
 #     """tests that the CLI functionality to update concurrent jobs behaves as expected"""

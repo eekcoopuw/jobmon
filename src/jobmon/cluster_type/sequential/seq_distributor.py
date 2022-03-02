@@ -61,7 +61,7 @@ class SequentialDistributor(ClusterDistributor):
         return self._worker_node_entry_point
 
     @property
-    def cluster_type_name(self) -> str:
+    def cluster_name(self) -> str:
         """Return the name of the cluster type."""
         return "sequential"
 

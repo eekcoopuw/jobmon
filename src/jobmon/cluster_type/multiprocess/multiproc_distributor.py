@@ -150,7 +150,7 @@ class MultiprocessDistributor(ClusterDistributor):
         return self._worker_node_entry_point
 
     @property
-    def cluster_type_name(self) -> str:
+    def cluster_name(self) -> str:
         """Return the name of the cluster type."""
         return "multiprocess"
 
@@ -328,17 +328,17 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
 
     def __init__(self) -> None:
         """Initialization of the multiprocess distributor worker node."""
-        self._distributor_id: Optional[int] = None
+        self._distributor_id: Optional[str] = None
         self._array_step_id: Optional[int] = None
         self._subtask_id: Optional[str] = None
 
     @property
-    def distributor_id(self) -> Optional[int]:
+    def distributor_id(self) -> Optional[str]:
         """The id from the distributor."""
         if self._distributor_id is None:
             jid = os.environ.get("JOB_ID")
             if jid:
-                self._distributor_id = int(jid)
+                self._distributor_id = jid
         return self._distributor_id
 
     def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:

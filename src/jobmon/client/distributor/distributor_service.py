@@ -33,6 +33,7 @@ class DistributorService:
         heartbeat_report_by_buffer: float = 3.1,
         distributor_poll_interval: int = 10,
         worker_node_entry_point: Optional[str] = None,
+        raise_on_error: bool = False
     ) -> None:
 
         # operational args
@@ -41,6 +42,7 @@ class DistributorService:
         self._task_instance_heartbeat_interval = task_instance_heartbeat_interval
         self._heartbeat_report_by_buffer = heartbeat_report_by_buffer
         self._distributor_poll_interval = distributor_poll_interval
+        self.raise_on_error = raise_on_error
 
         # interrupt signal
         self._signal_recieved = False
@@ -125,7 +127,7 @@ class DistributorService:
 
         finally:
             # stop distributor
-            self.cluster.stop([])
+            self.cluster.stop()
 
             # signal via pipe that we are shutdown
             sys.stderr.write("SHUTDOWN")
@@ -146,7 +148,7 @@ class DistributorService:
 
                 # get the first callable and run it. log any errors
                 distributor_command = self.distributor_commands.pop(0)
-                distributor_command()
+                distributor_command(self.raise_on_error)
                 if distributor_command.error_raised:
                     logger.error(distributor_command.exception)
 
@@ -191,7 +193,7 @@ class DistributorService:
                 distributor_command = DistributorCommand(
                     self.launch_task_instance,
                     task_instance,
-                    array_batch.name
+                    "TODO:GETNAME",
                 )
                 self.distributor_commands.append(distributor_command)
 
@@ -245,14 +247,13 @@ class DistributorService:
     def log_task_instance_report_by_date(self) -> None:
         task_instances_launched = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
 
-        distributor_ids_launched = [x.distributor_id for x in task_instances_launched]
-
-        submitted_or_running = self.cluster.get_submitted_or_running(distributor_ids_launched)
+        submitted_or_running = self.cluster.get_submitted_or_running(
+            [x.distributor_id for x in task_instances_launched]
+        )
 
         task_instance_ids_to_heartbeat: List[int] = []
         for task_instance_launched in task_instances_launched:
-            key = (task_instance_launched.distributor_id, task_instance_launched.array_step_id)
-            if key in submitted_or_running:
+            if task_instance_launched.distributor_id in submitted_or_running:
                 task_instance_ids_to_heartbeat.append(task_instance_launched.task_instance_id)
 
         """Log the heartbeat to show that the task instance is still alive."""

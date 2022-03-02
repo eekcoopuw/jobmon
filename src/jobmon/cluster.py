@@ -6,7 +6,12 @@ from typing import Any, Dict, Optional, Type
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.cluster_type.api import import_cluster, register_cluster_plugin
-from jobmon.cluster_type.base import ClusterQueue, ConcreteResource, ClusterDistributor
+from jobmon.cluster_type.base import (
+    ClusterQueue,
+    ConcreteResource,
+    ClusterDistributor,
+    ClusterWorkerNode
+)
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeCluster, SerializeQueue
@@ -99,6 +104,10 @@ class Cluster:
     @property
     def cluster_distributor_class(self) -> Type[ClusterDistributor]:
         return self.plugin.get_cluster_distributor_class()
+
+    @property
+    def cluster_worker_node_class(self) -> Type[ClusterWorkerNode]:
+        return self.plugin.get_cluster_worker_node_class()
 
     def get_queue(self, queue_name: str) -> ClusterQueue:
         """Get the ClusterQueue object associated with a given queue_name.

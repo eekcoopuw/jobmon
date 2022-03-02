@@ -66,7 +66,7 @@ class ClusterDistributor(Protocol):
 
     @property
     @abstractmethod
-    def cluster_type_name(self) -> str:
+    def cluster_name(self) -> str:
         """Return the name of the cluster type."""
         raise NotImplementedError
 
@@ -180,8 +180,8 @@ class ClusterDistributor(Protocol):
             [
                 "--expected_jobmon_version",
                 __version__,
-                "--cluster_type_name",
-                self.cluster_type_name,
+                "--cluster_name",
+                self.cluster_name,
             ]
         )
         str_cmd = " ".join([str(i) for i in wrapped_cmd])

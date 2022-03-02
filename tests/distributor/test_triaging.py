@@ -39,6 +39,7 @@ class MockDistributorProc:
         return True
 
 
+@pytest.mark.skip
 def test_unknown_state(tool, db_cfg, client_env, task_template, monkeypatch):
     """Creates a job instance, gets an distributor id so it can be in submitted
     to the batch distributor state, and then it will never be run (it will miss
@@ -132,65 +133,3 @@ def test_unknown_state(tool, db_cfg, client_env, task_template, monkeypatch):
     res = DB.session.execute(sql, {"task_id": str(task.task_id)}).fetchone()
     DB.session.commit()
     assert res[0] == "U"
-
-
-def test_log_distributor_report_by(
-    tool, db_cfg, client_env, task_template, monkeypatch
-):
-    """test that jobs that are queued by an distributor but not running still log
-    heartbeats"""
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-
-    # patch unwrap from sequential so the command doesn't execute,
-    # def mock_unwrap(*args, **kwargs):
-    #     pass
-    # monkeypatch.setattr(sequential, "unwrap", mock_unwrap)
-
-    task = task_template.create_task(
-        arg="sleep 5",
-        name="heartbeat_sleeper",
-        compute_resources={"queue": "null.q", "cores": 1, "max_runtime_seconds": 500},
-        cluster_name="sequential",
-    )
-    workflow = tool.create_workflow(name="foo")
-    workflow.add_task(task)
-
-    # add workflow info to db and then time out.
-    workflow.bind()
-    wfr = workflow._create_workflow_run()
-
-    swarm = SwarmWorkflowRun(
-        workflow_id=wfr.workflow_id,
-        workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
-    )
-    swarm.compute_initial_dag_state()
-    list(swarm.queue_tasks())  # expand the generator
-
-    requester = Requester(client_env)
-    distributor_service = DistributorService(
-        workflow.workflow_id,
-        wfr.workflow_run_id,
-        SequentialDistributor(),
-        requester=requester,
-    )
-
-    # instantiate the job and then log a report by
-    distributor_service.distribute()
-    distributor_service._log_distributor_report_by()
-
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        SELECT task_instance.submitted_date, task_instance.report_by_date
-        FROM task_instance
-        JOIN task
-            ON task_instance.task_id = task.id
-        WHERE task.id = :task_id"""
-        res = DB.session.execute(sql, {"task_id": str(task.task_id)}).fetchone()
-        DB.session.commit()
-    start, end = res
-    assert start < end  # indicating at least one heartbeat got logged

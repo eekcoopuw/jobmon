@@ -37,6 +37,7 @@ def test_launched_processor_on_multiprocess(tool, db_cfg, client_env, task_templ
     distributor_service = DistributorService(
         MultiprocessDistributor(),
         requester=requester,
+        raise_on_error=True
     )
 
     distributor_service.set_workflow_run(wfr.workflow_run_id)
