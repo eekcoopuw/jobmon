@@ -362,7 +362,6 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
 def task_instances_status_check(workflow_run_id: int) -> Any:
     """Sync status of given task intance IDs."""
     data = request.get_json()
-    last_sync = data["last_sync"]
     task_instance_ids_list = data["task_instance_ids"]
     status = data["status"]
 
@@ -379,15 +378,11 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
         # 1) instances that have changed out of the declared status
         # 2) instances that have changed into the declared status
         filters = f"""
-            (id in ({task_instance_ids}) AND status != "{status}") OR
-            (status = "{status}" AND status_date >= "{last_sync}")
+            (id in ({task_instance_ids}) AND status != '{status}') OR
+            (id not in ({task_instance_ids}) AND status = '{status}')
         """
     else:
-        # Filters for
-        # 1) instances that have changed into the declared status
-        filters = f"""
-            (status = "{status}" AND status_date >= "{last_sync}")
-        """
+        filters = f"""status = '{status}'"""
 
     # someday, when the distributor is centralized. we will remove the workflow_run_id from
     # this query, but not today
@@ -395,7 +390,7 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
         SELECT id, status
         FROM task_instance
         WHERE
-            workflow_run_id = "{workflow_run_id}" AND
+            workflow_run_id = {workflow_run_id} AND
             ({filters})
         """
     rows = DB.session.execute(sql).fetchall()

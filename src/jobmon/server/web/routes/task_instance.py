@@ -644,10 +644,7 @@ def log_distributor_id(task_instance_id: int) -> Any:
         ti, TaskInstanceStatus.LAUNCHED
     )
     ti.distributor_id = data["distributor_id"]
-    if ti.array_id is None:
-        ti.subtask_id = str(ti.distributor_id)
-    else:
-        ti.subtask_id = data["subtask_id"]
+
     ti.report_by_date = func.ADDTIME(
         func.now(), func.SEC_TO_TIME(data["next_report_increment"])
     )

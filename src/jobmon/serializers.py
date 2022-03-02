@@ -66,12 +66,8 @@ class SerializeTaskInstance:
         array_id: Optional[int] = None,
         array_batch_num: Optional[int] = None,
         array_step_id: Optional[int] = None,
-        subtask_id: Optional[str] = None,
-
     ) -> tuple:
         """Submit the above args for an DistributorTaskInstance object to the database."""
-        if array_id is None:
-            subtask_id = str(distributor_id)
         return (
             task_instance_id,
             task_id,
@@ -84,7 +80,6 @@ class SerializeTaskInstance:
             array_id,
             array_batch_num,
             array_step_id,
-            subtask_id,
         )
 
     @staticmethod
@@ -101,7 +96,6 @@ class SerializeTaskInstance:
         array_id = int(wire_tuple[8]) if wire_tuple[8] else None
         array_batch_num = int(wire_tuple[9]) if wire_tuple[9] else None
         array_step_id = int(wire_tuple[10]) if wire_tuple[10] else None
-        subtask_id = str(wire_tuple[11]) if wire_tuple[11] else None
 
         return {
             "task_instance_id": task_instance_id,
@@ -115,7 +109,6 @@ class SerializeTaskInstance:
             "array_id": array_id,
             "array_batch_num": array_batch_num,
             "array_step_id": array_step_id,
-            "subtask_id": subtask_id,
         }
 
 

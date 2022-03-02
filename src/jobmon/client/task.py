@@ -219,10 +219,8 @@ class Task:
     @property
     def original_task_resources(self) -> TaskResources:
         """Get the id of the task if it has been bound to the db otherwise raise an error."""
-        if not hasattr(self, "_origin_task_resources"):
-            raise AttributeError(
-                "task_resources cannot be accessed before workflow is bound"
-            )
+        if not hasattr(self, "_original_task_resources"):
+            raise AttributeError("task_resources cannot be accessed before workflow is bound")
         return self._original_task_resources
 
     @original_task_resources.setter

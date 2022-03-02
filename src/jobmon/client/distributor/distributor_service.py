@@ -31,7 +31,6 @@ class DistributorService:
         workflow_run_heartbeat_interval: int = 30,
         task_instance_heartbeat_interval: int = 90,
         heartbeat_report_by_buffer: float = 3.1,
-        n_queued: int = 100,
         distributor_poll_interval: int = 10,
         worker_node_entry_point: Optional[str] = None,
     ) -> None:
@@ -41,7 +40,6 @@ class DistributorService:
         self._workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
         self._task_instance_heartbeat_interval = task_instance_heartbeat_interval
         self._heartbeat_report_by_buffer = heartbeat_report_by_buffer
-        self._n_queued = n_queued
         self._distributor_poll_interval = distributor_poll_interval
 
         # interrupt signal
@@ -79,10 +77,6 @@ class DistributorService:
         }
 
         # syncronization timings
-        dt_string = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        self._last_status_sync_time = {
-            status: dt_string for status in self._status_processing_order
-        }
         self._last_heartbeat_time = time.time()
 
         # cluster API
@@ -184,7 +178,7 @@ class DistributorService:
         )
         try:
             # submit array to distributor
-            array_batch.distributor_id = self.cluster.submit_array_to_batch_distributor(
+            distributor_id_map = self.cluster.submit_array_to_batch_distributor(
                 command=command,
                 name=array_batch.name,
                 requested_resources=array_batch.requested_resources,
@@ -212,11 +206,10 @@ class DistributorService:
         else:
             # if successful log a transition to launched
             for task_instance in array_batch.task_instances:
-                subtask_id = self.cluster.get_subtask_id(array_batch.distributor_id,
-                                                         task_instance.array_step_id)
+                distributor_id = distributor_id_map[task_instance.array_step_id]
                 distributor_command = DistributorCommand(
-                    task_instance.transition_to_launched, array_batch.distributor_id,
-                    self._next_report_increment, subtask_id
+                    task_instance.transition_to_launched, distributor_id,
+                    self._next_report_increment
                 )
                 self.distributor_commands.append(distributor_command)
 
@@ -232,7 +225,7 @@ class DistributorService:
 
         # Submit to batch distributor
         try:
-            task_instance.distributor_id = self.cluster.submit_to_batch_distributor(
+            distributor_id = self.cluster.submit_to_batch_distributor(
                 command=command,
                 name=name,
                 requested_resources=task_instance.requested_resources
@@ -243,8 +236,7 @@ class DistributorService:
 
         else:
             # move from register queue to launch queue
-            task_instance.transition_to_launched(task_instance.distributor_id,
-                                                 self._next_report_increment)
+            task_instance.transition_to_launched(distributor_id, self._next_report_increment)
 
     def triage_error(self, task_instance: DistributorTaskInstance) -> None:
         r_value, r_msg = self.cluster.get_remote_exit_info(task_instance.distributor_id)
@@ -253,7 +245,7 @@ class DistributorService:
     def log_task_instance_report_by_date(self) -> None:
         task_instances_launched = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
 
-        distributor_ids_launched = set([x.distributor_id for x in task_instances_launched])
+        distributor_ids_launched = [x.distributor_id for x in task_instances_launched]
 
         submitted_or_running = self.cluster.get_submitted_or_running(distributor_ids_launched)
 
@@ -268,7 +260,7 @@ class DistributorService:
         message: Dict = {"next_report_increment": self._next_report_increment,
                          "task_instance_ids": task_instance_ids_to_heartbeat}
         rc, _ = self.requester.send_request(
-            app_route=f"/task_instance/log_report_by/batch",
+            app_route="/task_instance/log_report_by/batch",
             message=message,
             request_type="post",
             logger=logger,
@@ -299,7 +291,6 @@ class DistributorService:
                 for task_instance in self._task_instance_status_map[status]
             ],
             "status": status,
-            "last_sync": self._last_status_sync_time[status],
         }
         app_route = f"/workflow_run/{self.workflow_run.workflow_run_id}/sync_status"
         return_code, result = self.requester.send_request(
@@ -335,9 +326,6 @@ class DistributorService:
                 task_instance.status = status
 
                 self._task_instance_status_map[task_instance.status].add(task_instance)
-
-        # update the last sync time
-        self._last_status_sync_time[status] = result["time"]
 
         # generate new distributor commands from this status
         try:

@@ -65,21 +65,15 @@ class SequentialDistributor(ClusterDistributor):
         """Return the name of the cluster type."""
         return "sequential"
 
-    def get_subtask_id(
-            self, distributor_id: int, array_step_id: int
-    ) -> str:
-        """Get the subtask_id based on distributor_id and array_step_id."""
-        return str(distributor_id) + "." + str(array_step_id+1)
-
     def start(self) -> None:
         """Start the distributor."""
         self.started = True
 
-    def stop(self, distributor_ids: List[int]) -> None:
+    def stop(self) -> None:
         """Stop the distributor."""
         self.started = False
 
-    def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
+    def get_queueing_errors(self, distributor_ids: List[str]) -> Dict[str, str]:
         """Get the task instances that have errored out."""
         raise NotImplementedError
 
@@ -88,16 +82,10 @@ class SequentialDistributor(ClusterDistributor):
     ) -> Dict[Union[int, str], str]:
         raise NotImplementedError
 
-    def get_remote_exit_info(
-        self, distributor_id: str, array_step_id: Optional[int] = None
-    ) -> Tuple[str, str]:
+    def get_remote_exit_info(self, distributor_id: str) -> Tuple[str, str]:
         """Get exit info from task instances that have run."""
-        if array_step_id is not None:
-            full_distributor_id = f"{distributor_id}.{array_step_id}"
-        else:
-            full_distributor_id = distributor_id
         try:
-            exit_code = self._exit_info[full_distributor_id]
+            exit_code = self._exit_info[distributor_id]
             if exit_code == 199:
                 msg = "job was in kill self state"
                 return TaskInstanceStatus.UNKNOWN_ERROR, msg
@@ -106,16 +94,14 @@ class SequentialDistributor(ClusterDistributor):
         except KeyError:
             raise RemoteExitInfoNotAvailable
 
-    def get_submitted_or_running(self, distributor_ids: List[int]) -> \
-            Set[Tuple[int, Optional[int]]]:
+    def get_submitted_or_running(
+        self, distributor_ids: Optional[List[str]] = None
+    ) -> Set[str]:
         """Check status of running task."""
-        running = os.environ.get("JOB_ID")
-        if running:
-            return set([(int(running), None)])
-        else:
-            return set()
+        running = os.environ.get("JOB_ID", "")
+        return {running}
 
-    def terminate_task_instances(self, distributor_ids: List[int]) -> None:
+    def terminate_task_instances(self, distributor_ids: List[str]) -> None:
         """Terminate task instances.
 
         If implemented, return a list of (task_instance_id, hostname) tuples for any
@@ -132,7 +118,7 @@ class SequentialDistributor(ClusterDistributor):
         name: str,
         requested_resources: Dict[str, Any],
         array_length: int = 0,
-    ) -> int:
+    ) -> str:
         """Execute sequentially."""
         # add an executor id to the environment
         os.environ["JOB_ID"] = str(self._next_distributor_id)
@@ -151,41 +137,23 @@ class SequentialDistributor(ClusterDistributor):
                 raise
 
         self._exit_info[distributor_id] = exit_code
-        return distributor_id
-
-    def submit_array_to_batch_distributor(
-        self,
-        command: str,
-        name: str,
-        requested_resources: Dict[str, Any],
-        array_length: int,
-    ) -> int:
-        """For SequentialDistributor, there is no array to speak of."""
-        raise NotImplementedError
+        return str(distributor_id)
 
 
 class SequentialWorkerNode(ClusterWorkerNode):
     """Get Executor Info for a Task Instance."""
 
-    STEP_ID_GENERATOR = 1
-
     def __init__(self) -> None:
         """Initialization of the sequential executor worker node."""
-        self._distributor_id: Optional[int] = None
-        self._array_step_id = SequentialWorkerNode.STEP_ID_GENERATOR
-        SequentialWorkerNode.STEP_ID_GENERATOR += 1
+        self._distributor_id: Optional[str] = None
 
     @property
-    def array_step_id(self) -> int:
-        return self._array_step_id
-
-    @property
-    def distributor_id(self) -> Optional[int]:
+    def distributor_id(self) -> Optional[str]:
         """Distributor id of the task."""
         if self._distributor_id is None:
             jid = os.environ.get("JOB_ID")
             if jid:
-                self._distributor_id = int(jid)
+                self._distributor_id = jid
         return self._distributor_id
 
     @staticmethod
@@ -197,8 +165,3 @@ class SequentialWorkerNode(ClusterWorkerNode):
     def get_usage_stats() -> Dict:
         """Usage information specific to the exector."""
         return {}
-
-    @property
-    def subtask_id(self) -> str:
-        """Subtask ID, in the format of 1234.1"""
-        return str(self.distributor_id) + "." + str(self.array_step_id)

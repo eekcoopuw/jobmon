@@ -39,7 +39,6 @@ class TaskInstance(DB.Model):
             self.array_id,
             self.array_batch_num,
             self.array_step_id,
-            self.subtask_id,
         )
 
     id = DB.Column(DB.Integer, primary_key=True)
@@ -51,7 +50,6 @@ class TaskInstance(DB.Model):
     task_resources_id = DB.Column(DB.Integer, DB.ForeignKey("task_resources.id"))
     array_batch_num = DB.Column(DB.Integer)
     array_step_id = DB.Column(DB.Integer)
-    subtask_id = DB.Column(DB.String(100))
 
     # usage
     nodename = DB.Column(DB.String(150))

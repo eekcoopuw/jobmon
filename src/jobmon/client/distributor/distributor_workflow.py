@@ -1,18 +1,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable, Dict, List, Optional, Set, TYPE_CHECKING, Union
+from typing import Set, TYPE_CHECKING
 
+from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeDistributorWorkflow
 
 if TYPE_CHECKING:
-    from jobmon.client.distributor.distributor_task_instance import (
-        DistributorTaskInstance,
-    )
-    from jobmon.client.distributor.distributor_workflow_run import (
-        DistributorWorkflowRun,
-    )
+    from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 
 logger = logging.getLogger(__name__)
 

@@ -201,6 +201,7 @@ class WorkflowRun(object):
 
                 # get task resources id
                 task_resources = self._get_original_task_resources(task)
+                task.original_task_resources = task_resources
 
                 task_metadata[task_hash] = [
                     task.node.node_id,

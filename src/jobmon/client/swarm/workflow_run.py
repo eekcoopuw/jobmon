@@ -4,7 +4,7 @@ from __future__ import annotations
 from datetime import datetime
 import logging
 import time
-from typing import Callable, Dict, Iterator, List, Numeric, Optional, Set, TYPE_CHECKING
+from typing import Callable, Dict, Iterator, List, Optional, Set, TYPE_CHECKING, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_task import SwarmTask
@@ -43,11 +43,11 @@ class SwarmCommand:
         self.error_raised = False
 
     def __call__(self):
-        try:
-            self._func(*self._args, **self._kwargs)
-        except Exception as e:
-            self.exception = e
-            self.error_raised = True
+        # try:
+        self._func(*self._args, **self._kwargs)
+        # except Exception as e:
+        #     self.exception = e
+        #     self.error_raised = True
 
 
 class WorkflowRun:
@@ -268,13 +268,16 @@ class WorkflowRun:
 
     def get_swarm_commands(self) -> Iterator[SwarmCommand]:
         """Get and iterator of work to be done."""
-        for task in self._task_status_map[TaskStatus.ADJUSTING_RESOURCES]:
+        adjusting_tasks = list(self._task_status_map[TaskStatus.ADJUSTING_RESOURCES])
+        for task in adjusting_tasks:
             yield SwarmCommand(self.adjust_task, task)
-        for task in self._task_status_map[TaskStatus.REGISTERING]:
+
+        registering_tasks = list(self._task_status_map[TaskStatus.REGISTERING])
+        for task in registering_tasks:
             if task.all_upstreams_done:
                 yield SwarmCommand(self.queue_task, task)
 
-    def process_commands(self, timeout: Numeric = -1):
+    def process_commands(self, timeout: Union[int, float] = -1):
         """Processes swarm commands until all work is done or timeout is reached.
 
         Args:
@@ -598,6 +601,9 @@ class WorkflowRun:
                 )
                 task_resources.bind()
                 self._task_resources[hash(task_resources)] = task_resources
+        else:
+            task_resources = task.task_resources
+            self._task_resources[validated_resource_hash] = task_resources
 
         task.task_resources = task_resources
 

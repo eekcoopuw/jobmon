@@ -5,7 +5,7 @@ import os
 import queue
 import shutil
 import subprocess
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 import psutil
 
@@ -20,7 +20,7 @@ class PickableTask:
     """Object passed between processes."""
 
     def __init__(
-        self, distributor_id: int, command: str, array_step_id: int = None
+        self, distributor_id: str, command: str, array_step_id: int = None
     ) -> None:
         """Initialization of PickableTask.
 
@@ -53,9 +53,7 @@ class Consumer(Process):
 
         # consumer communication
         self.task_queue: JoinableQueue[Optional[PickableTask]] = task_queue
-        self.response_queue: Queue[
-            Tuple[int, Optional[int], Optional[int]]
-        ] = response_queue
+        self.response_queue: Queue[Tuple[str, Optional[int]]] = response_queue
 
     def run(self) -> None:
         """Wait for work, the execute it."""
@@ -86,18 +84,14 @@ class Consumer(Process):
                     )
 
                     # log the pid with the distributor class
-                    self.response_queue.put(
-                        (task.distributor_id, task.array_step_id, proc.pid)
-                    )
+                    self.response_queue.put((task.distributor_id, proc.pid))
 
                     # wait till the process finishes
                     outs, errs = proc.communicate()
 
                     # tell the queue this job is done so it can be shut down
                     # someday
-                    self.response_queue.put(
-                        (task.distributor_id, task.array_step_id, None)
-                    )
+                    self.response_queue.put((task.distributor_id, None))
                     self.task_queue.task_done()
 
             except queue.Empty:
@@ -137,15 +131,15 @@ class MultiprocessDistributor(ClusterDistributor):
         logger.info("Initializing {}".format(self.__class__.__name__))
 
         self._parallelism = parallelism
-        self._next_distributor_id = 1
+        self._next_job_id = 1
 
         # mapping of Tuple[distributor_id, optinal array_step_id] to pid.
         # if pid is None then it is queued
-        self._running_or_submitted: Dict[Tuple[int, Optional[int]], Optional[int]] = {}
+        self._running_or_submitted: Dict[str, Optional[int]] = {}
 
         # ipc queues
         self.task_queue: JoinableQueue[Optional[PickableTask]] = JoinableQueue()
-        self.response_queue: Queue[Tuple[int, Optional[int], Optional[int]]] = Queue()
+        self.response_queue: Queue[Tuple[str, Optional[int]]] = Queue()
 
         # workers
         self.consumers: List[Consumer] = []
@@ -160,11 +154,11 @@ class MultiprocessDistributor(ClusterDistributor):
         """Return the name of the cluster type."""
         return "multiprocess"
 
-    def get_subtask_id(
+    def _get_subtask_id(
             self, distributor_id: int, array_step_id: int
     ) -> str:
         """Get the subtask_id based on distributor_id and array_step_id."""
-        return str(distributor_id) + "." + str(array_step_id+1)
+        return str(distributor_id) + "." + str(array_step_id + 1)
 
     def start(self) -> None:
         """Fire up N task consuming processes using Multiprocessing.
@@ -183,12 +177,10 @@ class MultiprocessDistributor(ClusterDistributor):
             """Start the default."""
             self.started = True
 
-    def stop(self, distributor_ids: List[int]) -> None:
+    def stop(self) -> None:
         """Terminate consumers and call sync 1 final time."""
-        actual: List[int] = self.get_submitted_or_running(
-            distributor_ids=distributor_ids
-        )
-        self.terminate_task_instances(actual)
+        actual = self.get_submitted_or_running()
+        self.terminate_task_instances(list(actual))
 
         # Sending poison pill to all worker
         for _ in self.consumers:
@@ -201,22 +193,20 @@ class MultiprocessDistributor(ClusterDistributor):
 
     def _update_internal_states(self) -> None:
         while not self.response_queue.empty():
-            distributor_id, array_step_id, pid = self.response_queue.get()
+            distributor_id, pid = self.response_queue.get()
             if pid is not None:
-                self._running_or_submitted.update(
-                    {(distributor_id, array_step_id): pid}
-                )
+                self._running_or_submitted.update({distributor_id: pid})
             else:
-                self._running_or_submitted.pop((distributor_id, array_step_id))
+                self._running_or_submitted.pop(distributor_id)
 
-    def terminate_task_instances(self, distributor_ids: List[int]) -> None:
+    def terminate_task_instances(self, distributor_ids: List[str]) -> None:
         """Terminate task instances.
 
         Only terminate the task instances that are running, not going to kill the jobs that
         are actually still in a waiting or a transitioning state.
 
         Args:
-            distributor_ids (List[int]): A list of distributor IDs.
+            distributor_ids: A list of distributor IDs.
         """
         logger.debug(f"Going to terminate: {distributor_ids}")
 
@@ -224,7 +214,7 @@ class MultiprocessDistributor(ClusterDistributor):
         # workers
         current_work: List[Optional[PickableTask]] = []
         work_order: Dict[int, PickableTask] = {}
-        dist_ids_work_order: Set[int] = set()
+        dist_ids_work_order: Set[str] = set()
         i = 0
         while not self.task_queue.empty():
             current_work.append(self.task_queue.get())
@@ -245,9 +235,7 @@ class MultiprocessDistributor(ClusterDistributor):
         # for distributor_id in distributor_ids:
         for w in work_order.values():
             if w.distributor_id in distributor_ids:
-                execution_pid = self._running_or_submitted.get(
-                    (w.distributor_id, w.array_step_id)
-                )
+                execution_pid = self._running_or_submitted.get(w.distributor_id)
                 if execution_pid is not None:
                     # kill the process and remove it from the state tracker
                     parent = psutil.Process(execution_pid)
@@ -268,33 +256,32 @@ class MultiprocessDistributor(ClusterDistributor):
             w = work_order[index]
             if w.distributor_id in distributor_ids:
                 del current_work[index]
-                del self._running_or_submitted[(w.distributor_id, w.array_step_id)]
+                del self._running_or_submitted[w.distributor_id]
 
         # put remaining work back on queue
         for task in current_work:
             self.task_queue.put(task)
 
-    def get_submitted_or_running(self, distributor_ids: List[int]) ->\
-            Set[Tuple[int, Optional[int]]]:
+    def get_submitted_or_running(
+        self,
+        distributor_ids: Optional[List[str]] = None
+    ) -> Set[str]:
         """Get tasks that are active."""
         self._update_internal_states()
-        # keys: Tuple[int, Optional[int]] = (distributor_id, array_step_id)
-        keys = self._running_or_submitted.keys()
-        # return a set of tuples(distributor_id, array_step_id(optional))
-        return keys
+        return set(self._running_or_submitted.keys())
 
     def submit_to_batch_distributor(
         self, command: str, name: str, requested_resources: dict
-    ) -> int:
+    ) -> str:
         """Execute a task instance."""
         # add an executor id to the environment
-        distributor_id = self._next_distributor_id
-        self._next_distributor_id += 1
+        distributor_id = str(self._next_job_id)
+        self._next_job_id += 1
         task = PickableTask(
             distributor_id, self.worker_node_entry_point + " " + command
         )
         self.task_queue.put(task)
-        self._running_or_submitted.update({(distributor_id, None): None})
+        self._running_or_submitted.update({distributor_id: None})
         return distributor_id
 
     def submit_array_to_batch_distributor(
@@ -303,32 +290,34 @@ class MultiprocessDistributor(ClusterDistributor):
         name: str,
         requested_resources: Dict[str, Any],
         array_length: int,
-    ) -> int:
-        """Submit an array task to the multiprocess cluster."""
-        distributor_id = self._next_distributor_id
-        # MultiprocessWorkerNode.STEP_ID = 1
-        self._next_distributor_id += 1
-        for array_step_id in range(1, array_length + 1):
+    ) -> Dict[int, str]:
+        """Submit an array task to the multiprocess cluster.
+
+        Return: a mapping of array_step_id to distributor_id
+        """
+        job_id = self._next_job_id
+        self._next_job_id += 1
+
+        mapping: Dict[int, str] = {}
+        for array_step_id in range(0, array_length):
+            distributor_id = self._get_subtask_id(job_id, array_step_id)
+            mapping[array_step_id] = distributor_id
             task = PickableTask(
                 distributor_id,
                 self.worker_node_entry_point + " " + command,
                 array_step_id,
             )
             self.task_queue.put(task)
-            self._running_or_submitted.update({(distributor_id, array_step_id): None})
-        return distributor_id
+            self._running_or_submitted.update({distributor_id: None})
 
-    def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
+        return mapping
+
+    def get_queueing_errors(self, distributor_ids: List[str]) -> Dict[str, str]:
         """Get the task instances that have errored out."""
         return {}
 
-    def get_array_queueing_errors(
-            self, distributor_id: Union[int, str]
-    ) -> Dict[Union[int, str], str]:
-        return {}
-
     def get_remote_exit_info(
-        self, distributor_id: int, array_step_id: Optional[int] = None
+        self, distributor_id: str
     ) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable

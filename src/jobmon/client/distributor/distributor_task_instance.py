@@ -118,8 +118,11 @@ class DistributorTaskInstance:
         self.task_resources_id = kwargs["task_resources_id"]
         self.status = TaskInstanceStatus.INSTANTIATED
 
-    def transition_to_launched(self, distributor_id: int,
-                               next_report_increment: float, subtask_id: int = None) -> None:
+    def transition_to_launched(
+        self,
+        distributor_id: str,
+        next_report_increment: float
+    ) -> None:
         """Register the submission of a new task instance to a cluster."""
 
         self.distributor_id = distributor_id
@@ -128,7 +131,6 @@ class DistributorTaskInstance:
             app_route=app_route,
             message={
                 "distributor_id": str(distributor_id),
-                "subtask_id": str(subtask_id),
                 "next_report_increment": next_report_increment,
             },
             request_type="post",

@@ -11,7 +11,6 @@ from jobmon.cluster_type.base import ClusterQueue
 from jobmon.constants import TaskStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
-from jobmon.serializers import SerializeSwarmTask
 
 
 logger = logging.getLogger(__name__)
@@ -86,21 +85,6 @@ class SwarmTask(object):
         """Return a list of upstream tasks."""
         return list(self.upstream_swarm_tasks)
 
-    @property
-    def task_resources(self) -> TaskResources:
-        """Get the id of the task if it has been bound to the db otherwise raise an error."""
-        if not hasattr(self, "_task_resources"):
-            raise AttributeError(
-                "task_resources cannot be accessed before workflow is bound"
-            )
-        return self._task_resources
-
-    @task_resources.setter
-    def task_resources(self, val: TaskResources) -> None:
-        if not isinstance(val, TaskResources):
-            raise ValueError("task_resources must be of type=TaskResources")
-        self._task_resources = val
-
     def queue_task(self, workflow_run_id: int) -> None:
         """Transition a task to the Queued for Instantiation status in the db."""
         rc, _ = self.requester.send_request(
@@ -118,7 +102,7 @@ class SwarmTask(object):
         self.status = TaskStatus.QUEUED
 
     def __hash__(self):
-        return self.task_instance_id
+        return self.task_id
 
     def __eq__(self, other: object) -> bool:
         """Check if the hashes of two tasks are equivalent."""
