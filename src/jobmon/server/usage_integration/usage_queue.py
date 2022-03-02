@@ -16,13 +16,13 @@ class UsageQ:
     keep_running: bool = True
 
     @staticmethod
-    def get() -> Union[tuple, None]:
+    def get() -> Union[QueuedTI, None]:
         """Get an item from the queue."""
         if len(UsageQ._q) == 0:
             logger.debug("Maxpss queue is empty")
             return None
         item = heapq.heappop(UsageQ._q)
-        return item, item.age
+        return item
 
     @staticmethod
     def put(queued_ti: QueuedTI, age: int = 0) -> None:

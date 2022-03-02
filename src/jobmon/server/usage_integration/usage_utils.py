@@ -10,13 +10,13 @@ class QueuedTI:
     TODO: in 3.1, the actual distributor_id will be subtask_id in DB.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, task_instance_id: int, distributor_id: int,
+                 cluster_type_name: str, cluster_id: int) -> None:
         """Constructor."""
-        self.task_instance_id = None
-        self.distributor_id = None
-        self.cluster_type_name = None
-        self.package_location = None
-        self.cluster_id = None
+        self.task_instance_id = task_instance_id
+        self.distributor_id = distributor_id
+        self.cluster_type_name = cluster_type_name
+        self.cluster_id = cluster_id
         self.age = 0
 
     def __str__(self) -> str:
@@ -27,39 +27,7 @@ class QueuedTI:
             f"distributor_id: {self.distributor_id}, "
             f"cluster_name: {self.cluster_type_name}, "
             f"cluster_id: {self.cluster_id}, "
-            f"package_location: {self.package_location}"
         )
-
-    @staticmethod
-    def create_instance_from_db(session: Any, task_instance_id: int) -> Any:  # type: ignore
-        """Get the ti related info that the integrator needs."""
-        # This complicate join will eventually hunt us down.
-        # Will be better to store cluster_id instead of cluster_type_id in task_instance.
-        # TODO: use subtask_id instead of distributor_id in 3.1
-        sql = f"""
-            SELECT ti.id as id, distributor_id as distributor_id,
-                ct.name as name, package_location, c.id as cluster_id
-            FROM task t, task_instance ti, task_resources tr, queue q,
-                cluster_type ct, cluster c
-            WHERE ti.id = {task_instance_id}
-            AND ti.task_id = t.id
-            AND t.task_resources_id = tr.id
-            AND tr.queue_id = q.id
-            AND q.cluster_id = c.id
-            AND ti.cluster_type_id = ct.id;
-        """
-        row = session.execute(sql).fetchone()
-        session.commit()
-        if row:
-            instance = QueuedTI()
-            instance.task_instance_id = row["id"]
-            instance.distributor_id = row["distributor_id"]
-            instance.cluster_type_name = row["name"]
-            instance.package_location = row["package_location"]
-            instance.cluster_id = row["cluster_id"]
-            return instance
-        else:
-            return None
 
     def __eq__(self, other: Any) -> bool:
         """Provide a method to compare."""
@@ -68,3 +36,7 @@ class QueuedTI:
     def __lt__(self, other: Any) -> bool:
         """Provide a method to compare."""
         return self.age < other.age
+
+    def __hash__(self) -> int:
+        # Use task instance id as a hash
+        return self.task_instance_id

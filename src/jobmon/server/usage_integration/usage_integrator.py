@@ -4,7 +4,7 @@ import json
 import logging
 import os
 from time import sleep, time
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 import slurm_rest  # type: ignore
@@ -21,135 +21,258 @@ from jobmon.server.usage_integration.usage_utils import QueuedTI
 logger = logging.getLogger(__name__)
 
 
-class IntegrationClusters:
-    """A modified singleton to get clusters info that needs integration.
+class UsageIntegrator:
 
-    This implementation assumes that the cluster ids and cluster type id
-    never changes once the DB is created. Otherwise, the reboot the service.
-    """
+    def __init__(self):
+        self._connection_params = {}
+        self._slurm_api = None
+        self.heartbeat_time = 0
+        self.token_refresh_time = 0
+        self.token_lifespan = 86400  # TODO: make this configurable
+        self.user = "svcscicompci"
 
-    _cluster_type_instance_dict = {"slurm": None, "UGE": None}
+        # Initialize config
+        self.config = _get_config()
 
-    @staticmethod
-    def get_cluster_type_requests_integration() -> list:
-        """Return a list of cluster names that requires integration."""
-        return list(IntegrationClusters._cluster_type_instance_dict.keys())
+        # Initialize sqlalchemy session
+        eng = create_engine(self.config["conn_str"], pool_recycle=200)
+        session = sessionmaker(bind=eng)
+        self.session = session()
 
-    @staticmethod
-    def get_instance(session: Session, cluster_type: str) -> Any:  # type: ignore
-        """Return an instance for given cluster type."""
-        if cluster_type not in IntegrationClusters._cluster_type_instance_dict.keys():
+    @property
+    def slurm_api(self):
+        current_time = time()
+        if self._slurm_api is None or \
+                current_time - self.token_refresh_time > self.token_lifespan:
+            # Need to refresh the api object
+            newtoken = self.get_slurmtool_token()
+            configuration = slurm_rest.Configuration(
+                host=self.connection_parameters['slurm_rest_host'],
+                api_key={
+                    "X-SLURM-USER-NAME": self.user,
+                    "X-SLURM-USER-TOKEN": newtoken,
+                },
+            )
+            _slurm_api = slurm(slurm_rest.ApiClient(configuration, pool_threads=15))
+            self._slurm_api = _slurm_api
+            self.token_refresh_time = current_time
+        return self._slurm_api
+
+    @property
+    def connection_parameters(self) -> Dict:
+        if len(self._connection_params) == 0:
+            # Ask the database for params, then cache
+            sql = (
+                "SELECT connection_parameters "
+                "FROM cluster "
+                f"WHERE name = 'slurm'")  # Hardcoded for now, hopefully not long lived
+            row = self.session.execute(sql).fetchone()
+            self.session.commit()
+            if row:
+                params = json.loads(row.connection_parameters)
+                self._connection_params = params
+        return self._connection_params
+
+    def get_slurmtool_token(self):
+        slurm_api_host, slurm_token_url = self.connection_parameters['slurm_rest_host'], \
+                                          self.connection_parameters['slurmtool_token_host']
+        password = _get_service_user_pwd()
+        if password is None:
+            logger.warning(f"Fail to get the password for {self.user}")
             return None
-        if IntegrationClusters._cluster_type_instance_dict[cluster_type] is None:
-            ic = IntegrationClusters()  # type: ignore
 
-            # get cluster type id
-            sql = f"""
-                SELECT id
-                FROM cluster_type
-                WHERE cluster_type.name = "{cluster_type}"
-            """
-            row = session.execute(sql).fetchone()
-            ic.cluster_type_id = int(row["id"])
+        # get token
+        auth_str = bytes(self.user + ":" + password, "utf-8")
+        encoded_auth_str = b64encode(auth_str).decode("ascii")
 
-            # get cluster ids
-            sql = f"""
-                SELECT cluster.id
-                FROM cluster, cluster_type
-                WHERE cluster.cluster_type_id = cluster_type.id
-                AND cluster_type.name = "{cluster_type}"
-            """
-            rows = session.execute(sql).fetchall()
-            cluster_ids = [int(r["id"]) for r in rows]
-            ic.cluster_ids = cluster_ids
-            IntegrationClusters._cluster_type_instance_dict[
-                cluster_type
-            ] = ic  # type: ignore
-        return IntegrationClusters._cluster_type_instance_dict[cluster_type]
+        header = {
+            "Authorization": f"Basic {encoded_auth_str}",
+            "accept": "application/json",
+            "Content-Type": "application/json",
+        }
 
-    def __init__(self) -> None:
-        """Don't call."""
-        self.cluster_ids: List[int] = []
-        self.cluster_type_id: int = 0  # doesn't matter
+        payload = {"lifespan": 86400}
+        response = requests.post(slurm_token_url, headers=header, json=payload)
+        token = response.json()["access_token"]
+        return token
 
+    def populate_queue(self, starttime: float) -> None:
+        sql = (
+            "SELECT task_instance.id as id,  "
+            "task_instance.distributor_id as distributor_id, "
+            "cluster_type.name as cluster_type, "
+            "cluster.id as cluster_id, "
+            "task_instance.maxrss as maxrss, "
+            "task_instance.maxpss as maxpss "
+            "FROM task_instance, cluster_type, cluster "
+            'WHERE task_instance.status NOT IN ("B", "I", "R", "W") '
+            "AND task_instance.distributor_id IS NOT NULL "
+            "AND UNIX_TIMESTAMP(task_instance.status_date) > {starttime} "
+            "AND (task_instance.maxrss IS NULL OR task_instance.maxpss IS NULL) "
+            "AND task_instance.cluster_type_id = cluster_type.id "
+            "AND cluster.cluster_type_id = cluster_type.id"
+            "".format(
+                starttime=starttime
+            )
+        )
+        task_instances = self.session.execute(sql).fetchall()
+        self.session.commit()
+        for ti in task_instances:
+            if (ti.cluster_type == "UGE" and ti.maxpss is None) or \
+                    (ti.cluster_type in ('slurm', 'dummy') and ti.maxrss in (None, 0, -1, '0', '-1')):
+                queued_ti = QueuedTI(
+                    task_instance_id=ti.id,
+                    distributor_id=ti.distributor_id,
+                    cluster_type_name=ti.cluster_type,
+                    cluster_id=ti.cluster_id)
+                UsageQ.put(queued_ti)
 
-# slurm
-def _get_slurm_api_parameter(item: QueuedTI, session: Session) -> Tuple[str, str]:
-    token_url = ""
-    host_url = ""
-    sql = (
-        f"SELECT connection_parameters "
-        f"FROM cluster "
-        f"WHERE id = {item.cluster_id}"
-    )
-    row = session.execute(sql).fetchone()
-    if row:
-        d = json.loads(row["connection_parameters"])
-        if "slurm_rest_host" in d.keys():
-            host_url = d["slurm_rest_host"]
-        if "slurmtool_token_host" in d.keys():
-            token_url = d["slurmtool_token_host"]
-    return host_url, token_url
+    def update_resources_in_db(self, task_instances: List[QueuedTI]):
+        # Pull resource list from SQUID/QPID
+        # Split tasks by cluster type
+        slurm_tasks, uge_tasks, dummy_tasks = [], [], []
+        for ti in task_instances:
+            if ti.cluster_type_name == 'slurm':
+                slurm_tasks.append(ti)
+            elif ti.cluster_type_name == 'UGE':
+                uge_tasks.append(ti)
+            elif ti.cluster_type_name == "dummy":
+                dummy_tasks.append(ti)
+
+        if any(slurm_tasks):
+            self.update_slurm_resources(slurm_tasks)
+        if any(uge_tasks):
+            self.update_uge_resources(uge_tasks)
+        if any(dummy_tasks):
+            self.update_dummy_resources(dummy_tasks)
+
+    def update_slurm_resources(self, tasks: List[QueuedTI]) -> None:
+        # Unfortunately, need to fetch squid resources 1x1, until we get database access
+        # or the slurm_rest package gets an option to call slurmdbd_get_jobs on a list of ids.
+        # Somewhat mitigated by using multiprocessing.pool
+
+        usage_stats = _get_squid_resource(self.slurm_api, tasks)
+
+        # If no resources were returned, add the failed TIs back to the queue
+        for task in tasks:
+            try:
+                resources = usage_stats[task]
+            except KeyError:
+                continue
+            if resources is None:
+                usage_stats.pop(task)
+                task.age += 1
+                UsageQ.put(task, task.age)
+
+        if len(usage_stats) == 0:
+            return  # No values to update
+
+        # Attempt an insert, and update resources on duplicate primary key
+        # There is a hypothetical max length of this query, limited by the value of
+        # max_allowed_packet in the database.
+
+        # The rough estimate is that each tuple is ~270 bytes, and the current config defaults
+        # to a maximum of 100 task instances each time. Max packet size is ~1e9 in the DB.
+        # So we probably aren't close to that limit.
+        sql = (
+            "INSERT INTO task_instance(id, maxrss, wallclock, task_id, status) "
+            "VALUES {values} "
+            "ON DUPLICATE KEY UPDATE "
+            "maxrss=VALUES(maxrss), "
+            "wallclock=VALUES(wallclock) "
+        )
+
+        # Note: the task_id and status attributes are mocked and not used. Required by the DB
+        # since there are no defaults for those two columns. Never used since we should fail a
+        # primary key uniqueness check on task instance ID
+        values = ",".join(
+            [str((ti.task_instance_id, stats['maxrss'], stats['wallclock'], 1, 'D'))
+             for ti, stats in usage_stats.items()])
+
+        self.session.execute(sql.format(values=values))
+        self.session.commit()
+
+    def update_uge_resources(self, tasks: List[QueuedTI]) -> None:
+
+        usage_stats = {
+            task:
+            _get_qpid_response(task.distributor_id, self.config['qpid_uri_base'])[1]
+            for task in tasks
+        }
+
+        # If no resources were returned, add the failed TIs back to the queue
+        for task in tasks:
+            try:
+                resources = usage_stats[task]
+            except KeyError:
+                continue
+            if resources is None:
+                usage_stats.pop(task)
+                task.age += 1
+                UsageQ.put(task, task.age)
+
+        if len(usage_stats) == 0:
+            return  # No values to update
+
+        # Attempt an insert, and update resources on duplicate primary key
+        # There is a hypothetical max length of this query, limited by the value of
+        # max_allowed_packet in the database.
+
+        # The rough estimate is that each tuple is ~270 bytes, and the current config defaults
+        # to a maximum of 100 task instances each time. Max packet size is ~1e9 in the DB.
+        # So we probably aren't close to that limit.
+        sql = (
+            "INSERT INTO task_instance(id, maxrss, task_id, status) "
+            "VALUES {values} "
+            "ON DUPLICATE KEY UPDATE "
+            "maxrss=VALUES(maxrss), "
+            "usage_str=VALUES(usage_str)"
+        )
+
+        # Note: the task_id and status attributes are mocked and not used. Required by the DB
+        # since there are no defaults for those two columns. Never used since we should fail a
+        # primary key uniqueness check on task instance ID
+        values = ",".join(
+            [str((ti.task_instance_id, maxrss, 1, 'D'))
+             for ti, maxrss in usage_stats.items()])
+
+        self.session.execute(sql.format(values=values))
+        self.session.commit()
+
+    def update_dummy_resources(self, task_instances: List[QueuedTI]):
+
+        # Hardcode a value for maxrss, just for unit testing
+        values = ",".join([str(ti.task_instance_id) for ti in task_instances])
+
+        sql = (
+            "UPDATE task_instance "
+            "SET maxrss=1314 "
+            "WHERE id IN ({})"
+        )
+        self.session.execute(sql.format(values))
+        self.session.commit()
 
 
 def _get_service_user_pwd(env_variable: str = "SVCSCICOMPCI_PWD") -> Optional[str]:
     return os.getenv(env_variable)
 
 
-def _get_slurm_api(item: QueuedTI, session: Session) -> Any:
-    """The method to obtain the SlurmApi object.
-
-    This method should return SlurmApi or None, but somehow, it
-    fails the typecheck, so use the Any marker.
-    """
-    slurm_api_host, slurm_token_url = _get_slurm_api_parameter(item, session)
-    user = "svcscicompci"
-    password = _get_service_user_pwd()
-    if password is None:
-        logger.warning(f"Fail to get the password for {user}")
-        return None
-
-    # get token
-    auth_str = bytes(user + ":" + password, "utf-8")
-    encoded_auth_str = b64encode(auth_str).decode("ascii")
-
-    header = {
-        "Authorization": f"Basic {encoded_auth_str}",
-        "accept": "application/json",
-        "Content-Type": "application/json",
-    }
-
-    payload = {"lifespan": 86400}
-    response = requests.post(slurm_token_url, headers=header, json=payload)
-    if response.status_code == 200:
-        token = response.json()["access_token"]
-        configuration = slurm_rest.Configuration(
-            host=slurm_api_host,
-            api_key={
-                "X-SLURM-USER-NAME": user,
-                "X-SLURM-USER-TOKEN": token,
-            },
-        )
-        _slurm_api = slurm(slurm_rest.ApiClient(configuration))
-        return _slurm_api
-
-
-def _get_squid_resource(item: QueuedTI, session: Session) -> Optional[dict]:
-    """Collect the Slurm reported resource usage for a given task instance.
+def _get_squid_resource(slurm_api: slurm, task_instances: List[QueuedTI]) -> Optional[dict]:
+    """Collect the Slurm reported resource usage for a given list of task instances.
 
     Return 5 values: cpu, mem, node, billing and runtime that are available from tres.
     For mem, also search the highest values within each step's tres.requested.max
     (only this way it will match results from "sacct -j nnnn --format="JobID,MaxRSS"").
     For runtime, get the total from the whole job, if 0, sum it up from the steps.
     """
-    slurm_api = _get_slurm_api(item, session)
-    if slurm_api is None:
-        logger.warning("Failed to get the slurm_api.")
-        return None
 
-    usage_stats = {}
-
-    for job in slurm_api.slurmdbd_get_job(item.distributor_id).jobs:
+    all_usage_stats = {}
+    # Return futures since async_req=True is passed
+    job_futures = [slurm_api.slurmdbd_get_job(ti.distributor_id) for ti in task_instances]
+    jobs = [j.get() for j in job_futures]
+    for task_instance, j in zip(task_instances, jobs):
+        usage_stats = {}
+        job = j.jobs[0]  # Always length 1 I believe? Unless it's an array task potentially?
         for allocated in job.tres.allocated:
             if allocated["type"] in ("cpu", "node", "billing"):
                 usage_stats[allocated["type"]] = allocated["count"]
@@ -163,145 +286,34 @@ def _get_squid_resource(item: QueuedTI, session: Session) -> Optional[dict]:
 
         usage_stats["runtime"] = job.time.elapsed
 
-    # rename keys by copying
-    # Guard against null returns
-    if len(usage_stats) == 0:
-        logger.info(f"No usage stat received for {item}")
-        return None
-    else:
-        usage_stats["usage_str"] = usage_stats.copy()
-        usage_stats["wallclock"] = usage_stats.pop("runtime")
-        # store B
-        usage_stats["maxrss"] = usage_stats.pop("mem")
-    logger.info(f"{item.distributor_id}: {usage_stats}")
-    return usage_stats
+        # rename keys by copying
+        # Guard against null returns
+        if len(usage_stats) == 0:
+            usage_stats = None
+        else:
+            usage_stats["usage_str"] = usage_stats.copy()
+            usage_stats["wallclock"] = usage_stats.pop("runtime")
+            # store B
+            usage_stats["maxrss"] = usage_stats.pop("mem")
+        logger.info(f"{task_instance.distributor_id}: {usage_stats}")
+        all_usage_stats[task_instance] = usage_stats
+
+    return all_usage_stats
 
 
 # uge
 def _get_qpid_response(distributor_id: int, qpid_uri_base: Optional[str]) -> Tuple:
     qpid_api_url = f"{qpid_uri_base}/{distributor_id}"
-    logger.info(qpid_api_url)
     resp = requests.get(qpid_api_url)
     if resp.status_code != 200:
         logger.info(
             f"The maxpss of {distributor_id} is not available. Put it back to the queue."
         )
-        return (resp, None)
+        return resp, None
     else:
         maxpss = resp.json()["max_pss"]
         logger.debug(f"execution id: {distributor_id} maxpss: {maxpss}")
         return 200, maxpss
-
-
-# common
-def _get_cluster_ids(session: Session, cluster_type: str) -> list:
-    temp = IntegrationClusters.get_instance(session, cluster_type)
-    if temp:
-        return temp.cluster_ids  # type: ignore
-    return []
-
-
-def _get_cluster_type_id(session: Session, cluster_type: str) -> list:
-    temp = IntegrationClusters.get_instance(session, cluster_type)
-    if temp:
-        return temp.cluster_type_id  # type: ignore
-    return []
-
-
-def _update_maxrss_in_db(
-    item: QueuedTI, session: Session, qpid_uri_base: Optional[str] = None
-) -> bool:
-    return_result = True
-    logger.debug(str(item))
-    try:
-        if item.cluster_type_name == "UGE":
-            code, maxpss = _get_qpid_response(
-                item.distributor_id, qpid_uri_base  # type: ignore
-            )  # type: ignore
-            if code != 200:
-                logger.warning(
-                    f"Fail to get response from "
-                    f"{qpid_uri_base}/{item.distributor_id} "
-                    f"with {code}"
-                )
-                return_result = False
-            else:
-                sql = (
-                    f"UPDATE task_instance SET maxrss={maxpss} "
-                    f" WHERE id={item.task_instance_id}"
-                )
-                session.execute(sql)
-                session.commit()
-        if item.cluster_type_name == "slurm":
-            usage_stats = _get_squid_resource(item, session)
-            if usage_stats:
-                rss = usage_stats["maxrss"]
-                wallclock = usage_stats["wallclock"]
-                # Doing single update instead of batch
-                # because if a batch update failed it's harder to
-                # tell which task_instance has been updated
-                sql = (
-                    f"UPDATE task_instance SET maxrss={rss}, "
-                    f"wallclock={wallclock}"
-                    f" WHERE id={item.task_instance_id}"
-                )
-                session.execute(sql)
-                session.commit()
-            else:
-                return_result = False
-        if item.cluster_type_name == "dummy":
-            # This is for testing only.
-            # Production code should never access this block.
-            sql = (
-                f"UPDATE task_instance SET maxrss=1314"
-                f" WHERE id={item.task_instance_id}"
-            )
-            session.execute(sql)
-            session.commit()
-    except Exception as e:
-        logger.error(str(e))
-        return_result = False
-    finally:
-        return return_result
-
-
-def _get_completed_task_instance(starttime: float, session: Session) -> None:
-    """Fetch completed SLURM task instances only."""
-    sql = (
-        "SELECT task_instance.id as id,  cluster_type.name as cluster_type, "
-        "    task_instance.maxrss as maxrss, task_instance.maxpss as maxpss "
-        "from task_instance, cluster_type "
-        'where task_instance.status not in ("B", "I", "R", "W") '
-        "and task_instance.distributor_id is not null "
-        "and UNIX_TIMESTAMP(task_instance.status_date) > {starttime} "
-        "and (task_instance.maxrss is null  or task_instance.maxpss is null)"
-        "and task_instance.cluster_type_id = cluster_type.id".format(
-            starttime=starttime
-        )
-    )
-    rs = session.execute(sql).fetchall()
-    session.commit()
-    for r in rs:
-        if (
-            r["cluster_type"]
-            in IntegrationClusters.get_cluster_type_requests_integration()
-        ):
-            # use maxpss for uge; maxrss for others
-            if (r["cluster_type"] == "UGE" and r["maxpss"] is None) or (
-                r["cluster_type"] != "UGE"
-                and (
-                    r["maxrss"] is None
-                    or int(r["maxrss"]) == -1
-                    or int(r["maxrss"]) == 0
-                )
-            ):
-                tid = int(r["id"])
-                item = QueuedTI.create_instance_from_db(session, tid)
-                if item:
-                    UsageQ.put(item)
-                else:
-                    logger.warning(f"Fail to create QueuedTI for {tid}")
-    logger.debug(f"Q length: {UsageQ.get_size()}")
 
 
 def _get_config() -> dict:
@@ -314,26 +326,6 @@ def _get_config() -> dict:
     }
 
 
-def _update_tis(
-    max_update_per_sec: int, session: Session, qpid_uri_base: Optional[str] = None
-) -> None:
-    failed_tis = []  # no need to repeat the same ti in one cycle
-    for i in range(max_update_per_sec):
-        r = UsageQ.get()
-        if r is not None:
-            (item, age) = r
-            if _update_maxrss_in_db(item, session, qpid_uri_base):
-                logger.info(f"Updated: {item}")
-            else:
-                failed_tis.append(item)
-        else:
-            break
-    for item in failed_tis:
-        UsageQ.put(item, item.age + 1)
-        logger.warning(f"Failed to update db, " f"put {item} back to the queue.")
-    logger.debug(f"Q length: {UsageQ.get_size()}")
-
-
 def q_forever(init_time: float = 0) -> None:
     """A never stop method running in a thread that queries QPID.
 
@@ -342,10 +334,7 @@ def q_forever(init_time: float = 0) -> None:
     """
     # allow the service to decide the time to go back to fill maxrss/maxpss
     last_heartbeat = init_time
-    vars_from_config = _get_config()
-    eng = create_engine(vars_from_config["conn_str"], pool_recycle=200)
-    Session = sessionmaker(bind=eng)
-    session = Session()
+    integrator = UsageIntegrator()
 
     while UsageQ.keep_running:
         # Since there isn't a good way to specify the thread priority in Python,
@@ -353,21 +342,21 @@ def q_forever(init_time: float = 0) -> None:
         # The avg daily job instance is about 20k; thus, sleep(1) should be ok.
         sleep(1)
         # Update squid_max_update_per_second of jobs as defined in jobmon.cfg
-        _update_tis(
-            vars_from_config["max_update_per_sec"],
-            session,
-            vars_from_config["qpid_uri_base"],
-        )
+        task_instances = [UsageQ.get() for _ in range(integrator.config['max_update_per_sec'])]
+        # If the queue is empty, drop the None entries
+        task_instances = [t for t in task_instances if t is not None]
+
+        integrator.update_resources_in_db(task_instances)
 
         # Query DB to add newly completed jobs to q and log q length
         current_time = time()
-        if int(current_time - last_heartbeat) > vars_from_config["polling_interval"]:
+        if int(current_time - last_heartbeat) > integrator.config["polling_interval"]:
             logger.info("UsageQ length: {}".format(UsageQ.get_size()))
             try:
-                _get_completed_task_instance(last_heartbeat, session)
+                integrator.populate_queue(last_heartbeat)
                 logger.debug(f"Q length: {UsageQ.get_size()}")
             except Exception as e:
                 logger.error(str(e))
             finally:
                 last_heartbeat = current_time
-    session.close()
+    integrator.session.close()
