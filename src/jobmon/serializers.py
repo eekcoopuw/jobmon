@@ -16,13 +16,7 @@ class SerializeDistributorTask:
         requested_resources: dict,
     ) -> tuple:
         """Submitting the above args to the database for an DistributorTask object."""
-        return (
-            task_id,
-            array_id,
-            name,
-            command,
-            requested_resources
-        )
+        return (task_id, array_id, name, command, requested_resources)
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
@@ -38,7 +32,7 @@ class SerializeDistributorTask:
             "command": wire_tuple[3],
             "requested_resources": {}
             if wire_tuple[4] is None
-            else ast.literal_eval(wire_tuple[4])
+            else ast.literal_eval(wire_tuple[4]),
         }
 
 
@@ -61,18 +55,32 @@ class SerializeTaskInstance:
 
     @staticmethod
     def to_wire(
-        task_instance_id: int, task_id: int, workflow_run_id: int, workflow_id: int, status: str,
-        distributor_id: Union[int, None], cluster_id: Optional[int] = None,
-        task_resources_id: Optional[int] = None, array_id: Optional[int] = None,
-        array_batch_num: Optional[int] = None, array_step_id: Optional[int] = None, 
-        subtask_id: Optional[str] = None
+        task_instance_id: int,
+        task_id: int,
+        workflow_run_id: int,
+        workflow_id: int,
+        status: str,
+        distributor_id: Union[int, None],
+        cluster_id: Optional[int] = None,
+        task_resources_id: Optional[int] = None,
+        array_id: Optional[int] = None,
+        array_batch_num: Optional[int] = None,
+        array_step_id: Optional[int] = None,
     ) -> tuple:
         """Submit the above args for an DistributorTaskInstance object to the database."""
-        if array_id is None:
-            subtask_id = str(distributor_id)
-        return task_instance_id, task_id, workflow_run_id, workflow_id, status,\
-               distributor_id, cluster_id, task_resources_id,\
-               array_id, array_batch_num, array_step_id, subtask_id
+        return (
+            task_instance_id,
+            task_id,
+            workflow_run_id,
+            workflow_id,
+            status,
+            distributor_id,
+            cluster_id,
+            task_resources_id,
+            array_id,
+            array_batch_num,
+            array_step_id,
+        )
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
@@ -88,7 +96,6 @@ class SerializeTaskInstance:
         array_id = int(wire_tuple[8]) if wire_tuple[8] else None
         array_batch_num = int(wire_tuple[9]) if wire_tuple[9] else None
         array_step_id = int(wire_tuple[10]) if wire_tuple[10] else None
-        subtask_id = str(wire_tuple[11]) if wire_tuple[11] else None
 
         return {
             "task_instance_id": task_instance_id,
@@ -102,7 +109,6 @@ class SerializeTaskInstance:
             "array_id": array_id,
             "array_batch_num": array_batch_num,
             "array_step_id": array_step_id,
-            "subtask_id": subtask_id,
         }
 
 
@@ -230,7 +236,7 @@ class SerializeClientTaskTemplateVersion:
             "task_args": wire_tuple[3],
             "op_args": wire_tuple[4],
             "id_name_map": wire_tuple[5],
-            "task_template_id": wire_tuple[6]
+            "task_template_id": wire_tuple[6],
         }
 
 
@@ -312,39 +318,6 @@ class SerializeQueue:
         }
 
 
-class SerializeTaskResources:
-    """Serialize the data to and from the db for a TaskResources."""
-
-    @staticmethod
-    def to_wire(
-        task_id: int,
-        queue_id: int,
-        task_resources_type_id: str,
-        resource_scales: str,
-        requested_resources: str,
-    ) -> tuple:
-        """Submit the TaskResources info to the database."""
-        return (
-            task_id,
-            queue_id,
-            task_resources_type_id,
-            resource_scales,
-            requested_resources,
-        )
-
-    @staticmethod
-    def kwargs_from_wire(wire_tuple: tuple) -> dict:
-        """Get the whole  for a TaskResources."""
-        return {
-            "id": int(wire_tuple[0]),
-            "task_id": int(wire_tuple[1]),
-            "queue_id": int(wire_tuple[2]),
-            "task_resources_type_id": str(wire_tuple[3]),
-            "resource_scales": str(wire_tuple[4]),
-            "requested_resources": str(wire_tuple[5]),
-        }
-
-
 class SerializeTaskResourceUsage:
     """Serialize the data to and from the database for Task resource usage."""
 
@@ -421,41 +394,23 @@ class SerializeTaskTemplateResourceUsage:
 
 class SerializeDistributorArray:
     """"""
+
     @staticmethod
-    def to_wire(
-        array_id: int,
-        task_resources_id: int,
-        requested_resources: Dict,
-        max_concurrently_running: int
-    ) -> tuple:
+    def to_wire(array_id: int, max_concurrently_running: int) -> tuple:
         """Submit the TaskTemplate resource usage information to the database."""
-        return (
-            array_id,
-            task_resources_id,
-            requested_resources,
-            max_concurrently_running,
-        )
+        return array_id, max_concurrently_running
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Get the TaskTemplate resource usage information from the database."""
-        return {
-            "array_id": wire_tuple[0],
-            "task_resources_id": wire_tuple[1],
-            "requested_resources": {}
-            if wire_tuple[2] is None
-            else ast.literal_eval(wire_tuple[2]),
-            "max_concurrently_running": wire_tuple[3]
-        }
+        return {"array_id": wire_tuple[0], "max_concurrently_running": wire_tuple[1]}
 
 
 class SerializeDistributorWorkflow:
     """"""
+
     @staticmethod
-    def to_wire(
-        workflow_id: int,
-        max_concurrently_running: int
-    ) -> tuple:
+    def to_wire(workflow_id: int, max_concurrently_running: int) -> tuple:
         """"""
         return (
             workflow_id,
@@ -469,6 +424,7 @@ class SerializeDistributorWorkflow:
             "workflow_id": wire_tuple[0],
             "max_concurrently_running": wire_tuple[1]
         }
+
 
 class SerializeTaskResources:
     """"""

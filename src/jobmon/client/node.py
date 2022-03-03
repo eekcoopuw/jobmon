@@ -69,7 +69,9 @@ class Node:
         name = (
             self.task_template_version.task_template.template_name
             + "_"
-            + "_".join([str(k) + "-" + str(self.node_args[k]) for k in self.node_args.keys()])
+            + "_".join(
+                [str(k) + "-" + str(self.node_args[k]) for k in self.node_args.keys()]
+            )
         )
 
         # special char protection
@@ -113,7 +115,8 @@ class Node:
         str_arg_ids = [str(arg) for arg in arg_ids]
 
         hash_value = int(
-            hashlib.sha1("".join(str_arg_ids + arg_values).encode("utf-8")).hexdigest(), 16
+            hashlib.sha1("".join(str_arg_ids + arg_values).encode("utf-8")).hexdigest(),
+            16,
         )
         return hash_value
 

@@ -4,7 +4,17 @@ from __future__ import annotations
 import hashlib
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, Union, TYPE_CHECKING
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+    TYPE_CHECKING,
+)
 
 import yaml
 
@@ -89,13 +99,15 @@ class TaskTemplate:
         task_template_kwargs = SerializeClientTaskTemplate.kwargs_from_wire(wire_tuple)
 
         if task_template_kwargs["tool_version_id"] != tool_version.id:
-            raise ValueError("tool_version_id in wire_tuple does not match tool_version object"
-                             f". Expected {tool_version.id} in wire_tuple. Got "
-                             f"{task_template_kwargs['tool_version_id']}")
+            raise ValueError(
+                "tool_version_id in wire_tuple does not match tool_version object"
+                f". Expected {tool_version.id} in wire_tuple. Got "
+                f"{task_template_kwargs['tool_version_id']}"
+            )
 
         task_template = cls(
             template_name=task_template_kwargs["template_name"],
-            requester=tool_version.requester
+            requester=tool_version.requester,
         )
         task_template._task_template_id = task_template_kwargs["id"]
         task_template._tool_version = tool_version
@@ -468,8 +480,12 @@ class TaskTemplate:
                 f"{self.active_task_template_version.template_args}, got {set(kwargs.keys())}"
             )
 
-        node_args = self.active_task_template_version.filter_kwargs("node_args", **kwargs)
-        task_args = self.active_task_template_version.filter_kwargs("task_args", **kwargs)
+        node_args = self.active_task_template_version.filter_kwargs(
+            "node_args", **kwargs
+        )
+        task_args = self.active_task_template_version.filter_kwargs(
+            "task_args", **kwargs
+        )
         op_args = self.active_task_template_version.filter_kwargs("op_args", **kwargs)
 
         # build node
@@ -525,7 +541,9 @@ class TaskTemplate:
             upstream_tasks = []
 
         # kwargs quality assurance
-        if not set(kwargs.keys()).issuperset(self.active_task_template_version.task_args):
+        if not set(kwargs.keys()).issuperset(
+            self.active_task_template_version.task_args
+        ):
             raise ValueError(
                 f"Missing task_args for this array. Task Template requires task_args="
                 f"{self.active_task_template_version.task_args}, got {set(kwargs.keys())}."
@@ -537,8 +555,12 @@ class TaskTemplate:
             )
 
         # Split node, task, and op_args
-        node_args = self.active_task_template_version.filter_kwargs("node_args", **kwargs)
-        task_args = self.active_task_template_version.filter_kwargs("task_args", **kwargs)
+        node_args = self.active_task_template_version.filter_kwargs(
+            "node_args", **kwargs
+        )
+        task_args = self.active_task_template_version.filter_kwargs(
+            "task_args", **kwargs
+        )
         op_args = self.active_task_template_version.filter_kwargs("op_args", **kwargs)
 
         array = Array(

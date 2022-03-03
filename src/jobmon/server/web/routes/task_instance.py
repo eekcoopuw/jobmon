@@ -30,8 +30,7 @@ logger = LocalProxy(partial(get_logger, __name__))
 
 
 @finite_state_machine.route(
-    "/task_instance/<task_instance_id>/instantiate_task_instance",
-    methods=["POST"]
+    "/task_instance/<task_instance_id>/instantiate_task_instance", methods=["POST"]
 )
 def instantiate_task_instance(task_instance_id: int) -> Any:
     """Instantisate a task_instance.
@@ -186,9 +185,7 @@ def log_ti_report_by(task_instance_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route(
-    "/task_instance/log_report_by/batch", methods=["POST"]
-)
+@finite_state_machine.route("/task_instance/log_report_by/batch", methods=["POST"])
 def log_ti_report_by_batch() -> Any:
     """Log task_instances as being responsive with a new report_by_date.
 
@@ -579,7 +576,7 @@ def add_task_instance() -> Any:
 
 
 @finite_state_machine.route(
-    "/get_array_task_instance_id/<array_id>/<batch_num>/<step_id>", methods=['GET']
+    "/get_array_task_instance_id/<array_id>/<batch_num>/<step_id>", methods=["GET"]
 )
 def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int):
     """Given an array ID and an index, select a single task instance ID.
@@ -647,10 +644,7 @@ def log_distributor_id(task_instance_id: int) -> Any:
         ti, TaskInstanceStatus.LAUNCHED
     )
     ti.distributor_id = data["distributor_id"]
-    if ti.array_id is None:
-        ti.subtask_id = str(ti.distributor_id)
-    else:
-        ti.subtask_id = data["subtask_id"]
+
     ti.report_by_date = func.ADDTIME(
         func.now(), func.SEC_TO_TIME(data["next_report_increment"])
     )
@@ -759,9 +753,9 @@ def log_unknown_error(task_instance_id: int) -> Any:
 def record_array_batch_num(batch_num: int) -> Any:
     """Record a batch number to associate sets of task instances with an array submission."""
     data = request.get_json()
-    task_instance_ids_list = data['task_instance_ids']
+    task_instance_ids_list = data["task_instance_ids"]
 
-    task_instance_ids = ",".join(f'{x}' for x in task_instance_ids_list)
+    task_instance_ids = ",".join(f"{x}" for x in task_instance_ids_list)
 
     update_stmt = f"""
         UPDATE task_instance
@@ -775,7 +769,7 @@ def record_array_batch_num(batch_num: int) -> Any:
     task_instance_ids_list.sort()
     for idx, tid in enumerate(task_instance_ids_list):
         sql = f"""UPDATE task_instance
-            SET array_step_id = {idx + 1}
+            SET array_step_id = {idx}
             WHERE id = {tid}"""
         DB.session.execute(sql)
     DB.session.commit()
@@ -795,7 +789,7 @@ def record_subtask_id(task_instance_id: int) -> Any:
     array_id, array_batch_num, and array_step_id every time.
     """
     data = request.get_json()
-    subtask_id = data['subtask_id']
+    subtask_id = data["subtask_id"]
     sql = f"""
         UPDATE task_instance
         SET subtask_id={subtask_id}
@@ -811,14 +805,14 @@ def record_subtask_id(task_instance_id: int) -> Any:
 def transition_task_instances(new_status: str) -> Any:
     """Attempt to transition a task instance to the new status"""
     data = request.get_json()
-    task_instance_ids = data['task_instance_ids']
-    array_id = data.get('array_id', None)
-    distributor_id = data['distributor_id']
+    task_instance_ids = data["task_instance_ids"]
+    array_id = data.get("array_id", None)
+    distributor_id = data["distributor_id"]
 
     if array_id is not None:
         bind_to_logger(array_id=array_id)
 
-    task_instance_id_str = ",".join(f'{x}' for x in task_instance_ids)
+    task_instance_id_str = ",".join(f"{x}" for x in task_instance_ids)
 
     query = f"""
         SELECT
@@ -828,11 +822,7 @@ def transition_task_instances(new_status: str) -> Any:
         WHERE
             task_instance.id IN ({task_instance_id_str})
     """
-    task_instances = (
-        DB.session.query(TaskInstance)
-        .from_statement(text(query))
-        .all()
-    )
+    task_instances = DB.session.query(TaskInstance).from_statement(text(query)).all()
 
     # Attempt a transition for each task instance
     erroneous_transitions = []
@@ -848,7 +838,9 @@ def transition_task_instances(new_status: str) -> Any:
 
     DB.session.flush()
     DB.session.commit()
-    resp = jsonify(erroneous_transitions={ti.id: ti.status for ti in erroneous_transitions})
+    resp = jsonify(
+        erroneous_transitions={ti.id: ti.status for ti in erroneous_transitions}
+    )
     resp.status_code = StatusCodes.OK
     return resp
 

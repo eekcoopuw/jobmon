@@ -36,7 +36,7 @@ class WorkerNodeCLI(CLI):
             array_id=args.array_id,
             batch_number=args.batch_number,
             expected_jobmon_version=args.expected_jobmon_version,
-            cluster_type_name=args.cluster_type_name,
+            cluster_name=args.cluster_name,
             requester_url=worker_node_config.url,
         )
 
@@ -56,17 +56,17 @@ class WorkerNodeCLI(CLI):
         worker_node_parser.add_argument(
             "--array_id",
             help="array_id of the worker node if this is an array task.",
-            required=False
+            required=False,
         )
         worker_node_parser.add_argument(
             "--batch_number",
             help="batch number of the array this task instance is associated with.",
-            required=False
+            required=False,
         )
         worker_node_parser.add_argument(
-            "--cluster_type_name",
+            "--cluster_name",
             type=str,
-            help="cluster_type_name of the work node.",
+            help="cluster_name of the work node.",
             required=True,
         )
         worker_node_parser.add_argument(

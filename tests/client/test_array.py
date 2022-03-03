@@ -26,6 +26,7 @@ def task_template(tool):
     )
     return tt
 
+
 @pytest.fixture
 def task_template_dummy(tool):
     tt = tool.get_task_template(
@@ -42,14 +43,18 @@ def task_template_dummy(tool):
 
 def test_create_array(db_cfg, client_env, task_template):
     array = task_template.create_array(arg="echo 1")
-    assert array.compute_resources == task_template.default_compute_resources_set["sequential"]
+    assert (
+        array.compute_resources
+        == task_template.default_compute_resources_set["sequential"]
+    )
 
 
 def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
     task_template = task_template_dummy
 
-    array = task_template.create_array(arg="echo 10",
-                                       compute_resources={"queue": "null.q"})
+    array = task_template.create_array(
+        arg="echo 10", compute_resources={"queue": "null.q"}
+    )
     wf = tool.create_workflow()
 
     wf.add_array(array)
@@ -133,7 +138,7 @@ def test_create_tasks(db_cfg, client_env, tool):
         narg1=[1, 2, 3],
         narg2=["a", "b", "c"],
         op_arg="baz",
-        compute_resources={"queue": "null.q"}
+        compute_resources={"queue": "null.q"},
     )
 
     assert len(array.tasks) == 9  # Created on init

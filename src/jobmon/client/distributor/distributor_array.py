@@ -10,18 +10,15 @@ from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeDistributorArray
 
 if TYPE_CHECKING:
-    from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
+    from jobmon.client.distributor.distributor_task_instance import (
+        DistributorTaskInstance,
+    )
 
 logger = logging.getLogger(__name__)
 
 
 class DistributorArray:
-
-    def __init__(
-        self,
-        array_id: int,
-        requester: Requester
-    ):
+    def __init__(self, array_id: int, requester: Requester):
         self.array_id = array_id
 
         self.task_instances: Set[DistributorTaskInstance] = set()
@@ -110,8 +107,11 @@ class DistributorArray:
         for task_resources_id, batch_set in array_batch_sets.items():
             current_batch_number = self.last_batch_number + 1
             array_batch = DistributorArrayBatch(
-                self.array_id, current_batch_number, task_resources_id, batch_set,
-                self.requester
+                self.array_id,
+                current_batch_number,
+                task_resources_id,
+                batch_set,
+                self.requester,
             )
             for task_instance_in_batch in batch_set:
                 task_instance_in_batch.array_batch = array_batch

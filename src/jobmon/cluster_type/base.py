@@ -4,7 +4,7 @@ from __future__ import annotations
 from abc import abstractmethod
 import hashlib
 import json
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple
 
 # the following try-except is to accommodate Python versions on both >=3.8 and 3.7.
 # The Protocol was officially introduced in 3.8, with typing_extensions slapped on 3.7.
@@ -66,7 +66,7 @@ class ClusterDistributor(Protocol):
 
     @property
     @abstractmethod
-    def cluster_type_name(self) -> str:
+    def cluster_name(self) -> str:
         """Return the name of the cluster type."""
         raise NotImplementedError
 
@@ -76,38 +76,29 @@ class ClusterDistributor(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def stop(self, distributor_ids: List[int]) -> None:
+    def stop(self) -> None:
         """Stop the distributor."""
         raise NotImplementedError
 
     @abstractmethod
     def get_queueing_errors(
-            self, distributor_ids: List[Union[int, str]]
-    ) -> Dict[Union[int, str], str]:
+        self, distributor_ids: List[str]
+    ) -> Dict[str, str]:
         """Get the task instances that have errored out."""
         raise NotImplementedError
 
     @abstractmethod
-    def get_array_queueing_errors(
-            self, distributor_id: Union[int, str]
-    ) -> Dict[Union[int, str], str]:
-        raise NotImplementedError
-
-    @abstractmethod
     def get_submitted_or_running(
-            self, distributor_ids: List[int]
-    ) -> Set[Tuple[int, Optional[int]]]:
+            self, distributor_ids: Optional[List[str]] = None
+    ) -> Set[str]:
         """Check which task instances are active.
 
-        Returns: a set of tuples(
-            distributor_id,
-            array_step_id(optional, has value only for array cases)
-            )
+        Returns: a set strings
         """
         raise NotImplementedError
 
     @abstractmethod
-    def terminate_task_instances(self, distributor_ids: List[Union[int, str]]) -> None:
+    def terminate_task_instances(self, distributor_ids: List[str]) -> None:
         """Terminate task instances.
 
         If implemented, return a list of (task_instance_id, hostname) tuples for any
@@ -117,15 +108,15 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def get_remote_exit_info(
-            self, distributor_ids: Union[int, str]
-    ) -> Tuple[Union[int, str], str]:
+        self, distributor_id: str
+    ) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 
     @abstractmethod
     def submit_to_batch_distributor(
-            self, command: str, name: str, requested_resources: Dict[str, Any]
-    ) -> int:
+        self, command: str, name: str, requested_resources: Dict[str, Any]
+    ) -> str:
         """Submit the command on the cluster technology and return a distributor_id.
 
         The distributor_id can be used to identify the associated TaskInstance, terminate
@@ -140,10 +131,13 @@ class ClusterDistributor(Protocol):
         """
         raise NotImplementedError
 
-    @abstractmethod
     def submit_array_to_batch_distributor(
-            self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
-    ) -> int:
+        self,
+        command: str,
+        name: str,
+        requested_resources: Dict[str, Any],
+        array_length: int,
+    ) -> Dict[int, str]:
         """Submit an array task to the underlying distributor and return a distributor_id.
 
         The distributor ID represents the ID of the overall array job, sub-tasks will have
@@ -154,14 +148,16 @@ class ClusterDistributor(Protocol):
             name: name of the array
             requested_resources: resources with which to run the array
             array_length: how many tasks associated with the array
-        Returns:
-             distributor_id of the overall array
+        Return:
+            a mapping of array_step_id to distributor_id
         """
         raise NotImplementedError
 
     def build_worker_node_command(
-            self, task_instance_id: Optional[int] = None, array_id: Optional[int] = None,
-            batch_number: Optional[int] = None
+        self,
+        task_instance_id: Optional[int] = None,
+        array_id: Optional[int] = None,
+        batch_number: Optional[int] = None,
     ) -> str:
         """Build a command that can be executed by the worker_node.
 
@@ -180,16 +176,17 @@ class ClusterDistributor(Protocol):
             wrapped_cmd.extend(["--array_id", str(array_id)])
         if batch_number is not None:
             wrapped_cmd.extend(["--batch_number", str(batch_number)])
-        wrapped_cmd.extend(["--expected_jobmon_version", __version__, "--cluster_type_name", self.cluster_type_name])
+        wrapped_cmd.extend(
+            [
+                "--expected_jobmon_version",
+                __version__,
+                "--cluster_name",
+                self.cluster_name,
+            ]
+        )
         str_cmd = " ".join([str(i) for i in wrapped_cmd])
         return str_cmd
 
-    @abstractmethod
-    def get_subtask_id(
-            self, distributor_id: int, array_step_id: int
-    ) -> str:
-        """Get the subtask_id based on distributor_id and array_step_id."""
-        raise NotImplementedError
 
 class ClusterWorkerNode(Protocol):
     """Base class defining interface for gathering executor info in the execution_wrapper.
@@ -200,9 +197,10 @@ class ClusterWorkerNode(Protocol):
     Get exit info is used to determine the error type if the task hits a
     system error of some variety.
     """
+
     @property
     @abstractmethod
-    def distributor_id(self) -> Optional[int]:
+    def distributor_id(self) -> Optional[str]:
         """Executor specific id assigned to a task instance."""
         raise NotImplementedError
 
@@ -216,8 +214,6 @@ class ClusterWorkerNode(Protocol):
         """Error and exit code info from the executor."""
         raise NotImplementedError
 
-    @property
-    @abstractmethod
     def array_step_id(self) -> Optional[int]:
         """The step id in each batch.
 
@@ -229,8 +225,6 @@ class ClusterWorkerNode(Protocol):
         """
         raise NotImplementedError
 
-    @property
-    @abstractmethod
     def subtask_id(self) -> Optional[str]:
         """Pull a distinguishing variable that allows separation of array subtasks.
 
@@ -252,6 +246,11 @@ class ClusterWorkerNode(Protocol):
 @runtime_checkable
 class ConcreteResource(Protocol):
     """The protocol class for concrete resources."""
+
+    @abstractmethod
+    def __init__(self, queue: ClusterQueue, requested_resources: Dict) -> None:
+        """Initialization of ClusterQueue."""
+        raise NotImplementedError
 
     @property
     @abstractmethod
@@ -309,9 +308,10 @@ class ConcreteResource(Protocol):
 
         # Uniqueness is determined by queue name and the resources parameter.
         hashval = hashlib.sha1()
-        hashval.update(bytes(str(hash(self.queue.queue_name)).encode('utf-8')))
-        hashval.update(bytes(str(
-            hash(json.dumps(self.resources, sort_keys=True))).encode('utf-8')))
+        hashval.update(bytes(str(hash(self.queue.queue_name)).encode("utf-8")))
+        hashval.update(
+            bytes(str(hash(json.dumps(self.resources, sort_keys=True))).encode("utf-8"))
+        )
         return int(hashval.hexdigest(), 16)
 
     def __eq__(self, other: object) -> bool:

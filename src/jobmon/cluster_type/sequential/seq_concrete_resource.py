@@ -8,13 +8,13 @@ from jobmon.cluster_type.base import ClusterQueue, ConcreteResource
 class ConcreteSequentialResource(ConcreteResource):
     """A version of a private constructor in Python."""
 
-    def __init__(self, queue: ClusterQueue, valid_resources: Dict) -> None:
+    def __init__(self, queue: ClusterQueue, resources: Dict) -> None:
         """Always assumed to be valid.
 
         Don't call init directly, this object should be created by validate or adjust.
         """
         self._queue = queue
-        self._resources = valid_resources
+        self._resources = resources
 
     @property
     def queue(self) -> ClusterQueue:
@@ -37,7 +37,7 @@ class ConcreteSequentialResource(ConcreteResource):
             requested_resources: the compute resources the user requested.
         """
         is_valid, msg, valid_resources = queue.validate_resources(**requested_resources)
-        return is_valid, msg, cls(queue=queue, valid_resources=valid_resources)
+        return is_valid, msg, cls(queue=queue, resources=valid_resources)
 
     @classmethod
     def adjust_and_create_concrete_resource(
@@ -48,4 +48,4 @@ class ConcreteSequentialResource(ConcreteResource):
         resource_scales: Optional[Dict[str, float]],
     ) -> ConcreteSequentialResource:
         """No adjustment defined for sequential execution. Return original parameters."""
-        return cls(queue=expected_queue, valid_resources=existing_resources)
+        return cls(queue=expected_queue, resources=existing_resources)

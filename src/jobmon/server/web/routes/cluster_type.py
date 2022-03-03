@@ -36,7 +36,9 @@ def get_cluster_type_by_task_id(task_id: str) -> Any:
             AND task.task_resources_id=task_resources.id
             AND queue.id = task_resources.queue_id
             AND queue.cluster_id = cluster.id
-            AND cluster_type.id = cluster.cluster_type_id""".format(task_id)
+            AND cluster_type.id = cluster.cluster_type_id""".format(
+        task_id
+    )
 
     result = DB.session.execute(sql).fetchone()
     # send back json

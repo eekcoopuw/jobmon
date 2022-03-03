@@ -96,7 +96,7 @@ def link_workflow_run(workflow_run_id: int) -> Any:
 
 
 @finite_state_machine.route(
-    "/workflow_run/<workflow_run_id>/terminate", methods=["PUT"]
+    "/workflow_run/<workflow_run_id>/terminate_task_instances", methods=["PUT"]
 )
 def terminate_workflow_run(workflow_run_id: int) -> Any:
     """Terminate a workflow run and get its tasks in order."""
@@ -118,31 +118,7 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
         logger.debug(f"COLD_RESUME {workflow_run_id}")
         states = [TaskStatus.INSTANTIATING, TaskInstanceStatus.RUNNING]
 
-    # add error logs
-    log_errors = """
-        INSERT INTO task_instance_error_log
-            (task_instance_id, description, error_time)
-        SELECT
-            task_instance.id,
-            CONCAT(
-                'Workflow resume requested. Setting to K from status of: ',
-                task_instance.status
-            ) as description,
-            CURRENT_TIMESTAMP as error_time
-        FROM task_instance
-        JOIN task
-            ON task_instance.task_id = task.id
-        WHERE
-            task_instance.workflow_run_id = :workflow_run_id
-            AND task.status IN :states
-    """
-    DB.session.execute(
-        log_errors, {"workflow_run_id": int(workflow_run_id), "states": states}
-    )
-    DB.session.flush()
-    logger.debug(f"Error logged for {workflow_run_id}")
-
-    # update job instance states
+    # update task instance states
     update_task_instance = """
         UPDATE
             task_instance
@@ -159,12 +135,29 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
         update_task_instance, {"workflow_run_id": workflow_run_id, "states": states}
     )
     DB.session.flush()
-
     logger.debug(f"Job instance status updated for {workflow_run_id}")
-    # transition to terminated
-    workflow_run.transition(WorkflowRunStatus.TERMINATED)
+
+    # add error logs
+    log_errors = """
+        INSERT INTO task_instance_error_log
+            (task_instance_id, description, error_time)
+        SELECT
+            task_instance.id,
+            CONCAT(
+                'Workflow resume requested. Setting to K from status of: ',
+                task_instance.status
+            ) as description,
+            CURRENT_TIMESTAMP as error_time
+        FROM task_instance
+        WHERE
+            task_instance.workflow_run_id = :workflow_run_id
+            AND task_instance.status = 'K'
+    """
+    DB.session.execute(
+        log_errors, {"workflow_run_id": int(workflow_run_id), "states": states}
+    )
     DB.session.commit()
-    logger.debug(f"WFR {workflow_run_id} terminated")
+    logger.debug(f"Error logged for {workflow_run_id}")
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -207,7 +200,6 @@ def log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
     workflow_run = DB.session.query(WorkflowRun).filter_by(id=workflow_run_id).one()
 
     try:
-        workflow_run.status
         workflow_run.heartbeat(data["next_report_increment"], data["status"])
         DB.session.commit()
         logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
@@ -215,7 +207,7 @@ def log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
         DB.session.rollback()
         logger.debug(f"wfr {workflow_run_id} heartbeat rolled back, reason: {e}")
 
-    resp = jsonify(message=str(workflow_run.status))
+    resp = jsonify(status=str(workflow_run.status))
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -364,13 +356,14 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/workflow_run/<workflow_run_id>/sync_status", methods=["POST"])
+@finite_state_machine.route(
+    "/workflow_run/<workflow_run_id>/sync_status", methods=["POST"]
+)
 def task_instances_status_check(workflow_run_id: int) -> Any:
     """Sync status of given task intance IDs."""
     data = request.get_json()
-    last_sync = data["last_sync"]
-    task_instance_ids_list = data['task_instance_ids']
-    status = data['status']
+    task_instance_ids_list = data["task_instance_ids"]
+    status = data["status"]
 
     # get time from db
     db_time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()["t"]
@@ -379,21 +372,17 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
 
     return_dict = dict()
     if len(task_instance_ids_list) > 0:
-        task_instance_ids = ",".join(f'{x}' for x in task_instance_ids_list)
+        task_instance_ids = ",".join(f"{x}" for x in task_instance_ids_list)
 
         # Filters for
         # 1) instances that have changed out of the declared status
         # 2) instances that have changed into the declared status
         filters = f"""
-            (id in ({task_instance_ids}) AND status != "{status}") OR
-            (status = "{status}" AND status_date >= "{last_sync}")
+            (id in ({task_instance_ids}) AND status != '{status}') OR
+            (id not in ({task_instance_ids}) AND status = '{status}')
         """
     else:
-        # Filters for
-        # 1) instances that have changed into the declared status
-        filters = f"""
-            (status = "{status}" AND status_date >= "{last_sync}")
-        """
+        filters = f"""status = '{status}'"""
 
     # someday, when the distributor is centralized. we will remove the workflow_run_id from
     # this query, but not today
@@ -401,7 +390,7 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
         SELECT id, status
         FROM task_instance
         WHERE
-            workflow_run_id = "{workflow_run_id}" AND
+            workflow_run_id = {workflow_run_id} AND
             ({filters})
         """
     rows = DB.session.execute(sql).fetchall()

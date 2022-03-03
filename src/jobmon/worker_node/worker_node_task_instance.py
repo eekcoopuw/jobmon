@@ -12,12 +12,13 @@ from threading import Thread
 from time import sleep, time
 import traceback
 from types import ModuleType
-from typing import Any, Dict, Optional, Tuple, Type, Union
+from typing import Any, Dict, Optional, Tuple, Union
 
 from jobmon import __version__ as version
 from jobmon.client.client_config import ClientConfig
+from jobmon.cluster import Cluster
 from jobmon.cluster_type.api import import_cluster, register_cluster_plugin
-from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
+from jobmon.cluster_type.base import ClusterWorkerNode
 from jobmon.exceptions import InvalidResponse, ReturnCodes, UnregisteredClusterType
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeClusterType
@@ -31,7 +32,7 @@ class WorkerNodeTaskInstance:
     def __init__(
         self,
         expected_jobmon_version: str,
-        cluster_type_name: str,
+        cluster_name: str,
         task_instance_id: Optional[int] = None,
         array_id: Optional[int] = None,
         batch_number: Optional[int] = None,
@@ -53,24 +54,16 @@ class WorkerNodeTaskInstance:
         self._array_id = array_id
         self._batch_number = batch_number
         self.expected_jobmon_version = expected_jobmon_version
-        self.cluster_type_name = cluster_type_name
-
-        self._distributor_id: Optional[int] = None
-        self._nodename: Optional[str] = None
-        self._process_group_id: Optional[int] = None
 
         if requester_url is None:
             requester_url = ClientConfig.from_defaults().url
         self.requester = Requester(requester_url)
-        self._module: Optional[ModuleType] = None  # Register and import the module later
 
-        self.executor = self._get_worker_node(cluster_type_name)
+        cluster = Cluster.get_cluster(cluster_name)
+        self.cluster_worker_node = cluster.cluster_worker_node_class()
 
         # get distributor id from executor
-        if self._distributor_id is None and self.executor.distributor_id is not None:
-            self._distributor_id = self.executor.distributor_id
-        # get subtask_id
-        self._subtask_id = self.executor.subtask_id
+        self._distributor_id = self.cluster_worker_node.distributor_id
 
         # get task_instance_id for array task
         if self._task_instance_id is None:
@@ -78,16 +71,15 @@ class WorkerNodeTaskInstance:
                 raise ValueError("Neither task_instance_id nor array_id were provided.")
 
                 # Always assumed to be a value in the range [1, len(array)]
-            array_step_id = self.executor.array_step_id
+            array_step_id = self.cluster_worker_node.array_step_id
 
             # Fetch from the database
-            app_route = \
-                f"/get_array_task_instance_id/" \
+            app_route = (
+                f"/get_array_task_instance_id/"
                 f"{self._array_id}/{self._batch_number}/{array_step_id}"
+            )
             rc, resp = self.requester.send_request(
-                app_route=app_route,
-                message={},
-                request_type='get'
+                app_route=app_route, message={}, request_type="get"
             )
             if http_request_ok(rc) is False:
                 raise InvalidResponse(
@@ -95,72 +87,17 @@ class WorkerNodeTaskInstance:
                     f"request through route {app_route}. Expected code "
                     f"200. Response content: {rc}"
                 )
-            self._task_instance_id = resp['task_instance_id']
-
-            # update the subtask id
-            app_route = \
-                f"/task_instance/{self._task_instance_id}/set_subtask_id"
-            rc, resp = self.requester.send_request(
-                app_route=app_route,
-                message={"subtask_id": self._subtask_id},
-                request_type='post'
-            )
-            if http_request_ok(rc) is False:
-                raise InvalidResponse(
-                    f"Unexpected status code {rc} from POST "
-                    f"request through route {app_route}. Expected code "
-                    f"200. Response content: {rc}"
-                )
+            self._task_instance_id = resp["task_instance_id"]
 
     @property
     def task_instance_id(self) -> int:
         """Returns a task instance ID if it's been bound."""
+        if self._task_instance_id is None:
+            raise AttributeError("Cannot access task_instance_id because it is None.")
         return self._task_instance_id
 
-
     @property
-    def module(self) -> ModuleType:
-        """An instance of the underlying plugin class of this worker node."""
-        if self._module is None:
-            self._module = self._import_cluster(self.cluster_type_name)
-        return self._module
-
-    def _import_cluster(self, cluster_type_name: str) -> ModuleType:
-        """Cached import of the plugin package API."""
-        try:
-            module = import_cluster(cluster_type_name)
-        except UnregisteredClusterType:
-            # Plugin not registered yet, pull import path from the database
-            app_route = f"/cluster_type/{cluster_type_name}"
-            return_code, response = self.requester.send_request(
-                app_route=app_route, message={}, request_type="get", logger=logger
-            )
-            if http_request_ok(return_code) is False:
-                raise InvalidResponse(
-                    f"Unexpected status code {return_code} from POST "
-                    f"request through route {app_route}. Expected code "
-                    f"200. Response content: {response}"
-                )
-            cluster_type_kwargs = SerializeClusterType.kwargs_from_wire(
-                response["cluster_type"]
-            )
-
-            register_cluster_plugin(
-                cluster_type_name, cluster_type_kwargs["package_location"]
-            )
-
-            module = import_cluster(cluster_type_name)
-        return module
-
-    def _get_worker_node(
-        self, cluster_type_name: str, **worker_node_kwargs: Any
-    ) -> ClusterWorkerNode:
-        """Lookup ClusterType, getting a ClusterWorkerNode instance back."""
-        WorkerNode = self.module.get_cluster_worker_node_class()
-        return WorkerNode(**worker_node_kwargs)
-
-    @property
-    def distributor_id(self) -> Optional[int]:
+    def distributor_id(self) -> Optional[str]:
         """Executor id given from the executor it is being run on."""
         logger.debug("distributor_id: " + str(self._distributor_id))
         return self._distributor_id
@@ -168,14 +105,14 @@ class WorkerNodeTaskInstance:
     @property
     def nodename(self) -> Optional[str]:
         """Node it is being run on."""
-        if self._nodename is None:
+        if not hasattr(self, "_nodename"):
             self._nodename = socket.getfqdn()
         return self._nodename
 
     @property
     def process_group_id(self) -> Optional[int]:
         """Process group to track parent and child processes."""
-        if self._process_group_id is None:
+        if not hasattr(self, "_process_group_id"):
             self._process_group_id = os.getpid()
         return self._process_group_id
 
@@ -210,7 +147,7 @@ class WorkerNodeTaskInstance:
                 "10k will be captured by the database."
             )
 
-        error_state, msg = self.executor.get_exit_info(exit_status, error_message)
+        error_state, msg = self.cluster_worker_node.get_exit_info(exit_status, error_message)
 
         message = {
             "error_message": msg,
@@ -234,7 +171,7 @@ class WorkerNodeTaskInstance:
         """Tell the JobStateManager all the applicable task_stats for this task_instance."""
         logger.info(f"Logging usage for task_instance {self.task_instance_id}")
         try:
-            usage = self.executor.get_usage_stats()
+            usage = self.cluster_worker_node.get_usage_stats()
             dbukeys = ["usage_str", "wallclock", "maxrss", "maxpss", "cpu", "io"]
             msg = {k: usage[k] for k in dbukeys if k in usage.keys()}
             rc, _ = self.requester.send_request(
@@ -246,7 +183,7 @@ class WorkerNodeTaskInstance:
         except NotImplementedError:
             logger.warning(
                 f"Usage stats not available for "
-                f"{self.executor.__class__.__name__} executors"
+                f"{self.cluster_worker_node.__class__.__name__} executors"
             )
         except Exception as e:
             # subprocess.CalledProcessError is raised if qstat fails.

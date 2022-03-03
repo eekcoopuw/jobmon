@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import Dict, List, Set, Tuple, TYPE_CHECKING
 
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
@@ -27,7 +27,7 @@ class DistributorTaskInstance:
         task_instance_id: int,
         workflow_run_id: int,
         status: str,
-        requester: Requester
+        requester: Requester,
     ) -> None:
         """Initialization of distributor task instance.
 
@@ -42,8 +42,6 @@ class DistributorTaskInstance:
         self.status = status
 
         self._requested_resources: Dict = {}
-        self._array_batch = None
-        self._array_step_id = None
 
         self.error_state = ""
         self.error_msg = ""
@@ -87,6 +85,11 @@ class DistributorTaskInstance:
         if not self._requested_resources:
             # TODO: actually load them
             self._requested_resources = {}
+        return self._requested_resources
+
+    @requested_resources.setter
+    def requested_resources(self, val: Dict):
+        self._requested_resources = val
 
     @property
     def array_step_id(self) -> int:
@@ -95,10 +98,6 @@ class DistributorTaskInstance:
     @array_step_id.setter
     def array_step_id(self, val: int):
         self._array_step_id = val
-
-    @requested_resources.setter
-    def requested_resources(self, val: Dict):
-        self._requested_resources = val
 
     def transition_to_instantiated(self):
         """Transition current ti to initiated"""
@@ -119,8 +118,11 @@ class DistributorTaskInstance:
         self.task_resources_id = kwargs["task_resources_id"]
         self.status = TaskInstanceStatus.INSTANTIATED
 
-    def transition_to_launched(self, distributor_id: int,
-                               next_report_increment: float, subtask_id: int = None) -> None:
+    def transition_to_launched(
+        self,
+        distributor_id: str,
+        next_report_increment: float
+    ) -> None:
         """Register the submission of a new task instance to a cluster."""
 
         self.distributor_id = distributor_id
@@ -129,7 +131,6 @@ class DistributorTaskInstance:
             app_route=app_route,
             message={
                 "distributor_id": str(distributor_id),
-                "subtask_id": str(subtask_id),
                 "next_report_increment": next_report_increment,
             },
             request_type="post",
@@ -150,10 +151,10 @@ class DistributorTaskInstance:
     ) -> None:
         """Register that submission failed with the central service.
 
-                Args:
-                    no_id_err_msg: The error msg from the executor when failed to obtain distributor
-                        id.
-                """
+        Args:
+            no_id_err_msg: The error msg from the executor when failed to obtain distributor
+                id.
+        """
         app_route = f"/task_instance/{self.task_instance_id}/log_no_distributor_id"
         return_code, response = self.requester.send_request(
             app_route=app_route,
@@ -201,21 +202,21 @@ class DistributorTaskInstance:
         self.error_state = error_state
 
     def transition_to_unknown_error(
-            self, error_message: str, error_state: str
+        self, error_message: str, error_state: str
     ) -> Tuple[Set[DistributorTaskInstance], List]:
         """Register that an unknown error was discovered during reconciliation."""
         self._transition_to_error(error_message, error_state)
         return {self}, []
 
     def transition_to_resource_error(
-            self, error_message: str, error_state: str
+        self, error_message: str, error_state: str
     ) -> Tuple[Set[DistributorTaskInstance], List]:
         """Register that a resource error was discovered during reconciliation."""
         self._transition_to_error(error_message, error_state)
         return {self}, []
 
     def transition_to_error(
-            self, error_message: str, error_state: str
+        self, error_message: str, error_state: str
     ) -> Tuple[Set[DistributorTaskInstance], List]:
         """Register that a known error occurred during reconciliation."""
         self._transition_to_error(error_message, error_state)

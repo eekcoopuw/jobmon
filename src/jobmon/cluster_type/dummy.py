@@ -104,7 +104,11 @@ class DummyDistributor(ClusterDistributor):
         raise NotImplementedError
 
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int = 0
+        self,
+        command: str,
+        name: str,
+        requested_resources: Dict[str, Any],
+        array_length: int = 0,
     ) -> int:
         """Run a fake execution of the task.
 
@@ -135,7 +139,11 @@ class DummyDistributor(ClusterDistributor):
         return distributor_id
 
     def submit_array_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any], array_length: int
+        self,
+        command: str,
+        name: str,
+        requested_resources: Dict[str, Any],
+        array_length: int,
     ) -> int:
         """Runs a fake execution of the task, exactly like regular submit to batch."""
         logger.debug("This is the Dummy Distributor")
@@ -173,11 +181,13 @@ class DummyDistributor(ClusterDistributor):
 
 class DummyWorkerNode(ClusterWorkerNode):
     """Get Executor Info for a Task Instance."""
+
     STEP_ID = 1
+
     def __init__(self) -> None:
         """Initialization of the dummy executor worker node."""
         self._distributor_id: Optional[int] = None
-        self. _array_step_id = DummyWorkerNode.STEP_ID
+        self._array_step_id = DummyWorkerNode.STEP_ID
         DummyWorkerNode.STEP_ID += 1
 
     @property
@@ -214,13 +224,13 @@ class DummyWorkerNode(ClusterWorkerNode):
 class ConcreteDummyResource(ConcreteResource):
     """A version of a private constructor in Python."""
 
-    def __init__(self, queue: ClusterQueue, valid_resources: Dict) -> None:
+    def __init__(self, queue: ClusterQueue, resources: Dict) -> None:
         """Always assumed to be valid.
 
         Don't call init directly, this object should be created by validate or adjust.
         """
         self._queue = queue
-        self._resources = valid_resources
+        self._resources = resources
 
     @property
     def queue(self) -> ClusterQueue:
@@ -244,7 +254,7 @@ class ConcreteDummyResource(ConcreteResource):
                 given queue.
         """
         is_valid, msg, valid_resources = queue.validate_resources(**requested_resources)
-        return is_valid, msg, cls(queue=queue, valid_resources=valid_resources)
+        return is_valid, msg, cls(queue=queue, resources=valid_resources)
 
     @classmethod
     def adjust_and_create_concrete_resource(

@@ -1,48 +1,41 @@
-import time
+import pytest
 
+from sqlalchemy.sql import text
 
-from unittest import mock
-from jobmon.requester import Requester
-from jobmon.serializers import SerializeDistributorTask
 from jobmon.constants import TaskInstanceStatus
 
 
-class MockDistributorProc:
-    def is_alive(self):
-        return True
-
-
-def test_instantiate_queued_tasks_on_sequential(tool, db_cfg, client_env, task_template):
+def test_instantiate_job(tool, db_cfg, client_env, task_template):
     """tests that a task can be instantiated and run and log done"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+    from jobmon.server.web.models.task import Task
 
+    # create the workflow and bind to database
     t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
     t2 = task_template.create_task(arg="echo 2", cluster_name="sequential")
     workflow = tool.create_workflow(name="test_instantiate_queued_jobs_on_sequential")
-
     workflow.add_tasks([t1, t2])
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
+    # create task instances
     swarm = SwarmWorkflowRun(
         workflow_run_id=wfr.workflow_run_id,
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
-    swarm.compute_initial_dag_state()
-    list(swarm.queue_tasks())  # expand the generator
+    swarm.process_commands()
 
-    requester = Requester(client_env)
+    # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
         SequentialDistributor(),
-        requester=requester,
+        requester=workflow.requester,
+        raise_on_error=True
     )
-
     distributor_service.set_workflow_run(wfr.workflow_run_id)
-
-    distributor_service.process_status("Q")
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
 
     # check the job turned into I
     app = db_cfg["app"]
@@ -53,23 +46,23 @@ def test_instantiate_queued_tasks_on_sequential(tool, db_cfg, client_env, task_t
         FROM task_instance
         WHERE task_id in :task_ids
         ORDER BY id"""
-        res = DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]}).all()
-        print(f"foo {res}")
+        res = (
+            DB.session.query(Task)
+            .from_statement(text(sql))
+            .params(task_ids=[t1.task_id, t2.task_id])
+            .all()
+        )
         DB.session.commit()
 
     assert len(res) == 2
-    assert res[0][1] == "I"
-    assert res[1][1] == "I"
+    assert res[0].status == "I"
+    assert res[1].status == "I"
 
     # Queued status should have turned into Instantiated status as well.
-    assert \
-        len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 0
-    assert \
-        len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]) \
-        == 2
-    assert \
-        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) \
-        == 0
+    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 0
+    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]
+               ) == 2
+    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 0
 
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
@@ -83,51 +76,53 @@ def test_instantiate_queued_tasks_on_sequential(tool, db_cfg, client_env, task_t
         FROM task_instance
         WHERE task_id in :task_ids
         ORDER BY id"""
-        res = DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]}).all()
-        print(f"foo {res}")
+        res = (
+            DB.session.query(Task)
+            .from_statement(text(sql))
+            .params(task_ids=[t1.task_id, t2.task_id])
+            .all()
+        )
         DB.session.commit()
 
     assert len(res) == 2
-    assert res[0][1] == "D"
-    assert res[1][1] == "D"
+    assert res[0].status == "D"
+    assert res[1].status == "D"
 
 
-def test_instantiate_queued_tasks_on_multiprocess(tool, db_cfg, client_env, task_template):
+def test_instantiate_array(tool, db_cfg, client_env, task_template):
     """tests that a task can be instantiated and run and log error"""
-    from datetime import datetime
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
+    from jobmon.server.web.models.task import Task
 
+    # create the workflow and bind to database
     tool.set_default_compute_resources_from_dict(
         cluster_name="multiprocess", compute_resources={"queue": "null.q"}
     )
-
     t1 = task_template.create_task(arg="echo 1", cluster_name="multiprocess")
     t2 = task_template.create_task(arg="echo 2", cluster_name="multiprocess")
     workflow = tool.create_workflow(name="test_instantiate_queued_jobs_on_multiprocess")
-
     workflow.add_tasks([t1, t2])
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
+    # create task instances
     swarm = SwarmWorkflowRun(
         workflow_run_id=wfr.workflow_run_id,
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
-    swarm.compute_initial_dag_state()
-    list(swarm.queue_tasks())  # expand the generator
+    swarm.process_commands()
 
-    requester = Requester(client_env)
+    # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
         MultiprocessDistributor(),
-        requester=requester,
+        requester=workflow.requester,
+        raise_on_error=True
     )
-
     distributor_service.set_workflow_run(wfr.workflow_run_id)
-
-    distributor_service.process_status("Q")
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
 
     # check the job turned into I
     app = db_cfg["app"]
@@ -138,23 +133,23 @@ def test_instantiate_queued_tasks_on_multiprocess(tool, db_cfg, client_env, task
         FROM task_instance
         WHERE task_id in :task_ids
         ORDER BY id"""
-        res = DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]}).all()
-        print(f"foo {res}")
+        res = (
+            DB.session.query(Task)
+            .from_statement(text(sql))
+            .params(task_ids=[t1.task_id, t2.task_id])
+            .all()
+        )
         DB.session.commit()
 
     assert len(res) == 2
-    assert res[0][1] == "I"
-    assert res[1][1] == "I"
+    assert res[0].status == "I"
+    assert res[1].status == "I"
 
     # Queued status should have turned into Instantiated status as well.
-    assert \
-        len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 0
-    assert \
-        len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]) \
-        == 2
-    assert \
-        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) \
-        == 0
+    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 0
+    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]
+               ) == 2
+    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 0
 
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
@@ -167,126 +162,20 @@ def test_instantiate_queued_tasks_on_multiprocess(tool, db_cfg, client_env, task
         FROM task_instance
         WHERE task_id in :task_ids
         ORDER BY id"""
-        res = DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]}).all()
-        print(f"foo {res}")
+        res = (
+            DB.session.query(Task)
+            .from_statement(text(sql))
+            .params(task_ids=[t1.task_id, t2.task_id])
+            .all()
+        )
         DB.session.commit()
 
     assert len(res) == 2
-    assert res[0][1] == "O"
-    assert res[1][1] == "O"
-
-    # check the report_by_date based on time_base
-    time_base = datetime.now()
-
-    distributor_service.log_task_instance_report_by_date()
-
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        SELECT id, task_instance.status, report_by_date
-        FROM task_instance
-        WHERE task_id in :task_ids
-        ORDER BY id"""
-        res = DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]}).all()
-        print(f"foo {res}")
-        DB.session.commit()
-
-    assert len(res) == 2
-    assert res[0][2] > time_base
-    assert res[1][2] > time_base
-
-    # turn the 2 task instances from LAUNCHED to UNKOWN_ERROR
-
-    # stage the report_by_date to be 1 hour past
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        UPDATE task_instance
-        SET report_by_date = CURRENT_TIMESTAMP() - INTERVAL 1 HOUR
-        WHERE task_id in :task_ids"""
-        DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]})
-        DB.session.commit()
-
-    mocked_return_value: Dict[Union[int, str], str] = {}
-    for task_instance in distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]:
-        mocked_return_value[task_instance.array_batch.distributor_id] = "Mocked Error"
-
-    with mock.patch(
-        "jobmon.cluster_type.multiprocess.multiproc_distributor."
-        "MultiprocessDistributor.get_array_queueing_errors",
-            return_value=mocked_return_value
-    ) :
-        # code logic to test
-        distributor_service.process_status(TaskInstanceStatus.LAUNCHED)
-
-        app = db_cfg["app"]
-        DB = db_cfg["DB"]
-        with app.app_context():
-            sql = """
-            SELECT id, task_instance.status, report_by_date
-            FROM task_instance
-            WHERE task_id in :task_ids
-            ORDER BY id"""
-            res = DB.session.execute(sql, {"task_ids": [t1.task_id, t2.task_id]}).all()
-            DB.session.commit()
-
-        assert len(res) == 2
-        assert res[0][1] == TaskInstanceStatus.UNKNOWN_ERROR
-        assert res[1][1] == TaskInstanceStatus.UNKNOWN_ERROR
+    assert res[0].status == "O"
+    assert res[1].status == "O"
 
 
-def test_n_queued(tool, db_cfg, client_env, task_template):
-    """tests that we only return a subset of queued jobs based on the n_queued
-    parameter"""
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.cluster_type.dummy import DummyDistributor
-
-    tasks = []
-    for i in range(20):
-        task = task_template.create_task(arg=f"sleep {i}")
-        tasks.append(task)
-
-    workflow = tool.create_workflow(name="test_n_queued")
-    workflow.add_tasks(tasks)
-    workflow.bind()
-    wfr = workflow._create_workflow_run()
-
-    requester = Requester(client_env)
-    distributor_service = DistributorService(
-        workflow.workflow_id,
-        wfr.workflow_run_id,
-        DummyDistributor(),
-        requester=requester,
-        n_queued=3,
-    )
-
-    swarm = SwarmWorkflowRun(
-        workflow_id=wfr.workflow_id,
-        workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
-    )
-    swarm.compute_initial_dag_state()
-    list(swarm.queue_tasks())  # expand the generator
-
-    # comparing results and times of old query vs new query
-    rc, response = workflow.requester.send_request(
-        app_route=f"/workflow/{workflow.workflow_id}/queued_tasks/1000",
-        message={},
-        request_type="get",
-    )
-    all_jobs = [SerializeDistributorTask.kwargs_from_wire(j) for j in response["task_dcts"]]
-
-    # now new query that should only return 3 jobs
-    select_jobs = distributor_service._get_tasks_queued_for_instantiation()
-
-    assert len(select_jobs) == 3
-    assert len(all_jobs) == 20
-
-
-def test_submit_raises_error(db_cfg, tool):
+def test_job_submit_raises_error(db_cfg, tool):
     """test that things move successfully into 'W' state if the executor
     returns the correct id"""
     from jobmon.client.distributor.distributor_service import DistributorService
@@ -299,30 +188,29 @@ def test_submit_raises_error(db_cfg, tool):
         ) -> int:
             raise ValueError("No distributor_id")
 
-    workflow = tool.create_workflow(name=f"test_submit_raises_error")
+    workflow = tool.create_workflow(name="test_submit_raises_error")
     task1 = tool.active_task_templates["simple_template"].create_task(arg="sleep 120")
     workflow.add_task(task1)
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
+    # create task instances
     swarm = SwarmWorkflowRun(
-        workflow_id=workflow.workflow_id,
         workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
-        requester=workflow.requester,
+        requester=workflow.requester
     )
-    swarm.compute_initial_dag_state()
-    list(swarm.queue_tasks())
+    swarm.from_workflow(workflow)
+    swarm.process_commands()
 
-    distributor = DistributorService(
-        workflow.workflow_id,
-        wfr.workflow_run_id,
+    # test that we can launch via the normal job pathway
+    distributor_service = DistributorService(
         ErrorDistributor(),
         requester=workflow.requester,
+        raise_on_error=True
     )
-
-    distributor._get_tasks_queued_for_instantiation()
-    distributor.distribute()
+    distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # check the job finished
     app = db_cfg["app"]
@@ -337,15 +225,76 @@ def test_submit_raises_error(db_cfg, tool):
     assert res[0] == "W"
 
 
-def test_concurrency_limiting(tool, db_cfg, client_env, task_template):
+def test_array_submit_raises_error(db_cfg, tool):
+    """test that things move successfully into 'W' state if the executor
+    returns the correct id"""
+    from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
+    from jobmon.server.web.models.task import Task
+
+    class ErrorDistributor(MultiprocessDistributor):
+        def submit_array_to_batch_distributor(
+            self, command: str, name: str, requested_resources, array_length: int
+        ) -> int:
+            raise ValueError("No distributor_id")
+
+    # create the workflow and bind to database
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="multiprocess", compute_resources={"queue": "null.q"}
+    )
+    t1 = tool.active_task_templates["simple_template"].create_task(arg="echo 1")
+    t2 = tool.active_task_templates["simple_template"].create_task(arg="echo 2")
+    workflow = tool.create_workflow(name="test_array_submit_raises_error")
+    workflow.add_tasks([t1, t2])
+    workflow.bind()
+    wfr = workflow._create_workflow_run()
+
+    # create task instances
+    swarm = SwarmWorkflowRun(
+        workflow_run_id=wfr.workflow_run_id,
+        requester=workflow.requester
+    )
+    swarm.from_workflow(workflow)
+    swarm.process_commands()
+
+    # test that we can launch via the normal job pathway
+    distributor_service = DistributorService(
+        ErrorDistributor(),
+        requester=workflow.requester,
+        raise_on_error=True
+    )
+    distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+
+    # check the job finished
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        sql = """
+        SELECT id, task_instance.status
+        FROM task_instance
+        WHERE task_id in :task_ids
+        ORDER BY id"""
+        res = (
+            DB.session.query(Task)
+            .from_statement(text(sql))
+            .params(task_ids=[t1.task_id, t2.task_id])
+            .all()
+        )
+        DB.session.commit()
+
+    for task in res:
+        assert task.status == "W"
+
+
+def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
     """tests that we only return a subset of queued jobs based on the n_queued
     parameter"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.cluster_type.multiprocess.multiproc_distributor import (
-        MultiprocessDistributor,
-    )
-    from jobmon.requester import Requester
+    from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
 
     tasks = []
     for i in range(20):
@@ -354,105 +303,152 @@ def test_concurrency_limiting(tool, db_cfg, client_env, task_template):
     workflow = tool.create_workflow(
         name="test_concurrency_limiting", max_concurrently_running=2
     )
-    # TODO: parallelism=3
     workflow.add_tasks(tasks)
-
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
-    requester = Requester(client_env)
-    distributor_service = DistributorService(
-        workflow.workflow_id,
-        wfr.workflow_run_id,
-        MultiprocessDistributor(parallelism=3),
-        requester=requester,
-    )
-
     swarm = SwarmWorkflowRun(
-        workflow_id=wfr.workflow_id,
         workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
+        requester=workflow.requester
     )
-    swarm.compute_initial_dag_state()
-    list(swarm.queue_tasks())  # expand the generator
+    swarm.from_workflow(workflow)
+    swarm.process_commands()
 
-    # now new query that should only return 2 jobs
-    select_tasks = distributor_service._get_tasks_queued_for_instantiation()
-    assert len(select_tasks) == 2
-    for task in select_tasks:
-        distributor_service._create_task_instance(task)
+    # test that we can launch via the normal job pathway
+    distributor_service = DistributorService(
+        MultiprocessDistributor(parallelism=3),
+        requester=workflow.requester,
+        raise_on_error=True
+    )
+    distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
-    # jobs are now in I state. should return -
-    select_tasks = distributor_service._get_tasks_queued_for_instantiation()
-    assert len(select_tasks) == 0
+    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 2
 
-    # start executor and wait for tasks to move to running
-    distributor_service.distributor.start()
-    while not distributor_service.distributor.task_queue.empty():
-        time.sleep(1)
+    breakpoint()
 
-    # should return 0 still because tasks are running
-    select_tasks = distributor_service._get_tasks_queued_for_instantiation()
-    assert len(select_tasks) == 0
+    distributor_service.cluster.stop()
 
-    distributor_service.distributor.stop(
-        list(distributor_service._submitted_or_running.keys())
+
+@pytest.mark.skip
+@pytest.mark.parametrize(
+    "wf_limit, array_limit, expected_len",
+    [(10_000, 2, 2), (2, 10_000, 2), (2, 3, 2), (3, 2, 2)],
+)
+def test_array_concurrency(
+    tool, db_cfg, client_env, array_template, wf_limit, array_limit, expected_len
+):
+    """Use Case 1: Array concurrency limit is set, workflow is not. Array should be limited by
+    the array's max_concurrently running value"""
+    # Use Case 1: Array concurrency limit is set, workflow concurrency limit not set
+    array1 = array_template.create_array(
+        arg=[1, 2, 3],
+        cluster_name="multiprocess",
+        compute_resources={"queue": "null.q"},
+        max_concurrently_running=array_limit,
     )
 
-
-def test_dynamic_concurrency_limiting(tool, db_cfg, client_env, task_template):
-    """tests that the CLI functionality to update concurrent jobs behaves as expected"""
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.client.status_commands import concurrency_limit
-    from jobmon.cluster_type.multiprocess.multiproc_distributor import (
-        MultiprocessDistributor,
+    workflow_1 = tool.create_workflow(
+        name="test_array_concurrency_1", max_concurrently_running=wf_limit
     )
-    from jobmon.requester import Requester
+    workflow_1.add_array(array1)
+    workflow_1.bind()
+    wfr_1 = workflow_1._create_workflow_run()
 
-    tasks = []
-    for i in range(20):
-        task = task_template.create_task(
-            arg=f"sleep {i}", compute_resources={"queue": "null.q", "cores": 1}
+    requester = Requester(client_env)
+
+    distributor_array = DistributorArray(
+        array_id=array1.array_id,
+        task_resources_id=array1.task_resources.id,
+        requested_resources=array1.compute_resources,
+        name="example_array",
+        requester=requester,
+        max_concurrently_running=array_limit,
+    )
+
+    # Move all tasks to Q state
+    for tid in (t.task_id for t in array1.tasks.values()):
+        _, _ = requester._send_request(
+            app_route=f"/task/{tid}/queue", message={}, request_type="post"
         )
-        tasks.append(task)
 
-    workflow = tool.create_workflow(
-        name="dynamic_concurrency_limiting", max_concurrently_running=2
-    )
-    # TODO: parallelism
-    # workflow.set_executor(MultiprocessExecutor(parallelism=3))
-    workflow.add_tasks(tasks)
-
-    workflow.bind()
-    wfr = workflow._create_workflow_run()
-
-    # queue the tasks
-    swarm = SwarmWorkflowRun(
-        workflow_id=wfr.workflow_id,
-        workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
-    )
-    swarm.compute_initial_dag_state()
-    list(swarm.queue_tasks())  # expand the generator
-
-    # Started with a default of 2. Adjust up to 5 and try again
-    concurrency_limit(workflow.workflow_id, 5)
-
-    # wfr2 = workflow._create_workflow_run(resume=True)
-
-    requester = Requester(client_env)
-    distributor_service = DistributorService(
-        workflow.workflow_id,
-        wfr.workflow_run_id,
-        MultiprocessDistributor(parallelism=3),
-        requester=requester,
+    distributor_wfr = DistributorWorkflowRun(
+        workflow_1.workflow_id, wfr_1.workflow_run_id, requester
     )
 
-    # Query should return 5 jobs
-    select_tasks = distributor_service._get_tasks_queued_for_instantiation()
-    assert len(select_tasks) == 5
+    # Add array to cache
+    distributor_wfr.add_new_array(distributor_array)
 
-    distributor_service.distributor.stop(
-        list(distributor_service._submitted_or_running.keys())
+    # Register TIs
+    dtis_1, dtis_2, dtis_3 = distributor_wfr.get_queued_task_instances(100)
+
+    distributor_array.instantiated_array_task_instance_ids = [
+        dtis_1.task_instance_id,
+        dtis_2.task_instance_id,
+        dtis_3.task_instance_id,
+    ]
+
+    distributor_wfr.prep_tis_for_launch([dtis_1, dtis_2, dtis_3], wf_limit)
+
+    assert (
+        len(distributor_array.prepped_for_launch_array_task_instance_ids)
+        == expected_len
     )
+
+# def test_dynamic_concurrency_limiting(tool, db_cfg, client_env, task_template):
+#     """tests that the CLI functionality to update concurrent jobs behaves as expected"""
+#     from jobmon.client.distributor.distributor_service import DistributorService
+#     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+#     from jobmon.client.status_commands import concurrency_limit
+#     from jobmon.cluster_type.multiprocess.multiproc_distributor import (
+#         MultiprocessDistributor,
+#     )
+#     from jobmon.requester import Requester
+
+#     tasks = []
+#     for i in range(20):
+#         task = task_template.create_task(
+#             arg=f"sleep {i}", compute_resources={"queue": "null.q", "cores": 1}
+#         )
+#         tasks.append(task)
+
+#     workflow = tool.create_workflow(
+#         name="dynamic_concurrency_limiting", max_concurrently_running=2
+#     )
+#     # TODO: parallelism
+#     # workflow.set_executor(MultiprocessExecutor(parallelism=3))
+#     workflow.add_tasks(tasks)
+
+#     workflow.bind()
+#     wfr = workflow._create_workflow_run()
+
+#     # queue the tasks
+#     swarm = SwarmWorkflowRun(
+#         workflow_id=wfr.workflow_id,
+#         workflow_run_id=wfr.workflow_run_id,
+#         tasks=list(workflow.tasks.values()),
+#     )
+#     swarm.compute_initial_dag_state()
+#     list(swarm.queue_tasks())  # expand the generator
+
+#     # Started with a default of 2. Adjust up to 5 and try again
+#     concurrency_limit(workflow.workflow_id, 5)
+
+#     # wfr2 = workflow._create_workflow_run(resume=True)
+
+#     requester = Requester(client_env)
+#     distributor_service = DistributorService(
+#         workflow.workflow_id,
+#         wfr.workflow_run_id,
+#         MultiprocessDistributor(parallelism=3),
+#         requester=requester,
+#     )
+
+#     # Query should return 5 jobs
+#     select_tasks = distributor_service._get_tasks_queued_for_instantiation()
+#     assert len(select_tasks) == 5
+
+#     distributor_service.distributor.stop(
+#         list(distributor_service._submitted_or_running.keys())
+#     )

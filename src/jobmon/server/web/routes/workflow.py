@@ -565,9 +565,9 @@ def get_workflow_status() -> Any:
         df.STATUS.replace(to_replace=_cli_label_mapping, inplace=True)
 
         # aggregate totals by workflow and status
-        df = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS", "STATUS", "CREATED_DATE"]).agg(
-            {"TASKS": "sum", "RETRIES": "sum"}
-        )
+        df = df.groupby(
+            ["WF_ID", "WF_NAME", "WF_STATUS", "STATUS", "CREATED_DATE"]
+        ).agg({"TASKS": "sum", "RETRIES": "sum"})
 
         # pivot wide by task status
         tasks = df.pivot_table(
@@ -880,8 +880,7 @@ def get_wf_name_and_args(workflow_id: int) -> Any:
 
 @finite_state_machine.route("/workflow/<workflow_id>/byid", methods=["GET"])
 def get_workflow_byid(workflow_id: int) -> Any:
-    """Return an workflow.
-    """
+    """Return an workflow."""
     bind_to_logger(workflow_id=workflow_id)
 
     # Check if the workflow is already bound, if so return it

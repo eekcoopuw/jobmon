@@ -169,8 +169,9 @@ def test_get_errors(db_cfg, tool):
 
     # setup workflow 1
     workflow1 = tool.create_workflow(name="test_task_instance_error_fatal")
-    task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 5",
-                                                                       max_attempts=1)
+    task_a = tool.active_task_templates["simple_template"].create_task(
+        arg="sleep 5", max_attempts=1
+    )
     workflow1.add_task(task_a)
 
     # add workflow to database
