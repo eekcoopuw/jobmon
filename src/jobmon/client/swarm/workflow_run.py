@@ -607,7 +607,7 @@ class WorkflowRun:
 
         task.task_resources = task_resources
 
-    def _set_adjusted_task_resources(self, task: SwarmTask) -> None:
+    def k(self, task: SwarmTask) -> None:
         """Adjust the swarm task's parameters.
 
         Use the cluster API to generate the new resources, then bind to input swarmtask.

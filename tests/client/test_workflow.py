@@ -370,10 +370,10 @@ def test_add_tasks_dependencynotexist(db_cfg, tool, client_env, task_template):
     assert len(wf.tasks) == 3
 
 
-def test_workflow_validation(db_cfg, client_env, tool, task_template, capsys):
+def test_workflow_validation(tool, task_template, capsys):
     """Test the workflow.validate() function, and ensure idempotency"""
-    too_many_cores = {"cores": 1000, "queue": "null.q"}
-    good_resources = {"cores": 20, "queue": "null.q"}
+    too_many_cores = {"cores": 1000, "queue": "null.q", "runtime": "01:02:33"}
+    good_resources = {"cores": 20, "queue": "null.q", "runtime": "01:02:33"}
     t1 = task_template.create_task(
         arg="echo 1", compute_resources=too_many_cores, cluster_name="multiprocess"
     )
@@ -386,16 +386,12 @@ def test_workflow_validation(db_cfg, client_env, tool, task_template, capsys):
     # Without fail set, validate and check coercion
     wf1.validate(fail=False)
     captured = capsys.readouterr()
-    assert (
-        "Failed validation, reasons: ResourceError: provided cores 1000" in captured.out
-    )
+    assert "Failed validation, reasons: ResourceError: provided cores 1000" in captured.out
 
     # Try again for idempotency
     wf1.validate(fail=False)
     captured = capsys.readouterr()
-    assert (
-        "Failed validation, reasons: ResourceError: provided cores 1000" in captured.out
-    )
+    assert "Failed validation, reasons: ResourceError: provided cores 1000" in captured.out
 
     # Try with valid resources
     t2 = task_template.create_task(
@@ -403,12 +399,16 @@ def test_workflow_validation(db_cfg, client_env, tool, task_template, capsys):
     )
     wf2 = tool.create_workflow()
     wf2.add_task(t2)
-
     wf2.validate()
 
     # Check the workflow can still bind
     wf2.bind()
     wfr = wf2._create_workflow_run()
+    task_resources = list(wfr._task_resources.values())[0]
+    assert task_resources.concrete_resources.resources["cores"] == 20
+    assert task_resources.queue.queue_name == "null.q"
+    assert task_resources.concrete_resources.resources["runtime"] == "3753s"
+
     assert wfr.status == "B"
 
 
