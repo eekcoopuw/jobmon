@@ -31,7 +31,7 @@ def squidcfg(monkeypatch, db_cfg):
     monkeypatch.setattr(UsageConfig, "from_defaults", get_config)
 
 
-@pytest.mark.unittest
+@pytest.mark.skip("Don't autotest integrator")
 def test_MaxrssQ(squidcfg):
     """This is to test the Q stops increasing when the max size is reached."""
     from jobmon.server.usage_integration.usage_queue import UsageQ
@@ -68,7 +68,7 @@ def test_MaxrssQ(squidcfg):
     assert e2.age == 1
 
 
-@pytest.mark.unittest
+@pytest.mark.skip("Don't autotest integrator")
 def test_worker_with_mock_200(squidcfg):
     """This is to test the job with maxpss leaves the Q."""
     from jobmon.server.usage_integration.usage_queue import UsageQ
@@ -104,7 +104,7 @@ def test_worker_with_mock_200(squidcfg):
         assert UsageQ.get_size() == 0
 
 
-@pytest.mark.unittest
+@pytest.mark.skip("Don't autotest integrator")
 def test_worker_with_mock_404(squidcfg):
     """This is to test the job without maxpss will be put back to the Q with age increased."""
     from jobmon.server.usage_integration.usage_queue import UsageQ
@@ -144,7 +144,7 @@ def test_worker_with_mock_404(squidcfg):
         assert r.age > 0
 
 
-@pytest.mark.unittest
+@pytest.mark.skip("Don't autotest integrator")
 def test_worker_with_mock_500(squidcfg):
     """This is to test the job will be put back to the Q with age increased when QPID is
     down."""

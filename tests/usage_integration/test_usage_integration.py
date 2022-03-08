@@ -53,6 +53,7 @@ def test_get_slurm_resource_usages_on_slurm():
         assert d[qti]["wallclock"] == 16
 
 
+@pytest.mark.skip("Don't autotest integrator")
 def test_get_uge_resource(db_cfg, client_env):
 
     from jobmon.server.usage_integration.usage_integrator import _get_qpid_response
@@ -157,7 +158,7 @@ def test_maxrss_forever(db_cfg, client_env, ephemera):
                 integrator.session.close()
 
 
-@pytest.mark.skip()
+@pytest.mark.skip("Don't autotest integrator")
 def test_usage_integrator(db_cfg, ephemera):
 
     from jobmon.server.usage_integration.usage_queue import UsageQ
