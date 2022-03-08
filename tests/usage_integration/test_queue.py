@@ -45,15 +45,21 @@ def test_MaxrssQ(squidcfg):
     assert UsageQ.get() is None
     # put into queue
     # Q: ((1,0))
-    item1 = QueuedTI(task_instance_id=1, distributor_id=1, cluster_type_name='slurm', cluster_id=5)
+    item1 = QueuedTI(
+        task_instance_id=1, distributor_id=1, cluster_type_name="slurm", cluster_id=5
+    )
     UsageQ.put(item1)
     assert UsageQ.get_size() == 1
     # Q: ((1,0), (2, 1))
-    item2 = QueuedTI(task_instance_id=2, distributor_id=2, cluster_type_name='slurm', cluster_id=5)
+    item2 = QueuedTI(
+        task_instance_id=2, distributor_id=2, cluster_type_name="slurm", cluster_id=5
+    )
     UsageQ.put(item2, 1)
     assert UsageQ().get_size() == 2
     # overflow
-    item3 = QueuedTI(task_instance_id=3, distributor_id=3, cluster_type_name='slurm', cluster_id=5)
+    item3 = QueuedTI(
+        task_instance_id=3, distributor_id=3, cluster_type_name="slurm", cluster_id=5
+    )
     for i in range(110):
         UsageQ().put(item3, 2)
     assert UsageQ().get_size() == 100
@@ -90,7 +96,9 @@ def test_worker_with_mock_200(squidcfg):
         m_restful.return_value = None
 
         # code logic to test
-        item = QueuedTI(task_instance_id=1, distributor_id=1, cluster_type_name='UGE', cluster_id=4)
+        item = QueuedTI(
+            task_instance_id=1, distributor_id=1, cluster_type_name="UGE", cluster_id=4
+        )
         UsageQ.put(item)
         assert UsageQ.get_size() == 1
         t = Thread(target=q_forever)
@@ -127,7 +135,9 @@ def test_worker_with_mock_404(squidcfg):
         m_qpid.return_value = 404, None
 
         # code logic to test
-        item = QueuedTI(task_instance_id=1, distributor_id=1, cluster_type_name='UGE', cluster_id=4)
+        item = QueuedTI(
+            task_instance_id=1, distributor_id=1, cluster_type_name="UGE", cluster_id=4
+        )
         UsageQ.put(item)
         assert UsageQ.get_size() == 1
         t = Thread(target=q_forever)
@@ -167,7 +177,9 @@ def test_worker_with_mock_500(squidcfg):
         m_restful.return_value = None
         m_qpid.return_value = 500, None
         # code logic to test
-        item = QueuedTI(task_instance_id=1, distributor_id=1, cluster_type_name='UGE', cluster_id=4)
+        item = QueuedTI(
+            task_instance_id=1, distributor_id=1, cluster_type_name="UGE", cluster_id=4
+        )
         UsageQ.put(item)
         assert UsageQ.get_size() == 1
         t = Thread(target=q_forever)

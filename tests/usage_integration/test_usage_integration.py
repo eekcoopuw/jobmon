@@ -46,7 +46,12 @@ def test_get_slurm_resource_usages_on_slurm():
 
         slurm_api = get_slurm_api()
         distributor_id = 563173
-        qti = QueuedTI(task_instance_id=1, distributor_id=distributor_id, cluster_type_name='slurm', cluster_id=1)
+        qti = QueuedTI(
+            task_instance_id=1,
+            distributor_id=distributor_id,
+            cluster_type_name="slurm",
+            cluster_id=1,
+        )
         d = _get_squid_resource(slurm_api=slurm_api, task_instances=[qti])
         # Known values
         assert d[qti]["maxrss"] == 102400
@@ -169,30 +174,36 @@ def test_usage_integrator(db_cfg, ephemera):
             pw=ephemera["DB_PASS"],
             host=ephemera["DB_HOST"],
             port=ephemera["DB_PORT"],
-            db=ephemera["DB_NAME"]
+            db=ephemera["DB_NAME"],
         )
-        return {"conn_str": conn_str, "polling_interval": 1, "max_update_per_sec": 10, 'qpid_uri_base': 'not.a.url'}
+        return {
+            "conn_str": conn_str,
+            "polling_interval": 1,
+            "max_update_per_sec": 10,
+            "qpid_uri_base": "not.a.url",
+        }
 
     with patch(
         "jobmon.server.usage_integration.usage_integrator._get_config", fake_config
     ):
         integrator = UsageIntegrator()
-        integrator._connection_params = {"slurm_rest_host": "https://api.cluster.ihme.washington.edu",
-                                         "slurmtool_token_host": "https://slurmtool.ihme.washington.edu/api/v1/token/"}
-        api_1 = integrator.slurm_api # Should generate the object
-        api_2 = integrator.slurm_api # Should pull from the cache
+        integrator._connection_params = {
+            "slurm_rest_host": "https://api.cluster.ihme.washington.edu",
+            "slurmtool_token_host": "https://slurmtool.ihme.washington.edu/api/v1/token/",
+        }
+        api_1 = integrator.slurm_api  # Should generate the object
+        api_2 = integrator.slurm_api  # Should pull from the cache
 
         assert id(api_1) == id(api_2)
-
 
         # Test a populate queue call
         # Insert some dummy task instances
         task_instances = [
             # (task_instance_id, task_id, status, distributor_id, cluster_type_id)
-            (1, 1, 'D', 1, 1),
-            (2, 1, 'D', 2, 1),
-            (3, 1, 'D', 3, 1),
-            (4, 1, 'D', 4, 1)
+            (1, 1, "D", 1, 1),
+            (2, 1, "D", 2, 1),
+            (3, 1, "D", 3, 1),
+            (4, 1, "D", 4, 1),
         ]
 
         add_task_instances = """
@@ -200,9 +211,11 @@ def test_usage_integrator(db_cfg, ephemera):
             VALUES {}
         """
 
-        app, DB = db_cfg['app'], db_cfg['DB']
+        app, DB = db_cfg["app"], db_cfg["DB"]
         with app.app_context():
-            DB.session.execute(add_task_instances.format(','.join([str(t) for t in task_instances])))
+            DB.session.execute(
+                add_task_instances.format(",".join([str(t) for t in task_instances]))
+            )
 
             # Update the timestamps to mark them ready for completion
             update_stmt = """
@@ -222,21 +235,30 @@ def test_usage_integrator(db_cfg, ephemera):
 
     # Test an update call
     # Mock the slurm and qpid get methods
-    qtis = [QueuedTI(task_instance_id=i, distributor_id=1, cluster_type_name='dummy', cluster_id=1)
-            for i in range(1, 5)]
+    qtis = [
+        QueuedTI(
+            task_instance_id=i,
+            distributor_id=1,
+            cluster_type_name="dummy",
+            cluster_id=1,
+        )
+        for i in range(1, 5)
+    ]
 
     def mock_squid_resource():
         # Mock class with a task_instance_id and distributor_id attribute
-        return {qtis[0]: {'maxrss': 10, 'wallclock': 20},
-                qtis[1]: {'maxrss': 16, 'wallclock': 18}}
+        return {
+            qtis[0]: {"maxrss": 10, "wallclock": 20},
+            qtis[1]: {"maxrss": 16, "wallclock": 18},
+        }
 
     def mock_qpid_response():
         return 200, 50
 
     with patch(
-        'jobmon.server.usage_integration.usage_integrator._get_squid_resource'
+        "jobmon.server.usage_integration.usage_integrator._get_squid_resource"
     ) as gsr, patch(
-        'jobmon.server.usage_integration.usage_integrator._get_qpid_response'
+        "jobmon.server.usage_integration.usage_integrator._get_qpid_response"
     ) as gqr:
 
         gsr.return_value = mock_squid_resource()
@@ -257,17 +279,17 @@ def test_usage_integrator(db_cfg, ephemera):
 
         expected_vals = {
             **mock_squid_resource(),
-            qtis[2]: {'maxrss': 50, 'wallclock': None},
-            qtis[3]: {'maxrss': 50, 'wallclock': None}
+            qtis[2]: {"maxrss": 50, "wallclock": None},
+            qtis[3]: {"maxrss": 50, "wallclock": None},
         }
 
         for ti, vals in expected_vals.items():
             res = DB.session.execute(sql.format(ti.task_instance_id)).fetchone()
-            assert int(res.maxrss) == vals['maxrss']
+            assert int(res.maxrss) == vals["maxrss"]
             if res.wallclock is None:
                 wallclock = res.wallclock
             else:
                 wallclock = int(res.wallclock)
-            assert wallclock == vals['wallclock']
+            assert wallclock == vals["wallclock"]
 
         DB.session.commit()

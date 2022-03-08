@@ -303,7 +303,7 @@ def bind_tasks() -> Any:
             raise InvalidUsage(
                 "Task Args are constrained to 1000 characters, you may have values "
                 f"that are too long. Message: {str(e)}",
-                status_code=400
+                status_code=400,
             ) from e
 
     if attrs_to_add:
@@ -320,7 +320,7 @@ def bind_tasks() -> Any:
             raise InvalidUsage(
                 "Task attributes are constrained to 255 characters, you may have values "
                 f"that are too long. Message: {str(e)}",
-                status_code=400
+                status_code=400,
             ) from e
     DB.session.commit()
 
@@ -343,7 +343,7 @@ def _add_or_get_attribute_type(
         raise InvalidUsage(
             "Attribute types are constrained to 255 characters, your "
             f"attributes might be too long. Message: {str(e)}",
-            status_code=400
+            status_code=400,
         ) from e
 
     # Query the IDs
@@ -371,7 +371,7 @@ def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
         raise InvalidUsage(
             "Attribute values are limited to 255 characters, "
             f"you might have attributes that are too long. Message: {str(e)}",
-            status_code=400
+            status_code=400,
         ) from e
     return attribute.id
 

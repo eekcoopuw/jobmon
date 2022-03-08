@@ -361,13 +361,13 @@ def test_binding_length(db_cfg, client_env, tool):
 
     # Test that args/attributes that are too long return sensible errors
     tt = tool.get_task_template(
-        template_name='test_tt',
+        template_name="test_tt",
         command_template="{narg} {targ}",
-        node_args=['narg'],
-        task_args=['targ']
+        node_args=["narg"],
+        task_args=["targ"],
     )
     # Task 1: too long task args (3 * 350 = 1050, max length=1000)
-    task1 = tt.create_task(name='foo', narg='abc', targ='def' * 350)
+    task1 = tt.create_task(name="foo", narg="abc", targ="def" * 350)
     wf = tool.create_workflow()
     wf.add_task(task1)
     wf.bind()
@@ -378,8 +378,9 @@ def test_binding_length(db_cfg, client_env, tool):
     assert "Unexpected status code 400" in exc_msg
 
     # task2: super long attributes
-    task2 = tt.create_task(name='foo', narg='abc', targ='def',
-                           task_attributes={'hello': 'world' * 60})
+    task2 = tt.create_task(
+        name="foo", narg="abc", targ="def", task_attributes={"hello": "world" * 60}
+    )
     wf2 = tool.create_workflow()
     wf2.add_task(task2)
     wf2.bind()

@@ -1,6 +1,5 @@
-import time
 from multiprocessing.pool import ApplyResult
-from typing import Any, List
+import time
 
 from slurm_rest import ApiClient  # type: ignore
 from slurm_rest.api import SlurmApi  # type: ignore

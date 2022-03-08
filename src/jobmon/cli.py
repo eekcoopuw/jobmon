@@ -9,8 +9,8 @@ def update_config(web_service_fqdn: str, web_service_port: int) -> None:
     """Update .jobmon.ini.
 
     Args:
-        host: web server host
-        port: web server port
+        web_service_fqdn: web server host
+        web_service_port: web server port
     """
     import os
     import configparser

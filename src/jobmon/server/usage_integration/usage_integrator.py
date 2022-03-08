@@ -4,12 +4,12 @@ import json
 import logging
 import os
 from time import sleep, time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import requests
 import slurm_rest  # type: ignore
 from sqlalchemy import create_engine
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import sessionmaker
 
 from jobmon.server.usage_integration.config import UsageConfig
 from jobmon.server.usage_integration.resilient_slurm_api import (
@@ -22,8 +22,10 @@ logger = logging.getLogger(__name__)
 
 
 class UsageIntegrator:
+    """Retrieves usage data for jobs run on Slurm and UGE."""
 
-    def __init__(self):
+    def __init__(self) -> None:
+        """Initialization of the UsageIntegrator class."""
         self._connection_params = {}
         self._slurm_api = None
         self.heartbeat_time = 0
@@ -40,14 +42,17 @@ class UsageIntegrator:
         self.session = session()
 
     @property
-    def slurm_api(self):
+    def slurm_api(self) -> slurm:
+        """Get Slurm api object if none or token needs to be refreshed."""
         current_time = time()
-        if self._slurm_api is None or \
-                current_time - self.token_refresh_time > self.token_lifespan:
+        if (
+            self._slurm_api is None
+            or current_time - self.token_refresh_time > self.token_lifespan
+        ):
             # Need to refresh the api object
             newtoken = self.get_slurmtool_token()
             configuration = slurm_rest.Configuration(
-                host=self.connection_parameters['slurm_rest_host'],
+                host=self.connection_parameters["slurm_rest_host"],
                 api_key={
                     "X-SLURM-USER-NAME": self.user,
                     "X-SLURM-USER-TOKEN": newtoken,
@@ -60,12 +65,11 @@ class UsageIntegrator:
 
     @property
     def connection_parameters(self) -> Dict:
+        """Cache the connection parameters of the Slurm cluster."""
         if len(self._connection_params) == 0:
             # Ask the database for params, then cache
-            sql = (
-                "SELECT connection_parameters "
-                "FROM cluster "
-                f"WHERE name = 'slurm'")  # Hardcoded for now, hopefully not long lived
+            # Hardcoded cluster for now, hopefully not long lived
+            sql = "SELECT connection_parameters FROM cluster WHERE name = 'slurm'"
             row = self.session.execute(sql).fetchone()
             self.session.commit()
             if row:
@@ -73,9 +77,12 @@ class UsageIntegrator:
                 self._connection_params = params
         return self._connection_params
 
-    def get_slurmtool_token(self):
-        slurm_api_host, slurm_token_url = self.connection_parameters['slurm_rest_host'], \
-                                          self.connection_parameters['slurmtool_token_host']
+    def get_slurmtool_token(self) -> str:
+        """Get token for the Slurm tool."""
+        _, slurm_token_url = (
+            self.connection_parameters["slurm_rest_host"],
+            self.connection_parameters["slurmtool_token_host"],
+        )
         password = _get_service_user_pwd()
         if password is None:
             logger.warning(f"Fail to get the password for {self.user}")
@@ -97,6 +104,7 @@ class UsageIntegrator:
         return token
 
     def populate_queue(self, starttime: float) -> None:
+        """Collect jobs in terminal states that do not have resources; add to queue."""
         sql = (
             "SELECT task_instance.id as id,  "
             "task_instance.distributor_id as distributor_id, "
@@ -111,30 +119,31 @@ class UsageIntegrator:
             "AND (task_instance.maxrss IS NULL OR task_instance.maxpss IS NULL) "
             "AND task_instance.cluster_type_id = cluster_type.id "
             "AND cluster.cluster_type_id = cluster_type.id"
-            "".format(
-                starttime=starttime
-            )
+            "".format(starttime=starttime)
         )
         task_instances = self.session.execute(sql).fetchall()
         self.session.commit()
         for ti in task_instances:
-            if (ti.cluster_type == "UGE" and ti.maxpss is None) or \
-                    (ti.cluster_type in ('slurm', 'dummy') and ti.maxrss in (None, 0, -1, '0', '-1')):
+            if (ti.cluster_type == "UGE" and ti.maxpss is None) or (
+                ti.cluster_type in ("slurm", "dummy")
+                and ti.maxrss in (None, 0, -1, "0", "-1")
+            ):
                 queued_ti = QueuedTI(
                     task_instance_id=ti.id,
                     distributor_id=ti.distributor_id,
                     cluster_type_name=ti.cluster_type,
-                    cluster_id=ti.cluster_id)
+                    cluster_id=ti.cluster_id,
+                )
                 UsageQ.put(queued_ti)
 
-    def update_resources_in_db(self, task_instances: List[QueuedTI]):
-        # Pull resource list from SQUID/QPID
+    def update_resources_in_db(self, task_instances: List[QueuedTI]) -> None:
+        """Pull resource list from SQUID/QPID."""
         # Split tasks by cluster type
         slurm_tasks, uge_tasks, dummy_tasks = [], [], []
         for ti in task_instances:
-            if ti.cluster_type_name == 'slurm':
+            if ti.cluster_type_name == "slurm":
                 slurm_tasks.append(ti)
-            elif ti.cluster_type_name == 'UGE':
+            elif ti.cluster_type_name == "UGE":
                 uge_tasks.append(ti)
             elif ti.cluster_type_name == "dummy":
                 dummy_tasks.append(ti)
@@ -147,10 +156,12 @@ class UsageIntegrator:
             self.update_dummy_resources(dummy_tasks)
 
     def update_slurm_resources(self, tasks: List[QueuedTI]) -> None:
-        # Unfortunately, need to fetch squid resources 1x1, until we get database access
-        # or the slurm_rest package gets an option to call slurmdbd_get_jobs on a list of ids.
-        # Somewhat mitigated by using multiprocessing.pool
+        """Update resources for jobs that run on the Slurm cluster.
 
+        Unfortunately, need to fetch squid resources 1x1, until we get database access
+        or the slurm_rest package gets an option to call slurmdbd_get_jobs on a list of ids.
+        Somewhat mitigated by using multiprocessing.pool.
+        """
         usage_stats = _get_squid_resource(self.slurm_api, tasks)
 
         # If no resources were returned, add the failed TIs back to the queue
@@ -186,17 +197,21 @@ class UsageIntegrator:
         # since there are no defaults for those two columns. Never used since we should fail a
         # primary key uniqueness check on task instance ID
         values = ",".join(
-            [str((ti.task_instance_id, stats['maxrss'], stats['wallclock'], 1, 'D'))
-             for ti, stats in usage_stats.items()])
+            [
+                str((ti.task_instance_id, stats["maxrss"], stats["wallclock"], 1, "D"))
+                for ti, stats in usage_stats.items()
+            ]
+        )
 
         self.session.execute(sql.format(values=values))
         self.session.commit()
 
     def update_uge_resources(self, tasks: List[QueuedTI]) -> None:
-
+        """Update the resources for jobs that were run on the UGE cluster."""
         usage_stats = {
-            task:
-            _get_qpid_response(task.distributor_id, self.config['qpid_uri_base'])[1]
+            task: _get_qpid_response(task.distributor_id, self.config["qpid_uri_base"])[
+                1
+            ]
             for task in tasks
         }
 
@@ -233,22 +248,21 @@ class UsageIntegrator:
         # since there are no defaults for those two columns. Never used since we should fail a
         # primary key uniqueness check on task instance ID
         values = ",".join(
-            [str((ti.task_instance_id, maxrss, 1, 'D'))
-             for ti, maxrss in usage_stats.items()])
+            [
+                str((ti.task_instance_id, maxrss, 1, "D"))
+                for ti, maxrss in usage_stats.items()
+            ]
+        )
 
         self.session.execute(sql.format(values=values))
         self.session.commit()
 
-    def update_dummy_resources(self, task_instances: List[QueuedTI]):
-
+    def update_dummy_resources(self, task_instances: List[QueuedTI]) -> None:
+        """Set the dummy resource values for maxrss."""
         # Hardcode a value for maxrss, just for unit testing
         values = ",".join([str(ti.task_instance_id) for ti in task_instances])
 
-        sql = (
-            "UPDATE task_instance "
-            "SET maxrss=1314 "
-            "WHERE id IN ({})"
-        )
+        sql = "UPDATE task_instance SET maxrss=1314 WHERE id IN ({})"
         self.session.execute(sql.format(values))
         self.session.commit()
 
@@ -257,7 +271,9 @@ def _get_service_user_pwd(env_variable: str = "SVCSCICOMPCI_PWD") -> Optional[st
     return os.getenv(env_variable)
 
 
-def _get_squid_resource(slurm_api: slurm, task_instances: List[QueuedTI]) -> Optional[dict]:
+def _get_squid_resource(
+    slurm_api: slurm, task_instances: List[QueuedTI]
+) -> Optional[dict]:
     """Collect the Slurm reported resource usage for a given list of task instances.
 
     Return 5 values: cpu, mem, node, billing and runtime that are available from tres.
@@ -265,14 +281,17 @@ def _get_squid_resource(slurm_api: slurm, task_instances: List[QueuedTI]) -> Opt
     (only this way it will match results from "sacct -j nnnn --format="JobID,MaxRSS"").
     For runtime, get the total from the whole job, if 0, sum it up from the steps.
     """
-
     all_usage_stats = {}
     # Return futures since async_req=True is passed
-    job_futures = [slurm_api.slurmdbd_get_job(ti.distributor_id) for ti in task_instances]
+    job_futures = [
+        slurm_api.slurmdbd_get_job(ti.distributor_id) for ti in task_instances
+    ]
     jobs = [j.get() for j in job_futures]
     for task_instance, j in zip(task_instances, jobs):
         usage_stats = {}
-        job = j.jobs[0]  # Always length 1 I believe? Unless it's an array task potentially?
+        job = j.jobs[
+            0
+        ]  # Always length 1 I believe? Unless it's an array task potentially?
         for allocated in job.tres.allocated:
             if allocated["type"] in ("cpu", "node", "billing"):
                 usage_stats[allocated["type"]] = allocated["count"]
@@ -342,7 +361,9 @@ def q_forever(init_time: float = 0) -> None:
         # The avg daily job instance is about 20k; thus, sleep(1) should be ok.
         sleep(1)
         # Update squid_max_update_per_second of jobs as defined in jobmon.cfg
-        task_instances = [UsageQ.get() for _ in range(integrator.config['max_update_per_sec'])]
+        task_instances = [
+            UsageQ.get() for _ in range(integrator.config["max_update_per_sec"])
+        ]
         # If the queue is empty, drop the None entries
         task_instances = [t for t in task_instances if t is not None]
 

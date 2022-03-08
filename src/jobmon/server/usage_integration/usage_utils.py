@@ -10,8 +10,13 @@ class QueuedTI:
     TODO: in 3.1, the actual distributor_id will be subtask_id in DB.
     """
 
-    def __init__(self, task_instance_id: int, distributor_id: int,
-                 cluster_type_name: str, cluster_id: int) -> None:
+    def __init__(
+        self,
+        task_instance_id: int,
+        distributor_id: int,
+        cluster_type_name: str,
+        cluster_id: int,
+    ) -> None:
         """Constructor."""
         self.task_instance_id = task_instance_id
         self.distributor_id = distributor_id
@@ -38,5 +43,5 @@ class QueuedTI:
         return self.age < other.age
 
     def __hash__(self) -> int:
-        # Use task instance id as a hash
+        """Use task instance id as a hash."""
         return self.task_instance_id
