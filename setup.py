@@ -13,7 +13,6 @@ INSTALL_REQUIRES = [
     'pyyaml',
     'requests',
     'scipy',
-    'slurm_rest>=1.0.1',
     'structlog',
     'tabulate',
     'tenacity',

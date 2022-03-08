@@ -5,7 +5,7 @@ import configargparse
 from jobmon.config import CLI, INSTALLED_CONFIG_FILE, PARSER_KWARGS, ParserDefaults
 
 
-def update_config(host: str, port: int) -> None:
+def update_config(web_service_fqdn: str, web_service_port: int) -> None:
     """Update .jobmon.ini.
 
     Args:
@@ -17,7 +17,7 @@ def update_config(host: str, port: int) -> None:
     import requests
 
     # validate the updated url is reachable
-    url = f"http://{host}:{port}"
+    url = f"http://{web_service_fqdn}:{web_service_port}"
     try:
         _ = requests.get(url)
     except requests.ConnectionError:
@@ -27,28 +27,32 @@ def update_config(host: str, port: int) -> None:
         edit = configparser.ConfigParser()
         edit.read(INSTALLED_CONFIG_FILE)
         client = edit["client"]
-        if client["web_service_fqdn"] == host and client["web_service_port"] == port:
+        if (
+            client["web_service_fqdn"] == web_service_fqdn
+            and client["web_service_port"] == web_service_port
+        ):
             print(
                 "The new values are the same as in the config file. "
                 "No update is made to the config file."
             )
             return
         else:
-            client["web_service_fqdn"] = host
-            client["web_service_port"] = str(port)
+            client["web_service_fqdn"] = web_service_fqdn
+            client["web_service_port"] = str(web_service_port)
             with open(INSTALLED_CONFIG_FILE, "w") as configfile:
                 edit.write(configfile)
     else:
         config = configparser.ConfigParser()
         config.add_section("client")
-        config.set("client", "web_service_fqdn", host)
-        config.set("client", "web_service_port", str(port))
+        config.set("client", "web_service_fqdn", web_service_fqdn)
+        config.set("client", "web_service_port", str(web_service_port))
         with open(INSTALLED_CONFIG_FILE, "w") as configfile:
             config.write(configfile)
 
     print(
         f"Config file {INSTALLED_CONFIG_FILE} has been updated",
-        f"with new web_service_fqdn = {host} web_service_port = {port}.",
+        f"with new web_service_fqdn = {web_service_fqdn} "
+        f"web_service_port = {web_service_port}.",
     )
 
     return

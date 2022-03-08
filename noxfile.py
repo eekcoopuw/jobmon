@@ -170,7 +170,7 @@ def ihme_installer_build(session: Session) -> None:
     session.install("jinja2", "jinja-cli")
 
     installer_version = os.getenv("INSTALLER_VERSION", "0.0")
-    jobmon_version = os.getenv("JOBMON_VERSION", "3.1.0.dev12")
+    jobmon_version = os.getenv("JOBMON_VERSION", "3.1.0.dev7")
     jobmon_uge_version = os.getenv("JOBMON_UGE_VERSION", "1.0.0")
     jobmon_slurm_version = os.getenv("JOBMON_SLURM_VERSION", "1.0.2")
 
