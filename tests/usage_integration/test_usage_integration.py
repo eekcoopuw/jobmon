@@ -6,9 +6,10 @@ import pytest
 from unittest.mock import patch
 
 from jobmon.client.tool import Tool
-from jobmon.server.usage_integration.usage_integrator import UsageIntegrator
-from jobmon.server.usage_integration.usage_queue import UsageQ
-from jobmon.server.usage_integration.usage_utils import QueuedTI
+# Commented out since slurm_rest is not a testing requirement
+# from jobmon.server.usage_integration.usage_integrator import UsageIntegrator
+# from jobmon.server.usage_integration.usage_queue import UsageQ
+# from jobmon.server.usage_integration.usage_utils import QueuedTI
 
 
 @pytest.mark.skip(
