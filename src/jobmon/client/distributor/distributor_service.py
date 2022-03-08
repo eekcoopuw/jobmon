@@ -135,6 +135,13 @@ class DistributorService:
                 f"Unknown error caused task_instance_id "
                 f"{task_instance.task_instance_id} to be lost"
             )
+        else:
+            if error_state == TaskInstanceStatus.UNKNOWN_ERROR:
+                error_msg = (
+                    f"Unknown error caused task_instance_id "
+                    f"{task_instance.task_instance_id} to be lost. "
+                    f"{error_msg}"
+                )
         task_instance.error_state = error_state
         task_instance.error_msg = error_msg
 
