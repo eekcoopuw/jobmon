@@ -27,11 +27,8 @@ SERVER_REQUIRES = [
     'elastic-apm[flask]',
     'pymysql',  # install MySQLdb/mysqlclient for more performance
     'python-logstash-async',
+    'slurm_rest',  # TODO: when the integrator is split out, remove this dependency
     'sqlalchemy',
-]
-
-SQUID_REQUIRES = [
-    'slurm_rest',
 ]
 
 # pip install -e .[test]
