@@ -2,9 +2,11 @@
 from __future__ import annotations
 
 from abc import abstractmethod
+from datetime import datetime
 import hashlib
 import json
-from typing import Any, Dict, List, Optional, Set, Tuple
+import re
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 # the following try-except is to accommodate Python versions on both >=3.8 and 3.7.
 # The Protocol was officially introduced in 3.8, with typing_extensions slapped on 3.7.
@@ -15,6 +17,7 @@ except ImportError:
 
 from jobmon import __version__
 from jobmon.exceptions import RemoteExitInfoNotAvailable
+from jobmon.units import MemUnit, TimeUnit
 
 
 class ClusterQueue(Protocol):
@@ -53,6 +56,59 @@ class ClusterQueue(Protocol):
     def required_resources(self) -> List:
         """Returns the list of resources that are required."""
         raise NotImplementedError
+
+    @staticmethod
+    def convert_memory_to_gib(memory_str: str) -> int:
+        """Given a memory request with a unit suffix, convert to GiB."""
+        try:
+            # User could pass in a raw value for memory, assume to be in GiB.
+            # This is also the path taken by adjust
+            return int(memory_str)
+        except ValueError:
+            return MemUnit.convert(memory_str, to="G")
+
+    @staticmethod
+    def convert_runtime_to_s(time_str: Union[str, float, int]) -> int:
+        """Given a runtime request, coerce to seconds for recording in the DB."""
+
+        try:
+            # If a numeric is provided, assumed to be in seconds
+            return int(time_str)
+        except ValueError:
+
+            time_str = str(time_str).lower()
+
+            # convert to seconds if its datetime with a supported format
+            try:
+                time_object = datetime.strptime(time_str, "%H:%M:%S")
+                time_seconds = (
+                    time_object.hour * 60 * 60
+                    + time_object.minute * 60
+                    + time_object.second
+                )
+                time_str = str(time_seconds) + "s"
+            except Exception:
+                pass
+
+            try:
+                raw_value, unit = re.findall(r'[A-Za-z]+|\d+', time_str)
+            except ValueError:
+                # Raised if there are not exactly 2 values to unpack from above regex
+                raise ValueError(
+                    "The provided runtime request must be in a format of numbers "
+                    "followed by one or two characters indicating the unit. "
+                    "E.g. 1h, 60m, 3600s.")
+
+            if "h" in unit:
+                # Hours provided
+                return TimeUnit.hour_to_sec(int(raw_value))
+            elif "m" in unit:
+                # Minutes provided
+                return TimeUnit.min_to_sec(int(raw_value))
+            elif "s" in unit:
+                return int(raw_value)
+            else:
+                raise ValueError("Expected one of h, m, s as the suffixed unit.")
 
 
 class ClusterDistributor(Protocol):

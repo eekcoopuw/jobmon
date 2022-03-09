@@ -29,7 +29,6 @@ class DistributorCLI(CLI):
             worker_node_entry_point=args.worker_node_entry_point,
             task_instance_heartbeat_interval=args.task_instance_heartbeat_interval,
             heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
-            n_queued=args.distributor_n_queued,
             distributor_poll_interval=args.distributor_poll_interval,
             web_service_fqdn=args.web_service_fqdn,
             web_service_port=args.web_service_port,
@@ -60,7 +59,6 @@ class DistributorCLI(CLI):
         ParserDefaults.worker_node_entry_point(distributor_parser)
         ParserDefaults.task_instance_heartbeat_interval(distributor_parser)
         ParserDefaults.heartbeat_report_by_buffer(distributor_parser)
-        ParserDefaults.distributor_n_queued(distributor_parser)
         ParserDefaults.distributor_poll_interval(distributor_parser)
         ParserDefaults.web_service_fqdn(distributor_parser)
         ParserDefaults.web_service_port(distributor_parser)

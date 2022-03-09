@@ -138,18 +138,20 @@ def test_workflow_identical_args(tool, task_template):
     """test that 2 workflows with identical arguments can't exist
     simultaneously"""
 
-    # first workflow runs and finishes
+    # first workflow bound
     wf1 = tool.create_workflow(workflow_args="same")
     task = task_template.create_task(arg="sleep 1")
     wf1.add_task(task)
     wf1.bind()
+    wf1._create_workflow_run()
 
     # tries to create an identical workflow without the restart flag
     wf2 = tool.create_workflow(workflow_args="same")
-    task = task_template.create_task(arg="sleep 2")
+    task = task_template.create_task(arg="sleep 1")
     wf2.add_task(task)
     with pytest.raises(WorkflowAlreadyExists):
         wf2.bind()
+        wf2._create_workflow_run()
 
 
 def test_add_same_node_args_twice(client_env):
@@ -401,20 +403,9 @@ def test_workflow_validation(tool, task_template, capsys):
     wf2.add_task(t2)
     wf2.validate()
 
-    # Check the workflow can still bind
-    wf2.bind()
-    wfr = wf2._create_workflow_run()
-    task_resources = list(wfr._task_resources.values())[0]
-    assert task_resources.concrete_resources.resources["cores"] == 20
-    assert task_resources.queue.queue_name == "null.q"
-    assert task_resources.concrete_resources.resources["runtime"] == "3753s"
-
-    assert wfr.status == "B"
-
 
 def test_workflow_get_errors(tool, task_template, db_cfg):
     """test that num attempts gets reset on a resume."""
-    from jobmon.client.tool import Tool
 
     from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
     from jobmon.server.web.models.task_status import TaskStatus
@@ -534,81 +525,3 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
     err_1st_b = error_log_b[0]
     assert type(err_1st_b) == dict
     assert err_1st_b["description"] == "cla cla cla"
-
-
-def test_fall_back_queue(db_cfg, client_env, tool, task_template):
-    """Test of bugfix in GBDSCI-4153."""
-    from jobmon.cluster_type.sequential.seq_queue import SequentialQueue
-
-    workflow = tool.create_workflow(
-        name="test_fallback",
-        workflow_args="fallback",
-        default_cluster_name="sequential",
-    )
-    fallback_task = task_template.create_task(
-        arg="echo a", name="fallback_task", fallback_queues=["null2.q"]
-    )
-    workflow.add_tasks([fallback_task])
-    workflow.bind()
-    workflow._create_workflow_run()
-    fallback_cluster_queue = workflow.tasks[hash(fallback_task)].fallback_queues[0]
-    assert type(fallback_cluster_queue) is SequentialQueue
-    assert fallback_cluster_queue.queue_name == "null2.q"
-
-
-def test_inconsistent_status(db_cfg, client_env):
-    from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
-    from jobmon.client.tool import Tool
-
-    # setup workflow
-    tool = Tool()
-    tool.set_default_compute_resources_from_dict(
-        cluster_name="sequential", compute_resources={"queue": "null.q"}
-    )
-    task_template = tool.get_task_template(
-        template_name="test_inconsistent_status",
-        command_template="echo {arg}",
-        node_args=["arg"],
-        task_args=[],
-        op_args=[],
-    )
-    workflow1 = tool.create_workflow(name="test_inconsistent_status")
-    task_a = task_template.create_task(arg="1")
-    workflow1.add_task(task_a)
-    task_b = task_template.create_task(arg="2")
-    workflow1.add_task(task_b)
-
-    # add workflow to database
-    workflow1.run()
-
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        # fake workflow run
-        DB.session.execute(
-            """
-            UPDATE workflow
-            SET status ='F'
-            WHERE id={}""".format(
-                workflow1.workflow_id
-            )
-        )
-        DB.session.commit()
-
-    # make sure it starts with 0
-    WorkflowReaper._current_starting_row = 0
-    WorkflowReaper(1, workflow1.requester)._inconsistent_status()
-    assert WorkflowReaper._current_starting_row == 0
-
-    # check workflow status changed
-    with app.app_context():
-        # fake workflow run
-        s = DB.session.execute(
-            """
-            select status
-            FROM workflow
-            WHERE id={}""".format(
-                workflow1.workflow_id
-            )
-        ).fetchone()["status"]
-        assert s == "D"

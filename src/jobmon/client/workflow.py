@@ -87,9 +87,12 @@ class DistributorContext:
             err = ""
 
         if "SHUTDOWN" not in err:
-            parent = psutil.Process(self.process.pid)
-            for child in parent.children(recursive=True):
-                child.kill()
+            try:
+                parent = psutil.Process(self.process.pid)
+                for child in parent.children(recursive=True):
+                    child.kill()
+            except psutil.NoSuchProcess:
+                pass
             self.process.kill()
             self.process.wait()
 
@@ -526,6 +529,8 @@ class Workflow(object):
             return
 
         self.validate(fail=False)
+        self._dag.validate()
+        self._matching_wf_args_diff_hash()
 
         # bind dag
         self._dag.bind(self._chunk_size)

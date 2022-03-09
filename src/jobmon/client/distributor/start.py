@@ -26,7 +26,6 @@ def get_distributor_service(
         requester=requester,
         task_instance_heartbeat_interval=distributor_config.task_instance_heartbeat_interval,
         heartbeat_report_by_buffer=distributor_config.heartbeat_report_by_buffer,
-        n_queued=distributor_config.n_queued,
         distributor_poll_interval=distributor_config.distributor_poll_interval,
         worker_node_entry_point=distributor_config.worker_node_entry_point,
     )

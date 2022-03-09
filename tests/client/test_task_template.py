@@ -130,20 +130,19 @@ def test_task_template_resources(db_cfg, client_env, tool):
     task3 = task_template.create_task(arg="sleep 3")
     workflow1.add_tasks([task1, task2, task3])
     workflow1.bind()
-    client_wfr = WorkflowRun(workflow1)
-    client_wfr.bind()
+    workflow1._create_workflow_run()
 
-    assert task1.task_resources._requested_resources == {
+    assert task1.original_task_resources._requested_resources == {
         "cores": 1,
         "max_runtime_seconds": 2,
         "queue": "null.q",
     }
-    assert task2.task_resources._requested_resources == {
+    assert task2.original_task_resources._requested_resources == {
         "cores": 1,
         "max_runtime_seconds": 3,
         "queue": "null.q",
     }
-    assert task3.task_resources._requested_resources == {
+    assert task3.original_task_resources._requested_resources == {
         "cores": 1,
         "max_runtime_seconds": 3,
         "queue": "null.q",

@@ -427,20 +427,6 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def distributor_n_queued(
-        parser: configargparse.ArgumentParser,
-    ) -> configargparse.ArgumentParser:
-        """How many jobs to distribute in one distributor loop."""
-        parser.add_argument(
-            "--distributor_n_queued",
-            type=int,
-            help="How many jobs to distribute in one distributor loop",
-            default=100,
-            env_var="DISTRIBUTOR_N_QUEUED",
-        )
-        return parser
-
-    @staticmethod
     def distributor_poll_interval(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:

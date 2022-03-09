@@ -58,35 +58,6 @@ def test_task_resources_hash(client_env):
     assert not resource_1 == FakeResource()
 
 
-def test_cluster_resource_cache(db_cfg, client_env):
-    from jobmon.cluster import Cluster
-
-    cluster = Cluster.get_cluster("sequential")
-
-    resources_1 = {"runtime": 80, "queue": "null.q"}
-    resources_2 = {"runtime": 90, "queue": "null.q"}
-
-    tr1 = cluster.create_valid_task_resources(
-        resource_params=resources_1, task_resources_type_id="O"
-    )
-    tr1_copy = cluster.create_valid_task_resources(
-        resource_params=resources_1, task_resources_type_id="O"
-    )
-
-    assert tr1 is tr1_copy
-
-    tr2 = cluster.create_valid_task_resources(resources_2, "O")
-    assert tr1 is not tr2
-
-    assert len(cluster.task_resources) == 2
-
-    # Modify an attribute on tr1 - tr1_copy should also receive the change.
-    # Mimics behavior in bind,
-    # where task resources bound to multiple tasks should all be updated in 1 bind
-    tr1.task_resources_id = 1
-    assert tr1_copy.task_resources_id == 1
-
-
 def test_task_resource_bind(db_cfg, client_env, tool, task_template):
 
     resources = {"queue": "null.q"}
@@ -118,7 +89,7 @@ def test_task_resource_bind(db_cfg, client_env, tool, task_template):
         db.session.commit()
         assert len(res) == 1
 
-    tr1, tr2, tr3 = [t.task_resources for t in wf.tasks.values()]
+    tr1, tr2, tr3 = [t.original_task_resources for t in wf.tasks.values()]
     assert tr1 is tr2
     assert tr1 is tr3
     assert tr1.id == res[0].id

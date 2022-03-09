@@ -8,9 +8,9 @@ def test_distributor_context(tool, task_template, client_env):
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
-    distributor_context = DistributorContext("sequential", wfr.workflow_run_id, 10)
+    distributor_context = DistributorContext("sequential", wfr.workflow_run_id, 15)
     distributor_context.__enter__()
     assert distributor_context.alive()
 
-    distributor_context.__exit__()
+    distributor_context._shutdown()
     assert not distributor_context.alive()

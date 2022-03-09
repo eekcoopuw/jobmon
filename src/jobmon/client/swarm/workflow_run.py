@@ -569,18 +569,6 @@ class WorkflowRun:
             resource_params.update(dynamic_compute_resources)
             task.compute_resources_callable = None
 
-        # construct task_resources
-        try:
-            time_object = datetime.strptime(resource_params["runtime"], "%H:%M:%S")
-            time_seconds = (
-                time_object.hour * 60 * 60
-                + time_object.minute * 60
-                + time_object.second
-            )
-            resource_params["runtime"] = str(time_seconds) + "s"
-        except Exception:
-            pass
-
         (
             _,
             _,
@@ -607,7 +595,7 @@ class WorkflowRun:
 
         task.task_resources = task_resources
 
-    def k(self, task: SwarmTask) -> None:
+    def _set_adjusted_task_resources(self, task: SwarmTask) -> None:
         """Adjust the swarm task's parameters.
 
         Use the cluster API to generate the new resources, then bind to input swarmtask.
