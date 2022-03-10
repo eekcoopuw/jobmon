@@ -163,12 +163,3 @@ def test_add_workflow_rund(db_cfg, client_env):
         app_route="/workflow_run", message={}, request_type="post"
     )
     assert rc == 400
-
-
-def test_terminate_workflow_run(db_cfg, client_env):
-    # @jobmon_client.route('/workflow_run/<workflow_run_id>/terminate', methods=['PUT'])
-    requester = Requester(client_env, logger)
-    rc, response = requester.send_request(
-        app_route="/workflow_run/abc/terminate", message={}, request_type="put"
-    )
-    assert rc == 400

@@ -200,14 +200,13 @@ class WorkflowRun(object):
                     array.bind()
 
                 # get task resources id
-                task_resources = self._get_original_task_resources(task)
-                task.original_task_resources = task_resources
+                self._set_original_task_resources(task)
 
                 task_metadata[task_hash] = [
                     task.node.node_id,
                     task.task_args_hash,
                     task.array.array_id,
-                    task_resources.id,
+                    task.original_task_resources.id,
                     task.name,
                     task.command,
                     task.max_attempts,
@@ -243,7 +242,7 @@ class WorkflowRun(object):
 
         return self._workflow.tasks
 
-    def _get_original_task_resources(self, task: Task) -> TaskResources:
+    def _set_original_task_resources(self, task: Task) -> None:
         resource_params = task.compute_resources
         cluster = self._workflow.get_cluster_by_name(task.cluster_name)
 
@@ -254,6 +253,13 @@ class WorkflowRun(object):
                 "A queue name must be provided in the specified compute resources."
             )
         queue = cluster.get_queue(queue_name)
+
+        for resource, value in resource_params.items():
+            if resource == 'memory':
+                resource_params['memory'] = queue.convert_memory_to_gib(value)
+            if resource == 'runtime':
+                resource_params['runtime'] = queue.convert_runtime_to_s(value)
+
         concrete_resources = cluster.concrete_resource_class(queue, resource_params)
 
         try:
@@ -266,7 +272,7 @@ class WorkflowRun(object):
             task_resources.bind()
             self._task_resources[hash(task_resources)] = task_resources
 
-        return task_resources
+        task.original_task_resources = task_resources
 
     def __repr__(self) -> str:
         """A representation string for a client WorkflowRun instance."""
