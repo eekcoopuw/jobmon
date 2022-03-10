@@ -845,6 +845,41 @@ def transition_task_instances(new_status: str) -> Any:
     return resp
 
 
+@finite_state_machine.route(
+    "/workflow_run/<workflow_run_id>/log_triaging", methods=["POST"]
+)
+def log_triaging(workflow_run_id: int) -> Any:
+    """Query for suspicious TIs and set them for triaging.
+
+    Query all task instances that are submitted to distributor or running which haven't
+    reported as alive in the allocated time, and set them for triaging.
+    """
+    bind_to_logger(workflow_run_id=workflow_run_id)
+    logger.info(f"Set to triaging those overdue tis for wfr {workflow_run_id}")
+    params = {
+        "triaging_status": TaskInstanceStatus.TRIAGING,
+        "workflow_run_id": workflow_run_id,
+        "active_tasks":
+        [
+            TaskInstanceStatus.LAUNCHED,
+            TaskInstanceStatus.RUNNING,
+        ]
+    }
+    sql = f"""
+        UPDATE task_instance
+        SET status = :triaging_status
+        WHERE
+            workflow_run_id = :workflow_run_id
+            AND status in :active_tasks
+            AND report_by_date <= CURRENT_TIMESTAMP()
+    """
+    DB.session.execute(sql, params)
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 # ############################ HELPER FUNCTIONS ###############################
 def _update_task_instance_state(task_instance: TaskInstance, status_id: str) -> Any:
     """Advance the states of task_instance and it's associated Task.

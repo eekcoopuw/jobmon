@@ -112,7 +112,7 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.ERROR),
         # task instance stops logging heartbeats. reconciler can't find an exit
         # status
-        (TaskInstanceStatus.RUNNING, TaskInstanceStatus.UNKNOWN_ERROR),
+        (TaskInstanceStatus.TRIAGING, TaskInstanceStatus.UNKNOWN_ERROR),
         # 1) task instance stops logging heartbeats. reconciler discovers a
         # resource error.
         # 2) worker node detects a resource error

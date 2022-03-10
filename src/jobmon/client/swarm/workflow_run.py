@@ -377,7 +377,22 @@ class WorkflowRun:
                 )
                 self._update_status(WorkflowRunStatus.ERROR)
 
+    def _log_triaging(self):
+        app_route = (
+            f"/workflow_run/{self.workflow_run_id}/log_triaging"
+        )
+        return_code, response = self._requester.send_request(
+            app_route=app_route, message={}, request_type="post", logger=logger
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
+
     def _log_heartbeat(self):
+        self._log_triaging()
         next_report_increment = (
             self._workflow_run_heartbeat_interval * self._heartbeat_report_by_buffer
         )
