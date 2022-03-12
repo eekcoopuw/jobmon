@@ -4,10 +4,10 @@ from functools import partial
 from sqlalchemy.sql import func
 from werkzeug.local import LocalProxy
 
+from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeWorkflowRun
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
-from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.models.workflow_status import WorkflowStatus
 

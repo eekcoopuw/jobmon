@@ -5,13 +5,10 @@ from typing import Tuple
 from sqlalchemy.sql import func
 from werkzeug.local import LocalProxy
 
+from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeTaskInstance
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
-from jobmon.server.web.models.exceptions import (
-    InvalidStateTransition,
-    KillSelfTransition,
-)
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
 
@@ -27,7 +24,7 @@ class TaskInstance(DB.Model):
 
     def to_wire_as_distributor_task_instance(self) -> Tuple:
         """Serialize task instance object."""
-        return SerializeTaskInstance.to_wire(
+        return SerializeTaskInstance.to_wire_distributor(
             self.id,
             self.task_id,
             self.workflow_run_id,
@@ -39,6 +36,14 @@ class TaskInstance(DB.Model):
             self.array_id,
             self.array_batch_num,
             self.array_step_id,
+        )
+
+    def to_wire_as_worker_node_task_instance(self) -> Tuple:
+        """Serialize task instance object."""
+        return SerializeTaskInstance.to_wire_worker_node(
+            self.id,
+            self.task.command,
+            self.status
         )
 
     id = DB.Column(DB.Integer, primary_key=True)
@@ -65,7 +70,7 @@ class TaskInstance(DB.Model):
     status = DB.Column(
         DB.String(1),
         DB.ForeignKey("task_instance_status.id"),
-        default=TaskInstanceStatus.INSTANTIATED,
+        default=TaskInstanceStatus.QUEUED,
     )
     submitted_date = DB.Column(DB.DateTime, default=func.now())
     status_date = DB.Column(DB.DateTime, default=func.now())
@@ -167,13 +172,6 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.RESOURCE_ERROR),
     ]
 
-    kill_self_states = [
-        TaskInstanceStatus.NO_DISTRIBUTOR_ID,
-        TaskInstanceStatus.UNKNOWN_ERROR,
-        TaskInstanceStatus.RESOURCE_ERROR,
-        TaskInstanceStatus.KILL_SELF,
-    ]
-
     error_states = [
         TaskInstanceStatus.NO_DISTRIBUTOR_ID,
         TaskInstanceStatus.ERROR,
@@ -216,26 +214,16 @@ class TaskInstance(DB.Model):
 
     def _validate_transition(self, new_state: str) -> None:
         """Ensure the TaskInstance status transition is valid."""
-        if (
-            self.status in self.kill_self_states
-            and new_state is TaskInstanceStatus.RUNNING
-        ):
-            raise KillSelfTransition("TaskInstance", self.id, self.status, new_state)
         if (self.status, new_state) not in self.__class__.valid_transitions:
-            raise InvalidStateTransition(
-                "TaskInstance", self.id, self.status, new_state
-            )
+            raise InvalidStateTransition("TaskInstance", self.id, self.status, new_state)
 
     def _is_timely_transition(self, new_state: str) -> bool:
         """Check if the transition is invalid due to a race condition."""
         if (self.status, new_state) in self.__class__.untimely_transitions:
-            msg = str(
-                InvalidStateTransition("TaskInstance", self.id, self.status, new_state)
-            )
+            msg = str(InvalidStateTransition("TaskInstance", self.id, self.status, new_state))
             msg += (
                 ". This is an untimely transition likely caused by a race "
-                " condition between the UGE distributor and the task instance"
-                " factory which logs the UGE id on the task instance."
+                " condition between the distributor_service and the worker_node."
             )
             logger.warning(msg)
             return False
