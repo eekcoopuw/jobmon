@@ -377,9 +377,9 @@ class WorkflowRun:
                 )
                 self._update_status(WorkflowRunStatus.ERROR)
 
-    def _log_triaging(self):
+    def _set_status_for_triaging(self):
         app_route = (
-            f"/workflow_run/{self.workflow_run_id}/log_triaging"
+            f"/workflow_run/{self.workflow_run_id}/set_status_for_triaging"
         )
         return_code, response = self._requester.send_request(
             app_route=app_route, message={}, request_type="post", logger=logger
@@ -392,7 +392,7 @@ class WorkflowRun:
             )
 
     def _log_heartbeat(self):
-        self._log_triaging()
+        self._set_status_for_triaging()
         next_report_increment = (
             self._workflow_run_heartbeat_interval * self._heartbeat_report_by_buffer
         )

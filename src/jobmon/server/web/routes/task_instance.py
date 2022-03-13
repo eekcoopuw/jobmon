@@ -846,18 +846,25 @@ def transition_task_instances(new_status: str) -> Any:
 
 
 @finite_state_machine.route(
-    "/workflow_run/<workflow_run_id>/log_triaging", methods=["POST"]
+    "/workflow_run/<workflow_run_id>/set_status_for_triaging", methods=["POST"]
 )
-def log_triaging(workflow_run_id: int) -> Any:
-    """Query for suspicious TIs and set them for triaging.
+def set_status_for_triaging(workflow_run_id: int) -> Any:
+    """2 triaging related status sets
 
-    Query all task instances that are submitted to distributor or running which haven't
-    reported as alive in the allocated time, and set them for triaging.
+    1. Query all task instances that are submitted to distributor or running which haven't
+    reported as alive in the allocated time, and set them for Triaging(from Running)
+    and Kill_self(from Launched).
+
+    2. Turn into Running for those triaging task_instances that have received a
+    recent heartbeat.
+
     """
     bind_to_logger(workflow_run_id=workflow_run_id)
     logger.info(f"Set to triaging those overdue tis for wfr {workflow_run_id}")
     params = {
+        "running_status": TaskInstanceStatus.RUNNING,
         "triaging_status": TaskInstanceStatus.TRIAGING,
+        "kill_self_status": TaskInstanceStatus.KILL_SELF,
         "workflow_run_id": workflow_run_id,
         "active_tasks":
         [
@@ -867,7 +874,11 @@ def log_triaging(workflow_run_id: int) -> Any:
     }
     sql = f"""
         UPDATE task_instance
-        SET status = :triaging_status
+        SET status =
+            CASE
+                WHEN status = :running_status THEN :triaging_status
+                ELSE :kill_self_status
+            END
         WHERE
             workflow_run_id = :workflow_run_id
             AND status in :active_tasks
@@ -875,6 +886,28 @@ def log_triaging(workflow_run_id: int) -> Any:
     """
     DB.session.execute(sql, params)
     DB.session.commit()
+
+    # those triaging task instances that have actually got
+    # a recent report_by_date after being in triaging should
+    # be put back into running.
+    logger.info(f"Set to running for those triaging yet live task instances"
+                f" for wfr {workflow_run_id}")
+    params = {
+        "running_status": TaskInstanceStatus.RUNNING,
+        "triaging_status": TaskInstanceStatus.TRIAGING,
+        "workflow_run_id": workflow_run_id,
+    }
+    sql = f"""
+        UPDATE task_instance
+        SET status = :running_status
+        WHERE
+            workflow_run_id = :workflow_run_id
+            AND status = :triaging_status
+            AND report_by_date > CURRENT_TIMESTAMP()
+    """
+    DB.session.execute(sql, params)
+    DB.session.commit()
+
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
