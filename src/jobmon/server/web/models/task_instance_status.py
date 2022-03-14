@@ -12,6 +12,7 @@ class TaskInstanceStatus(DB.Model):
     NO_DISTRIBUTOR_ID = Statuses.NO_DISTRIBUTOR_ID
     LAUNCHED = Statuses.LAUNCHED
     RUNNING = Statuses.RUNNING
+    TRIAGING = Statuses.TRIAGING
     RESOURCE_ERROR = Statuses.RESOURCE_ERROR
     UNKNOWN_ERROR = Statuses.UNKNOWN_ERROR
     ERROR = Statuses.ERROR

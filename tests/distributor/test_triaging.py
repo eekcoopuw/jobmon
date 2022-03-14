@@ -6,6 +6,7 @@ import random
 from typing import Any, Dict
 
 from jobmon.requester import Requester
+from jobmon.constants import TaskInstanceStatus
 
 
 @pytest.fixture
@@ -133,3 +134,217 @@ def test_unknown_state(tool, db_cfg, client_env, task_template, monkeypatch):
     res = DB.session.execute(sql, {"task_id": str(task.task_id)}).fetchone()
     DB.session.commit()
     assert res[0] == "U"
+
+
+def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
+    """tests that a task can be triaged and log as unknown error"""
+    import time
+    from unittest import mock
+    from datetime import datetime
+    from jobmon.client.distributor.distributor_service import DistributorService
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
+
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="multiprocess", compute_resources={"queue": "null.q"}
+    )
+
+    tis = [task_template.create_task(arg="sleep 10" + str(x)) for x in range(2)]
+    workflow = tool.create_workflow(name="test_set_status_for_no_heartbeat")
+
+    workflow.add_tasks(tis)
+    workflow.bind()
+    wfr = workflow._create_workflow_run()
+
+    # create task instances
+    swarm = SwarmWorkflowRun(
+        workflow_run_id=wfr.workflow_run_id,
+        requester=workflow.requester,
+    )
+    swarm.from_workflow(workflow)
+    swarm.process_commands()
+
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+
+    distributor = MultiprocessDistributor(5)
+    distributor.start()
+
+    # test that we can launch via the normal job pathway
+    distributor_service = DistributorService(
+        distributor,
+        requester=workflow.requester,
+        raise_on_error=True
+    )
+    distributor_service.set_workflow_run(wfr.workflow_run_id)
+
+    # turn the 3 task instances in different testing paths
+    # 1. stage the report_by_date, along with respective status
+    with app.app_context():
+        params = {
+            "launched_status": TaskInstanceStatus.LAUNCHED,
+            "running_status": TaskInstanceStatus.RUNNING,
+            "task_id_1": tis[0].task_id,
+            "task_id_2": tis[1].task_id,
+            "task_ids": [tis[x].task_id for x in range(len(tis))]
+        }
+        sql = """
+        UPDATE task_instance
+        SET report_by_date = CURRENT_TIMESTAMP() - INTERVAL 1 HOUR,
+            status =
+                CASE
+                    WHEN task_id = :task_id_1 THEN :launched_status
+                    WHEN task_id = :task_id_2 THEN :running_status
+                END
+        WHERE task_id in :task_ids"""
+        DB.session.execute(sql, params)
+        DB.session.commit()
+    # 2. call swarm._set_status_for_triaging()
+    swarm._set_status_for_triaging()
+
+    # check the jobs to be Triaging
+    with app.app_context():
+        sql = """
+        SELECT id, task_instance.status
+        FROM task_instance
+        WHERE task_id in :task_ids
+        ORDER BY id"""
+        res = DB.session.execute(sql, {"task_ids": [tis[x].task_id for x in range(len(tis))]}).all()
+        DB.session.commit()
+
+    assert len(res) == len(tis)
+    assert res[0][1] == TaskInstanceStatus.KILL_SELF
+    assert res[1][1] == TaskInstanceStatus.TRIAGING
+
+    distributor.stop()
+
+
+def test_triaging_to_error_on_multiprocess(tool, db_cfg, client_env, task_template):
+
+    def test_triaging_to_specific_error(tool, db_cfg, client_env, task_template,
+                                        error_message):
+        """tests that a task can be triaged and log as unknown error"""
+        import time
+        from unittest import mock
+        from datetime import datetime
+        from jobmon.client.distributor.distributor_service import DistributorService
+        from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+        from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
+
+        tool.set_default_compute_resources_from_dict(
+            cluster_name="multiprocess", compute_resources={"queue": "null.q"}
+        )
+
+        tis = [task_template.create_task(arg="sleep 6" + str(x)) for x in range(2)]
+        workflow = tool.create_workflow(name="test_triaging_on_multiprocess")
+
+        workflow.add_tasks(tis)
+        workflow.bind()
+        wfr = workflow._create_workflow_run()
+
+        # create task instances
+        swarm = SwarmWorkflowRun(
+            workflow_run_id=wfr.workflow_run_id,
+            requester=workflow.requester,
+        )
+        swarm.from_workflow(workflow)
+        swarm.process_commands()
+
+        distributor = MultiprocessDistributor(5)
+        distributor.start()
+
+        # test that we can launch via the normal job pathway
+        distributor_service = DistributorService(
+            distributor,
+            requester=workflow.requester,
+            raise_on_error=True
+        )
+        distributor_service.set_workflow_run(wfr.workflow_run_id)
+        distributor_service.process_status(TaskInstanceStatus.QUEUED)
+
+        # check the job turned into I
+        app = db_cfg["app"]
+        DB = db_cfg["DB"]
+        with app.app_context():
+            sql = """
+            SELECT id, task_instance.status
+            FROM task_instance
+            WHERE task_id in :task_ids
+            ORDER BY id"""
+            res = DB.session.execute(sql,
+                                     {"task_ids": [t.task_id for t in tis]}
+                                     ).all()
+            DB.session.commit()
+
+        assert len(res) == len(tis)
+        assert [res[x][1] for x in range(len(tis))] == ["I" for _ in range(len(tis))]
+
+        distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+
+        # check the job to be Launched
+        with app.app_context():
+            sql = """
+            SELECT id, task_instance.status
+            FROM task_instance
+            WHERE task_id in :task_ids
+            ORDER BY id"""
+            res = DB.session.execute(sql,
+                                     {"task_ids": [t.task_id for t in tis]}
+                                     ).all()
+            DB.session.commit()
+
+        assert len(res) == len(tis)
+        assert [res[x][1] for x in range(len(tis))] == ["O" for _ in range(len(tis))]
+
+        # stage all the task instances as triaging
+        with app.app_context():
+            params = {
+                "triaging_status": TaskInstanceStatus.TRIAGING,
+                "task_ids": [tis[x].task_id for x in range(len(tis))]
+            }
+            sql = """
+            UPDATE task_instance
+            SET report_by_date = CURRENT_TIMESTAMP() - INTERVAL 1 HOUR,
+                status = :triaging_status
+            WHERE task_id in :task_ids"""
+            DB.session.execute(sql, params)
+            DB.session.commit()
+
+        # synchronize statuses from the db and get new work
+        distributor_service._check_for_work(TaskInstanceStatus.TRIAGING)
+
+        with mock.patch(
+            "jobmon.cluster_type.multiprocess.multiproc_distributor."
+            "MultiprocessDistributor.get_remote_exit_info",
+                return_value=error_message
+        ):
+
+            # code logic to test
+            distributor_service.process_status(TaskInstanceStatus.TRIAGING)
+
+            # check the jobs to be UNKNOWN_ERROR as expected
+            with app.app_context():
+                sql = """
+                SELECT ti.id, ti.status, tiel.description
+                FROM task_instance ti
+                    JOIN task_instance_error_log tiel ON ti.id = tiel.task_instance_id
+                WHERE ti.task_id in :task_ids
+                GROUP BY ti.id, ti.status, tiel.description"""
+                res = DB.session.execute(sql, {"task_ids": [t.task_id for t in tis]}).all()
+                DB.session.commit()
+
+            assert len(res) == len(tis)
+            assert [(res[x][1], res[x][2]) for x in range(len(res))] == \
+                   [error_message for _ in range(len(res))]
+
+        distributor.stop()
+
+    test_triaging_to_specific_error(tool, db_cfg, client_env, task_template,
+                                    (TaskInstanceStatus.RESOURCE_ERROR,
+                                     "Insufficient resources requested. Task was lost"))
+    test_triaging_to_specific_error(tool, db_cfg, client_env, task_template,
+                                    (TaskInstanceStatus.UNKNOWN_ERROR,
+                                     "One possible reason might be that either stderr "
+                                     "or stdout is not accessible or writable"))
+    test_triaging_to_specific_error(tool, db_cfg, client_env, task_template,
+                                    (TaskInstanceStatus.ERROR_FATAL, "Error Fatal occurred"))

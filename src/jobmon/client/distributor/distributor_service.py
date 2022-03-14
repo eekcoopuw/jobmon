@@ -406,18 +406,8 @@ class DistributorService:
                 self.distributor_commands.append(distributor_command)
 
     def _check_launched_for_work(self) -> None:
-        array_batches_launched: Set[DistributorArrayBatch] = set()
-        launched_task_instances = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
-        for task_instance in launched_task_instances:
-            array_batches_launched.add(task_instance.array_batch)
-
-        for array_batch in array_batches_launched:
-            distributor_command = DistributorCommand(
-                array_batch.process_queueing_errors,
-                self.cluster,
-                self
-            )
-            self.distributor_commands.append(distributor_command)
+        # no actual work for launched
+        pass
 
     def _check_triaging_for_work(self) -> None:
         """For TaskInstances with TRIAGING status, check the nature of no heartbeat,
