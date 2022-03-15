@@ -443,12 +443,13 @@ class Workflow(object):
                 workflow_run_id=wfr.workflow_run_id,
                 fail_after_n_executions=self._fail_after_n_executions,
                 requester=self.requester,
+                fail_fast=fail_fast,
             )
             swarm.from_workflow(self)
             self._num_previously_completed = swarm.num_previously_complete
 
             try:
-                swarm.run(distributor.is_alive)
+                swarm.run(distributor.alive, seconds_until_timeout)
             finally:
                 # figure out doneness
                 num_new_completed = (
