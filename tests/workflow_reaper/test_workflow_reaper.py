@@ -1,7 +1,7 @@
 import pytest
 from mock import patch, PropertyMock
 
-from jobmon.constants import WorkflowRunStatus
+from jobmon.constants import WorkflowRunStatus, WorkflowStatus
 from jobmon import __version__
 
 
@@ -59,13 +59,22 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     wf1 = base_tool.create_workflow()
     wf1.add_tasks([task1])
     wf1.bind()
+    # wfr1 = WorkflowRun(workflow=wf1, requester=wf1.requester)
+    # wfr1._link_to_workflow(0)
+    # wfr1._update_status(WorkflowRunStatus.BOUND)
+    # wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
+    # wfr1._update_status(WorkflowRunStatus.LAUNCHED)
+    # wfr1._update_status(WorkflowRunStatus.RUNNING)
+    # wfr1._log_heartbeat(90)
+
     wfr1 = wf1._create_workflow_run()
 
     distributor1 = DistributorService(
         SequentialDistributor(),
         requester=requester_no_retry
     )
-    distributor1.heartbeat()
+    breakpoint()
+    # distributor1.heartbeat()
 
     # Create a second workflow with one task. Don't log a heartbeat so that it can die
     task2 = sleepy_task_template.create_task(sleep=11)
@@ -102,7 +111,7 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     workflow1_status = get_workflow_status(db_cfg, wf1.workflow_id)
     workflow2_status = get_workflow_status(db_cfg, wf2.workflow_id)
 
-    assert workflow1_status == "Q"
+    assert workflow1_status == "R"
     assert workflow2_status == "F"
 
     # Check that the  workflow run was also moved to the E state
@@ -212,24 +221,24 @@ def test_aborted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templa
     # create a workflow without binding the tasks. log a heartbeat so it doesn't get reaped
     task = sleepy_task_template.create_task(sleep=10)
     task2 = sleepy_task_template.create_task(sleep=11)
-    workflow = base_tool.create_workflow()
-    workflow.add_tasks([task, task2])
-    workflow.bind()
-    # Re-implement the logic of _create_workflow_run.
-    # This will allow us to keep the workflow_run in G state and not bind it
-    wfr = WorkflowRun(workflow.workflow_id, requester=requester_no_retry)
-    wfr._link_to_workflow(90)
-
-    # create a workflow without binding the tasks
-    workflow1 = base_tool.create_workflow(
-        name="reaper_aborted_test", workflow_args="aborted_v_1"
-    )
+    workflow1 = base_tool.create_workflow()
     workflow1.add_tasks([task, task2])
     workflow1.bind()
     # Re-implement the logic of _create_workflow_run.
     # This will allow us to keep the workflow_run in G state and not bind it
-    wfr1 = WorkflowRun(workflow1.workflow_id, requester=requester_no_retry)
-    wfr1._link_to_workflow(0)
+    wfr1 = WorkflowRun(workflow=workflow1, requester=requester_no_retry)
+    wfr1._link_to_workflow(90)
+
+    # create a workflow without binding the tasks
+    workflow2 = base_tool.create_workflow(
+        name="reaper_aborted_test", workflow_args="aborted_v_1"
+    )
+    workflow2.add_tasks([task, task2])
+    workflow2.bind()
+    # Re-implement the logic of _create_workflow_run.
+    # This will allow us to keep the workflow_run in G state and not bind it
+    wfr2 = WorkflowRun(workflow=workflow2, requester=requester_no_retry)
+    wfr2._link_to_workflow(0)
 
     # Call aborted state logic
     def mock_slack_notifier(msg: str):
@@ -242,21 +251,21 @@ def test_aborted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templa
     assert (
         f"{__version__} Workflow Reaper transitioned a Workflow to ABORTED state "
         f"and associated Workflow Run to ABORTED state.\nWorkflow ID: "
-        f"{workflow1.workflow_id}\nWorkflow Name: reaper_aborted_test\nWorkflow Args:"
-        f" aborted_v_1\nWorkflowRun ID: {wfr1.workflow_run_id}" in msg
+        f"{workflow2.workflow_id}\nWorkflow Name: reaper_aborted_test\nWorkflow Args:"
+        f" aborted_v_1\nWorkflowRun ID: {wfr2.workflow_run_id}" in msg
     )
 
     # Check that the workflow_run and workflow have both been moved to the
     # "A" state.
-    workflow_status = get_workflow_status(db_cfg, workflow.workflow_id)
-    workflow_run_status = get_workflow_run_status(db_cfg, wfr.workflow_run_id)
-    assert workflow_run_status == "L"
-    assert workflow_status == "G"
-
     workflow_status = get_workflow_status(db_cfg, workflow1.workflow_id)
     workflow_run_status = get_workflow_run_status(db_cfg, wfr1.workflow_run_id)
-    assert workflow_run_status == "A"
-    assert workflow_status == "A"
+    assert workflow_run_status == WorkflowRunStatus.LINKING
+    assert workflow_status == WorkflowStatus.REGISTERING
+
+    workflow_status = get_workflow_status(db_cfg, workflow2.workflow_id)
+    workflow_run_status = get_workflow_run_status(db_cfg, wfr2.workflow_run_id)
+    assert workflow_run_status == WorkflowRunStatus.ABORTED
+    assert workflow_status == WorkflowStatus.ABORTED
 
 
 def test_reaper_version(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
@@ -272,13 +281,13 @@ def test_reaper_version(db_cfg, requester_no_retry, base_tool, sleepy_task_templ
 
     # Re-implement the logic of _create_workflow_run.
     # This will allow us to keep the workflow_run in G state and not bind it
-    wfr = WorkflowRun(workflow.workflow_id, requester=requester_no_retry)
+    wfr = WorkflowRun(workflow=workflow, requester=requester_no_retry)
     wfr._link_to_workflow(0)
     wfr._log_heartbeat(0)
 
     # Check for lost workflow runs
     reaper = WorkflowReaper(5, requester=requester_no_retry)
-    reaper_wfrs = reaper._get_lost_workflow_runs(["L"])
+    reaper_wfrs = reaper._get_lost_workflow_runs([WorkflowRunStatus.LINKING])
 
     assert len(reaper_wfrs) > 0
     assert wfr.workflow_run_id in [wfr.workflow_run_id for wfr in reaper_wfrs]
@@ -287,7 +296,10 @@ def test_reaper_version(db_cfg, requester_no_retry, base_tool, sleepy_task_templ
     with patch.object(WorkflowReaper, "_version", new_callable=PropertyMock) as mock:
         mock.return_value = "foobar"
 
-        no_wfrs = reaper._get_lost_workflow_runs(["L", "C", "H"])
+        statuses = [WorkflowRunStatus.LINKING,
+                    WorkflowRunStatus.COLD_RESUME,
+                    WorkflowRunStatus.HOT_RESUME]
+        no_wfrs = reaper._get_lost_workflow_runs(statuses)
         assert len(no_wfrs) == 0
 
 
