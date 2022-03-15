@@ -129,3 +129,9 @@ class InvalidStateTransition(Exception):
             model, id, old_state, new_state
         )
         super(InvalidStateTransition, self).__init__(self, msg)
+
+
+class TransitionError(Exception):
+    """Transition failed."""
+
+    pass

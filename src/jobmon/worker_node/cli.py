@@ -22,12 +22,12 @@ class WorkerNodeCLI(CLI):
 
         self._add_worker_node_parser()
 
-    def run_task_instance(self, args: configargparse.Namespace) -> None:
+    def run_task_instance(self, args: configargparse.Namespace) -> int:
         """Configuration for the jobmon worker node."""
         from jobmon import __version__
         from jobmon.exceptions import ReturnCodes
-        from jobmon.worker_node.worker_node_config import WorkerNodeConfig
         from jobmon.worker_node.start import get_worker_node_task_instance
+        from jobmon.worker_node.worker_node_config import WorkerNodeConfig
 
         if __version__ != args.expected_jobmon_version:
             msg = (
@@ -51,7 +51,14 @@ class WorkerNodeCLI(CLI):
             cluster_name=args.cluster_name,
             worker_node_config=worker_node_config
         )
-        worker_node_task_instance.run()
+
+        try:
+            worker_node_task_instance.run()
+        except Exception as e:
+            logger.error(e)
+            sys.exit(ReturnCodes.WORKER_NODE_CLI_FAILURE)
+
+        return worker_node_task_instance.command_return_code
 
     def _add_worker_node_parser(self) -> None:
         worker_node_parser = self._subparsers.add_parser("worker_node", **PARSER_KWARGS)

@@ -185,7 +185,7 @@ def test_job_submit_raises_error(db_cfg, tool):
     class ErrorDistributor(SequentialDistributor):
         def submit_to_batch_distributor(
             self, command: str, name: str, requested_resources
-        ) -> int:
+        ) -> str:
             raise ValueError("No distributor_id")
 
     workflow = tool.create_workflow(name="test_submit_raises_error")
@@ -236,7 +236,7 @@ def test_array_submit_raises_error(db_cfg, tool):
     class ErrorDistributor(MultiprocessDistributor):
         def submit_array_to_batch_distributor(
             self, command: str, name: str, requested_resources, array_length: int
-        ) -> int:
+        ) -> str:
             raise ValueError("No distributor_id")
 
     # create the workflow and bind to database
@@ -325,8 +325,6 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 2
-
-    breakpoint()
 
     distributor_service.cluster.stop()
 

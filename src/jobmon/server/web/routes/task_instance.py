@@ -260,8 +260,6 @@ def log_done(task_instance_id: int) -> Any:
         task_instance.distributor_id = data["distributor_id"]
     if data.get("nodename", None) is not None:
         task_instance.nodename = data["nodename"]
-    # msg = _update_task_instance_state(ti, TaskInstanceStatus.DONE)
-
     try:
         task_instance.transition(TaskInstanceStatus.DONE)
     except InvalidStateTransition as e:
@@ -270,7 +268,6 @@ def log_done(task_instance_id: int) -> Any:
         else:
             # Tried to move to an illegal state
             logger.error(e)
-
     DB.session.commit()
 
     resp = jsonify(status=task_instance.status)
@@ -296,17 +293,26 @@ def log_error_worker_node(task_instance_id: int) -> Any:
     nodename = data.get("nodename", None)
     logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
+    # update the task instances and commit it
     task_instance = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
-
+    if nodename is not None:
+        task_instance.nodename = nodename
+    if distributor_id is not None:
+        task_instance.distributor_id = distributor_id
     try:
-        if nodename is not None:
-            task_instance.nodename = nodename
-        if distributor_id is not None:
-            task_instance.distributor_id = distributor_id
+        task_instance.transition(error_state)
         error = TaskInstanceErrorLog(task_instance_id=task_instance.id, description=error_msg)
         DB.session.add(error)
-    except:
-        pass
+    except InvalidStateTransition as e:
+        if task_instance.status == error_state:
+            logger.warning(e)
+        else:
+            # Tried to move to an illegal state
+            logger.error(e)
+    DB.session.commit()
+
+    resp = jsonify(status=task_instance.status)
+    resp.status_code = StatusCodes.OK
 
     return resp
 
@@ -804,10 +810,6 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str) -> 
             )
             logger.error(msg)
             response += msg
-    except KillSelfTransition:
-        msg = f"kill self, cannot transition tid={task_instance.id}"
-        logger.warning(msg)
-        response += msg
     except Exception as e:
         raise ServerError(
             f"General exception in _update_task_instance_state, jid "

@@ -4,7 +4,7 @@ from __future__ import annotations
 import logging
 import os
 import random
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 from jobmon.cluster_type.base import (
     ClusterDistributor,
@@ -15,8 +15,8 @@ from jobmon.cluster_type.base import (
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.worker_node.cli import WorkerNodeCLI
+from jobmon.worker_node.start import get_worker_node_task_instance
 from jobmon.worker_node.worker_node_config import WorkerNodeConfig
-from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
 
 
 logger = logging.getLogger(__name__)
@@ -78,7 +78,7 @@ class DummyDistributor(ClusterDistributor):
         return ""
 
     @property
-    def cluster_type_name(self) -> str:
+    def cluster_name(self) -> str:
         """Return the name of the cluster type."""
         return "dummy"
 
@@ -86,20 +86,21 @@ class DummyDistributor(ClusterDistributor):
         """Start the executor."""
         self.started = True
 
-    def stop(self, distributor_ids: List[int]) -> None:
+    def stop(self) -> None:
         """Stop the executor."""
         self.started = False
 
-    def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
+    def get_queueing_errors(self, distributor_ids: List[str]) -> Dict[str, str]:
         """Dummy tasks never error, since they never run. So always return an empty dict."""
         return {}
 
-    def get_submitted_or_running(self, distributor_ids: List[int]) -> \
-            Set[Tuple[int, Optional[int]]]:
+    def get_submitted_or_running(
+            self, distributor_ids: Optional[List[str]] = None
+    ) -> Set[str]:
         """Check which task instances are active."""
         raise NotImplementedError
 
-    def terminate_task_instances(self, distributor_ids: List[int]) -> None:
+    def terminate_task_instances(self, distributor_ids: List[str]) -> None:
         """No such thing as running Dummy tasks. Therefore, nothing to terminate."""
         raise NotImplementedError
 
@@ -108,8 +109,7 @@ class DummyDistributor(ClusterDistributor):
         command: str,
         name: str,
         requested_resources: Dict[str, Any],
-        array_length: int = 0,
-    ) -> int:
+    ) -> str:
         """Run a fake execution of the task.
 
         In a real executor, this is where qsub would happen. Here, since it's a dummy executor,
@@ -124,57 +124,28 @@ class DummyDistributor(ClusterDistributor):
         args = cli.parse_args(command)
 
         # Bring in the worker node here since dummy executor is never run
-        worker_node_task_instance = WorkerNodeTaskInstance(
+        worker_node_config = WorkerNodeConfig(
+            task_instance_heartbeat_interval=args.task_instance_heartbeat_interval,
+            heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
+            web_service_fqdn=args.web_service_fqdn,
+            web_service_port=args.web_service_port,
+        )
+
+        worker_node_task_instance = get_worker_node_task_instance(
             task_instance_id=args.task_instance_id,
-            expected_jobmon_version=args.expected_jobmon_version,
-            cluster_type_name=args.cluster_type_name,
+            array_id=args.array_id,
+            batch_number=args.batch_number,
+            cluster_name=args.cluster_name,
+            worker_node_config=worker_node_config
         )
 
         # Log running, log done, and exit
-        _, _, _ = worker_node_task_instance.log_running(
-            self.heartbeat_report_by_buffer * self.task_instance_heartbeat_interval
-        )
+        worker_node_task_instance.log_running()
         worker_node_task_instance.log_done()
 
-        return distributor_id
+        return str(distributor_id)
 
-    def submit_array_to_batch_distributor(
-        self,
-        command: str,
-        name: str,
-        requested_resources: Dict[str, Any],
-        array_length: int,
-    ) -> int:
-        """Runs a fake execution of the task, exactly like regular submit to batch."""
-        logger.debug("This is the Dummy Distributor")
-        # odd number for array tasks
-        distributor_id = random.randint(1, int(1e6)) * 2 + 1
-        os.environ["JOB_ID"] = str(distributor_id)
-
-        DummyWorkerNode.STEP_ID = 1
-
-        for i in range(array_length):
-
-            cli = WorkerNodeCLI()
-            args = cli.parse_args(command)
-
-            # Bring in the worker node here since dummy executor is never run
-            worker_node_task_instance = WorkerNodeTaskInstance(
-                array_id=args.array_id,
-                batch_number=args.batch_number,
-                expected_jobmon_version=args.expected_jobmon_version,
-                cluster_type_name=args.cluster_type_name,
-            )
-
-            # Log running, log done, and exit
-            _, _, _ = worker_node_task_instance.log_running(
-                self.heartbeat_report_by_buffer * self.task_instance_heartbeat_interval
-            )
-            worker_node_task_instance.log_done()
-
-        return distributor_id
-
-    def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
+    def get_remote_exit_info(self, distributor_id: str) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 
@@ -182,43 +153,28 @@ class DummyDistributor(ClusterDistributor):
 class DummyWorkerNode(ClusterWorkerNode):
     """Get Executor Info for a Task Instance."""
 
-    STEP_ID = 1
-
     def __init__(self) -> None:
-        """Initialization of the dummy executor worker node."""
-        self._distributor_id: Optional[int] = None
-        self._array_step_id = DummyWorkerNode.STEP_ID
-        DummyWorkerNode.STEP_ID += 1
+        """Initialization of the sequential executor worker node."""
+        self._distributor_id: Optional[str] = None
 
     @property
-    def distributor_id(self) -> Optional[int]:
-        """Executor id of the task."""
+    def distributor_id(self) -> Optional[str]:
+        """Distributor id of the task."""
         if self._distributor_id is None:
             jid = os.environ.get("JOB_ID")
             if jid:
-                self._distributor_id = int(jid)
+                self._distributor_id = jid
         return self._distributor_id
 
-    def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
+    @staticmethod
+    def get_exit_info(exit_code: int, error_msg: str) -> Tuple[str, str]:
         """Exit info, error message."""
         return TaskInstanceStatus.ERROR, error_msg
 
-    def get_usage_stats(self) -> Dict:
+    @staticmethod
+    def get_usage_stats() -> Dict:
         """Usage information specific to the exector."""
         return {}
-
-    @property
-    def subtask_id(self) -> str:
-        """Return distributor id for non array. Random for array."""
-        if self._distributor_id % 2 == 0:
-            return str(self._distributor_id)
-        else:
-            # this is not right
-            return f"{self._distributor_id}.{random.randint(1, int(1e7))}"
-
-    @property
-    def array_step_id(self) -> int:
-        return self._array_step_id
 
 
 class ConcreteDummyResource(ConcreteResource):

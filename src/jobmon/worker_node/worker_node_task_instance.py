@@ -10,12 +10,11 @@ import subprocess
 import sys
 from threading import Thread
 from time import sleep, time
-import traceback
 from typing import Dict, Optional, Union
 
 from jobmon.cluster import Cluster
 from jobmon.constants import TaskInstanceStatus
-from jobmon.exceptions import InvalidResponse, ReturnCodes
+from jobmon.exceptions import InvalidResponse, ReturnCodes, TransitionError
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskInstance
 from jobmon.worker_node.worker_node_config import WorkerNodeConfig
@@ -32,8 +31,9 @@ class WorkerNodeTaskInstance:
         task_instance_id: Optional[int] = None,
         array_id: Optional[int] = None,
         batch_number: Optional[int] = None,
-        heartbeat_interval: float = 90,
+        heartbeat_interval: int = 90,
         report_by_buffer: float = 3.1,
+        command_interrupt_timeout: int = 10,
         requester: Optional[Requester] = None,
     ) -> None:
         """A mechanism whereby a running task_instance can communicate back to the JSM.
@@ -93,6 +93,7 @@ class WorkerNodeTaskInstance:
         # config
         self.heartbeat_interval = heartbeat_interval
         self.report_by_buffer = report_by_buffer
+        self.command_interrupt_timeout = command_interrupt_timeout
 
         # set last heartbeat
         self.last_heartbeat_time = time()
@@ -138,7 +139,14 @@ class WorkerNodeTaskInstance:
             raise AttributeError("Cannot access command until log_running has been called.")
         return self._command
 
-    def log_done(self) -> int:
+    @property
+    def command_return_code(self) -> int:
+        """Returns a task instance ID if it's been bound."""
+        if not hasattr(self, "_command_return_code"):
+            raise AttributeError("Cannot access command_return_code until command has run.")
+        return self._command_return_code
+
+    def log_done(self) -> None:
         """Tell the JobStateManager that this task_instance is done."""
         logger.info(f"Logging done for task_instance {self.task_instance_id}")
         message = {"nodename": self.nodename}
@@ -146,13 +154,26 @@ class WorkerNodeTaskInstance:
             message["distributor_id"] = str(self.distributor_id)
         else:
             logger.debug("No executor id was found in the qsub env at this time")
-        rc, _ = self.requester.send_request(
+
+        app_route = f"/task_instance/{self.task_instance_id}/log_done"
+        return_code, response = self.requester.send_request(
             app_route=f"/task_instance/{self.task_instance_id}/log_done",
             message=message,
             request_type="post",
             logger=logger,
         )
-        return rc
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
+        self._status = response["status"]
+        if self.status != TaskInstanceStatus.DONE:
+            raise TransitionError(
+                f"TaskInstance {self.task_instance_id} failed because it could not transition "
+                f"to {TaskInstanceStatus.DONE} status. Current status is {self.status}."
+            )
 
     def log_error(self, error_message: str, exit_status: int) -> None:
         """Tell the JobStateManager that this task_instance has errored."""
@@ -183,38 +204,12 @@ class WorkerNodeTaskInstance:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-
-    def log_task_stats(self) -> None:
-        """Tell the JobStateManager all the applicable task_stats for this task_instance."""
-        logger.info(f"Logging usage for task_instance {self.task_instance_id}")
-        try:
-            usage = self.cluster_worker_node.get_usage_stats()
-            dbukeys = ["usage_str", "wallclock", "maxrss", "maxpss", "cpu", "io"]
-            msg = {k: usage[k] for k in dbukeys if k in usage.keys()}
-
-            app_route = f"/task_instance/{self.task_instance_id}/log_usage"
-            return_code, response = self.requester.send_request(
-                app_route=app_route,
-                message=msg,
-                request_type="post",
-                logger=logger,
+        self._status = response["status"]
+        if self.status != error_state:
+            raise TransitionError(
+                f"TaskInstance {self.task_instance_id} failed because it could not transition "
+                f"to {error_state} status. Current status is {self.status}."
             )
-            if http_request_ok(return_code) is False:
-                raise InvalidResponse(
-                    f"Unexpected status code {return_code} from POST "
-                    f"request through route {app_route}. Expected "
-                    f"code 200. Response content: {response}"
-                )
-        except NotImplementedError:
-            logger.warning(
-                f"Usage stats not available for "
-                f"{self.cluster_worker_node.__class__.__name__} executors"
-            )
-        except Exception as e:
-            # subprocess.CalledProcessError is raised if qstat fails.
-            # Not a critical error, keep running and log an error.
-            logger.error(f"Usage stats not available due to exception {e}")
-            logger.error(f"Traceback {traceback.format_exc()}")
 
     def log_running(self) -> None:
         """Tell the JobStateManager that this task_instance is running.
@@ -255,9 +250,9 @@ class WorkerNodeTaskInstance:
         self.last_heartbeat_time = time()
 
         if self.status != TaskInstanceStatus.RUNNING:
-            raise RuntimeError(
+            raise TransitionError(
                 f"TaskInstance {self.task_instance_id} failed because it could not transition "
-                f" to running state. Current status is {self.status}."
+                f"to {TaskInstanceStatus.RUNNING} status. Current status is {self.status}."
             )
 
     def log_report_by(self, next_report_increment: Union[int, float]) -> None:
@@ -297,6 +292,7 @@ class WorkerNodeTaskInstance:
         self.log_running()
 
         try:
+            ret_code = None
             proc = subprocess.Popen(
                 self.command,
                 env=os.environ.copy(),
@@ -316,6 +312,9 @@ class WorkerNodeTaskInstance:
             keep_monitoring = True
             while keep_monitoring:
 
+                # check for a return code from the subprocess
+                ret_code = proc.poll()
+
                 if (time() - self.last_heartbeat_time) >= self.heartbeat_interval:
                     # this call returns the current db status and logs a heartbeat
                     self.log_report_by(
@@ -323,13 +322,12 @@ class WorkerNodeTaskInstance:
                     )
                     is_running = self.status == TaskInstanceStatus.RUNNING
 
-                ret_code = proc.poll()
-
                 # command is still running and task instance hasn't been killed
                 if ret_code is None and is_running:
                     # pull stderr off queue and clip at 10k to avoid mysql has gone away errors
                     # when posting long messages and keep memory low
-                    stderr += err_q.get_nowait()
+                    while not err_q.empty():
+                        stderr += err_q.get()
                     if len(stderr) >= 10000:
                         stderr = stderr[-10000:]
 
@@ -347,14 +345,8 @@ class WorkerNodeTaskInstance:
                     # interrupt command
                     proc.send_signal(signal.SIGINT)
 
-                    # if it doesn't die of natural causes use sigkill
-                    try:
-                        proc.wait(timeout=10)
-                    except subprocess.TimeoutExpired:
-                        proc.kill()
-                        proc.wait()
-
-                    ret_code = proc.returncode
+                    # if it doesn't die of natural causes raise TimeoutExpired
+                    proc.wait(timeout=self.command_interrupt_timeout)
 
                     # collect stderr and log it
                     msg += "Collected stderr after termination: "
@@ -367,7 +359,7 @@ class WorkerNodeTaskInstance:
                     logger.info(msg)
 
                     # log error with db
-                    self.log_error(error_message=msg, exit_status=ret_code)
+                    self.log_error(error_message=msg, exit_status=proc.returncode)
 
                     # break out of loop
                     keep_monitoring = False
@@ -385,24 +377,32 @@ class WorkerNodeTaskInstance:
                 else:
                     while not err_q.empty():
                         stderr += err_q.get()
-                        if len(stderr) >= 10000:
-                            stderr = stderr[-10000:]
+                    if len(stderr) >= 10000:
+                        stderr = stderr[-10000:]
                     logger.info(f"Command: {self.command}\n Failed with stderr:\n {stderr}")
-                    ret_code = proc.returncode
 
                     if is_running:
-                        self.log_error(error_message=str(stderr), exit_status=ret_code)
+                        self.log_error(error_message=str(stderr), exit_status=proc.returncode)\
 
-        except Exception as exc:
-            stderr = "{}: {}\n{}".format(
-                type(exc).__name__, exc, traceback.format_exc()
-            )
-            logger.error(stderr)
-            sys.exit(ReturnCodes.WORKER_NODE_CLI_FAILURE)
+        except Exception as e:
+            # if the process is still alive, kill it
+            if proc.poll() is None:
+                proc.kill()
+                try:
+                    _, stderr = proc.communicate(timeout=self.command_interrupt_timeout)
+                except subprocess.TimeoutExpired:
+                    pass
+
+                logger.info(
+                    f"Command: {self.command}\n was aborted due to an unexpected error {e}."
+                    f"Got stderr from subprocess:\n {stderr}"
+                )
+
+            # re-raise the original exception
+            raise e
 
         finally:
-            # post stats usage.
-            self.log_task_stats()
+            self._command_return_code = proc.returncode
 
 
 def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:

@@ -111,7 +111,7 @@ class DistributorTaskInstance:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-        kwargs = SerializeTaskInstance.kwargs_from_wire(response["task_instance"])
+        kwargs = SerializeTaskInstance.kwargs_from_wire_distributor(response["task_instance"])
         self.task_id = kwargs["task_id"]
         self.array_id = kwargs["array_id"]
         self.workflow_id = kwargs["workflow_id"]
