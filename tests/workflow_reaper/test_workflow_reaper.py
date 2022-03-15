@@ -61,12 +61,9 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     wf1.bind()
     wfr1 = wf1._create_workflow_run()
 
-    seq_distributor = SequentialDistributor()
     distributor1 = DistributorService(
-        wf1.workflow_id,
-        wfr1.workflow_run_id,
-        seq_distributor,
-        requester=requester_no_retry,
+        SequentialDistributor(),
+        requester=requester_no_retry
     )
     distributor1.heartbeat()
 
@@ -75,7 +72,7 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     wf2 = base_tool.create_workflow(name="reaper_error_test", workflow_args="error_v_1")
     wf2.add_tasks([task2])
     wf2.bind()
-    wfr2 = WorkflowRun(workflow_id=wf2.workflow_id, requester=wf2.requester)
+    wfr2 = WorkflowRun(workflow=wf2, requester=wf2.requester)
     wfr2._link_to_workflow(0)
     wfr2._update_status(WorkflowRunStatus.BOUND)
     wfr2._update_status(WorkflowRunStatus.INSTANTIATED)
@@ -105,7 +102,7 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     workflow1_status = get_workflow_status(db_cfg, wf1.workflow_id)
     workflow2_status = get_workflow_status(db_cfg, wf2.workflow_id)
 
-    assert workflow1_status == "R"
+    assert workflow1_status == "Q"
     assert workflow2_status == "F"
 
     # Check that the  workflow run was also moved to the E state
@@ -134,10 +131,8 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
     wfr1 = workflow1._create_workflow_run()
     seq_distributor = SequentialDistributor()
     distributor1 = DistributorService(
-        workflow1.workflow_id,
-        wfr1.workflow_run_id,
-        seq_distributor,
-        requester=requester_no_retry,
+        SequentialDistributor(),
+        requester=requester_no_retry
     )
     distributor1.heartbeat()
     wfr1._update_status("R")
@@ -150,7 +145,7 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
 
     workflow2.add_tasks([task2])
     workflow2.bind()
-    wfr2 = WorkflowRun(workflow_id=workflow2.workflow_id, requester=workflow2.requester)
+    wfr2 = WorkflowRun(workflow=workflow2, requester=workflow2.requester)
     wfr2._link_to_workflow(0)
     wfr2._update_status(WorkflowRunStatus.BOUND)
     wfr2._update_status(WorkflowRunStatus.INSTANTIATED)
@@ -198,14 +193,14 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
     wfr1_status = get_workflow_run_status(db_cfg, wfr1.workflow_run_id)
     wfr2_status = get_workflow_run_status(db_cfg, wfr2.workflow_run_id)
     wfr3_status = get_workflow_run_status(db_cfg, wfr3.workflow_run_id)
-    assert wfr1_status == "R"
+    assert wfr1_status == "Q"
     assert wfr2_status == "T"
     assert wfr3_status == "T"
 
     workflow1_status = get_workflow_status(db_cfg, workflow1.workflow_id)
     workflow2_status = get_workflow_status(db_cfg, workflow2.workflow_id)
     workflow3_status = get_workflow_status(db_cfg, workflow3.workflow_id)
-    assert workflow1_status == "R"
+    assert workflow1_status == "Q"
     assert workflow2_status == "H"
     assert workflow3_status == "H"
 
