@@ -7,16 +7,15 @@ from flask import jsonify, request
 from sqlalchemy.sql import text
 from werkzeug.local import LocalProxy
 
+from jobmon.exceptions import InvalidStateTransition
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
-from jobmon.server.web.models.exceptions import InvalidStateTransition
-from jobmon.server.web.models.task import Task
-from jobmon.server.web.models.task_instance import TaskInstance, TaskInstanceStatus
+from jobmon.server.web.models.task_instance import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.routes import finite_state_machine
-from jobmon.server.web.server_side_exception import InvalidUsage, ServerError
+from jobmon.server.web.server_side_exception import InvalidUsage
 
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
