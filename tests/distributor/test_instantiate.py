@@ -1,5 +1,6 @@
-import pytest
+from typing import Dict
 
+import pytest
 from sqlalchemy.sql import text
 
 from jobmon.constants import TaskInstanceStatus
@@ -10,7 +11,7 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
-    from jobmon.server.web.models.task import Task
+    from jobmon.server.web.models.task_instance import TaskInstance
 
     # create the workflow and bind to database
     t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
@@ -47,7 +48,7 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
         WHERE task_id in :task_ids
         ORDER BY id"""
         res = (
-            DB.session.query(Task)
+            DB.session.query(TaskInstance)
             .from_statement(text(sql))
             .params(task_ids=[t1.task_id, t2.task_id])
             .all()
@@ -77,7 +78,7 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
         WHERE task_id in :task_ids
         ORDER BY id"""
         res = (
-            DB.session.query(Task)
+            DB.session.query(TaskInstance)
             .from_statement(text(sql))
             .params(task_ids=[t1.task_id, t2.task_id])
             .all()
@@ -94,7 +95,7 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
-    from jobmon.server.web.models.task import Task
+    from jobmon.server.web.models.task_instance import TaskInstance
 
     # create the workflow and bind to database
     tool.set_default_compute_resources_from_dict(
@@ -134,7 +135,7 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
         WHERE task_id in :task_ids
         ORDER BY id"""
         res = (
-            DB.session.query(Task)
+            DB.session.query(TaskInstance)
             .from_statement(text(sql))
             .params(task_ids=[t1.task_id, t2.task_id])
             .all()
@@ -163,7 +164,7 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
         WHERE task_id in :task_ids
         ORDER BY id"""
         res = (
-            DB.session.query(Task)
+            DB.session.query(TaskInstance)
             .from_statement(text(sql))
             .params(task_ids=[t1.task_id, t2.task_id])
             .all()
@@ -231,12 +232,12 @@ def test_array_submit_raises_error(db_cfg, tool):
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
-    from jobmon.server.web.models.task import Task
+    from jobmon.server.web.models.task_instance import TaskInstance
 
     class ErrorDistributor(MultiprocessDistributor):
         def submit_array_to_batch_distributor(
             self, command: str, name: str, requested_resources, array_length: int
-        ) -> str:
+        ) -> Dict[int, str]:
             raise ValueError("No distributor_id")
 
     # create the workflow and bind to database
@@ -278,7 +279,7 @@ def test_array_submit_raises_error(db_cfg, tool):
         WHERE task_id in :task_ids
         ORDER BY id"""
         res = (
-            DB.session.query(Task)
+            DB.session.query(TaskInstance)
             .from_statement(text(sql))
             .params(task_ids=[t1.task_id, t2.task_id])
             .all()
