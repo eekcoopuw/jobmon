@@ -48,10 +48,8 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     give amount of time. The reaper will then transition the workflow to F
     state, it will transition the workflow_run to E state.
     """
-    from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.workflow_run import WorkflowRun
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
-    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
     # Create a workflow with one task set the workflow run status to R. log a heartbeat so it
     # doesn't get reaped
@@ -59,22 +57,14 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     wf1 = base_tool.create_workflow()
     wf1.add_tasks([task1])
     wf1.bind()
-    # wfr1 = WorkflowRun(workflow=wf1, requester=wf1.requester)
-    # wfr1._link_to_workflow(0)
-    # wfr1._update_status(WorkflowRunStatus.BOUND)
-    # wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
-    # wfr1._update_status(WorkflowRunStatus.LAUNCHED)
-    # wfr1._update_status(WorkflowRunStatus.RUNNING)
-    # wfr1._log_heartbeat(90)
+    wfr1 = WorkflowRun(workflow=wf1, requester=wf1.requester)
+    wfr1._link_to_workflow(0)
+    wfr1._log_heartbeat(300)
+    wfr1._update_status(WorkflowRunStatus.BOUND)
+    wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
+    wfr1._update_status(WorkflowRunStatus.LAUNCHED)
+    wfr1._update_status(WorkflowRunStatus.RUNNING)
 
-    wfr1 = wf1._create_workflow_run()
-
-    distributor1 = DistributorService(
-        SequentialDistributor(),
-        requester=requester_no_retry
-    )
-    breakpoint()
-    # distributor1.heartbeat()
 
     # Create a second workflow with one task. Don't log a heartbeat so that it can die
     task2 = sleepy_task_template.create_task(sleep=11)
@@ -111,12 +101,12 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     workflow1_status = get_workflow_status(db_cfg, wf1.workflow_id)
     workflow2_status = get_workflow_status(db_cfg, wf2.workflow_id)
 
-    assert workflow1_status == "R"
-    assert workflow2_status == "F"
+    assert workflow1_status == WorkflowStatus.RUNNING
+    assert workflow2_status == WorkflowStatus.FAILED
 
     # Check that the  workflow run was also moved to the E state
     wfr_status = get_workflow_run_status(db_cfg, wfr2.workflow_run_id)
-    assert wfr_status == "E"
+    assert wfr_status == WorkflowRunStatus.ERROR
 
 
 def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
@@ -125,26 +115,22 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
     H (hot resume) state. The reaper will then transition the workflow to S
     state, it will not transition the workflow_run.
     """
-    from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.workflow_run import WorkflowRun
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
-    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
     # Create first WorkflowRun and leave it in running state. log a heartbeat so it doesn't
     # get reaped
     task1 = sleepy_task_template.create_task(sleep=10)
     workflow1 = base_tool.create_workflow()
-
     workflow1.add_tasks([task1])
     workflow1.bind()
-    wfr1 = workflow1._create_workflow_run()
-    seq_distributor = SequentialDistributor()
-    distributor1 = DistributorService(
-        SequentialDistributor(),
-        requester=requester_no_retry
-    )
-    distributor1.heartbeat()
-    wfr1._update_status("R")
+    wfr1 = WorkflowRun(workflow=workflow1, requester=workflow1.requester)
+    wfr1._link_to_workflow(0)
+    wfr1._log_heartbeat(300)
+    wfr1._update_status(WorkflowRunStatus.BOUND)
+    wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
+    wfr1._update_status(WorkflowRunStatus.LAUNCHED)
+    wfr1._update_status(WorkflowRunStatus.RUNNING)
 
     # Create second WorkflowRun and transition to C status
     task2 = sleepy_task_template.create_task(sleep=11)
@@ -170,7 +156,7 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
 
     workflow3.add_tasks([task3])
     workflow3.bind()
-    wfr3 = WorkflowRun(workflow_id=workflow3.workflow_id, requester=workflow3.requester)
+    wfr3 = WorkflowRun(workflow=workflow3, requester=workflow3.requester)
     wfr3._link_to_workflow(0)
     wfr3._update_status(WorkflowRunStatus.BOUND)
     wfr3._update_status(WorkflowRunStatus.INSTANTIATED)
@@ -202,16 +188,16 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
     wfr1_status = get_workflow_run_status(db_cfg, wfr1.workflow_run_id)
     wfr2_status = get_workflow_run_status(db_cfg, wfr2.workflow_run_id)
     wfr3_status = get_workflow_run_status(db_cfg, wfr3.workflow_run_id)
-    assert wfr1_status == "Q"
-    assert wfr2_status == "T"
-    assert wfr3_status == "T"
+    assert wfr1_status == WorkflowRunStatus.RUNNING
+    assert wfr2_status == WorkflowRunStatus.TERMINATED
+    assert wfr3_status == WorkflowRunStatus.TERMINATED
 
     workflow1_status = get_workflow_status(db_cfg, workflow1.workflow_id)
     workflow2_status = get_workflow_status(db_cfg, workflow2.workflow_id)
     workflow3_status = get_workflow_status(db_cfg, workflow3.workflow_id)
-    assert workflow1_status == "Q"
-    assert workflow2_status == "H"
-    assert workflow3_status == "H"
+    assert workflow1_status == WorkflowStatus.RUNNING
+    assert workflow2_status == WorkflowStatus.HALTED
+    assert workflow3_status == WorkflowStatus.HALTED
 
 
 def test_aborted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
