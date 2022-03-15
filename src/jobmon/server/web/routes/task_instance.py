@@ -777,6 +777,115 @@ def record_array_batch_num(batch_num: int) -> Any:
     return resp
 
 
+@finite_state_machine.route(
+    "/task_instance/<task_instance_id>/set_subtask_id", methods=["POST"]
+)
+def record_subtask_id(task_instance_id: int) -> Any:
+    """Update the actual distributor id of the task/subtask in array.
+
+    Keep this info in DB so we don't need to calculate it from
+    array_id, array_batch_num, and array_step_id every time.
+    """
+    data = request.get_json()
+    subtask_id = data["subtask_id"]
+    sql = f"""
+        UPDATE task_instance
+        SET subtask_id={subtask_id}
+        WHERE id={task_instance_id}"""
+    DB.session.execute(sql)
+    DB.session.commit()
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route("/task_instance/transition/<new_status>", methods=["POST"])
+def transition_task_instances(new_status: str) -> Any:
+    """Attempt to transition a task instance to the new status"""
+    data = request.get_json()
+    task_instance_ids = data["task_instance_ids"]
+    array_id = data.get("array_id", None)
+    distributor_id = data["distributor_id"]
+
+    if array_id is not None:
+        bind_to_logger(array_id=array_id)
+
+    task_instance_id_str = ",".join(f"{x}" for x in task_instance_ids)
+
+    query = f"""
+        SELECT
+            task_instance.*
+        FROM
+            task_instance
+        WHERE
+            task_instance.id IN ({task_instance_id_str})
+    """
+    task_instances = DB.session.query(TaskInstance).from_statement(text(query)).all()
+
+    # Attempt a transition for each task instance
+    erroneous_transitions = []
+    for ti in task_instances:
+        # Attach the distributor ID
+        # this will cause problem for non array tasks
+        ti.distributor_id = distributor_id
+        response = _update_task_instance_state(ti, new_status)
+        if len(response) > 0:
+            # Task instances that fail to transition log a message, but are returned with
+            # their existing state (no exceptions raised).
+            erroneous_transitions.append(ti)
+
+    DB.session.flush()
+    DB.session.commit()
+    resp = jsonify(
+        erroneous_transitions={ti.id: ti.status for ti in erroneous_transitions}
+    )
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route(
+    "/workflow_run/<workflow_run_id>/set_status_for_triaging", methods=["POST"]
+)
+def set_status_for_triaging(workflow_run_id: int) -> Any:
+    """2 triaging related status sets
+
+    Query all task instances that are submitted to distributor or running which haven't
+    reported as alive in the allocated time, and set them for Triaging(from Running)
+    and Kill_self(from Launched).
+    """
+    bind_to_logger(workflow_run_id=workflow_run_id)
+    logger.info(f"Set to triaging those overdue tis for wfr {workflow_run_id}")
+    params = {
+        "running_status": TaskInstanceStatus.RUNNING,
+        "triaging_status": TaskInstanceStatus.TRIAGING,
+        "kill_self_status": TaskInstanceStatus.KILL_SELF,
+        "workflow_run_id": workflow_run_id,
+        "active_tasks":
+        [
+            TaskInstanceStatus.LAUNCHED,
+            TaskInstanceStatus.RUNNING,
+        ]
+    }
+    sql = """
+        UPDATE task_instance
+        SET status =
+            CASE
+                WHEN status = :running_status THEN :triaging_status
+                ELSE :kill_self_status
+            END
+        WHERE
+            workflow_run_id = :workflow_run_id
+            AND status in :active_tasks
+            AND report_by_date <= CURRENT_TIMESTAMP()
+    """
+    DB.session.execute(sql, params)
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 # ############################ HELPER FUNCTIONS ###############################
 def _update_task_instance_state(task_instance: TaskInstance, status_id: str) -> Any:
     """Advance the states of task_instance and it's associated Task.

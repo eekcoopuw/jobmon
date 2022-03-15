@@ -113,6 +113,8 @@ class TaskInstance(DB.Model):
         # allow task instance to transit to F to immediately fail the task if there is an env
         # mismatch
         (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.ERROR_FATAL),
+        # task instance triaging after transitioning from running
+        (TaskInstanceStatus.RUNNING, TaskInstanceStatus.TRIAGING),
         # task instance hits an application error (happy path)
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.ERROR),
         # task instance stops logging heartbeats. reconciler can't find an exit
@@ -127,6 +129,14 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.KILL_SELF),
         # task instance finishes normally (happy path)
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.DONE),
+        # task instance launched after transitioning from triaging
+        (TaskInstanceStatus.TRIAGING, TaskInstanceStatus.RUNNING),
+        # task instance resource_error after transitioning from triaging
+        (TaskInstanceStatus.TRIAGING, TaskInstanceStatus.RESOURCE_ERROR),
+        # task instance unknown_error after transitioning from triaging
+        (TaskInstanceStatus.TRIAGING, TaskInstanceStatus.UNKNOWN_ERROR),
+        # task instance error_fatal after transitioning from triaging
+        (TaskInstanceStatus.TRIAGING, TaskInstanceStatus.ERROR_FATAL),
     ]
 
     untimely_transitions = [
