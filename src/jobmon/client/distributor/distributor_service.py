@@ -211,9 +211,6 @@ class DistributorService:
         else:
             # if successful log a transition to launched
             for task_instance in array_batch.task_instances:
-
-                breakpoint()
-
                 distributor_id = distributor_id_map[task_instance.array_step_id]
                 distributor_command = DistributorCommand(
                     task_instance.transition_to_launched, distributor_id,
