@@ -375,7 +375,6 @@ class WorkerNodeTaskInstance:
 
                 # got a non OK return code
                 else:
-                    breakpoint()
                     while not err_q.empty():
                         stderr += err_q.get()
                     if len(stderr) >= 10000:
