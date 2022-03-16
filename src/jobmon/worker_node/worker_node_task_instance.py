@@ -281,7 +281,7 @@ class WorkerNodeTaskInstance:
         self._status = response["status"]
         self.last_heartbeat_time = time()
 
-    def run(self, temp_dir: Optional[str] = None) -> None:
+    def run(self) -> None:
         """This script executes on the target node and wraps the target application.
 
         Could be in any language, anything that can execute on linux. Similar to a stub or a

@@ -203,8 +203,10 @@ class Tool:
             node_args,
             task_args,
             op_args,
-            default_cluster_name,
-            default_compute_resources,
+        )
+        tt.default_cluster_name = default_cluster_name
+        tt.set_default_compute_resources_from_dict(
+            default_cluster_name, default_compute_resources
         )
         return tt
 
