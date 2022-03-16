@@ -42,14 +42,13 @@ def test_blocking_update_timeout(tool, task_template):
 
     # swarm calls
     swarm = SwarmWorkflowRun(
-        workflow_id=workflow.workflow_id,
         workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
         requester=workflow.requester,
     )
+    swarm.from_workflow(workflow)
 
     with pytest.raises(RuntimeError) as error:
-        workflow._run_swarm(swarm, seconds_until_timeout=2)
+        swarm.run(lambda: True, seconds_until_timeout=2)
 
     expected_msg = (
         "Not all tasks completed within the given workflow "
@@ -66,6 +65,7 @@ def test_sync_statuses(client_env, tool, task_template):
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+    from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 
     # client calls
     task = task_template.create_task(arg="fizzbuzz", name="bar", max_attempts=1)
@@ -76,37 +76,32 @@ def test_sync_statuses(client_env, tool, task_template):
 
     # move workflow to launched state
     distributor_service = DistributorService(
-        workflow.workflow_id,
-        wfr.workflow_run_id,
         SequentialDistributor(),
-        requester=workflow.requester,
+        workflow.requester,
     )
+    distributor_service.set_workflow_run(wfr.workflow_run_id)
+    wfr._update_status(WorkflowRunStatus.LAUNCHED)
 
     # swarm calls
     swarm = SwarmWorkflowRun(
-        workflow_id=workflow.workflow_id,
         workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
         requester=workflow.requester,
     )
-    swarm.update_status(WorkflowRunStatus.RUNNING)
-    swarm.compute_initial_dag_state()
-    time.sleep(1)  # make sure some time passes
-    list(swarm.queue_tasks())
+    swarm.from_workflow(workflow)
 
-    # test initial dag state updates last_sync
+    # test from_workflow updates last_sync
     now = swarm.last_sync
     assert now is not None
 
     # distribute the task
-    distributor_service._get_tasks_queued_for_instantiation()
-    distributor_service.distribute()
+    swarm.process_commands()
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+    time.sleep(2)
 
-    swarm.block_until_newly_ready_or_all_done()
-
-    new_now = swarm.last_sync
-    assert new_now > now
-    assert len(swarm.all_error) > 0
+    swarm.synchronize_state(full_sync=True)
+    assert len(swarm.failed_tasks) == 1
+    assert len(swarm.done_tasks) == 0
 
 
 def test_wedged_dag(db_cfg, tool, task_template):
@@ -168,7 +163,6 @@ def test_wedged_dag(db_cfg, tool, task_template):
 
                 with self.app.app_context():
                     self.DB.session.execute(task_inst_query)
-                    self.DB.session.commit()
                     self.DB.session.execute(task_query)
                     self.DB.session.commit()
 
@@ -196,19 +190,16 @@ def test_wedged_dag(db_cfg, tool, task_template):
     distributor = WedgedDistributor()
     distributor.wedged_task_id = t2.task_id
     distributor_service = DistributorService(
-        workflow.workflow_id,
-        wfr.workflow_run_id,
-        distributor,
+        cluster=distributor,
         requester=workflow.requester,
     )
 
     # queue first 2 tasks
     swarm = SwarmWorkflowRun(
-        workflow_id=workflow.workflow_id,
         workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
         requester=workflow.requester,
     )
+    swarm.from_workflow(workflow)
     swarm.update_status(WorkflowRunStatus.RUNNING)
     swarm.compute_initial_dag_state()
     list(swarm.queue_tasks())
@@ -248,7 +239,7 @@ def test_fail_fast(tool, task_template):
     # died and react accordingly.
     workflow = tool.create_workflow(name="test_fail_fast")
     t1 = task_template.create_task(arg="sleep 1")
-    t2 = task_template.create_task(arg="erroring_out 1", upstream_tasks=[t1])
+    t2 = task_template.create_task(arg="erroring_out 1", upstream_tasks=[t1], max_attempts=1)
     t3 = task_template.create_task(arg="sleep 20", upstream_tasks=[t1])
     t4 = task_template.create_task(arg="sleep 3", upstream_tasks=[t3])
     t5 = task_template.create_task(arg="sleep 4", upstream_tasks=[t4])
@@ -256,8 +247,7 @@ def test_fail_fast(tool, task_template):
     workflow.add_tasks([t1, t2, t3, t4, t5])
     workflow.bind()
 
-    with pytest.raises(RuntimeError):
-        workflow.run(fail_fast=True)
+    workflow.run(fail_fast=True)
 
     assert len(workflow.task_errors) == 1
     num_done = len(
@@ -274,6 +264,7 @@ def test_fail_fast(tool, task_template):
 def test_propagate_result(tool, task_template):
     """set up workflow with 3 tasks on one layer and 3 tasks as dependant"""
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.client.workflow import DistributorContext
 
     workflow = tool.create_workflow(name="test_propagate_result")
 
@@ -288,32 +279,28 @@ def test_propagate_result(tool, task_template):
     wfr = workflow._create_workflow_run()
 
     # run the distributor
-    workflow._distributor_proc = workflow._start_distributor_service(
-        wfr.workflow_run_id
-    )
-
-    # swarm calls
-    swarm = SwarmWorkflowRun(
-        workflow_id=workflow.workflow_id,
-        workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
-        requester=workflow.requester,
-    )
-    workflow._run_swarm(swarm)
-
-    # stop the subprocess
-    workflow._distributor_stop_event.set()
+    with DistributorContext(
+        'sequential', wfr.workflow_run_id, 180
+    ) as distributor:
+        # swarm calls
+        swarm = SwarmWorkflowRun(
+            workflow_run_id=wfr.workflow_run_id,
+            requester=workflow.requester,
+        )
+        swarm.from_workflow(workflow)
+        swarm.run(distributor.alive, 100)
 
     assert swarm.status == WorkflowRunStatus.DONE
-    assert len(swarm.all_done) == 6
-    assert swarm.swarm_tasks[t4.task_id].num_upstreams_done >= 3
-    assert swarm.swarm_tasks[t5.task_id].num_upstreams_done >= 3
-    assert swarm.swarm_tasks[t6.task_id].num_upstreams_done >= 3
+    assert len(swarm.done_tasks) == 6
+    assert swarm.tasks[t4.task_id].num_upstreams_done >= 3
+    assert swarm.tasks[t5.task_id].num_upstreams_done >= 3
+    assert swarm.tasks[t6.task_id].num_upstreams_done >= 3
 
 
 def test_callable_returns_valid_object(tool, task_template):
     """Test when the provided callable returns the correct parameters"""
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.client.workflow import DistributorContext
 
     def resource_file_does_exist(*args, **kwargs):
         # file contains dict with
@@ -332,26 +319,23 @@ def test_callable_returns_valid_object(tool, task_template):
     )
     workflow.add_task(task)
     workflow.bind()
-    workflow._distributor_proc = MockDistributorProc()
     wfr = workflow._create_workflow_run()
 
-    # Move workflow and wfr through Instantiating -> Launched
-    wfr._update_status(WorkflowRunStatus.INSTANTIATED)
-    wfr._update_status(WorkflowRunStatus.LAUNCHED)
-
-    # swarm calls
     swarm = SwarmWorkflowRun(
-        workflow_id=workflow.workflow_id,
         workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
         requester=workflow.requester,
     )
+    swarm.from_workflow(workflow)
 
-    try:
-        workflow._run_swarm(swarm, seconds_until_timeout=1)
-    except RuntimeError:
-        pass
-    assert swarm.swarm_tasks[task.task_id].task_resources.id is not None
+    # swarm calls
+    with DistributorContext(
+        'sequential', wfr.workflow_run_id, 180
+    ) as distributor:
+        try:
+            swarm.run(distributor.alive, seconds_until_timeout=1)
+        except RuntimeError:
+            pass
+    assert swarm.tasks[task.task_id].task_resources.id is not None
 
 
 def test_callable_returns_wrong_object(tool, task_template):

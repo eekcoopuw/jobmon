@@ -375,6 +375,7 @@ class WorkerNodeTaskInstance:
 
                 # got a non OK return code
                 else:
+                    breakpoint()
                     while not err_q.empty():
                         stderr += err_q.get()
                     if len(stderr) >= 10000:
@@ -383,6 +384,9 @@ class WorkerNodeTaskInstance:
 
                     if is_running:
                         self.log_error(error_message=str(stderr), exit_status=proc.returncode)\
+
+                    # break out of loop
+                    keep_monitoring = False
 
         except Exception as e:
             # if the process is still alive, kill it
