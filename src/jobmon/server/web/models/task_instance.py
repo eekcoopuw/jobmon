@@ -137,6 +137,8 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.TRIAGING, TaskInstanceStatus.UNKNOWN_ERROR),
         # task instance error_fatal after transitioning from triaging
         (TaskInstanceStatus.TRIAGING, TaskInstanceStatus.ERROR_FATAL),
+        # task instance error after transitioning from kill_self
+        (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.ERROR),
     ]
 
     untimely_transitions = [
@@ -174,9 +176,6 @@ class TaskInstance(DB.Model):
         # task is reset by workflow resume and worker finishes gracefully but
         # resume won the race
         (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.DONE),
-        # task is reset by workflow resume and worker finishes with application
-        # error but resume won the race
-        (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.ERROR),
         # task is reset by workflow resume and reconciler or worker node
         # discovers resource error, but resume won the race
         (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.RESOURCE_ERROR),

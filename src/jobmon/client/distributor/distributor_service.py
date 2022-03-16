@@ -63,6 +63,7 @@ class DistributorService:
             TaskInstanceStatus.LAUNCHED: set(),
             TaskInstanceStatus.RUNNING: set(),
             TaskInstanceStatus.TRIAGING: set(),
+            TaskInstanceStatus.KILL_SELF: set(),
         }
         # order through which we processes work
         self._status_processing_order = [
@@ -70,12 +71,14 @@ class DistributorService:
             TaskInstanceStatus.INSTANTIATED,
             TaskInstanceStatus.LAUNCHED,
             TaskInstanceStatus.TRIAGING,
+            TaskInstanceStatus.KILL_SELF,
         ]
         self._command_generator_map = {
             TaskInstanceStatus.QUEUED: self._check_queued_for_work,
             TaskInstanceStatus.INSTANTIATED: self._check_instantiated_for_work,
             TaskInstanceStatus.LAUNCHED: self._check_launched_for_work,
             TaskInstanceStatus.TRIAGING: self._check_triaging_for_work,
+            TaskInstanceStatus.KILL_SELF: self._check_kill_self_for_work,
         }
 
         # syncronization timings
@@ -243,6 +246,10 @@ class DistributorService:
     def triage_error(self, task_instance: DistributorTaskInstance) -> None:
         r_value, r_msg = self.cluster.get_remote_exit_info(task_instance.distributor_id)
         task_instance.transition_to_error(r_msg, r_value)
+
+    def kill_self(self, task_instance: DistributorTaskInstance) -> None:
+        self.cluster.terminate_task_instances([task_instance.distributor_id])
+        task_instance.transition_to_error("Task instance was self-killed.", TaskInstanceStatus.ERROR)
 
     def log_task_instance_report_by_date(self) -> None:
         task_instances_launched = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
@@ -422,6 +429,18 @@ class DistributorService:
         ]
         for task_instance in triaging_task_instances:
             distributor_command = DistributorCommand(self.triage_error, task_instance)
+            self.distributor_commands.append(distributor_command)
+
+    def _check_kill_self_for_work(self) -> None:
+        """For TaskInstances with KILL_SELF status, terminate it and
+        transition it to error accordingly"""
+
+        kill_self_task_instances = self._task_instance_status_map[
+            TaskInstanceStatus.KILL_SELF
+        ]
+
+        for task_instance in kill_self_task_instances:
+            distributor_command = DistributorCommand(self.kill_self, task_instance)
             self.distributor_commands.append(distributor_command)
 
     def _get_array(self, array_id: int) -> DistributorArray:
