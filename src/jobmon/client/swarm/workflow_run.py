@@ -131,12 +131,11 @@ class WorkflowRun:
         # construct SwarmTasks from Client Tasks
         for task in workflow.tasks.values():
 
-            if task.fallback_queues is not None:
-                cluster = workflow.get_cluster_by_name(task.cluster_name)
-                fallback_queues = []
-                for queue in task.fallback_queues:
-                    cluster_queue = cluster.get_queue(queue)
-                    fallback_queues.append(cluster_queue)
+            cluster = workflow.get_cluster_by_name(task.cluster_name)
+            fallback_queues = []
+            for queue in task.fallback_queues:
+                cluster_queue = cluster.get_queue(queue)
+                fallback_queues.append(cluster_queue)
 
             # create swarmtasks
             swarm_task = SwarmTask(
@@ -173,7 +172,8 @@ class WorkflowRun:
         self.last_sync = self._get_current_time()
         self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
 
-    def run(self, distributor_alive_callable: Callable[..., bool]):
+    def run(self, distributor_alive_callable: Callable[..., bool],
+            seconds_until_timeout: int = 36000):
         """Take a concrete DAG and queue al the Tasks that are not DONE.
 
         Uses forward chaining from initial fringe, hence out-of-date is not
@@ -206,6 +206,13 @@ class WorkflowRun:
             time_since_last_full_sync = 0.
 
             while self.status == WorkflowRunStatus.RUNNING:
+                # Expire the swarm after the requested number of seconds
+                if time_since_last_full_sync > seconds_until_timeout:
+                    raise RuntimeError(
+                        f"Not all tasks completed within the given workflow timeout length "
+                        f"({seconds_until_timeout} seconds). Submitted tasks will still run, but "
+                        "the workflow will need to be restarted."
+                    )
                 try:
 
                     # check that the distributor is still alive
@@ -338,12 +345,12 @@ class WorkflowRun:
                 for downstream in task.downstream_swarm_tasks:
                     downstream.num_upstreams_done += 1
 
-            elif status == TaskStatus.ERROR_FATAL:
+            elif task.status == TaskStatus.ERROR_FATAL:
                 num_newly_failed += 1
 
             else:
                 logger.debug(
-                    f"Got status update {status} for task_id: {task.task_id}."
+                    f"Got status update {task.status} for task_id: {task.task_id}."
                     "No actions necessary."
                 )
 
@@ -403,7 +410,7 @@ class WorkflowRun:
                 "status": self._status,
                 "next_report_increment": next_report_increment,
             },
-            request_type="put",
+            request_type="post",
             logger=logger,
         )
         if http_request_ok(return_code) is False:

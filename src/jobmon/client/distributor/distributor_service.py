@@ -326,7 +326,12 @@ class DistributorService:
                 # change to new status and move to new set
                 task_instance.status = status
 
-                self._task_instance_status_map[task_instance.status].add(task_instance)
+                try:
+                    self._task_instance_status_map[task_instance.status].add(task_instance)
+                except KeyError:
+                    # If the task instance is in a terminal state, e.g. D, E, etc.,
+                    # expire it from the distributor
+                    continue
 
         # generate new distributor commands from this status
         try:
