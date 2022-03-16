@@ -1,6 +1,6 @@
 import os
 
-from jobmon.requester import Requester
+from jobmon.constants import TaskInstanceStatus
 
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
@@ -41,24 +41,23 @@ def test_limited_error_log(db_cfg, client_env):
     wf.bind()
     wfr = wf._create_workflow_run()
 
+    # create task instances
     swarm = SwarmWorkflowRun(
-        workflow_id=wfr.workflow_id,
         workflow_run_id=wfr.workflow_run_id,
-        tasks=list(wf.tasks.values()),
+        requester=wf.requester,
     )
-    swarm.compute_initial_dag_state()
-    list(swarm.queue_tasks())  # expand the generator
+    swarm.from_workflow(wf)
+    swarm.process_commands()
 
-    requester = Requester(client_env)
-    distributor = DistributorService(
-        wf.workflow_id,
-        wfr.workflow_run_id,
+    distributor_service = DistributorService(
         SequentialDistributor(),
-        requester=requester,
+        requester=wf.requester,
+        raise_on_error=True
     )
+    distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
-    distributor._get_tasks_queued_for_instantiation()
-    distributor.distribute()
     # check db
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -74,4 +73,5 @@ def test_limited_error_log(db_cfg, client_env):
         DB.session.commit()
 
     error = res[0]
+    breakpoint()
     assert error == (("a" * 2 ** 10 + "\n") * (2 ** 8))[-10000:]

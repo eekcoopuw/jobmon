@@ -117,7 +117,6 @@ class SequentialDistributor(ClusterDistributor):
         command: str,
         name: str,
         requested_resources: Dict[str, Any],
-        array_length: int = 0,
     ) -> str:
         """Execute sequentially."""
         # add an executor id to the environment
@@ -129,7 +128,7 @@ class SequentialDistributor(ClusterDistributor):
         try:
             cli = WorkerNodeCLI()
             args = cli.parse_args(command)
-            exit_code: Union[int, ReturnCodes] = cli.run_task(args)
+            exit_code = cli.run_task_instance(args)
         except SystemExit as e:
             if e.code == ReturnCodes.WORKER_NODE_CLI_FAILURE:
                 exit_code = e.code

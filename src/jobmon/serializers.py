@@ -54,7 +54,7 @@ class SerializeTaskInstance:
     """Serialize the data to and from the database for an DistributorTaskInstance."""
 
     @staticmethod
-    def to_wire(
+    def to_wire_distributor(
         task_instance_id: int,
         task_id: int,
         workflow_run_id: int,
@@ -83,7 +83,7 @@ class SerializeTaskInstance:
         )
 
     @staticmethod
-    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+    def kwargs_from_wire_distributor(wire_tuple: tuple) -> dict:
         """Retrieve the DistributorTaskInstance information from the database."""
         task_instance_id = int(wire_tuple[0])
         task_id = int(wire_tuple[1])
@@ -109,6 +109,32 @@ class SerializeTaskInstance:
             "array_id": array_id,
             "array_batch_num": array_batch_num,
             "array_step_id": array_step_id,
+        }
+
+    @staticmethod
+    def to_wire_worker_node(
+        task_instance_id: int,
+        command: str,
+        status: str,
+    ) -> tuple:
+        """Submit the above args for an DistributorTaskInstance object to the database."""
+        return (
+            task_instance_id,
+            command,
+            status,
+        )
+
+    @staticmethod
+    def kwargs_from_wire_worker_node(wire_tuple: tuple) -> dict:
+        """Retrieve the DistributorTaskInstance information from the database."""
+        task_instance_id = int(wire_tuple[0])
+        command = wire_tuple[1]
+        status = wire_tuple[2]
+
+        return {
+            "task_instance_id": task_instance_id,
+            "command": command,
+            "status": status,
         }
 
 
