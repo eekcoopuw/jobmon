@@ -375,7 +375,7 @@ class WorkerNodeTaskInstance:
 
                 # got a non OK return code
                 else:
-                    breakpoint()
+
                     while not err_q.empty():
                         stderr += err_q.get()
                     if len(stderr) >= 10000:
@@ -404,6 +404,8 @@ class WorkerNodeTaskInstance:
 
             # re-raise the original exception
             raise e
+        else:
+            pass
 
         finally:
             self._command_return_code = proc.returncode

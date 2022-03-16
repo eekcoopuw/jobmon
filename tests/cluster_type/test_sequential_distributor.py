@@ -1,4 +1,5 @@
 from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+from jobmon.constants import TaskInstanceStatus
 from jobmon.requester import Requester
 
 
@@ -91,3 +92,16 @@ def test_sequential_array(tool, db_cfg, client_env, array_template):
     # Sequential distributor _exit_info dict should be populated with 3 values
     expected_exit_info = {f"{distributor_id}.{i}": 0 for i in range(1, 4)}
     assert seq_distributor._exit_info == expected_exit_info
+
+
+def test_seq_kill_self_state():
+    """
+    mock the error status
+    """
+
+    expected_words = "job was in kill self state"
+    executor = SequentialDistributor()
+    executor._exit_info = {1: 199}
+    r_value, r_msg = executor.get_remote_exit_info(1)
+    assert r_value == TaskInstanceStatus.UNKNOWN_ERROR
+    assert expected_words in r_msg
