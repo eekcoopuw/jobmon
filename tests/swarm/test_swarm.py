@@ -163,7 +163,6 @@ def test_wedged_dag(db_cfg, tool, task_template):
 
                 with self.app.app_context():
                     self.DB.session.execute(task_inst_query)
-                    self.DB.session.commit()
                     self.DB.session.execute(task_query)
                     self.DB.session.commit()
 
@@ -191,19 +190,16 @@ def test_wedged_dag(db_cfg, tool, task_template):
     distributor = WedgedDistributor()
     distributor.wedged_task_id = t2.task_id
     distributor_service = DistributorService(
-        workflow.workflow_id,
-        wfr.workflow_run_id,
-        distributor,
+        cluster=distributor,
         requester=workflow.requester,
     )
 
     # queue first 2 tasks
     swarm = SwarmWorkflowRun(
-        workflow_id=workflow.workflow_id,
         workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
         requester=workflow.requester,
     )
+    swarm.from_workflow(workflow)
     swarm.update_status(WorkflowRunStatus.RUNNING)
     swarm.compute_initial_dag_state()
     list(swarm.queue_tasks())
@@ -268,6 +264,7 @@ def test_fail_fast(tool, task_template):
 def test_propagate_result(tool, task_template):
     """set up workflow with 3 tasks on one layer and 3 tasks as dependant"""
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.client.workflow import DistributorContext
 
     workflow = tool.create_workflow(name="test_propagate_result")
 
@@ -282,32 +279,28 @@ def test_propagate_result(tool, task_template):
     wfr = workflow._create_workflow_run()
 
     # run the distributor
-    workflow._distributor_proc = workflow._start_distributor_service(
-        wfr.workflow_run_id
-    )
-
-    # swarm calls
-    swarm = SwarmWorkflowRun(
-        workflow_id=workflow.workflow_id,
-        workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
-        requester=workflow.requester,
-    )
-    workflow._run_swarm(swarm)
-
-    # stop the subprocess
-    workflow._distributor_stop_event.set()
+    with DistributorContext(
+        'sequential', wfr.workflow_run_id, 180
+    ) as distributor:
+        # swarm calls
+        swarm = SwarmWorkflowRun(
+            workflow_run_id=wfr.workflow_run_id,
+            requester=workflow.requester,
+        )
+        swarm.from_workflow(workflow)
+        swarm.run(distributor.alive, 100)
 
     assert swarm.status == WorkflowRunStatus.DONE
-    assert len(swarm.all_done) == 6
-    assert swarm.swarm_tasks[t4.task_id].num_upstreams_done >= 3
-    assert swarm.swarm_tasks[t5.task_id].num_upstreams_done >= 3
-    assert swarm.swarm_tasks[t6.task_id].num_upstreams_done >= 3
+    assert len(swarm.done_tasks) == 6
+    assert swarm.tasks[t4.task_id].num_upstreams_done >= 3
+    assert swarm.tasks[t5.task_id].num_upstreams_done >= 3
+    assert swarm.tasks[t6.task_id].num_upstreams_done >= 3
 
 
 def test_callable_returns_valid_object(tool, task_template):
     """Test when the provided callable returns the correct parameters"""
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.client.workflow import DistributorContext
 
     def resource_file_does_exist(*args, **kwargs):
         # file contains dict with
@@ -326,26 +319,23 @@ def test_callable_returns_valid_object(tool, task_template):
     )
     workflow.add_task(task)
     workflow.bind()
-    workflow._distributor_proc = MockDistributorProc()
     wfr = workflow._create_workflow_run()
 
-    # Move workflow and wfr through Instantiating -> Launched
-    wfr._update_status(WorkflowRunStatus.INSTANTIATED)
-    wfr._update_status(WorkflowRunStatus.LAUNCHED)
-
-    # swarm calls
     swarm = SwarmWorkflowRun(
-        workflow_id=workflow.workflow_id,
         workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
         requester=workflow.requester,
     )
+    swarm.from_workflow(workflow)
 
-    try:
-        workflow._run_swarm(swarm, seconds_until_timeout=1)
-    except RuntimeError:
-        pass
-    assert swarm.swarm_tasks[task.task_id].task_resources.id is not None
+    # swarm calls
+    with DistributorContext(
+        'sequential', wfr.workflow_run_id, 180
+    ) as distributor:
+        try:
+            swarm.run(distributor.alive, seconds_until_timeout=1)
+        except RuntimeError:
+            pass
+    assert swarm.tasks[task.task_id].task_resources.id is not None
 
 
 def test_callable_returns_wrong_object(tool, task_template):

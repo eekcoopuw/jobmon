@@ -108,8 +108,7 @@ class DummyDistributor(ClusterDistributor):
         command: str,
         name: str,
         requested_resources: Dict[str, Any],
-        array_length: int = 0,
-    ) -> int:
+    ) -> str:
         """Run a fake execution of the task.
 
         In a real executor, this is where qsub would happen. Here, since it's a dummy executor,
@@ -127,7 +126,7 @@ class DummyDistributor(ClusterDistributor):
         worker_node_task_instance = WorkerNodeTaskInstance(
             task_instance_id=args.task_instance_id,
             expected_jobmon_version=args.expected_jobmon_version,
-            cluster_type_name=args.cluster_type_name,
+            cluster_name=args.cluster_type_name,
         )
 
         # Log running, log done, and exit
@@ -136,7 +135,7 @@ class DummyDistributor(ClusterDistributor):
         )
         worker_node_task_instance.log_done()
 
-        return distributor_id
+        return str(distributor_id)
 
     def submit_array_to_batch_distributor(
         self,
