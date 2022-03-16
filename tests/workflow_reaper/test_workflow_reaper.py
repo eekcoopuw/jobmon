@@ -44,7 +44,8 @@ def sleepy_task_template(db_cfg, client_env, base_tool):
 
 def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
     """Tests that the workflow reaper successfully checks for error state.
-    Suspended state occurs when a workflow run has not logged a heartbeat in a
+
+    Error state occurs when a workflow run has not logged a heartbeat in a
     give amount of time. The reaper will then transition the workflow to F
     state, it will transition the workflow_run to E state.
     """
@@ -110,8 +111,9 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
 
 
 def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
-    """Tests that the workflow reaper successfully checks for suspended state.
-    Suspended state occurs when a workflow run is either in C (cold resume) or
+    """Tests that the workflow reaper successfully checks for halted state.
+
+    Halted state occurs when a workflow run is either in C (cold resume) or
     H (hot resume) state. The reaper will then transition the workflow to S
     state, it will not transition the workflow_run.
     """
