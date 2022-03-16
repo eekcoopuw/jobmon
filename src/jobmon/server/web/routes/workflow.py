@@ -804,7 +804,7 @@ def reset_workflow(workflow_id: int) -> Any:
 
 
 @finite_state_machine.route(
-    "workflow/<workflow_id>/fix_status_inconsitency", methods=["PUT"]
+    "workflow/<workflow_id>/fix_status_inconsistency", methods=["PUT"]
 )
 def fix_wf_inconsistency(workflow_id: int) -> Any:
     """Find wf in F with all tasks in D and fix them."""
@@ -813,7 +813,7 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
     total_wf = int(DB.session.execute(sql).fetchone()["total"])
 
     # move the starting row forward by 3000
-    # if the starting row > max row, restart from 0
+    # if the starting row > max row, restart from 0s
     # this way, we can get to the unfinished the wf later
     # without querying the whole db every time
     increase_step = 3000

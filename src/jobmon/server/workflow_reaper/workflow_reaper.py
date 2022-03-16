@@ -212,7 +212,7 @@ class WorkflowReaper(object):
         logger.info("Find wf in F with all tasks in D and fix them.")
 
         app_route = (
-            f"/workflow/{WorkflowReaper._current_starting_row}/fix_status_inconsitency"
+            f"/workflow/{WorkflowReaper._current_starting_row}/fix_status_inconsistency"
         )
         return_code, result = self._requester.send_request(
             app_route=app_route,
