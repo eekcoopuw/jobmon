@@ -1,11 +1,13 @@
-import time
 from typing import Dict, Union
 
 from unittest import mock
+import pytest
+
 from jobmon.requester import Requester
 from jobmon.constants import TaskInstanceStatus
 
 
+@pytest.mark.skip(reason="unsure we need this")
 def test_launched_processor_on_multiprocess(tool, db_cfg, client_env, task_template):
     """tests that a task can be instantiated and run and log error"""
     from datetime import datetime
@@ -30,8 +32,7 @@ def test_launched_processor_on_multiprocess(tool, db_cfg, client_env, task_templ
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
-    swarm.compute_initial_dag_state()
-    list(swarm.queue_tasks())  # expand the generator
+    swarm.process_commands()
 
     requester = Requester(client_env)
     distributor_service = DistributorService(
