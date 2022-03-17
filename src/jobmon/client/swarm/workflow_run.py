@@ -204,10 +204,10 @@ class WorkflowRun:
             logger.info(f"Executing Workflow Run {self.workflow_run_id}")
             self._update_status(WorkflowRunStatus.RUNNING)
             time_since_last_full_sync = 0.
-
+            total_elapsed_time = 0.
             while self.status == WorkflowRunStatus.RUNNING:
                 # Expire the swarm after the requested number of seconds
-                if time_since_last_full_sync > seconds_until_timeout:
+                if total_elapsed_time > seconds_until_timeout:
                     raise RuntimeError(
                         f"Not all tasks completed within the given workflow timeout length "
                         f"({seconds_until_timeout} seconds). Submitted tasks will still run, but "
@@ -240,11 +240,10 @@ class WorkflowRun:
                     if time_since_last_full_sync > self.wedged_workflow_sync_interval:
                         time_since_last_full_sync = 0.
                         self.synchronize_state(full_sync=True)
-
                     else:
                         time_since_last_full_sync += loop_elsapsed
                         self.synchronize_state()
-
+                    total_elapsed_time += time.time() - loop_start
                 # user interrupt
                 except KeyboardInterrupt:
                     logger.warning("Keyboard interrupt raised")
@@ -613,6 +612,8 @@ class WorkflowRun:
                 self._task_resources[hash(task_resources)] = task_resources
         else:
             task_resources = task.task_resources
+            # Mark that the resources are valid, without regenerating a new object
+            task_resources._task_resources_type_id = TaskResourcesType.VALIDATED
             self._task_resources[validated_resource_hash] = task_resources
 
         task.task_resources = task_resources
@@ -643,5 +644,6 @@ class WorkflowRun:
             )
             task_resources.bind()
             self._task_resources[hash(task_resources)] = task_resources
-
+        # Task resources id is always ADJUSTED here, even if pulled from the cache
+        task_resources._task_resources_type_id = TaskResourcesType.ADJUSTED
         task.task_resources = task_resources

@@ -39,7 +39,7 @@ def test_scheduler_logging(client_env, caplog):
             requester=requester
         )
         swarm.from_workflow(workflow)
-        swarm.run(distributor.alive, 100)
+        swarm.run(distributor.alive)
 
     assert "1 newly completed tasks. 100.0 percent done." in caplog.text
     caplog.clear()
