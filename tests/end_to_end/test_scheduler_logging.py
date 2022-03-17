@@ -31,8 +31,7 @@ def test_scheduler_logging(client_env, caplog):
         'sequential', wfr.workflow_run_id, 180
     ) as distributor:
 
-        # assert "Instantiating Distributor Process" in caplog.text
-        # assert "does not implement get_errored_jobs methods" in caplog.text
+        assert "Starting Distributor Process" in caplog.text
         caplog.clear()
 
         swarm = SwarmWorkflowRun(
