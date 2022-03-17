@@ -131,7 +131,7 @@ Constructing a Workflow and adding a few Tasks is simple:
 
         user = getpass.getuser()
         wf_uuid = uuid.uuid4()
-        script_path = os.path.abspath(os.path.dirname(__file__))
+        script_path = '/mnt/team/scicomp/pub/docs/training_scripts/test.py'
 
         # Create a tool
         tool = Tool(name="example_tool")
@@ -150,7 +150,8 @@ Constructing a Workflow and adding a few Tasks is simple:
                 "runtime": "1m",
                 "stdout": f"/ihme/scratch/users/{user}",
                 "stderr": f"/ihme/scratch/users/{user}",
-                "project": "proj_scicomp"
+                "project": "proj_scicomp",
+                "constraints": "archive"  # To request a J-drive access node
             },
             template_name="quickstart_echo_template",
             default_cluster_name="slurm",
@@ -186,7 +187,7 @@ Constructing a Workflow and adding a few Tasks is simple:
             name="task3",
             upstream_tasks=[task2],
             python=sys.executable,
-            script_path=os.path.join(script_path, "test_scripts/test.py"),
+            script_path=script_path,
             val1="val1",
             val2="val2",
         )
@@ -200,83 +201,84 @@ Constructing a Workflow and adding a few Tasks is simple:
     .. code-tab:: R
       :title: R
 
-      Sys.setenv("RETICULATE_PYTHON"='/mnt/team/scicomp/envs/jobmon/bin/python')  # Set the Python interpreter path
       library(jobmonr)
 
       # Create a workflow
       username <- Sys.getenv("USER")
-      script_path <- '/mnt/team/scicomp/training/test_scripts/test.py'  # Update with your repository installation
+      script_path <- '/mnt/team/scicomp/pub/docs/training_scripts/test.py'
 
-      # Templates are not supported in the R client, since there are no Jobmon 1.* R clients.
+
       # Create a tool
-
       my_tool <- tool(name='r_example_tool')
 
+      # Set the tool compute resources
+      jobmonr::set_default_tool_resources(
+        tool=my_tool,
+        default_cluster_name='slurm',
+        resources=list(
+          'cores'=1,
+          'queue'='all.q',
+          'runtime'="2m",
+          'memory'='1G'
+        )
+      )
+
       # Bind a workflow to the tool
-      wf <- workflow(tool,
-        workflow_args=paste0('template_workflow_', Sys.Date()),
-        name='template_workflow')
+      wf <- workflow(my_tool,
+                    workflow_args=paste0('template_workflow_', Sys.Date()),
+                    name='template_workflow')
 
       # Create an echoing task template
       echo_tt <- task_template(tool=my_tool,
-        template_name='echo_templ',
-        command_template='echo {}',
-        task_args=list('echo_str'))
+                              template_name='echo_template',
+                              command_template='echo {echo_str}',
+                              node_args=list('echo_str'))
 
 
       # Create template to run our script
       script_tt <- task_template(tool=my_tool,
-        template_name='test_templ',
-        command_template=paste0(Sys.getenv("RETICULATE_PYTHON"), ' ', script_path, ' --args1 {val1} --args2 {val2}'),
-        task_args=list('val1', 'val2'))
+                                template_name='test_templ',
+                                command_template=paste(
+                                  Sys.getenv("RETICULATE_PYTHON"),
+                                  '{script_path}',
+                                  '--args1 {val1}',
+                                  '--args2 {val2}',
+                                  sep=" "),
+                                task_args=list('val1', 'val2'),
+                                op_args=list('script_path'))
 
-      # Set the echo task template compute resources
-      echo_tt_resources <- jobmonr::set_default_template_resources(
-          task_template=echo_tt,
-          default_cluster_name='buster',
-          resources=list(
-            'cores'=1,
-            'queue'='all.q',
-            'runtime'="2m",
-            'memory'='1G'
-          )
+
+      # Optional: default resources can be updated at the task or task template level
+      jobmonr::set_default_template_resources(
+        task_template=script_tt,
+        default_cluster_name='slurm',
+        resources=list(
+          'queue'='long.q',
+          'constraints'='archive',
         )
+      )
 
-      # Set the script task template compute resources
-      script_tt_resources <- jobmonr::set_default_template_resources(
-          task_template=script_tt,
-          default_cluster_name='buster',
-          resources=list(
-            'cores'=1,
-            'queue'='all.q',
-            'runtime'="2m",
-            'memory'='1G'
-          )
-        )
-
-      # Create two sleepy tasks
+      # Create two echoing tasks
       task1 <- task(task_template=echo_tt,
-        executor_parameters=copy(params),  # Copied to prevent parallel resource scaling
-        name='echo_1',
-        echo_str="task1")
+                    name='echo_1',
+                    echo_str="task1")
 
       task2 <- task(task_template=echo_tt,
-        executor_parameters=copy(params),
-        name='echo_2',
-        upstream_tasks=list(task1), # Depends on the previous task,
-        echo_str="task2")
+                    name='echo_2',
+                    upstream_tasks=list(task1), # Depends on the previous task,
+                    echo_str="task2")
 
       # Add the test script task
-      test_task <- task(task_template=tt,
-        executor_parameters=copy(params),
-        name='test_task',
-        upstream_tasks=list(task2),
-        val1="val1",
-        val2="val2"
-        )
+      test_task <- task(task_template=script_tt,
+                        name='test_task',
+                        upstream_tasks=list(task2),
+                        val1="val1",
+                        val2="val2",
+                        script_path=script_path
+      )
 
       # Add tasks to the workflow
-      wf <- add_tasks(wf, list(task1, task2, task3))
+      wf <- add_tasks(wf, list(task1, task2, test_task))
 
       # Run it
       wfr <- run(
