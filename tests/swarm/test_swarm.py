@@ -104,7 +104,7 @@ def test_sync_statuses(client_env, tool, task_template):
     assert len(swarm.done_tasks) == 0
 
 
-def test_wedged_dag(db_cfg, tool, task_template):
+def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
     """This test runs a 3 task dag where one of the tasks updates it status
     without updating its status date. This would cause the normal pathway of
     status collection in the workflow run to fail. Instead the test uses the
@@ -115,7 +115,6 @@ def test_wedged_dag(db_cfg, tool, task_template):
     from jobmon.worker_node.cli import WorkerNodeCLI
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.client.workflow import DistributorContext
 
     class WedgedDistributor(DummyDistributor):
 
@@ -177,6 +176,7 @@ def test_wedged_dag(db_cfg, tool, task_template):
             return exec_id
 
     workflow = tool.create_workflow()
+    workflow.requester = requester_no_retry
     t1 = tool.active_task_templates["simple_template"].create_task(arg="sleep 3")
     t2 = tool.active_task_templates["simple_template"].create_task(arg="sleep 5")
     t3 = tool.active_task_templates["simple_template"].create_task(
@@ -205,27 +205,41 @@ def test_wedged_dag(db_cfg, tool, task_template):
     )
     swarm.from_workflow(workflow)
     swarm.process_commands()
-    distributor_service.process_status(TaskInstanceStatus.QUEUED)
-    swarm.synchronize_state(full_sync=True)
 
     # launch task on executor
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
-
     # run the normal workflow sync protocol. only t1 should be done
-    breakpoint()
     with pytest.raises(RuntimeError):
         swarm.run(
             distributor_alive_callable=lambda: True, seconds_until_timeout=1
         )
     assert swarm.tasks[t1.task_id].status == TaskStatus.DONE
-    assert swarm.tasks[t2.task_id].status == TaskStatus.INSTANTIATING
+    assert swarm.tasks[t2.task_id].status == TaskStatus.QUEUED
     assert swarm.tasks[t3.task_id].status == TaskStatus.REGISTERING
 
+    # Force the workflow run back to instantiating state, since the distributor service
+    # transitions the workflow_run to launched
+    DB, app = WedgedDistributor.DB, WedgedDistributor.app
+    with app.app_context():
+        sql = """
+            UPDATE workflow_run
+            SET status = 'O'
+            WHERE id = :workflow_run_id
+        """
+        DB.session.execute(sql, {'workflow_run_id': wfr.workflow_run_id})
+
+        sql = """
+            UPDATE workflow
+            SET status = 'O'
+            WHERE id = :workflow_id
+        """
+        DB.session.execute(sql, {'workflow_id': workflow.workflow_id})
+        DB.session.commit()
     # now run wedged dag route. make sure task 2 is now in done state
     with pytest.raises(RuntimeError):
         swarm.wedged_workflow_sync_interval = -1
         swarm.run(lambda: True, seconds_until_timeout=1)
-    breakpoint()
     assert swarm.tasks[t1.task_id].status == TaskStatus.DONE
     assert swarm.tasks[t2.task_id].status == TaskStatus.DONE
     assert swarm.tasks[t3.task_id].status == TaskStatus.QUEUED
@@ -288,7 +302,7 @@ def test_propagate_result(tool, task_template):
             requester=workflow.requester,
         )
         swarm.from_workflow(workflow)
-        swarm.run(distributor.alive, 100)
+        swarm.run(distributor.alive)
 
     assert swarm.status == WorkflowRunStatus.DONE
     assert len(swarm.done_tasks) == 6
