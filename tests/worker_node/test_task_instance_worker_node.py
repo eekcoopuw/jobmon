@@ -188,7 +188,7 @@ def test_ti_kill_self_state(db_cfg, tool):
 
         worker_node_task_instance.run()
 
-    assert worker_node_task_instance.status == TaskInstanceStatus.ERROR
+    assert worker_node_task_instance.status == TaskInstanceStatus.ERROR_FATAL
 
 
 def test_limited_error_log(tool, db_cfg):

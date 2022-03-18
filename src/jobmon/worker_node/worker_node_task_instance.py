@@ -182,13 +182,9 @@ class WorkerNodeTaskInstance:
                 f"to {TaskInstanceStatus.DONE} status. Current status is {self.status}."
             )
 
-    def log_error(self) -> None:
+    def log_error(self, error_state: str, msg: str) -> None:
         """Tell the JobStateManager that this task_instance has errored."""
         logger.info(f"Logging error for task_instance {self.task_instance_id}")
-
-        error_state, msg = self.cluster_worker_node.get_exit_info(
-            self.command_return_code, self.stderr
-        )
 
         message = {
             "error_message": msg,
@@ -358,7 +354,13 @@ class WorkerNodeTaskInstance:
 
             # log an error with db if we are in K state
             if self.status == TaskInstanceStatus.KILL_SELF:
-                self.log_error()
+                msg = (
+                    f"Command: {self.command} got KILL_SELF signal. Collected stderr after "
+                    f"interrupt.\n{self.stderr}"
+                )
+                error_state = TaskInstanceStatus.ERROR_FATAL
+
+                self.log_error(error_state, msg)
 
             # otherwise raise the error cause we are in trouble
             else:
@@ -372,7 +374,10 @@ class WorkerNodeTaskInstance:
                 self.log_done()
             else:
                 logger.info(f"Command: {self.command}\n Failed with stderr:\n {self.stderr}")
-                self.log_error()
+                error_state, msg = self.cluster_worker_node.get_exit_info(
+                    self.command_return_code, self.stderr
+                )
+                self.log_error(error_state, msg)
 
     def _poll_subprocess(self, timeout: Union[int, float] = -1) -> bool:
         """poll subprocess until it is finished or timeout is reached.
