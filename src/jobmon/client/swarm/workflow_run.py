@@ -230,18 +230,18 @@ class WorkflowRun:
                     self.process_commands(timeout=time_till_next_heartbeat)
 
                     # take a break if needed
-                    loop_elsapsed = time.time() - loop_start
-                    if loop_elsapsed < time_till_next_heartbeat:
-                        sleep_time = time_till_next_heartbeat - loop_elsapsed
+                    loop_elapsed = time.time() - loop_start
+                    if loop_elapsed < time_till_next_heartbeat:
+                        sleep_time = time_till_next_heartbeat - loop_elapsed
                         time.sleep(sleep_time)
-                        loop_elsapsed += sleep_time
+                        loop_elapsed += sleep_time
 
                     # then synchronize state
                     if time_since_last_full_sync > self.wedged_workflow_sync_interval:
                         time_since_last_full_sync = 0.
                         self.synchronize_state(full_sync=True)
                     else:
-                        time_since_last_full_sync += loop_elsapsed
+                        time_since_last_full_sync += loop_elapsed
                         self.synchronize_state()
                     total_elapsed_time += time.time() - loop_start
                 # user interrupt
