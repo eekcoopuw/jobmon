@@ -131,7 +131,7 @@ Constructing a Workflow and adding a few Tasks is simple:
 
         user = getpass.getuser()
         wf_uuid = uuid.uuid4()
-        script_path = os.path.abspath(os.path.dirname(__file__))
+        script_path = '/mnt/team/scicomp/pub/docs/training_scripts/test.py'
 
         # Create a tool
         tool = Tool(name="example_tool")
@@ -150,7 +150,8 @@ Constructing a Workflow and adding a few Tasks is simple:
                 "runtime": "1m",
                 "stdout": f"/ihme/scratch/users/{user}",
                 "stderr": f"/ihme/scratch/users/{user}",
-                "project": "proj_scicomp"
+                "project": "proj_scicomp",
+                "constraints": "archive"  # To request a J-drive access node
             },
             template_name="quickstart_echo_template",
             default_cluster_name="slurm",
@@ -186,7 +187,7 @@ Constructing a Workflow and adding a few Tasks is simple:
             name="task3",
             upstream_tasks=[task2],
             python=sys.executable,
-            script_path=os.path.join(script_path, "test_scripts/test.py"),
+            script_path=script_path,
             val1="val1",
             val2="val2",
         )
@@ -200,87 +201,90 @@ Constructing a Workflow and adding a few Tasks is simple:
     .. code-tab:: R
       :title: R
 
-        library(jobmonr)
-        library(data.table)
+      library(jobmonr)
 
-        # Create a workflow
-        username <- Sys.getenv("USER")
-        script_path <- '/mnt/team/scicomp/training/test_scripts/test.py'  # Update with your repository installation
+      # Create a workflow
+      username <- Sys.getenv("USER")
+      script_path <- '/mnt/team/scicomp/pub/docs/training_scripts/test.py'
 
-        # Create a tool
 
-        my_tool <- tool(name=paste0('r_example_tool_', username))
+      # Create a tool
+      my_tool <- tool(name='r_example_tool')
 
-        # Bind a workflow to the tool
-        wf <- workflow(my_tool,
-          workflow_args=paste0('template_workflow_', username, '_', Sys.Date()),
-          name='template_workflow')
+      # Set the tool compute resources
+      jobmonr::set_default_tool_resources(
+        tool=my_tool,
+        default_cluster_name='slurm',
+        resources=list(
+          'cores'=1,
+          'queue'='all.q',
+          'runtime'="2m",
+          'memory'='1G'
+        )
+      )
 
-        # Create an echoing task template
-        echo_tt <- task_template(tool=my_tool,
-          template_name='echo_templ',
-          command_template='echo {echo_str}',
-          node_args=list('echo_str'))
+      # Bind a workflow to the tool
+      wf <- workflow(my_tool,
+                    workflow_args=paste0('template_workflow_', Sys.Date()),
+                    name='template_workflow')
 
-        # Set the echo task template compute resources
-        echo_template_with_resources <- jobmonr::set_default_template_resources(
-            task_template=echo_tt,
-            default_cluster_name='buster',
-            resources=list(
-              'cores'=1,
-              'queue'='all.q',
-              'runtime'="2m",
-              'memory'='1G'
-            )
-          )
+      # Create an echoing task template
+      echo_tt <- task_template(tool=my_tool,
+                              template_name='echo_template',
+                              command_template='echo {echo_str}',
+                              node_args=list('echo_str'))
 
-        # Create template to run our script
-        script_tt <- task_template(tool=my_tool,
-          template_name='test_templ',
-          command_template=paste0(Sys.getenv("RETICULATE_PYTHON"), ' ', script_path, ' --args1 {val1} --args2 {val2}'),
-          node_args=list('val1', 'val2'))
 
-        # Set the script task template compute resources
-        script_template_with_resources <- jobmonr::set_default_template_resources(
-            task_template=script_tt,
-            default_cluster_name='buster',
-            resources=list(
-              'cores'=1,
-              'queue'='all.q',
-              'runtime'="2m",
-              'memory'='1G'
-            )
-          )
+      # Create template to run our script
+      script_tt <- task_template(tool=my_tool,
+                                template_name='test_templ',
+                                command_template=paste(
+                                  Sys.getenv("RETICULATE_PYTHON"),
+                                  '{script_path}',
+                                  '--args1 {val1}',
+                                  '--args2 {val2}',
+                                  sep=" "),
+                                task_args=list('val1', 'val2'),
+                                op_args=list('script_path'))
 
-        # Create two sleepy tasks
-        task1 <- task(task_template=copy(echo_template_with_resources),  # Copied to prevent parallel resource scaling
-          name='echo_1',
-          cluster_name='buster',
-          echo_str="task1")
 
-        task2 <- task(task_template=copy(echo_template_with_resources),  # Copied to prevent parallel resource scaling
-          name='echo_2',
-          cluster_name='buster',
-          upstream_tasks=list(task1), # Depends on the previous task,
-          echo_str="task2")
+      # Optional: default resources can be updated at the task or task template level
+      jobmonr::set_default_template_resources(
+        task_template=script_tt,
+        default_cluster_name='slurm',
+        resources=list(
+          'queue'='long.q',
+          'constraints'='archive',
+        )
+      )
 
-        # Add the test script task
-        test_task <- task(task_template=copy(script_template_with_resources),  # Copied to prevent parallel resource scaling
-          name='test_task',
-          cluster_name='buster',
-          upstream_tasks=list(task2),
-          val1="val1",
-          val2="val2"
-          )
+      # Create two echoing tasks
+      task1 <- task(task_template=echo_tt,
+                    name='echo_1',
+                    echo_str="task1")
 
-        # Add tasks to the workflow
-        wf <- add_tasks(wf, list(task1, task2, test_task))
+      task2 <- task(task_template=echo_tt,
+                    name='echo_2',
+                    upstream_tasks=list(task1), # Depends on the previous task,
+                    echo_str="task2")
 
-        # Run it
-        wfr <- run(
-          workflow=wf,
-          resume=FALSE,
-          seconds_until_timeout=7200)
+      # Add the test script task
+      test_task <- task(task_template=script_tt,
+                        name='test_task',
+                        upstream_tasks=list(task2),
+                        val1="val1",
+                        val2="val2",
+                        script_path=script_path
+      )
+
+      # Add tasks to the workflow
+      wf <- add_tasks(wf, list(task1, task2, test_task))
+
+      # Run it
+      wfr <- run(
+        workflow=wf,
+        resume=FALSE,
+        seconds_until_timeout=7200)
 
 .. note::
     Unique Workflows: If you know that your Workflow is to be used for a
@@ -300,6 +304,11 @@ the hierarchy is Task -> TaskTemplate -> Workflow -> Tool. To set compute resour
 
 By default compute resources on the Slurm cluster: cores will be 1, memory will be 1G, and
 runtime will be 10 minutes.
+
+Users can specify that they want to run their jobs on an archive node (nodes with /snfs1
+mounted) in their compute resources. Users simply need to add the following key value pair to
+their compute resources: ``"constraints": "archive"``. This works on both the Slurm and UGE
+(Buster) clusters.
 
 Cluster name: You can specify the cluster you want to use on the Task, TaskTemplate, Workflow
 and Tool level. To set cluster name on Tasks, use "cluster_name". To set cluster_name on
