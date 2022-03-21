@@ -66,7 +66,6 @@ class Task(DB.Model):
         (TaskStatus.REGISTERING, TaskStatus.QUEUED),
         (TaskStatus.ADJUSTING_RESOURCES, TaskStatus.QUEUED),
         (TaskStatus.QUEUED, TaskStatus.INSTANTIATING),
-        (TaskStatus.QUEUED, TaskStatus.REGISTERING),
         (TaskStatus.INSTANTIATING, TaskStatus.RUNNING),
         (TaskStatus.INSTANTIATING, TaskStatus.ERROR_RECOVERABLE),
         (TaskStatus.RUNNING, TaskStatus.DONE),
