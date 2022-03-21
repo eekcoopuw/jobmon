@@ -214,6 +214,7 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
     #     workflow_run_status = workflow.run(seconds_until_timeout=30)
     # breakpoint()
     workflow_run_status = workflow.run()
+    breakpoint()
     assert workflow_run_status == WorkflowRunStatus.ERROR
     # a, b[0], b[2], c[0], c[2],  but not b[1], c[1], d
     assert workflow._num_newly_completed == 1 + 2 + 2

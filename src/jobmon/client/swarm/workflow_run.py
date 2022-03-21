@@ -314,7 +314,7 @@ class WorkflowRun:
         adjusting_tasks = list(self._task_status_map[TaskStatus.ADJUSTING_RESOURCES])
         for task in adjusting_tasks:
             yield SwarmCommand(self.adjust_task, task)
-
+        breakpoint()
         while len(self.ready_to_run) > 0:
             task = self.ready_to_run.pop(0)
             yield SwarmCommand(self.queue_task, task)
