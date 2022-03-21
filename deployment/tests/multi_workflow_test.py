@@ -39,9 +39,9 @@ def multi_workflow_test(yaml_path: str, scratch_dir: str) -> WorkflowRun:
 
     controller_wf = tool.create_workflow(
         name="controller_wf",
-        default_cluster_name='buster',
+        default_cluster_name='slurm',
         default_compute_resources_set={
-            'buster': {
+            'slurm': {
                 'stderr': f"{scratch_dir}/controller_wf",
                 'stdout': f"{scratch_dir}/controller_wf",
                 'project': "proj_scicomp",

@@ -286,11 +286,12 @@ def set_resume(workflow_id: int) -> Any:
     DB.session.commit()
     logger.info(f"Resume set for wf {workflow_id}")
 
-    # update attributes
+    # upsert attributes
     if workflow_attributes:
-        logger.info("Update attributes for workflow")
-        _add_workflow_attributes(workflow.id, workflow_attributes)
-        DB.session.commit()
+        logger.info("Upsert attributes for workflow")
+        if workflow_attributes:
+            for name, val in workflow_attributes.items():
+                _upsert_wf_attribute(workflow_id, name, val)
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -495,14 +496,7 @@ def get_workflow_status() -> Any:
     logger.debug(f"Query for wf {workflow_request} status.")
     if workflow_request == "all":  # specifying all is equivalent to None
         workflow_request = []
-    limit_request = request.args.getlist("limit")
-    limit = None if len(limit_request) == 0 else limit_request[0]
-    # anything less than 0 or non number will be treated as None
-    try:
-        if int(limit_request[0]) < 0:
-            limit = None
-    except ValueError:
-        limit = None
+    limit = request.args.get("limit")
     where_clause = ""
     # convert workflow request into sql filter
     if workflow_request:
@@ -633,14 +627,7 @@ def get_workflow_tasks(workflow_id: int) -> Any:
     """Get the tasks for a given workflow."""
     params: Dict = {"workflow_id": workflow_id}
     bind_to_logger(workflow_id=workflow_id)
-    limit_request = request.args.getlist("limit")
-    limit = None if len(limit_request) == 0 else limit_request[0]
-    # anything less than 0 or non number will be treated as None
-    try:
-        if int(limit_request[0]) < 0:
-            limit = None
-    except ValueError:
-        limit = None
+    limit = request.args.get("limit")
     where_clause = "WHERE workflow.id = :workflow_id"
     status_request = request.args.getlist("status", None)
     logger.debug(f"Get tasks for workflow in status {status_request}")
