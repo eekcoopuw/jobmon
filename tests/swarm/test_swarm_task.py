@@ -1,3 +1,4 @@
+
 def test_swarmtask_resources_integration(tool, task_template, db_cfg):
     """Check that taskresources defined in task are passed to swarmtask appropriately"""
     from jobmon.constants import TaskResourcesType, WorkflowRunStatus

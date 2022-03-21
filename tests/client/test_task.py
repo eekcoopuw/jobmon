@@ -286,48 +286,8 @@ def test_reset_attempts_on_resume(db_cfg, tool):
         t = DB.session.query(Task).filter_by(id=task_a.task_id).one()
         assert t.max_attempts == 3
         assert t.num_attempts == 0
-        assert t.status == TaskStatus.REGISTERED
+        assert t.status == TaskStatus.REGISTERING
         DB.session.commit()
-
-
-def test_resource_usage(db_cfg, client_env):
-    """Test Task resource usage method."""
-    from jobmon.client.tool import Tool
-
-    tool = Tool()
-    tool.set_default_compute_resources_from_dict(
-        cluster_name="sequential", compute_resources={"queue": "null.q"}
-    )
-    workflow = tool.create_workflow(name="resource_usage_test_wf")
-    template = tool.get_task_template(
-        template_name="resource_usage_test_template",
-        command_template="echo a",
-    )
-    task = template.create_task()
-    workflow.add_tasks([task])
-    workflow.run()
-
-    # Add fake resource usage to the TaskInstance
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        UPDATE task_instance
-        SET nodename = 'SequentialNode', wallclock = 12, maxpss = 1234
-        WHERE task_id = :task_id"""
-        DB.session.execute(sql, {"task_id": task.task_id})
-        DB.session.commit()
-    with patch(
-        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
-    ) as f:
-        f.return_value = set()  # no exclude tt
-        used_task_resources = task.resource_usage()
-        assert used_task_resources == {
-            "memory": "1234",
-            "nodename": "SequentialNode",
-            "num_attempts": 1,
-            "runtime": "12",
-        }
 
 
 def test_binding_length(db_cfg, client_env, tool):
