@@ -587,7 +587,7 @@ class WorkflowRun:
                 f"code 200. Response content: {response}"
             )
 
-        breakpoint()
+        # breakpoint()
         self.last_sync = response["time"]
 
         new_status_tasks: Set[SwarmTask] = set()
