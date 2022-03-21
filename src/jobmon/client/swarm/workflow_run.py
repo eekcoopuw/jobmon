@@ -3,7 +3,6 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
-from queue import SimpleQueue
 import time
 from typing import Callable, Dict, Iterator, List, Optional, Set, TYPE_CHECKING, Union
 
@@ -29,7 +28,9 @@ logger = logging.getLogger(__name__)
 
 class SwarmCommand:
     def __init__(
-        self, func: Callable[..., Optional[List[SwarmCommand]]], *args, **kwargs
+        self,
+        func: Callable[..., None],
+        *args, **kwargs
     ):
         """A command to be run by the distributor service.
 
@@ -41,17 +42,9 @@ class SwarmCommand:
         self._func = func
         self._args = args
         self._kwargs = kwargs
-        self.error_raised = False
 
-    def __call__(self, raise_on_error: bool = False):
-        try:
-            self._func(*self._args, **self._kwargs)
-        except Exception as e:
-            if raise_on_error:
-                raise
-            else:
-                self.exception = e
-                self.error_raised = True
+    def __call__(self):
+        self._func(*self._args, **self._kwargs)
 
 
 class WorkflowRun:
@@ -100,7 +93,6 @@ class WorkflowRun:
         # workflow run attributes
         self._status = WorkflowRunStatus.BOUND
         self._last_heartbeat_time = time.time()
-        # self._swarm_commands: List[SwarmCommand] = []
 
         # flow control
         self.fail_fast = fail_fast
@@ -346,8 +338,6 @@ class WorkflowRun:
                 # use an iterator so we don't waste compute
                 swarm_command = next(swarm_commands)
                 swarm_command()
-                if swarm_command.error_raised:
-                    logger.error(swarm_command.exception)
 
                 # keep processing commands if we don't need a status sync
                 keep_processing = (time.time() - loop_start) < timeout or timeout == -1
@@ -464,6 +454,7 @@ class WorkflowRun:
                 f"code 200. Response content: {response}"
             )
         self._status = response["status"]
+        self._last_heartbeat_time = time.time()
 
     def _update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""
