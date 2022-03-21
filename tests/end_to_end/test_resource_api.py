@@ -28,13 +28,17 @@ def test_resource_usage(db_cfg, client_env):
         WHERE task_id = :task_id"""
         DB.session.execute(sql, {"task_id": task.task_id})
         DB.session.commit()
-    used_task_resources = task.resource_usage()
-    assert used_task_resources == {
-        "memory": "1234",
-        "nodename": "SequentialNode",
-        "num_attempts": 1,
-        "runtime": "12",
-    }
+    with patch(
+        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+    ) as f:
+        f.return_value = set()  # no exclude tt
+        used_task_resources = task.resource_usage()
+        assert used_task_resources == {
+            "memory": "1234",
+            "nodename": "SequentialNode",
+            "num_attempts": 1,
+            "runtime": "12",
+        }
 
 
 def test_tt_resource_usage(db_cfg, client_env):

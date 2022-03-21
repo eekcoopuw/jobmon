@@ -117,7 +117,6 @@ def test_resume_with_old_and_new_workflow_attributes(db_cfg, tool, task_template
     """Should allow a resume, and should not fail on duplicate workflow_attribute keys"""
     from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
     from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
-    from jobmon.client.workflow_run import WorkflowRun
 
     # Create identical dags
     t1 = task_template.create_task(arg="sleep 1")
@@ -132,9 +131,8 @@ def test_resume_with_old_and_new_workflow_attributes(db_cfg, tool, task_template
 
     # bind workflow to db and move to ERROR state
     wf1.bind()
-    wfr1 = WorkflowRun(wf1.workflow_id)
-    wfr1.bind(wf1.tasks)
-    wfr1._update_status(WorkflowRunStatus.INSTANTIATING)
+    wfr1 = wf1._create_workflow_run()
+    wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr1._update_status(WorkflowRunStatus.LAUNCHED)
     wfr1._update_status(WorkflowRunStatus.RUNNING)
     wfr1._update_status(WorkflowRunStatus.ERROR)
@@ -152,7 +150,7 @@ def test_resume_with_old_and_new_workflow_attributes(db_cfg, tool, task_template
 
     # bind workflow to db and run resume
     workflow2.bind()
-    workflow2.run(resume=True)
+    workflow2._create_workflow_run(resume=True)
 
     # check database entries are populated correctly
     app = db_cfg["app"]

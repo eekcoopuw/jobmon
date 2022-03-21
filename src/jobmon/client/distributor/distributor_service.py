@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime
+
 import logging
 import signal
 import sys
@@ -147,7 +147,7 @@ class DistributorService:
                 # check if we need to pause for a heartbeat
                 time_diff = time.time() - self._last_heartbeat_time
                 if time_diff > self._workflow_run_heartbeat_interval:
-                    self.heartbeat()
+                    self.log_task_instance_report_by_date()
 
                 # get the first callable and run it. log any errors
                 distributor_command = self.distributor_commands.pop(0)
@@ -249,7 +249,9 @@ class DistributorService:
 
     def kill_self(self, task_instance: DistributorTaskInstance) -> None:
         self.cluster.terminate_task_instances([task_instance.distributor_id])
-        task_instance.transition_to_error("Task instance was self-killed.", TaskInstanceStatus.ERROR)
+        task_instance.transition_to_error(
+            "Task instance was self-killed.", TaskInstanceStatus.ERROR
+        )
 
     def log_task_instance_report_by_date(self) -> None:
         task_instances_launched = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]

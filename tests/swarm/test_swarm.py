@@ -242,7 +242,7 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
         swarm.run(lambda: True, seconds_until_timeout=1)
     assert swarm.tasks[t1.task_id].status == TaskStatus.DONE
     assert swarm.tasks[t2.task_id].status == TaskStatus.DONE
-    assert swarm.tasks[t3.task_id].status == TaskStatus.QUEUED
+    assert swarm.ready_to_run[0] == swarm.tasks[t3.task_id]
 
 
 def test_fail_fast(tool, task_template):

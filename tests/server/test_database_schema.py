@@ -7,11 +7,11 @@ def test_arg_name_collation(db_cfg, ephemera):
             """
             INSERT INTO arg(name)
             VALUES
-	            ('r'),
-	            ('R'),
-	            ('test_case'),
-	            ('TEST_CASE');
-	        """
+                ('r'),
+                ('R'),
+                ('test_case'),
+                ('TEST_CASE');
+            """
         )
         DB.session.commit()
         assert result.rowcount == 4
