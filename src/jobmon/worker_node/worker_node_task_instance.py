@@ -141,14 +141,14 @@ class WorkerNodeTaskInstance:
 
     @property
     def command_return_code(self) -> int:
-        """Returns a task instance ID if it's been bound."""
+        """Returns the exit code of the command that was run"""
         if not hasattr(self, "_proc"):
             raise AttributeError("Cannot access command_return_code until command has run.")
         return self._proc.returncode
 
     @property
     def stderr(self) -> str:
-        """Returns a task instance ID if it's been bound."""
+        """Returns the final 10k characters of the stderr from the command."""
         if not hasattr(self, "_proc"):
             raise AttributeError("Cannot access stderr until command has run.")
         return self._stderr
@@ -312,7 +312,8 @@ class WorkerNodeTaskInstance:
                 universal_newlines=True,
             )
 
-            # open thread for reading stderr eagerly
+            # open thread for reading stderr eagerly otherwise process will deadlock if the
+            # pipe fills up
             self._stderr = ""
             self._err_q: Queue = Queue()  # queues for returning stderr to main thread
             err_thread = Thread(target=enqueue_stderr, args=(self._proc.stderr, self._err_q))
