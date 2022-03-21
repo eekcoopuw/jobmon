@@ -42,12 +42,15 @@ class SwarmCommand:
         self._kwargs = kwargs
         self.error_raised = False
 
-    def __call__(self):
-        # try:
-        self._func(*self._args, **self._kwargs)
-        # except Exception as e:
-        #     self.exception = e
-        #     self.error_raised = True
+    def __call__(self, raise_on_error: bool = False):
+        try:
+            self._func(*self._args, **self._kwargs)
+        except Exception as e:
+            if raise_on_error:
+                raise
+            else:
+                self.exception = e
+                self.error_raised = True
 
 
 class WorkflowRun:

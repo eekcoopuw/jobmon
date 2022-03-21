@@ -141,10 +141,17 @@ class WorkerNodeTaskInstance:
 
     @property
     def command_return_code(self) -> int:
-        """Returns a task instance ID if it's been bound."""
-        if not hasattr(self, "_command_return_code"):
+        """Returns the exit code of the command that was run"""
+        if not hasattr(self, "_proc"):
             raise AttributeError("Cannot access command_return_code until command has run.")
-        return self._command_return_code
+        return self._proc.returncode
+
+    @property
+    def stderr(self) -> str:
+        """Returns the final 10k characters of the stderr from the command."""
+        if not hasattr(self, "_proc"):
+            raise AttributeError("Cannot access stderr until command has run.")
+        return self._stderr
 
     def log_done(self) -> None:
         """Tell the JobStateManager that this task_instance is done."""
@@ -175,11 +182,9 @@ class WorkerNodeTaskInstance:
                 f"to {TaskInstanceStatus.DONE} status. Current status is {self.status}."
             )
 
-    def log_error(self, error_message: str, exit_status: int) -> None:
+    def log_error(self, error_state: str, msg: str) -> None:
         """Tell the JobStateManager that this task_instance has errored."""
         logger.info(f"Logging error for task_instance {self.task_instance_id}")
-
-        error_state, msg = self.cluster_worker_node.get_exit_info(exit_status, error_message)
 
         message = {
             "error_message": msg,
@@ -255,10 +260,12 @@ class WorkerNodeTaskInstance:
                 f"to {TaskInstanceStatus.RUNNING} status. Current status is {self.status}."
             )
 
-    def log_report_by(self, next_report_increment: Union[int, float]) -> None:
+    def log_report_by(self) -> None:
         """Log the heartbeat to show that the task instance is still alive."""
         logger.debug(f"Logging heartbeat for task_instance {self.task_instance_id}")
-        message: Dict = {"next_report_increment": next_report_increment}
+        message: Dict = {
+            "next_report_increment": self.heartbeat_interval * self.report_by_buffer
+        }
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)
         else:
@@ -281,19 +288,23 @@ class WorkerNodeTaskInstance:
         self._status = response["status"]
         self.last_heartbeat_time = time()
 
-    def run(self, temp_dir: Optional[str] = None) -> None:
+        if self.status != TaskInstanceStatus.RUNNING:
+            raise TransitionError(
+                f"TaskInstance {self.task_instance_id} failed because it could not transition "
+                f"to {TaskInstanceStatus.RUNNING} status. Current status is {self.status}."
+            )
+
+    def run(self) -> None:
         """This script executes on the target node and wraps the target application.
 
         Could be in any language, anything that can execute on linux. Similar to a stub or a
         container set ENV variables in case tasks need to access them.
         """
-
-        # If it logs running and is not able to transition it the process will raise an error
+        # If it logs running and is not able to transition it raises TransitionError
         self.log_running()
 
         try:
-            ret_code = None
-            proc = subprocess.Popen(
+            self._proc = subprocess.Popen(
                 self.command,
                 env=os.environ.copy(),
                 stderr=subprocess.PIPE,
@@ -301,111 +312,108 @@ class WorkerNodeTaskInstance:
                 universal_newlines=True,
             )
 
-            # open thread for reading stderr eagerly
-            stderr = ""
-            err_q: Queue = Queue()  # queues for returning stderr to main thread
-            err_thread = Thread(target=enqueue_stderr, args=(proc.stderr, err_q))
+            # open thread for reading stderr eagerly otherwise process will deadlock if the
+            # pipe fills up
+            self._stderr = ""
+            self._err_q: Queue = Queue()  # queues for returning stderr to main thread
+            err_thread = Thread(target=enqueue_stderr, args=(self._proc.stderr, self._err_q))
             err_thread.daemon = True  # thread dies with the program
             err_thread.start()
 
-            is_running = self.status == TaskInstanceStatus.RUNNING
-            keep_monitoring = True
-            while keep_monitoring:
-
-                # check for a return code from the subprocess
-                ret_code = proc.poll()
-
-                if (time() - self.last_heartbeat_time) >= self.heartbeat_interval:
-                    # this call returns the current db status and logs a heartbeat
-                    self.log_report_by(
-                        next_report_increment=(self.heartbeat_interval * self.report_by_buffer)
-                    )
-                    is_running = self.status == TaskInstanceStatus.RUNNING
-
-                # command is still running and task instance hasn't been killed
-                if ret_code is None and is_running:
-                    # pull stderr off queue and clip at 10k to avoid mysql has gone away errors
-                    # when posting long messages and keep memory low
-                    while not err_q.empty():
-                        stderr += err_q.get()
-                    if len(stderr) >= 10000:
-                        stderr = stderr[-10000:]
-
-                    sleep(0.5)
-                    keep_monitoring = True
-
-                # command is still running but TaskInstance status changed underneath us
-                elif ret_code is None and not is_running:
-                    msg = (
-                        f"TaskInstance is in status '{self.status}'. Expected status 'R'."
-                        f" Terminating command {self.command}."
-                    )
-                    logger.info(msg)
-
-                    # interrupt command
-                    proc.send_signal(signal.SIGINT)
-
-                    # if it doesn't die of natural causes raise TimeoutExpired
-                    proc.wait(timeout=self.command_interrupt_timeout)
-
-                    # collect stderr and log it
-                    msg += "Collected stderr after termination: "
-                    while not err_q.empty():
-                        stderr += err_q.get()
-                    allowed_err_len = 10000 - len(msg)
-                    if len(stderr) >= allowed_err_len:
-                        stderr = stderr[-allowed_err_len:]
-                    msg += stderr
-                    logger.info(msg)
-
-                    # log error with db
-                    self.log_error(error_message=msg, exit_status=proc.returncode)
-
-                    # break out of loop
-                    keep_monitoring = False
-
-                # command returned an OK return code while in running state
-                elif ret_code == ReturnCodes.OK and is_running:
-
-                    logger.info(f"Command: {self.command}. Finished Successfully.")
-                    self.log_done()
-
-                    # break out of loop
-                    keep_monitoring = False
-
-                # got a non OK return code
-                else:
-                    while not err_q.empty():
-                        stderr += err_q.get()
-                    if len(stderr) >= 10000:
-                        stderr = stderr[-10000:]
-                    logger.info(f"Command: {self.command}\n Failed with stderr:\n {stderr}")
-
-                    if is_running:
-                        self.log_error(error_message=str(stderr), exit_status=proc.returncode)\
-
-                    # break out of loop
-                    keep_monitoring = False
-
-        except Exception as e:
-            # if the process is still alive, kill it
-            if proc.poll() is None:
-                proc.kill()
-                try:
-                    _, stderr = proc.communicate(timeout=self.command_interrupt_timeout)
-                except subprocess.TimeoutExpired:
-                    pass
-
-                logger.info(
-                    f"Command: {self.command}\n was aborted due to an unexpected error {e}."
-                    f"Got stderr from subprocess:\n {stderr}"
+            is_done = False
+            while not is_done:
+                # process any commands that we can in the time alotted
+                time_till_next_heartbeat = (
+                    self.heartbeat_interval - (time() - self.last_heartbeat_time)
                 )
+                is_done = self._poll_subprocess(timeout=time_till_next_heartbeat)
 
-            # re-raise the original exception
-            raise e
+                # log report
+                self.log_report_by()
 
-        finally:
-            self._command_return_code = proc.returncode
+        # some other deployment unit transitioned task instance out of R state
+        except TransitionError as e:
+            msg = (f"TaskInstance is in status '{self.status}'. Expected status 'R'."
+                   f" Terminating command {self.command}.")
+            logger.error(msg)
+
+            # cleanup process
+            is_done = self._poll_subprocess(timeout=0)
+            if not is_done:
+                # interrupt command
+                self._proc.send_signal(signal.SIGINT)
+
+                # if it doesn't die of natural causes raise TimeoutExpired
+                try:
+                    self._proc.wait(timeout=self.command_interrupt_timeout)
+                except subprocess.TimeoutExpired:
+                    self._proc.kill()
+                    self._proc.wait(timeout=self.command_interrupt_timeout)
+
+                self._collect_stderr()
+                logger.info(f"Collected stderr after termination: {self.stderr}")
+
+            # log an error with db if we are in K state
+            if self.status == TaskInstanceStatus.KILL_SELF:
+                msg = (
+                    f"Command: {self.command} got KILL_SELF signal. Collected stderr after "
+                    f"interrupt.\n{self.stderr}"
+                )
+                error_state = TaskInstanceStatus.ERROR_FATAL
+
+                self.log_error(error_state, msg)
+
+            # otherwise raise the error cause we are in trouble
+            else:
+                raise e
+
+        # normal happy path
+        else:
+
+            if self.command_return_code == ReturnCodes.OK:
+                logger.info(f"Command: {self.command}. Finished Successfully.")
+                self.log_done()
+            else:
+                logger.info(f"Command: {self.command}\n Failed with stderr:\n {self.stderr}")
+                error_state, msg = self.cluster_worker_node.get_exit_info(
+                    self.command_return_code, self.stderr
+                )
+                self.log_error(error_state, msg)
+
+    def _poll_subprocess(self, timeout: Union[int, float] = -1) -> bool:
+        """poll subprocess until it is finished or timeout is reached.
+
+        Args:
+            timeout: time until we stop processing. -1 means process till no more work
+
+        Returns: true if the  subprocess has exited
+        """
+
+        # this way we always process at least 1 command
+        loop_start = time()
+
+        ret_code = self._proc.poll()
+        keep_polling = ret_code is None
+        while keep_polling:
+            sleep(0.5)
+
+            # keep polling if we have time and no exit code
+            ret_code = self._proc.poll()
+            timeout_exceeded = (time() - loop_start) > timeout and not timeout == -1
+            keep_polling = not timeout_exceeded and ret_code is None
+
+            self._collect_stderr()
+
+        return ret_code is not None
+
+    def _collect_stderr(self):
+
+        # pull stderr off queue and clip at 10k to avoid mysql has gone away errors
+        # when posting long messages and keep memory low
+        while not self._err_q.empty():
+            self._stderr += self._err_q.get()
+        if len(self._stderr) >= 10000:
+            self._stderr = self._stderr[-10000:]
 
 
 def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
