@@ -79,7 +79,7 @@ class WorkflowRun:
 
         # state tracking
         self.tasks: Dict[int, SwarmTask] = {}
-        self.ready_to_run: SimpleQueue = SimpleQueue()  # Basic FIFO, unbounded queue
+        self.ready_to_run: List[SwarmTask] = []
         self._task_status_map: Dict[str, Set[SwarmTask]] = {
             TaskStatus.REGISTERING: set(),
             TaskStatus.QUEUED: set(),
@@ -147,7 +147,8 @@ class WorkflowRun:
             TaskStatus.INSTANTIATING,
             TaskStatus.ADJUSTING_RESOURCES
         ]
-        return max([any(self._task_status_map[s] for s in active_task_states)])
+        return max([any(self._task_status_map[s] for s in active_task_states)]) \
+            or len(self.ready_to_run) > 0
 
     def from_workflow(self, workflow: Workflow) -> None:
         self.workflow_id = workflow.workflow_id
@@ -193,12 +194,13 @@ class WorkflowRun:
                 for downstream in swarm_task.downstream_swarm_tasks:
                     downstream.num_upstreams_done += 1
 
+        for swarm_task in self.tasks.values():
             # If the task is ready to run and in registering state, add it to the queue
             if swarm_task.status == TaskStatus.REGISTERING and swarm_task.all_upstreams_done:
-                self.ready_to_run.put(swarm_task)
+                self.ready_to_run.append(swarm_task)
 
-        self.last_sync = self._get_current_time()
-        self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
+            self.last_sync = self._get_current_time()
+            self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
 
     def run(self, distributor_alive_callable: Callable[..., bool],
             seconds_until_timeout: int = 36000):
@@ -317,8 +319,8 @@ class WorkflowRun:
         for task in adjusting_tasks:
             yield SwarmCommand(self.adjust_task, task)
 
-        while not self.ready_to_run.empty():
-            task = self.ready_to_run.get(block=False)
+        while len(self.ready_to_run) > 0:
+            task = self.ready_to_run.pop(0)
             yield SwarmCommand(self.queue_task, task)
 
     def process_commands(self, timeout: Union[int, float] = -1):
@@ -382,7 +384,7 @@ class WorkflowRun:
                 for downstream in task.downstream_swarm_tasks:
                     downstream.num_upstreams_done += 1
                     if downstream.all_upstreams_done:
-                        self.ready_to_run.put(downstream)
+                        self.ready_to_run.append(downstream)
 
             elif task.status == TaskStatus.ERROR_FATAL:
                 num_newly_failed += 1
