@@ -85,7 +85,6 @@ class WorkflowRun:
             TaskStatus.DONE: set(),
             TaskStatus.ADJUSTING_RESOURCES: set(),
             TaskStatus.ERROR_FATAL: set(),
-            TaskStatus.ERROR_RECOVERABLE: set(),
         }
 
         # cache to get same id
