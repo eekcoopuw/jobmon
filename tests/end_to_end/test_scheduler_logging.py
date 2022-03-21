@@ -1,10 +1,13 @@
+import logging
+
+from jobmon.client.api import Tool
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+from jobmon.client.workflow import DistributorContext
+from jobmon.requester import Requester
+
+
 def test_scheduler_logging(client_env, caplog):
     """Test to check that scheduler logs are sent to stdout properly."""
-    from jobmon.client.api import Tool
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.client.swarm.workflow_run import WorkflowRun
-    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
-    from jobmon.requester import Requester
 
     # Pytest config sets log level at debug, but default in client config is INFO.
     # For a representative test we need to use INFO level.
@@ -24,22 +27,20 @@ def test_scheduler_logging(client_env, caplog):
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
 
-    # Run the scheduler in a separate process like the workflow does,
-    # and check we get the same logs
-    workflow._distributor_proc = workflow._start_distributor_service(
-        wfr.workflow_run_id, 180
-    )
-    assert "Instantiating Distributor Process" in caplog.text
-    assert "does not implement get_errored_jobs methods" in caplog.text
-    caplog.clear()
+    with DistributorContext(
+        'sequential', wfr.workflow_run_id, 180
+    ) as distributor:
 
-    swarm = WorkflowRun(
-        workflow_id=workflow.workflow_id,
-        workflow_run_id=wfr.workflow_run_id,
-        tasks=list(workflow.tasks.values()),
-        requester=requester,
-    )
-    workflow._run_swarm(swarm)
+        assert "Starting Distributor Process" in caplog.text
+        caplog.clear()
+
+        swarm = SwarmWorkflowRun(
+            workflow_run_id=wfr.workflow_run_id,
+            requester=requester
+        )
+        swarm.from_workflow(workflow)
+        swarm.run(distributor.alive)
+
     assert "1 newly completed tasks. 100.0 percent done." in caplog.text
     caplog.clear()
 

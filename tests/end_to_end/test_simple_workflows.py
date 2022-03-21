@@ -166,6 +166,7 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
 
     a_path = os.path.join(str(tmpdir), "a.out")
     task_a = task_template.create_task(
+        name="task_a",
         arg=f"python {remote_sleep_and_write} --sleep_secs 1 --output_file_path {a_path} --name {a_path}",
         upstream_tasks=[],
     )
@@ -181,6 +182,7 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
             fail_always = ""
 
         task_b[i] = task_template.create_task(
+            name=f"task_b_{i}",
             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
             f"--output_file_path {b_output_file_name} --name {b_output_file_name} "
             f"{fail_always}",
@@ -192,6 +194,7 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
     for i in range(3):
         c_output_file_name = os.path.join(str(tmpdir), f"c-{i}.out")
         task_c[i] = task_template.create_task(
+            name=f"task_c_{i}",
             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
             f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
             upstream_tasks=[task_b[i]],
@@ -200,6 +203,7 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
 
     d_path = os.path.join(str(tmpdir), "d.out")
     task_d = task_template.create_task(
+        name=f"task_d_{i}",
         arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
         f"--output_file_path {d_path} --name {d_path}",
         upstream_tasks=[task_c[i] for i in range(3)],
