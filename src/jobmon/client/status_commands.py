@@ -59,7 +59,10 @@ def workflow_status(
     if json:
         return res["workflows"]
     else:
-        return pd.read_json(res["workflows"])
+        df = pd.read_json(res["workflows"])
+        # Cast CREATED_DATE back to a date-like object, serialized as an int
+        df["CREATED_DATE"] = pd.to_datetime(df["CREATED_DATE"], unit="ms")
+        return df
 
 
 def workflow_tasks(
@@ -212,7 +215,7 @@ def task_status(
 def concurrency_limit(
     workflow_id: int, max_tasks: int, requester_url: Optional[str] = None
 ) -> str:
-    """Update a workflow's max_running_instances field in the database.
+    """Update a workflow's max_concurrently_running field in the database.
 
     Used to dynamically adjust the allowed number of jobs concurrently running.
 
@@ -223,8 +226,7 @@ def concurrency_limit(
 
     Returns: string displaying success or failure of the update.
     """
-    msg = {}
-    msg["max_tasks"] = max_tasks
+    msg = {"max_tasks": max_tasks}
 
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url
@@ -290,7 +292,7 @@ def update_task_status(
     workflow_status = validate_workflow(task_ids, requester, force)
 
     # Validate the allowed statuses. For now, only "D" and "G" allowed.
-    allowed_statuses = [TaskStatus.REGISTERED, TaskStatus.DONE]
+    allowed_statuses = [TaskStatus.REGISTERING, TaskStatus.DONE]
     assert (
         new_status in allowed_statuses
     ), f"Only {allowed_statuses} allowed to be set via CLI"
@@ -308,7 +310,7 @@ def update_task_status(
             raise AssertionError(f"Server return HTTP error code: {rc}")
         task_ids = res["task_ids"]
     else:
-        if new_status == TaskStatus.REGISTERED:
+        if new_status == TaskStatus.REGISTERING:
             subdag_tasks = get_sub_task_tree(task_ids).keys()
             task_ids = task_ids + [*subdag_tasks]
 

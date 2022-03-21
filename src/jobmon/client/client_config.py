@@ -1,6 +1,8 @@
 """Configuration setting for client-side only."""
 from __future__ import annotations
 
+from contextlib import redirect_stderr
+import io
 from typing import Any, Optional
 
 from jobmon.config import CLI, install_default_config_from_plugin, ParserDefaults
@@ -20,7 +22,8 @@ class ClientConfig(object):
 
         # passing an empty string forces this method to ignore sys.argv
         try:
-            args = cli.parse_args("")
+            with redirect_stderr(io.StringIO()):
+                args = cli.parse_args("")
         except SystemExit:
             args = install_default_config_from_plugin(cli)
 

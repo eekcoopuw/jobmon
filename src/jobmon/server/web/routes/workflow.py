@@ -7,7 +7,6 @@ from flask import jsonify, request
 import pandas as pd
 import sqlalchemy
 from sqlalchemy.dialects.mysql import insert
-from sqlalchemy.orm import joinedload
 from sqlalchemy.sql import text
 from werkzeug.local import LocalProxy
 
@@ -287,11 +286,12 @@ def set_resume(workflow_id: int) -> Any:
     DB.session.commit()
     logger.info(f"Resume set for wf {workflow_id}")
 
-    # update attributes
+    # upsert attributes
     if workflow_attributes:
-        logger.info("Update attributes for workflow")
-        _add_workflow_attributes(workflow.id, workflow_attributes)
-        DB.session.commit()
+        logger.info("Upsert attributes for workflow")
+        if workflow_attributes:
+            for name, val in workflow_attributes.items():
+                _upsert_wf_attribute(workflow_id, name, val)
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -496,14 +496,7 @@ def get_workflow_status() -> Any:
     logger.debug(f"Query for wf {workflow_request} status.")
     if workflow_request == "all":  # specifying all is equivalent to None
         workflow_request = []
-    limit_request = request.args.getlist("limit")
-    limit = None if len(limit_request) == 0 else limit_request[0]
-    # anything less than 0 or non number will be treated as None
-    try:
-        if int(limit_request[0]) < 0:
-            limit = None
-    except ValueError:
-        limit = None
+    limit = request.args.get("limit")
     where_clause = ""
     # convert workflow request into sql filter
     if workflow_request:
@@ -535,6 +528,7 @@ def get_workflow_status() -> Any:
             workflow_status.label as WF_STATUS,
             count(task.status) as TASKS,
             task.status AS STATUS,
+            workflow.created_date as CREATED_DATE,
             sum(
                 CASE
                     WHEN num_attempts <= 1 THEN 0
@@ -565,14 +559,14 @@ def get_workflow_status() -> Any:
         df.STATUS.replace(to_replace=_cli_label_mapping, inplace=True)
 
         # aggregate totals by workflow and status
-        df = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS", "STATUS"]).agg(
-            {"TASKS": "sum", "RETRIES": "sum"}
-        )
+        df = df.groupby(
+            ["WF_ID", "WF_NAME", "WF_STATUS", "STATUS", "CREATED_DATE"]
+        ).agg({"TASKS": "sum", "RETRIES": "sum"})
 
         # pivot wide by task status
         tasks = df.pivot_table(
             values="TASKS",
-            index=["WF_ID", "WF_NAME", "WF_STATUS"],
+            index=["WF_ID", "WF_NAME", "WF_STATUS", "CREATED_DATE"],
             columns="STATUS",
             fill_value=0,
         )
@@ -582,7 +576,7 @@ def get_workflow_status() -> Any:
         tasks = tasks[_cli_order]
 
         # aggregate again without status to get the totals by workflow
-        retries = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS"]).agg(
+        retries = df.groupby(["WF_ID", "WF_NAME", "WF_STATUS", "CREATED_DATE"]).agg(
             {"TASKS": "sum", "RETRIES": "sum"}
         )
 
@@ -613,6 +607,7 @@ def get_workflow_status() -> Any:
                 "WF_ID",
                 "WF_NAME",
                 "WF_STATUS",
+                "CREATED_DATE",
                 "TASKS",
                 "PENDING",
                 "RUNNING",
@@ -632,14 +627,7 @@ def get_workflow_tasks(workflow_id: int) -> Any:
     """Get the tasks for a given workflow."""
     params: Dict = {"workflow_id": workflow_id}
     bind_to_logger(workflow_id=workflow_id)
-    limit_request = request.args.getlist("limit")
-    limit = None if len(limit_request) == 0 else limit_request[0]
-    # anything less than 0 or non number will be treated as None
-    try:
-        if int(limit_request[0]) < 0:
-            limit = None
-    except ValueError:
-        limit = None
+    limit = request.args.get("limit")
     where_clause = "WHERE workflow.id = :workflow_id"
     status_request = request.args.getlist("status", None)
     logger.debug(f"Get tasks for workflow in status {status_request}")
@@ -742,69 +730,6 @@ def get_workflow_user_validation(workflow_id: int, username: str) -> Any:
 
 
 @finite_state_machine.route(
-    "/workflow/<workflow_id>/queued_tasks/<n_queued_tasks>", methods=["GET"]
-)
-def get_queued_jobs(workflow_id: int, n_queued_tasks: int) -> Any:
-    """Returns oldest n tasks (or all tasks if total queued tasks < n) to be instantiated.
-
-    Because the SGE can only qsub tasks at a certain rate, and we poll every 10 seconds, it
-    does not make sense to return all tasks that are queued because only a subset of them can
-    actually be instantiated.
-
-    Args:
-        workflow_id: id of workflow
-        n_queued_tasks: number of tasks to queue
-        last_sync (datetime): time since when to get tasks
-    """
-    # <usertablename>_<columnname>.
-
-    # If we want to prioritize by task or workflow level it would be done in this query
-    bind_to_logger(workflow_id=workflow_id)
-    logger.info("Getting queued jobs for workflow")
-    queue_limit_query = """
-        SELECT (
-            SELECT
-                max_concurrently_running
-            FROM
-                workflow
-            WHERE
-                id = :workflow_id
-            ) - (
-            SELECT
-                count(*)
-            FROM
-                task
-            WHERE
-                task.workflow_id = :workflow_id
-                AND task.status IN ("I", "R")
-            )
-        AS queue_limit
-    """
-    concurrency_limit = DB.session.execute(
-        queue_limit_query, {"workflow_id": int(workflow_id)}
-    ).fetchone()[0]
-
-    # query if we aren't at the concurrency_limit
-    if concurrency_limit > 0:
-        concurrency_limit = min(int(concurrency_limit), int(n_queued_tasks))
-
-        tasks = (
-            DB.session.query(Task)
-            .options(joinedload(Task.task_resources))
-            .filter(Task.workflow_id == workflow_id, Task.status == "Q")
-            .limit(concurrency_limit)
-            .all()
-        )
-        DB.session.commit()
-        task_dcts = [t.to_wire_as_distributor_task() for t in tasks]
-    else:
-        task_dcts = []
-    logger.debug(f"Got the following queued tasks: {task_dcts}")
-    resp = jsonify(task_dcts=task_dcts)
-    return resp
-
-
-@finite_state_machine.route(
     "/workflow/<workflow_id>/validate_for_workflow_reset/<username>", methods=["GET"]
 )
 def get_workflow_run_for_workflow_reset(workflow_id: int, username: str) -> Any:
@@ -866,7 +791,7 @@ def reset_workflow(workflow_id: int) -> Any:
 
 
 @finite_state_machine.route(
-    "workflow/<workflow_id>/fix_status_inconsitency", methods=["PUT"]
+    "workflow/<workflow_id>/fix_status_inconsistency", methods=["PUT"]
 )
 def fix_wf_inconsistency(workflow_id: int) -> Any:
     """Find wf in F with all tasks in D and fix them."""
@@ -875,7 +800,7 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
     total_wf = int(DB.session.execute(sql).fetchone()["total"])
 
     # move the starting row forward by 3000
-    # if the starting row > max row, restart from 0
+    # if the starting row > max row, restart from 0s
     # this way, we can get to the unfinished the wf later
     # without querying the whole db every time
     increase_step = 3000
@@ -936,5 +861,30 @@ def get_wf_name_and_args(workflow_id: int) -> Any:
     resp = jsonify(
         workflow_name=result["workflow_name"], workflow_args=result["workflow_args"]
     )
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route("/workflow/<workflow_id>/byid", methods=["GET"])
+def get_workflow_byid(workflow_id: int) -> Any:
+    """Return an workflow."""
+    bind_to_logger(workflow_id=workflow_id)
+
+    # Check if the workflow is already bound, if so return it
+    workflow_stmt = """
+        SELECT workflow.*
+        FROM workflow
+        WHERE
+            workflow.id = :workflow_id
+    """
+    workflow = (
+        DB.session.query(Workflow)
+        .from_statement(text(workflow_stmt))
+        .params(workflow_id=workflow_id)
+        .one()
+    )
+    DB.session.commit()
+
+    resp = jsonify(workflow=workflow.to_wire_as_distributor_workflow())
     resp.status_code = StatusCodes.OK
     return resp

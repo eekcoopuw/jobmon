@@ -1,143 +1,62 @@
-from multiprocessing import Queue
+from sqlalchemy.sql import text
 
-from jobmon.exceptions import ResumeSet
-
-import pytest
+from jobmon.constants import TaskInstanceStatus
 
 
-@pytest.fixture
-def tool(db_cfg, client_env):
-    from jobmon.client.tool import Tool
-
-    tool = Tool()
-    tool.set_default_compute_resources_from_dict(
-        cluster_name="sequential", compute_resources={"queue": "null.q"}
-    )
-    return tool
-
-
-@pytest.fixture
-def task_template(tool):
-    tt = tool.get_task_template(
-        template_name="my_template",
-        command_template="{arg}",
-        node_args=["arg"],
-        task_args=[],
-        op_args=[],
-    )
-    return tt
-
-
-class MockDistributorProc:
-    def is_alive(self):
-        return True
-
-
-def test_heartbeat(tool, db_cfg, client_env, task_template):
-    """test that the TaskInstanceDistributor logs a heartbeat in the database"""
+def test_heartbeat_on_launched(tool, db_cfg, client_env, task_template):
     from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
-    from jobmon.requester import Requester
+    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+    from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
+    from jobmon.server.web.models.task_instance import TaskInstance
 
-    t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
-    workflow = tool.create_workflow(name="my_beating_heart")
-    workflow.add_tasks([t1])
+    # create the workflow and bind to database
+    t1 = tool.active_task_templates["simple_template"].create_task(arg="sleep 10")
+    t2 = tool.active_task_templates["simple_template"].create_task(arg="sleep 11")
+
+    workflow = tool.create_workflow(name="test_instantiate_queued_jobs_on_sequential")
+    workflow.add_tasks([t1, t2])
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
-    requester = Requester(client_env)
-    distributor_service = DistributorService(
-        workflow.workflow_id,
-        wfr.workflow_run_id,
-        SequentialDistributor(),
-        requester=requester,
+    # create task instances
+    swarm = SwarmWorkflowRun(
+        workflow_run_id=wfr.workflow_run_id,
+        requester=workflow.requester
     )
-    distributor_service.heartbeat()
+    swarm.from_workflow(workflow)
+    swarm.process_commands()
 
-    # check the job finished
+    # launch the task then log a heartbeat
+    distributor_service = DistributorService(
+        MultiprocessDistributor(parallelism=2),
+        requester=workflow.requester,
+        raise_on_error=True
+    )
+    distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+
+    # log a heartbeat. sequential will think it's still running
+    distributor_service.log_task_instance_report_by_date()
+
+    # check the heartbeat date is greater than the latest status
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-        SELECT workflow_run.heartbeat_date > CURRENT_TIMESTAMP()
-        FROM workflow_run
-        WHERE workflow_run.id = :workflow_run_id"""
-        res = DB.session.execute(
-            sql, {"workflow_run_id": wfr.workflow_run_id}
-        ).fetchone()
-        DB.session.commit()
-    assert res[0] == 1
-
-
-def test_heartbeat_raises_error(tool, db_cfg, client_env, task_template):
-    """test that a heartbeat logged after resume will raise ResumeSet"""
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
-    from jobmon.requester import Requester
-
-    t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
-    workflow = tool.create_workflow(name="my_heartbeat_error")
-    workflow.add_tasks([t1])
-    workflow.bind()
-    wfr = workflow._create_workflow_run()
-
-    requester = Requester(client_env)
-    distributor_service = DistributorService(
-        workflow.workflow_id,
-        wfr.workflow_run_id,
-        SequentialDistributor(),
-        requester=requester,
-    )
-    # check the job finished
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        UPDATE workflow_run
-        SET status = 'C'
-        WHERE workflow_run.id = :workflow_run_id"""
-        DB.session.execute(sql, {"workflow_run_id": wfr.workflow_run_id})
+        SELECT *
+        FROM task_instance
+        WHERE task_id in :task_ids
+        ORDER BY id"""
+        task_instances = (
+            DB.session.query(TaskInstance)
+            .from_statement(text(sql))
+            .params(task_ids=[t1.task_id, t2.task_id])
+            .all()
+        )
         DB.session.commit()
 
-    with pytest.raises(ResumeSet):
-        distributor_service.heartbeat()
+    for ti in task_instances:
+        assert ti.status_date < ti.report_by_date
 
-
-def test_heartbeat_propagate_error(tool, db_cfg, client_env, task_template):
-    """test that a heartbeat logged after resume will raise ResumeSet through
-    the message queue and can be re_raised"""
-
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
-    from jobmon.requester import Requester
-
-    t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
-    workflow = tool.create_workflow(name="heartbeat_propagate_error")
-    workflow.add_tasks([t1])
-    workflow.bind()
-    wfr = workflow._create_workflow_run()
-
-    requester = Requester(client_env)
-    distributor_service = DistributorService(
-        workflow.workflow_id,
-        wfr.workflow_run_id,
-        SequentialDistributor(),
-        requester=requester,
-    )
-    # check the job finished
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        UPDATE workflow_run
-        SET status = 'C'
-        WHERE workflow_run.id = :workflow_run_id"""
-        DB.session.execute(sql, {"workflow_run_id": wfr.workflow_run_id})
-        DB.session.commit()
-
-    q = Queue()
-    distributor_service.run_distributor(status_queue=q)
-    assert q.get() == "ALIVE"
-
-    with pytest.raises(ResumeSet):
-        q.get().re_raise()
+    distributor_service.cluster.stop()

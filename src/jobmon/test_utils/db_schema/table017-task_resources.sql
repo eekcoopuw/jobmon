@@ -6,7 +6,7 @@ use `docker`;
 DROP TABLE IF EXISTS `task_resources`;
 CREATE TABLE `task_resources` (
   `id` INTEGER NOT NULL AUTO_INCREMENT,
-  `task_id` INTEGER NOT NULL,
+  `task_id` INTEGER NULL,
   `queue_id` INTEGER NULL,
   `task_resources_type_id` varchar(1) NOT NULL,
   `requested_resources` TEXT DEFAULT NULL,

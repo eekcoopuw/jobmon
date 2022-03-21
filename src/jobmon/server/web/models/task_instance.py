@@ -5,13 +5,10 @@ from typing import Tuple
 from sqlalchemy.sql import func
 from werkzeug.local import LocalProxy
 
+from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeTaskInstance
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
-from jobmon.server.web.models.exceptions import (
-    InvalidStateTransition,
-    KillSelfTransition,
-)
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
 
@@ -27,16 +24,37 @@ class TaskInstance(DB.Model):
 
     def to_wire_as_distributor_task_instance(self) -> Tuple:
         """Serialize task instance object."""
-        return SerializeTaskInstance.to_wire(
-            self.id, self.workflow_run_id, self.distributor_id
+        return SerializeTaskInstance.to_wire_distributor(
+            self.id,
+            self.task_id,
+            self.workflow_run_id,
+            self.task.workflow_id,
+            self.status,
+            self.distributor_id,
+            self.cluster_id,
+            self.task_resources_id,
+            self.array_id,
+            self.array_batch_num,
+            self.array_step_id,
+        )
+
+    def to_wire_as_worker_node_task_instance(self) -> Tuple:
+        """Serialize task instance object."""
+        return SerializeTaskInstance.to_wire_worker_node(
+            self.id,
+            self.task.command,
+            self.status
         )
 
     id = DB.Column(DB.Integer, primary_key=True)
     workflow_run_id = DB.Column(DB.Integer)
-    cluster_type_id = DB.Column(DB.Integer, DB.ForeignKey("cluster_type.id"))
+    array_id = DB.Column(DB.Integer, DB.ForeignKey("array.id"), default=None)
+    cluster_id = DB.Column(DB.Integer, DB.ForeignKey("cluster.id"))
     distributor_id = DB.Column(DB.Integer, index=True)
     task_id = DB.Column(DB.Integer, DB.ForeignKey("task.id"))
     task_resources_id = DB.Column(DB.Integer, DB.ForeignKey("task_resources.id"))
+    array_batch_num = DB.Column(DB.Integer)
+    array_step_id = DB.Column(DB.Integer)
 
     # usage
     nodename = DB.Column(DB.String(150))
@@ -52,7 +70,7 @@ class TaskInstance(DB.Model):
     status = DB.Column(
         DB.String(1),
         DB.ForeignKey("task_instance_status.id"),
-        default=TaskInstanceStatus.INSTANTIATED,
+        default=TaskInstanceStatus.QUEUED,
     )
     submitted_date = DB.Column(DB.DateTime, default=func.now())
     status_date = DB.Column(DB.DateTime, default=func.now())
@@ -65,11 +83,13 @@ class TaskInstance(DB.Model):
 
     # finite state machine transition information
     valid_transitions = [
-        # task instance is submitted normally (happy path)
-        (
-            TaskInstanceStatus.INSTANTIATED,
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
-        ),
+        # task instance is moved from queued to instantiated by distributor
+        (TaskInstanceStatus.QUEUED, TaskInstanceStatus.INSTANTIATED),
+        # task instance is queued and waiting to instantiate when a new workflow run starts and
+        # tells it to die
+        (TaskInstanceStatus.QUEUED, TaskInstanceStatus.KILL_SELF),
+        # task instance is launched by distributor
+        (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.LAUNCHED),
         # task instance submission hit weird bug and didn't get an distributor_id
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.NO_DISTRIBUTOR_ID),
         # task instance is mid submission and a new workflow run starts and
@@ -77,28 +97,24 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.KILL_SELF),
         # task instance logs running before submitted due to race condition
         (TaskInstanceStatus.INSTANTIATED, TaskInstanceStatus.RUNNING),
-        # task instance logs running after submission to batch (happy path)
-        (TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR, TaskInstanceStatus.RUNNING),
+        # task instance running after transitioning from launched
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.RUNNING),
         # task instance disappeared from distributor heartbeat and never logged
         # running. The distributor has no accounting of why it died
-        (
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
-            TaskInstanceStatus.UNKNOWN_ERROR,
-        ),
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.UNKNOWN_ERROR),
         # task instance disappeared from distributor heartbeat and never logged
         # running. The distributor discovered a resource error exit status.
         # This seems unlikely but is valid for the purposes of the FSM
-        (
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
-            TaskInstanceStatus.RESOURCE_ERROR,
-        ),
-        # task instance is submitted to the batch distributor waiting to start
-        # running. new workflow run is created and this task is told to kill
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.RESOURCE_ERROR),
+        # task instance is submitted to the batch distributor waiting to launch.
+        # new workflow run is created and this task is told to kill
         # itself
-        (
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
-            TaskInstanceStatus.KILL_SELF,
-        ),
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.KILL_SELF),
+        # allow task instance to transit to F to immediately fail the task if there is an env
+        # mismatch
+        (TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.ERROR_FATAL),
+        # task instance triaging after transitioning from running
+        (TaskInstanceStatus.RUNNING, TaskInstanceStatus.TRIAGING),
         # task instance hits an application error (happy path)
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.ERROR),
         # task instance stops logging heartbeats. reconciler can't find an exit
@@ -113,18 +129,23 @@ class TaskInstance(DB.Model):
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.KILL_SELF),
         # task instance finishes normally (happy path)
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.DONE),
-        # allow task instance to transit to F to immediately fail the task
-        (
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
-            TaskInstanceStatus.ERROR_FATAL,
-        ),
+        # task instance launched after transitioning from triaging
+        (TaskInstanceStatus.TRIAGING, TaskInstanceStatus.RUNNING),
+        # task instance resource_error after transitioning from triaging
+        (TaskInstanceStatus.TRIAGING, TaskInstanceStatus.RESOURCE_ERROR),
+        # task instance unknown_error after transitioning from triaging
+        (TaskInstanceStatus.TRIAGING, TaskInstanceStatus.UNKNOWN_ERROR),
+        # task instance error_fatal after transitioning from triaging
+        (TaskInstanceStatus.TRIAGING, TaskInstanceStatus.ERROR_FATAL),
+        # task instance error after transitioning from kill_self
+        (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.ERROR_FATAL),
     ]
 
     untimely_transitions = [
         # task instance logs running before the distributor logs submitted due to
         # race condition. this is unlikely but happens and is valid for the
         # purposes of the FSM
-        (TaskInstanceStatus.RUNNING, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR),
+        (TaskInstanceStatus.RUNNING, TaskInstanceStatus.LAUNCHED),
         # task instance stops logging heartbeats and reconciler is looking for
         # remote exit status but can't find it so logs an unknown error. task
         # finishes with an application error. We can't update state because
@@ -155,19 +176,9 @@ class TaskInstance(DB.Model):
         # task is reset by workflow resume and worker finishes gracefully but
         # resume won the race
         (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.DONE),
-        # task is reset by workflow resume and worker finishes with application
-        # error but resume won the race
-        (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.ERROR),
         # task is reset by workflow resume and reconciler or worker node
         # discovers resource error, but resume won the race
         (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.RESOURCE_ERROR),
-    ]
-
-    kill_self_states = [
-        TaskInstanceStatus.NO_DISTRIBUTOR_ID,
-        TaskInstanceStatus.UNKNOWN_ERROR,
-        TaskInstanceStatus.RESOURCE_ERROR,
-        TaskInstanceStatus.KILL_SELF,
     ]
 
     error_states = [
@@ -186,11 +197,19 @@ class TaskInstance(DB.Model):
             task_id=self.task_id,
             task_instance_id=self.id,
         )
-        logger.info(f"Transitioning task_instance from {self.status} to {new_state}")
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
+            logger.info(
+                f"Transitioning task_instance from {self.status} to {new_state}"
+            )
             self.status = new_state
             self.status_date = func.now()
+            if new_state == TaskInstanceStatus.QUEUED:
+                self.task.transition(TaskStatus.QUEUED)
+            if new_state == TaskInstanceStatus.INSTANTIATED:
+                self.task.transition(TaskStatus.INSTANTIATING)
+            if new_state == TaskInstanceStatus.LAUNCHED:
+                self.task.transition(TaskStatus.LAUNCHED)
             if new_state == TaskInstanceStatus.RUNNING:
                 self.task.transition(TaskStatus.RUNNING)
             elif new_state == TaskInstanceStatus.DONE:
@@ -201,30 +220,19 @@ class TaskInstance(DB.Model):
                 # if the task instance is F, the task status should be F too
                 self.task.transition(TaskStatus.ERROR_RECOVERABLE)
                 self.task.transition(TaskStatus.ERROR_FATAL)
-        logger.info(f"Status of task_instance is now {self.status}")
 
     def _validate_transition(self, new_state: str) -> None:
         """Ensure the TaskInstance status transition is valid."""
-        if (
-            self.status in self.kill_self_states
-            and new_state is TaskInstanceStatus.RUNNING
-        ):
-            raise KillSelfTransition("TaskInstance", self.id, self.status, new_state)
         if (self.status, new_state) not in self.__class__.valid_transitions:
-            raise InvalidStateTransition(
-                "TaskInstance", self.id, self.status, new_state
-            )
+            raise InvalidStateTransition("TaskInstance", self.id, self.status, new_state)
 
     def _is_timely_transition(self, new_state: str) -> bool:
         """Check if the transition is invalid due to a race condition."""
         if (self.status, new_state) in self.__class__.untimely_transitions:
-            msg = str(
-                InvalidStateTransition("TaskInstance", self.id, self.status, new_state)
-            )
+            msg = str(InvalidStateTransition("TaskInstance", self.id, self.status, new_state))
             msg += (
                 ". This is an untimely transition likely caused by a race "
-                " condition between the UGE distributor and the task instance"
-                " factory which logs the UGE id on the task instance."
+                " condition between the distributor_service and the worker_node."
             )
             logger.warning(msg)
             return False

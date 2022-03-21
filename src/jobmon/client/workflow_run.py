@@ -1,15 +1,23 @@
 """The workflow run is an instance of a workflow."""
+from __future__ import annotations
+
 import getpass
 import logging
 import time
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
-from jobmon.constants import WorkflowRunStatus
+from jobmon.client.task_resources import TaskResources
+from jobmon.constants import WorkflowRunStatus, TaskResourcesType
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import http_request_ok, Requester
+
+
+# avoid circular imports on backrefs
+if TYPE_CHECKING:
+    from jobmon.client.workflow import Workflow
 
 
 logger = logging.getLogger(__name__)
@@ -30,14 +38,14 @@ class WorkflowRun(object):
 
     def __init__(
         self,
-        workflow_id: int,
+        workflow: Workflow,
         requester: Optional[Requester] = None,
         workflow_run_heartbeat_interval: int = 30,
         heartbeat_report_by_buffer: float = 3.1,
     ) -> None:
         """Initialize client WorkflowRun."""
         # set attrs
-        self.workflow_id = workflow_id
+        self._workflow = workflow
         self.user = getpass.getuser()
 
         if requester is None:
@@ -52,11 +60,15 @@ class WorkflowRun(object):
         # workflow was created successfully
         self.status = WorkflowRunStatus.REGISTERED
 
+        # cache for compute resources
+        self._task_resources: Dict[int, TaskResources] = {}
+
+    @property
+    def workflow_id(self):
+        return self._workflow.workflow_id
+
     def bind(
-        self,
-        tasks: Dict[int, Task],
-        reset_if_running: bool = True,
-        chunk_size: int = 500,
+        self, reset_if_running: bool = True, chunk_size: int = 500
     ) -> Dict[int, Task]:
         """Link this workflow run with the workflow and add all tasks."""
         next_report_increment = (
@@ -78,12 +90,13 @@ class WorkflowRun(object):
         self._last_heartbeat: float = time.time()
 
         try:
-            tasks = self._bind_tasks(tasks, reset_if_running, chunk_size)
+            tasks = self._bind_tasks(reset_if_running, chunk_size)
         except Exception:
             self._update_status(WorkflowRunStatus.ABORTED)
             raise
         else:
             self._update_status(WorkflowRunStatus.BOUND)
+
         return tasks
 
     def _update_status(self, status: str) -> None:
@@ -155,13 +168,11 @@ class WorkflowRun(object):
 
     def _bind_tasks(
         self,
-        tasks: Dict[int, Task],
         reset_if_running: bool = True,
         chunk_size: int = 500,
     ) -> Dict[int, Task]:
         app_route = "/task/bind_tasks"
-        parameters = {}
-        remaining_task_hashes = list(tasks.keys())
+        remaining_task_hashes = list(self._workflow.tasks.keys())
 
         while remaining_task_hashes:
 
@@ -175,23 +186,35 @@ class WorkflowRun(object):
             remaining_task_hashes = remaining_task_hashes[chunk_size:]
 
             # send to server in a format of:
-            # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), name(3),
-            # command(4), max_attempts(5)], reset_if_running(6), task_args(7),
-            # task_attributes(8)}
+            # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), array_id(3),
+            # name(4), command(5), max_attempts(6)], reset_if_running(7), task_args(8),
+            # task_attributes(9)}
             # flat the data structure so that the server won't depend on the client
             task_metadata: Dict[int, List] = {}
             for task_hash in task_hashes_chunk:
+                task = self._workflow.tasks[task_hash]
+
+                # get array id
+                array = task.array
+                if not array.is_bound:
+                    array.bind()
+
+                # get task resources id
+                self._set_original_task_resources(task)
+
                 task_metadata[task_hash] = [
-                    tasks[task_hash].node.node_id,
-                    str(tasks[task_hash].task_args_hash),
-                    tasks[task_hash].name,
-                    tasks[task_hash].command,
-                    tasks[task_hash].max_attempts,
+                    task.node.node_id,
+                    task.task_args_hash,
+                    task.array.array_id,
+                    task.original_task_resources.id,
+                    task.name,
+                    task.command,
+                    task.max_attempts,
                     reset_if_running,
-                    tasks[task_hash].task_args,
-                    tasks[task_hash].task_attributes,
-                    tasks[task_hash].resource_scales,
-                    tasks[task_hash].fallback_queues,
+                    task.mapped_task_args,
+                    task.task_attributes,
+                    task.resource_scales,
+                    task.fallback_queues,
                 ]
             parameters = {
                 "workflow_id": self.workflow_id,
@@ -213,19 +236,43 @@ class WorkflowRun(object):
             # populate returned values onto task dict
             return_tasks = response["tasks"]
             for k in return_tasks.keys():
-                task = tasks[int(k)]
+                task = self._workflow.tasks[int(k)]
                 task.task_id = return_tasks[k][0]
                 task.initial_status = return_tasks[k][1]
 
-                # Bind the task resources
-                try:
-                    task.task_resources.bind(task.task_id)
-                except AttributeError as e:
-                    # task resources should only raise this error if callable is not None
-                    if task.compute_resources_callable is None:
-                        raise e
+        return self._workflow.tasks
 
-        return tasks
+    def _set_original_task_resources(self, task: Task) -> None:
+        resource_params = task.compute_resources
+        cluster = self._workflow.get_cluster_by_name(task.cluster_name)
+
+        try:
+            queue_name: str = resource_params["queue"]
+        except KeyError:
+            raise ValueError(
+                "A queue name must be provided in the specified compute resources."
+            )
+        queue = cluster.get_queue(queue_name)
+
+        for resource, value in resource_params.items():
+            if resource == 'memory':
+                resource_params['memory'] = queue.convert_memory_to_gib(value)
+            if resource == 'runtime':
+                resource_params['runtime'] = queue.convert_runtime_to_s(value)
+
+        concrete_resources = cluster.concrete_resource_class(queue, resource_params)
+
+        try:
+            task_resources = self._task_resources[hash(concrete_resources)]
+        except KeyError:
+            task_resources = TaskResources(
+                concrete_resources=concrete_resources,
+                task_resources_type_id=TaskResourcesType.ORIGINAL,
+            )
+            task_resources.bind()
+            self._task_resources[hash(task_resources)] = task_resources
+
+        task.original_task_resources = task_resources
 
     def __repr__(self) -> str:
         """A representation string for a client WorkflowRun instance."""

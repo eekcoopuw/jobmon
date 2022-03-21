@@ -3,13 +3,16 @@ from __future__ import annotations
 
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Any, Dict, Optional, Tuple
+from typing import Any, Dict, Optional, Tuple, Type, TYPE_CHECKING
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientToolVersion
+
+if TYPE_CHECKING:
+    from jobmon.client.tool import Tool
 
 
 logger = logging.getLogger(__name__)
@@ -28,46 +31,29 @@ class ToolVersion:
             requester: communicate with the flask services.
         """
         self.id = tool_version_id
-        if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
-        self.requester = requester
+        self._tool: Tool
 
         self.task_templates: Dict[str, TaskTemplate] = {}
 
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
         self.default_cluster_name: str = ""
 
-    @classmethod
-    def get_tool_version(
-        cls: Any,
-        tool_id: Optional[int] = None,
-        tool_version_id: Optional[int] = None,
-        requester: Optional[Requester] = None,
-    ) -> ToolVersion:
-        """Get an instance of ToolVersion from the database.
-
-        Args:
-            tool_id: an integer id associated with a Tool
-            tool_version_id: tool_version_id to get from the database.
-            requester: communicate with the flask services.
-        """
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
             requester = Requester(requester_url)
+        self.requester = requester
 
-        message = {}
-        if tool_id is not None:
-            message["tool_id"] = tool_id
-        if tool_version_id is not None:
-            message["tool_version_id"] = tool_version_id
-        if not message:
-            raise ValueError(
-                "get_tool_version must specify either a tool_id or a tool_version_id"
-            )
+    @classmethod
+    def get_tool_version(cls: Type[ToolVersion], tool: Tool) -> ToolVersion:
+        """Get a new instance of a ToolVersion from the database.
 
+        Args:
+            tool: a Tool to get a version from.
+            tool_version_id: tool_version_id to get from the database.
+        """
+        message = {"tool_id": tool.id}
         app_route = "/tool_version"
-        return_code, response = requester.send_request(
+        return_code, response = tool.requester.send_request(
             app_route=app_route, message=message, request_type="post", logger=logger
         )
 
@@ -76,13 +62,11 @@ class ToolVersion:
                 f"Unexpected status code {return_code} from POST request through route "
                 f"{app_route}. Expected code 200. Response content: {response}"
             )
-        tool_version = cls.from_wire(response["tool_version"], requester)
+        tool_version = cls.from_wire(response["tool_version"], tool)
         return tool_version
 
     @classmethod
-    def from_wire(
-        cls: Any, wire_tuple: Tuple, requester: Optional[Requester] = None
-    ) -> ToolVersion:
+    def from_wire(cls: Type[ToolVersion], wire_tuple: Tuple, tool: Tool) -> ToolVersion:
         """Convert from the wire format of ToolVersion to an instance.
 
         Args:
@@ -90,8 +74,22 @@ class ToolVersion:
             requester: communicate with the flask services.
         """
         tool_version_kwargs = SerializeClientToolVersion.kwargs_from_wire(wire_tuple)
-        tool_version = cls(tool_version_kwargs["id"], requester=requester)
+
+        if tool_version_kwargs["tool_id"] != tool.id:
+            raise ValueError(
+                "tool_id in wire_tuple does not match tool object. "
+                f"Expected {tool.id} in wire_tuple. Got "
+                f"{tool_version_kwargs['tool_id']}"
+            )
+
+        tool_version = cls(tool_version_kwargs["id"], requester=tool.requester)
+        tool_version._tool = tool
         return tool_version
+
+    @property
+    def tool(self) -> Tool:
+        """The Tool this ToolVersion is associated with."""
+        return self._tool
 
     def load_task_templates(self) -> None:
         """Get all task_templates associated with this tool version from the database."""
@@ -106,7 +104,7 @@ class ToolVersion:
                 f"{app_route}. Expected code 200. Response content: {response}"
             )
         task_templates = [
-            TaskTemplate.from_wire(wire_tuple, requester=self.requester)
+            TaskTemplate.from_wire(wire_tuple, self)
             for wire_tuple in response["task_templates"]
         ]
         for task_template in task_templates:
@@ -117,9 +115,7 @@ class ToolVersion:
         """Get a single task_template associated with this tool version from the database."""
         task_template = self.task_templates.get(template_name)
         if task_template is None:
-            task_template = TaskTemplate.get_task_template(
-                self.id, template_name, requester=self.requester
-            )
+            task_template = TaskTemplate.get_task_template(self, template_name)
             task_template.load_task_template_versions()
             self.task_templates[template_name] = task_template
         return task_template

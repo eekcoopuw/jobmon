@@ -134,7 +134,7 @@ class Dag(object):
                 n = {
                     "task_template_version_id": node.task_template_version_id,
                     "node_args_hash": str(node.node_args_hash),
-                    "node_args": node.node_args,
+                    "node_args": node.mapped_node_args,
                 }
                 nodes_to_send.append(n)
             rc, response = self.requester.send_request(

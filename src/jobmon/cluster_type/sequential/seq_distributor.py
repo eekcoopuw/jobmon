@@ -3,7 +3,7 @@ from collections import OrderedDict
 import logging
 import os
 import shutil
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
@@ -23,7 +23,7 @@ class LimitedSizeDict(OrderedDict):
         OrderedDict.__init__(self, *args, **kwds)
         self._check_size_limit()
 
-    def __setitem__(self, key: int, value: Any) -> None:
+    def __setitem__(self, key: str, value: Any) -> None:
         """Set item in dict."""
         OrderedDict.__setitem__(self, key, value)
         self._check_size_limit()
@@ -61,7 +61,7 @@ class SequentialDistributor(ClusterDistributor):
         return self._worker_node_entry_point
 
     @property
-    def cluster_type_name(self) -> str:
+    def cluster_name(self) -> str:
         """Return the name of the cluster type."""
         return "sequential"
 
@@ -69,15 +69,20 @@ class SequentialDistributor(ClusterDistributor):
         """Start the distributor."""
         self.started = True
 
-    def stop(self, distributor_ids: List[int]) -> None:
+    def stop(self) -> None:
         """Stop the distributor."""
         self.started = False
 
-    def get_queueing_errors(self, distributor_ids: List[int]) -> Dict[int, str]:
+    def get_queueing_errors(self, distributor_ids: List[str]) -> Dict[str, str]:
         """Get the task instances that have errored out."""
         raise NotImplementedError
 
-    def get_remote_exit_info(self, distributor_id: int) -> Tuple[str, str]:
+    def get_array_queueing_errors(
+        self, distributor_id: Union[int, str]
+    ) -> Dict[Union[int, str], str]:
+        raise NotImplementedError
+
+    def get_remote_exit_info(self, distributor_id: str) -> Tuple[str, str]:
         """Get exit info from task instances that have run."""
         try:
             exit_code = self._exit_info[distributor_id]
@@ -89,15 +94,14 @@ class SequentialDistributor(ClusterDistributor):
         except KeyError:
             raise RemoteExitInfoNotAvailable
 
-    def get_submitted_or_running(self, distributor_ids: List[int]) -> List[int]:
+    def get_submitted_or_running(
+        self, distributor_ids: Optional[List[str]] = None
+    ) -> Set[str]:
         """Check status of running task."""
-        running = os.environ.get("JOB_ID")
-        if running:
-            return [int(running)]
-        else:
-            return []
+        running = os.environ.get("JOB_ID", "")
+        return {running}
 
-    def terminate_task_instances(self, distributor_ids: List[int]) -> None:
+    def terminate_task_instances(self, distributor_ids: List[str]) -> None:
         """Terminate task instances.
 
         If implemented, return a list of (task_instance_id, hostname) tuples for any
@@ -109,19 +113,22 @@ class SequentialDistributor(ClusterDistributor):
         )
 
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any]
-    ) -> int:
+        self,
+        command: str,
+        name: str,
+        requested_resources: Dict[str, Any],
+    ) -> str:
         """Execute sequentially."""
         # add an executor id to the environment
         os.environ["JOB_ID"] = str(self._next_distributor_id)
-        distributor_id = self._next_distributor_id
+        distributor_id = str(self._next_distributor_id)
         self._next_distributor_id += 1
 
         # run the job and log the exit code
         try:
             cli = WorkerNodeCLI()
             args = cli.parse_args(command)
-            exit_code: Union[int, ReturnCodes] = cli.run_task(args)
+            exit_code = cli.run_task_instance(args)
         except SystemExit as e:
             if e.code == ReturnCodes.WORKER_NODE_CLI_FAILURE:
                 exit_code = e.code
@@ -129,7 +136,7 @@ class SequentialDistributor(ClusterDistributor):
                 raise
 
         self._exit_info[distributor_id] = exit_code
-        return distributor_id
+        return str(distributor_id)
 
 
 class SequentialWorkerNode(ClusterWorkerNode):
@@ -137,15 +144,15 @@ class SequentialWorkerNode(ClusterWorkerNode):
 
     def __init__(self) -> None:
         """Initialization of the sequential executor worker node."""
-        self._distributor_id: Optional[int] = None
+        self._distributor_id: Optional[str] = None
 
     @property
-    def distributor_id(self) -> Optional[int]:
+    def distributor_id(self) -> Optional[str]:
         """Distributor id of the task."""
         if self._distributor_id is None:
             jid = os.environ.get("JOB_ID")
             if jid:
-                self._distributor_id = int(jid)
+                self._distributor_id = jid
         return self._distributor_id
 
     @staticmethod

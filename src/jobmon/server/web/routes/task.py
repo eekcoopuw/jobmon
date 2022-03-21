@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Set, Union
 from flask import jsonify, request
 import pandas as pd
 from sqlalchemy.dialects.mysql import insert
+from sqlalchemy.exc import DataError
 from sqlalchemy.sql import text
 from werkzeug.local import LocalProxy
 
@@ -19,7 +20,6 @@ from jobmon.constants import (
 from jobmon.serializers import SerializeTaskResourceUsage
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
-from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_arg import TaskArg
 from jobmon.server.web.models.task_attribute import TaskAttribute
@@ -35,6 +35,7 @@ logger = LocalProxy(partial(get_logger, __name__))
 
 
 _task_instance_label_mapping = {
+    "Q": "PENDING",
     "B": "PENDING",
     "I": "PENDING",
     "R": "RUNNING",
@@ -47,7 +48,7 @@ _task_instance_label_mapping = {
 }
 
 _reversed_task_instance_label_mapping = {
-    "PENDING": ["B", "I"],
+    "PENDING": ["Q", "B", "I"],
     "RUNNING": ["R"],
     "FATAL": ["E", "Z", "W", "U", "K"],
     "DONE": ["D"],
@@ -128,10 +129,11 @@ def add_task() -> Any:
                 workflow_id=t["workflow_id"],
                 node_id=t["node_id"],
                 task_args_hash=t["task_args_hash"],
+                array_id=t["array_id"],
                 name=t["name"],
                 command=t["command"],
                 max_attempts=t["max_attempts"],
-                status=TaskStatus.REGISTERED,
+                status=TaskStatus.REGISTERING,
             )
             tasks.append(task)
         DB.session.add_all(tasks)
@@ -217,8 +219,9 @@ def bind_tasks() -> Any:
     bind_to_logger(workflow_id=workflow_id)
     logger.info("Binding tasks")
     # receive from client the tasks in a format of:
-    # {<hash>:[node_id(1), task_args_hash(2), name(3), command(4), max_attempts(5),
-    # reset_if_running(6), task_args(7),task_attributes(8),resource_scales(9)]}
+    # {<hash>:[node_id(1), task_args_hash(2), array_id(3), task_resources_id(4), name(5),
+    # command(6), max_attempts(7), reset_if_running(8),
+    # task_args(9),task_attributes(10),resource_scales(11)]}
 
     # Retrieve existing task_ids
     task_query = """
@@ -254,6 +257,8 @@ def bind_tasks() -> Any:
         (
             node_id,
             arg_hash,
+            array_id,
+            task_resources_id,
             name,
             command,
             max_att,
@@ -281,10 +286,12 @@ def bind_tasks() -> Any:
                 "workflow_id": workflow_id,
                 "node_id": node_id,
                 "task_args_hash": arg_hash,
+                "array_id": array_id,
+                "task_resources_id": task_resources_id,
                 "name": name,
                 "command": command,
                 "max_attempts": max_att,
-                "status": TaskStatus.REGISTERED,
+                "status": TaskStatus.REGISTERING,
                 "resource_scales": str(resource_scales),
                 "fallback_queues": str(fallback_queues),
             }
@@ -301,7 +308,7 @@ def bind_tasks() -> Any:
 
     # Bind new tasks with raw SQL
     if len(tasks_to_add):
-
+        # This command is guaranteed to succeed, since names are truncated in the client
         DB.session.execute(insert(Task), tasks_to_add)
         DB.session.flush()
 
@@ -353,6 +360,10 @@ def bind_tasks() -> Any:
             args_to_add.append(task_arg)
 
         for name, val in attrs.items():
+            # An interesting bug: the attribute type names are inserted using the
+            # insert.prefix("IGNORE") syntax, which silently truncates names that are
+            # overly long. So this will raise a keyerror if the attribute name is >255
+            # characters. Don't imagine this is a serious issue but might be worth protecting
             attr_type_id = task_attr_type_mapping[name]
             insert_vals = {
                 "task_id": task_id,
@@ -362,19 +373,38 @@ def bind_tasks() -> Any:
             attrs_to_add.append(insert_vals)
 
     if args_to_add:
-        arg_insert_stmt = (
-            insert(TaskArg)
-            .values(args_to_add)
-            .on_duplicate_key_update(val=text("VALUES(val)"))
-        )
-        DB.session.execute(arg_insert_stmt)
+        try:
+            arg_insert_stmt = (
+                insert(TaskArg)
+                .values(args_to_add)
+                .on_duplicate_key_update(val=text("VALUES(val)"))
+            )
+            DB.session.execute(arg_insert_stmt)
+        except DataError as e:
+            # Args likely too long, message back
+            DB.session.rollback()
+            raise InvalidUsage(
+                "Task Args are constrained to 1000 characters, you may have values "
+                f"that are too long. Message: {str(e)}",
+                status_code=400,
+            ) from e
+
     if attrs_to_add:
-        attr_insert_stmt = (
-            insert(TaskAttribute)
-            .values(attrs_to_add)
-            .on_duplicate_key_update(value=text("VALUES(value)"))
-        )
-        DB.session.execute(attr_insert_stmt)
+        try:
+            attr_insert_stmt = (
+                insert(TaskAttribute)
+                .values(attrs_to_add)
+                .on_duplicate_key_update(value=text("VALUES(value)"))
+            )
+            DB.session.execute(attr_insert_stmt)
+        except DataError as e:
+            # Attributes too long, message back
+            DB.session.rollback()
+            raise InvalidUsage(
+                "Task attributes are constrained to 255 characters, you may have values "
+                f"that are too long. Message: {str(e)}",
+                status_code=400,
+            ) from e
     DB.session.commit()
 
     resp = jsonify(tasks=return_tasks)
@@ -386,9 +416,18 @@ def _add_or_get_attribute_type(
     names: Union[List[str], Set[str]]
 ) -> List[TaskAttributeType]:
     attribute_types = [{"name": name} for name in names]
-    insert_stmt = insert(TaskAttributeType).prefix_with("IGNORE")
-    DB.session.execute(insert_stmt, attribute_types)
-    DB.session.commit()
+    try:
+        insert_stmt = insert(TaskAttributeType).prefix_with("IGNORE")
+        DB.session.execute(insert_stmt, attribute_types)
+        DB.session.commit()
+    except DataError as e:
+        # Attributes likely too long, message back
+        DB.session.rollback()
+        raise InvalidUsage(
+            "Attribute types are constrained to 255 characters, your "
+            f"attributes might be too long. Message: {str(e)}",
+            status_code=400,
+        ) from e
 
     # Query the IDs
     attribute_type_ids = (
@@ -401,14 +440,22 @@ def _add_or_get_attribute_type(
 
 def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
     attribute_type = _add_or_get_attribute_type([name])
-    insert_vals = insert(TaskAttribute).values(
-        task_id=task_id, task_attribute_type_id=attribute_type, value=value
-    )
-    update_insert = insert_vals.on_duplicate_key_update(
-        value=insert_vals.inserted.value
-    )
-    attribute = DB.session.execute(update_insert)
-    DB.session.commit()
+    try:
+        insert_vals = insert(TaskAttribute).values(
+            task_id=task_id, task_attribute_type_id=attribute_type, value=value
+        )
+        update_insert = insert_vals.on_duplicate_key_update(
+            value=insert_vals.inserted.value
+        )
+        attribute = DB.session.execute(update_insert)
+        DB.session.commit()
+    except DataError as e:
+        DB.session.rollback()
+        raise InvalidUsage(
+            "Attribute values are limited to 255 characters, "
+            f"you might have attributes that are too long. Message: {str(e)}",
+            status_code=400,
+        ) from e
     return attribute.id
 
 
@@ -436,29 +483,39 @@ def update_task_attribute(task_id: int) -> Any:
 
 
 @finite_state_machine.route("/task/<task_id>/queue", methods=["POST"])
-def queue_job(task_id: int) -> Any:
+def queue_task(task_id: int) -> Any:
     """Queue a job and change its status.
 
     Args:
         task_id: id of the job to queue
     """
-    bind_to_logger(task_id=task_id)
-    logger.debug(f"Queue job {task_id}")
-    task = DB.session.query(Task).filter_by(id=task_id).one()
-    try:
-        task.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
-    except InvalidStateTransition:
-        # Handles race condition if the task has already been queued
-        if task.status == TaskStatus.QUEUED_FOR_INSTANTIATION:
-            msg = (
-                "Caught InvalidStateTransition. Not transitioning job "
-                f"{task_id} from Q to Q"
-            )
-            logger.warning(msg)
-        else:
-            raise
-    DB.session.commit()
+    data = request.get_json()
 
+    # Bring task object in
+    task = DB.session.query(Task).filter(Task.id == task_id).one_or_none()
+
+    # send back json for task_id not found
+    if task is None:
+        resp = jsonify(msg=f"Task {task_id} does not exist!", task_instance=None)
+        resp.status_code = StatusCodes.NOT_FOUND
+        return resp
+
+    # Create task instance from input task_id
+    ti = TaskInstance(
+        workflow_run_id=data["workflow_run_id"],
+        array_id=task.array_id,
+        cluster_id=data["cluster_id"],
+        task_id=task.id,
+        task_resources_id=task.task_resources_id,
+        status=TaskInstanceStatus.QUEUED,
+    )
+    DB.session.add(ti)
+
+    # We need to then put the task on QUEUED_FOR_INSTANTIATION
+    # since now ti has been QUEUED
+    task.transition(TaskStatus.QUEUED)
+
+    DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -492,32 +549,18 @@ def _transform_mem_to_gb(mem_str: Any) -> float:
     return mem
 
 
-@finite_state_machine.route("/task/<task_id>/bind_resources", methods=["POST"])
-def bind_task_resources(task_id: int) -> Any:
-    """Add the task resources for a given task.
-
-    Args:
-        task_id (int): id of the task for which task resources will be added
-    """
-    bind_to_logger(task_id=task_id)
+@finite_state_machine.route("/task/bind_resources", methods=["POST"])
+def bind_task_resources() -> Any:
+    """Add the task resources for a given task."""
     data = request.get_json()
 
-    try:
-        task_id_int = int(task_id)
-    except ValueError:
-        resp = jsonify(msg="task_id {} is not a number".format(task_id))
-        resp.status_code = StatusCodes.INTERNAL_SERVER_ERROR
-        return resp
-
     new_resources = TaskResources(
-        task_id=task_id_int,
         queue_id=data.get("queue_id", None),
         task_resources_type_id=data.get("task_resources_type_id", None),
         requested_resources=data.get("requested_resources", None),
     )
     DB.session.add(new_resources)
     DB.session.flush()  # get auto increment
-    new_resources.activate()
     DB.session.commit()
 
     resp = jsonify(new_resources.id)
@@ -782,7 +825,7 @@ def update_task_statuses() -> Any:
 
     try:
         # If job is supposed to be rerun, set task instances to "K"
-        if new_status == TaskStatus.REGISTERED:
+        if new_status == TaskStatus.REGISTERING:
             task_instance_q = """
                 UPDATE task_instance
                 SET status = '{k_code}'
@@ -961,5 +1004,33 @@ def get_task_resource_usage() -> Any:
             result.num_attempts, result.nodename, result.wallclock, result.maxpss
         )
     resp = jsonify(resource_usage)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route("/task/<task_id>", methods=["GET"])
+def get_task(task_id: int) -> Any:
+    """Return an task.
+
+    If not found, bind the task.
+    """
+    bind_to_logger(task_id=task_id)
+
+    # Check if the task is already bound, if so return it
+    task_stmt = """
+        SELECT task.*
+        FROM task
+        WHERE
+            task.id = :task_id
+    """
+    task = (
+        DB.session.query(Task)
+        .from_statement(text(task_stmt))
+        .params(task_id=task_id)
+        .one()
+    )
+    DB.session.commit()
+
+    resp = jsonify(task=task.to_wire_as_distributor_task())
     resp.status_code = StatusCodes.OK
     return resp

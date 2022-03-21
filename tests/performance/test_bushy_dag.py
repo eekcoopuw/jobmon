@@ -27,7 +27,7 @@ def mock_propagate_results(self, swarm_task):
         logger.debug(f"downstream {downstream}")
         downstream_done = downstream.status == TaskStatus.DONE
         downstream.num_upstreams_done += 1
-        if not downstream_done and downstream.status == TaskStatus.REGISTERED:
+        if not downstream_done and downstream.status == TaskStatus.REGISTERING:
             time_start = time.time()
             all_upstreams_done = downstream.all_upstreams_done
             time_end = time.time()

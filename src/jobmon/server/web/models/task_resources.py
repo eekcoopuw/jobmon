@@ -1,4 +1,5 @@
 """Task Resources Database Table."""
+from jobmon.serializers import SerializeTaskResources
 from jobmon.server.web.models import DB
 from jobmon.server.web.models import task_resources_type  # noqa F401
 
@@ -13,8 +14,17 @@ class TaskResources(DB.Model):
 
     __tablename__ = "task_resources"
 
+    def to_wire_as_task_resources(self) -> tuple:
+        """Serialize executor task object."""
+        serialized = SerializeTaskResources.to_wire(
+            task_resources_id=self.id,
+            queue_id=self.queue_id,
+            task_resources_type_id=self.task_resources_type_id,
+            requested_resources=self.requested_resources,
+        )
+        return serialized
+
     id = DB.Column(DB.Integer, primary_key=True)
-    task_id = DB.Column(DB.Integer, DB.ForeignKey("task.id"))
     queue_id = DB.Column(DB.Integer, DB.ForeignKey("queue.id"))
     task_resources_type_id = DB.Column(
         DB.String(1), DB.ForeignKey("task_resources_type.id")
@@ -23,12 +33,7 @@ class TaskResources(DB.Model):
     requested_resources = DB.Column(DB.Text, default=None)
 
     # ORM relationships
-    task = DB.relationship("Task", foreign_keys=[task_id])
     queue = DB.relationship("Queue", foreign_keys=[queue_id])
     task_resources_type = DB.relationship(
         "TaskResourcesType", foreign_keys=[task_resources_type_id]
     )
-
-    def activate(self) -> None:
-        """Activate Task Resources on Task object."""
-        self.task.task_resources_id = self.id

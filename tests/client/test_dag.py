@@ -3,19 +3,34 @@ from jobmon.exceptions import DuplicateNodeArgsError
 import pytest
 
 
-def test_dag(client_env, db_cfg):
+def test_dag(tool, db_cfg):
     """tests ClientDag.bind() - checks that a dag created for the first time
     creates a new db entry, and if it gets bound again a new entry
     won't be created"""
     from jobmon.client.dag import Dag
     from jobmon.client.node import Node
 
+    tt = tool.get_task_template(
+        "dag_test",
+        command_template="{node1} {node2} {node3}",
+        node_args=["node1", "node2", "node3"],
+    )
+
     # create nodes for populate dag
-    node_1 = Node(task_template_version_id=1, node_args={1: 1, 2: 2006, 4: "female"})
+    node_1 = Node(
+        task_template_version=tt.active_task_template_version,
+        node_args={"node1": 1, "node2": 2006, "node3": "female"},
+    )
     node_1.bind()
-    node_2 = Node(task_template_version_id=1, node_args={1: 2, 2: 2006, 4: "male"})
+    node_2 = Node(
+        task_template_version=tt.active_task_template_version,
+        node_args={"node1": 2, "node2": 2006, "node3": "male"},
+    )
     node_2.bind()
-    node_3 = Node(task_template_version_id=1, node_args={1: 3, 2: 2006, 4: "both_sex"})
+    node_3 = Node(
+        task_template_version=tt.active_task_template_version,
+        node_args={"node1": 3, "node2": 2006, "node3": "both_sex"},
+    )
     node_3.add_upstream_nodes([node_1, node_2])
     node_3.bind()
 

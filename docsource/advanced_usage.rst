@@ -214,7 +214,7 @@ For example::
 
 
 Fallback Queues
-##############
+###############
 Users are able to specify fallback queues in Jobmon. Scenario: a user has a Task that fails due
 to a resource error, Jobmon then scales that Tasks resources, but the newly scaled resources
 exceed the resources of the queue the Task is on. In this scenario the user could have
@@ -539,11 +539,34 @@ downstream tasks depend on these jobs.
                 print("Failure")
 
 
+Concurrency Limiting
+####################
+Users can set the maximum number of tasks per workflow that are running at one time.
+The value can be set statically (in the Jobmon code), or dynamically via the Jobmon CLI.
+One of the main use cases for concurrency limit is if an user needs to "throttle down" a
+workflow to make space on the cluster without killing their workflow. By default, Jobmon sets
+the limit to 10,000 tasks.
+
+To statically set concurrency limit, simply set the ``max_concurrently_running`` flag on the
+``create_workflow()`` method.
+
+.. code-block:: python
+
+  tool = Tool(name="example_tool")
+  workflow = tool.create_workflow(
+      name=f"template_workflow",
+      max_concurrently_running=2000
+  )
+
+To dynamically set the concurrency limit, see :ref:`concurrency-limit-label`.
+
 Jobmon Self-Service Commands
 ############################
 Jobmon has a suite of commands to not only visualize task statuses from the database, but to
 allow the users to modify the states of their workflows. These self-service commands can be
 invoked from the command line in the same way as the status commands, see :ref:`status-commands-label`.
+
+.. _concurrency-limit-label:
 
 concurrency_limit
 *****************

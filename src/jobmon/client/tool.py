@@ -80,9 +80,7 @@ class Tool:
         """
         # call route to create tool version
 
-        tool_version = ToolVersion.get_tool_version(
-            tool_id=self.id, requester=self.requester
-        )
+        tool_version = ToolVersion.get_tool_version(tool=self)
         tool_version_id = tool_version.id
         self.tool_versions.append(tool_version)
         self.set_active_tool_version_id(tool_version_id)
@@ -205,8 +203,10 @@ class Tool:
             node_args,
             task_args,
             op_args,
-            default_cluster_name,
-            default_compute_resources,
+        )
+        tt.default_cluster_name = default_cluster_name
+        tt.set_default_compute_resources_from_dict(
+            default_cluster_name, default_compute_resources
         )
         return tt
 
@@ -238,7 +238,7 @@ class Tool:
                 dict of {cluster_name: {resource_name: resource_value}}
         """
         wf = Workflow(
-            self.active_tool_version.id,
+            self.active_tool_version,
             workflow_args,
             name,
             description,
@@ -394,7 +394,7 @@ class Tool:
             )
 
         tool_versions = [
-            ToolVersion.from_wire(wire_tuple)
+            ToolVersion.from_wire(wire_tuple, self)
             for wire_tuple in response["tool_versions"]
         ]
         return tool_versions
