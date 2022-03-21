@@ -138,7 +138,7 @@ class TaskInstance(DB.Model):
         # task instance error_fatal after transitioning from triaging
         (TaskInstanceStatus.TRIAGING, TaskInstanceStatus.ERROR_FATAL),
         # task instance error after transitioning from kill_self
-        (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.ERROR),
+        (TaskInstanceStatus.KILL_SELF, TaskInstanceStatus.ERROR_FATAL),
     ]
 
     untimely_transitions = [

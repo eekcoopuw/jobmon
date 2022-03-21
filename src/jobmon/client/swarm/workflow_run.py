@@ -42,12 +42,15 @@ class SwarmCommand:
         self._kwargs = kwargs
         self.error_raised = False
 
-    def __call__(self):
-        # try:
-        self._func(*self._args, **self._kwargs)
-        # except Exception as e:
-        #     self.exception = e
-        #     self.error_raised = True
+    def __call__(self, raise_on_error: bool = False):
+        try:
+            self._func(*self._args, **self._kwargs)
+        except Exception as e:
+            if raise_on_error:
+                raise
+            else:
+                self.exception = e
+                self.error_raised = True
 
 
 class WorkflowRun:
@@ -231,17 +234,18 @@ class WorkflowRun:
                     self.process_commands(timeout=time_till_next_heartbeat)
 
                     # take a break if needed
-                    loop_elsapsed = time.time() - loop_start
-                    if loop_elsapsed < time_till_next_heartbeat:
-                        sleep_time = time_till_next_heartbeat - loop_elsapsed
+                    loop_elapsed = time.time() - loop_start
+                    if loop_elapsed < time_till_next_heartbeat:
+                        sleep_time = time_till_next_heartbeat - loop_elapsed
                         time.sleep(sleep_time)
-                        loop_elsapsed += sleep_time
+                        loop_elapsed += sleep_time
+
                     # then synchronize state
                     if time_since_last_full_sync > self.wedged_workflow_sync_interval:
                         time_since_last_full_sync = 0.
                         self.synchronize_state(full_sync=True)
                     else:
-                        time_since_last_full_sync += loop_elsapsed
+                        time_since_last_full_sync += loop_elapsed
                         self.synchronize_state()
                     total_elapsed_time += time.time() - loop_start
                 # user interrupt
@@ -613,10 +617,7 @@ class WorkflowRun:
                 self._task_resources[hash(task_resources)] = task_resources
         else:
             task_resources = task.task_resources
-            # Mark that the resources are valid, without regenerating a new object
-            task_resources._task_resources_type_id = TaskResourcesType.VALIDATED
             self._task_resources[validated_resource_hash] = task_resources
-
         task.task_resources = task_resources
 
     def _set_adjusted_task_resources(self, task: SwarmTask) -> None:
@@ -645,6 +646,4 @@ class WorkflowRun:
             )
             task_resources.bind()
             self._task_resources[hash(task_resources)] = task_resources
-        # Task resources id is always ADJUSTED here, even if pulled from the cache
-        task_resources._task_resources_type_id = TaskResourcesType.ADJUSTED
         task.task_resources = task_resources

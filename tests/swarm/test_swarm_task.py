@@ -37,10 +37,12 @@ def test_swarmtask_resources_integration(tool, task_template, db_cfg):
     }
     assert initial_resources.task_resources_type_id == TaskResourcesType.ORIGINAL
 
-    # # Queue the task. TRs should then be validated
-    # swarm.queue_task(swarmtask)
-    # assert swarmtask.task_resources.task_resources_type_id == TaskResourcesType.VALIDATED
-    #
+    # Queue the task. TRs should then be validated
+    swarm.queue_task(swarmtask)
+    # No change in resource values, so type id stays the same
+    assert swarmtask.task_resources.task_resources_type_id == TaskResourcesType.ORIGINAL
+    assert id(swarmtask.task_resources) == initial_resources
+
     # Move task to adjusting
     app, DB = db_cfg['app'], db_cfg['DB']
 
@@ -57,8 +59,9 @@ def test_swarmtask_resources_integration(tool, task_template, db_cfg):
     # and adjust task resources
     swarm.adjust_task(swarmtask)
     scaled_params = swarmtask.task_resources
-    assert scaled_params.task_resources_type_id == TaskResourcesType.ADJUSTED
-    assert id(scaled_params) != id(initial_resources)
+    # No change in resource values, so type id stays the same
+    assert scaled_params.task_resources_type_id == TaskResourcesType.ORIGINAL
+    assert id(scaled_params) == id(initial_resources)
     assert scaled_params.concrete_resources.resources == {
         "cores": 10,
         "queue": "null.q",

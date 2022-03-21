@@ -72,6 +72,11 @@ class Cluster:
         self._connection_parameters = cluster_kwargs["connection_parameters"]
 
     @property
+    def connection_parameters(self) -> str:
+        """The connection parameters."""
+        return self._connection_parameters
+
+    @property
     def is_bound(self) -> bool:
         """If the Cluster has been bound to the database."""
         return hasattr(self, "_cluster_id")
