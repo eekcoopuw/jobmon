@@ -1,4 +1,6 @@
 """Configuration specific to worker node."""
+from contextlib import redirect_stderr
+import io
 from typing import Any
 
 from jobmon.config import CLI, install_default_config_from_plugin, ParserDefaults
@@ -19,7 +21,8 @@ class WorkerNodeConfig:
 
         # passing an empty string forces this method to ignore sys.argv
         try:
-            args = cli.parse_args("")
+            with redirect_stderr(io.StringIO()):
+                args = cli.parse_args("")
         except SystemExit:
             args = install_default_config_from_plugin(cli)
 

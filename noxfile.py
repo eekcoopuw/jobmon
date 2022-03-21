@@ -170,14 +170,14 @@ def ihme_installer_build(session: Session) -> None:
     session.install("jinja2", "jinja-cli")
 
     installer_version = os.getenv("INSTALLER_VERSION", "0.0")
-    jobmon_version = os.getenv("JOBMON_VERSION", "3.1.0.dev12")
+    jobmon_version = os.getenv("JOBMON_VERSION", "3.1.0.dev7")
     jobmon_uge_version = os.getenv("JOBMON_UGE_VERSION", "1.0.0")
     jobmon_slurm_version = os.getenv("JOBMON_SLURM_VERSION", "1.0.2")
 
     # environment variables used in build script
     web_service_fqdn = os.environ["WEB_SERVICE_FQDN"]
     web_service_port = os.environ["WEB_SERVICE_PORT"]
-    web_conn = {"host": web_service_fqdn, "port": web_service_port}
+    web_conn = {"WEB_SERVICE_FQDN": web_service_fqdn, "WEB_SERVICE_PORT": web_service_port}
     with open('./deployment/jobmon_installer_ihme/src/jobmon_installer_ihme/server_config.json'
               , 'w') as f:
         json.dump(web_conn, f)

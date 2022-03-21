@@ -352,3 +352,40 @@ def test_resource_usage(db_cfg, client_env):
             "num_attempts": 1,
             "runtime": "12",
         }
+
+
+def test_binding_length(db_cfg, client_env, tool):
+    """Test that mysql exceptions return the appropriate error code."""
+
+    from jobmon.exceptions import InvalidResponse
+
+    # Test that args/attributes that are too long return sensible errors
+    tt = tool.get_task_template(
+        template_name="test_tt",
+        command_template="{narg} {targ}",
+        node_args=["narg"],
+        task_args=["targ"],
+    )
+    # Task 1: too long task args (3 * 350 = 1050, max length=1000)
+    task1 = tt.create_task(name="foo", narg="abc", targ="def" * 350)
+    wf = tool.create_workflow()
+    wf.add_task(task1)
+    wf.bind()
+    with pytest.raises(InvalidResponse) as resp:
+        wfr1 = wf._create_workflow_run()
+    exc_msg = resp.value.args[0]
+    assert "Task Args are constrained to 1000 characters" in exc_msg
+    assert "Unexpected status code 400" in exc_msg
+
+    # task2: super long attributes
+    task2 = tt.create_task(
+        name="foo", narg="abc", targ="def", task_attributes={"hello": "world" * 60}
+    )
+    wf2 = tool.create_workflow()
+    wf2.add_task(task2)
+    wf2.bind()
+    with pytest.raises(InvalidResponse) as resp2:
+        wfr2 = wf2._create_workflow_run()
+    exc_msg = resp2.value.args[0]
+    assert "Task attributes are constrained to 255 characters" in exc_msg
+    assert "Unexpected status code 400" in exc_msg

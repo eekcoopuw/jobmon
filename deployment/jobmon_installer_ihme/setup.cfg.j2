@@ -20,3 +20,7 @@ where=src
 
 [options.package_data]
 jobmon_installer_ihme = server_config.json
+
+[options.entry_points]
+console_scripts =
+    jobmon_ihme = jobmon_installer_ihme.cli:main

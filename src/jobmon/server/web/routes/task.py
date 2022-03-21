@@ -7,6 +7,7 @@ from typing import Any, Dict, List, Set, Union
 from flask import jsonify, request
 import pandas as pd
 from sqlalchemy.dialects.mysql import insert
+from sqlalchemy.exc import DataError
 from sqlalchemy.sql import text
 from werkzeug.local import LocalProxy
 
@@ -93,83 +94,6 @@ def get_task_id_and_status() -> Any:
         logger.info(f"Got task_id = {result.id}.")
     resp.status_code = StatusCodes.OK
     return resp
-
-
-@finite_state_machine.route("/task", methods=["POST"])
-def add_task() -> Any:
-    """Add a task to the database.
-
-    Args:
-        workflow_id: workflow this task is associated with
-        node_id: structural node this task is associated with
-        task_arg_hash: hash of the data args for this task
-        name: task's name
-        command: task's command
-        max_attempts: how many times the job should be attempted
-        task_args: dictionary of data args for this task
-        task_attributes: dictionary of attributes associated with the task
-    """
-    try:
-        data = request.get_json()
-        logger.debug(data)
-        ts = data.pop("tasks")
-        # build a hash table for ts
-        ts_ht = {}  # {<node_id::task_arg_hash>, task}
-        tasks = []
-        task_args = []
-        task_attribute_list = []
-
-        for t in ts:
-            # input variable check
-            int(t["workflow_id"])
-            int(t["node_id"])
-            ts_ht[str(t["node_id"]) + "::" + str(t["task_args_hash"])] = t
-            task = Task(
-                workflow_id=t["workflow_id"],
-                node_id=t["node_id"],
-                task_args_hash=t["task_args_hash"],
-                name=t["name"],
-                command=t["command"],
-                max_attempts=t["max_attempts"],
-                status=TaskStatus.REGISTERED,
-            )
-            tasks.append(task)
-        DB.session.add_all(tasks)
-        DB.session.flush()
-        for task in tasks:
-            t = ts_ht[str(task.node_id) + "::" + str(task.task_args_hash)]
-            for _id, val in t["task_args"].items():
-                task_arg = TaskArg(task_id=task.id, arg_id=_id, val=val)
-                task_args.append(task_arg)
-
-            if t["task_attributes"]:
-                for name, val in t["task_attributes"].items():
-                    type_id = _add_or_get_attribute_type([name])[0].id
-                    task_attribute = TaskAttribute(
-                        task_id=task.id, task_attribute_type_id=type_id, value=val
-                    )
-                    task_attribute_list.append(task_attribute)
-        DB.session.add_all(task_args)
-        DB.session.flush()
-        DB.session.add_all(task_attribute_list)
-        DB.session.flush()
-        DB.session.commit()
-        # return value
-
-        return_dict = {}  # {<name>: <id>}
-        for t in tasks:
-            return_dict[t.name] = t.id
-        resp = jsonify(tasks=return_dict)
-        resp.status_code = StatusCodes.OK
-        return resp
-    except KeyError as e:
-        raise InvalidUsage(
-            f"{str(e)} in request to {request.path}", status_code=400
-        ) from e
-    except TypeError as e:
-        raise InvalidUsage(
-            f"{str(e)} in request to {request.path}", status_code=400
-        ) from e
 
 
 @finite_state_machine.route("/task/<task_id>/update_parameters", methods=["PUT"])
@@ -301,7 +225,7 @@ def bind_tasks() -> Any:
 
     # Bind new tasks with raw SQL
     if len(tasks_to_add):
-
+        # This command is guaranteed to succeed, since names are truncated in the client
         DB.session.execute(insert(Task), tasks_to_add)
         DB.session.flush()
 
@@ -353,6 +277,10 @@ def bind_tasks() -> Any:
             args_to_add.append(task_arg)
 
         for name, val in attrs.items():
+            # An interesting bug: the attribute type names are inserted using the
+            # insert.prefix("IGNORE") syntax, which silently truncates names that are
+            # overly long. So this will raise a keyerror if the attribute name is >255
+            # characters. Don't imagine this is a serious issue but might be worth protecting
             attr_type_id = task_attr_type_mapping[name]
             insert_vals = {
                 "task_id": task_id,
@@ -362,19 +290,38 @@ def bind_tasks() -> Any:
             attrs_to_add.append(insert_vals)
 
     if args_to_add:
-        arg_insert_stmt = (
-            insert(TaskArg)
-            .values(args_to_add)
-            .on_duplicate_key_update(val=text("VALUES(val)"))
-        )
-        DB.session.execute(arg_insert_stmt)
+        try:
+            arg_insert_stmt = (
+                insert(TaskArg)
+                .values(args_to_add)
+                .on_duplicate_key_update(val=text("VALUES(val)"))
+            )
+            DB.session.execute(arg_insert_stmt)
+        except DataError as e:
+            # Args likely too long, message back
+            DB.session.rollback()
+            raise InvalidUsage(
+                "Task Args are constrained to 1000 characters, you may have values "
+                f"that are too long. Message: {str(e)}",
+                status_code=400,
+            ) from e
+
     if attrs_to_add:
-        attr_insert_stmt = (
-            insert(TaskAttribute)
-            .values(attrs_to_add)
-            .on_duplicate_key_update(value=text("VALUES(value)"))
-        )
-        DB.session.execute(attr_insert_stmt)
+        try:
+            attr_insert_stmt = (
+                insert(TaskAttribute)
+                .values(attrs_to_add)
+                .on_duplicate_key_update(value=text("VALUES(value)"))
+            )
+            DB.session.execute(attr_insert_stmt)
+        except DataError as e:
+            # Attributes too long, message back
+            DB.session.rollback()
+            raise InvalidUsage(
+                "Task attributes are constrained to 255 characters, you may have values "
+                f"that are too long. Message: {str(e)}",
+                status_code=400,
+            ) from e
     DB.session.commit()
 
     resp = jsonify(tasks=return_tasks)
@@ -386,9 +333,18 @@ def _add_or_get_attribute_type(
     names: Union[List[str], Set[str]]
 ) -> List[TaskAttributeType]:
     attribute_types = [{"name": name} for name in names]
-    insert_stmt = insert(TaskAttributeType).prefix_with("IGNORE")
-    DB.session.execute(insert_stmt, attribute_types)
-    DB.session.commit()
+    try:
+        insert_stmt = insert(TaskAttributeType).prefix_with("IGNORE")
+        DB.session.execute(insert_stmt, attribute_types)
+        DB.session.commit()
+    except DataError as e:
+        # Attributes likely too long, message back
+        DB.session.rollback()
+        raise InvalidUsage(
+            "Attribute types are constrained to 255 characters, your "
+            f"attributes might be too long. Message: {str(e)}",
+            status_code=400,
+        ) from e
 
     # Query the IDs
     attribute_type_ids = (
@@ -401,14 +357,22 @@ def _add_or_get_attribute_type(
 
 def _add_or_update_attribute(task_id: int, name: str, value: str) -> int:
     attribute_type = _add_or_get_attribute_type([name])
-    insert_vals = insert(TaskAttribute).values(
-        task_id=task_id, task_attribute_type_id=attribute_type, value=value
-    )
-    update_insert = insert_vals.on_duplicate_key_update(
-        value=insert_vals.inserted.value
-    )
-    attribute = DB.session.execute(update_insert)
-    DB.session.commit()
+    try:
+        insert_vals = insert(TaskAttribute).values(
+            task_id=task_id, task_attribute_type_id=attribute_type, value=value
+        )
+        update_insert = insert_vals.on_duplicate_key_update(
+            value=insert_vals.inserted.value
+        )
+        attribute = DB.session.execute(update_insert)
+        DB.session.commit()
+    except DataError as e:
+        DB.session.rollback()
+        raise InvalidUsage(
+            "Attribute values are limited to 255 characters, "
+            f"you might have attributes that are too long. Message: {str(e)}",
+            status_code=400,
+        ) from e
     return attribute.id
 
 
