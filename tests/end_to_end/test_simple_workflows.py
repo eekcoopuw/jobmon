@@ -187,7 +187,6 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
             f"--output_file_path {b_output_file_name} --name {b_output_file_name} "
             f"{fail_always}",
             upstream_tasks=[task_a],
-            # max_attempts=1
         )
         workflow.add_task(task_b[i])
 
@@ -210,7 +209,9 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
         upstream_tasks=[task_c[i] for i in range(3)],
     )
     workflow.add_task(task_d)
+
     workflow_run_status = workflow.run()
+
     assert workflow_run_status == WorkflowRunStatus.ERROR
     # a, b[0], b[2], c[0], c[2],  but not b[1], c[1], d
     assert workflow._num_newly_completed == 1 + 2 + 2
