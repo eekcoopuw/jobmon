@@ -1,6 +1,10 @@
+import argparse
 import ast
+from contextlib import redirect_stdout
 import getpass
+from io import StringIO
 import logging
+import pandas as pd
 
 import pytest
 from unittest.mock import patch, PropertyMock
@@ -48,6 +52,56 @@ def mock_getuser():
     return "foo"
 
 
+def capture_stdout(function, arguments):
+    """Capture the stdout tabulate dataframe and form it back in to a pandas dataframe."""
+
+    # Capture the tabluate dataframe in stdout
+    f = StringIO()
+    with redirect_stdout(f):
+        function(arguments)
+    string_df = f.getvalue()
+
+    # Take the string and split into list of lines
+    output_lines = string_df.split("\n")
+
+    # Filter out any lines that make up the box around the table or between header and data
+    filtered_output_lines = filter(
+        lambda x: ("--" not in x) or (x == "\n"), output_lines
+    )
+
+    # Merge the lines back into one string (newlines are preserved from before)
+    join_filter_output_lines = "\n".join(filtered_output_lines)
+
+    # Use the first row as the headers.
+    header = pd.read_csv(
+        StringIO(join_filter_output_lines),
+        sep=r"\|",
+        engine="python",
+        nrows=1,
+        header=None,
+        dtype=str,
+    ).dropna(how="all", axis=1)
+
+    # Extract the data (everything after row 1).
+    data = pd.read_csv(
+        StringIO(join_filter_output_lines),
+        sep=r"\|",
+        engine="python",
+        skiprows=1,
+        header=None,
+        dtype=str,
+    ).dropna(how="all", axis=1)
+
+    # Iterate over each column in the data and strip out the whitespace from the data
+    for col in data.columns:
+        data[col] = data[col].str.strip()
+
+    # Add column names instead of numbers using the header rows read in previously
+    data.columns = data.columns.map(header.T[0].str.strip().to_dict())
+
+    return data
+
+
 def test_workflow_status(db_cfg, client_env, task_template, monkeypatch, cli):
     from jobmon.client.tool import Tool
     from jobmon.client.status_commands import workflow_status
@@ -69,14 +123,14 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch, cli):
 
     # we should have the column headers plus 2 tasks in pending
     command_str = f"workflow_status -u {user} -w {workflow.workflow_id}"
-    args = cli.parse_args(command_str)
-    df = workflow_status(args.workflow_id, args.user)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_status, parsed_args)
     assert df["PENDING"][0] == "2 (100.0%)"
 
     # defaults should return an identical value
     command_str = "workflow_status"
-    args = cli.parse_args(command_str)
-    df = workflow_status(args.workflow_id, args.user)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_status, parsed_args)
     assert df["PENDING"][0] == "2 (100.0%)"
 
     # Test the JSON flag
@@ -118,21 +172,21 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch, cli):
 
     # check that we get 2 rows now
     command_str = f"workflow_status -u {user}"
-    args = cli.parse_args(command_str)
-    df = workflow_status(args.workflow_id, args.user)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 2
 
     # check that we can get values by workflow_id
     command_str = f"workflow_status -w {workflow.workflow_id}"
-    args = cli.parse_args(command_str)
-    df = workflow_status(args.workflow_id, args.user)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 1
-    assert df["WF_ID"][0] == workflow.workflow_id
+    assert df["WF_ID"][0] == str(workflow.workflow_id)
 
     # check that we can get both
     command_str = "workflow_status -w 1 2"
-    args = cli.parse_args(command_str)
-    df = workflow_status(args.workflow_id, args.user)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 2
 
     # add 4 more wf to make it 6
@@ -174,45 +228,43 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch, cli):
 
     # check limit 1
     command_str = f"workflow_status -u {user}  -l 1"
-    args = cli.parse_args(command_str)
-    df = workflow_status(user=args.user, limit=args.limit)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 1
 
     # check limit 2
     command_str = f"workflow_status -u {user}  -l 2"
-    args = cli.parse_args(command_str)
-    df = workflow_status(user=args.user, limit=args.limit)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 2
 
-    # check default (no limit)
+    # check default
     command_str = f"workflow_status -u {user}"
-    args = cli.parse_args(command_str)
-    df = workflow_status(user=args.user)
-    assert len(df) == 5
-
-    # check default (limit without value)
-    command_str = f"workflow_status -u {user} -l"
-    args = cli.parse_args(command_str)
-    df = workflow_status(user=args.user)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 5
 
     # check over limit
     command_str = f"workflow_status -u {user}  -l 12"
-    args = cli.parse_args(command_str)
-    df = workflow_status(user=args.user, limit=args.limit)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 6
 
-    # check 0
-    command_str = f"workflow_status -u {user}  -l 0"
-    args = cli.parse_args(command_str)
-    df = workflow_status(user=args.user, limit=args.limit)
-    assert len(df) == 0
+    # Check setting the limit to 0
+    try:
+        command_str = f"workflow_status -u {user}  -l 0"
+        parsed_args = cli.parser.parse_args(command_str)
+        capture_stdout(cli.workflow_status, parsed_args)
+    except SystemExit as e:
+        assert isinstance(e.__context__, argparse.ArgumentError)
 
-    # check negative
-    command_str = f"workflow_status -u {user}  -l -1"
-    args = cli.parse_args(command_str)
-    df = workflow_status(user=args.user, limit=args.limit)
-    assert len(df) == 6
+    # Check setting the limit to a negative
+    try:
+        command_str = f"workflow_status -u {user}  -l -1"
+        parsed_args = cli.parser.parse_args(command_str)
+        capture_stdout(cli.workflow_status, parsed_args)
+    except SystemExit as e:
+        assert isinstance(e.__context__, argparse.ArgumentError)
 
 
 def test_workflow_tasks(db_cfg, client_env, task_template, cli):
@@ -243,8 +295,8 @@ def test_workflow_tasks(db_cfg, client_env, task_template, cli):
 
     # we should get 2 tasks back in pending state
     command_str = f"workflow_tasks -w {workflow.workflow_id}"
-    args = cli.parse_args(command_str)
-    df = workflow_tasks(args.workflow_id)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 2
     assert df.STATUS[0] == "PENDING"
     assert len(df.STATUS.unique()) == 1
@@ -293,45 +345,43 @@ def test_workflow_tasks(db_cfg, client_env, task_template, cli):
 
     # check limit 1
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l 1"
-    args = cli.parse_args(command_str)
-    df = workflow_tasks(args.workflow_id, limit=args.limit)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 1
 
     # check limit 2
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l 2"
-    args = cli.parse_args(command_str)
-    df = workflow_tasks(args.workflow_id, limit=args.limit)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 2
 
     # check default (no limit)
     command_str = f"workflow_tasks -w {workflow.workflow_id}"
-    args = cli.parse_args(command_str)
-    df = workflow_tasks(args.workflow_id)
-    assert len(df) == 5
-
-    # check default (limit without value)
-    command_str = f"workflow_tasks -w {workflow.workflow_id} -l"
-    args = cli.parse_args(command_str)
-    df = workflow_tasks(args.workflow_id)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 5
 
     # check over limit
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l 12"
-    args = cli.parse_args(command_str)
-    df = workflow_tasks(args.workflow_id, limit=args.limit)
+    parsed_args = cli.parser.parse_args(command_str)
+    df = capture_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 6
 
-    # check 0
-    command_str = f"workflow_tasks -w {workflow.workflow_id} -l 0"
-    args = cli.parse_args(command_str)
-    df = workflow_tasks(args.workflow_id, limit=args.limit)
-    assert len(df) == 0
+    # Check setting the limit to 0
+    try:
+        command_str = f"workflow_tasks -w {workflow.workflow_id} -l 0"
+        parsed_args = cli.parser.parse_args(command_str)
+        capture_stdout(cli.workflow_tasks, parsed_args)
+    except SystemExit as e:
+        assert isinstance(e.__context__, argparse.ArgumentError)
 
-    # check negative
-    command_str = f"workflow_tasks -w {workflow.workflow_id} -l -1"
-    args = cli.parse_args(command_str)
-    df = workflow_tasks(args.workflow_id, limit=args.limit)
-    assert len(df) == 6
+    # Check setting the limit to a negative
+    try:
+        command_str = f"workflow_tasks -w {workflow.workflow_id} -l -1"
+        parsed_args = cli.parser.parse_args(command_str)
+        capture_stdout(cli.workflow_tasks, parsed_args)
+    except SystemExit as e:
+        assert isinstance(e.__context__, argparse.ArgumentError)
 
 
 def test_task_status(db_cfg, client_env, tool, task_template, cli):

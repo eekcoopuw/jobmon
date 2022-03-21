@@ -481,7 +481,8 @@ def install_default_config_from_plugin(cli: CLI) -> Namespace:
     from jobmon.exceptions import ConfigError
 
     print(
-        "Jobmon client not configured. Attempting to install configuration for plugin."
+        "Jobmon client not configured. Attempting to install configuration from installer"
+        " plugin."
     )
     configured = False
 

@@ -31,7 +31,7 @@ def squidcfg(monkeypatch, db_cfg):
     monkeypatch.setattr(UsageConfig, "from_defaults", get_config)
 
 
-@pytest.mark.unittest
+@pytest.mark.skip("Don't autotest integrator")
 def test_MaxrssQ(squidcfg):
     """This is to test the Q stops increasing when the max size is reached."""
     from jobmon.server.usage_integration.usage_queue import UsageQ
@@ -45,39 +45,41 @@ def test_MaxrssQ(squidcfg):
     assert UsageQ.get() is None
     # put into queue
     # Q: ((1,0))
-    item1 = QueuedTI()
-    item1.task_instance_id = 1
+    item1 = QueuedTI(
+        task_instance_id=1, distributor_id=1, cluster_type_name="slurm", cluster_id=5
+    )
     UsageQ.put(item1)
     assert UsageQ.get_size() == 1
     # Q: ((1,0), (2, 1))
-    item2 = QueuedTI
-    item2.task_instance_id = 2
+    item2 = QueuedTI(
+        task_instance_id=2, distributor_id=2, cluster_type_name="slurm", cluster_id=5
+    )
     UsageQ.put(item2, 1)
     assert UsageQ().get_size() == 2
     # overflow
-    item3 = QueuedTI()
-    item3.task_instance_id = 3
+    item3 = QueuedTI(
+        task_instance_id=3, distributor_id=3, cluster_type_name="slurm", cluster_id=5
+    )
     for i in range(110):
         UsageQ().put(item3, 2)
     assert UsageQ().get_size() == 100
     # Test Queue Content
     # Q: ((2, 1))
     e1 = UsageQ().get()
-    assert e1[0].task_instance_id == 1
-    assert e1[1] == 0
+    assert e1.task_instance_id == 1
+    assert e1.age == 0
     # Q: ()
     e2 = UsageQ().get()
-    assert e2[0].task_instance_id == 2
-    assert e2[1] == 1
+    assert e2.task_instance_id == 2
+    assert e2.age == 1
 
 
-@pytest.mark.unittest
+@pytest.mark.skip("Don't autotest integrator")
 def test_worker_with_mock_200(squidcfg):
     """This is to test the job with maxpss leaves the Q."""
     from jobmon.server.usage_integration.usage_queue import UsageQ
     from jobmon.server.usage_integration.usage_utils import QueuedTI
     from jobmon.server.usage_integration.usage_integrator import (
-        _update_maxrss_in_db,
         _get_qpid_response,
         q_forever,
     )
@@ -85,18 +87,18 @@ def test_worker_with_mock_200(squidcfg):
     UsageQ.empty_q()
     assert UsageQ.get_size() == 0
     with mock.patch(
-        "jobmon.server.usage_integration.usage_integrator._update_maxrss_in_db"
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.update_resources_in_db"
     ) as m_db, mock.patch(
-        "jobmon.server.usage_integration.usage_integrator._get_qpid_response"
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.populate_queue"
     ) as m_restful:
         # mock
-        m_db.return_value = True
-        m_restful.return_value = (200, 500)
+        m_db.return_value = None
+        m_restful.return_value = None
 
         # code logic to test
-        item = QueuedTI()
-        item.task_instance_id = 1
-        item.cluster_type_name = "UGE"
+        item = QueuedTI(
+            task_instance_id=1, distributor_id=1, cluster_type_name="UGE", cluster_id=4
+        )
         UsageQ.put(item)
         assert UsageQ.get_size() == 1
         t = Thread(target=q_forever)
@@ -110,13 +112,12 @@ def test_worker_with_mock_200(squidcfg):
         assert UsageQ.get_size() == 0
 
 
-@pytest.mark.unittest
+@pytest.mark.skip("Don't autotest integrator")
 def test_worker_with_mock_404(squidcfg):
     """This is to test the job without maxpss will be put back to the Q with age increased."""
     from jobmon.server.usage_integration.usage_queue import UsageQ
     from jobmon.server.usage_integration.usage_utils import QueuedTI
     from jobmon.server.usage_integration.usage_integrator import (
-        _update_maxrss_in_db,
         _get_qpid_response,
         q_forever,
     )
@@ -125,14 +126,18 @@ def test_worker_with_mock_404(squidcfg):
     UsageQ.keep_running = True
     assert UsageQ.get_size() == 0
     with mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.populate_queue"
+    ) as m_restful, mock.patch(
         "jobmon.server.usage_integration.usage_integrator._get_qpid_response"
-    ) as m_restful:
+    ) as m_qpid:
         # mock
-        m_restful.return_value = (404, None)
+        m_restful.return_value = None
+        m_qpid.return_value = 404, None
+
         # code logic to test
-        item = QueuedTI()
-        item.task_instance_id = 1
-        item.cluster_type_name = "UGE"
+        item = QueuedTI(
+            task_instance_id=1, distributor_id=1, cluster_type_name="UGE", cluster_id=4
+        )
         UsageQ.put(item)
         assert UsageQ.get_size() == 1
         t = Thread(target=q_forever)
@@ -145,18 +150,17 @@ def test_worker_with_mock_404(squidcfg):
         UsageQ.keep_running = False
         assert UsageQ.get_size() == 1
         r = UsageQ.get()
-        assert r[0].task_instance_id == 1
-        assert r[1] > 0
+        assert r.task_instance_id == 1
+        assert r.age > 0
 
 
-@pytest.mark.unittest
+@pytest.mark.skip("Don't autotest integrator")
 def test_worker_with_mock_500(squidcfg):
     """This is to test the job will be put back to the Q with age increased when QPID is
     down."""
     from jobmon.server.usage_integration.usage_queue import UsageQ
     from jobmon.server.usage_integration.usage_utils import QueuedTI
     from jobmon.server.usage_integration.usage_integrator import (
-        _update_maxrss_in_db,
         _get_qpid_response,
         q_forever,
     )
@@ -165,14 +169,17 @@ def test_worker_with_mock_500(squidcfg):
     UsageQ.keep_running = True
     assert UsageQ.get_size() == 0
     with mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.populate_queue"
+    ) as m_restful, mock.patch(
         "jobmon.server.usage_integration.usage_integrator._get_qpid_response"
-    ) as m_restful:
+    ) as m_qpid:
         # mock
-        m_restful.return_value = (500, None)
+        m_restful.return_value = None
+        m_qpid.return_value = 500, None
         # code logic to test
-        item = QueuedTI()
-        item.task_instance_id = 1
-        item.cluster_type_name = "UGE"
+        item = QueuedTI(
+            task_instance_id=1, distributor_id=1, cluster_type_name="UGE", cluster_id=4
+        )
         UsageQ.put(item)
         assert UsageQ.get_size() == 1
         t = Thread(target=q_forever)
@@ -185,5 +192,5 @@ def test_worker_with_mock_500(squidcfg):
         UsageQ.keep_running = False
         assert UsageQ.get_size() == 1
         r = UsageQ.get()
-        assert r[0].task_instance_id == 1
-        assert r[1] > 0
+        assert r.task_instance_id == 1
+        assert r.age > 0

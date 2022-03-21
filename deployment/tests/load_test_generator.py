@@ -71,7 +71,7 @@ class LoadTestParameters:
             raise ValueError("all percent arguments must be less than 100")
 
     @classmethod
-    def from_yaml_file(cls, file_path: str, wfid: str, cluster_name: str = 'buster') -> LoadTestParameters:
+    def from_yaml_file(cls, file_path: str, wfid: str, cluster_name: str = 'slurm') -> LoadTestParameters:
         """Instantiate from a yaml file
 
         Args:
@@ -88,7 +88,7 @@ class LoadTestGenerator:
     thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
     script = os.path.join(thisdir, "sleep_and_error.py")
 
-    def __init__(self, scratch_dir: str, wfid: str, cluster_name: str = 'buster'):
+    def __init__(self, scratch_dir: str, wfid: str, cluster_name: str = 'slurm'):
         """Factory for generating a single load test parameterized by LoadTestParameters
 
         Args:
