@@ -3,6 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 import logging
+from queue import SimpleQueue
 import time
 from typing import Callable, Dict, Iterator, List, Optional, Set, TYPE_CHECKING, Union
 
@@ -81,6 +82,7 @@ class WorkflowRun:
 
         # state tracking
         self.tasks: Dict[int, SwarmTask] = {}
+        self.ready_to_run: List[SwarmTask] = []
         self._task_status_map: Dict[str, Set[SwarmTask]] = {
             TaskStatus.REGISTERING: set(),
             TaskStatus.QUEUED: set(),
@@ -128,6 +130,29 @@ class WorkflowRun:
     def failed_tasks(self) -> List[SwarmTask]:
         return list(self._task_status_map[TaskStatus.ERROR_FATAL])
 
+    @property
+    def active_tasks(self) -> bool:
+        """Based on the task status map, does the workflow run have more work or not.
+
+        If there are no tasks in active states, the fringe is empty and
+        therefore we should error out.
+        """
+
+        # To prevent additional compute, return False immediately if set to an error state.
+        # Likely done by fail fast or the max execution loops
+        if self.status == WorkflowRunStatus.ERROR:
+            return False
+
+        active_task_states = [
+            TaskStatus.QUEUED,
+            TaskStatus.LAUNCHED,
+            TaskStatus.RUNNING,
+            TaskStatus.INSTANTIATING,
+            TaskStatus.ADJUSTING_RESOURCES
+        ]
+        return max([any(self._task_status_map[s] for s in active_task_states)]) \
+            or len(self.ready_to_run) > 0
+
     def from_workflow(self, workflow: Workflow) -> None:
         self.workflow_id = workflow.workflow_id
 
@@ -172,8 +197,13 @@ class WorkflowRun:
                 for downstream in swarm_task.downstream_swarm_tasks:
                     downstream.num_upstreams_done += 1
 
-        self.last_sync = self._get_current_time()
-        self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
+        for swarm_task in self.tasks.values():
+            # If the task is ready to run and in registering state, add it to the queue
+            if swarm_task.status == TaskStatus.REGISTERING and swarm_task.all_upstreams_done:
+                self.ready_to_run.append(swarm_task)
+
+            self.last_sync = self._get_current_time()
+            self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
 
     def run(self, distributor_alive_callable: Callable[..., bool],
             seconds_until_timeout: int = 36000):
@@ -208,13 +238,20 @@ class WorkflowRun:
             self._update_status(WorkflowRunStatus.RUNNING)
             time_since_last_full_sync = 0.
             total_elapsed_time = 0.
-            while self.status == WorkflowRunStatus.RUNNING:
+            keep_processing = True
+            terminating_states = [
+                WorkflowRunStatus.COLD_RESUME,
+                WorkflowRunStatus.HOT_RESUME,
+                WorkflowRunStatus.STOPPED,
+            ]
+
+            while keep_processing:
                 # Expire the swarm after the requested number of seconds
                 if total_elapsed_time > seconds_until_timeout:
                     raise RuntimeError(
                         f"Not all tasks completed within the given workflow timeout length "
-                        f"({seconds_until_timeout} seconds). Submitted tasks will still run, but "
-                        "the workflow will need to be restarted."
+                        f"({seconds_until_timeout} seconds). Submitted tasks will still run, "
+                        f"but the workflow will need to be restarted."
                     )
                 try:
 
@@ -224,13 +261,28 @@ class WorkflowRun:
                             "Distributor process unexpectedly stopped. Workflow will error."
                         )
 
-                    # process any commands that we can in the time alotted
+                    # If the workflow run status was updated asynchronously, terminate
+                    # all active task instances and error out.
+                    if self.status in terminating_states:
+                        logger.warning(
+                            f"Workflow Run set to {self.status}. Attempting graceful shutdown."
+                        )
+                        # Active task instances will be set to "K", the processing loop then
+                        # keeps running until all of the states are appropriately set.
+                        self._terminate_task_instances()
+
+                    # process any commands that we can in the time allotted
                     loop_start = time.time()
                     time_till_next_heartbeat = (
                         self._workflow_run_heartbeat_interval
                         - (loop_start - self._last_heartbeat_time)
                     )
                     self.process_commands(timeout=time_till_next_heartbeat)
+
+                    if not self.active_tasks:
+                        if self.status != WorkflowRunStatus.ERROR:
+                            self._update_status(WorkflowRunStatus.ERROR)
+                        keep_processing = False
 
                     # take a break if needed
                     loop_elapsed = time.time() - loop_start
@@ -246,6 +298,9 @@ class WorkflowRun:
                     else:
                         time_since_last_full_sync += loop_elapsed
                         self.synchronize_state()
+
+                    if self.status == WorkflowRunStatus.DONE:
+                        keep_processing = False
                     total_elapsed_time += time.time() - loop_start
                 # user interrupt
                 except KeyboardInterrupt:
@@ -261,30 +316,15 @@ class WorkflowRun:
             self._update_status(WorkflowRunStatus.ERROR)
             raise
 
-        finally:
-            terminating_states = [
-                WorkflowRunStatus.COLD_RESUME,
-                WorkflowRunStatus.HOT_RESUME,
-                WorkflowRunStatus.STOPPED,
-            ]
-            if self.status in terminating_states:
-                logger.warning(
-                    f"Workflow Run set to {self.status}. Attempting graceful shutdown."
-                )
-                self._terminate_task_instances()
-                self._block_until_all_stopped()
-                self._update_status(WorkflowRunStatus.TERMINATED)
-
     def get_swarm_commands(self) -> Iterator[SwarmCommand]:
         """Get and iterator of work to be done."""
         adjusting_tasks = list(self._task_status_map[TaskStatus.ADJUSTING_RESOURCES])
         for task in adjusting_tasks:
             yield SwarmCommand(self.adjust_task, task)
 
-        registering_tasks = list(self._task_status_map[TaskStatus.REGISTERING])
-        for task in registering_tasks:
-            if task.all_upstreams_done:
-                yield SwarmCommand(self.queue_task, task)
+        while len(self.ready_to_run) > 0:
+            task = self.ready_to_run.pop(0)
+            yield SwarmCommand(self.queue_task, task)
 
     def process_commands(self, timeout: Union[int, float] = -1):
         """Processes swarm commands until all work is done or timeout is reached.
@@ -346,6 +386,8 @@ class WorkflowRun:
                 # if task is done check if there are downstreams that can run
                 for downstream in task.downstream_swarm_tasks:
                     downstream.num_upstreams_done += 1
+                    if downstream.all_upstreams_done:
+                        self.ready_to_run.append(downstream)
 
             elif task.status == TaskStatus.ERROR_FATAL:
                 num_newly_failed += 1
@@ -422,9 +464,6 @@ class WorkflowRun:
                 f"code 200. Response content: {response}"
             )
         self._status = response["status"]
-
-    def _block_until_all_stopped(self) -> None:
-        pass
 
     def _update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""
