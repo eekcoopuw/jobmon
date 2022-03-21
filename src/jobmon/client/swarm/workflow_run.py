@@ -612,10 +612,7 @@ class WorkflowRun:
                 self._task_resources[hash(task_resources)] = task_resources
         else:
             task_resources = task.task_resources
-            # Mark that the resources are valid, without regenerating a new object
-            task_resources._task_resources_type_id = TaskResourcesType.VALIDATED
             self._task_resources[validated_resource_hash] = task_resources
-
         task.task_resources = task_resources
 
     def _set_adjusted_task_resources(self, task: SwarmTask) -> None:
@@ -644,6 +641,4 @@ class WorkflowRun:
             )
             task_resources.bind()
             self._task_resources[hash(task_resources)] = task_resources
-        # Task resources id is always ADJUSTED here, even if pulled from the cache
-        task_resources._task_resources_type_id = TaskResourcesType.ADJUSTED
         task.task_resources = task_resources
