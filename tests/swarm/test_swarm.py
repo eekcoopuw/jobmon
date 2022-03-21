@@ -3,6 +3,7 @@ import logging
 import os
 import time
 
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import CallableReturnedInvalidObject
 from jobmon.server.web.models.task_instance import TaskInstance
@@ -27,7 +28,6 @@ def test_blocking_update_timeout(tool, task_template):
     """This test runs a 1 task workflow and confirms that the workflow_run
     will timeout with an appropriate error message if timeout is set
     """
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     task = task_template.create_task(arg="sleep 3", name="foobarbaz")
     workflow = tool.create_workflow(name="my_simple_dag")
@@ -277,7 +277,6 @@ def test_fail_fast(tool, task_template):
 
 def test_propagate_result(tool, task_template):
     """set up workflow with 3 tasks on one layer and 3 tasks as dependant"""
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.client.workflow import DistributorContext
 
     workflow = tool.create_workflow(name="test_propagate_result")
@@ -354,6 +353,7 @@ def test_callable_returns_valid_object(tool, task_template):
 
 def test_callable_returns_wrong_object(tool, task_template):
     """test that the callable cannot return an invalid object"""
+    from functools import partial
 
     def wrong_return_params(*args, **kwargs):
         wrong_format = ["1G", 60, 1]
@@ -366,8 +366,12 @@ def test_callable_returns_wrong_object(tool, task_template):
     )
     wf = tool.create_workflow(workflow_args="dynamic_resource_wf_wrong_param_obj")
     wf.add_task(task)
+    wf.bind()
+    wfr = wf._create_workflow_run()
+    swarm = SwarmWorkflowRun(workflow_run_id=wfr.workflow_run_id)
+    swarm.from_workflow(wf)
     with pytest.raises(CallableReturnedInvalidObject):
-        wf.run()
+        swarm.process_commands(raise_on_error=True)
 
 
 def test_callable_fails_bad_filepath(tool, task_template):
@@ -385,5 +389,39 @@ def test_callable_fails_bad_filepath(tool, task_template):
     )
     wf = tool.create_workflow(workflow_args="dynamic_resource_wf_bad_file")
     wf.add_task(task)
+    wf.bind()
+    wfr = wf._create_workflow_run()
+    swarm = SwarmWorkflowRun(workflow_run_id=wfr.workflow_run_id)
+    swarm.from_workflow(wf)
     with pytest.raises(FileNotFoundError):
-        wf.run()
+        swarm.process_commands(raise_on_error=True)
+
+
+def test_swarm_fails(tool, task_template):
+    """Test the swarm's exit condition."""
+    from jobmon.client.workflow import DistributorContext
+
+    workflow = tool.create_workflow(name="test_propagate_result")
+
+    t1 = task_template.create_task(arg="echo 1")
+    t2 = task_template.create_task(arg="exit 1", max_attempts=1)
+    t3 = task_template.create_task(arg="echo 3", upstream_tasks=[t2])
+    workflow.add_tasks([t1, t2, t3])
+    workflow.bind()
+    wfr = workflow._create_workflow_run()
+
+    # run the distributor
+    with DistributorContext(
+            'sequential', wfr.workflow_run_id, 180
+    ) as distributor:
+        # swarm calls
+        swarm = SwarmWorkflowRun(
+            workflow_run_id=wfr.workflow_run_id,
+            requester=workflow.requester,
+        )
+        swarm.from_workflow(workflow)
+        swarm.run(distributor.alive)
+
+    assert swarm.status == WorkflowRunStatus.ERROR
+    assert len(swarm.done_tasks) == 1
+    assert len(swarm.failed_tasks) == 1

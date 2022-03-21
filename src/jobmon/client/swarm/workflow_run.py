@@ -151,7 +151,7 @@ class WorkflowRun:
             TaskStatus.ADJUSTING_RESOURCES
         ]
         return max([any(self._task_status_map[s] for s in active_task_states)]) \
-            or len(self.ready_to_run) > 0
+            or self.ready_to_run
 
     def from_workflow(self, workflow: Workflow) -> None:
         self.workflow_id = workflow.workflow_id
@@ -322,15 +322,16 @@ class WorkflowRun:
         for task in adjusting_tasks:
             yield SwarmCommand(self.adjust_task, task)
 
-        while len(self.ready_to_run) > 0:
+        while self.ready_to_run:
             task = self.ready_to_run.pop(0)
             yield SwarmCommand(self.queue_task, task)
 
-    def process_commands(self, timeout: Union[int, float] = -1):
+    def process_commands(self, timeout: Union[int, float] = -1, raise_on_error: bool = False):
         """Processes swarm commands until all work is done or timeout is reached.
 
         Args:
             timeout: time until we stop processing. -1 means process till no more work
+            raise_on_error: whether to raise errors in the swarm command or not
         """
 
         swarm_commands = self.get_swarm_commands()
@@ -345,7 +346,7 @@ class WorkflowRun:
 
                 # use an iterator so we don't waste compute
                 swarm_command = next(swarm_commands)
-                swarm_command()
+                swarm_command(raise_on_error=raise_on_error)
                 if swarm_command.error_raised:
                     logger.error(swarm_command.exception)
 
