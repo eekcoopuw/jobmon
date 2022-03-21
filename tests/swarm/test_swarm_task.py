@@ -1,3 +1,4 @@
+
 def test_swarmtask_resources_integration(tool, task_template, db_cfg):
     """Check that taskresources defined in task are passed to swarmtask appropriately"""
     from jobmon.constants import TaskResourcesType, WorkflowRunStatus
@@ -41,7 +42,7 @@ def test_swarmtask_resources_integration(tool, task_template, db_cfg):
     swarm.queue_task(swarmtask)
     # No change in resource values, so type id stays the same
     assert swarmtask.task_resources.task_resources_type_id == TaskResourcesType.ORIGINAL
-    assert id(swarmtask.task_resources) == initial_resources
+    assert id(swarmtask.task_resources) == id(initial_resources)
 
     # Move task to adjusting
     app, DB = db_cfg['app'], db_cfg['DB']
