@@ -66,6 +66,7 @@ class Task(DB.Model):
         (TaskStatus.REGISTERING, TaskStatus.QUEUED),
         (TaskStatus.ADJUSTING_RESOURCES, TaskStatus.QUEUED),
         (TaskStatus.QUEUED, TaskStatus.INSTANTIATING),
+        (TaskStatus.QUEUED, TaskStatus.REGISTERING),
         (TaskStatus.INSTANTIATING, TaskStatus.RUNNING),
         (TaskStatus.INSTANTIATING, TaskStatus.ERROR_RECOVERABLE),
         (TaskStatus.RUNNING, TaskStatus.DONE),
@@ -118,7 +119,7 @@ class Task(DB.Model):
                 self.transition(TaskStatus.ADJUSTING_RESOURCES)
             else:
                 logger.debug("Retrying Task.")
-                self.transition(TaskStatus.QUEUED)
+                self.transition(TaskStatus.REGISTERING)
 
     def _validate_transition(self, new_state: str) -> None:
         """Ensure the task state transition is valid."""

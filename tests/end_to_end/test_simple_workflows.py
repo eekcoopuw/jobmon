@@ -166,6 +166,7 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
 
     a_path = os.path.join(str(tmpdir), "a.out")
     task_a = task_template.create_task(
+        name="task_a",
         arg=f"python {remote_sleep_and_write} --sleep_secs 1 --output_file_path {a_path} --name {a_path}",
         upstream_tasks=[],
     )
@@ -181,10 +182,12 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
             fail_always = ""
 
         task_b[i] = task_template.create_task(
+            name=f"task_b_{i}",
             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
             f"--output_file_path {b_output_file_name} --name {b_output_file_name} "
             f"{fail_always}",
             upstream_tasks=[task_a],
+            # max_attempts=1
         )
         workflow.add_task(task_b[i])
 
@@ -192,6 +195,7 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
     for i in range(3):
         c_output_file_name = os.path.join(str(tmpdir), f"c-{i}.out")
         task_c[i] = task_template.create_task(
+            name=f"task_c_{i}",
             arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
             f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
             upstream_tasks=[task_b[i]],
@@ -200,14 +204,16 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
 
     d_path = os.path.join(str(tmpdir), "d.out")
     task_d = task_template.create_task(
+        name=f"task_d_{i}",
         arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
         f"--output_file_path {d_path} --name {d_path}",
         upstream_tasks=[task_c[i] for i in range(3)],
     )
     workflow.add_task(task_d)
-
+    # with pytest.raises(RuntimeError):
+    #     workflow_run_status = workflow.run(seconds_until_timeout=30)
+    # breakpoint()
     workflow_run_status = workflow.run()
-
     assert workflow_run_status == WorkflowRunStatus.ERROR
     # a, b[0], b[2], c[0], c[2],  but not b[1], c[1], d
     assert workflow._num_newly_completed == 1 + 2 + 2

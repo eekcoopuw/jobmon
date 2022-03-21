@@ -87,6 +87,7 @@ class WorkflowRun:
             TaskStatus.DONE: set(),
             TaskStatus.ADJUSTING_RESOURCES: set(),
             TaskStatus.ERROR_FATAL: set(),
+            TaskStatus.ERROR_RECOVERABLE: set(),
         }
 
         # cache to get same id
@@ -235,7 +236,6 @@ class WorkflowRun:
                         sleep_time = time_till_next_heartbeat - loop_elsapsed
                         time.sleep(sleep_time)
                         loop_elsapsed += sleep_time
-
                     # then synchronize state
                     if time_since_last_full_sync > self.wedged_workflow_sync_interval:
                         time_since_last_full_sync = 0.
@@ -544,6 +544,7 @@ class WorkflowRun:
                 f"code 200. Response content: {response}"
             )
 
+        breakpoint()
         self.last_sync = response["time"]
 
         new_status_tasks: Set[SwarmTask] = set()
