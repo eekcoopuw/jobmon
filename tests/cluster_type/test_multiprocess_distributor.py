@@ -1,32 +1,10 @@
-import os
 import time
-import random
-
-import pytest
-
-from jobmon import __version__
-from jobmon.requester import Requester
-from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-from jobmon.client.distributor.distributor_array import DistributorArray
-from jobmon.client.distributor.distributor_service import DistributorService
-from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
-from jobmon.cluster_type.dummy import DummyDistributor
-from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
-from jobmon.cluster_type.multiprocess.multiproc_distributor import (
-    MultiprocessDistributor,
-)
-from jobmon.constants import TaskInstanceStatus
-from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
 
 
 def test_multiprocess_distributor(
     tool, db_cfg, client_env, task_template, array_template
 ):
-    from jobmon.serializers import SerializeClusterType
-    from jobmon.cluster_type.multiprocess.multiproc_distributor import (
-        MultiprocessDistributor,
-        MultiprocessWorkerNode,
-    )
+    from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
 
     # set up a MultiprocessDistributor with 5 consumers.
     dist = MultiprocessDistributor(5)
@@ -48,9 +26,9 @@ def test_multiprocess_distributor(
     assert len(dist._running_or_submitted) <= 2
     keys = dist._running_or_submitted.keys()
     for x in keys:
-        assert x[1] is None
+        assert "." not in x
 
-    dist.stop(dist.get_submitted_or_running([]))
+    dist.stop()
 
     # reset up a MultiprocessDistributor with 5 consumers.
     dist = MultiprocessDistributor(5)
@@ -71,10 +49,6 @@ def test_multiprocess_distributor(
     assert len(dist._running_or_submitted) <= 2 * 3
     keys = dist._running_or_submitted.keys()
     for x in keys:
-        assert x[1] > 0 and x[1] <= 3
+        assert "." in x
 
-    # dist.get_submitted_or_running() counts on distributor_ids only,
-    # so it should only have 2 at most
-    assert len(dist.get_submitted_or_running([])) <= 2
-
-    dist.stop(dist.get_submitted_or_running([]))
+    dist.stop()
