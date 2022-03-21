@@ -190,7 +190,6 @@ class WorkflowRun:
                 for downstream in swarm_task.downstream_swarm_tasks:
                     downstream.num_upstreams_done += 1
 
-        breakpoint()
         for swarm_task in self.tasks.values():
             # If the task is ready to run and in registering state, add it to the queue
             if swarm_task.status == TaskStatus.REGISTERING and swarm_task.all_upstreams_done:
@@ -315,6 +314,7 @@ class WorkflowRun:
         adjusting_tasks = list(self._task_status_map[TaskStatus.ADJUSTING_RESOURCES])
         for task in adjusting_tasks:
             yield SwarmCommand(self.adjust_task, task)
+
         while len(self.ready_to_run) > 0:
             task = self.ready_to_run.pop(0)
             yield SwarmCommand(self.queue_task, task)
@@ -382,6 +382,9 @@ class WorkflowRun:
 
             elif task.status == TaskStatus.ERROR_FATAL:
                 num_newly_failed += 1
+
+            elif task.status == TaskStatus.REGISTERING and task.all_upstreams_done:
+                self.ready_to_run.append(task)
 
             else:
                 logger.debug(
