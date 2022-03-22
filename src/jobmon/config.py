@@ -464,11 +464,7 @@ class CLI:
 
     def main(self, argstr: Optional[str] = None) -> None:
         """Parse args."""
-        try:
-            args = self.parse_args(argstr)
-        except SystemExit:
-            cli = CLI()
-            args = install_default_config_from_plugin(cli)
+        args = self.parse_args(argstr)
         args.func(args)
 
     def parse_args(self, argstr: Optional[str] = None) -> configargparse.Namespace:
