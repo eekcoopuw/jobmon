@@ -14,6 +14,7 @@ from jobmon.exceptions import (
     CallableReturnedInvalidObject,
     DistributorNotAlive,
     InvalidResponse,
+    TransitionError
 )
 
 from jobmon.requester import http_request_ok, Requester
@@ -109,6 +110,9 @@ class WorkflowRun:
             requester = Requester(ClientConfig.from_defaults().url)
         self._requester = requester
 
+        # This signal is set if the workflow run receives a resume
+        self._terminated = False
+
     @property
     def status(self) -> str:
         """Status of the workflow run."""
@@ -132,7 +136,7 @@ class WorkflowRun:
 
         # To prevent additional compute, return False immediately if set to an error state.
         # Likely done by fail fast or the max execution loops
-        if self.status == WorkflowRunStatus.ERROR:
+        if self.status in (WorkflowRunStatus.ERROR, WorkflowRunStatus.TERMINATED):
             return False
 
         active_task_states = [
@@ -270,11 +274,12 @@ class WorkflowRun:
                         - (loop_start - self._last_heartbeat_time)
                     )
                     self.process_commands(timeout=time_till_next_heartbeat)
-
                     if not self.active_tasks:
-                        if self.status != WorkflowRunStatus.ERROR:
+                        if self._terminated:
+                            self._update_status(WorkflowRunStatus.TERMINATED)
+                        elif self.status != WorkflowRunStatus.ERROR:
                             self._update_status(WorkflowRunStatus.ERROR)
-                        keep_processing = False
+                        break
 
                     # take a break if needed
                     loop_elapsed = time.time() - loop_start
@@ -305,7 +310,10 @@ class WorkflowRun:
                         logger.info("Continuing jobmon...")
 
         except Exception:
-            self._update_status(WorkflowRunStatus.ERROR)
+            try:
+                self._update_status(WorkflowRunStatus.ERROR)
+            except TransitionError as e:
+                logger.warning(str(e))
             raise
 
     def get_swarm_commands(self) -> Iterator[SwarmCommand]:
@@ -458,7 +466,6 @@ class WorkflowRun:
 
     def _update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""
-        self._status = status
 
         app_route = f"/workflow_run/{self.workflow_run_id}/update_status"
         return_code, response = self._requester.send_request(
@@ -473,6 +480,11 @@ class WorkflowRun:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
+        if response['status'] != status:
+            raise TransitionError(
+                f"Cannot transition WFR {self.workflow_run_id} from {self._status} to {status}"
+            )
+        self._status = status
 
     def _terminate_task_instances(self) -> None:
         """Terminate the workflow run."""
@@ -486,6 +498,7 @@ class WorkflowRun:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
+        self._terminated = True
 
     def _set_fail_after_n_executions(self, n: int) -> None:
         """For use during testing.
@@ -576,7 +589,7 @@ class WorkflowRun:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-
+        logger.info(f"Sync time: {self.last_sync}, tasks: {response}")
         self.last_sync = response["time"]
 
         new_status_tasks: Set[SwarmTask] = set()

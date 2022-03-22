@@ -221,14 +221,16 @@ def log_workflow_run_status_update(workflow_run_id: int) -> Any:
     logger.info(f"Log status update for workflow_run_id:{workflow_run_id}.")
 
     workflow_run = DB.session.query(WorkflowRun).filter_by(id=workflow_run_id).one()
+    status = data['status']
     try:
-        workflow_run.transition(data["status"])
+        workflow_run.transition(status)
         DB.session.commit()
     except InvalidStateTransition:
         DB.session.rollback()
-        raise
+        # Return the original status
+        status = workflow_run.status
 
-    resp = jsonify()
+    resp = jsonify(status=status)
     resp.status_code = StatusCodes.OK
     return resp
 
