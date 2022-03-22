@@ -508,6 +508,3 @@ class DistributorService:
         )
         concurrency = array.max_concurrently_running
         return concurrency - len(launched) - len(running)
-
-    def heartbeat(self):
-        pass

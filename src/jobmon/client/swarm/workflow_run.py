@@ -592,7 +592,7 @@ class WorkflowRun:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-        logger.info(f"Sync time: {self.last_sync}, tasks: {response}")
+
         self.last_sync = response["time"]
 
         new_status_tasks: Set[SwarmTask] = set()
