@@ -390,6 +390,9 @@ class WorkflowRun:
             elif task.status == TaskStatus.ERROR_FATAL:
                 num_newly_failed += 1
 
+            elif task.status == TaskStatus.REGISTERING and task.all_upstreams_done:
+                self.ready_to_run.append(task)
+
             else:
                 logger.debug(
                     f"Got status update {task.status} for task_id: {task.task_id}."
