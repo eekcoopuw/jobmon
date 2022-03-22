@@ -3,6 +3,8 @@ import logging
 import os
 import time
 
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+from jobmon.client.workflow import DistributorContext
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import CallableReturnedInvalidObject
 from jobmon.server.web.models.task_instance import TaskInstance
@@ -27,7 +29,6 @@ def test_blocking_update_timeout(tool, task_template):
     """This test runs a 1 task workflow and confirms that the workflow_run
     will timeout with an appropriate error message if timeout is set
     """
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     task = task_template.create_task(arg="sleep 3", name="foobarbaz")
     workflow = tool.create_workflow(name="my_simple_dag")
@@ -62,7 +63,6 @@ def test_sync_statuses(client_env, tool, task_template):
     """this test executes a single task workflow where the task fails. It
     is testing to confirm that the status updates are propagated into the
     swarm objects"""
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
     from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
@@ -114,7 +114,6 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
     from jobmon.cluster_type.dummy import DummyDistributor
     from jobmon.worker_node.cli import WorkerNodeCLI
     from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     class WedgedDistributor(DummyDistributor):
 
@@ -277,8 +276,6 @@ def test_fail_fast(tool, task_template):
 
 def test_propagate_result(tool, task_template):
     """set up workflow with 3 tasks on one layer and 3 tasks as dependant"""
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.client.workflow import DistributorContext
 
     workflow = tool.create_workflow(name="test_propagate_result")
 
@@ -313,8 +310,6 @@ def test_propagate_result(tool, task_template):
 
 def test_callable_returns_valid_object(tool, task_template):
     """Test when the provided callable returns the correct parameters"""
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.client.workflow import DistributorContext
 
     def resource_file_does_exist(*args, **kwargs):
         # file contains dict with
@@ -366,8 +361,12 @@ def test_callable_returns_wrong_object(tool, task_template):
     )
     wf = tool.create_workflow(workflow_args="dynamic_resource_wf_wrong_param_obj")
     wf.add_task(task)
+    wf.bind()
+    wfr = wf._create_workflow_run()
+    swarm = SwarmWorkflowRun(workflow_run_id=wfr.workflow_run_id)
+    swarm.from_workflow(wf)
     with pytest.raises(CallableReturnedInvalidObject):
-        wf.run()
+        swarm.process_commands()
 
 
 def test_callable_fails_bad_filepath(tool, task_template):
@@ -385,5 +384,83 @@ def test_callable_fails_bad_filepath(tool, task_template):
     )
     wf = tool.create_workflow(workflow_args="dynamic_resource_wf_bad_file")
     wf.add_task(task)
+    wf.bind()
+    wfr = wf._create_workflow_run()
+    swarm = SwarmWorkflowRun(workflow_run_id=wfr.workflow_run_id)
+    swarm.from_workflow(wf)
     with pytest.raises(FileNotFoundError):
-        wf.run()
+        swarm.process_commands()
+
+
+def test_swarm_fails(tool, task_template):
+    """Test the swarm exits on error appropriately."""
+
+    workflow = tool.create_workflow(name="test_propagate_result")
+
+    t1 = task_template.create_task(arg="echo 1")
+    t2 = task_template.create_task(arg="exit 1", max_attempts=1)
+    t3 = task_template.create_task(arg="echo 3", upstream_tasks=[t2])
+    workflow.add_tasks([t1, t2, t3])
+    workflow.bind()
+    wfr = workflow._create_workflow_run()
+
+    # run the distributor
+    with DistributorContext(
+            'sequential', wfr.workflow_run_id, 180
+    ) as distributor:
+        # swarm calls
+        swarm = SwarmWorkflowRun(
+            workflow_run_id=wfr.workflow_run_id,
+            requester=workflow.requester,
+        )
+        swarm.from_workflow(workflow)
+        swarm.run(distributor.alive)
+
+    assert swarm.status == WorkflowRunStatus.ERROR
+    assert len(swarm.done_tasks) == 1
+    assert len(swarm.failed_tasks) == 1
+    assert len(swarm.ready_to_run) == 0
+    assert swarm.tasks[t3.task_id].num_upstreams_done == 0
+    assert not swarm.active_tasks
+
+
+def test_swarm_terminate(tool, task_template):
+    """Test that when the workflow run terminates properly."""
+
+    class MockSwarm(SwarmWorkflowRun):
+
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.sync_attempts = 0
+
+        def synchronize_state(self, full_sync: bool = False) -> None:
+            super().synchronize_state(full_sync)
+            self.sync_attempts += 1
+            if self.sync_attempts == 2:
+                # Signal a cold resume
+                self._update_status(WorkflowRunStatus.COLD_RESUME)
+
+    workflow = tool.create_workflow(name="test_terminate")
+
+    t1 = task_template.create_task(arg="sleep 1000", max_attempts=1)  # Long sleep time
+    t2 = task_template.create_task(arg="sleep 2", upstream_tasks=[t1])
+    workflow.add_tasks([t1, t2])
+    workflow.bind()
+    wfr = workflow._create_workflow_run()
+
+    # run the distributor
+    with DistributorContext(
+            'sequential', wfr.workflow_run_id, 180
+    ) as distributor:
+        # swarm calls
+        swarm = MockSwarm(
+            workflow_run_id=wfr.workflow_run_id,
+            requester=workflow.requester,
+        )
+        swarm.from_workflow(workflow)
+        swarm.run(distributor.alive)
+
+    assert swarm.status == WorkflowRunStatus.TERMINATED
+    assert len(swarm.done_tasks) == 0
+    assert len(swarm.failed_tasks) == 1
+    assert len(swarm.ready_to_run) == 0

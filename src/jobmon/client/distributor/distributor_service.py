@@ -250,7 +250,7 @@ class DistributorService:
     def kill_self(self, task_instance: DistributorTaskInstance) -> None:
         self.cluster.terminate_task_instances([task_instance.distributor_id])
         task_instance.transition_to_error(
-            "Task instance was self-killed.", TaskInstanceStatus.ERROR
+            "Task instance was self-killed.", TaskInstanceStatus.ERROR_FATAL
         )
 
     def log_task_instance_report_by_date(self) -> None:
