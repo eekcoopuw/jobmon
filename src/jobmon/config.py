@@ -464,7 +464,11 @@ class CLI:
 
     def main(self, argstr: Optional[str] = None) -> None:
         """Parse args."""
-        args = self.parse_args(argstr)
+        try:
+            args = self.parse_args(argstr)
+        except SystemExit:
+            cli = CLI()
+            args = install_default_config_from_plugin(cli)
         args.func(args)
 
     def parse_args(self, argstr: Optional[str] = None) -> configargparse.Namespace:
@@ -512,6 +516,8 @@ def install_default_config_from_plugin(cli: CLI) -> Namespace:
         module = importlib.import_module(plugin_name)
         config_installer = getattr(module, "install_config")
         config_installer()
+        # The following lines added for GBDSCI-4452
+        # If jobmon as not been configured yet, do it.
         try:
             args = cli.parse_args("")
             print("Successfully configured jobmon.")
