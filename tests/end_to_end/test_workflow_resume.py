@@ -1,8 +1,9 @@
 import os
 import sys
+import time
 
-from jobmon.constants import WorkflowRunStatus
-from jobmon.exceptions import ResumeSet, WorkflowAlreadyExists, WorkflowNotResumable
+from jobmon.constants import WorkflowRunStatus, TaskInstanceStatus
+from jobmon.exceptions import WorkflowAlreadyExists, WorkflowNotResumable
 from jobmon.cluster_type.multiprocess.multiproc_distributor import (
     MultiprocessDistributor,
 )
@@ -46,10 +47,10 @@ def task_template_fail_one(tool):
             "{script} "
             "--sleep_secs {sleep_secs} "
             "--output_file_path {output_file_path} "
-            "--name {name} "
+            "--task_name {task_name} "
             "{fail_always}"
         ),
-        node_args=["name"],
+        node_args=["task_name"],
         task_args=["sleep_secs", "output_file_path"],
         op_args=["python", "script", "fail_always"],
     )
@@ -69,7 +70,7 @@ def test_fail_one_task_resume(db_cfg, tool, task_template_fail_one, tmpdir):
     # create workflow and execute
     workflow1 = tool.create_workflow(name="fail_one_task_resume")
     t1 = task_template_fail_one.create_task(
-        name="a_task",
+        task_name="a_task",
         max_attempts=1,
         python=sys.executable,
         script=remote_sleep_and_write,
@@ -89,7 +90,7 @@ def test_fail_one_task_resume(db_cfg, tool, task_template_fail_one, tmpdir):
         name=workflow1.name, workflow_args=workflow1.workflow_args
     )
     t2 = task_template_fail_one.create_task(
-        name="a_task",
+        task_name="a_task",
         max_attempts=1,
         python=sys.executable,
         script=remote_sleep_and_write,
@@ -139,31 +140,37 @@ def test_cold_resume(tool, task_template):
     # prepare first workflow
     workflow1 = tool.create_workflow(name="cold_resume")
     workflow1.add_tasks(get_two_wave_tasks(task_template))
-
-    # create a distributor and start up the first 3 jobs
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
+
+    # create task instances
+    swarm = SwarmWorkflowRun(
+        workflow_run_id=wfr1.workflow_run_id,
+        requester=workflow1.requester
+    )
+    swarm.from_workflow(workflow1)
+    swarm.process_commands()
+
+    # run first 3 tasks
     distributor_service = DistributorService(
-        workflow1.workflow_id,
-        wfr1.workflow_run_id,
         MultiprocessDistributor(parallelism=3),
         requester=workflow1.requester,
+        raise_on_error=True
     )
-    swarm = SwarmWorkflowRun(
-        workflow_id=workflow1.workflow_id,
-        workflow_run_id=wfr1.workflow_run_id,
-        tasks=list(workflow1.tasks.values()),
-        requester=workflow1.requester,
-    )
-    swarm.update_status(WorkflowRunStatus.RUNNING)
-    swarm.compute_initial_dag_state()
-    list(swarm.queue_tasks())
-    distributor_service.distributor.start()
-    distributor_service.heartbeat()
-    distributor_service._get_tasks_queued_for_instantiation()
-    distributor_service.distribute()
+    distributor_service.set_workflow_run(wfr1.workflow_run_id)
+    distributor_service.workflow_run.transition_to_launched()
+    swarm._update_status(WorkflowRunStatus.RUNNING)
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+    distributor_service.cluster.start()
 
-    swarm.block_until_newly_ready_or_all_done()
+    i = 0
+    while len(swarm.done_tasks) < 3 and i < 20:
+        swarm.synchronize_state()
+        i += 1
+        time.sleep(1)
+    distributor_service.cluster.stop()
+    assert len(swarm.done_tasks) == 3
 
     # create new workflow run, causing the old one to reset. resume timeout is
     # 1 second meaning this workflow run will not actually be created
@@ -176,15 +183,14 @@ def test_cold_resume(tool, task_template):
         workflow2._create_workflow_run(resume=True, resume_timeout=1)
 
     # test if resume signal is received
-    with pytest.raises(ResumeSet):
-        distributor_service.run_distributor()
-    assert distributor_service.distributor.started is False
-
-    # get internal state of workflow run. at least 1 task should have finished
-    assert len(swarm.all_done) > 1
+    swarm.synchronize_state()
+    assert swarm.status == WorkflowRunStatus.COLD_RESUME
 
     # set workflow run to terminated
-    swarm.terminate_workflow_run()
+    swarm._terminate_task_instances()
+
+    distributor_service.process_status(TaskInstanceStatus.KILL_SELF)
+    swarm._update_status(WorkflowRunStatus.TERMINATED)
 
     # now resume it till done
     # prepare first workflow
@@ -211,29 +217,37 @@ def test_hot_resume(tool, task_template):
         t = task_template.create_task(arg=f"sleep {10 + i}")
         tasks.append(t)
     workflow1.add_tasks(tasks)
-
-    # create a workflow and run the first 3 jobs
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
-    distributor_service1 = DistributorService(
-        workflow1.workflow_id,
-        wfr1.workflow_run_id,
+
+    # run first 3 tasks
+    distributor_service = DistributorService(
         MultiprocessDistributor(parallelism=3),
         requester=workflow1.requester,
+        raise_on_error=True
     )
-    swarm1 = SwarmWorkflowRun(
-        workflow_id=workflow1.workflow_id,
+    distributor_service.set_workflow_run(wfr1.workflow_run_id)
+    distributor_service.workflow_run.transition_to_launched()
+    swarm = SwarmWorkflowRun(
         workflow_run_id=wfr1.workflow_run_id,
-        tasks=list(workflow1.tasks.values()),
-        requester=workflow1.requester,
+        requester=workflow1.requester
     )
-    swarm1.update_status(WorkflowRunStatus.RUNNING)
-    swarm1.compute_initial_dag_state()
-    list(swarm1.queue_tasks())
-    distributor_service1.distributor.start()
-    distributor_service1.heartbeat()
-    distributor_service1._get_tasks_queued_for_instantiation()
-    distributor_service1.distribute()
+    swarm.from_workflow(workflow1)
+    swarm._update_status(WorkflowRunStatus.RUNNING)
+
+    # create task instances
+    swarm.process_commands()
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+    distributor_service.cluster.start()
+
+    i = 0
+    while len(swarm.done_tasks) < 3 and i < 20:
+        swarm.synchronize_state()
+        i += 1
+        time.sleep(1)
+    distributor_service.cluster.stop()
+    assert len(swarm.done_tasks) == 3
 
     # now make another workflow and set a hot resume with a quick timeout
     workflow2 = tool.create_workflow(
@@ -250,25 +264,12 @@ def test_hot_resume(tool, task_template):
             resume=True, reset_running_jobs=False, resume_timeout=1
         )
 
-    # now check that resume is set and terminate the jobs we are supposed to for hot resume.
-    with pytest.raises(ResumeSet):
-        distributor_service1.heartbeat()
-    distributor_service1._terminate_active_task_instances()
+    # test if resume signal is received
+    swarm.synchronize_state()
+    assert swarm.status == WorkflowRunStatus.HOT_RESUME
 
-    # confirm 3 tasks finish then stop the distributor and terminate the workflow run
-    num_loops = 0
-    while len(swarm1.all_done) != 3 or num_loops > 20:
-        num_loops += 1
-        try:
-            swarm1.block_until_newly_ready_or_all_done(
-                poll_interval=1, seconds_until_timeout=1
-            )
-        except RuntimeError:
-            pass
-    distributor_service1.distributor.stop([])
-    swarm1.terminate_workflow_run()
-
-    assert len(swarm1.all_done) == 3
+    # set workflow run to terminated
+    swarm._update_status(WorkflowRunStatus.TERMINATED)
 
     workflow_run_status = workflow2.run(resume=True)
     assert workflow_run_status == WorkflowRunStatus.DONE
@@ -282,12 +283,14 @@ def test_stopped_resume(tool, task_template):
     workflow1 = tool.create_workflow(name="stopped_resume")
     t1 = task_template.create_task(arg="echo t1")
     t2 = task_template.create_task(arg="echo t2", upstream_tasks=[t1])
-    workflow1.add_tasks([t1, t2])
+    t3 = task_template.create_task(arg="echo t3", upstream_tasks=[t2])
+
+    workflow1.add_tasks([t1, t2, t3])
 
     # start up the first task. patch so that it fails with a keyboard interrupt
     workflow1._fail_after_n_executions = 1
     with pytest.raises(KeyboardInterrupt):
-        with patch("jobmon.client.swarm.workflow_run.ValueError") as fail_error:
+        with patch("jobmon.client.swarm.workflow_run.WorkflowTestError") as fail_error:
             fail_error.side_effect = KeyboardInterrupt
             # will ask if we want to exit. answer is 'y'
             with patch("builtins.input") as input_patch:
@@ -300,7 +303,9 @@ def test_stopped_resume(tool, task_template):
     )
     t1 = task_template.create_task(arg="echo t1")
     t2 = task_template.create_task(arg="echo t2", upstream_tasks=[t1])
-    workflow1.add_tasks([t1, t2])
+    t3 = task_template.create_task(arg="echo t3", upstream_tasks=[t2])
+
+    workflow1.add_tasks([t1, t2, t3])
     wfrs2 = workflow1.run(resume=True)
 
     assert wfrs2 == WorkflowRunStatus.DONE

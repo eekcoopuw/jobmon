@@ -135,3 +135,9 @@ class TransitionError(Exception):
     """Transition failed."""
 
     pass
+
+
+class WorkflowTestError(Exception):
+    """Workflow Run encountered and error"""
+
+    pass

@@ -351,15 +351,6 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
         return {}
 
     @property
-    def subtask_id(self) -> Optional[str]:
-        """Return subtask_id ."""
-        if self._subtask_id is None and self.array_step_id is not None:
-            stid = str(self.distributor_id) + "." + str(self.array_step_id)
-            if stid:
-                self._subtask_id = stid
-        return self._subtask_id
-
-    @property
     def array_step_id(self) -> Optional[int]:
         """Return array_step_id ."""
         if self._array_step_id is None:
