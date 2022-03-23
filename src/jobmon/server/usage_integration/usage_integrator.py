@@ -345,56 +345,6 @@ def _get_squid_resource_via_slurm_sdb(session: Session,
     return all_usage_stats
 
 
-# Old routine of using Slurm_API for usage_stats
-# def _get_squid_resource(
-#     slurm_api: slurm, task_instances: List[QueuedTI]
-# ) -> Optional[dict]:
-#     """Collect the Slurm reported resource usage for a given list of task instances.
-#
-#     Return 5 values: cpu, mem, node, billing and runtime that are available from tres.
-#     For mem, also search the highest values within each step's tres.requested.max
-#     (only this way it will match results from "sacct -j nnnn --format="JobID,MaxRSS"").
-#     For runtime, get the total from the whole job, if 0, sum it up from the steps.
-#     """
-#     all_usage_stats = {}
-#     # Return futures since async_req=True is passed
-#     job_futures = [
-#         slurm_api.slurmdbd_get_job(ti.distributor_id) for ti in task_instances
-#     ]
-#     jobs = [j.get() for j in job_futures]
-#     for task_instance, j in zip(task_instances, jobs):
-#         usage_stats = {}
-#         job = j.jobs[
-#             0
-#         ]  # Always length 1 I believe? Unless it's an array task potentially?
-#         for allocated in job.tres.allocated:
-#             if allocated["type"] in ("cpu", "node", "billing"):
-#                 usage_stats[allocated["type"]] = allocated["count"]
-#
-#         # the actual mem usage should have nothing to do with the allocation
-#         usage_stats["mem"] = 0
-#         for step in job.steps:
-#             for tres in step.tres.requested.max:
-#                 if tres["type"] == "mem":
-#                     usage_stats["mem"] += tres["count"]
-#
-#         usage_stats["runtime"] = job.time.elapsed
-#
-#         # rename keys by copying
-#         # Guard against null returns
-#         if len(usage_stats) == 0:
-#             usage_stats = None
-#         else:
-#             usage_stats["usage_str"] = usage_stats.copy()
-#             usage_stats["wallclock"] = usage_stats.pop("runtime")
-#             # store B
-#             usage_stats["maxrss"] = usage_stats.pop("mem")
-#         logger.info(f"{task_instance.distributor_id}: {usage_stats}")
-#         all_usage_stats[task_instance] = usage_stats
-#
-#     return all_usage_stats
-#
-#
 # uge
 def _get_qpid_response(distributor_id: int, qpid_uri_base: Optional[str]) -> Tuple:
     qpid_api_url = f"{qpid_uri_base}/{distributor_id}"
