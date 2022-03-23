@@ -233,23 +233,6 @@ deploy_jobmon_to_k8s () {
     fi
 }
 
-test_conda_client_uge () {
-    WORKSPACE=$1
-    QLOGIN_ACTIVATE=$2
-    CONDA_CLIENT_VERSION=$3
-    JOBMON_VERSION=$4
-    TARGET_IP=$5
-
-    CONDA_DIR=$WORKSPACE/.conda_env/load_test
-    $QLOGIN_ACTIVATE && \
-      conda deactivate && \
-      conda env remove --name uge_six_job_env && \
-      conda create -n uge_six_job_env python==3.7 ihme_jobmon==$CONDA_CLIENT_VERSION -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge && \
-      conda activate uge_six_job_env && \
-      conda info --envs && \
-      python $WORKSPACE/deployment/tests/six_job_test.py 'buster'
-}
-
 test_conda_client_slurm () {
     WORKSPACE=$1
     MINICONDA_PATH=$2

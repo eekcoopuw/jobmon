@@ -14,9 +14,6 @@ pipeline {
      description: 'The version of Jobmon Core',
      name: 'JOBMON_VERSION')
     string(defaultValue: '',
-     description: 'The version of Jobmon UGE',
-     name: 'JOBMON_UGE_VERSION')
-    string(defaultValue: '',
      description: 'The version of Jobmon SLURM',
      name: 'JOBMON_SLURM_VERSION')
     string(defaultValue: '',
@@ -80,7 +77,6 @@ pipeline {
                 export CONDA_CLIENT_VERSION="${CONDA_CLIENT_VERSION}"
                 export JENKINS_BUILD_NUMBER="${BUILD_NUMBER}"
                 export JOBMON_VERSION="${JOBMON_VERSION}"
-                export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
                 export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
                 export SLURM_REST_VERSION="${SLURM_REST_VERSION}"
                 export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
@@ -115,7 +111,6 @@ pipeline {
           sh '''#!/bin/bash
                 export INSTALLER_VERSION="${CONDA_CLIENT_VERSION}"
                 export JOBMON_VERSION="${JOBMON_VERSION}"
-                export JOBMON_UGE_VERSION="${JOBMON_UGE_VERSION}"
                 export JOBMON_SLURM_VERSION="${JOBMON_SLURM_VERSION}"
                 export WEB_SERVICE_FQDN="${JOBMON_SERVICE_FQDN}"
                 export WEB_SERVICE_PORT="${JOBMON_SERVICE_PORT}"
@@ -179,61 +174,41 @@ pipeline {
         } // end qlogin
       } // end steps
     } // end upload doc stage
-    stage("parallel") {
-      parallel {
-        stage ('Test Conda Client UGE') {
-          steps {
-            node('qlogin') {
-              // Download jobmon
-              checkout scm
-              sh '''#!/bin/bash
-                    . ${WORKSPACE}/ci/deploy_utils.sh
-                    test_conda_client_uge \
-                        ${WORKSPACE} \
-                        "${QLOGIN_ACTIVATE}" \
-                        ${CONDA_CLIENT_VERSION} \
-                        ${JOBMON_VERSION} \
-                 ''' +  "${env.JOBMON_SERVICE_FQDN}"
-            } // end qlogin
-          } // end steps
-        } // end test deployment stage
-        stage ('Test Conda Client Slurm') {
-          steps {
-            node('qlogin') {
+    stage ('Test Conda Client Slurm') {
+      steps {
+        node('qlogin') {
 
-              // Be very, very careful with nested quotes here, it is safest not to use them
-              // because ssh parses and recreates the remote string.
-              // For reference see https://unix.stackexchange.com/questions/212215/ssh-command-with-quotes
-              // Ubuntu uses dash, not bash. bash has the "source" command, dash does not.
-              // In dash you have to use the "." command instead
-              // Conceptually it would be possible to use "/bin/bash -c"
-              // but that requires quotes around the command. It is safer to just use "." rather
-              // than "source" in deploy_utils.sh and execute it with dash.
-              // Also, don't try to pass a whole command as a single argument because that also
-              // requires clever quoting. Only pass single words as arguments.
+          // Be very, very careful with nested quotes here, it is safest not to use them
+          // because ssh parses and recreates the remote string.
+          // For reference see https://unix.stackexchange.com/questions/212215/ssh-command-with-quotes
+          // Ubuntu uses dash, not bash. bash has the "source" command, dash does not.
+          // In dash you have to use the "." command instead
+          // Conceptually it would be possible to use "/bin/bash -c"
+          // but that requires quotes around the command. It is safer to just use "." rather
+          // than "source" in deploy_utils.sh and execute it with dash.
+          // Also, don't try to pass a whole command as a single argument because that also
+          // requires clever quoting. Only pass single words as arguments.
 
-              // Download jobmon
-              checkout scm
-              script {
-                ssh_cmd= """. ${WORKSPACE}/ci/deploy_utils.sh
-                     test_conda_client_slurm \
-                         ${WORKSPACE} \
-                         ${MINICONDA_PATH} \
-                         ${CONDA_ENV_NAME} \
-                         ${CONDA_CLIENT_VERSION} \
-                         ${JOBMON_VERSION} \
-                         ${env.JOBMON_SERVICE_FQDN} \
-                """
-                echo ssh_cmd
-                sshagent(['jenkins']) {
-                   sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.cluster.ihme.washington.edu '${ssh_cmd}'"
-                } // end ssh
-              } // end script
-            } // end qlogin
-          } // end steps
-        } // end test deployment stage
-      } // end parallel
-    } // end parallel stage
+          // Download jobmon
+          checkout scm
+          script {
+            ssh_cmd= """. ${WORKSPACE}/ci/deploy_utils.sh
+                 test_conda_client_slurm \
+                     ${WORKSPACE} \
+                     ${MINICONDA_PATH} \
+                     ${CONDA_ENV_NAME} \
+                     ${CONDA_CLIENT_VERSION} \
+                     ${JOBMON_VERSION} \
+                     ${env.JOBMON_SERVICE_FQDN} \
+            """
+            echo ssh_cmd
+            sshagent(['jenkins']) {
+               sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.cluster.ihme.washington.edu '${ssh_cmd}'"
+            } // end ssh
+          } // end script
+        } // end qlogin
+      } // end steps
+    } // end test deployment stage
   } // end stages
   post {
     always {

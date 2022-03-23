@@ -131,7 +131,6 @@ def conda_build(session: Session) -> None:
     )
     conda_client_version = os.getenv("CONDA_CLIENT_VERSION", "0.0")
     jobmon_version = os.getenv("JOBMON_VERSION", "3.1.0.dev12")
-    jobmon_uge_version = os.getenv("JOBMON_UGE_VERSION", "1.0.0")
     jobmon_slurm_version = os.getenv("JOBMON_SLURM_VERSION", "1.0.2")
     slurm_rest_version = os.getenv("SLURM_REST_VERSION", "1.0.0")
     jenkins_build_number = os.getenv('JENKINS_BUILD_NUMBER', 0)
@@ -155,7 +154,6 @@ def conda_build(session: Session) -> None:
             "PYPI_URL": pypi_url,
             "CONDA_CLIENT_VERSION": conda_client_version,
             "JOBMON_VERSION": jobmon_version,
-            "JOBMON_UGE_VERSION": jobmon_uge_version,
             "SLURM_REST_VERSION": slurm_rest_version,
             "JOBMON_SLURM_VERSION": jobmon_slurm_version,
             "JENKINS_BUILD_NUMBER": jenkins_build_number,
@@ -171,7 +169,6 @@ def ihme_installer_build(session: Session) -> None:
 
     installer_version = os.getenv("INSTALLER_VERSION", "0.0")
     jobmon_version = os.getenv("JOBMON_VERSION", "3.1.0.dev7")
-    jobmon_uge_version = os.getenv("JOBMON_UGE_VERSION", "1.0.0")
     jobmon_slurm_version = os.getenv("JOBMON_SLURM_VERSION", "1.0.2")
 
     # environment variables used in build script
@@ -187,7 +184,6 @@ def ihme_installer_build(session: Session) -> None:
         "jinja",
         "-D", "INSTALLER_VERSION", installer_version,
         "-D", "JOBMON_VERSION", jobmon_version,
-        "-D", "JOBMON_UGE_VERSION", jobmon_uge_version,
         "-D", "JOBMON_SLURM_VERSION", jobmon_slurm_version,
         "./deployment/jobmon_installer_ihme/setup.cfg.j2",
         "-o", "./deployment/jobmon_installer_ihme/setup.cfg",
