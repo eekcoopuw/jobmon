@@ -371,6 +371,71 @@ class ParserDefaults:
         return parser
 
     @staticmethod
+    def db_host_slurm_sdb(parser: configargparse.ArgumentParser) \
+            -> configargparse.ArgumentParser:
+        """Host running the Slurm SDB."""
+        parser.add_argument(
+            "--db_host_slurm_sdb",
+            type=str,
+            help="slurm sdb database host to use",
+            required=True,
+            env_var="DB_HOST_SLURM_SDB",
+        )
+        return parser
+
+    @staticmethod
+    def db_port_slurm_sdb(parser: configargparse.ArgumentParser) \
+            -> configargparse.ArgumentParser:
+        """Port to connect to the Slurm SDB on."""
+        parser.add_argument(
+            "--db_port_slurm_sdb",
+            type=str,
+            help="database port to use",
+            required=True,
+            env_var="DB_PORT_SLURM_SDB",
+        )
+        return parser
+
+    @staticmethod
+    def db_user_slurm_sdb(parser: configargparse.ArgumentParser) \
+            -> configargparse.ArgumentParser:
+        """DB username to use to connect to the Slurm SDB."""
+        parser.add_argument(
+            "--db_user_slurm_sdb",
+            type=str,
+            help="database user to use",
+            required=True,
+            env_var="DB_USER_SLURM_SDB",
+        )
+        return parser
+
+    @staticmethod
+    def db_pass_slurm_sdb(parser: configargparse.ArgumentParser) \
+            -> configargparse.ArgumentParser:
+        """Password to use to connect to the Slurm SDB."""
+        parser.add_argument(
+            "--db_pass_slurm_sdb",
+            type=str,
+            help="database password to use",
+            required=True,
+            env_var="DB_PASS_SLURM_SDB",
+        )
+        return parser
+
+    @staticmethod
+    def db_name_slurm_sdb(parser: configargparse.ArgumentParser) \
+            -> configargparse.ArgumentParser:
+        """Name of the Slurm SDB you want to connect to."""
+        parser.add_argument(
+            "--db_name_slurm_sdb",
+            type=str,
+            help="default database to use",
+            default="slurm_acct_db",
+            env_var="DB_NAME_SLURM_SDB",
+        )
+        return parser
+
+    @staticmethod
     def worker_node_entry_point(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:

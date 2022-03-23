@@ -20,6 +20,11 @@ class UsageConfig:
         ParserDefaults.db_name(cli.parser)
         ParserDefaults.qpid_cluster(cli.parser)
         ParserDefaults.qpid_uri(cli.parser)
+        ParserDefaults.db_host_slurm_sdb(cli.parser)
+        ParserDefaults.db_port_slurm_sdb(cli.parser)
+        ParserDefaults.db_user_slurm_sdb(cli.parser)
+        ParserDefaults.db_pass_slurm_sdb(cli.parser)
+        ParserDefaults.db_name_slurm_sdb(cli.parser)
         # squid new config
         ParserDefaults.squid_polling_interval(cli.parser)
         ParserDefaults.squid_max_update_per_second(cli.parser)
@@ -36,6 +41,11 @@ class UsageConfig:
             db_name=args.db_name,
             qpid_cluster=args.qpid_cluster,
             qpid_uri=args.qpid_uri,
+            db_host_slurm_sdb=args.db_host_slurm_sdb,
+            db_port_slurm_sdb=args.db_port_slurm_sdb,
+            db_user_slurm_sdb=args.db_user_slurm_sdb,
+            db_pass_slurm_sdb=args.db_pass_slurm_sdb,
+            db_name_slurm_sdb=args.db_name_slurm_sdb,
             # squid
             squid_polling_interval=args.squid_polling_interval,
             squid_max_update_per_second=args.squid_max_update_per_second,
@@ -51,6 +61,11 @@ class UsageConfig:
         db_name: str,
         qpid_cluster: str,
         qpid_uri: str,
+        db_host_slurm_sdb: str,
+        db_port_slurm_sdb: str,
+        db_user_slurm_sdb: str,
+        db_pass_slurm_sdb: str,
+        db_name_slurm_sdb: str,
         # squid
         squid_polling_interval: int,
         squid_max_update_per_second: int,
@@ -64,6 +79,11 @@ class UsageConfig:
         self.db_name = db_name
         self.qpid_cluster = qpid_cluster
         self.qpid_uri = qpid_uri
+        self.db_host_slurm_sdb = db_host_slurm_sdb
+        self.db_port_slurm_sdb = db_port_slurm_sdb
+        self.db_user_slurm_sdb = db_user_slurm_sdb
+        self.db_pass_slurm_sdb = db_pass_slurm_sdb
+        self.db_name_slurm_sdb = db_name_slurm_sdb
         # squid
         self.squid_polling_interval = squid_polling_interval
         self.squid_max_update_per_second = squid_max_update_per_second
@@ -86,3 +106,15 @@ class UsageConfig:
         """The uri prefix to jobmaxpss API."""
         qpid_api_url = f"{self.qpid_uri}/{self.qpid_cluster}/jobmaxpss"
         return qpid_api_url
+
+    @property
+    def conn_slurm_sdb_str(self) -> str:
+        """Connection string to connect to the slurm_sdb database."""
+        conn_slurm_sdb_str = "mysql://{user}:{pw}@{host}:{port}/{db}".format(
+            user=self.db_user_slurm_sdb,
+            pw=self.db_pass_slurm_sdb,
+            host=self.db_host_slurm_sdb,
+            port=self.db_port_slurm_sdb,
+            db=self.db_name_slurm_sdb,
+        )
+        return conn_slurm_sdb_str
