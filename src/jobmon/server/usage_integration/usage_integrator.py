@@ -10,6 +10,7 @@ import requests
 import slurm_rest  # type: ignore
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.session import Session
 
 from jobmon.server.usage_integration.config import UsageConfig
 from jobmon.server.usage_integration.resilient_slurm_api import (
@@ -283,69 +284,72 @@ class UsageIntegrator:
         self.session.execute(sql.format(values))
         self.session.commit()
 
-    def _get_squid_resource_via_slurm_sdb(self, task_instances: List[QueuedTI]
-    ) -> Dict[QueuedTI, Dict[str, Optional[Any]]]:
-        """Collect the Slurm reported resource usage for a given list of task instances
-           via slurm_sdb.
-        Return 5 values: cpu, mem, node, billing and elapsed that are available from
-        slurm_sdb.
-        """
-        import ast
-
-        all_usage_stats: Dict[QueuedTI, Dict[str, Optional[Any]]] = {}
-
-        # mapping of distributor_id and task instance
-        dict_dist_ti: Dict[int, QueuedTI] = {}
-        # with distributor_id as the key
-        raw_usage_stats: Dict[int, Dict[str, Optional[Any]]] = {}
-
-        distributor_ids: List[int] = [task_instance.distributor_id
-                                      for task_instance in task_instances]
-        for task_instance in task_instances:
-            dict_dist_ti[task_instance.distributor_id] = task_instance
-
-        # get job level data
-        sql_job = "SELECT job.id_job, job.time_end - job.time_start AS elapsed, tres_alloc " \
-                  "FROM general_job_table job " \
-                  "WHERE job.deleted = 0 AND " \
-                  "job.id_job IN :job_ids"
-        jobs = self.session_slurm_sdb.execute(sql_job, {"job_ids": distributor_ids}).all()
-        self.session_slurm_sdb.commit()
-        for job in jobs:
-            job_stats: Dict[str, Optional[Any]] = {"runtime": job[1], "mem": 0}
-            tres_alloc = ast.literal_eval("{"+job[2].replace("=", ":")+"}")
-            for tres_type_name in ["cpu", "node", "billing"]:
-                job_stats[tres_type_name] = tres_alloc[self.tres_types[tres_type_name]]
-            raw_usage_stats[job[0]] = job_stats
-
-        # get step level data
-        sql_step = "SELECT job.id_job, step.tres_usage_in_max " \
-                   "FROM general_step_table step " \
-                   "INNER JOIN general_job_table job ON step.job_db_inx = job.job_db_inx " \
-                   "WHERE step.deleted = 0 AND job.deleted = 0 " \
-                   "AND job.id_job IN :job_ids"
-
-        steps = self.session_slurm_sdb.execute(sql_step, {"job_ids": distributor_ids}).all()
-        self.session_slurm_sdb.commit()
-        for step in steps:
-            job_stats: Dict[str, Optional[Any]] = raw_usage_stats.get(step[0], None)
-            if job_stats is None:
-                continue
-            tres_usage_in_max = ast.literal_eval("{"+step[1].replace("=", ":")+"}")
-            job_stats["mem"] += tres_usage_in_max.get(self.tres_types["mem"], 0)
-
-        for k, v in raw_usage_stats.items():
-            v["usage_str"] = v.copy()
-            v["wallclock"] = v.pop("runtime")
-            v["maxrss"] = v.pop("mem")
-            logger.info(f"{k}: {v}")
-            all_usage_stats[dict_dist_ti[k]] = v
-
-        return all_usage_stats
-
 
 def _get_service_user_pwd(env_variable: str = "SVCSCICOMPCI_PWD") -> Optional[str]:
     return os.getenv(env_variable)
+
+
+def _get_squid_resource_via_slurm_sdb(session: Session,
+                                      tres_types: Dict[str, int],
+                                      task_instances: List[QueuedTI]
+                                      ) -> Dict[QueuedTI, Dict[str, Optional[Any]]]:
+    """Collect the Slurm reported resource usage for a given list of task instances
+       via slurm_sdb.
+    Return 5 values: cpu, mem, node, billing and elapsed that are available from
+    slurm_sdb.
+    """
+    import ast
+
+    all_usage_stats: Dict[QueuedTI, Dict[str, Optional[Any]]] = {}
+
+    # mapping of distributor_id and task instance
+    dict_dist_ti: Dict[int, QueuedTI] = {}
+    # with distributor_id as the key
+    raw_usage_stats: Dict[int, Dict[str, Optional[Any]]] = {}
+
+    distributor_ids: List[int] = [task_instance.distributor_id
+                                  for task_instance in task_instances]
+    for task_instance in task_instances:
+        dict_dist_ti[task_instance.distributor_id] = task_instance
+
+    # get job level data
+    sql_job = "SELECT job.id_job, job.time_end - job.time_start AS elapsed, tres_alloc " \
+              "FROM general_job_table job " \
+              "WHERE job.deleted = 0 AND " \
+              "job.id_job IN :job_ids"
+    jobs = session.execute(sql_job, {"job_ids": distributor_ids}).all()
+    session.commit()
+    for job in jobs:
+        job_stats: Dict[str, Optional[Any]] = {"runtime": job[1], "mem": 0}
+        tres_alloc = ast.literal_eval("{" + job[2].replace("=", ":") + "}")
+        for tres_type_name in ["cpu", "node", "billing"]:
+            job_stats[tres_type_name] = tres_alloc[tres_types[tres_type_name]]
+        raw_usage_stats[job[0]] = job_stats
+
+    # get step level data
+    sql_step = "SELECT job.id_job, step.tres_usage_in_max " \
+               "FROM general_step_table step " \
+               "INNER JOIN general_job_table job ON step.job_db_inx = job.job_db_inx " \
+               "WHERE step.deleted = 0 AND job.deleted = 0 " \
+               "AND job.id_job IN :job_ids"
+
+    steps = session.execute(sql_step, {"job_ids": distributor_ids}).all()
+    session.commit()
+    for step in steps:
+        job_stats: Dict[str, Optional[Any]] = raw_usage_stats.get(step[0], None)
+        if job_stats is None:
+            continue
+        tres_usage_in_max = ast.literal_eval("{" + step[1].replace("=", ":") + "}")
+        job_stats["mem"] += tres_usage_in_max.get(tres_types["mem"], 0)
+
+    for k, v in raw_usage_stats.items():
+        v["usage_str"] = v.copy()
+        v["wallclock"] = v.pop("runtime")
+        v["maxrss"] = v.pop("mem")
+        logger.info(f"{k}: {v}")
+        all_usage_stats[dict_dist_ti[k]] = v
+
+    return all_usage_stats
 
 
 # Old routine of using Slurm_API for usage_stats
