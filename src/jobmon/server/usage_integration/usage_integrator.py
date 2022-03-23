@@ -43,7 +43,8 @@ class UsageIntegrator:
         self.session = session()
 
         # Initialize sqlalchemy session for slurm_sdb
-        eng_slurm_sdb = create_engine(self.config["conn_slurm_sdb_str"], pool_recycle=200)
+        eng_slurm_sdb = create_engine(self.config["conn_slurm_sdb_str"],
+                                      pool_recycle=200)
         session_slurm_sdb = sessionmaker(bind=eng_slurm_sdb)
         self.session_slurm_sdb = session_slurm_sdb()
 
@@ -177,9 +178,7 @@ class UsageIntegrator:
             self.update_dummy_resources(dummy_tasks)
 
     def update_slurm_resources(self, tasks: List[QueuedTI]) -> None:
-        """Update resources for jobs that run on the Slurm cluster.
-
-        """
+        """Update resources for jobs that run on the Slurm cluster."""
         usage_stats = self._get_squid_resource_via_slurm_sdb(task_instances=tasks)
 
         # If no resources were returned, add the failed TIs back to the queue
@@ -293,8 +292,9 @@ def _get_squid_resource_via_slurm_sdb(session: Session,
                                       tres_types: Dict[str, int],
                                       task_instances: List[QueuedTI]
                                       ) -> Dict[QueuedTI, Dict[str, Optional[Any]]]:
-    """Collect the Slurm reported resource usage for a given list of task instances
-       via slurm_sdb.
+    """Collect the Slurm reported resource usage for a given list of task instances.
+
+    Using slurm_sdb.
     Return 5 values: cpu, mem, node, billing and elapsed that are available from
     slurm_sdb.
     """
@@ -312,22 +312,9 @@ def _get_squid_resource_via_slurm_sdb(session: Session,
     for task_instance in task_instances:
         dict_dist_ti[task_instance.distributor_id] = task_instance
 
-    # get job level data
-    sql_job = "SELECT job.id_job, job.time_end - job.time_start AS elapsed, tres_alloc " \
-              "FROM general_job_table job " \
-              "WHERE job.deleted = 0 AND " \
-              "job.id_job IN :job_ids"
-    jobs = session.execute(sql_job, {"job_ids": distributor_ids}).all()
-    session.commit()
-    for job in jobs:
-        job_stats: Dict[str, Optional[Any]] = {"runtime": job[1], "mem": 0}
-        tres_alloc = ast.literal_eval("{" + job[2].replace("=", ":") + "}")
-        for tres_type_name in ["cpu", "node", "billing"]:
-            job_stats[tres_type_name] = tres_alloc[tres_types[tres_type_name]]
-        raw_usage_stats[job[0]] = job_stats
-
-    # get step level data
-    sql_step = "SELECT job.id_job, step.tres_usage_in_max " \
+    # get job_step data
+    sql_step = "SELECT job.id_job, job.time_end - job.time_start AS elapsed, " \
+               "job.tres_alloc, step.tres_usage_in_max " \
                "FROM general_step_table step " \
                "INNER JOIN general_job_table job ON step.job_db_inx = job.job_db_inx " \
                "WHERE step.deleted = 0 AND job.deleted = 0 " \
@@ -336,11 +323,17 @@ def _get_squid_resource_via_slurm_sdb(session: Session,
     steps = session.execute(sql_step, {"job_ids": distributor_ids}).all()
     session.commit()
     for step in steps:
-        job_stats: Dict[str, Optional[Any]] = raw_usage_stats.get(step[0], None)
-        if job_stats is None:
-            continue
-        tres_usage_in_max = ast.literal_eval("{" + step[1].replace("=", ":") + "}")
+        if step[0] in raw_usage_stats:
+            job_stats = raw_usage_stats[step[0]]
+            job_stats["runtime"] = max(job_stats["runtime"], step[1])
+        else:
+            job_stats = {"runtime": step[1], "mem": 0}
+        tres_alloc = ast.literal_eval("{" + step[2].replace("=", ":") + "}")
+        for tres_type_name in ["cpu", "node", "billing"]:
+            job_stats[tres_type_name] = tres_alloc[tres_types[tres_type_name]]
+        tres_usage_in_max = ast.literal_eval("{" + step[3].replace("=", ":") + "}")
         job_stats["mem"] += tres_usage_in_max.get(tres_types["mem"], 0)
+        raw_usage_stats[step[0]] = job_stats
 
     for k, v in raw_usage_stats.items():
         v["usage_str"] = v.copy()
