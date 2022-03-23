@@ -1,4 +1,5 @@
 import os
+import sys
 
 from jobmon.constants import TaskStatus, WorkflowRunStatus
 
@@ -24,6 +25,48 @@ def task_template(tool):
         node_args=["arg"],
         task_args=[],
         op_args=[],
+    )
+    return tt
+
+
+@pytest.fixture
+def task_template_fail_if(tool):
+    # set fail always as op args so it can be modified on resume without
+    # changing the workflow hash
+    tt = tool.get_task_template(
+        template_name="task_template_fail_if",
+        command_template=(
+            "{python} "
+            "{script} "
+            "--sleep_secs {sleep_secs} "
+            "--output_file_path {output_file_path} "
+            "--task_name {task_name} "
+            "{fail_always}"
+        ),
+        node_args=["task_name"],
+        task_args=["sleep_secs", "output_file_path"],
+        op_args=["python", "script", "fail_always"],
+    )
+    return tt
+
+
+@pytest.fixture
+def task_template_fail_num(tool):
+    # set fail always as op args so it can be modified on resume without
+    # changing the workflow hash
+    tt = tool.get_task_template(
+        template_name="task_template_fail_num",
+        command_template=(
+            "{python} "
+            "{script} "
+            "--sleep_secs {sleep_secs} "
+            "--output_file_path {output_file_path} "
+            "--task_name {task_name} "
+            "--fail_count {fail_count}"
+        ),
+        node_args=["task_name"],
+        task_args=["sleep_secs", "output_file_path", "fail_count"],
+        op_args=["python", "script"],
     )
     return tt
 
@@ -150,7 +193,7 @@ def test_fork_and_join_tasks(task_template, tmpdir):
     assert workflow.tasks[hash(task_d)].final_status == TaskStatus.DONE
 
 
-def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
+def test_fork_and_join_tasks_with_fatal_error(task_template_fail_if, tmpdir):
     """
     Create the same small fork and join real_dag.
     One of the b-tasks (#1) fails consistently, so c[1] will never be ready.
@@ -164,11 +207,13 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
         default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
     )
 
-    a_path = os.path.join(str(tmpdir), "a.out")
-    task_a = task_template.create_task(
-        name="task_a",
-        arg=f"python {remote_sleep_and_write} --sleep_secs 1 --output_file_path {a_path} --name {a_path}",
-        upstream_tasks=[],
+    task_a = task_template_fail_if.create_task(
+        task_name="task_a",
+        python=sys.executable,
+        script=remote_sleep_and_write,
+        sleep_secs=1,
+        output_file_path=os.path.join(str(tmpdir), "a.out"),
+        fail_always=""
     )
     workflow.add_task(task_a)
 
@@ -181,11 +226,13 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
         else:
             fail_always = ""
 
-        task_b[i] = task_template.create_task(
-            name=f"task_b_{i}",
-            arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-            f"--output_file_path {b_output_file_name} --name {b_output_file_name} "
-            f"{fail_always}",
+        task_b[i] = task_template_fail_if.create_task(
+            task_name=f"task_b_{i}",
+            python=sys.executable,
+            script=remote_sleep_and_write,
+            sleep_secs=1,
+            output_file_path=b_output_file_name,
+            fail_always=f"{fail_always}",
             upstream_tasks=[task_a],
         )
         workflow.add_task(task_b[i])
@@ -193,19 +240,24 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
     task_c = {}
     for i in range(3):
         c_output_file_name = os.path.join(str(tmpdir), f"c-{i}.out")
-        task_c[i] = task_template.create_task(
-            name=f"task_c_{i}",
-            arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-            f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
+        task_c[i] = task_template_fail_if.create_task(
+            task_name=f"task_c_{i}",
+            python=sys.executable,
+            script=remote_sleep_and_write,
+            sleep_secs=1,
+            output_file_path=c_output_file_name,
+            fail_always="",
             upstream_tasks=[task_b[i]],
         )
         workflow.add_task(task_c[i])
 
-    d_path = os.path.join(str(tmpdir), "d.out")
-    task_d = task_template.create_task(
-        name=f"task_d_{i}",
-        arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-        f"--output_file_path {d_path} --name {d_path}",
+    task_d = task_template_fail_if.create_task(
+        task_name="task_d",
+        python=sys.executable,
+        script=remote_sleep_and_write,
+        sleep_secs=1,
+        output_file_path=os.path.join(str(tmpdir), "d.out"),
+        fail_always="",
         upstream_tasks=[task_c[i] for i in range(3)],
     )
     workflow.add_task(task_d)
@@ -231,7 +283,11 @@ def test_fork_and_join_tasks_with_fatal_error(task_template, tmpdir):
     assert workflow.tasks[hash(task_d)].final_status == TaskStatus.REGISTERING
 
 
-def test_fork_and_join_tasks_with_retryable_error(task_template, tmpdir):
+def test_fork_and_join_tasks_with_retryable_error(
+    task_template_fail_if,
+    task_template_fail_num,
+    tmpdir
+):
     """
     Create the same fork and join real_dag with three Tasks a->b[0..3]->c and
     execute it.
@@ -247,11 +303,13 @@ def test_fork_and_join_tasks_with_retryable_error(task_template, tmpdir):
         default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
     )
 
-    a_path = os.path.join(str(tmpdir), "a.out")
-    task_a = task_template.create_task(
-        arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-        f"--output_file_path {a_path} --name {a_path}",
-        upstream_tasks=[],
+    task_a = task_template_fail_if.create_task(
+        task_name="task_a",
+        python=sys.executable,
+        script=remote_sleep_and_write,
+        sleep_secs=1,
+        output_file_path=os.path.join(str(tmpdir), "a.out"),
+        fail_always=""
     )
     workflow.add_task(task_a)
 
@@ -264,11 +322,14 @@ def test_fork_and_join_tasks_with_retryable_error(task_template, tmpdir):
         else:
             fail_count = "0"
 
-        # task b[1] will fail
-        task_b[i] = task_template.create_task(
-            arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-            f"--output_file_path {b_output_file_name} --name {b_output_file_name} "
-            f"--fail_count {fail_count}",
+        # task b[1] will fail once
+        task_b[i] = task_template_fail_num.create_task(
+            task_name=f"task_b_{i}",
+            python=sys.executable,
+            script=remote_sleep_and_write,
+            sleep_secs=1,
+            output_file_path=b_output_file_name,
+            fail_count=f"{fail_count}",
             upstream_tasks=[task_a],
         )
         workflow.add_task(task_b[i])
@@ -276,18 +337,24 @@ def test_fork_and_join_tasks_with_retryable_error(task_template, tmpdir):
     task_c = {}
     for i in range(3):
         c_output_file_name = os.path.join(str(tmpdir), f"c-{i}.out")
-        task_c[i] = task_template.create_task(
-            arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-            f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
+        task_c[i] = task_template_fail_if.create_task(
+            task_name=f"task_c_{i}",
+            python=sys.executable,
+            script=remote_sleep_and_write,
+            sleep_secs=1,
+            output_file_path=c_output_file_name,
+            fail_always="",
             upstream_tasks=[task_b[i]],
         )
         workflow.add_task(task_c[i])
 
-    d_path = os.path.join(str(tmpdir), "d.out")
-    task_d = task_template.create_task(
-        arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-        f"--output_file_path {d_path} --name {d_path} "
-        f"--fail_count 2",
+    task_d = task_template_fail_if.create_task(
+        task_name="task_d",
+        python=sys.executable,
+        script=remote_sleep_and_write,
+        sleep_secs=1,
+        output_file_path=os.path.join(str(tmpdir), "d.out"),
+        fail_always="",
         upstream_tasks=[task_c[i] for i in range(3)],
     )
     workflow.add_task(task_d)
@@ -313,7 +380,7 @@ def test_fork_and_join_tasks_with_retryable_error(task_template, tmpdir):
 
 
 @pytest.mark.qsubs_jobs
-def test_bushy_real_dag(task_template, tmpdir):
+def test_bushy_real_dag(task_template_fail_if, tmpdir):
     """
     Similar to the a small fork and join real_dag but with connections between
     early and late phases:
@@ -331,24 +398,31 @@ def test_bushy_real_dag(task_template, tmpdir):
         default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
     )
 
-    a_path = os.path.join(str(tmpdir), "a.out")
-    task_a = task_template.create_task(
-        arg=f"python {remote_sleep_and_write} --sleep_secs 1 "
-        f"--output_file_path {a_path} --name {a_path}",
-        upstream_tasks=[],
+    task_a = task_template_fail_if.create_task(
+        task_name="task_a",
+        python=sys.executable,
+        script=remote_sleep_and_write,
+        sleep_secs=1,
+        output_file_path=os.path.join(str(tmpdir), "a.out"),
+        fail_always=""
     )
     workflow.add_task(task_a)
 
     # The B's all have varying runtimes,
     task_b = {}
     for i in range(3):
-        b_output_file_name = os.path.join(str(tmpdir), f"b-{i}.out")
+        task_name = f"b-{i}"
+        b_output_file_name = os.path.join(str(tmpdir), f"{task_name}.out")
         sleep_secs = 5 + i
 
-        # task b[1] will fail
-        task_b[i] = task_template.create_task(
-            arg=f"python {remote_sleep_and_write} --sleep_secs {sleep_secs} "
-            f"--output_file_path {b_output_file_name} --name {b_output_file_name}",
+        # task b[1] will fail once
+        task_b[i] = task_template_fail_if.create_task(
+            task_name=task_name,
+            python=sys.executable,
+            script=remote_sleep_and_write,
+            sleep_secs=sleep_secs,
+            output_file_path=b_output_file_name,
+            fail_always="",
             upstream_tasks=[task_a],
         )
         workflow.add_task(task_b[i])
@@ -358,22 +432,29 @@ def test_bushy_real_dag(task_template, tmpdir):
     # conditions by creating a collision near d
     task_c = {}
     for i in range(3):
+        task_name = f"c-{i}"
         sleep_secs = 5 - i
-        c_output_file_name = os.path.join(str(tmpdir), f"c-{i}.out")
-        task_c[i] = task_template.create_task(
-            arg=f"python {remote_sleep_and_write} --sleep_secs {sleep_secs} "
-            f"--output_file_path {c_output_file_name} --name {c_output_file_name}",
+        c_output_file_name = os.path.join(str(tmpdir), f"{task_name}.out")
+        task_c[i] = task_template_fail_if.create_task(
+            task_name=task_name,
+            python=sys.executable,
+            script=remote_sleep_and_write,
+            sleep_secs=sleep_secs,
+            output_file_path=c_output_file_name,
+            fail_always="",
             upstream_tasks=[task_b[i], task_a],
         )
         workflow.add_task(task_c[i])
 
     b_and_c = [task_b[i] for i in range(3)]
     b_and_c += [task_c[i] for i in range(3)]
-    sleep_secs = 3
-    d_path = os.path.join(str(tmpdir), "d.out")
-    task_d = task_template.create_task(
-        arg=f"python {remote_sleep_and_write} --sleep_secs {sleep_secs} "
-        f"--output_file_path {d_path} --name {d_path}",
+    task_d = task_template_fail_if.create_task(
+        task_name="task_d",
+        python=sys.executable,
+        script=remote_sleep_and_write,
+        sleep_secs=3,
+        output_file_path=os.path.join(str(tmpdir), "d.out"),
+        fail_always="",
         upstream_tasks=b_and_c,
     )
     workflow.add_task(task_d)

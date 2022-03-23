@@ -281,23 +281,6 @@ class ClusterWorkerNode(Protocol):
         """
         raise NotImplementedError
 
-    def subtask_id(self) -> Optional[str]:
-        """Pull a distinguishing variable that allows separation of array subtasks.
-
-        For clusters that support array task submission, the plugin must implement
-        a method that returns a distinguishing variable to separate task instances.
-        For example, UGE and SLURM array sub-tasks can pull this variable from the
-        environment.
-
-        For array job, returns the cluster job id for the task instance inside the array
-        in string format.
-
-        For non array job, returns distributor id in string format.
-
-        Always assumed to be a value in the range [1, len(array)).
-        """
-        raise NotImplementedError
-
 
 @runtime_checkable
 class ConcreteResource(Protocol):

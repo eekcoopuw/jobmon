@@ -14,6 +14,7 @@ from jobmon.exceptions import (
     CallableReturnedInvalidObject,
     DistributorNotAlive,
     InvalidResponse,
+    WorkflowTestError,
     TransitionError
 )
 
@@ -146,8 +147,11 @@ class WorkflowRun:
             TaskStatus.INSTANTIATING,
             TaskStatus.ADJUSTING_RESOURCES
         ]
-        return max([any(self._task_status_map[s] for s in active_task_states)]) \
-            or self.ready_to_run
+        any_active_tasks = (
+            any([any(self._task_status_map[s]) for s in active_task_states])
+            or any(self.ready_to_run)
+        )
+        return any_active_tasks
 
     def from_workflow(self, workflow: Workflow) -> None:
         self.workflow_id = workflow.workflow_id
@@ -198,8 +202,8 @@ class WorkflowRun:
             if swarm_task.status == TaskStatus.REGISTERING and swarm_task.all_upstreams_done:
                 self.ready_to_run.append(swarm_task)
 
-            self.last_sync = self._get_current_time()
-            self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
+        self.last_sync = self._get_current_time()
+        self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
 
     def run(self, distributor_alive_callable: Callable[..., bool],
             seconds_until_timeout: int = 36000):
@@ -234,14 +238,13 @@ class WorkflowRun:
             self._update_status(WorkflowRunStatus.RUNNING)
             time_since_last_full_sync = 0.
             total_elapsed_time = 0.
-            keep_processing = True
             terminating_states = [
                 WorkflowRunStatus.COLD_RESUME,
                 WorkflowRunStatus.HOT_RESUME,
-                WorkflowRunStatus.STOPPED,
             ]
 
-            while keep_processing:
+            while self.active_tasks:
+
                 # Expire the swarm after the requested number of seconds
                 if total_elapsed_time > seconds_until_timeout:
                     raise RuntimeError(
@@ -249,72 +252,92 @@ class WorkflowRun:
                         f"({seconds_until_timeout} seconds). Submitted tasks will still run, "
                         f"but the workflow will need to be restarted."
                     )
-                try:
 
-                    # check that the distributor is still alive
-                    if not distributor_alive_callable():
-                        raise DistributorNotAlive(
-                            "Distributor process unexpectedly stopped. Workflow will error."
-                        )
-
-                    # If the workflow run status was updated asynchronously, terminate
-                    # all active task instances and error out.
-                    if self.status in terminating_states:
-                        logger.warning(
-                            f"Workflow Run set to {self.status}. Attempting graceful shutdown."
-                        )
-                        # Active task instances will be set to "K", the processing loop then
-                        # keeps running until all of the states are appropriately set.
-                        self._terminate_task_instances()
-
-                    # process any commands that we can in the time allotted
-                    loop_start = time.time()
-                    time_till_next_heartbeat = (
-                        self._workflow_run_heartbeat_interval
-                        - (loop_start - self._last_heartbeat_time)
+                # check that the distributor is still alive
+                if not distributor_alive_callable():
+                    raise DistributorNotAlive(
+                        "Distributor process unexpectedly stopped. Workflow will error."
                     )
+
+                # If the workflow run status was updated asynchronously, terminate
+                # all active task instances and error out.
+                if self.status in terminating_states:
+                    logger.warning(
+                        f"Workflow Run set to {self.status}. Attempting graceful shutdown."
+                    )
+                    # Active task instances will be set to "K", the processing loop then
+                    # keeps running until all of the states are appropriately set.
+                    self._terminate_task_instances()
+
+                # if fail fast and any error
+                if self.fail_fast and self._task_status_map[TaskStatus.ERROR_FATAL]:
+                    logger.info("Failing after first failure, as requested")
+                    break
+
+                # fail during test path
+                if self._n_executions >= self._val_fail_after_n_executions:
+                    raise WorkflowTestError(
+                        f"WorkflowRun asked to fail after {self._n_executions} "
+                        "executions. Failing now"
+                    )
+
+                # process any commands that we can in the time allotted
+                loop_start = time.time()
+                time_till_next_heartbeat = (
+                    self._workflow_run_heartbeat_interval
+                    - (loop_start - self._last_heartbeat_time)
+                )
+                if self.status == WorkflowRunStatus.RUNNING:
                     self.process_commands(timeout=time_till_next_heartbeat)
-                    if not self.active_tasks:
-                        if self._terminated:
-                            self._update_status(WorkflowRunStatus.TERMINATED)
-                        elif self.status != WorkflowRunStatus.ERROR:
-                            self._update_status(WorkflowRunStatus.ERROR)
-                        break
 
-                    # take a break if needed
-                    loop_elapsed = time.time() - loop_start
-                    if loop_elapsed < time_till_next_heartbeat:
-                        sleep_time = time_till_next_heartbeat - loop_elapsed
-                        time.sleep(sleep_time)
-                        loop_elapsed += sleep_time
+                # take a break if needed
+                loop_elapsed = time.time() - loop_start
+                if loop_elapsed < time_till_next_heartbeat:
+                    sleep_time = time_till_next_heartbeat - loop_elapsed
+                    time.sleep(sleep_time)
+                    loop_elapsed += sleep_time
 
-                    # then synchronize state
-                    if time_since_last_full_sync > self.wedged_workflow_sync_interval:
-                        time_since_last_full_sync = 0.
-                        self.synchronize_state(full_sync=True)
-                    else:
-                        time_since_last_full_sync += loop_elapsed
-                        self.synchronize_state()
+                # then synchronize state
+                if time_since_last_full_sync > self.wedged_workflow_sync_interval:
+                    time_since_last_full_sync = 0.
+                    self.synchronize_state(full_sync=True)
+                else:
+                    time_since_last_full_sync += loop_elapsed
+                    self.synchronize_state()
 
-                    if self.status == WorkflowRunStatus.DONE:
-                        keep_processing = False
-                    total_elapsed_time += time.time() - loop_start
-                # user interrupt
-                except KeyboardInterrupt:
-                    logger.warning("Keyboard interrupt raised")
-                    confirm = input("Are you sure you want to exit (y/n): ")
-                    confirm = confirm.lower().strip()
-                    if confirm == "y":
-                        self._update_status(WorkflowRunStatus.STOPPED)
-                    else:
-                        logger.info("Continuing jobmon...")
+                total_elapsed_time += time.time() - loop_start
 
-        except Exception:
+        # user interrupt
+        except KeyboardInterrupt:
+            logger.warning("Keyboard interrupt raised")
+            confirm = input("Are you sure you want to exit (y/n): ")
+            confirm = confirm.lower().strip()
+            if confirm == "y":
+                self._update_status(WorkflowRunStatus.STOPPED)
+                raise
+            else:
+                logger.info("Continuing jobmon...")
+
+        # unexpected errors. raise
+        except Exception as e:
             try:
                 self._update_status(WorkflowRunStatus.ERROR)
-            except TransitionError as e:
-                logger.warning(str(e))
-            raise
+            except TransitionError as trans:
+                logger.warning(trans)
+            raise e
+
+        # no more active tasks
+        else:
+            # check if done
+            if len(self.tasks) == len(self._task_status_map[TaskStatus.DONE]):
+                logger.info("All tasks are done")
+                self._update_status(WorkflowRunStatus.DONE)
+
+            else:
+                if self.status in terminating_states:
+                    self._update_status(WorkflowRunStatus.TERMINATED)
+                else:
+                    self._update_status(WorkflowRunStatus.ERROR)
 
     def get_swarm_commands(self) -> Iterator[SwarmCommand]:
         """Get and iterator of work to be done."""
@@ -355,6 +378,7 @@ class WorkflowRun:
                 keep_processing = False
 
     def synchronize_state(self, full_sync: bool = False) -> None:
+        self._set_status_for_triaging()
         self._log_heartbeat()
 
         # TODO: should we be excluding DONE and ERROR_FATAL on full_sync?
@@ -408,26 +432,9 @@ class WorkflowRun:
                 f"{num_newly_completed} newly completed tasks. {percent_done} percent done."
             )
 
-            # check if done
-            if len(self.tasks) == len(self._task_status_map[TaskStatus.DONE]):
-                logger.info("All tasks are done")
-                self._update_status(WorkflowRunStatus.DONE)
-
         # if newly failed, report failures and check if we should error out
         if num_newly_failed > 0:
             logger.warning(f"{num_newly_failed} newly failed tasks.")
-
-            # if fail fast and any error
-            if self.fail_fast and self._task_status_map[TaskStatus.ERROR_FATAL]:
-                logger.info("Failing after first failure, as requested")
-                self._update_status(WorkflowRunStatus.ERROR)
-            # fail during test path
-            if self._n_executions >= self._val_fail_after_n_executions:
-                logger.info(
-                    f"WorkflowRun asked to fail after {self._n_executions} "
-                    "executions. Failing now"
-                )
-                self._update_status(WorkflowRunStatus.ERROR)
 
     def _set_status_for_triaging(self):
         app_route = (
@@ -444,7 +451,6 @@ class WorkflowRun:
             )
 
     def _log_heartbeat(self):
-        self._set_status_for_triaging()
         next_report_increment = (
             self._workflow_run_heartbeat_interval * self._heartbeat_report_by_buffer
         )
@@ -483,11 +489,12 @@ class WorkflowRun:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-        if response['status'] != status:
+        self._status = response['status']
+        if self.status != status:
             raise TransitionError(
-                f"Cannot transition WFR {self.workflow_run_id} from {self._status} to {status}"
+                f"Cannot transition WFR {self.workflow_run_id} from current status "
+                f"{self._status} to {status}."
             )
-        self._status = status
 
     def _terminate_task_instances(self) -> None:
         """Terminate the workflow run."""

@@ -111,11 +111,9 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
     workflow_run = DB.session.query(WorkflowRun).filter_by(id=workflow_run_id).one()
 
     if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
-        logger.debug(f"HOT_RESUME {workflow_run_id}")
-        states = [TaskStatus.INSTANTIATING]
-    elif workflow_run.status == WorkflowRunStatus.COLD_RESUME:
-        logger.debug(f"COLD_RESUME {workflow_run_id}")
-        states = [TaskStatus.INSTANTIATING, TaskInstanceStatus.RUNNING]
+        states = [TaskStatus.LAUNCHED]
+    else:
+        states = [TaskStatus.LAUNCHED, TaskInstanceStatus.RUNNING]
 
     # update task instance states
     update_task_instance = """
