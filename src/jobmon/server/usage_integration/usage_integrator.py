@@ -4,12 +4,13 @@ import json
 import logging
 import os
 from time import sleep, time
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import requests
 import slurm_rest  # type: ignore
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm.session import Session
 
 from jobmon.server.usage_integration.config import UsageConfig
 from jobmon.server.usage_integration.resilient_slurm_api import (
@@ -40,6 +41,27 @@ class UsageIntegrator:
         eng = create_engine(self.config["conn_str"], pool_recycle=200)
         session = sessionmaker(bind=eng)
         self.session = session()
+
+        # Initialize sqlalchemy session for slurm_sdb
+        eng_slurm_sdb = create_engine(self.config["conn_slurm_sdb_str"],
+                                      pool_recycle=200)
+        session_slurm_sdb = sessionmaker(bind=eng_slurm_sdb)
+        self.session_slurm_sdb = session_slurm_sdb()
+
+        self.tres_types = self._get_tres_types()
+        logger.debug(f"tres types = {self.tres_types}")
+
+    def _get_tres_types(self) -> Dict[str, int]:
+        # get tres_type from tres_table
+        tt: Dict[str, int] = {}
+        sql_tres_table = "SELECT id, type " \
+                         "FROM tres_table " \
+                         "WHERE deleted = 0"
+        tres_types = self.session_slurm_sdb.execute(sql_tres_table).all()
+        self.session_slurm_sdb.commit()
+        for tres_type in tres_types:
+            tt[tres_type[1]] = tres_type[0]
+        return tt
 
     @property
     def slurm_api(self) -> slurm:
@@ -156,13 +178,8 @@ class UsageIntegrator:
             self.update_dummy_resources(dummy_tasks)
 
     def update_slurm_resources(self, tasks: List[QueuedTI]) -> None:
-        """Update resources for jobs that run on the Slurm cluster.
-
-        Unfortunately, need to fetch squid resources 1x1, until we get database access
-        or the slurm_rest package gets an option to call slurmdbd_get_jobs on a list of ids.
-        Somewhat mitigated by using multiprocessing.pool.
-        """
-        usage_stats = _get_squid_resource(self.slurm_api, tasks)
+        """Update resources for jobs that run on the Slurm cluster."""
+        usage_stats = self._get_squid_resource_via_slurm_sdb(task_instances=tasks)
 
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:
@@ -271,51 +288,59 @@ def _get_service_user_pwd(env_variable: str = "SVCSCICOMPCI_PWD") -> Optional[st
     return os.getenv(env_variable)
 
 
-def _get_squid_resource(
-    slurm_api: slurm, task_instances: List[QueuedTI]
-) -> Optional[dict]:
+def _get_squid_resource_via_slurm_sdb(session: Session,
+                                      tres_types: Dict[str, int],
+                                      task_instances: List[QueuedTI]
+                                      ) -> Dict[QueuedTI, Dict[str, Optional[Any]]]:
     """Collect the Slurm reported resource usage for a given list of task instances.
 
-    Return 5 values: cpu, mem, node, billing and runtime that are available from tres.
-    For mem, also search the highest values within each step's tres.requested.max
-    (only this way it will match results from "sacct -j nnnn --format="JobID,MaxRSS"").
-    For runtime, get the total from the whole job, if 0, sum it up from the steps.
+    Using slurm_sdb.
+    Return 5 values: cpu, mem, node, billing and elapsed that are available from
+    slurm_sdb.
     """
-    all_usage_stats = {}
-    # Return futures since async_req=True is passed
-    job_futures = [
-        slurm_api.slurmdbd_get_job(ti.distributor_id) for ti in task_instances
-    ]
-    jobs = [j.get() for j in job_futures]
-    for task_instance, j in zip(task_instances, jobs):
-        usage_stats = {}
-        job = j.jobs[
-            0
-        ]  # Always length 1 I believe? Unless it's an array task potentially?
-        for allocated in job.tres.allocated:
-            if allocated["type"] in ("cpu", "node", "billing"):
-                usage_stats[allocated["type"]] = allocated["count"]
+    import ast
 
-        # the actual mem usage should have nothing to do with the allocation
-        usage_stats["mem"] = 0
-        for step in job.steps:
-            for tres in step.tres.requested.max:
-                if tres["type"] == "mem":
-                    usage_stats["mem"] += tres["count"]
+    all_usage_stats: Dict[QueuedTI, Dict[str, Optional[Any]]] = {}
 
-        usage_stats["runtime"] = job.time.elapsed
+    # mapping of distributor_id and task instance
+    dict_dist_ti: Dict[int, QueuedTI] = {}
+    # with distributor_id as the key
+    raw_usage_stats: Dict[int, Dict[str, Optional[Any]]] = {}
 
-        # rename keys by copying
-        # Guard against null returns
-        if len(usage_stats) == 0:
-            usage_stats = None
+    distributor_ids: List[int] = [task_instance.distributor_id
+                                  for task_instance in task_instances]
+    for task_instance in task_instances:
+        dict_dist_ti[task_instance.distributor_id] = task_instance
+
+    # get job_step data
+    sql_step = "SELECT job.id_job, job.time_end - job.time_start AS elapsed, " \
+               "job.tres_alloc, step.tres_usage_in_max " \
+               "FROM general_step_table step " \
+               "INNER JOIN general_job_table job ON step.job_db_inx = job.job_db_inx " \
+               "WHERE step.deleted = 0 AND job.deleted = 0 " \
+               "AND job.id_job IN :job_ids"
+
+    steps = session.execute(sql_step, {"job_ids": distributor_ids}).all()
+    session.commit()
+    for step in steps:
+        if step[0] in raw_usage_stats:
+            job_stats = raw_usage_stats[step[0]]
+            job_stats["runtime"] = max(job_stats["runtime"], step[1])
         else:
-            usage_stats["usage_str"] = usage_stats.copy()
-            usage_stats["wallclock"] = usage_stats.pop("runtime")
-            # store B
-            usage_stats["maxrss"] = usage_stats.pop("mem")
-        logger.info(f"{task_instance.distributor_id}: {usage_stats}")
-        all_usage_stats[task_instance] = usage_stats
+            job_stats = {"runtime": step[1], "mem": 0}
+        tres_alloc = ast.literal_eval("{" + step[2].replace("=", ":") + "}")
+        for tres_type_name in ["cpu", "node", "billing"]:
+            job_stats[tres_type_name] = tres_alloc[tres_types[tres_type_name]]
+        tres_usage_in_max = ast.literal_eval("{" + step[3].replace("=", ":") + "}")
+        job_stats["mem"] += tres_usage_in_max.get(tres_types["mem"], 0)
+        raw_usage_stats[step[0]] = job_stats
+
+    for k, v in raw_usage_stats.items():
+        v["usage_str"] = v.copy()
+        v["wallclock"] = v.pop("runtime")
+        v["maxrss"] = v.pop("mem")
+        logger.info(f"{k}: {v}")
+        all_usage_stats[dict_dist_ti[k]] = v
 
     return all_usage_stats
 
@@ -339,6 +364,7 @@ def _get_config() -> dict:
     config = UsageConfig.from_defaults()
     return {
         "conn_str": config.conn_str,
+        "conn_slurm_sdb_str": config.conn_slurm_sdb_str,
         "polling_interval": config.squid_polling_interval,
         "max_update_per_sec": config.squid_max_update_per_second,
         "qpid_uri_base": config.qpid_uri_base,
