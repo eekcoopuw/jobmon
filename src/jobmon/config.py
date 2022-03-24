@@ -1,5 +1,7 @@
 """Parse configuration options and set them to be used throughout the Jobmon Architecture."""
 from argparse import Namespace
+from contextlib import redirect_stdout
+import io
 import os
 import shlex
 from typing import List, Optional
@@ -477,8 +479,11 @@ class CLI:
         if argstr is not None:
             arglist = shlex.split(argstr)
 
-        args = self.parser.parse_args(arglist)
-
+        try:
+            args = self.parser.parse_args(arglist)
+        except SystemExit:
+            with redirect_stdout(io.StringIO()):
+                args = install_default_config_from_plugin(self)
         return args
 
 
@@ -515,7 +520,7 @@ def install_default_config_from_plugin(cli: CLI) -> Namespace:
         # The following lines added for GBDSCI-4452
         # If jobmon as not been configured yet, do it.
         try:
-            args = cli.parse_args("")
+            args = cli.parse_args()
             print("Successfully configured jobmon.")
             configured = True
         except SystemExit:
