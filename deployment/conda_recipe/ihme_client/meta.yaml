@@ -6,17 +6,15 @@
 # version info for downloading source code and build
 {% set version = environ.get('CONDA_CLIENT_VERSION', 1.0) %}
 {% set jobmon_version = environ.get('JOBMON_VERSION', "2.2.2.dev448") %}
-{% set jobmon_uge_version = environ.get('JOBMON_UGE_VERSION', "0.1.dev53") %}
 {% set slurm_rest_version = environ.get('SLURM_REST_VERSION', "1.0.0") %}
 {% set jobmon_slurm_version = environ.get('JOBMON_SLURM_VERSION', "0.1.dev57") %}
 
 # import setup.py info
 {% set jobmon_setup = load_setup_py_data(setup_file="jobmon/setup.py") %}
-{% set jobmon_uge_setup = load_setup_py_data(setup_file="jobmon_uge/setup.py") %}
 {% set jobmon_slurm_setup = load_setup_py_data(setup_file="jobmon_slurm/setup.py") %}
 
 # don't install these dependencies
-{% set skip_list = ['jobmon', 'slurm_rest>=1.0.1'] %}
+{% set skip_list = ['jobmon', 'slurm_rest>=1.0.3'] %}
 
 package:
   name: ihme_jobmon
@@ -24,8 +22,6 @@ package:
 
 source:
   # wheels for install
-  - url: {{ pypi_url }}/jobmon-uge/{{ jobmon_uge_version }}/jobmon_uge-{{ jobmon_uge_version }}-py3-none-any.whl
-    folder: wheels
   - url: {{ pypi_url }}/slurm-rest/{{ slurm_rest_version }}/slurm_rest-{{ slurm_rest_version }}-py3-none-any.whl
     folder: wheels
   - url: {{ pypi_url }}/jobmon-slurm/{{ jobmon_slurm_version }}/jobmon_slurm-{{ jobmon_slurm_version }}-py3-none-any.whl
@@ -33,8 +29,6 @@ source:
   - url: {{ pypi_url }}/jobmon/{{ jobmon_version }}/jobmon-{{ jobmon_version }}-py3-none-any.whl
     folder: wheels
   # # tarballs for dependencies
-  - url: {{ pypi_url }}/jobmon-uge/{{ jobmon_uge_version }}/jobmon_uge-{{ jobmon_uge_version }}.tar.gz
-    folder: jobmon_uge
   - url: {{ pypi_url }}/jobmon-slurm/{{ jobmon_slurm_version }}/jobmon_slurm-{{ jobmon_slurm_version }}.tar.gz
     folder: jobmon_slurm
   # - path: ../../../
@@ -63,12 +57,6 @@ requirements:
     - {{ req|replace("_", "-") }}
   {%- endif %}
   {% endfor %}
-  # jobmon_uge dependencies
-  {% for req in jobmon_uge_setup.get('install_requires', []) %}
-  {% if req not in skip_list -%}
-    - {{ req|replace("_", "-") }}
-  {%- endif %}
-  {% endfor %}
   # jobmon_slurm dependencies
   {% for req in jobmon_slurm_setup.get('install_requires', []) %}
   {% if req not in skip_list -%}
@@ -78,7 +66,6 @@ requirements:
 test:
   imports:
     - jobmon
-    - jobmon_uge
     - jobmon_slurm
     - slurm_rest
 
