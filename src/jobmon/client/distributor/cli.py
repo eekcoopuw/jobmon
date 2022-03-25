@@ -1,4 +1,5 @@
 """Command line interface for Execution."""
+import logging
 from typing import Optional
 
 import configargparse
@@ -20,10 +21,13 @@ class DistributorCLI(CLI):
 
     def distributor(self, args: configargparse.Namespace) -> None:
         """Configuration for the jobmon worker node."""
+        from jobmon.client.client_logging import ClientLogging
         from jobmon.client.distributor.api import (
             get_distributor_service,
             DistributorConfig,
         )
+
+        ClientLogging(log_level=logging.WARNING).attach("jobmon.client.distributor")
 
         distributor_config = DistributorConfig(
             worker_node_entry_point=args.worker_node_entry_point,

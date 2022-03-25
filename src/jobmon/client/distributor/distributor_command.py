@@ -1,14 +1,16 @@
 from __future__ import annotations
 
-from typing import Callable, List, Optional
+import logging
 
-# from jobmon.cluster_type.base import ClusterDistributor
+from typing import Callable
+
+logger = logging.getLogger(__name__)
 
 
 class DistributorCommand:
     def __init__(
         self,
-        func: Callable[..., Optional[List[DistributorCommand]]],
+        func: Callable[..., None],
         *args,
         **kwargs
     ):
@@ -31,5 +33,4 @@ class DistributorCommand:
             if raise_on_error:
                 raise
             else:
-                self.exception = e
-                self.error_raised = True
+                logger.warning(e)
