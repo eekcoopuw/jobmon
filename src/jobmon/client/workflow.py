@@ -32,9 +32,8 @@ from jobmon.exceptions import (
 )
 from jobmon.requester import http_request_ok, Requester
 
-ClientLogging().attach(__name__)
+
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
 
 
 class DistributorContext:
@@ -97,13 +96,6 @@ class DistributorContext:
             self.process.wait()
 
         return err
-
-
-class ResumeStatus(object):
-    """Enum of allowed resume statuses."""
-
-    RESUME = True
-    DONT_RESUME = False
 
 
 class Workflow(object):
@@ -396,10 +388,11 @@ class Workflow(object):
         self,
         fail_fast: bool = False,
         seconds_until_timeout: int = 36000,
-        resume: bool = ResumeStatus.DONT_RESUME,
+        resume: bool = False,
         reset_running_jobs: bool = True,
         distributor_startup_timeout: int = 180,
         resume_timeout: int = 300,
+        setup_logging: bool = True
     ) -> str:
         """Run the workflow.
 
@@ -418,10 +411,13 @@ class Workflow(object):
             distributor_startup_timeout: amount of time to wait for the distributor process to
                 start up
             resume_timeout: seconds to wait for a workflow to become resumable before giving up
+            setup_logging: whether to setup the default streamhandler for jobmon logging
 
         Returns:
             str of WorkflowRunStatus
         """
+        ClientLogging().attach("jobmon.client")
+
         # bind to database
         logger.info("Adding Workflow metadata to database")
         self.bind()
@@ -613,7 +609,7 @@ class Workflow(object):
 
     def _create_workflow_run(
         self,
-        resume: bool = ResumeStatus.DONT_RESUME,
+        resume: bool = False,
         reset_running_jobs: bool = True,
         resume_timeout: int = 300,
     ) -> ClientWorkflowRun:

@@ -19,6 +19,7 @@ from jobmon.client.task_template import TaskTemplate
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+
 @dataclass
 class LoadTestParameters:
     """Container class for storing and validating load test parameters.
@@ -102,14 +103,16 @@ class LoadTestGenerator:
             os.mkdir(self.scratch_dir)
         except FileExistsError:
             pass
-        self.workflow = self.tool.create_workflow(name='generated_workflow',
+        self.workflow = self.tool.create_workflow(
+            name='generated_workflow',
             default_cluster_name=cluster_name,
             default_compute_resources_set={
                 cluster_name: {
                     'stderr': f"{scratch_dir}/err",
                     'stdout': f"{scratch_dir}/out",
                     'project': "proj_scicomp"}
-                })
+            }
+        )
 
         # task_template attributes
         self.task_templates_by_phase: Dict[int, TaskTemplate] = {}
@@ -117,7 +120,7 @@ class LoadTestGenerator:
 
         # for array
         self.array_task_templates_by_phase: Dict[int, TaskTemplate] = {}
-        self.arries: List[Array] = []
+        self.arrays: List[Array] = []
         self.array_length: List[int] = []  # used to create random relationship
 
         # task generation attributes
@@ -240,15 +243,15 @@ class LoadTestGenerator:
                     compute_resources=compute_resources,
                     max_attempts=2
                 )
-                self.arries.append(a)
+                self.arrays.append(a)
                 self.array_length.append(num_phase_task)
                 self.workflow.add_array(a)
 
         # create dependency
         # simplified by first task of array depends on previous phase first task
-        for p in range(1, len(self.arries)):
-            a = self.arries[p]
-            up_a = self.arries[p-1]
+        for p in range(1, len(self.arrays)):
+            a = self.arrays[p]
+            up_a = self.arrays[p-1]
             for i in range(0, self.array_length[p]):
                 t = a.get_tasks_by_node_args(uid=f"Phase-{p}-task-{i}")
                 up_t_random = random.randint(1, self.array_length[p-1])

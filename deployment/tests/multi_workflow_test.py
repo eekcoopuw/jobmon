@@ -7,12 +7,11 @@ from yaml import load, SafeLoader
 import uuid
 
 from jobmon.client.api import Tool
-from jobmon.client.swarm.workflow_run import WorkflowRun
 
 thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
 
-def multi_workflow_test(yaml_path: str, scratch_dir: str) -> WorkflowRun:
+def multi_workflow_test(yaml_path: str, scratch_dir: str) -> str:
     """Run a load test with a hypervisor workflow that manages n sub workflows
 
     Args:
@@ -46,9 +45,11 @@ def multi_workflow_test(yaml_path: str, scratch_dir: str) -> WorkflowRun:
                 'stdout': f"{scratch_dir}/controller_wf",
                 'project': "proj_scicomp",
                 'cores': 3,
-                'memory': 120,
-                'queue': 'all.q'}
-            })
+                'memory': "3G",
+                'queue': 'all.q'
+            }
+        }
+    )
 
     for wfid in params["load_test_parameters"].keys():
 
@@ -60,9 +61,9 @@ def multi_workflow_test(yaml_path: str, scratch_dir: str) -> WorkflowRun:
             wfid=wfid
         )
         controller_wf.add_task(task)
-    wfr = controller_wf.run()
+    wfr_status = controller_wf.run()
 
-    return wfr
+    return wfr_status
 
 
 def parse_arguments(argstr: Optional[str] = None) -> Namespace:

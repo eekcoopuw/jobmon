@@ -152,8 +152,6 @@ class DistributorService:
                 # get the first callable and run it. log any errors
                 distributor_command = self.distributor_commands.pop(0)
                 distributor_command(self.raise_on_error)
-                if distributor_command.error_raised:
-                    logger.error(distributor_command.exception)
 
         finally:
             # update task mappings

@@ -5,7 +5,7 @@ from threading import Thread, Lock
 import logging
 import sys
 
-from jobmon.client.api import Tool, ExecutorParameters
+from jobmon.client.api import Tool
 from jobmon.client.distributor.strategies.sge.sge_executor import SGEExecutor
 
 """
