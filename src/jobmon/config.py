@@ -486,7 +486,7 @@ class CLI:
             with redirect_stderr(stderr_as_string):
                 args = self.parser.parse_args(arglist)
 
-        except SystemExit:
+        except SystemExit as e:
             # This can happen for two reasons. Both can be true
             # 1. --web_service_fqdn, --web_service_port are not configured,
             #      so try the config file
@@ -501,8 +501,9 @@ class CLI:
                     args = install_default_config_from_plugin(self)
             else:
                 # Case 2 – a bad argument
+                # Need to print the error_msg so they know what they did wrong
                 print(error_msg)
-                sys.exit(2)
+                raise e
         sys.tracebacklimit = 30
         return args
 
