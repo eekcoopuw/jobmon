@@ -1,6 +1,5 @@
 # install all client packages
 $PYTHON -m pip install ./wheels/jobmon-*.whl
-$PYTHON -m pip install ./wheels/jobmon_uge-*.whl
 $PYTHON -m pip install ./wheels/jobmon_slurm-*.whl
 $PYTHON -m pip install ./wheels/slurm_rest-*.whl
 

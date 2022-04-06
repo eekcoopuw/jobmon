@@ -33,7 +33,7 @@ def instantiate_task_instance(task_instance_id: int) -> Any:
     """Instantisate a task_instance.
 
     Args:
-        task_instance_id: id of task_instance_id
+        task_instance_id: id of task_instance_id.
     """
 
     bind_to_logger(task_instance_id=task_instance_id)
@@ -93,14 +93,16 @@ def log_running(task_instance_id: int) -> Any:
     if data.get("nodename", None) is not None:
         task_instance.nodename = data["nodename"]
     task_instance.process_group_id = data["process_group_id"]
-    task_instance.report_by_date = func.ADDTIME(
-        func.now(), func.SEC_TO_TIME(data["next_report_increment"])
-    )
     try:
         task_instance.transition(TaskInstanceStatus.RUNNING)
+        task_instance.report_by_date = func.ADDTIME(
+            func.now(), func.SEC_TO_TIME(data["next_report_increment"])
+        )
     except InvalidStateTransition as e:
         if task_instance.status == TaskInstanceStatus.RUNNING:
             logger.warning(e)
+        elif task_instance.status == TaskInstanceStatus.KILL_SELF:
+            task_instance.transition(TaskInstanceStatus.ERROR_FATAL)
         else:
             # Tried to move to an illegal state
             logger.error(e)

@@ -146,6 +146,7 @@ class DistributorService:
                 # check if we need to pause for a heartbeat
                 time_diff = time.time() - self._last_heartbeat_time
                 if time_diff > self._workflow_run_heartbeat_interval:
+                    self._update_status_map(status)
                     self.log_task_instance_report_by_date()
 
                 # get the first callable and run it. log any errors
@@ -414,7 +415,7 @@ class DistributorService:
 
     def _check_triaging_for_work(self) -> None:
         """For TaskInstances with TRIAGING status, check the nature of no heartbeat,
-        and change the statuses accordingly"""
+        and change the statuses accordingly."""
         triaging_task_instances = self._task_instance_status_map[
             TaskInstanceStatus.TRIAGING
         ]

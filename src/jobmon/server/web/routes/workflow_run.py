@@ -431,7 +431,8 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
             CASE
                 WHEN status = :running_status THEN :triaging_status
                 ELSE :kill_self_status
-            END
+            END,
+            status_date = CURRENT_TIMESTAMP()
         WHERE
             workflow_run_id = :workflow_run_id
             AND status in :active_tasks
