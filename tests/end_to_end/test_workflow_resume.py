@@ -151,7 +151,7 @@ def test_cold_resume(tool):
 
     # prepare first workflow
     workflow1 = tool.create_workflow(name="cold_resume")
-    workflow1.add_tasks(get_two_wave_tasks(task_template))
+    workflow1.add_tasks(get_two_wave_tasks(tool))
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
 
@@ -191,7 +191,7 @@ def test_cold_resume(tool):
         workflow2 = tool.create_workflow(
             name=workflow1.name, workflow_args=workflow1.workflow_args
         )
-        workflow2.add_tasks(get_two_wave_tasks(task_template))
+        workflow2.add_tasks(get_two_wave_tasks(tool))
         workflow2.bind()
         workflow2._create_workflow_run(resume=True, resume_timeout=1)
 
@@ -213,7 +213,7 @@ def test_cold_resume(tool):
         default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
         workflow_args=workflow1.workflow_args,
     )
-    workflow3.add_tasks(get_two_wave_tasks(task_template))
+    workflow3.add_tasks(get_two_wave_tasks(tool))
     workflow_run_status = workflow3.run(resume=True)
 
     assert workflow_run_status == WorkflowRunStatus.DONE
