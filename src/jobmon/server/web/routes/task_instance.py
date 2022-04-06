@@ -5,19 +5,19 @@ from typing import Any, Optional
 
 from flask import jsonify, request
 import sqlalchemy
+from sqlalchemy import select, update
 from sqlalchemy.sql import func, text
 from werkzeug.local import LocalProxy
 
+from jobmon.serializers import SerializeTaskInstanceBatch
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance import TaskInstanceStatus
 from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
-from jobmon.server.web.models.task_status import TaskStatus
-from jobmon.server.web.models.workflow_run import WorkflowRun
-from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.routes import finite_state_machine
 from jobmon.server.web.server_side_exception import ServerError
 
@@ -398,95 +398,6 @@ def get_task_instance_error_log(task_instance_id: int) -> Any:
 
 
 @finite_state_machine.route(
-    "/workflow_run/<workflow_run_id>/get_suspicious_task_instances", methods=["GET"]
-)
-def get_suspicious_task_instances(workflow_run_id: int) -> Any:
-    """Query for suspicious TIs.
-
-    Query all task instances that are submitted to distributor or running which haven't
-    reported as alive in the allocated time.
-    """
-    bind_to_logger(workflow_run_id=workflow_run_id)
-    logger.info(f"Getting suspicious tis for wfi {workflow_run_id}")
-    query = """
-        SELECT
-            task_instance.id, task_instance.workflow_run_id,
-            task_instance.distributor_id, task_instance.cluster_type_id,
-            task_instance.array_id, task_instance.array_batch_num,
-            task_instance.array_step_id, task_instance.subtask_id
-        FROM
-            task_instance
-        WHERE
-            task_instance.workflow_run_id = :workflow_run_id
-            AND task_instance.status in :active_tasks
-            AND task_instance.report_by_date <= CURRENT_TIMESTAMP()
-    """
-    rows = (
-        DB.session.query(TaskInstance)
-        .from_statement(text(query))
-        .params(
-            active_tasks=[
-                TaskInstanceStatus.LAUNCHED,
-                TaskInstanceStatus.RUNNING,
-            ],
-            workflow_run_id=workflow_run_id,
-        )
-        .all()
-    )
-    DB.session.commit()
-    resp = jsonify(
-        task_instances=[ti.to_wire_as_distributor_task_instance() for ti in rows]
-    )
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@finite_state_machine.route(
-    "/workflow_run/<workflow_run_id>/get_task_instances_to_terminate", methods=["GET"]
-)
-def get_task_instances_to_terminate(workflow_run_id: int) -> Any:
-    """Get the task instances for a given workflow run that need to be terminated."""
-    bind_to_logger(workflow_run_id=workflow_run_id)
-    logger.info(f"Getting tis that should be terminated for wfr {workflow_run_id}")
-    workflow_run = DB.session.query(WorkflowRun).filter_by(id=workflow_run_id).one()
-
-    if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
-        task_instance_states = [TaskInstanceStatus.LAUNCHED]
-    if workflow_run.status == WorkflowRunStatus.COLD_RESUME:
-        task_instance_states = [
-            TaskInstanceStatus.LAUNCHED,
-            TaskInstanceStatus.RUNNING,
-        ]
-
-    query = """
-        SELECT
-            task_instance.id, task_instance.workflow_run_id,
-            task_instance.distributor_id, task_instance.cluster_type_id,
-            task_instance.array_id, task_instance.array_batch_num,
-            task_instance.array_step_id, task_instance.subtask_id
-        FROM
-            task_instance
-        WHERE
-            task_instance.workflow_run_id = :workflow_run_id
-            AND task_instance.status in :task_instance_states
-    """
-    rows = (
-        DB.session.query(TaskInstance)
-        .from_statement(text(query))
-        .params(
-            task_instance_states=task_instance_states, workflow_run_id=workflow_run_id
-        )
-        .all()
-    )
-    DB.session.commit()
-    resp = jsonify(
-        task_instances=[ti.to_wire_as_distributor_task_instance() for ti in rows]
-    )
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@finite_state_machine.route(
     "/workflow_run/<workflow_run_id>/log_distributor_report_by", methods=["POST"]
 )
 def log_distributor_report_by(workflow_run_id: int) -> Any:
@@ -511,64 +422,6 @@ def log_distributor_report_by(workflow_run_id: int) -> Any:
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
-
-
-@finite_state_machine.route("/task_instance", methods=["POST"])
-def add_task_instance() -> Any:
-    """Add a task_instance to the database.
-
-    Args:
-        task_id (int): unique id for the task
-        cluster_type_name (str): string name of the cluster type used
-    """
-    try:
-        data = request.get_json()
-        task_id = data["task_id"]
-        array_id = data["array_id"]
-        array_batch_num = data["array_batch_num"]
-        bind_to_logger(task_id=task_id, array_id=array_id)
-        logger.info(f"Add task instance for task {task_id}")
-        # query task
-        task = DB.session.query(Task).filter_by(id=task_id).first()
-        DB.session.commit()
-
-        # create task_instance from task parameters
-        task_instance = TaskInstance(
-            workflow_run_id=data["workflow_run_id"],
-            task_id=task_id,
-            array_id=array_id,
-            array_batch_num=array_batch_num,
-            task_resources_id=task.task_resources_id,
-        )
-        DB.session.add(task_instance)
-        DB.session.commit()
-        task_instance.task.transition(TaskStatus.INSTANTIATING)
-        DB.session.commit()
-        resp = jsonify(
-            task_instance=task_instance.to_wire_as_distributor_task_instance()
-        )
-        resp.status_code = StatusCodes.OK
-        return resp
-    except InvalidStateTransition as e:
-        # Handles race condition if the task is already instantiated state
-        if task_instance.task.status == TaskStatus.INSTANTIATING:
-            msg = (
-                "Caught InvalidStateTransition. Not transitioning task "
-                "{}'s task_instance_id {} from I to I".format(
-                    data["task_id"], task_instance.id
-                )
-            )
-            logger.warning(msg)
-            DB.session.commit()
-            resp = jsonify(
-                task_instance=task_instance.to_wire_as_distributor_task_instance()
-            )
-            resp.status_code = StatusCodes.OK
-            return resp
-        else:
-            raise ServerError(
-                f"Unexpected Jobmon Server Error in {request.path}", status_code=500
-            ) from e
 
 
 @finite_state_machine.route(
@@ -743,62 +596,6 @@ def log_unknown_error(task_instance_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route(
-    "/task_instance/record_array_batch_num/<batch_num>", methods=["POST"]
-)
-def record_array_batch_num(batch_num: int) -> Any:
-    """Record a batch number to associate sets of task instances with an array submission."""
-    data = request.get_json()
-    task_instance_ids_list = data["task_instance_ids"]
-
-    task_instance_ids = ",".join(f"{x}" for x in task_instance_ids_list)
-
-    update_stmt = f"""
-        UPDATE task_instance
-        SET array_batch_num = {batch_num}
-        WHERE id IN ({task_instance_ids})
-    """
-    DB.session.execute(update_stmt)
-    DB.session.commit()
-
-    # assign array_step_ids ordered by task_instance_id
-    task_instance_ids_list.sort()
-    for idx, tid in enumerate(task_instance_ids_list):
-        sql = f"""
-            UPDATE task_instance
-            SET array_step_id = {idx}
-            WHERE id = {tid}
-        """
-        DB.session.execute(sql)
-    DB.session.commit()
-
-    resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@finite_state_machine.route(
-    "/task_instance/<task_instance_id>/set_subtask_id", methods=["POST"]
-)
-def record_subtask_id(task_instance_id: int) -> Any:
-    """Update the actual distributor id of the task/subtask in array.
-
-    Keep this info in DB so we don't need to calculate it from
-    array_id, array_batch_num, and array_step_id every time.
-    """
-    data = request.get_json()
-    subtask_id = data["subtask_id"]
-    sql = f"""
-        UPDATE task_instance
-        SET subtask_id={subtask_id}
-        WHERE id={task_instance_id}"""
-    DB.session.execute(sql)
-    DB.session.commit()
-    resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
 @finite_state_machine.route("/task_instance/transition/<new_status>", methods=["POST"])
 def transition_task_instances(new_status: str) -> Any:
     """Attempt to transition a task instance to the new status"""
@@ -843,45 +640,84 @@ def transition_task_instances(new_status: str) -> Any:
     return resp
 
 
-@finite_state_machine.route(
-    "/workflow_run/<workflow_run_id>/set_status_for_triaging", methods=["POST"]
-)
-def set_status_for_triaging(workflow_run_id: int) -> Any:
-    """2 triaging related status sets
+@finite_state_machine.route("/task_instance/instantiate_task_instances", methods=["POST"])
+def instantiate_task_instances() -> Any:
+    """Sync status of given task intance IDs."""
+    data = request.get_json()
+    task_instance_ids_list = tuple([int(tid) for tid in data["task_instance_ids"]])
+    try:
 
-    Query all task instances that are submitted to distributor or running which haven't
-    reported as alive in the allocated time, and set them for Triaging(from Running)
-    and Kill_self(from Launched).
-    """
-    bind_to_logger(workflow_run_id=workflow_run_id)
-    logger.info(f"Set to triaging those overdue tis for wfr {workflow_run_id}")
-    params = {
-        "running_status": TaskInstanceStatus.RUNNING,
-        "triaging_status": TaskInstanceStatus.TRIAGING,
-        "kill_self_status": TaskInstanceStatus.KILL_SELF,
-        "workflow_run_id": workflow_run_id,
-        "active_tasks":
-        [
-            TaskInstanceStatus.LAUNCHED,
-            TaskInstanceStatus.RUNNING,
-        ]
-    }
-    sql = """
-        UPDATE task_instance
-        SET status =
-            CASE
-                WHEN status = :running_status THEN :triaging_status
-                ELSE :kill_self_status
-            END
-        WHERE
-            workflow_run_id = :workflow_run_id
-            AND status in :active_tasks
-            AND report_by_date <= CURRENT_TIMESTAMP()
-    """
-    DB.session.execute(sql, params)
-    DB.session.commit()
+        # update the task table where FSM allows it
+        task_update = update(
+            Task
+        ).values(
+            status=TaskStatus.INSTANTIATING,
+            status_date=func.now()
+        ).where(
+            select(
+                Task
+            ).where(
+                (Task.id == TaskInstance.task_id)
+                & (Task.status == TaskStatus.QUEUED)
+                & TaskInstance.id.in_(task_instance_ids_list)
+            ).exists()
+        ).execution_options(synchronize_session=False)
+        DB.session.execute(task_update)
 
-    resp = jsonify()
+        # then propagate back into task instance where a change was made
+        task_instance_update = update(
+            TaskInstance
+        ).values(
+            status=TaskInstanceStatus.INSTANTIATED,
+            status_date=func.now()
+        ).where(
+            select(
+                TaskInstance
+            ).where(
+                (Task.id == TaskInstance.task_id)
+                # a successful transition
+                & (Task.status == TaskStatus.INSTANTIATING)
+                # and part of the current set
+                & TaskInstance.id.in_(task_instance_ids_list)
+            ).exists()
+        ).execution_options(synchronize_session=False)
+        DB.session.execute(task_instance_update)
+
+    except Exception:
+        DB.session.rollback()
+        raise
+    else:
+        DB.session.commit()
+
+        instantiated_batches_query = select(
+            TaskInstance.array_id,
+            TaskInstance.array_batch_num,
+            TaskInstance.task_resources_id,
+            func.group_concat(TaskInstance.id)
+        ).where(
+            TaskInstance.id.in_(task_instance_ids_list)
+            & (TaskInstance.status == TaskInstanceStatus.INSTANTIATED)
+        ).group_by(
+            TaskInstance.array_id,
+            TaskInstance.array_batch_num,
+            TaskInstance.task_resources_id
+        )
+        result = DB.session.execute(instantiated_batches_query)
+        serialized_batches = []
+        for array_id, array_batch_num, task_resources_id, task_instance_ids in result:
+            task_instance_ids = [
+                int(task_instance_id) for task_instance_id in task_instance_ids.split(",")
+            ]
+            serialized_batches.append(
+                SerializeTaskInstanceBatch.to_wire(
+                    array_id=array_id,
+                    array_batch_num=array_batch_num,
+                    task_resources_id=task_resources_id,
+                    task_instance_ids=task_instance_ids
+                )
+            )
+
+    resp = jsonify(task_instance_batches=serialized_batches)
     resp.status_code = StatusCodes.OK
     return resp
 

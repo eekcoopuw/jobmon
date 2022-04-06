@@ -94,6 +94,7 @@ def test_sync_statuses(client_env, tool, task_template):
     assert now is not None
 
     # distribute the task
+    swarm.set_initial_fringe()
     swarm.process_commands()
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
@@ -123,7 +124,7 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
 
         def submit_to_batch_distributor(
             self, command: str, name: str, requested_resources
-        ) -> int:
+        ) -> str:
             logger.info("Now entering WedgedExecutor execute")
 
             cli = WorkerNodeCLI()
@@ -166,7 +167,7 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
                     self.DB.session.execute(task_query)
                     self.DB.session.commit()
 
-                exec_id = 123456789
+                exec_id = str(123456789)
             else:
                 exec_id = super().submit_to_batch_distributor(
                     command, name, requested_resources
@@ -193,6 +194,7 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
     distributor_service = DistributorService(
         cluster=distributor,
         requester=workflow.requester,
+        raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     wfr._update_status(WorkflowRunStatus.LAUNCHED)
@@ -203,18 +205,15 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
         requester=workflow.requester,
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
-    # launch task on executor
+    # run the normal workflow sync protocol. only t1 should be done
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
-    # run the normal workflow sync protocol. only t1 should be done
-    with pytest.raises(RuntimeError):
-        swarm.run(
-            distributor_alive_callable=lambda: True, seconds_until_timeout=1
-        )
+    swarm.synchronize_state()
     assert swarm.tasks[t1.task_id].status == TaskStatus.DONE
-    assert swarm.tasks[t2.task_id].status == TaskStatus.QUEUED
+    assert swarm.tasks[t2.task_id].status == TaskStatus.REGISTERING
     assert swarm.tasks[t3.task_id].status == TaskStatus.REGISTERING
 
     # Force the workflow run back to instantiating state, since the distributor service
@@ -344,7 +343,7 @@ def test_callable_returns_valid_object(tool, task_template):
             swarm.run(distributor.alive, seconds_until_timeout=1)
         except RuntimeError:
             pass
-    assert swarm.tasks[task.task_id].task_resources.id is not None
+    assert swarm.tasks[task.task_id].current_task_resources.id is not None
 
 
 def test_callable_returns_wrong_object(tool, task_template):
@@ -366,7 +365,7 @@ def test_callable_returns_wrong_object(tool, task_template):
     swarm = SwarmWorkflowRun(workflow_run_id=wfr.workflow_run_id)
     swarm.from_workflow(wf)
     with pytest.raises(CallableReturnedInvalidObject):
-        swarm.process_commands()
+        swarm.set_initial_fringe()
 
 
 def test_callable_fails_bad_filepath(tool, task_template):
@@ -389,7 +388,7 @@ def test_callable_fails_bad_filepath(tool, task_template):
     swarm = SwarmWorkflowRun(workflow_run_id=wfr.workflow_run_id)
     swarm.from_workflow(wf)
     with pytest.raises(FileNotFoundError):
-        swarm.process_commands()
+        swarm.set_initial_fringe()
 
 
 def test_swarm_fails(tool, task_template):

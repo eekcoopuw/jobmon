@@ -24,10 +24,9 @@ def tool(db_cfg, client_env):
     return tool
 
 
-@pytest.fixture
-def task_template(tool):
+def get_task_template(tool, template_name="my_template"):
     tt = tool.get_task_template(
-        template_name="my_template",
+        template_name=template_name,
         command_template="{arg}",
         node_args=["arg"],
         task_args=[],
@@ -37,7 +36,11 @@ def task_template(tool):
 
 
 @pytest.fixture
-def task_template_fail_one(tool):
+def task_template(tool):
+    return get_task_template(tool)
+
+
+def get_task_template_fail_one(tool, template_name="task_template_fail_one"):
     # set fail always as op args so it can be modified on resume without
     # changing the workflow hash
     tt = tool.get_task_template(
@@ -55,6 +58,13 @@ def task_template_fail_one(tool):
         op_args=["python", "script", "fail_always"],
     )
     return tt
+
+
+@pytest.fixture
+def task_template_fail_one(tool):
+    # set fail always as op args so it can be modified on resume without
+    # changing the workflow hash
+    return get_task_template_fail_one(tool)
 
 
 this_file = os.path.dirname(__file__)
@@ -110,19 +120,21 @@ def test_fail_one_task_resume(db_cfg, tool, task_template_fail_one, tmpdir):
     assert workflow1.workflow_id == workflow2.workflow_id
 
 
-def get_two_wave_tasks(task_template):
+def get_two_wave_tasks(tool):
     tasks = []
 
+    task_template_1 = get_task_template(tool, "phase_1")
     wave_1 = []
     for i in range(3):
         tm = 5 + i
-        t = task_template.create_task(arg=f"sleep {tm}")
+        t = task_template_1.create_task(arg=f"sleep {tm}")
         tasks.append(t)
         wave_1.append(t)
 
+    task_template_2 = get_task_template(tool, "phase_2")
     for i in range(3):
         tm = 8 + i
-        t = task_template.create_task(arg=f"sleep {tm}", upstream_tasks=wave_1)
+        t = task_template_2.create_task(arg=f"sleep {tm}", upstream_tasks=wave_1)
         tasks.append(t)
     return tasks
 
@@ -132,7 +144,7 @@ class MockDistributorProc:
         return True
 
 
-def test_cold_resume(tool, task_template):
+def test_cold_resume(tool):
     """"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
@@ -149,6 +161,7 @@ def test_cold_resume(tool, task_template):
         requester=workflow1.requester
     )
     swarm.from_workflow(workflow1)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     # run first 3 tasks
@@ -236,6 +249,7 @@ def test_hot_resume(tool, task_template):
     swarm._update_status(WorkflowRunStatus.RUNNING)
 
     # create task instances
+    swarm.set_initial_fringe()
     swarm.process_commands()
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
@@ -275,17 +289,18 @@ def test_hot_resume(tool, task_template):
     assert workflow_run_status == WorkflowRunStatus.DONE
 
 
-def test_stopped_resume(tool, task_template):
+def test_stopped_resume(tool):
     """test that a workflow with two task where the workflow is stopped with a
     keyboard interrupt mid stream. The workflow is resumed and
     the tasks then finishes successfully and the workflow runs to completion"""
 
     workflow1 = tool.create_workflow(name="stopped_resume")
-    t1 = task_template.create_task(arg="echo t1")
-    t2 = task_template.create_task(arg="echo t2", upstream_tasks=[t1])
-    t3 = task_template.create_task(arg="echo t3", upstream_tasks=[t2])
-
-    workflow1.add_tasks([t1, t2, t3])
+    upstream_tasks = []
+    for phase in [1, 2, 3]:
+        task_template = get_task_template(tool, template_name=f"phase_{phase}")
+        task = task_template.create_task(arg="echo a", upstream_tasks=upstream_tasks)
+        workflow1.add_task(task)
+        upstream_tasks = [task]
 
     # start up the first task. patch so that it fails with a keyboard interrupt
     workflow1._fail_after_n_executions = 1
@@ -301,11 +316,13 @@ def test_stopped_resume(tool, task_template):
     workflow1 = tool.create_workflow(
         name="stopped_resume", workflow_args=workflow1.workflow_args
     )
-    t1 = task_template.create_task(arg="echo t1")
-    t2 = task_template.create_task(arg="echo t2", upstream_tasks=[t1])
-    t3 = task_template.create_task(arg="echo t3", upstream_tasks=[t2])
+    upstream_tasks = []
+    for phase in [1, 2, 3]:
+        task_template = get_task_template(tool, template_name=f"phase_{phase}")
+        task = task_template.create_task(arg="echo a", upstream_tasks=upstream_tasks)
+        workflow1.add_task(task)
+        upstream_tasks = [task]
 
-    workflow1.add_tasks([t1, t2, t3])
     wfrs2 = workflow1.run(resume=True)
 
     assert wfrs2 == WorkflowRunStatus.DONE

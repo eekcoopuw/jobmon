@@ -4,10 +4,11 @@ from __future__ import annotations
 from datetime import datetime
 import logging
 import time
-from typing import Callable, Dict, Iterator, List, Optional, Set, TYPE_CHECKING, Union
+from typing import Callable, Dict, Generator, List, Optional, Set, TYPE_CHECKING, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_task import SwarmTask
+from jobmon.client.swarm.swarm_array import SwarmArray
 from jobmon.client.task_resources import TaskResources
 from jobmon.constants import TaskStatus, WorkflowRunStatus, TaskResourcesType
 from jobmon.exceptions import (
@@ -77,6 +78,7 @@ class WorkflowRun:
 
         # state tracking
         self.tasks: Dict[int, SwarmTask] = {}
+        self.arrays: Dict[int, SwarmArray] = {}
         self.ready_to_run: List[SwarmTask] = []
         self._task_status_map: Dict[str, Set[SwarmTask]] = {
             TaskStatus.REGISTERING: set(),
@@ -144,8 +146,7 @@ class WorkflowRun:
             TaskStatus.QUEUED,
             TaskStatus.LAUNCHED,
             TaskStatus.RUNNING,
-            TaskStatus.INSTANTIATING,
-            TaskStatus.ADJUSTING_RESOURCES
+            TaskStatus.INSTANTIATING
         ]
         any_active_tasks = (
             any([any(self._task_status_map[s]) for s in active_task_states])
@@ -155,8 +156,14 @@ class WorkflowRun:
 
     def from_workflow(self, workflow: Workflow) -> None:
         self.workflow_id = workflow.workflow_id
+        self.max_concurrently_running: int = workflow.max_concurrently_running
 
-        # construct SwarmTasks from Client Tasks
+        # construct arrays
+        for array in workflow.arrays.values():
+            swarm_array = SwarmArray(array.array_id, array.max_concurrently_running)
+            self.arrays[array.array_id] = swarm_array
+
+        # construct SwarmTasks from Client Tasks and populate registry
         for task in workflow.tasks.values():
 
             cluster = workflow.get_cluster_by_name(task.cluster_name)
@@ -168,6 +175,7 @@ class WorkflowRun:
             # create swarmtasks
             swarm_task = SwarmTask(
                 task_id=task.task_id,
+                array_id=task.array.array_id,
                 status=task.initial_status,
                 max_attempts=task.max_attempts,
                 cluster=cluster,
@@ -178,15 +186,20 @@ class WorkflowRun:
             )
             self.tasks[task.task_id] = swarm_task
 
+        # create relationships on swarm task
         for task in workflow.tasks.values():
-            # create relationships on swarm task
             swarm_task = self.tasks[task.task_id]
+
+            # assign upstream and downstreams
             swarm_task.upstream_swarm_tasks = set(
                 [self.tasks[t.task_id] for t in task.upstream_tasks]
             )
             swarm_task.downstream_swarm_tasks = set(
                 [self.tasks[t.task_id] for t in task.downstream_tasks]
             )
+
+            # create array association
+            self.arrays[swarm_task.array_id].add_task(swarm_task)
 
             # assign each task to the correct set
             self._task_status_map[swarm_task.status].add(swarm_task)
@@ -196,11 +209,6 @@ class WorkflowRun:
                 # if task is done check if there are downstreams that can run
                 for downstream in swarm_task.downstream_swarm_tasks:
                     downstream.num_upstreams_done += 1
-
-        for swarm_task in self.tasks.values():
-            # If the task is ready to run and in registering state, add it to the queue
-            if swarm_task.status == TaskStatus.REGISTERING and swarm_task.all_upstreams_done:
-                self.ready_to_run.append(swarm_task)
 
         self.last_sync = self._get_current_time()
         self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
@@ -236,6 +244,7 @@ class WorkflowRun:
         try:
             logger.info(f"Executing Workflow Run {self.workflow_run_id}")
             self._update_status(WorkflowRunStatus.RUNNING)
+            self.set_initial_fringe()
             time_since_last_full_sync = 0.
             total_elapsed_time = 0.
             terminating_states = [
@@ -339,15 +348,79 @@ class WorkflowRun:
                 else:
                     self._update_status(WorkflowRunStatus.ERROR)
 
-    def get_swarm_commands(self) -> Iterator[SwarmCommand]:
-        """Get and iterator of work to be done."""
-        adjusting_tasks = list(self._task_status_map[TaskStatus.ADJUSTING_RESOURCES])
-        for task in adjusting_tasks:
-            yield SwarmCommand(self.adjust_task, task)
+    def set_initial_fringe(self):
+        """set initial fringe"""
+        for t in [t for t in self._task_status_map[TaskStatus.ADJUSTING_RESOURCES]]:
+            self._set_adjusted_task_resources(t)
+            self.ready_to_run.append(t)
+        for t in [task for task in self._task_status_map[TaskStatus.REGISTERING]
+                  if task.all_upstreams_done]:
+            self._set_validated_task_resources(t)
+            self.ready_to_run.append(t)
 
-        while self.ready_to_run:
-            task = self.ready_to_run.pop(0)
-            yield SwarmCommand(self.queue_task, task)
+    def get_swarm_commands(self) -> Generator[SwarmCommand, None, None]:
+        """Generator to get next chunk of work to be done. Must be idempotent"""
+
+        # compute capacities. max - active
+        active_tasks: Set[SwarmTask] = set()
+        for task_status in [TaskStatus.QUEUED, TaskStatus.INSTANTIATING, TaskStatus.LAUNCHED,
+                            TaskStatus.RUNNING]:
+            active_tasks.union(self._task_status_map[task_status])
+        workflow_capacity = self.max_concurrently_running - len(active_tasks)
+        array_capacity_lookup: Dict[int, int] = {
+            aid: array.max_concurrently_running - len(active_tasks.intersection(array.tasks))
+            for aid, array in self.arrays.items()
+        }
+
+        try:
+            unscheduled_tasks: List[SwarmTask] = []
+            while self.ready_to_run and workflow_capacity > 0:
+                # pop the next task off of the queue
+                next_task = self.ready_to_run.pop(0)
+                array_id = next_task.array_id
+                task_resources = next_task.current_task_resources
+
+                # check capacity. add to current batch if room.
+                current_batch: List[SwarmTask] = []
+                array_capacity = array_capacity_lookup[array_id]
+                if array_capacity > 0:
+                    current_batch.append(next_task)
+                    workflow_capacity -= 1
+                    array_capacity -= 1
+
+                    # we started a batch. let's try and add compatible tasks
+                    compatible_indices: List[int] = []
+                    for index, task in enumerate(self.ready_to_run):
+
+                        # check for batch compatible tasks
+                        if (
+                            workflow_capacity > 0
+                            and array_capacity > 0
+                            and task.array_id == array_id
+                            and task.current_task_resources == task_resources
+                        ):
+                            current_batch.append(task)
+                            compatible_indices.append(index)
+                            workflow_capacity -= 1
+                            array_capacity -= 1
+
+                    # remove from original queue in reverse order so the indices don't move
+                    compatible_indices.reverse()
+                    for index in compatible_indices:
+                        task = self.ready_to_run.pop(index)
+
+                    # set final array capacity
+                    array_capacity_lookup[array_id] = array_capacity
+
+                    yield SwarmCommand(self.queue_task_batch, current_batch)
+
+                # no room. keep track for next time method is called
+                else:
+                    unscheduled_tasks.append(next_task)
+
+        # make sure to put unscheduled back on queue, even when the generator is closed
+        finally:
+            self.ready_to_run = unscheduled_tasks + self.ready_to_run
 
     def process_commands(self, timeout: Union[int, float] = -1):
         """Processes swarm commands until all work is done or timeout is reached.
@@ -370,8 +443,9 @@ class WorkflowRun:
                 swarm_command = next(swarm_commands)
                 swarm_command()
 
-                # keep processing commands if we don't need a status sync
-                keep_processing = (time.time() - loop_start) < timeout or timeout == -1
+                # if we need a status sync close the generator. next will raise StopIteration
+                if not ((time.time() - loop_start) < timeout or timeout == -1):
+                    swarm_commands.close()
 
             except StopIteration:
                 # stop processing commands if we are out of commands
@@ -387,7 +461,9 @@ class WorkflowRun:
 
         else:
             updated_tasks = self._get_task_status_updates()
+        self._refresh_task_status_map(updated_tasks)
 
+    def _refresh_task_status_map(self, updated_tasks: Set[SwarmTask]) -> None:
         # remove these tasks from old mapping
         for status in self._task_status_map.keys():
             self._task_status_map[status] = (
@@ -409,12 +485,18 @@ class WorkflowRun:
                 for downstream in task.downstream_swarm_tasks:
                     downstream.num_upstreams_done += 1
                     if downstream.all_upstreams_done:
+                        self._set_validated_task_resources(downstream)
                         self.ready_to_run.append(downstream)
 
             elif task.status == TaskStatus.ERROR_FATAL:
                 num_newly_failed += 1
 
             elif task.status == TaskStatus.REGISTERING and task.all_upstreams_done:
+                self._set_validated_task_resources(task)
+                self.ready_to_run.append(task)
+
+            elif task.status == TaskStatus.ADJUSTING_RESOURCES:
+                self._set_adjusted_task_resources(task)
                 self.ready_to_run.append(task)
 
             else:
@@ -535,46 +617,6 @@ class WorkflowRun:
             )
         return response["time"]
 
-    def _refresh_status_map(self, tasks: Set[SwarmTask]) -> None:
-        # remove these tasks from old mapping
-        for status in self._task_status_map.keys():
-            self._task_status_map[status] = self._task_status_map[status] - tasks
-
-        num_newly_completed = 0
-        num_newly_failed = 0
-        for task in tasks:
-
-            # assign each task to the correct set
-            self._task_status_map[task.status].add(task)
-
-            if task.status == TaskStatus.DONE:
-                num_newly_completed += 1
-                self._n_executions += 1  # a test param
-
-                # if task is done check if there are downstreams that can run
-                for downstream in task.downstream_swarm_tasks:
-                    downstream.num_upstreams_done += 1
-
-            elif status == TaskStatus.ERROR_FATAL:
-                num_newly_failed += 1
-
-            else:
-                logger.debug(
-                    f"Got status update {status} for task_id: {task.task_id}."
-                    "No actions necessary."
-                )
-
-        if num_newly_failed > 0:
-            percent_done = round(
-                (len(self._task_status_map[TaskStatus.DONE]) / len(self.tasks)) * 100, 2
-            )
-            logger.info(
-                f"{num_newly_completed} newly completed tasks. {percent_done} percent done."
-            )
-
-        if num_newly_failed > 0:
-            logger.warning(f"{num_newly_failed} newly failed tasks.")
-
     def _get_task_status_updates(self, tasks: Set[SwarmTask] = None) -> Set[SwarmTask]:
         """Update internal state of tasks to match the database.
 
@@ -615,24 +657,42 @@ class WorkflowRun:
 
         return new_status_tasks
 
-    def queue_task(self, task: SwarmTask) -> None:
-        self._task_status_map[task.status].remove(task)
-        self._set_validated_task_resources(task)
-        task.queue_task(self.workflow_run_id)
-        self._task_status_map[task.status].add(task)
+    def queue_task_batch(self, tasks: List[SwarmTask]) -> None:
+        first_task = tasks[0]
+        task_resources = first_task.current_task_resources
+        if not task_resources.is_bound:
+            task_resources.bind()
 
-    def adjust_task(self, task: SwarmTask) -> None:
-        self._task_status_map[task.status].remove(task)
-        self._set_adjusted_task_resources(task)
-        task.queue_task(self.workflow_run_id)
-        self._task_status_map[task.status].add(task)
+        app_route = f"/array/{first_task.array_id}/queue_task_batch"
+        return_code, response = self._requester.send_request(
+            app_route=app_route,
+            message={
+                "task_ids": [task.task_id for task in tasks],
+                "task_resources_id": task_resources.id,
+                "workflow_run_id": self.workflow_run_id,
+                "cluster_id": first_task.cluster.id,
+            },
+            request_type="post",
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
+        updated_tasks = set()
+        for status, task_ids in response["tasks_by_status"].items():
+            for task_id in task_ids:
+                task = self.tasks[task_id]
+                task.status = status
+                updated_tasks.add(task)
+        self._refresh_task_status_map(updated_tasks)
 
     def _set_validated_task_resources(self, task: SwarmTask) -> None:
-
         # get cluster and original params
         cluster = task.cluster
-        resource_params = task.task_resources.concrete_resources.resources.copy()
-        queue = task.task_resources.concrete_resources.queue
+        resource_params = task.current_task_resources.concrete_resources.resources.copy()
+        queue = task.current_task_resources.concrete_resources.queue
 
         # update with extra params
         if task.compute_resources_callable is not None:
@@ -656,7 +716,7 @@ class WorkflowRun:
 
         # if validated concrete resources are different than original. get new resource object
         validated_resource_hash = hash(concrete_resource)
-        if validated_resource_hash != hash(task.task_resources.concrete_resources):
+        if validated_resource_hash != hash(task.current_task_resources.concrete_resources):
             try:
                 task_resources = self._task_resources[hash(concrete_resource)]
             except KeyError:
@@ -664,12 +724,11 @@ class WorkflowRun:
                     concrete_resources=concrete_resource,
                     task_resources_type_id=TaskResourcesType.VALIDATED,
                 )
-                task_resources.bind()
                 self._task_resources[hash(task_resources)] = task_resources
         else:
-            task_resources = task.task_resources
+            task_resources = task.current_task_resources
             self._task_resources[validated_resource_hash] = task_resources
-        task.task_resources = task_resources
+        task.current_task_resources = task_resources
 
     def _set_adjusted_task_resources(self, task: SwarmTask) -> None:
         """Adjust the swarm task's parameters.
@@ -677,13 +736,13 @@ class WorkflowRun:
         Use the cluster API to generate the new resources, then bind to input swarmtask.
         """
         # current resources
-        resource_params = task.task_resources.concrete_resources.resources.copy()
+        resource_params = task.current_task_resources.concrete_resources.resources.copy()
 
         concrete_resource = (
             task.cluster.concrete_resource_class.adjust_and_create_concrete_resource(
                 existing_resources=resource_params,
                 resource_scales=task.resource_scales,
-                expected_queue=task.task_resources.queue,
+                expected_queue=task.current_task_resources.queue,
                 fallback_queues=task.fallback_queues,
             )
         )
@@ -695,6 +754,5 @@ class WorkflowRun:
                 concrete_resources=concrete_resource,
                 task_resources_type_id=TaskResourcesType.ADJUSTED,
             )
-            task_resources.bind()
             self._task_resources[hash(task_resources)] = task_resources
-        task.task_resources = task_resources
+        task.current_task_resources = task_resources

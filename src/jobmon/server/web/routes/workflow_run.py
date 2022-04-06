@@ -400,3 +400,46 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
     resp = jsonify(status_updates=return_dict, time=str_time)
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@finite_state_machine.route(
+    "/workflow_run/<workflow_run_id>/set_status_for_triaging", methods=["POST"]
+)
+def set_status_for_triaging(workflow_run_id: int) -> Any:
+    """2 triaging related status sets
+
+    Query all task instances that are submitted to distributor or running which haven't
+    reported as alive in the allocated time, and set them for Triaging(from Running)
+    and Kill_self(from Launched).
+    """
+    bind_to_logger(workflow_run_id=workflow_run_id)
+    logger.info(f"Set to triaging those overdue tis for wfr {workflow_run_id}")
+    params = {
+        "running_status": TaskInstanceStatus.RUNNING,
+        "triaging_status": TaskInstanceStatus.TRIAGING,
+        "kill_self_status": TaskInstanceStatus.KILL_SELF,
+        "workflow_run_id": workflow_run_id,
+        "active_tasks":
+        [
+            TaskInstanceStatus.LAUNCHED,
+            TaskInstanceStatus.RUNNING,
+        ]
+    }
+    sql = """
+        UPDATE task_instance
+        SET status =
+            CASE
+                WHEN status = :running_status THEN :triaging_status
+                ELSE :kill_self_status
+            END
+        WHERE
+            workflow_run_id = :workflow_run_id
+            AND status in :active_tasks
+            AND report_by_date <= CURRENT_TIMESTAMP()
+    """
+    DB.session.execute(sql, params)
+    DB.session.commit()
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp

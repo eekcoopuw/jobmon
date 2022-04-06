@@ -24,6 +24,7 @@ def test_heartbeat_on_launched(tool, db_cfg, client_env, task_template):
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     # launch the task then log a heartbeat

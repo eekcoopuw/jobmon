@@ -54,6 +54,7 @@ def test_task_instance(db_cfg, tool):
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     # test that we can launch via the normal job pathway
@@ -96,6 +97,7 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template, monkeypat
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     # test that we can launch via the normal job pathway
@@ -139,6 +141,7 @@ def test_ti_kill_self_state(db_cfg, tool):
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     # test that we can launch via the normal job pathway
@@ -224,6 +227,7 @@ def test_limited_error_log(tool, db_cfg):
         requester=wf.requester,
     )
     swarm.from_workflow(wf)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     distributor_service = DistributorService(

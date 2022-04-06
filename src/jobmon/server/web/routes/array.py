@@ -4,12 +4,15 @@ from http import HTTPStatus as StatusCodes
 from typing import Any
 
 from flask import jsonify, request
-from sqlalchemy import text
+from sqlalchemy import func, insert, literal_column, select, text, update
 from werkzeug.local import LocalProxy
 
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.array import Array
+from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
+from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.routes import finite_state_machine
 
@@ -94,29 +97,80 @@ def get_array(array_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/array/<array_id>/get_last_batch_number", methods=["GET"])
-def get_last_batch_number(array_id: int) -> int:
-    """Route to determine the last_batch_number = max(array_batch_num) from
-    the array's task_instances.
+@finite_state_machine.route("/array/<array_id>/queue_task_batch", methods=["POST"])
+def record_array_batch_num(array_id: int) -> Any:
+    """Record a batch number to associate sets of task instances with an array submission."""
+    data = request.get_json()
+    array_id = int(array_id)
+    task_ids = [int(task_id) for task_id in data["task_ids"]]
+    task_resources_id = int(data["task_resources_id"])
+    workflow_run_id = int(data["workflow_run_id"])
 
-    Args:
-        array_id (int): the ID of the array.
+    try:
+        # update task status to acquire lock
+        update_stmt = update(
+            Task
+        ).where(
+            Task.id.in_(task_ids)
+            & Task.status.in_([TaskStatus.REGISTERING, TaskStatus.ADJUSTING_RESOURCES])
+        ).values(
+            status=TaskStatus.QUEUED,
+            status_date=func.now(),
+            num_attempts=(Task.num_attempts + 1)
+        )
+        DB.session.execute(update_stmt)
 
-    Return:
-        last_batch_number: int
-    """
-    bind_to_logger(array_id=array_id)
+        # now insert them into task instance
+        insert_stmt = insert(TaskInstance).from_select(
+            # columns map 1:1 to selected rows
+            ["task_id", "workflow_run_id", "array_id", "task_resources_id", "array_batch_num",
+             "array_step_id", "status", "status_date"],
 
-    sql = f"""
-        SELECT array_id, max(array_batch_num) AS last_batch_number
-        FROM task_instance
-        WHERE
-            array_id = {array_id}
-        GROUP BY array_id
-    """
+            # select statement
+            select(
+                # unique id
+                Task.id.label("task_id"),
 
-    row = DB.session.execute(sql).fetchone()
+                # static associations
+                literal_column(str(workflow_run_id)).label("workflow_run_id"),
+                literal_column(str(array_id)).label("array_id"),
+                literal_column(str(task_resources_id)).label("task_resources_id"),
 
-    resp = jsonify(last_batch_number=row[1])
+                # batch info
+                select(
+                    func.coalesce(func.max(TaskInstance.array_batch_num) + 1, 1)
+                ).where(
+                    (TaskInstance.workflow_run_id == workflow_run_id)
+                    & (TaskInstance.array_id == array_id)
+                ).label("array_batch_num"),
+                (func.row_number().over(order_by=Task.id) - 1).label("array_step_id"),
+
+                # status columns
+                literal_column(f"'{TaskInstanceStatus.QUEUED}'").label("status"),
+                func.now().label("status_date")
+
+            ).where(
+                Task.id.in_(task_ids) & (Task.status == TaskStatus.QUEUED)
+            ),
+
+            # no python side defaults. Server defaults only
+            include_defaults=False
+        )
+        DB.session.execute(insert_stmt)
+    except Exception:
+        DB.session.rollback()
+    else:
+        DB.session.commit()
+
+        tasks_by_status_query = select(
+            Task.status, func.group_concat(Task.id)
+        ).where(
+            Task.id.in_(task_ids)
+        ).group_by(Task.status)
+        result_dict = {}
+        for row in DB.session.execute(tasks_by_status_query):
+            result_dict[row[0]] = [int(i) for i in row[1].split(",")]
+
+    resp = jsonify(tasks_by_status=result_dict)
     resp.status_code = StatusCodes.OK
     return resp
