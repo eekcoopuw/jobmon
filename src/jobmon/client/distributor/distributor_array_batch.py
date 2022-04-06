@@ -107,7 +107,7 @@ class DistributorArrayBatch:
             'next_report_increment': next_report_by
         }
 
-        rc, resp = self.requester._send_request(
+        rc, resp = self.requester.send_request(
             app_route=app_route,
             message=data,
             request_type='post'
@@ -120,9 +120,10 @@ class DistributorArrayBatch:
                 f"code 200. Response content: {resp}"
             )
 
-        # Update status in memory for all task instances
+        # Update status and distributor id in memory for all task instances
         for ti in self.task_instances:
             ti.status = TaskInstanceStatus.LAUNCHED
+            ti.distributor_id = resp['task_instance_map'][str(ti.task_instance_id)]
 
     def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""

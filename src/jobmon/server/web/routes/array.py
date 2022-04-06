@@ -4,7 +4,7 @@ from http import HTTPStatus as StatusCodes
 from typing import Any
 
 from flask import jsonify, request
-from sqlalchemy import bindparam, text, update
+from sqlalchemy import bindparam, select, text, update
 from sqlalchemy.sql import func
 from werkzeug.local import LocalProxy
 
@@ -163,5 +163,17 @@ def log_array_distributor_id(array_id: int):
     DB.session.execute(update_stmt, params)
     DB.session.commit()
 
-    resp = jsonify(status_code=StatusCodes.OK)
+    # Return the affected rows and their distributor ids
+    select_stmt = (
+        select(TaskInstance.id, TaskInstance.distributor_id).
+        where(TaskInstance.status == TaskInstanceStatus.LAUNCHED,
+              TaskInstance.array_batch_num == batch_num,
+              TaskInstance.array_id == array_id)
+    )
+
+    res = DB.session.execute(select_stmt).fetchall()
+    DB.session.commit()
+
+    resp = jsonify(task_instance_map={ti.id: ti.distributor_id for ti in res})
+    resp.status_code = StatusCodes.OK
     return resp

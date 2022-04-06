@@ -65,9 +65,9 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]
                ) == 2
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 0
-    breakpoint()
+
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
-    breakpoint()
+
     # Once processed from INSTANTIATED, the sequential (being a single process), would
     # carry it all the way through to D
     app = db_cfg["app"]
