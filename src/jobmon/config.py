@@ -1,7 +1,10 @@
 """Parse configuration options and set them to be used throughout the Jobmon Architecture."""
 from argparse import Namespace
+from contextlib import redirect_stdout, redirect_stderr
+import io
 import os
 import shlex
+import sys
 from typing import List, Optional
 
 import configargparse
@@ -542,8 +545,31 @@ class CLI:
         if argstr is not None:
             arglist = shlex.split(argstr)
 
-        args = self.parser.parse_args(arglist)
+        stderr_as_string = io.StringIO()
+        try:
+            sys.tracebacklimit = 0
+            with redirect_stderr(stderr_as_string):
+                args = self.parser.parse_args(arglist)
 
+        except SystemExit as e:
+            # This can happen for two reasons. Both can be true
+            # 1. --web_service_fqdn, --web_service_port are not configured,
+            #      so try the config file
+            # 2. An actual bad command line, so give up
+            error_msg = stderr_as_string.getvalue()
+            if "--web_service_fqdn" in error_msg:
+                # Case 1, and possibly case 2 as well
+                # This second call to the parser will detect bad arguments
+                # if we have the "double case" of jobmon not being configured AND
+                # a bad argument.
+                with redirect_stdout(io.StringIO()):
+                    args = install_default_config_from_plugin(self)
+            else:
+                # Case 2 – a bad argument
+                # Need to print the error_msg so they know what they did wrong
+                print(error_msg)
+                raise e
+        sys.tracebacklimit = 30
         return args
 
 
@@ -577,8 +603,11 @@ def install_default_config_from_plugin(cli: CLI) -> Namespace:
         module = importlib.import_module(plugin_name)
         config_installer = getattr(module, "install_config")
         config_installer()
+        # The following lines added for GBDSCI-4452
+        # If jobmon as not been configured yet, do it.
         try:
-            args = cli.parse_args("")
+            # Call the parser directly to avoid infinite recursion
+            args = cli.parser.parse_args()
             print("Successfully configured jobmon.")
             configured = True
         except SystemExit:
