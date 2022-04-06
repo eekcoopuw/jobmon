@@ -5,6 +5,7 @@ import hashlib
 import logging
 from typing import Dict, Set, TYPE_CHECKING
 
+from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskResources
@@ -91,32 +92,37 @@ class DistributorArrayBatch:
         for task_instance in self.task_instances:
             task_instance.requested_resources = self.requested_resources
 
-    # def process_queueing_errors(
-    #     self, cluster: ClusterDistributor, distributor_service: DistributorService
-    # ) -> None:
-    #     assert distributor_service is not None
+    def transition_to_launched(self, distributor_id_map: dict, next_report_by: float):
+        """Transition all associated task instances to LAUNCHED state."""
 
+        # Assertion that all bound task instances are indeed instantiated
+        for ti in self.task_instances:
+            if ti.status != TaskInstanceStatus.INSTANTIATED:
+                raise ValueError(f"{ti} is not in INSTANTIATED state, prior to launching.")
 
-    #     errors = cluster.get_array_queueing_errors(self.distributor_id)
+        app_route = f'/array/{self.array_id}/log_distributor_id'
+        data = {
+            'batch_number': self.batch_number,
+            'distributor_id_map': distributor_id_map,
+            'next_report_increment': next_report_by
+        }
 
-    #     # Add work to terminate the eqw task instances, if any
-    #     if len(errors) > 0:
-    #         command = DistributorCommand(self.terminate_task_instances, cluster, errors, distributor_service)
-    #         distributor_service.distributor_commands.append(command)
+        rc, resp = self.requester._send_request(
+            app_route=app_route,
+            message=data,
+            request_type='post'
+        )
 
-    # def terminate_task_instances(
-    #     self, cluster: ClusterDistributor, errors: Dict[str, str], distributor_service: DistributorService
-    # ) -> None:
-    #     """Terminate task instances with errors."""
-    #     assert distributor_service is not None
+        if not http_request_ok(rc):
+            raise InvalidResponse(
+                f"Unexpected status code {rc} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {resp}"
+            )
 
-    #     for task_instance in self.task_instances:
-    #         for distributor_id, error_msg in errors.items():
-    #             command = DistributorCommand(task_instance.transition_to_error,
-    #                                          error_msg, TaskInstanceStatus.UNKNOWN_ERROR)
-    #             distributor_service.distributor_commands.append(command)
-
-    #     cluster.terminate_task_instances(list(errors.keys()))
+        # Update status in memory for all task instances
+        for ti in self.task_instances:
+            ti.status = TaskInstanceStatus.LAUNCHED
 
     def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""

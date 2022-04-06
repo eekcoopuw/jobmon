@@ -4,9 +4,11 @@ from http import HTTPStatus as StatusCodes
 from typing import Any
 
 from flask import jsonify, request
-from sqlalchemy import text
+from sqlalchemy import bindparam, text, update
+from sqlalchemy.sql import func
 from werkzeug.local import LocalProxy
 
+from jobmon.constants import TaskInstanceStatus
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.array import Array
@@ -119,4 +121,47 @@ def get_last_batch_number(array_id: int) -> int:
 
     resp = jsonify(last_batch_number=row[1])
     resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route("/array/<array_id>/log_distributor_id", methods=['POST'])
+def log_array_distributor_id(array_id: int):
+
+    bind_to_logger(array_id=array_id)
+
+    data = request.get_json()
+    batch_num = data["batch_number"]
+    distributor_id_map = data["distributor_id_map"]
+    next_report = data['next_report_increment']
+
+    # Create a list of dicts out of the distributor id map.
+    params = [{'step_id': key, 'distributor_id': val}
+              for key, val in distributor_id_map.items()]
+
+    # Transition all the task instances in the batch
+    # Bypassing the ORM for performance reasons.
+
+    # TODO: Audit jobmon for any other race conditions.
+    #  Specifically ensure the worker node and the client cannot
+    #  transition task instances out of instantiated.
+    update_stmt = (
+        update(TaskInstance).
+        where(TaskInstance.array_id == array_id,
+              # Is the status WHERE statement necessary? Should always be in this state
+              # based on the point this method is called in the distributor service.
+              # If it isn't in instantiated, we probably have issues
+              TaskInstance.status == TaskInstanceStatus.INSTANTIATED,
+              TaskInstance.array_batch_num == batch_num,
+              TaskInstance.array_step_id == bindparam('step_id')
+              ).
+        values(distributor_id=bindparam('distributor_id'),
+               status=TaskInstanceStatus.LAUNCHED,
+               status_date=func.now(),
+               report_by_date=func.ADDTIME(func.now(), func.SEC_TO_TIME(next_report)))
+    )
+
+    DB.session.execute(update_stmt, params)
+    DB.session.commit()
+
+    resp = jsonify(status_code=StatusCodes.OK)
     return resp

@@ -65,9 +65,9 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]
                ) == 2
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 0
-
+    breakpoint()
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
-
+    breakpoint()
     # Once processed from INSTANTIATED, the sequential (being a single process), would
     # carry it all the way through to D
     app = db_cfg["app"]
@@ -157,7 +157,7 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-        SELECT id, task_instance.status
+        SELECT id, status, distributor_id, array_step_id
         FROM task_instance
         WHERE task_id in :task_ids
         ORDER BY id"""
@@ -172,6 +172,12 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
     assert len(res) == 2
     assert res[0].status == "O"
     assert res[1].status == "O"
+
+    # Check that distributor id is logged correctly
+    submitted_job_id = distributor_service.cluster._next_job_id - 1
+    expected_dist_id = distributor_service.cluster._get_subtask_id
+    assert res[0].distributor_id == expected_dist_id(submitted_job_id, res[0].array_step_id)
+    assert res[1].distributor_id == expected_dist_id(submitted_job_id, res[1].array_step_id)
 
 
 def test_job_submit_raises_error(db_cfg, tool):

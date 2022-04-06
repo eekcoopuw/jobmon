@@ -123,7 +123,10 @@ class DistributorTaskInstance:
         distributor_id: str,
         next_report_increment: float
     ) -> None:
-        """Register the submission of a new task instance to a cluster."""
+        """Register the submission of a new task instance to a cluster.
+
+        This method is never called by the happy path - only if array submission is not
+        implemented on a particular cluster type."""
 
         self.distributor_id = distributor_id
         app_route = f"/task_instance/{self.task_instance_id}/log_distributor_id"
@@ -235,3 +238,8 @@ class DistributorTaskInstance:
     def __lt__(self, other: DistributorTaskInstance) -> bool:
         """Check if one hash is less than the has of another Task."""
         return hash(self) < hash(other)
+
+    def __repr__(self):
+        """Return a short representation string."""
+        return f"DistributorTaskInstance(task_instance_id={self.task_instance_id}," \
+               f"status={self.status})"
