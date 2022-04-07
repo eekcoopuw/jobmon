@@ -90,7 +90,8 @@ class TaskInstanceBatch:
         data = {
             'batch_number': self.batch_number,
             'distributor_id_map': distributor_id_map,
-            'next_report_increment': next_report_by
+            'next_report_increment': next_report_by,
+            'task_instance_ids': [ti.task_instance_id for ti in self.task_instances]
         }
 
         rc, resp = self.requester.send_request(
