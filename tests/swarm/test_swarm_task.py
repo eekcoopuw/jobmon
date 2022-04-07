@@ -31,7 +31,7 @@ def test_swarmtask_resources_integration(tool, task_template, db_cfg):
     swarm.from_workflow(workflow)
     # Check swarmtask resources
     swarmtask = swarm.tasks[task.task_id]
-    initial_resources = swarmtask.task_resources
+    initial_resources = swarmtask.current_task_resources
     assert initial_resources.concrete_resources.resources == {
         "cores": 10,
         "queue": "null.q",
@@ -39,10 +39,11 @@ def test_swarmtask_resources_integration(tool, task_template, db_cfg):
     assert initial_resources.task_resources_type_id == TaskResourcesType.ORIGINAL
 
     # Queue the task. TRs should then be validated
-    swarm.queue_task(swarmtask)
+    swarm._set_validated_task_resources(swarmtask)
     # No change in resource values, so type id stays the same
-    assert swarmtask.task_resources.task_resources_type_id == TaskResourcesType.ORIGINAL
-    assert id(swarmtask.task_resources) == id(initial_resources)
+    assert swarmtask.current_task_resources.task_resources_type_id == \
+        TaskResourcesType.ORIGINAL
+    assert id(swarmtask.current_task_resources) == id(initial_resources)
 
     # Move task to adjusting
     app, DB = db_cfg['app'], db_cfg['DB']
@@ -58,8 +59,8 @@ def test_swarmtask_resources_integration(tool, task_template, db_cfg):
 
     # Call adjust. Multiprocess doesn't implement adjust, but the path should work
     # and adjust task resources
-    swarm.adjust_task(swarmtask)
-    scaled_params = swarmtask.task_resources
+    swarm._set_adjusted_task_resources(swarmtask)
+    scaled_params = swarmtask.current_task_resources
     # No change in resource values, so type id stays the same
     assert scaled_params.task_resources_type_id == TaskResourcesType.ORIGINAL
     assert id(scaled_params) == id(initial_resources)

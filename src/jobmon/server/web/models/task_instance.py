@@ -72,9 +72,9 @@ class TaskInstance(DB.Model):
         DB.ForeignKey("task_instance_status.id"),
         default=TaskInstanceStatus.QUEUED,
     )
-    submitted_date = DB.Column(DB.DateTime, default=func.now())
+    submitted_date = DB.Column(DB.DateTime)
     status_date = DB.Column(DB.DateTime, default=func.now())
-    report_by_date = DB.Column(DB.DateTime, default=func.now())
+    report_by_date = DB.Column(DB.DateTime)
 
     # ORM relationships
     task = DB.relationship("Task", back_populates="task_instances")

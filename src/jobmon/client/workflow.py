@@ -503,7 +503,7 @@ class Workflow(object):
                 if fail and not is_valid:
                     raise ValueError(f"Failed validation, reasons: {msg}")
                 elif not is_valid:
-                    print(f"Failed validation, reasons: {msg}")
+                    logger.warning(f"Failed validation, reasons: {msg}")
 
         try:
             cluster_names = list(self._clusters.keys())
@@ -518,7 +518,7 @@ class Workflow(object):
             if fail:
                 raise
             else:
-                print(e)
+                logger.warning(e)
 
     def bind(self) -> None:
         """Get a workflow_id."""
