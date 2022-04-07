@@ -2,18 +2,14 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Set, Tuple, TYPE_CHECKING
+from typing import List, Set, Tuple, TYPE_CHECKING
 
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
-from jobmon.serializers import SerializeTaskInstance
 
 if TYPE_CHECKING:
-    from jobmon.client.distributor.distributor_array import DistributorArray
-    from jobmon.client.distributor.distributor_array_batch import DistributorArrayBatch
-    from jobmon.client.distributor.distributor_task import DistributorTask
-    from jobmon.client.distributor.distributor_workflow import DistributorWorkflow
+    from jobmon.client.distributor.task_instance_batch import TaskInstanceBatch
 
 
 logger = logging.getLogger(__name__)
@@ -41,55 +37,18 @@ class DistributorTaskInstance:
         self.workflow_run_id = workflow_run_id
         self.status = status
 
-        self._requested_resources: Dict = {}
-
         self.error_state = ""
         self.error_msg = ""
 
         self.requester = requester
 
     @property
-    def workflow(self) -> DistributorWorkflow:
-        return self._workflow
+    def batch(self) -> TaskInstanceBatch:
+        return self._batch
 
-    @workflow.setter
-    def workflow(self, val: DistributorWorkflow):
-        self._workflow = val
-
-    @property
-    def array(self) -> DistributorArray:
-        return self._array
-
-    @array.setter
-    def array(self, val: DistributorArray):
-        self._array = val
-
-    @property
-    def task(self) -> DistributorTask:
-        return self._task
-
-    @task.setter
-    def task(self, val: DistributorTask):
-        self._task = val
-
-    @property
-    def array_batch(self) -> DistributorArrayBatch:
-        return self._array_batch
-
-    @array_batch.setter
-    def array_batch(self, val: DistributorArrayBatch):
-        self._array_batch = val
-
-    @property
-    def requested_resources(self) -> Dict:
-        if not self._requested_resources:
-            # TODO: actually load them
-            self._requested_resources = {}
-        return self._requested_resources
-
-    @requested_resources.setter
-    def requested_resources(self, val: Dict):
-        self._requested_resources = val
+    @batch.setter
+    def batch(self, val: TaskInstanceBatch):
+        self._batch = val
 
     @property
     def array_step_id(self) -> int:
@@ -98,25 +57,6 @@ class DistributorTaskInstance:
     @array_step_id.setter
     def array_step_id(self, val: int):
         self._array_step_id = val
-
-    def transition_to_instantiated(self):
-        """Transition current ti to initiated"""
-        app_route = f"/task_instance/{self.task_instance_id}/instantiate_task_instance"
-        return_code, response = self.requester.send_request(
-            app_route=app_route, message={}, request_type="post", logger=logger
-        )
-        if http_request_ok(return_code) is False:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from POST "
-                f"request through route {app_route}. Expected "
-                f"code 200. Response content: {response}"
-            )
-        kwargs = SerializeTaskInstance.kwargs_from_wire_distributor(response["task_instance"])
-        self.task_id = kwargs["task_id"]
-        self.array_id = kwargs["array_id"]
-        self.workflow_id = kwargs["workflow_id"]
-        self.task_resources_id = kwargs["task_resources_id"]
-        self.status = TaskInstanceStatus.INSTANTIATED
 
     def transition_to_launched(
         self,

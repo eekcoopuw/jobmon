@@ -18,19 +18,18 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
-class DistributorArrayBatch:
+class TaskInstanceBatch:
     def __init__(
         self,
         array_id: int,
-        batch_number: int,
+        array_batch_num: int,
         task_resources_id: int,
-        task_instances: Set[DistributorTaskInstance],
         requester: Requester,
     ):
         self.array_id = array_id
-        self.batch_number = batch_number
+        self.batch_number = array_batch_num
         self.task_resources_id = task_resources_id
-        self.task_instances = task_instances
+        self.task_instances: Set[DistributorTaskInstance] = set()
 
         self._requested_resources: Dict = {}
 
@@ -48,7 +47,11 @@ class DistributorArrayBatch:
             )
         return self._requested_resources
 
-    def _load_requested_resources(self) -> None:
+    def add_task(self, task: DistributorTaskInstance) -> None:
+        self.task_instances.add(task)
+        task.batch = self
+
+    def load_requested_resources(self) -> None:
         app_route = f"/task_resources/{self.task_resources_id}"
         return_code, response = self.requester.send_request(
             app_route=app_route, message={}, request_type="get", logger=logger
@@ -63,60 +66,13 @@ class DistributorArrayBatch:
         task_resources = SerializeTaskResources.kwargs_from_wire(response["task_resources"])
         self._requested_resources = ast.literal_eval(task_resources["requested_resources"])
 
-    def prepare_array_batch_for_launch(self) -> None:
+    def prepare_task_instance_batch_for_launch(self) -> None:
         """Add the current batch number to the current set of registered task instance ids."""
-        app_route = f"/task_instance/record_array_batch_num/{self.batch_number}"
-        rc, resp = self.requester.send_request(
-            app_route=app_route,
-            message={
-                "task_instance_ids": [
-                    task_instance.task_instance_id
-                    for task_instance in self.task_instances
-                ]
-            },
-            request_type="post",
-        )
-        if not http_request_ok(rc):
-            raise InvalidResponse(
-                f"Unexpected status code {rc} from POST "
-                f"request through route {app_route}. Expected "
-                f"code 200. Response content: {resp}"
-            )
         array_step_id = 0
         for task_instance in sorted(self.task_instances):
             task_instance.array_step_id = array_step_id
             array_step_id += 1
-
-        self._load_requested_resources()
-        for task_instance in self.task_instances:
-            task_instance.requested_resources = self.requested_resources
-
-    # def process_queueing_errors(
-    #     self, cluster: ClusterDistributor, distributor_service: DistributorService
-    # ) -> None:
-    #     assert distributor_service is not None
-
-
-    #     errors = cluster.get_array_queueing_errors(self.distributor_id)
-
-    #     # Add work to terminate the eqw task instances, if any
-    #     if len(errors) > 0:
-    #         command = DistributorCommand(self.terminate_task_instances, cluster, errors, distributor_service)
-    #         distributor_service.distributor_commands.append(command)
-
-    # def terminate_task_instances(
-    #     self, cluster: ClusterDistributor, errors: Dict[str, str], distributor_service: DistributorService
-    # ) -> None:
-    #     """Terminate task instances with errors."""
-    #     assert distributor_service is not None
-
-    #     for task_instance in self.task_instances:
-    #         for distributor_id, error_msg in errors.items():
-    #             command = DistributorCommand(task_instance.transition_to_error,
-    #                                          error_msg, TaskInstanceStatus.UNKNOWN_ERROR)
-    #             distributor_service.distributor_commands.append(command)
-
-    #     cluster.terminate_task_instances(list(errors.keys()))
+        self.load_requested_resources()
 
     def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""
@@ -124,3 +80,14 @@ class DistributorArrayBatch:
         hash_value.update(str(hash(self.array_id)).encode("utf-8"))
         hash_value.update(str(self.batch_number).encode("utf-8"))
         return int(hash_value.hexdigest(), 16)
+
+    def __eq__(self, other: object) -> bool:
+        """Check if the hashes of two tasks are equivalent."""
+        if not isinstance(other, TaskInstanceBatch):
+            return False
+        else:
+            return hash(self) == hash(other)
+
+    def __lt__(self, other: TaskInstanceBatch) -> bool:
+        """Check if one hash is less than the has of another Task."""
+        return hash(self) < hash(other)

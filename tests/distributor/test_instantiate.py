@@ -28,6 +28,7 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     # test that we can launch via the normal job pathway
@@ -112,6 +113,7 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     # test that we can launch via the normal job pathway
@@ -196,6 +198,7 @@ def test_job_submit_raises_error(db_cfg, tool):
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     # test that we can launch via the normal job pathway
@@ -249,6 +252,7 @@ def test_array_submit_raises_error(db_cfg, tool):
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     # test that we can launch via the normal job pathway
@@ -302,6 +306,7 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     # test that we can launch via the normal job pathway
@@ -348,6 +353,7 @@ def test_array_concurrency(
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     distributor_service = DistributorService(

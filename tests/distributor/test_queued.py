@@ -25,6 +25,10 @@ def test_queued(tool, db_cfg, client_env, task_template):
         requester=workflow.requester
     )
     swarm.from_workflow(workflow)
+    assert swarm.max_concurrently_running == 10
+
+    # create a batch
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     # test that we can launch via the normal job pathway
@@ -35,11 +39,9 @@ def test_queued(tool, db_cfg, client_env, task_template):
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service._check_for_work(TaskInstanceStatus.QUEUED)
-    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 20
+    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 10
     distributor_service.distributor_commands = []
 
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]
-               ) == 20
-
-    assert distributor_service._workflows[workflow.workflow_id].max_concurrently_running == 10
+               ) == 10

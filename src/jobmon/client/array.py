@@ -183,6 +183,17 @@ class Array:
                 f"A task with hash {task_hash} already exists. All tasks in an Array must have"
                 f" unique commands. Your command was: {task.command}"
             )
+
+        # check
+        dependent_tasks = task.upstream_tasks.union(task.downstream_tasks)
+        cyclical_tasks = dependent_tasks.intersection(set(self.tasks.values()))
+        if cyclical_tasks:
+            raise ValueError(
+                f"A task cannot depend on other tasks in the same TaskTemplate or Array. "
+                f"Task={task} has dependencies already added to {self}. Check for upstream and"
+                f" downstream tasks in array.tasks or workflow.tasks that have the following "
+                f"hashes. {[hash(task) for task in cyclical_tasks]}"
+            )
         self.tasks[task_hash] = task
 
         # populate backref
