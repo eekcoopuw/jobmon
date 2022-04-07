@@ -39,7 +39,6 @@ TEST_REQUIRES = [
     "mock",
     "filelock",
     'cluster_utils',
-    'tiny_structured_logger',
 ]
 
 # pip install -e .[docs]

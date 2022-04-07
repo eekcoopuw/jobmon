@@ -160,6 +160,7 @@ def record_array_batch_num(array_id: int) -> Any:
         DB.session.execute(insert_stmt)
     except Exception:
         DB.session.rollback()
+        raise
     else:
         DB.session.commit()
 
