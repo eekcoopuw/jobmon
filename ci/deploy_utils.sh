@@ -269,3 +269,71 @@ test_server () {
     #    /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
     #        --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr/jobmonr
 }
+
+deploy_integrator_to_k8s () {
+    WORKSPACE=${1}
+    JOBMON_CONTAINER_URI=${2}
+    METALLB_IP_POOL=${3}
+    K8S_NAMESPACE=${4}
+    RANCHER_PROJECT_ID=${5}
+    RANCHER_DB_SECRET=${6}
+    RANCHER_SLACK_SECRET=${7}
+    RANCHER_QPID_SECRET=${8}
+    KUBECONFIG=${9}
+    USE_LOGSTASH=${10}
+    JOBMON_VERSION=${11}
+    K8S_REAPER_NAMESPACE=${12}
+    DEPLOY_JOBMON=${13}
+    DEPLOY_ELK=${14}
+
+    docker pull $HELM_CONTAINER  # Pull prebuilt helm container
+    docker pull $KUBECTL_CONTAINER
+
+    # Check if namespace exists, if not create it: render 01_namespace.yaml and apply it
+    docker run -t \
+        --rm \
+        -v $KUBECONFIG:/root/.kube/config \
+        -v "$WORKSPACE/deployment/k8s:/data" \
+        $KUBECTL_CONTAINER \
+            get namespace "$K8S_NAMESPACE"\
+
+    namespace_exists=$?
+    if [[ $namespace_exists -ne 0 ]]
+    then
+        echo "Namespace does not exist now creating it "
+        docker run -t \
+            --rm \
+            -v $KUBECONFIG:/root/.kube/config \
+            -v "$WORKSPACE/deployment/k8s/integrator:/data" \
+            alpine/helm \
+                template /data -s templates/01_namespace.yaml \
+                --set global.namespace="$K8S_NAMESPACE" \
+                --set global.rancher_project="$RANCHER_PROJECT_ID" >> \
+                "$WORKSPACE/deployment/k8s/integrator/namespace.yaml"
+        docker run -t \
+            --rm \
+            -v "$WORKSPACE/deployment/k8s/integrator:/data" \
+            -v $KUBECONFIG:/root/.kube/config \
+            ${KUBECTL_CONTAINER} apply -f /data/namespace.yaml
+    fi
+    echo "Creating or updating integrator deployment"
+    docker run -t \
+    --rm \
+    -v "$WORKSPACE/deployment/k8s/integrator:/apps" \
+    -v $KUBECONFIG:/root/.kube/config \
+    alpine/helm \
+        upgrade --install jobmon /apps/. \
+        -n "$K8S_NAMESPACE" \
+        --history-max 3 \
+        --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI" \
+        --set global.metallb_ip_pool="$METALLB_IP_POOL" \
+        --set global.namespace="$K8S_NAMESPACE" \
+        --set global.rancher_db_secret="$RANCHER_DB_SECRET" \
+        --set global.rancher_project="$RANCHER_PROJECT_ID" \
+        --set global.rancher_qpid_secret="$RANCHER_QPID_SECRET" \
+        --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
+        --set global.use_logstash="$USE_LOGSTASH"
+
+    # Remove file, so helm doesn't attempt to re-deploy it
+    rm -f ./deployment/k8s/jobmon/integrator/01_namespace.yaml
+}
