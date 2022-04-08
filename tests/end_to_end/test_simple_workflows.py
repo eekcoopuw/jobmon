@@ -17,10 +17,9 @@ def tool(db_cfg, client_env):
     return tool
 
 
-@pytest.fixture
-def task_template(tool):
+def get_task_template(tool, template_name="my_template"):
     tt = tool.get_task_template(
-        template_name="my_template",
+        template_name=template_name,
         command_template="{arg}",
         node_args=["arg"],
         task_args=[],
@@ -30,11 +29,15 @@ def task_template(tool):
 
 
 @pytest.fixture
-def task_template_fail_if(tool):
+def task_template(tool):
+    return get_task_template(tool)
+
+
+def get_task_template_fail_if(tool, template_name="task_template_fail_if"):
     # set fail always as op args so it can be modified on resume without
     # changing the workflow hash
     tt = tool.get_task_template(
-        template_name="task_template_fail_if",
+        template_name=template_name,
         command_template=(
             "{python} "
             "{script} "
@@ -50,12 +53,11 @@ def task_template_fail_if(tool):
     return tt
 
 
-@pytest.fixture
-def task_template_fail_num(tool):
+def get_task_template_fail_num(tool, template_name="task_template_fail_num"):
     # set fail always as op args so it can be modified on resume without
     # changing the workflow hash
     tt = tool.get_task_template(
-        template_name="task_template_fail_num",
+        template_name=template_name,
         command_template=(
             "{python} "
             "{script} "
@@ -106,23 +108,20 @@ def test_two_tasks_same_command_error(tool, task_template):
         workflow.add_task(t1_again)
 
 
-def test_three_linear_tasks(tool, task_template):
+def test_three_linear_tasks(tool):
     """
     Create and execute a real_dag with three Tasks, one after another:
     a->b->c
     """
 
     workflow = tool.create_workflow(name="test_three_linear_tasks")
+    upstream_tasks = []
+    for phase in [1, 2, 3]:
+        task_template = get_task_template(tool, template_name=f"phase_{phase}")
+        task = task_template.create_task(arg="echo a", upstream_tasks=upstream_tasks)
+        workflow.add_task(task)
+        upstream_tasks = [task]
 
-    task_a = task_template.create_task(arg="echo a", upstream_tasks=[])  # To be clear
-    workflow.add_task(task_a)
-
-    task_b = task_template.create_task(arg="echo b", upstream_tasks=[task_a])
-    workflow.add_task(task_b)
-
-    task_c = task_template.create_task(arg="echo c")
-    workflow.add_task(task_c)
-    task_c.add_upstream(task_b)  # Exercise add_upstream post-instantiation
     workflow_run_status = workflow.run()
 
     assert workflow_run_status == WorkflowRunStatus.DONE
@@ -131,28 +130,28 @@ def test_three_linear_tasks(tool, task_template):
     assert len(workflow.task_errors) == 0
 
 
-def test_fork_and_join_tasks(task_template, tmpdir):
+def test_fork_and_join_tasks(tool, tmpdir):
     """
     Create a small fork and join real_dag with four phases:
      a->b[0..2]->c[0..2]->d
      and execute it
     """
-    from jobmon.client.tool import Tool
-
-    tool = Tool()
     workflow = tool.create_workflow(
         name="test_fork_and_join_tasks",
         default_cluster_name="multiprocess",
         default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
     )
-    task_a = task_template.create_task(arg="sleep 1 && echo a")
+
+    task_template_1 = get_task_template(tool, template_name="phase_1")
+    task_a = task_template_1.create_task(arg="sleep 1 && echo a")
     workflow.add_task(task_a)
 
     # The B's all have varying runtimes,
+    task_template_2 = get_task_template(tool, template_name="phase_2")
     task_b = {}
     for i in range(3):
         sleep_secs = 5 + i
-        task_b[i] = task_template.create_task(
+        task_b[i] = task_template_2.create_task(
             arg=f"sleep {sleep_secs} && echo b", upstream_tasks=[task_a]
         )
         workflow.add_task(task_b[i])
@@ -160,15 +159,17 @@ def test_fork_and_join_tasks(task_template, tmpdir):
     # Each c[i] depends exactly and only on b[i]
     # The c[i] runtimes invert the b's runtimes, hoping to smoke-out any race
     # conditions by creating a collision near d
+    task_template_3 = get_task_template(tool, template_name="phase_3")
     task_c = {}
     for i in range(3):
         sleep_secs = 5 - i
-        task_c[i] = task_template.create_task(
+        task_c[i] = task_template_3.create_task(
             arg=f"sleep {sleep_secs} && echo c", upstream_tasks=[task_b[i]]
         )
         workflow.add_task(task_c[i])
 
-    task_d = task_template.create_task(
+    task_template_4 = get_task_template(tool, template_name="phase_4")
+    task_d = task_template_4.create_task(
         arg="sleep 3 && echo d", upstream_tasks=[task_c[i] for i in range(3)]
     )
     workflow.add_task(task_d)
@@ -193,21 +194,19 @@ def test_fork_and_join_tasks(task_template, tmpdir):
     assert workflow.tasks[hash(task_d)].final_status == TaskStatus.DONE
 
 
-def test_fork_and_join_tasks_with_fatal_error(task_template_fail_if, tmpdir):
+def test_fork_and_join_tasks_with_fatal_error(tool, tmpdir):
     """
     Create the same small fork and join real_dag.
     One of the b-tasks (#1) fails consistently, so c[1] will never be ready.
     """
-    from jobmon.client.tool import Tool
-
-    tool = Tool()
     workflow = tool.create_workflow(
         name="test_fork_and_join_tasks_with_fatal_error",
         default_cluster_name="multiprocess",
         default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
     )
 
-    task_a = task_template_fail_if.create_task(
+    task_template_1 = get_task_template_fail_if(tool, template_name="phase_1")
+    task_a = task_template_1.create_task(
         task_name="task_a",
         python=sys.executable,
         script=remote_sleep_and_write,
@@ -217,6 +216,7 @@ def test_fork_and_join_tasks_with_fatal_error(task_template_fail_if, tmpdir):
     )
     workflow.add_task(task_a)
 
+    task_template_2 = get_task_template_fail_if(tool, template_name="phase_2")
     task_b = {}
     for i in range(3):
         b_output_file_name = os.path.join(str(tmpdir), f"b-{i}.out")
@@ -226,7 +226,7 @@ def test_fork_and_join_tasks_with_fatal_error(task_template_fail_if, tmpdir):
         else:
             fail_always = ""
 
-        task_b[i] = task_template_fail_if.create_task(
+        task_b[i] = task_template_2.create_task(
             task_name=f"task_b_{i}",
             python=sys.executable,
             script=remote_sleep_and_write,
@@ -237,10 +237,11 @@ def test_fork_and_join_tasks_with_fatal_error(task_template_fail_if, tmpdir):
         )
         workflow.add_task(task_b[i])
 
+    task_template_3 = get_task_template_fail_if(tool, template_name="phase_3")
     task_c = {}
     for i in range(3):
         c_output_file_name = os.path.join(str(tmpdir), f"c-{i}.out")
-        task_c[i] = task_template_fail_if.create_task(
+        task_c[i] = task_template_3.create_task(
             task_name=f"task_c_{i}",
             python=sys.executable,
             script=remote_sleep_and_write,
@@ -251,7 +252,8 @@ def test_fork_and_join_tasks_with_fatal_error(task_template_fail_if, tmpdir):
         )
         workflow.add_task(task_c[i])
 
-    task_d = task_template_fail_if.create_task(
+    task_template_4 = get_task_template_fail_if(tool, template_name="phase_4")
+    task_d = task_template_4.create_task(
         task_name="task_d",
         python=sys.executable,
         script=remote_sleep_and_write,
@@ -283,27 +285,21 @@ def test_fork_and_join_tasks_with_fatal_error(task_template_fail_if, tmpdir):
     assert workflow.tasks[hash(task_d)].final_status == TaskStatus.REGISTERING
 
 
-def test_fork_and_join_tasks_with_retryable_error(
-    task_template_fail_if,
-    task_template_fail_num,
-    tmpdir
-):
+def test_fork_and_join_tasks_with_retryable_error(tool, tmpdir):
     """
     Create the same fork and join real_dag with three Tasks a->b[0..3]->c and
     execute it.
     One of the b-tasks fails once, so the retry handler should cover that, and
     the whole real_dag should complete
     """
-    from jobmon.client.tool import Tool
-
-    tool = Tool()
     workflow = tool.create_workflow(
         name="test_fork_and_join_tasks_with_retryable_error",
         default_cluster_name="multiprocess",
         default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
     )
 
-    task_a = task_template_fail_if.create_task(
+    task_template_1 = get_task_template_fail_if(tool, template_name="phase_1")
+    task_a = task_template_1.create_task(
         task_name="task_a",
         python=sys.executable,
         script=remote_sleep_and_write,
@@ -313,6 +309,7 @@ def test_fork_and_join_tasks_with_retryable_error(
     )
     workflow.add_task(task_a)
 
+    task_template_2 = get_task_template_fail_num(tool, template_name="phase_2")
     task_b = {}
     for i in range(3):
         b_output_file_name = os.path.join(str(tmpdir), f"b-{i}.out")
@@ -323,7 +320,7 @@ def test_fork_and_join_tasks_with_retryable_error(
             fail_count = "0"
 
         # task b[1] will fail once
-        task_b[i] = task_template_fail_num.create_task(
+        task_b[i] = task_template_2.create_task(
             task_name=f"task_b_{i}",
             python=sys.executable,
             script=remote_sleep_and_write,
@@ -334,10 +331,11 @@ def test_fork_and_join_tasks_with_retryable_error(
         )
         workflow.add_task(task_b[i])
 
+    task_template_3 = get_task_template_fail_if(tool, template_name="phase_3")
     task_c = {}
     for i in range(3):
         c_output_file_name = os.path.join(str(tmpdir), f"c-{i}.out")
-        task_c[i] = task_template_fail_if.create_task(
+        task_c[i] = task_template_3.create_task(
             task_name=f"task_c_{i}",
             python=sys.executable,
             script=remote_sleep_and_write,
@@ -348,7 +346,8 @@ def test_fork_and_join_tasks_with_retryable_error(
         )
         workflow.add_task(task_c[i])
 
-    task_d = task_template_fail_if.create_task(
+    task_template_4 = get_task_template_fail_if(tool, template_name="phase_4")
+    task_d = task_template_4.create_task(
         task_name="task_d",
         python=sys.executable,
         script=remote_sleep_and_write,
@@ -380,7 +379,7 @@ def test_fork_and_join_tasks_with_retryable_error(
 
 
 @pytest.mark.qsubs_jobs
-def test_bushy_real_dag(task_template_fail_if, tmpdir):
+def test_bushy_real_dag(tool, tmpdir):
     """
     Similar to the a small fork and join real_dag but with connections between
     early and late phases:
@@ -389,16 +388,15 @@ def test_bushy_real_dag(task_template_fail_if, tmpdir):
        c depends on a
        d depends on b
     """
-    from jobmon.client.tool import Tool
 
-    tool = Tool()
     workflow = tool.create_workflow(
         name="test_fork_and_join_tasks_with_fatal_error",
         default_cluster_name="multiprocess",
         default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
     )
 
-    task_a = task_template_fail_if.create_task(
+    task_template_1 = get_task_template_fail_if(tool, template_name="phase_1")
+    task_a = task_template_1.create_task(
         task_name="task_a",
         python=sys.executable,
         script=remote_sleep_and_write,
@@ -409,6 +407,7 @@ def test_bushy_real_dag(task_template_fail_if, tmpdir):
     workflow.add_task(task_a)
 
     # The B's all have varying runtimes,
+    task_template_2 = get_task_template_fail_if(tool, template_name="phase_2")
     task_b = {}
     for i in range(3):
         task_name = f"b-{i}"
@@ -416,7 +415,7 @@ def test_bushy_real_dag(task_template_fail_if, tmpdir):
         sleep_secs = 5 + i
 
         # task b[1] will fail once
-        task_b[i] = task_template_fail_if.create_task(
+        task_b[i] = task_template_2.create_task(
             task_name=task_name,
             python=sys.executable,
             script=remote_sleep_and_write,
@@ -430,12 +429,13 @@ def test_bushy_real_dag(task_template_fail_if, tmpdir):
     # Each c[i] depends exactly and only on b[i]
     # The c[i] runtimes invert the b's runtimes, hoping to smoke-out any race
     # conditions by creating a collision near d
+    task_template_3 = get_task_template_fail_if(tool, template_name="phase_3")
     task_c = {}
     for i in range(3):
         task_name = f"c-{i}"
         sleep_secs = 5 - i
         c_output_file_name = os.path.join(str(tmpdir), f"{task_name}.out")
-        task_c[i] = task_template_fail_if.create_task(
+        task_c[i] = task_template_3.create_task(
             task_name=task_name,
             python=sys.executable,
             script=remote_sleep_and_write,
@@ -446,9 +446,10 @@ def test_bushy_real_dag(task_template_fail_if, tmpdir):
         )
         workflow.add_task(task_c[i])
 
+    task_template_4 = get_task_template_fail_if(tool, template_name="phase_4")
     b_and_c = [task_b[i] for i in range(3)]
     b_and_c += [task_c[i] for i in range(3)]
-    task_d = task_template_fail_if.create_task(
+    task_d = task_template_4.create_task(
         task_name="task_d",
         python=sys.executable,
         script=remote_sleep_and_write,

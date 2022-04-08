@@ -478,3 +478,32 @@ class SerializeTaskResources:
             "task_resources_type_id": wire_tuple[2],
             "requested_resources": wire_tuple[3]
         }
+
+
+class SerializeTaskInstanceBatch:
+    """"""
+
+    @staticmethod
+    def to_wire(
+        array_id: int,
+        array_batch_num: int,
+        task_resources_id: int,
+        task_instance_ids: List[int]
+    ) -> tuple:
+        """"""
+        return (
+            array_id,
+            array_batch_num,
+            task_resources_id,
+            task_instance_ids,
+        )
+
+    @staticmethod
+    def kwargs_from_wire(wire_tuple: tuple) -> dict:
+        """"""
+        return {
+            "array_id": wire_tuple[0],
+            "array_batch_num": wire_tuple[1],
+            "task_resources_id": wire_tuple[2],
+            "task_instance_ids": wire_tuple[3]
+        }

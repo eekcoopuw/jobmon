@@ -51,6 +51,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
         requester=workflow.requester,
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     app = db_cfg["app"]
@@ -151,6 +152,7 @@ def test_triaging_to_specific_error(tool, db_cfg, client_env, task_template,
         requester=workflow.requester,
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
     distributor = MultiprocessDistributor(5)

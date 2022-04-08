@@ -25,28 +25,7 @@ class DistributorWorkflowRun:
         self.workflow_run_id = workflow_run_id
 
         self.status = ""
-        self.last_heartbeat: float = time.time()
         self.requester = requester
-
-    # def log_workflow_run_heartbeat(self, next_report_increment: float) -> None:
-    #     app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
-    #     return_code, response = self.requester.send_request(
-    #         app_route=app_route,
-    #         message={
-    #             "next_report_increment": next_report_increment,
-    #             "status": WorkflowRunStatus.RUNNING,
-    #         },
-    #         request_type="post",
-    #         logger=logger,
-    #     )
-    #     if http_request_ok(return_code) is False:
-    #         raise InvalidResponse(
-    #             f"Unexpected status code {return_code} from POST "
-    #             f"request through route {app_route}. Expected "
-    #             f"code 200. Response content: {response}"
-    #         )
-
-    #     self.status = response["message"]
 
     def _update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""

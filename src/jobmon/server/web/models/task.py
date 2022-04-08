@@ -53,7 +53,7 @@ class Task(DB.Model):
     resource_scales = DB.Column(DB.String(1000), default=None)
     fallback_queues = DB.Column(DB.String(1000), default=None)
     status = DB.Column(DB.String(1), DB.ForeignKey("task_status.id"))
-    submitted_date = DB.Column(DB.DateTime, default=func.now())
+    submitted_date = DB.Column(DB.DateTime)
     status_date = DB.Column(DB.DateTime, default=func.now())
 
     # ORM relationships
@@ -66,8 +66,12 @@ class Task(DB.Model):
         (TaskStatus.REGISTERING, TaskStatus.QUEUED),
         (TaskStatus.ADJUSTING_RESOURCES, TaskStatus.QUEUED),
         (TaskStatus.QUEUED, TaskStatus.INSTANTIATING),
-        (TaskStatus.INSTANTIATING, TaskStatus.RUNNING),
+        (TaskStatus.INSTANTIATING, TaskStatus.LAUNCHED),
         (TaskStatus.INSTANTIATING, TaskStatus.ERROR_RECOVERABLE),
+        (TaskStatus.LAUNCHED, TaskStatus.RUNNING),
+        (TaskStatus.LAUNCHED, TaskStatus.ERROR_RECOVERABLE),
+        (TaskStatus.INSTANTIATING, TaskStatus.ERROR_RECOVERABLE),
+        (TaskStatus.INSTANTIATING, TaskStatus.RUNNING),
         (TaskStatus.RUNNING, TaskStatus.DONE),
         (TaskStatus.RUNNING, TaskStatus.ERROR_RECOVERABLE),
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.ADJUSTING_RESOURCES),

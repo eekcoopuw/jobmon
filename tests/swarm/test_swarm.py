@@ -94,6 +94,7 @@ def test_sync_statuses(client_env, tool, task_template):
     assert now is not None
 
     # distribute the task
+    swarm.set_initial_fringe()
     swarm.process_commands()
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
@@ -123,7 +124,7 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
 
         def submit_to_batch_distributor(
             self, command: str, name: str, requested_resources
-        ) -> int:
+        ) -> str:
             logger.info("Now entering WedgedExecutor execute")
 
             cli = WorkerNodeCLI()
@@ -166,7 +167,7 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
                     self.DB.session.execute(task_query)
                     self.DB.session.commit()
 
-                exec_id = 123456789
+                exec_id = str(123456789)
             else:
                 exec_id = super().submit_to_batch_distributor(
                     command, name, requested_resources
@@ -176,9 +177,9 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
 
     workflow = tool.create_workflow()
     workflow.requester = requester_no_retry
-    t1 = tool.active_task_templates["simple_template"].create_task(arg="sleep 3")
-    t2 = tool.active_task_templates["simple_template"].create_task(arg="sleep 5")
-    t3 = tool.active_task_templates["simple_template"].create_task(
+    t1 = tool.active_task_templates["phase_1"].create_task(arg="sleep 3")
+    t2 = tool.active_task_templates["phase_1"].create_task(arg="sleep 5")
+    t3 = tool.active_task_templates["phase_2"].create_task(
         arg="sleep 7", upstream_tasks=[t2]
     )
     workflow.add_tasks([t1, t2, t3])
@@ -193,6 +194,7 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
     distributor_service = DistributorService(
         cluster=distributor,
         requester=workflow.requester,
+        raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     wfr._update_status(WorkflowRunStatus.LAUNCHED)
@@ -203,18 +205,20 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
         requester=workflow.requester,
     )
     swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
     swarm.process_commands()
 
-    # launch task on executor
+    # check that we get the instantiating signal
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
-    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+    swarm.synchronize_state()
+    assert swarm.tasks[t1.task_id].status == TaskStatus.INSTANTIATING
+    assert swarm.tasks[t2.task_id].status == TaskStatus.INSTANTIATING
+
     # run the normal workflow sync protocol. only t1 should be done
-    with pytest.raises(RuntimeError):
-        swarm.run(
-            distributor_alive_callable=lambda: True, seconds_until_timeout=1
-        )
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+    swarm.synchronize_state()
     assert swarm.tasks[t1.task_id].status == TaskStatus.DONE
-    assert swarm.tasks[t2.task_id].status == TaskStatus.QUEUED
+    assert swarm.tasks[t2.task_id].status == TaskStatus.INSTANTIATING
     assert swarm.tasks[t3.task_id].status == TaskStatus.REGISTERING
 
     # Force the workflow run back to instantiating state, since the distributor service
@@ -244,18 +248,26 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
     assert swarm.ready_to_run[0] == swarm.tasks[t3.task_id]
 
 
-def test_fail_fast(tool, task_template):
+def test_fail_fast(tool):
     """set up a dag where a middle job fails. The fail_fast parameter should
     ensure that not all tasks finish"""
 
     # The sleep for t3 must be long so that the swarm has time to notice that t2
     # died and react accordingly.
     workflow = tool.create_workflow(name="test_fail_fast")
-    t1 = task_template.create_task(arg="sleep 1")
-    t2 = task_template.create_task(arg="erroring_out 1", upstream_tasks=[t1], max_attempts=1)
-    t3 = task_template.create_task(arg="sleep 20", upstream_tasks=[t1])
-    t4 = task_template.create_task(arg="sleep 3", upstream_tasks=[t3])
-    t5 = task_template.create_task(arg="sleep 4", upstream_tasks=[t4])
+    t1 = tool.active_task_templates["simple_template"].create_task(arg="sleep 1")
+    t2 = tool.active_task_templates["phase_1"].create_task(
+        arg="erroring_out 1", upstream_tasks=[t1], max_attempts=1
+    )
+    t3 = tool.active_task_templates["phase_1"].create_task(
+        arg="sleep 20", upstream_tasks=[t1]
+    )
+    t4 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 3", upstream_tasks=[t3]
+    )
+    t5 = tool.active_task_templates["phase_3"].create_task(
+        arg="sleep 4", upstream_tasks=[t4]
+    )
 
     workflow.add_tasks([t1, t2, t3, t4, t5])
     workflow.bind()
@@ -279,12 +291,18 @@ def test_propagate_result(tool, task_template):
 
     workflow = tool.create_workflow(name="test_propagate_result")
 
-    t1 = task_template.create_task(arg="echo 1")
-    t2 = task_template.create_task(arg="echo 2")
-    t3 = task_template.create_task(arg="echo 3")
-    t4 = task_template.create_task(arg="echo 4", upstream_tasks=[t1, t2, t3])
-    t5 = task_template.create_task(arg="echo 5", upstream_tasks=[t1, t2, t3])
-    t6 = task_template.create_task(arg="echo 6", upstream_tasks=[t1, t2, t3])
+    t1 = tool.active_task_templates["phase_1"].create_task(arg="echo 1")
+    t2 = tool.active_task_templates["phase_1"].create_task(arg="echo 2")
+    t3 = tool.active_task_templates["phase_1"].create_task(arg="echo 3")
+    t4 = tool.active_task_templates["phase_2"].create_task(
+        arg="echo 4", upstream_tasks=[t1, t2, t3]
+    )
+    t5 = tool.active_task_templates["phase_2"].create_task(
+        arg="echo 5", upstream_tasks=[t1, t2, t3]
+    )
+    t6 = tool.active_task_templates["phase_2"].create_task(
+        arg="echo 6", upstream_tasks=[t1, t2, t3]
+    )
     workflow.add_tasks([t1, t2, t3, t4, t5, t6])
     workflow.bind()
     wfr = workflow._create_workflow_run()
@@ -344,7 +362,7 @@ def test_callable_returns_valid_object(tool, task_template):
             swarm.run(distributor.alive, seconds_until_timeout=1)
         except RuntimeError:
             pass
-    assert swarm.tasks[task.task_id].task_resources.id is not None
+    assert swarm.tasks[task.task_id].current_task_resources.id is not None
 
 
 def test_callable_returns_wrong_object(tool, task_template):
@@ -366,7 +384,7 @@ def test_callable_returns_wrong_object(tool, task_template):
     swarm = SwarmWorkflowRun(workflow_run_id=wfr.workflow_run_id)
     swarm.from_workflow(wf)
     with pytest.raises(CallableReturnedInvalidObject):
-        swarm.process_commands()
+        swarm.set_initial_fringe()
 
 
 def test_callable_fails_bad_filepath(tool, task_template):
@@ -389,17 +407,17 @@ def test_callable_fails_bad_filepath(tool, task_template):
     swarm = SwarmWorkflowRun(workflow_run_id=wfr.workflow_run_id)
     swarm.from_workflow(wf)
     with pytest.raises(FileNotFoundError):
-        swarm.process_commands()
+        swarm.set_initial_fringe()
 
 
-def test_swarm_fails(tool, task_template):
+def test_swarm_fails(tool):
     """Test the swarm exits on error appropriately."""
 
     workflow = tool.create_workflow(name="test_propagate_result")
 
-    t1 = task_template.create_task(arg="echo 1")
-    t2 = task_template.create_task(arg="exit 1", max_attempts=1)
-    t3 = task_template.create_task(arg="echo 3", upstream_tasks=[t2])
+    t1 = tool.active_task_templates["phase_1"].create_task(arg="echo 1")
+    t2 = tool.active_task_templates["phase_1"].create_task(arg="exit 1", max_attempts=1)
+    t3 = tool.active_task_templates["phase_2"].create_task(arg="echo 3", upstream_tasks=[t2])
     workflow.add_tasks([t1, t2, t3])
     workflow.bind()
     wfr = workflow._create_workflow_run()
@@ -424,7 +442,7 @@ def test_swarm_fails(tool, task_template):
     assert not swarm.active_tasks
 
 
-def test_swarm_terminate(tool, task_template):
+def test_swarm_terminate(tool):
     """Test that when the workflow run terminates properly."""
 
     class MockSwarm(SwarmWorkflowRun):
@@ -442,8 +460,10 @@ def test_swarm_terminate(tool, task_template):
 
     workflow = tool.create_workflow(name="test_terminate")
 
-    t1 = task_template.create_task(arg="sleep 1000", max_attempts=1)  # Long sleep time
-    t2 = task_template.create_task(arg="sleep 2", upstream_tasks=[t1])
+    t1 = tool.active_task_templates["phase_1"].create_task(
+        arg="sleep 1000", max_attempts=1
+    )  # Long sleep time
+    t2 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t1])
     workflow.add_tasks([t1, t2])
     workflow.bind()
     wfr = workflow._create_workflow_run()

@@ -72,9 +72,9 @@ class TaskInstance(DB.Model):
         DB.ForeignKey("task_instance_status.id"),
         default=TaskInstanceStatus.QUEUED,
     )
-    submitted_date = DB.Column(DB.DateTime, default=func.now())
+    submitted_date = DB.Column(DB.DateTime)
     status_date = DB.Column(DB.DateTime, default=func.now())
-    report_by_date = DB.Column(DB.DateTime, default=func.now())
+    report_by_date = DB.Column(DB.DateTime)
 
     # ORM relationships
     task = DB.relationship("Task", back_populates="task_instances")
@@ -146,6 +146,8 @@ class TaskInstance(DB.Model):
         # race condition. this is unlikely but happens and is valid for the
         # purposes of the FSM
         (TaskInstanceStatus.RUNNING, TaskInstanceStatus.LAUNCHED),
+        # A worker node instance can error before the distributor moves it to launched.
+        (TaskInstanceStatus.ERROR, TaskInstanceStatus.LAUNCHED),
         # task instance stops logging heartbeats and reconciler is looking for
         # remote exit status but can't find it so logs an unknown error. task
         # finishes with an application error. We can't update state because
