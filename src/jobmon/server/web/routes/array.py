@@ -196,7 +196,7 @@ def log_array_distributor_id(array_id: int):
         update_task_stmt = (
             update(Task).
             where(
-                Task.id in (
+                Task.id.in_(
                     select(
                         TaskInstance.task_id
                     ).where(
@@ -210,7 +210,7 @@ def log_array_distributor_id(array_id: int):
                 status=TaskStatus.LAUNCHED,
                 status_date=func.now()
             )
-        )
+        ).execution_options(synchronize_session=False)
         DB.session.execute(update_task_stmt)
 
         # Transition all the task instances in the batch
