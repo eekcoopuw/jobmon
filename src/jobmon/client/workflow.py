@@ -416,7 +416,10 @@ class Workflow(object):
         Returns:
             str of WorkflowRunStatus
         """
-        ClientLogging().attach("jobmon.client")
+        if setup_logging:
+            ClientLogging().attach("jobmon.client")
+            client_logger = logging.getLogger("jobmon.client")
+            client_logger.setLevel(logging.INFO)
 
         # bind to database
         logger.info("Adding Workflow metadata to database")
