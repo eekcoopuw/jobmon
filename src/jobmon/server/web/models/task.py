@@ -71,6 +71,7 @@ class Task(DB.Model):
         (TaskStatus.LAUNCHED, TaskStatus.RUNNING),
         (TaskStatus.LAUNCHED, TaskStatus.ERROR_RECOVERABLE),
         (TaskStatus.INSTANTIATING, TaskStatus.ERROR_RECOVERABLE),
+        (TaskStatus.INSTANTIATING, TaskStatus.RUNNING),
         (TaskStatus.RUNNING, TaskStatus.DONE),
         (TaskStatus.RUNNING, TaskStatus.ERROR_RECOVERABLE),
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.ADJUSTING_RESOURCES),

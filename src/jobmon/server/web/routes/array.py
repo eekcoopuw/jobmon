@@ -226,7 +226,7 @@ def log_array_distributor_id(array_id: int):
                    status=TaskInstanceStatus.LAUNCHED,
                    status_date=func.now(),
                    report_by_date=func.ADDTIME(func.now(), func.SEC_TO_TIME(next_report)))
-        )
+        ).execution_options(synchronize_session=False)
 
         DB.session.execute(update_stmt, params)
         DB.session.commit()
