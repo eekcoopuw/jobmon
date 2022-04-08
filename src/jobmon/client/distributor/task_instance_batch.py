@@ -5,6 +5,7 @@ import hashlib
 import logging
 from typing import Dict, Set, TYPE_CHECKING
 
+from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskResources
@@ -72,7 +73,43 @@ class TaskInstanceBatch:
         for task_instance in sorted(self.task_instances):
             task_instance.array_step_id = array_step_id
             array_step_id += 1
+
         self.load_requested_resources()
+
+    def transition_to_launched(
+            self, distributor_id_map: dict, next_report_by: float
+    ) -> None:
+        """Transition all associated task instances to LAUNCHED state."""
+
+        # Assertion that all bound task instances are indeed instantiated
+        for ti in self.task_instances:
+            if ti.status != TaskInstanceStatus.INSTANTIATED:
+                raise ValueError(f"{ti} is not in INSTANTIATED state, prior to launching.")
+
+        app_route = f'/array/{self.array_id}/log_distributor_id'
+        data = {
+            'batch_number': self.batch_number,
+            'distributor_id_map': distributor_id_map,
+            'next_report_increment': next_report_by
+        }
+
+        rc, resp = self.requester.send_request(
+            app_route=app_route,
+            message=data,
+            request_type='post'
+        )
+
+        if not http_request_ok(rc):
+            raise InvalidResponse(
+                f"Unexpected status code {rc} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {resp}"
+            )
+
+        # Update status and distributor id in memory for all task instances
+        for ti in self.task_instances:
+            ti.status = TaskInstanceStatus.LAUNCHED
+            ti.distributor_id = resp['task_instance_map'][str(ti.task_instance_id)]
 
     def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""

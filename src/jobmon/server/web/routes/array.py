@@ -4,9 +4,10 @@ from http import HTTPStatus as StatusCodes
 from typing import Any
 
 from flask import jsonify, request
-from sqlalchemy import func, insert, literal_column, select, text, update
+from sqlalchemy import bindparam, func, insert, literal_column, select, text, update
 from werkzeug.local import LocalProxy
 
+from jobmon.constants import TaskInstanceStatus
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.array import Array
@@ -175,3 +176,75 @@ def record_array_batch_num(array_id: int) -> Any:
     resp = jsonify(tasks_by_status=result_dict)
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@finite_state_machine.route("/array/<array_id>/log_distributor_id", methods=['POST'])
+def log_array_distributor_id(array_id: int):
+
+    bind_to_logger(array_id=array_id)
+
+    data = request.get_json()
+    batch_num = data["batch_number"]
+    distributor_id_map = data["distributor_id_map"]
+    next_report = data['next_report_increment']
+
+    # Create a list of dicts out of the distributor id map.
+    params = [{'step_id': key, 'distributor_id': val}
+              for key, val in distributor_id_map.items()]
+    try:
+        # Acquire a lock and update tasks to launched
+        update_task_stmt = (
+            update(Task).
+            where(
+                Task.id.in_(
+                    select(
+                        TaskInstance.task_id
+                    ).where(
+                        TaskInstance.array_id == array_id,
+                        TaskInstance.array_batch_num == batch_num
+                    )
+                ),
+                Task.status == TaskStatus.INSTANTIATING
+            ).
+            values(
+                status=TaskStatus.LAUNCHED,
+                status_date=func.now()
+            )
+        ).execution_options(synchronize_session=False)
+        DB.session.execute(update_task_stmt)
+
+        # Transition all the task instances in the batch
+        # Bypassing the ORM for performance reasons.
+        update_stmt = (
+            update(TaskInstance).
+            where(TaskInstance.array_id == array_id,
+                  TaskInstance.status == TaskInstanceStatus.INSTANTIATED,
+                  TaskInstance.array_batch_num == batch_num,
+                  TaskInstance.array_step_id == bindparam('step_id')
+                  ).
+            values(distributor_id=bindparam('distributor_id'),
+                   status=TaskInstanceStatus.LAUNCHED,
+                   status_date=func.now(),
+                   report_by_date=func.ADDTIME(func.now(), func.SEC_TO_TIME(next_report)))
+        ).execution_options(synchronize_session=False)
+
+        DB.session.execute(update_stmt, params)
+        DB.session.commit()
+
+        # Return the affected rows and their distributor ids
+        select_stmt = (
+            select(TaskInstance.id, TaskInstance.distributor_id).
+            where(TaskInstance.status == TaskInstanceStatus.LAUNCHED,
+                  TaskInstance.array_batch_num == batch_num,
+                  TaskInstance.array_id == array_id)
+        )
+
+        res = DB.session.execute(select_stmt).fetchall()
+        DB.session.commit()
+
+        resp = jsonify(task_instance_map={ti.id: ti.distributor_id for ti in res})
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception:
+        DB.session.rollback()
+        raise
