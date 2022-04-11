@@ -652,17 +652,18 @@ def instantiate_task_instances() -> Any:
         # update the task table where FSM allows it
         task_update = update(
             Task
+        ).where(
+            Task.id.in_(
+                select(
+                    TaskInstance.task_id
+                ).where(
+                    TaskInstance.id.in_(task_instance_ids_list)
+                )
+            ),
+            (Task.status == TaskStatus.QUEUED)
         ).values(
             status=TaskStatus.INSTANTIATING,
             status_date=func.now()
-        ).where(
-            select(
-                Task
-            ).where(
-                (Task.id == TaskInstance.task_id)
-                & (Task.status == TaskStatus.QUEUED)
-                & TaskInstance.id.in_(task_instance_ids_list)
-            ).exists()
         ).execution_options(synchronize_session=False)
         DB.session.execute(task_update)
 

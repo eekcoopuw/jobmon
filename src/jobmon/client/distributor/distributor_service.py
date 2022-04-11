@@ -390,9 +390,11 @@ class DistributorService:
         queued_task_instances = self._task_instance_status_map[
             TaskInstanceStatus.QUEUED
         ]
-        self.distributor_commands.append(
-            DistributorCommand(self.instantiate_task_instances, list(queued_task_instances))
-        )
+        if queued_task_instances:
+            self.distributor_commands.append(
+                DistributorCommand(self.instantiate_task_instances,
+                                   list(queued_task_instances))
+            )
 
     def _check_instantiated_for_work(self) -> None:
         # compute the task_instances that can be launched
