@@ -607,12 +607,15 @@ def instantiate_task_instances() -> Any:
         ).where(
             Task.id.in_(
                 select(
-                    TaskInstance.task_id
-                ).where(
-                    TaskInstance.id.in_(task_instance_ids_list)
+                    Task.id
+                ).join(
+                    TaskInstance, TaskInstance.task_id == Task.id
+                ).
+                where(
+                    TaskInstance.id.in_(task_instance_ids_list),
+                    (Task.status == TaskStatus.QUEUED)
                 )
-            ),
-            (Task.status == TaskStatus.QUEUED)
+            )
         ).values(
             status=TaskStatus.INSTANTIATING,
             status_date=func.now()
