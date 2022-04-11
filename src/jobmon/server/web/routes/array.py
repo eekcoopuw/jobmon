@@ -112,8 +112,8 @@ def record_array_batch_num(array_id: int) -> Any:
         update_stmt = update(
             Task
         ).where(
-            Task.id.in_(task_ids)
-            & Task.status.in_([TaskStatus.REGISTERING, TaskStatus.ADJUSTING_RESOURCES])
+            Task.id.in_(task_ids),
+            Task.status.in_([TaskStatus.REGISTERING, TaskStatus.ADJUSTING_RESOURCES])
         ).values(
             status=TaskStatus.QUEUED,
             status_date=func.now(),
