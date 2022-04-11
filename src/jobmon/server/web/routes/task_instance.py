@@ -610,8 +610,7 @@ def instantiate_task_instances() -> Any:
                     Task.id
                 ).join(
                     TaskInstance, TaskInstance.task_id == Task.id
-                ).
-                where(
+                ).where(
                     TaskInstance.id.in_(task_instance_ids_list),
                     (Task.status == TaskStatus.QUEUED)
                 )
@@ -629,8 +628,9 @@ def instantiate_task_instances() -> Any:
             TaskInstance.id.in_(
                 select(
                     TaskInstance.id
+                ).join(
+                    Task, TaskInstance.task_id == Task.id
                 ).where(
-                    (Task.id == TaskInstance.task_id),
                     # a successful transition
                     (Task.status == TaskStatus.INSTANTIATING),
                     # and part of the current set

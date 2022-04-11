@@ -294,15 +294,20 @@ class DistributorService:
                 task_instance_ids_to_heartbeat.append(task_instance_launched.task_instance_id)
 
         """Log the heartbeat to show that the task instance is still alive."""
-        logger.debug(f"Logging heartbeat for task_instance {task_instance_ids_to_heartbeat}")
+        logger.info(f"Logging heartbeat for task_instance {task_instance_ids_to_heartbeat}")
         message: Dict = {"next_report_increment": self._next_report_increment,
                          "task_instance_ids": task_instance_ids_to_heartbeat}
-        rc, _ = self.requester.send_request(
+        app_route = "/task_instance/log_report_by/batch"
+        return_code, result = self.requester.send_request(
             app_route="/task_instance/log_report_by/batch",
             message=message,
             request_type="post",
             logger=logger,
         )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"{app_route} Returned={return_code}. Message={message}"
+            )
 
     def _initialize_signal_handlers(self):
         def handle_sighup(signal, frame):
