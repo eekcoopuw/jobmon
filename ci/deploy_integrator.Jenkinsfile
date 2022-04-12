@@ -83,18 +83,13 @@ pipeline {
                   deploy_integrator_to_k8s \
                       ${WORKSPACE} \
                       ${JOBMON_CONTAINER_URI} \
-                      ${METALLB_IP_POOL} \
                       ${K8S_NAMESPACE} \
                       ${RANCHER_PROJECT_ID} \
                       ${RANCHER_DB_SECRET} \
-                      ${RANCHER_SLACK_SECRET} \
                       ${RANCHER_QPID_SECRET} \
-                      ${KUBECONFIG} \
-                      ${USE_LOGSTASH} \
                       ${JOBMON_VERSION} \
-                      ${K8S_REAPER_NAMESPACE} \
-                      ${DEPLOY_JOBMON} \
-                      ${DEPLOY_ELK}
+                      ${KUBECONFIG}
+
                '''
           } // end credentials
         } // end node
