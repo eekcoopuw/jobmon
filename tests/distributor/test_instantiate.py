@@ -175,6 +175,8 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
     assert len(res) == 2
     assert res[0].status == "O"
     assert res[1].status == "O"
+    assert res[0].distributor_id is not None
+    assert res[1].distributor_id is not None
 
     # Check that distributor id is logged correctly
     submitted_job_id = distributor_service.cluster._next_job_id - 1
@@ -478,14 +480,9 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
 
     # Post the transition route, check what comes back
     resp = web_server_in_memory.post(
-        '/array/1/log_distributor_id',
+        '/array/1/transition_to_launched',
         json={
             'batch_number': 1,
-            'distributor_id_map': {
-                '0': '123_1',
-                '1': '123_2',
-                '2': '123_3'
-            },
             'next_report_increment': 5 * 60  # 5 minutes to report
         }
     )
@@ -500,9 +497,32 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
 
         assert tnew.status == TaskStatus.LAUNCHED
         assert [ti1_r.status, ti2_r.status, ti3_r.status] == [TaskInstanceStatus.LAUNCHED] * 3
-        assert [ti1_r.distributor_id, ti2_r.distributor_id, ti3_r.distributor_id] == \
-            ['123_1', '123_2', '123_3']
+
         # Check a single datetime
+        submitted_date = ti1_r.submitted_date
         next_update_date = ti1_r.report_by_date
         assert next_update_date > datetime.now()
         assert next_update_date <= timedelta(minutes=5) + datetime.now()
+        assert datetime.now() - timedelta(minutes=5) < submitted_date < datetime.now()
+
+    # Post a request to log the distributor ids
+    resp = web_server_in_memory.post(
+        '/array/1/log_distributor_id',
+        json={
+            'array_batch_num': 1,
+            'distributor_id_map': {
+                '0': '123_1',
+                '1': '123_2',
+                '2': '123_3'
+            }
+        }
+    )
+    assert resp.status_code == 200
+
+    with app.app_context():
+        ti1_r, ti2_r, ti3_r = db.session.query(TaskInstance).where(
+            TaskInstance.id.in_([ti1.id, ti2.id, ti3.id])
+        ).all()
+
+        assert [ti1_r.distributor_id, ti2_r.distributor_id, ti3_r.distributor_id] == \
+               ['123_1', '123_2', '123_3']
