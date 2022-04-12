@@ -280,7 +280,6 @@ deploy_integrator_to_k8s () {
     JOBMON_VERSION=${7}
     KUBECONFIG=${8}
 
-    echo "**************************************************"
     echo "WORKSPACE $WORKSPACE"
     echo "JOBMON_CONTAINER_URI $JOBMON_CONTAINER_URI"
     echo "K8S_NAMESPACE $K8S_NAMESPACE"
@@ -289,14 +288,12 @@ deploy_integrator_to_k8s () {
     echo "RANCHER_QPID_SECRET $RANCHER_QPID_SECRET"
     echo "KUBECONFIG $KUBECONFIG"
     echo "JOBMON_VERSION $JOBMON_VERSION"
-    
+
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
     docker pull $KUBECTL_CONTAINER
 
     # Check if namespace exists, if not create it: render 01_namespace.yaml and apply it
-    echo "K8S_NAMESPACE $K8S_NAMESPACE"
-    echo "KUBECTL_CONTAINER $KUBECTL_CONTAINER"
-    echo "*************************************************"
+
     echo "KUBECONFIG $KUBECONFIG"
     docker run -t \
         --rm \
@@ -304,7 +301,7 @@ deploy_integrator_to_k8s () {
         -v "$WORKSPACE/deployment/k8s:/data" \
         $KUBECTL_CONTAINER \
             get namespace "$K8S_NAMESPACE"\
-    echo "*************************************************"
+
     namespace_exists=$?
     if [[ $namespace_exists -ne 0 ]]
     then
