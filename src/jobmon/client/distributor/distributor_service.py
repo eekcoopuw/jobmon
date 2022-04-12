@@ -61,14 +61,12 @@ class DistributorService:
         self._status_processing_order = [
             TaskInstanceStatus.QUEUED,
             TaskInstanceStatus.INSTANTIATED,
-            TaskInstanceStatus.LAUNCHED,
             TaskInstanceStatus.TRIAGING,
             TaskInstanceStatus.KILL_SELF,
         ]
         gen_map: Dict[str, Callable[..., Generator[DistributorCommand, None, None]]] = {
             TaskInstanceStatus.QUEUED: self._check_queued_for_work,
             TaskInstanceStatus.INSTANTIATED: self._check_instantiated_for_work,
-            TaskInstanceStatus.LAUNCHED: self._check_launched_for_work,
             TaskInstanceStatus.TRIAGING: self._check_triaging_for_work,
             TaskInstanceStatus.KILL_SELF: self._check_kill_self_for_work,
         }
@@ -147,13 +145,9 @@ class DistributorService:
         self._refresh_status_from_db(status)
 
         # generate new distributor commands from this status
-        try:
-            command_generator_callable = self._command_generator_map[status]
-            command_generator = command_generator_callable()
-            self._distributor_commands = it.chain(command_generator)
-        except KeyError:
-            # no command generators based on this status. EG: RUNNING
-            self._distributor_commands = it.chain([])
+        command_generator_callable = self._command_generator_map[status]
+        command_generator = command_generator_callable()
+        self._distributor_commands = it.chain(command_generator)
 
         # this way we always process at least 1 command
         keep_iterating = True
@@ -427,10 +421,6 @@ class DistributorService:
 
         for batch in task_instance_batches:
             yield DistributorCommand(self.launch_task_instance_batch, batch)
-
-    def _check_launched_for_work(self) -> Generator[DistributorCommand, None, None]:
-        # no actual work for launched
-        pass
 
     def _check_triaging_for_work(self) -> Generator[DistributorCommand, None, None]:
         """For TaskInstances with TRIAGING status, check the nature of no heartbeat,
