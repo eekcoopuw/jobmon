@@ -286,9 +286,23 @@ deploy_integrator_to_k8s () {
     DEPLOY_JOBMON=${13}
     DEPLOY_ELK=${14}
 
-    echo "Pull HELM_CONTAINER $HELM_CONTAINER"
+    echo "**************************************************"
+    echo "WORKSPACE $WORKSPACE"
+    echo "JOBMON_CONTAINER_URI $JOBMON_CONTAINER_URI"
+    echo "METALLB_IP_POOL $METALLB_IP_POOL"
+    echo "K8S_NAMESPACE $K8S_NAMESPACE"
+    echo "RANCHER_PROJECT_ID $RANCHER_PROJECT_ID"
+    echo "RANCHER_DB_SECRET $RANCHER_DB_SECRET"
+    echo "RANCHER_SLACK_SECRET $RANCHER_SLACK_SECRET"
+    echo "RANCHER_QPID_SECRET $RANCHER_QPID_SECRET"
+    echo "KUBECONFIG $KUBECONFIG"
+    echo "USE_LOGSTASH $USE_LOGSTASH"
+    echo "JOBMON_VERSION $JOBMON_VERSION"
+    echo "K8S_REAPER_NAMESPACE $K8S_REAPER_NAMESPACE"
+    echo "DEPLOY_JOBMON $DEPLOY_JOBMON"
+    echo "DEPLOY_ELK $DEPLOY_ELK"
+
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
-    echo "Pull KUBECTL_CONTAINER $KUBECTL_CONTAINER"
     docker pull $KUBECTL_CONTAINER
 
     # Check if namespace exists, if not create it: render 01_namespace.yaml and apply it
