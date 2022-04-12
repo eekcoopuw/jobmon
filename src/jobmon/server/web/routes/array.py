@@ -178,19 +178,15 @@ def record_array_batch_num(array_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/array/<array_id>/log_distributor_id", methods=['POST'])
-def log_array_distributor_id(array_id: int):
+@finite_state_machine.route("/array/<array_id>/transition_to_launched", methods=['POST'])
+def transition_array_to_launched(array_id: int):
 
     bind_to_logger(array_id=array_id)
 
     data = request.get_json()
     batch_num = data["batch_number"]
-    distributor_id_map = data["distributor_id_map"]
     next_report = data['next_report_increment']
 
-    # Create a list of dicts out of the distributor id map.
-    params = [{'step_id': key, 'distributor_id': val}
-              for key, val in distributor_id_map.items()]
     try:
         # Acquire a lock and update tasks to launched
         update_task_stmt = (
@@ -219,24 +215,65 @@ def log_array_distributor_id(array_id: int):
             update(TaskInstance).
             where(TaskInstance.array_id == array_id,
                   TaskInstance.status == TaskInstanceStatus.INSTANTIATED,
-                  TaskInstance.array_batch_num == batch_num,
-                  TaskInstance.array_step_id == bindparam('step_id')
+                  TaskInstance.array_batch_num == batch_num
                   ).
-            values(distributor_id=bindparam('distributor_id'),
+            values(
                    status=TaskInstanceStatus.LAUNCHED,
+                   submitted_date=func.now(),
                    status_date=func.now(),
                    report_by_date=func.ADDTIME(func.now(), func.SEC_TO_TIME(next_report)))
         ).execution_options(synchronize_session=False)
 
-        DB.session.execute(update_stmt, params)
+        DB.session.execute(update_stmt)
         DB.session.commit()
+
+        resp = jsonify()
+        resp.status_code = StatusCodes.OK
+        return resp
+    except Exception:
+        DB.session.rollback()
+        raise
+
+
+@finite_state_machine.route("/array/<array_id>/log_distributor_id", methods=["POST"])
+def log_array_distributor_id(array_id):
+
+    data = request.get_json()
+    batch_num = data['array_batch_num']
+    distributor_id_map = data['distributor_id_map']
+
+    # Create a list of dicts out of the distributor id map.
+    params = [{'step_id': key, 'distributor_id': val}
+              for key, val in distributor_id_map.items()]
+
+    # Acquire a lock and update the task instance table
+    # Using bindparam only issues one query; unfortunately, the MariaDB optimizer actually
+    # performs this operation iteratively. The update is fairly slow despite the fact that
+    # we are issuing a single bulk query.
+    try:
+        update_stmt = (
+            update(TaskInstance).
+            where(
+                TaskInstance.array_batch_num == batch_num,
+                TaskInstance.array_id == array_id,
+                TaskInstance.array_step_id == bindparam('step_id')
+            ).
+            values(
+                distributor_id=bindparam('distributor_id')
+            ).execution_options(synchronize_session=False)
+        )
+        DB.session.execute(update_stmt, params)
 
         # Return the affected rows and their distributor ids
         select_stmt = (
-            select(TaskInstance.id, TaskInstance.distributor_id).
-            where(TaskInstance.status == TaskInstanceStatus.LAUNCHED,
-                  TaskInstance.array_batch_num == batch_num,
-                  TaskInstance.array_id == array_id)
+            select(
+                TaskInstance.id,
+                TaskInstance.distributor_id
+            ).
+            where(
+                TaskInstance.array_batch_num == batch_num,
+                TaskInstance.array_id == array_id
+            ).execution_options(synchronize_session=False)
         )
 
         res = DB.session.execute(select_stmt).fetchall()

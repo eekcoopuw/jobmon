@@ -77,7 +77,7 @@ class TaskInstanceBatch:
         self.load_requested_resources()
 
     def transition_to_launched(
-            self, distributor_id_map: dict, next_report_by: float
+            self, next_report_by: float
     ) -> None:
         """Transition all associated task instances to LAUNCHED state."""
 
@@ -86,10 +86,9 @@ class TaskInstanceBatch:
             if ti.status != TaskInstanceStatus.INSTANTIATED:
                 raise ValueError(f"{ti} is not in INSTANTIATED state, prior to launching.")
 
-        app_route = f'/array/{self.array_id}/log_distributor_id'
+        app_route = f'/array/{self.array_id}/transition_to_launched'
         data = {
             'batch_number': self.batch_number,
-            'distributor_id_map': distributor_id_map,
             'next_report_increment': next_report_by
         }
 
@@ -106,10 +105,58 @@ class TaskInstanceBatch:
                 f"code 200. Response content: {resp}"
             )
 
+    def log_distributor_ids(self, distributor_id_map: Dict, chunk_size: int = 50):
+        """Log the distributor ID in the database for all task instances in the batch.
+
+        Send data to the server in chunks, so that we don't hold a lock for more than a few
+        milliseconds."""
+
+        app_route = f"/array/{self.array_id}/log_distributor_id"
+
+        chunk_id_map = {}
+        task_instance_list = list(self.task_instances)
+        ti_distributor_id_map = {}
+
+        while task_instance_list:
+
+            ti_chunk = task_instance_list[:chunk_size]
+            task_instance_list = task_instance_list[chunk_size:]
+
+            for task_instance in ti_chunk:
+                chunk_id_map[task_instance.array_step_id] = \
+                    distributor_id_map[task_instance.array_step_id]
+
+            data = {
+                'array_batch_num': self.batch_number,
+                'distributor_id_map': chunk_id_map
+            }
+
+            rc, resp = self.requester.send_request(
+                app_route=app_route,
+                message=data,
+                request_type='post'
+            )
+
+            # If 500 is returned the entire distributor service will exit, so I don't think
+            # it's necessary to handle the inconsistencies. Some task instances will have
+            # distributor ids, some won't, but the workflow will need to be restarted anyways
+            # and create new task instances.
+            if not http_request_ok(rc):
+                raise InvalidResponse(
+                    f"Unexpected status code {rc} from POST "
+                    f"request through route {app_route}. Expected "
+                    f"code 200. Response content: {resp}"
+                )
+
+            # append the return values to the ID map
+            ti_distributor_id_map.update(resp['task_instance_map'])
+
         # Update status and distributor id in memory for all task instances
+        # Since task instances are added to the batch by reference, modifying attributes here
+        # will propagate the distributor id value and the status to the distributor service.
         for ti in self.task_instances:
             ti.status = TaskInstanceStatus.LAUNCHED
-            ti.distributor_id = resp['task_instance_map'][str(ti.task_instance_id)]
+            ti.distributor_id = ti_distributor_id_map[str(ti.task_instance_id)]
 
     def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""
