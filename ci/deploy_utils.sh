@@ -294,13 +294,15 @@ deploy_integrator_to_k8s () {
     # Check if namespace exists, if not create it: render 01_namespace.yaml and apply it
     echo "K8S_NAMESPACE $K8S_NAMESPACE"
     echo "KUBECTL_CONTAINER $KUBECTL_CONTAINER"
+    echo "*************************************************"
+    kubectl config view
     docker run -t \
         --rm \
         -v $KUBECONFIG:/root/.kube/config \
         -v "$WORKSPACE/deployment/k8s:/data" \
         $KUBECTL_CONTAINER \
             get namespace "$K8S_NAMESPACE"\
-
+    echo "*************************************************"
     namespace_exists=$?
     if [[ $namespace_exists -ne 0 ]]
     then
