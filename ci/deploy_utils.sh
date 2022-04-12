@@ -286,7 +286,9 @@ deploy_integrator_to_k8s () {
     DEPLOY_JOBMON=${13}
     DEPLOY_ELK=${14}
 
+    echo "Pull HELM_CONTAINER $HELM_CONTAINER"
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
+    echo "Pull KUBECTL_CONTAINER $KUBECTL_CONTAINER"
     docker pull $KUBECTL_CONTAINER
 
     # Check if namespace exists, if not create it: render 01_namespace.yaml and apply it
@@ -335,5 +337,5 @@ deploy_integrator_to_k8s () {
         --set global.use_logstash="$USE_LOGSTASH"
 
     # Remove file, so helm doesn't attempt to re-deploy it
-    rm -f ./deployment/k8s/jobmon/integrator/01_namespace.yaml
+    # rm -f ./deployment/k8s/jobmon/integrator/01_namespace.yaml
 }

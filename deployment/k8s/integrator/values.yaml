@@ -2,9 +2,9 @@ global:
   # Will be overwritten by the Jenkins deploy pipeline, values will then be injected in to yaml
   # files in k8s/jobmon/templates
   jobmon_container_uri: ""
-  metallb_ip_pool: ""
+  jobmon_version: ""
   namespace: ""
-  use_logstash: ""
+  integrator_namespace: ""
   rancher_db_secret: ""
   rancher_project: ""
   rancher_qpid_secret: ""
