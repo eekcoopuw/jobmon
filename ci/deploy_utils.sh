@@ -295,7 +295,7 @@ deploy_integrator_to_k8s () {
     echo "K8S_NAMESPACE $K8S_NAMESPACE"
     echo "KUBECTL_CONTAINER $KUBECTL_CONTAINER"
     echo "*************************************************"
-    kubectl config view
+    echo "KUBECONFIG $KUBECONFIG"
     docker run -t \
         --rm \
         -v $KUBECONFIG:/root/.kube/config \
