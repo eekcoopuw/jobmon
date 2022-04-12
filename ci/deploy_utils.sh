@@ -292,6 +292,8 @@ deploy_integrator_to_k8s () {
     docker pull $KUBECTL_CONTAINER
 
     # Check if namespace exists, if not create it: render 01_namespace.yaml and apply it
+    echo "K8S_NAMESPACE $K8S_NAMESPACE"
+    echo "KUBECTL_CONTAINER $KUBECTL_CONTAINER"
     docker run -t \
         --rm \
         -v $KUBECONFIG:/root/.kube/config \

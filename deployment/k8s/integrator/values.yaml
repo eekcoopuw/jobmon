@@ -4,7 +4,6 @@ global:
   jobmon_container_uri: ""
   jobmon_version: ""
   namespace: ""
-  integrator_namespace: ""
   rancher_db_secret: ""
   rancher_project: ""
   rancher_qpid_secret: ""
