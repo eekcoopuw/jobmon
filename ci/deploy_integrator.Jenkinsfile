@@ -5,7 +5,7 @@ pipeline {
     buildDiscarder(logRotator(numToKeepStr: '20'))
   } // End Options
   parameters {
-  string(defaultValue: '',
+    string(defaultValue: '',
      description: 'The version of Jobmon to deploy',
      name: 'JOBMON_VERSION')
     string(defaultValue: 'jobmon-integrator',
