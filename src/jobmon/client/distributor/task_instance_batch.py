@@ -77,7 +77,7 @@ class TaskInstanceBatch:
         self.load_requested_resources()
 
     def transition_to_launched(
-            self, distributor_id_map: dict, next_report_by: float
+            self, next_report_by: float
     ) -> None:
         """Transition all associated task instances to LAUNCHED state."""
 
@@ -86,11 +86,33 @@ class TaskInstanceBatch:
             if ti.status != TaskInstanceStatus.INSTANTIATED:
                 raise ValueError(f"{ti} is not in INSTANTIATED state, prior to launching.")
 
-        app_route = f'/array/{self.array_id}/log_distributor_id'
+        app_route = f'/array/{self.array_id}/transition_to_launched'
         data = {
             'batch_number': self.batch_number,
-            'distributor_id_map': distributor_id_map,
             'next_report_increment': next_report_by
+        }
+
+        rc, resp = self.requester.send_request(
+            app_route=app_route,
+            message=data,
+            request_type='post'
+        )
+
+        if not http_request_ok(rc):
+            raise InvalidResponse(
+                f"Unexpected status code {rc} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {resp}"
+            )
+
+    def log_distributor_ids(self, distributor_id_map: Dict):
+        """Log the distributor ID in the database for all task instances in the batch."""
+
+        app_route = f"/array/{self.array_id}/log_distributor_id"
+
+        data = {
+            'array_batch_num': self.batch_number,
+            'distributor_id_map': distributor_id_map
         }
 
         rc, resp = self.requester.send_request(

@@ -233,11 +233,17 @@ class DistributorService:
 
         else:
             # if successful log a transition to launched
-            distributor_command = DistributorCommand(task_instance_batch.transition_to_launched,
-                                                     distributor_id_map,
-                                                     self._next_report_increment)
+            launch_command = DistributorCommand(
+                task_instance_batch.transition_to_launched,
+                self._next_report_increment)
+            # Log the distributor IDs
+            log_distributor_ids_command = DistributorCommand(
+                task_instance_batch.log_distributor_ids,
+                distributor_id_map
+            )
 
-            self.distributor_commands.append(distributor_command)
+            self.distributor_commands.append(launch_command)
+            self.distributor_commands.append(log_distributor_ids_command)
 
     def launch_task_instance(self, task_instance: DistributorTaskInstance, name: str) -> None:
         """
