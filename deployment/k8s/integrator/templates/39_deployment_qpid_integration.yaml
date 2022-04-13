@@ -55,6 +55,31 @@ spec:
             secretKeyRef:
               key: SVCSCICOMPCI_PWD
               name: {{ .Values.global.rancher_qpid_secret }}
+        - name: DB_HOST_SLURM_SDB
+          valueFrom:
+            secretKeyRef:
+              key: DB_HOST_SLURM_SDB
+              name: {{ .Values.global.rancher_db_slurm_sdb_secret }}
+        - name: DB_PORT_SLURM_SDB
+          valueFrom:
+            secretKeyRef:
+              key: DB_PORT_SLURM_SDB
+              name: {{ .Values.global.rancher_db_slurm_sdb_secret }}
+        - name: DB_USER_SLURM_SDB
+          valueFrom:
+            secretKeyRef:
+              key: DB_USER_SLURM_SDB
+              name: {{ .Values.global.rancher_db_slurm_sdb_secret }}
+        - name: DB_PASS_SLURM_SDB
+          valueFrom:
+            secretKeyRef:
+              key: DB_PASS_SLURM_SDB
+              name: {{ .Values.global.rancher_db_slurm_sdb_secret }}
+        - name: DB_NAME_SLURM_SDB
+          valueFrom:
+            secretKeyRef:
+              key: DB_NAME_SLURM_SDB
+              name: {{ .Values.global.rancher_db_slurm_sdb_secret }}
         resources:
           limits:
             memory: 1200Mi
