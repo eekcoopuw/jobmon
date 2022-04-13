@@ -38,9 +38,8 @@ def test_queued(tool, db_cfg, client_env, task_template):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
-    distributor_service._check_for_work(TaskInstanceStatus.QUEUED)
+    distributor_service._refresh_status_from_db(TaskInstanceStatus.QUEUED)
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 10
-    distributor_service.distributor_commands = []
 
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]
