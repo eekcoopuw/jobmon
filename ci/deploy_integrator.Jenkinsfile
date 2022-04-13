@@ -8,12 +8,15 @@ pipeline {
     string(defaultValue: '',
      description: 'The version of Jobmon to deploy',
      name: 'JOBMON_VERSION')
-    string(defaultValue: 'jobmon-integrator',
+    string(defaultValue: 'jobmon-integrator-dev',
      description: 'Kubernetes Namespace to deploy to',
      name: 'K8S_NAMESPACE')
     string(defaultValue: 'jobmon-dev-db',
      description: 'name of rancher secret to use for db variables',
      name: 'RANCHER_DB_SECRET')
+    string(defaultValue: 'jobmon-slurm-sdb-dev',
+     description: 'name of rancher secret to use for db variables',
+     name: 'RANCHER_DB_SLURM_SDB_SECRET')
     string(defaultValue: 'jobmon-qpid',
      description: 'name of rancher secret to use for qpid variables',
      name: 'RANCHER_QPID_SECRET')
@@ -88,6 +91,7 @@ pipeline {
                       ${RANCHER_DB_SECRET} \
                       ${RANCHER_QPID_SECRET} \
                       ${JOBMON_VERSION} \
+                      ${RANCHER_DB_SLURM_SDB_SECRET} \
                       ${KUBECONFIG}
 
                '''
