@@ -305,7 +305,7 @@ deploy_integrator_to_k8s () {
     namespace_exists=$?
     if [[ $namespace_exists -ne 0 ]]
     then
-        echo "Namespace does not exist now creating it "
+        echo "Namespace $$K8S_NAMESPACE does not exist now creating it "
         docker run -t \
             --rm \
             -v $KUBECONFIG:/root/.kube/config \
@@ -338,7 +338,4 @@ deploy_integrator_to_k8s () {
         --set global.rancher_qpid_secret="$RANCHER_QPID_SECRET" \
         --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
         --set global.use_logstash="$USE_LOGSTASH"
-
-    # Remove file, so helm doesn't attempt to re-deploy it
-    # rm -f ./deployment/k8s/jobmon/integrator/01_namespace.yaml
 }
