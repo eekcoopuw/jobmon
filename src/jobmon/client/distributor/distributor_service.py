@@ -122,7 +122,7 @@ class DistributorService:
                 self.log_task_instance_report_by_date()
 
         except DistributorInterruptedError:
-            logger.info("Interrupt recieved!")
+            logger.info("Interrupt received!")
 
         finally:
             # stop distributor
