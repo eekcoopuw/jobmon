@@ -8,3 +8,4 @@ global:
   rancher_project: ""
   rancher_qpid_secret: ""
   rancher_slack_secret: ""
+  rancher_db_slurm_sdb_secret: ""
