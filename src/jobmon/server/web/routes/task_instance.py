@@ -5,61 +5,25 @@ from typing import Any, Optional
 
 from flask import jsonify, request
 import sqlalchemy
+from sqlalchemy import select, update
 from sqlalchemy.sql import func, text
 from werkzeug.local import LocalProxy
 
+from jobmon.serializers import SerializeTaskInstanceBatch
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
-from jobmon.server.web.models.exceptions import (
-    InvalidStateTransition,
-    KillSelfTransition,
-)
+from jobmon.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance import TaskInstanceStatus
 from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
-from jobmon.server.web.models.task_status import TaskStatus
-from jobmon.server.web.models.workflow_run import WorkflowRun
-from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.routes import finite_state_machine
 from jobmon.server.web.server_side_exception import ServerError
 
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
 logger = LocalProxy(partial(get_logger, __name__))
-
-
-@finite_state_machine.route(
-    "/task_instance/<task_instance_id>/kill_self", methods=["GET"]
-)
-def kill_self(task_instance_id: int) -> Any:
-    """Check a task instance's status to see if it needs to kill itself (state W, or L)."""
-    bind_to_logger(task_instance_id=task_instance_id)
-    logger.debug(f"Checking whether ti {task_instance_id} should commit suicide.")
-    kill_statuses = TaskInstance.kill_self_states
-    query = """
-        SELECT
-            task_instance.id
-        FROM
-            task_instance
-        WHERE
-            task_instance.id = :task_instance_id
-            AND task_instance.status in :statuses
-    """
-    should_kill = (
-        DB.session.query(TaskInstance)
-        .from_statement(text(query))
-        .params(task_instance_id=task_instance_id, statuses=kill_statuses)
-        .one_or_none()
-    )
-    logger.info(f"ti {task_instance_id} should_kill: {should_kill}")
-    if should_kill is not None:
-        resp = jsonify(should_kill=True)
-        logger.info(f"ti {task_instance_id} should_kill: {should_kill}")
-    else:
-        resp = jsonify()
-    resp.status_code = StatusCodes.OK
-    return resp
 
 
 @finite_state_machine.route(
@@ -73,22 +37,31 @@ def log_running(task_instance_id: int) -> Any:
     """
     bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
-    logger.info(f"Log running for ti {task_instance_id}")
-    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
-    msg = _update_task_instance_state(ti, TaskInstanceStatus.RUNNING)
+
+    task_instance = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+
     if data.get("distributor_id", None) is not None:
-        ti.distributor_id = data["distributor_id"]
+        task_instance.distributor_id = data["distributor_id"]
     if data.get("nodename", None) is not None:
-        ti.nodename = data["nodename"]
-    ti.process_group_id = data["process_group_id"]
-    ti.report_by_date = func.ADDTIME(
-        func.now(), func.SEC_TO_TIME(data["next_report_increment"])
-    )
+        task_instance.nodename = data["nodename"]
+    task_instance.process_group_id = data["process_group_id"]
+    try:
+        task_instance.transition(TaskInstanceStatus.RUNNING)
+        task_instance.report_by_date = func.ADDTIME(
+            func.now(), func.SEC_TO_TIME(data["next_report_increment"])
+        )
+    except InvalidStateTransition as e:
+        if task_instance.status == TaskInstanceStatus.RUNNING:
+            logger.warning(e)
+        elif task_instance.status == TaskInstanceStatus.KILL_SELF:
+            task_instance.transition(TaskInstanceStatus.ERROR_FATAL)
+        else:
+            # Tried to move to an illegal state
+            logger.error(e)
+
     DB.session.commit()
 
-    t = DB.session.query(Task).filter_by(id=ti.task_id).one()
-
-    resp = jsonify(message=msg, command=t.command)
+    resp = jsonify(task_instance=task_instance.to_wire_as_worker_node_task_instance())
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -132,6 +105,44 @@ def log_ti_report_by(task_instance_id: int) -> Any:
 
     DB.session.execute(query, params)
     DB.session.commit()
+
+    task_instance = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+    if task_instance.status == TaskInstanceStatus.TRIAGING:
+        task_instance.transition(TaskInstanceStatus.RUNNING)
+    DB.session.commit()
+
+    resp = jsonify(status=task_instance.status)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route("/task_instance/log_report_by/batch", methods=["POST"])
+def log_ti_report_by_batch() -> Any:
+    """Log task_instances as being responsive with a new report_by_date.
+
+    This is done at the worker node heartbeat_interval rate, so it may not happen at the same
+    rate that the reconciler updates batch submitted report_by_dates (also because it causes
+    a lot of traffic if all workers are logging report by_dates often compared to if the
+    reconciler runs often).
+
+    Args:
+        task_instance_id: id of the task_instance to log
+    """
+    data = request.get_json()
+    tis = data.get("task_instance_ids", None)
+
+    next_report_increment = data.get("next_report_increment")
+
+    logger.debug(f"Log report_by for TI {tis}.")
+    if tis:
+        query = f"""
+            UPDATE task_instance
+            SET report_by_date = ADDTIME(
+                CURRENT_TIMESTAMP(), SEC_TO_TIME({next_report_increment}))
+            WHERE task_instance.id in {str(tis).replace("[", "(").replace("]", ")")}"""
+
+        DB.session.execute(query)
+        DB.session.commit()
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
@@ -198,15 +209,22 @@ def log_done(task_instance_id: int) -> Any:
     bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
 
-    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+    task_instance = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     if data.get("distributor_id", None) is not None:
-        ti.distributor_id = data["distributor_id"]
+        task_instance.distributor_id = data["distributor_id"]
     if data.get("nodename", None) is not None:
-        ti.nodename = data["nodename"]
-    msg = _update_task_instance_state(ti, TaskInstanceStatus.DONE)
+        task_instance.nodename = data["nodename"]
+    try:
+        task_instance.transition(TaskInstanceStatus.DONE)
+    except InvalidStateTransition as e:
+        if task_instance.status == TaskInstanceStatus.DONE:
+            logger.warning(e)
+        else:
+            # Tried to move to an illegal state
+            logger.error(e)
     DB.session.commit()
 
-    resp = jsonify(message=msg)
+    resp = jsonify(status=task_instance.status)
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -224,21 +242,33 @@ def log_error_worker_node(task_instance_id: int) -> Any:
     bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
     error_state = data["error_state"]
-    error_message = data["error_message"]
+    error_msg = data["error_message"].encode("latin1", "replace").decode("utf-8")
     distributor_id = data.get("distributor_id", None)
     nodename = data.get("nodename", None)
     logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
-    ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
-
+    # update the task instances and commit it
+    task_instance = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+    if nodename is not None:
+        task_instance.nodename = nodename
+    if distributor_id is not None:
+        task_instance.distributor_id = distributor_id
     try:
-        resp = _log_error(ti, error_state, error_message, distributor_id, nodename)
-        return resp
-    except sqlalchemy.exc.OperationalError:
-        # modify the error message and retry
-        new_msg = error_message.encode("latin1", "replace").decode("utf-8")
-        resp = _log_error(ti, error_state, new_msg, distributor_id, nodename)
-        return resp
+        task_instance.transition(error_state)
+        error = TaskInstanceErrorLog(task_instance_id=task_instance.id, description=error_msg)
+        DB.session.add(error)
+    except InvalidStateTransition as e:
+        if task_instance.status == error_state:
+            logger.warning(e)
+        else:
+            # Tried to move to an illegal state
+            logger.error(e)
+    DB.session.commit()
+
+    resp = jsonify(status=task_instance.status)
+    resp.status_code = StatusCodes.OK
+
+    return resp
 
 
 @finite_state_machine.route("/task/<task_id>/most_recent_ti_error", methods=["GET"])
@@ -322,91 +352,6 @@ def get_task_instance_error_log(task_instance_id: int) -> Any:
 
 
 @finite_state_machine.route(
-    "/workflow_run/<workflow_run_id>/get_suspicious_task_instances", methods=["GET"]
-)
-def get_suspicious_task_instances(workflow_run_id: int) -> Any:
-    """Query for suspicious TIs.
-
-    Query all task instances that are submitted to distributor or running which haven't
-    reported as alive in the allocated time.
-    """
-    bind_to_logger(workflow_run_id=workflow_run_id)
-    logger.info(f"Getting suspicious tis for wfi {workflow_run_id}")
-    query = """
-        SELECT
-            task_instance.id, task_instance.workflow_run_id,
-            task_instance.distributor_id
-        FROM
-            task_instance
-        WHERE
-            task_instance.workflow_run_id = :workflow_run_id
-            AND task_instance.status in :active_tasks
-            AND task_instance.report_by_date <= CURRENT_TIMESTAMP()
-    """
-    rows = (
-        DB.session.query(TaskInstance)
-        .from_statement(text(query))
-        .params(
-            active_tasks=[
-                TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
-                TaskInstanceStatus.RUNNING,
-            ],
-            workflow_run_id=workflow_run_id,
-        )
-        .all()
-    )
-    DB.session.commit()
-    resp = jsonify(
-        task_instances=[ti.to_wire_as_distributor_task_instance() for ti in rows]
-    )
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@finite_state_machine.route(
-    "/workflow_run/<workflow_run_id>/get_task_instances_to_terminate", methods=["GET"]
-)
-def get_task_instances_to_terminate(workflow_run_id: int) -> Any:
-    """Get the task instances for a given workflow run that need to be terminated."""
-    bind_to_logger(workflow_run_id=workflow_run_id)
-    logger.info(f"Getting tis that should be terminated for wfr {workflow_run_id}")
-    workflow_run = DB.session.query(WorkflowRun).filter_by(id=workflow_run_id).one()
-
-    if workflow_run.status == WorkflowRunStatus.HOT_RESUME:
-        task_instance_states = [TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR]
-    if workflow_run.status == WorkflowRunStatus.COLD_RESUME:
-        task_instance_states = [
-            TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
-            TaskInstanceStatus.RUNNING,
-        ]
-
-    query = """
-        SELECT
-            task_instance.id, task_instance.workflow_run_id,
-            task_instance.distributor_id
-        FROM
-            task_instance
-        WHERE
-            task_instance.workflow_run_id = :workflow_run_id
-            AND task_instance.status in :task_instance_states
-    """
-    rows = (
-        DB.session.query(TaskInstance)
-        .from_statement(text(query))
-        .params(
-            task_instance_states=task_instance_states, workflow_run_id=workflow_run_id
-        )
-        .all()
-    )
-    DB.session.commit()
-    resp = jsonify(
-        task_instances=[ti.to_wire_as_distributor_task_instance() for ti in rows]
-    )
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@finite_state_machine.route(
     "/workflow_run/<workflow_run_id>/log_distributor_report_by", methods=["POST"]
 )
 def log_distributor_report_by(workflow_run_id: int) -> Any:
@@ -433,59 +378,34 @@ def log_distributor_report_by(workflow_run_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/task_instance", methods=["POST"])
-def add_task_instance() -> Any:
-    """Add a task_instance to the database.
+@finite_state_machine.route(
+    "/get_array_task_instance_id/<array_id>/<batch_num>/<step_id>", methods=["GET"]
+)
+def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int):
+    """Given an array ID and an index, select a single task instance ID.
 
-    Args:
-        task_id (int): unique id for the task
-        cluster_type_name (str): string name of the cluster type used
-    """
-    try:
-        data = request.get_json()
-        task_id = data["task_id"]
-        bind_to_logger(task_id=task_id)
-        logger.info(f"Add task instance for task {task_id}")
-        # query task
-        task = DB.session.query(Task).filter_by(id=task_id).first()
-        DB.session.commit()
+    Task instance IDs that are associated with the array are ordered, and selected by index.
+    This route will be called once per array task instance worker node, so must be scalable."""
 
-        # create task_instance from task parameters
-        task_instance = TaskInstance(
-            workflow_run_id=data["workflow_run_id"],
-            cluster_type_id=data["cluster_type_id"],
-            task_id=data["task_id"],
-            task_resources_id=task.task_resources_id,
-        )
-        DB.session.add(task_instance)
-        DB.session.commit()
-        task_instance.task.transition(TaskStatus.INSTANTIATED)
-        DB.session.commit()
-        resp = jsonify(
-            task_instance=task_instance.to_wire_as_distributor_task_instance()
-        )
-        resp.status_code = StatusCodes.OK
-        return resp
-    except InvalidStateTransition as e:
-        # Handles race condition if the task is already instantiated state
-        if task_instance.task.status == TaskStatus.INSTANTIATED:
-            msg = (
-                "Caught InvalidStateTransition. Not transitioning task "
-                "{}'s task_instance_id {} from I to I".format(
-                    data["task_id"], task_instance.id
-                )
-            )
-            logger.warning(msg)
-            DB.session.commit()
-            resp = jsonify(
-                task_instance=task_instance.to_wire_as_distributor_task_instance()
-            )
-            resp.status_code = StatusCodes.OK
-            return resp
-        else:
-            raise ServerError(
-                f"Unexpected Jobmon Server Error in {request.path}", status_code=500
-            ) from e
+    bind_to_logger(array_id=array_id)
+
+    query = """
+        SELECT id
+        FROM task_instance
+        WHERE array_id=:array_id
+        AND array_batch_num=:batch_num
+        AND array_step_id=:step_id"""
+
+    task_instance_id = (
+        DB.session.query(TaskInstance)
+        .from_statement(text(query))
+        .params(array_id=array_id, batch_num=batch_num, step_id=step_id)
+        .one()
+    )
+
+    resp = jsonify(task_instance_id=task_instance_id.id)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @finite_state_machine.route(
@@ -524,9 +444,10 @@ def log_distributor_id(task_instance_id: int) -> Any:
     data = request.get_json()
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
     msg = _update_task_instance_state(
-        ti, TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR
+        ti, TaskInstanceStatus.LAUNCHED
     )
     ti.distributor_id = data["distributor_id"]
+
     ti.report_by_date = func.ADDTIME(
         func.now(), func.SEC_TO_TIME(data["next_report_increment"])
     )
@@ -629,6 +550,138 @@ def log_unknown_error(task_instance_id: int) -> Any:
     return resp
 
 
+@finite_state_machine.route("/task_instance/transition/<new_status>", methods=["POST"])
+def transition_task_instances(new_status: str) -> Any:
+    """Attempt to transition a task instance to the new status"""
+    data = request.get_json()
+    task_instance_ids = data["task_instance_ids"]
+    array_id = data.get("array_id", None)
+    distributor_id = data["distributor_id"]
+
+    if array_id is not None:
+        bind_to_logger(array_id=array_id)
+
+    task_instance_id_str = ",".join(f"{x}" for x in task_instance_ids)
+
+    query = f"""
+        SELECT
+            task_instance.*
+        FROM
+            task_instance
+        WHERE
+            task_instance.id IN ({task_instance_id_str})
+    """
+    task_instances = DB.session.query(TaskInstance).from_statement(text(query)).all()
+
+    # Attempt a transition for each task instance
+    erroneous_transitions = []
+    for ti in task_instances:
+        # Attach the distributor ID
+        # this will cause problem for non array tasks
+        ti.distributor_id = distributor_id
+        response = _update_task_instance_state(ti, new_status)
+        if len(response) > 0:
+            # Task instances that fail to transition log a message, but are returned with
+            # their existing state (no exceptions raised).
+            erroneous_transitions.append(ti)
+
+    DB.session.flush()
+    DB.session.commit()
+    resp = jsonify(
+        erroneous_transitions={ti.id: ti.status for ti in erroneous_transitions}
+    )
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@finite_state_machine.route("/task_instance/instantiate_task_instances", methods=["POST"])
+def instantiate_task_instances() -> Any:
+    """Sync status of given task intance IDs."""
+    data = request.get_json()
+    task_instance_ids_list = tuple([int(tid) for tid in data["task_instance_ids"]])
+    try:
+
+        # update the task table where FSM allows it
+        task_update = update(
+            Task
+        ).where(
+            Task.id.in_(
+                select(
+                    Task.id
+                ).join(
+                    TaskInstance, TaskInstance.task_id == Task.id
+                ).where(
+                    TaskInstance.id.in_(task_instance_ids_list),
+                    (Task.status == TaskStatus.QUEUED)
+                )
+            )
+        ).values(
+            status=TaskStatus.INSTANTIATING,
+            status_date=func.now()
+        ).execution_options(synchronize_session=False)
+        DB.session.execute(task_update)
+
+        # then propagate back into task instance where a change was made
+        task_instance_update = update(
+            TaskInstance
+        ).where(
+            TaskInstance.id.in_(
+                select(
+                    TaskInstance.id
+                ).join(
+                    Task, TaskInstance.task_id == Task.id
+                ).where(
+                    # a successful transition
+                    (Task.status == TaskStatus.INSTANTIATING),
+                    # and part of the current set
+                    TaskInstance.id.in_(task_instance_ids_list)
+                )
+            )
+        ).values(
+            status=TaskInstanceStatus.INSTANTIATED,
+            status_date=func.now()
+        ).execution_options(synchronize_session=False)
+        DB.session.execute(task_instance_update)
+
+    except Exception:
+        DB.session.rollback()
+        raise
+    else:
+        DB.session.commit()
+
+        instantiated_batches_query = select(
+            TaskInstance.array_id,
+            TaskInstance.array_batch_num,
+            TaskInstance.task_resources_id,
+            func.group_concat(TaskInstance.id)
+        ).where(
+            TaskInstance.id.in_(task_instance_ids_list)
+            & (TaskInstance.status == TaskInstanceStatus.INSTANTIATED)
+        ).group_by(
+            TaskInstance.array_id,
+            TaskInstance.array_batch_num,
+            TaskInstance.task_resources_id
+        )
+        result = DB.session.execute(instantiated_batches_query)
+        serialized_batches = []
+        for array_id, array_batch_num, task_resources_id, task_instance_ids in result:
+            task_instance_ids = [
+                int(task_instance_id) for task_instance_id in task_instance_ids.split(",")
+            ]
+            serialized_batches.append(
+                SerializeTaskInstanceBatch.to_wire(
+                    array_id=array_id,
+                    array_batch_num=array_batch_num,
+                    task_resources_id=task_resources_id,
+                    task_instance_ids=task_instance_ids
+                )
+            )
+
+    resp = jsonify(task_instance_batches=serialized_batches)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 # ############################ HELPER FUNCTIONS ###############################
 def _update_task_instance_state(task_instance: TaskInstance, status_id: str) -> Any:
     """Advance the states of task_instance and it's associated Task.
@@ -652,6 +705,7 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str) -> 
                 f"{status_id}"
             )
             logger.warning(msg)
+            response += msg
         else:
             # Tried to move to an illegal state
             msg = (
@@ -660,23 +714,14 @@ def _update_task_instance_state(task_instance: TaskInstance, status_id: str) -> 
                 f"{status_id}"
             )
             logger.error(msg)
-    except KillSelfTransition:
-        msg = f"kill self, cannot transition tid={task_instance.id}"
-        logger.warning(msg)
-        response = "kill self"
+            response += msg
     except Exception as e:
-        msg = (
-            f"General exception in _update_task_instance_state, "
-            f"jid {task_instance}, transitioning to {task_instance}. "
-            f"Not transitioning task. {e}"
-        )
         raise ServerError(
             f"General exception in _update_task_instance_state, jid "
             f"{task_instance}, transitioning to {task_instance}. Not "
             f"transitioning task. Server Error in {request.path}",
             status_code=500,
         ) from e
-
     return response
 
 

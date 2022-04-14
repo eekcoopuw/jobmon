@@ -1,7 +1,8 @@
 import argparse
+import ast
 from contextlib import redirect_stdout
-from io import StringIO
 import getpass
+from io import StringIO
 import logging
 import pandas as pd
 
@@ -104,6 +105,7 @@ def capture_stdout(function, arguments):
 def test_workflow_status(db_cfg, client_env, task_template, monkeypatch, cli):
     from jobmon.client.tool import Tool
     from jobmon.client.status_commands import workflow_status
+    import datetime
 
     monkeypatch.setattr(getpass, "getuser", mock_getuser)
     user = getpass.getuser()
@@ -135,13 +137,27 @@ def test_workflow_status(db_cfg, client_env, task_template, monkeypatch, cli):
     command_str = f"workflow_status -u {user} -w {workflow.workflow_id} -n"
     args = cli.parse_args(command_str)
     df = workflow_status(args.workflow_id, args.user, args.json)
-    assert (
-        df == f'{{"WF_ID":{{"0":{workflow.workflow_id}}},"WF_NAME":{{"0":""}},'
-        f'"WF_STATUS":{{"0":'
-        '"QUEUED"},"TASKS":{"0":2},"PENDING":{"0":"2 (100.0%)"},'
-        '"RUNNING":{"0":"0 (0.0%)"},"DONE":{"0":"0 (0.0%)"},"FATAL"'
-        ':{"0":"0 (0.0%)"},"RETRIES":{"0":0.0}}'
-    )
+    df = ast.literal_eval(df)
+    # Dates are hard to assert equality on, since we don't know exactly when the DB bound
+    # a workflow to the millisecond.
+    # Extract the datetime and evaluate separately.
+    df_time = df["CREATED_DATE"]["0"]
+    del df["CREATED_DATE"]
+    assert df == {
+        "WF_ID": {"0": workflow.workflow_id},
+        "WF_NAME": {"0": ""},
+        "WF_STATUS": {"0": "QUEUED"},
+        "TASKS": {"0": 2},
+        "PENDING": {"0": "2 (100.0%)"},
+        "RUNNING": {"0": "0 (0.0%)"},
+        "DONE": {"0": "0 (0.0%)"},
+        "FATAL": {"0": "0 (0.0%)"},
+        "RETRIES": {"0": 0.0},
+    }
+    # Don't have millisecond precision, but can at least check our margin is +- 1 day
+    now = datetime.date.today()
+    df_date = datetime.datetime.fromtimestamp(df_time / 1e3).date()
+    assert df_date - now == datetime.timedelta(0)
 
     # add a second workflow
     t1 = task_template.create_task(arg="sleep 15")

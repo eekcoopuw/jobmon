@@ -137,7 +137,7 @@ def get_task_template_version_for_tasks() -> Any:
 
 
 @finite_state_machine.route("/get_requested_cores", methods=["GET"])
-def get_requsted_cores() -> Any:
+def get_requested_cores() -> Any:
     """Get the min, max, and arg of requested cores."""
     # parse args
     ttvis = request.args.get("task_template_version_ids")
@@ -148,7 +148,7 @@ def get_requsted_cores() -> Any:
            WHERE t3.id in {ttvis}
            AND t2.task_template_version_id=t3.id
            AND t1.node_id=t2.id
-           AND t4.task_id=t1.id;
+           AND t1.task_resources_id=t4.id;
     """
     rows = DB.session.execute(sql).fetchall()
     # return a "standard" json format for cli routes so that it can be reused by future GUI

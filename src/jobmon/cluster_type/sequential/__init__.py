@@ -9,7 +9,7 @@ from jobmon.cluster_type.base import (
 
 
 def get_cluster_queue_class() -> Type[ClusterQueue]:
-    from jobmon.cluster_type.sequential.seq_client import SequentialQueue
+    from jobmon.cluster_type.sequential.seq_queue import SequentialQueue
 
     return SequentialQueue
 

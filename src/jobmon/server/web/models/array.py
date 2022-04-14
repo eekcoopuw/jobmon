@@ -1,0 +1,33 @@
+"""Array Table for the Database."""
+from functools import partial
+
+from sqlalchemy.sql import func
+from werkzeug.local import LocalProxy
+
+from jobmon.serializers import SerializeDistributorArray
+from jobmon.server.web.log_config import get_logger
+from jobmon.server.web.models import DB
+
+
+# new structlog logger per flask request context. internally stored as flask.g.logger
+logger = LocalProxy(partial(get_logger, __name__))
+
+
+class Array(DB.Model):
+    """Array Database object."""
+
+    __tablename__ = "array"
+
+    def to_wire_as_distributor_array(self) -> tuple:
+        """Serialize executor task object."""
+        serialized = SerializeDistributorArray.to_wire(
+            array_id=self.id,
+            max_concurrently_running=self.max_concurrently_running,
+        )
+        return serialized
+
+    id = DB.Column(DB.Integer, primary_key=True)
+    task_template_version_id = DB.Column(DB.Integer)
+    workflow_id = DB.Column(DB.Integer)
+    max_concurrently_running = DB.Column(DB.Integer)
+    created_date = DB.Column(DB.DateTime, default=func.now())

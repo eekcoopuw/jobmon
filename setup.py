@@ -39,12 +39,11 @@ TEST_REQUIRES = [
     "mock",
     "filelock",
     'cluster_utils',
-    'tiny_structured_logger',
 ]
 
 # pip install -e .[docs]
 DOCS_REQUIRES = [
-    'sphinx==3.3.1',
+    'sphinx',
     'sphinx-autodoc-typehints',
     'sphinx_rtd_theme',
     'graphviz',

@@ -1,11 +1,10 @@
 import pytest
-from sqlalchemy.sql import text
 from unittest.mock import patch, PropertyMock
+from sqlalchemy.sql import text
 
 from jobmon.constants import WorkflowRunStatus, TaskStatus, TaskInstanceStatus
 from jobmon.server.web.models.task_attribute import TaskAttribute
 from jobmon.server.web.models.task_attribute_type import TaskAttributeType
-from jobmon.serializers import SerializeTaskInstanceErrorLog
 
 
 def test_good_names():
@@ -50,16 +49,16 @@ def test_default_task_name(task_template):
     """test that name based on hash"""
     # noral case
     a = task_template.create_task(arg="a")
-    assert a.name == "simple_template_1-a"
+    assert a.name == "simple_template_arg-a"
     # long name
     a = task_template.create_task(arg="a" * 256)
-    assert a.name == ("simple_template_1-" + "a" * 256)[0:249]
+    assert a.name == ("simple_template_arg-" + "a" * 256)[0:249]
     # special char
     a = task_template.create_task(arg="abc'abc/abc")
-    assert a.name == "simple_template_1-abc_abc_abc"
+    assert a.name == "simple_template_arg-abc_abc_abc"
     # spaces
     a = task_template.create_task(arg="echo 10")
-    assert a.name == "simple_template_1-echo_10"
+    assert a.name == "simple_template_arg-echo_10"
 
 
 def test_task_attribute(db_cfg, tool):
@@ -89,8 +88,8 @@ def test_task_attribute(db_cfg, tool):
     )
     workflow1.add_tasks([task1, task2, task3])
     workflow1.bind()
-    client_wfr = WorkflowRun(workflow1.workflow_id)
-    client_wfr.bind(workflow1.tasks)
+    client_wfr = WorkflowRun(workflow1)
+    client_wfr.bind()
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -165,7 +164,9 @@ def test_get_errors(db_cfg, tool):
 
     # setup workflow 1
     workflow1 = tool.create_workflow(name="test_task_instance_error_fatal")
-    task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 5")
+    task_a = tool.active_task_templates["simple_template"].create_task(
+        arg="sleep 5", max_attempts=1
+    )
     workflow1.add_task(task_a)
 
     # add workflow to database
@@ -195,11 +196,11 @@ def test_get_errors(db_cfg, tool):
             """.format(
                 wfr_id=wfr_1.workflow_run_id,
                 t_id=task_a.task_id,
-                s=TaskInstanceStatus.SUBMITTED_TO_BATCH_DISTRIBUTOR,
+                s=TaskInstanceStatus.LAUNCHED,
             )
         )
         ti = DB.session.execute(
-            "SELECT max(id) from task_instance where task_id={}".format(task_a.task_id)
+            "SELECT id from task_instance where task_id={}".format(task_a.task_id)
         ).fetchone()
         ti_id = ti[0]
         DB.session.execute(
@@ -207,7 +208,7 @@ def test_get_errors(db_cfg, tool):
             UPDATE task
             SET status ='{s}'
             WHERE id={t_id}""".format(
-                s=TaskStatus.RUNNING, t_id=task_a.task_id
+                s=TaskStatus.INSTANTIATING, t_id=task_a.task_id
             )
         )
         DB.session.commit()
@@ -221,48 +222,23 @@ def test_get_errors(db_cfg, tool):
     )
     assert return_code == 200
 
-    # log task_instance fatal error - 2nd error
-    app_route = f"/task_instance/{ti_id}/log_error_worker_node"
-    return_code, _ = workflow1.requester.send_request(
-        app_route=app_route,
-        message={"error_state": "F", "error_message": "ble ble ble"},
-        request_type="post",
-    )
-    assert return_code == 200
-
     # Validate that the database indicates the Dag and its Jobs are complete
     with app.app_context():
         t = DB.session.query(Task).filter_by(id=task_a.task_id).one()
         assert t.status == TaskStatus.ERROR_FATAL
         DB.session.commit()
 
-    # make sure that the 2 errors logged above are counted for in the request_type='get'
-    rc, response = workflow1.requester.send_request(
-        app_route=f"/task_instance/{ti_id}/task_instance_error_log",
-        message={},
-        request_type="get",
-    )
-    all_errors = [
-        SerializeTaskInstanceErrorLog.kwargs_from_wire(j)
-        for j in response["task_instance_error_log"]
-    ]
-    assert len(all_errors) == 2
-
     # make sure we see the 2 task_instance_error_log when checking
     # on the existing task_a, which should return a dict
     # produced in task.py
     task_errors = task_a.get_errors()
     assert type(task_errors) == dict
-    assert len(task_errors) == 2
     assert task_errors["task_instance_id"] == ti_id
     error_log = task_errors["error_log"]
     assert type(error_log) == list
     err_1st = error_log[0]
-    err_2nd = error_log[1]
     assert type(err_1st) == dict
-    assert type(err_2nd) == dict
     assert err_1st["description"] == "bla bla bla"
-    assert err_2nd["description"] == "ble ble ble"
 
 
 def test_reset_attempts_on_resume(db_cfg, tool):
@@ -310,48 +286,8 @@ def test_reset_attempts_on_resume(db_cfg, tool):
         t = DB.session.query(Task).filter_by(id=task_a.task_id).one()
         assert t.max_attempts == 3
         assert t.num_attempts == 0
-        assert t.status == TaskStatus.REGISTERED
+        assert t.status == TaskStatus.REGISTERING
         DB.session.commit()
-
-
-def test_resource_usage(db_cfg, client_env):
-    """Test Task resource usage method."""
-    from jobmon.client.tool import Tool
-
-    tool = Tool()
-    tool.set_default_compute_resources_from_dict(
-        cluster_name="sequential", compute_resources={"queue": "null.q"}
-    )
-    workflow = tool.create_workflow(name="resource_usage_test_wf")
-    template = tool.get_task_template(
-        template_name="resource_usage_test_template",
-        command_template="echo a",
-    )
-    task = template.create_task()
-    workflow.add_tasks([task])
-    workflow.run()
-
-    # Add fake resource usage to the TaskInstance
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        UPDATE task_instance
-        SET nodename = 'SequentialNode', wallclock = 12, maxpss = 1234
-        WHERE task_id = :task_id"""
-        DB.session.execute(sql, {"task_id": task.task_id})
-        DB.session.commit()
-    with patch(
-        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
-    ) as f:
-        f.return_value = set()  # no exclude tt
-        used_task_resources = task.resource_usage()
-        assert used_task_resources == {
-            "memory": "1234",
-            "nodename": "SequentialNode",
-            "num_attempts": 1,
-            "runtime": "12",
-        }
 
 
 def test_binding_length(db_cfg, client_env, tool):

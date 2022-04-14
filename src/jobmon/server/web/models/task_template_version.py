@@ -33,7 +33,13 @@ class TaskTemplateVersion(DB.Model):
                 args_by_type["op_args"].append(arg_mapping.argument.name)
 
         return SerializeClientTaskTemplateVersion.to_wire(
-            self.id, self.command_template, id_name_map=id_name_map, **args_by_type
+            task_template_version_id=self.id,
+            command_template=self.command_template,
+            node_args=args_by_type["node_args"],
+            task_args=args_by_type["task_args"],
+            op_args=args_by_type["op_args"],
+            id_name_map=id_name_map,
+            task_template_id=self.task_template.id,
         )
 
     id = DB.Column(DB.Integer, primary_key=True)

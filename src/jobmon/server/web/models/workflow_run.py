@@ -4,10 +4,10 @@ from functools import partial
 from sqlalchemy.sql import func
 from werkzeug.local import LocalProxy
 
+from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeWorkflowRun
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
-from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.models.workflow_status import WorkflowStatus
 
@@ -53,13 +53,13 @@ class WorkflowRun(DB.Model):
         # tasks are binding and the workflow run moves to error state
         (WorkflowRunStatus.LINKING, WorkflowRunStatus.ABORTED),
         # a workflow run is bound and then moves to instantiating
-        (WorkflowRunStatus.BOUND, WorkflowRunStatus.INSTANTIATING),
+        (WorkflowRunStatus.BOUND, WorkflowRunStatus.INSTANTIATED),
         # a workflow run moves from instantiating to launched
-        (WorkflowRunStatus.INSTANTIATING, WorkflowRunStatus.LAUNCHED),
+        (WorkflowRunStatus.INSTANTIATED, WorkflowRunStatus.LAUNCHED),
         # a workflow run moves from launched to running
         (WorkflowRunStatus.LAUNCHED, WorkflowRunStatus.RUNNING),
         # a workflow run can't be launched for some reason. TODO: implement triaging
-        (WorkflowRunStatus.INSTANTIATING, WorkflowRunStatus.ERROR),
+        (WorkflowRunStatus.INSTANTIATED, WorkflowRunStatus.ERROR),
         (WorkflowRunStatus.LAUNCHED, WorkflowRunStatus.ERROR),
         # a workflow run is bound and then an error occurs before it starts
         # running
@@ -161,7 +161,7 @@ class WorkflowRun(DB.Model):
                 self.workflow.transition(WorkflowStatus.HALTED)
             elif new_state in self.bound_error_states:
                 self.workflow.transition(WorkflowStatus.FAILED)
-            elif new_state == WorkflowRunStatus.INSTANTIATING:
+            elif new_state == WorkflowRunStatus.INSTANTIATED:
                 self.workflow.transition(WorkflowStatus.INSTANTIATING)
             elif new_state == WorkflowRunStatus.LAUNCHED:
                 self.workflow.transition(WorkflowStatus.LAUNCHED)

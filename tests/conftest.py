@@ -128,6 +128,16 @@ def requester_in_memory(monkeypatch, web_server_in_memory):
     monkeypatch.setattr(requester, "get_content", get_test_content)
 
 
+def get_task_template(tool, template_name):
+    tool.get_task_template(
+        template_name=template_name,
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+
+
 @pytest.fixture
 def tool(db_cfg, client_env):
     from jobmon.client.api import Tool
@@ -143,9 +153,24 @@ def tool(db_cfg, client_env):
         task_args=[],
         op_args=[],
     )
+    tool.get_task_template(
+        template_name="array_template",
+        command_template="echo {arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    get_task_template(tool, "phase_1")
+    get_task_template(tool, "phase_2")
+    get_task_template(tool, "phase_3")
     return tool
 
 
 @pytest.fixture
 def task_template(tool):
     return tool.active_task_templates["simple_template"]
+
+
+@pytest.fixture
+def array_template(tool):
+    return tool.active_task_templates["array_template"]

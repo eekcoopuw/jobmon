@@ -3,10 +3,10 @@ import os
 import time
 
 
-def happy_path(sleep_secs, output_file_path, name):
+def happy_path(sleep_secs, output_file_path, task_name):
     time.sleep(sleep_secs)
     f = open(output_file_path, "w")
-    f.write("Mock output from '{}'\n".format(name))
+    f.write("Mock output from '{}'\n".format(task_name))
     f.close()
 
 
@@ -31,7 +31,7 @@ def main():
         help="Full path to output file",
     )
     parser.add_argument(
-        "--name",
+        "--task_name",
         default="nameless",
         type=str,
         action="store",
@@ -79,10 +79,10 @@ def main():
             raise ValueError("Mock task failing intermittently {}".format(count_so_far))
         else:
             # Enough failures, we should succeed this time
-            happy_path(args.sleep_secs, args.output_file_path, args.name)
+            happy_path(args.sleep_secs, args.output_file_path, args.task_name)
     else:
         # No "fail" argument, we should succeed
-        happy_path(args.sleep_secs, args.output_file_path, args.name)
+        happy_path(args.sleep_secs, args.output_file_path, args.task_name)
 
 
 if __name__ == "__main__":

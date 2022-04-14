@@ -5,13 +5,15 @@ import hashlib
 from http import HTTPStatus as StatusCodes
 import logging
 from string import Formatter
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientTaskTemplateVersion
 
+if TYPE_CHECKING:
+    from jobmon.client.task_template import TaskTemplate
 
 logger = logging.getLogger(__name__)
 
@@ -38,8 +40,11 @@ class TaskTemplateVersion:
         self.task_args = set(task_args)
         self._op_args: set
         self.op_args = set(op_args)
+
+        # binding attributes
         self._task_template_version_id: int
         self._id_name_map: Dict
+        self._task_template: TaskTemplate
 
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
         self.default_cluster_name: str = ""
@@ -51,72 +56,86 @@ class TaskTemplateVersion:
 
     @classmethod
     def get_task_template_version(
-        cls: Any,
-        task_template_id: int,
+        cls: Type[TaskTemplateVersion],
+        task_template: TaskTemplate,
         command_template: str,
         node_args: List[str] = [],
         task_args: List[str] = [],
         op_args: List[str] = [],
-        requester: Optional[Requester] = None,
-        compute_resources: Optional[Dict[str, Any]] = None,
     ) -> TaskTemplateVersion:
         """Get a bound TaskTemplateVersion object from parameters.
 
-        task_template_id: task template id this should be associated with.
-        command_template: an abstract command representing a task, where the arguments to
-            the command have defined names but the values are not assigned. eg: '{python}
-            {script} --data {data} --para {para} {verbose}'
-        node_args: any named arguments in command_template that make the command unique
-            within this template for a given workflow run. Generally these are arguments
-            that can be parallelized over.
-        task_args: any named arguments in command_template that make the command unique
-            across workflows if the node args are the same as a previous workflow.
-            Generally these are arguments about data moving though the task.
-        op_args: any named arguments in command_template that can change without changing
-            the identity of the task. Generally these are things like the task executable
-            location or the verbosity of the script.
+        Args:
+            task_template: TaskTemplate this version should be associated with.
+            command_template: an abstract command representing a task, where the arguments to
+                the command have defined names but the values are not assigned. eg: '{python}
+                {script} --data {data} --para {para} {verbose}'
+            node_args: any named arguments in command_template that make the command unique
+                within this template for a given workflow run. Generally these are arguments
+                that can be parallelized over.
+            task_args: any named arguments in command_template that make the command unique
+                across workflows if the node args are the same as a previous workflow.
+                Generally these are arguments about data moving though the task.
+            op_args: any named arguments in command_template that can change without changing
+                the identity of the task. Generally these are things like the task executable
+                location or the verbosity of the script.
         """
         task_template_version = cls(
             command_template,
             node_args,
             task_args,
             op_args,
-            requester,
-            compute_resources,
+            task_template.requester,
         )
-        task_template_version.bind(task_template_id)
+        task_template_version.bind(task_template)
         return task_template_version
 
     @classmethod
-    def from_wire(cls: Any, wire_tuple: Tuple) -> TaskTemplateVersion:
+    def from_wire(
+        cls: Type[TaskTemplateVersion], wire_tuple: Tuple, task_template: TaskTemplate
+    ) -> TaskTemplateVersion:
         """Get a bound TaskTemplateVersion object from the http wire format.
 
         Args:
+            task_template: TaskTemplate this version should be associated with.
             wire_tuple: Wire format for ToolVersion defined in jobmon.serializers.
-            requester: communicate with the flask services.
         """
         kwargs = SerializeClientTaskTemplateVersion.kwargs_from_wire(wire_tuple)
 
         # post bind args should be popped off and added as attrs
         task_template_version_id = kwargs.pop("task_template_version_id")
         id_name_map = kwargs.pop("id_name_map")
+        task_template_id = kwargs.pop("task_template_id")
+        if task_template_id != task_template.id:
+            raise ValueError(
+                "task_template_id from wire_tuple does not match task_template. "
+                f"Expected {task_template.id} from wire_tuple. Got "
+                f"{kwargs['task_template_id']}"
+            )
 
         # instantiate and add attrs
-        task_template_version = cls(**kwargs)
+        task_template_version = cls(
+            command_template=kwargs["command_template"],
+            node_args=kwargs["node_args"],
+            task_args=kwargs["task_args"],
+            op_args=kwargs["op_args"],
+            requester=task_template.requester,
+        )
+        task_template_version._task_template = task_template
         task_template_version._task_template_version_id = task_template_version_id
         task_template_version._id_name_map = id_name_map
         return task_template_version
 
-    def bind(self, task_template_id: int) -> None:
+    def bind(self, task_template: TaskTemplate) -> None:
         """Bind task template version to the DB.
 
         Args:
-            task_template_id: the version of the task_template_id that this is associated with.
+            task_template: the TaskTemplate that this version is associated with.
         """
         if self.is_bound:
             return
 
-        app_route = f"/task_template/{task_template_id}/add_version"
+        app_route = f"/task_template/{task_template.id}/add_version"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
@@ -140,6 +159,7 @@ class TaskTemplateVersion:
             response["task_template_version"]
         )
 
+        self._task_template = task_template
         self._task_template_version_id = response_dict["task_template_version_id"]
         self._id_name_map = response_dict["id_name_map"]
 
@@ -149,10 +169,20 @@ class TaskTemplateVersion:
         return hasattr(self, "_task_template_version_id")
 
     @property
+    def task_template(self) -> TaskTemplate:
+        if not self.is_bound:
+            raise AttributeError(
+                "task_template cannot be accessed before TaskTemplateVersion is bound"
+            )
+        return self._task_template
+
+    @property
     def id(self) -> int:
         """The unique ID of the task template version if it has been bound."""
         if not self.is_bound:
-            raise AttributeError("id cannot be accessed before workflow is bound")
+            raise AttributeError(
+                "id cannot be accessed before TaskTemplateVersion is bound"
+            )
         return self._task_template_version_id
 
     @property
@@ -189,6 +219,8 @@ class TaskTemplateVersion:
                 "Cannot set node_args. node_args must be declared during "
                 "instantiation"
             )
+        if "name" in val:
+            raise ValueError("Name is not allowed as a keyword in a command_template.")
         if not self.template_args.issuperset(val):
             raise ValueError(
                 "The format keys declared in command_template must be a "
@@ -218,6 +250,8 @@ class TaskTemplateVersion:
                 "Cannot set task_args. task_args must be declared during "
                 "instantiation"
             )
+        if "name" in val:
+            raise ValueError("Name is not allowed as a keyword in a command_template.")
         if not self.template_args.issuperset(val):
             raise ValueError(
                 "The format keys declared in command_template must bes a "
@@ -246,6 +280,8 @@ class TaskTemplateVersion:
             raise AttributeError(
                 "Cannot set op_args. op_args must be declared during " "instantiation"
             )
+        if "name" in val:
+            raise ValueError("Name is not allowed as a keyword in a command_template.")
         if not self.template_args.issuperset(val):
             raise ValueError(
                 "The format keys declared in command_template must be a "
@@ -264,6 +300,29 @@ class TaskTemplateVersion:
             sorted(self.node_args) + sorted(self.task_args) + sorted(self.op_args)
         )
         return int(hashlib.sha1(hashable.encode("utf-8")).hexdigest(), 16)
+
+    def filter_kwargs(self, arg_type: str, **kwargs) -> Dict[str, Any]:
+        """Return the set of kwargs that are of arg_type.
+
+        Args:
+            arg_type: either node_args, task_args, op_args
+            kwargs: the key/value pairs to be filtered by type
+        """
+        arg_type_set_map = {
+            "node_args": self.node_args,
+            "task_args": self.task_args,
+            "op_args": self.op_args,
+        }
+        arg_set = arg_type_set_map[arg_type]
+        result = {}
+        for key, val in kwargs.items():
+            if key in arg_set:
+                result[key] = val
+        return result
+
+    def convert_arg_names_to_ids(self, **kwargs) -> Dict[int, Any]:
+        """Map from names to ids."""
+        return {self.id_name_map[k]: str(v) for k, v in kwargs.items()}
 
     def update_default_compute_resources(
         self, cluster_name: str, **kwargs: Any

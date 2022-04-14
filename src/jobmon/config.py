@@ -2,7 +2,7 @@
 from argparse import Namespace
 import os
 import shlex
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import configargparse
 
@@ -427,20 +427,6 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def distributor_n_queued(
-        parser: configargparse.ArgumentParser,
-    ) -> configargparse.ArgumentParser:
-        """How many jobs to distribute in one distributor loop."""
-        parser.add_argument(
-            "--distributor_n_queued",
-            type=int,
-            help="How many jobs to distribute in one distributor loop",
-            default=100,
-            env_var="DISTRIBUTOR_N_QUEUED",
-        )
-        return parser
-
-    @staticmethod
     def distributor_poll_interval(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
@@ -462,10 +448,10 @@ class CLI:
         """Initialize the CLI."""
         self.parser = configargparse.ArgumentParser(**PARSER_KWARGS)
 
-    def main(self, argstr: Optional[str] = None) -> None:
+    def main(self, argstr: Optional[str] = None) -> Any:
         """Parse args."""
         args = self.parse_args(argstr)
-        args.func(args)
+        return args.func(args)
 
     def parse_args(self, argstr: Optional[str] = None) -> configargparse.Namespace:
         """Construct a parser, parse either sys.argv (default) or the provided argstr.

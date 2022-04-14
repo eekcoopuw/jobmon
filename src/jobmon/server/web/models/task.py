@@ -4,10 +4,10 @@ from functools import partial
 from sqlalchemy.sql import func
 from werkzeug.local import LocalProxy
 
-from jobmon.serializers import SerializeSwarmTask, SerializeTask
+from jobmon.exceptions import InvalidStateTransition
+from jobmon.serializers import SerializeSwarmTask, SerializeDistributorTask
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
-from jobmon.server.web.models.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
 
@@ -23,15 +23,12 @@ class Task(DB.Model):
 
     def to_wire_as_distributor_task(self) -> tuple:
         """Serialize executor task object."""
-        serialized = SerializeTask.to_wire(
+        array_id = self.array.id if self.array is not None else None
+        serialized = SerializeDistributorTask.to_wire(
             task_id=self.id,
-            workflow_id=self.workflow_id,
-            node_id=self.node_id,
-            task_args_hash=self.task_args_hash,
+            array_id=array_id,
             name=self.name,
             command=self.command,
-            status=self.status,
-            queue_id=self.task_resources.queue_id,
             requested_resources=self.task_resources.requested_resources,
         )
         return serialized
@@ -45,6 +42,7 @@ class Task(DB.Model):
     workflow_id = DB.Column(DB.Integer, DB.ForeignKey("workflow.id"))
     node_id = DB.Column(DB.Integer, DB.ForeignKey("node.id"))
     task_args_hash = DB.Column(DB.Integer)
+    array_id = DB.Column(DB.Integer, DB.ForeignKey("array.id"), default=None)
     name = DB.Column(DB.String(255))
     command = DB.Column(DB.Text)
     task_resources_id = DB.Column(
@@ -55,25 +53,31 @@ class Task(DB.Model):
     resource_scales = DB.Column(DB.String(1000), default=None)
     fallback_queues = DB.Column(DB.String(1000), default=None)
     status = DB.Column(DB.String(1), DB.ForeignKey("task_status.id"))
-    submitted_date = DB.Column(DB.DateTime, default=func.now())
+    submitted_date = DB.Column(DB.DateTime)
     status_date = DB.Column(DB.DateTime, default=func.now())
 
     # ORM relationships
     task_instances = DB.relationship("TaskInstance", back_populates="task")
     task_resources = DB.relationship("TaskResources", foreign_keys=[task_resources_id])
+    array = DB.relationship("Array", foreign_keys=[array_id])
 
     # Finite state machine
     valid_transitions = [
-        (TaskStatus.REGISTERED, TaskStatus.QUEUED_FOR_INSTANTIATION),
-        (TaskStatus.ADJUSTING_RESOURCES, TaskStatus.QUEUED_FOR_INSTANTIATION),
-        (TaskStatus.QUEUED_FOR_INSTANTIATION, TaskStatus.INSTANTIATED),
-        (TaskStatus.INSTANTIATED, TaskStatus.RUNNING),
-        (TaskStatus.INSTANTIATED, TaskStatus.ERROR_RECOVERABLE),
+        (TaskStatus.REGISTERING, TaskStatus.QUEUED),
+        (TaskStatus.ADJUSTING_RESOURCES, TaskStatus.QUEUED),
+        (TaskStatus.QUEUED, TaskStatus.INSTANTIATING),
+        (TaskStatus.INSTANTIATING, TaskStatus.LAUNCHED),
+        (TaskStatus.INSTANTIATING, TaskStatus.ERROR_RECOVERABLE),
+        (TaskStatus.LAUNCHED, TaskStatus.RUNNING),
+        (TaskStatus.LAUNCHED, TaskStatus.ERROR_RECOVERABLE),
+        (TaskStatus.INSTANTIATING, TaskStatus.ERROR_RECOVERABLE),
+        (TaskStatus.INSTANTIATING, TaskStatus.RUNNING),
         (TaskStatus.RUNNING, TaskStatus.DONE),
         (TaskStatus.RUNNING, TaskStatus.ERROR_RECOVERABLE),
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.ADJUSTING_RESOURCES),
-        (TaskStatus.ERROR_RECOVERABLE, TaskStatus.QUEUED_FOR_INSTANTIATION),
+        (TaskStatus.ERROR_RECOVERABLE, TaskStatus.QUEUED),
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.ERROR_FATAL),
+        (TaskStatus.ERROR_RECOVERABLE, TaskStatus.REGISTERING)
     ]
 
     def reset(
@@ -86,7 +90,7 @@ class Task(DB.Model):
             # only reset if the task is not currently running or if we are
             # resetting running tasks
             if self.status != TaskStatus.RUNNING or reset_if_running:
-                self.status = TaskStatus.REGISTERED
+                self.status = TaskStatus.REGISTERING
                 self.num_attempts = 0
                 self.name = name
                 self.command = command
@@ -98,7 +102,7 @@ class Task(DB.Model):
         bind_to_logger(workflow_id=self.workflow_id, task_id=self.id)
         logger.info(f"Transitioning task from {self.status} to {new_state}")
         self._validate_transition(new_state)
-        if new_state == TaskStatus.INSTANTIATED:
+        if new_state == TaskStatus.QUEUED:
             self.num_attempts = self.num_attempts + 1
         self.status = new_state
         self.status_date = func.now()
@@ -119,7 +123,7 @@ class Task(DB.Model):
                 self.transition(TaskStatus.ADJUSTING_RESOURCES)
             else:
                 logger.debug("Retrying Task.")
-                self.transition(TaskStatus.QUEUED_FOR_INSTANTIATION)
+                self.transition(TaskStatus.REGISTERING)
 
     def _validate_transition(self, new_state: str) -> None:
         """Ensure the task state transition is valid."""

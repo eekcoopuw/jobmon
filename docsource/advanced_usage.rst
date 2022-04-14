@@ -214,7 +214,7 @@ For example::
 
 
 Fallback Queues
-##############
+###############
 Users are able to specify fallback queues in Jobmon. Scenario: a user has a Task that fails due
 to a resource error, Jobmon then scales that Tasks resources, but the newly scaled resources
 exceed the resources of the queue the Task is on. In this scenario the user could have
