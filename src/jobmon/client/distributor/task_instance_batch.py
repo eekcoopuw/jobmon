@@ -105,7 +105,7 @@ class TaskInstanceBatch:
                 f"code 200. Response content: {resp}"
             )
 
-    def log_distributor_ids(self, distributor_id_map: Dict, chunk_size: int = 50):
+    def log_distributor_ids(self, distributor_id_map: Dict, chunk_size: int = 1000):
         """Log the distributor ID in the database for all task instances in the batch.
 
         Send data to the server in chunks, so that we don't hold a lock for more than a few
@@ -113,7 +113,6 @@ class TaskInstanceBatch:
 
         app_route = f"/array/{self.array_id}/log_distributor_id"
 
-        chunk_id_map = {}
         task_instance_list = list(self.task_instances)
         ti_distributor_id_map = {}
 
@@ -122,6 +121,7 @@ class TaskInstanceBatch:
             ti_chunk = task_instance_list[:chunk_size]
             task_instance_list = task_instance_list[chunk_size:]
 
+            chunk_id_map = {}
             for task_instance in ti_chunk:
                 chunk_id_map[task_instance.array_step_id] = \
                     distributor_id_map[task_instance.array_step_id]

@@ -58,12 +58,6 @@ class DistributorService:
             TaskInstanceStatus.KILL_SELF: set(),
         }
         # order through which we processes work
-        self._status_processing_order = [
-            TaskInstanceStatus.QUEUED,
-            TaskInstanceStatus.INSTANTIATED,
-            TaskInstanceStatus.TRIAGING,
-            TaskInstanceStatus.KILL_SELF,
-        ]
         gen_map: Dict[str, Callable[..., Generator[DistributorCommand, None, None]]] = {
             TaskInstanceStatus.QUEUED: self._check_queued_for_work,
             TaskInstanceStatus.INSTANTIATED: self._check_instantiated_for_work,
@@ -101,20 +95,53 @@ class DistributorService:
             sys.stderr.write("ALIVE")
             sys.stderr.flush()
 
+            done: List[str] = []
+            todo = [
+                TaskInstanceStatus.QUEUED, TaskInstanceStatus.INSTANTIATED,
+                TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.RUNNING,
+                TaskInstanceStatus.TRIAGING, TaskInstanceStatus.KILL_SELF,
+            ]
             while True:
 
                 # loop through all statuses and do as much work as we can till the heartbeat
-                for status in self._status_processing_order:
-                    status_start = time.time()
-                    time_till_next_heartbeat = (
-                        self._workflow_run_heartbeat_interval
-                        - (status_start - self._last_heartbeat_time)
-                    )
-                    if time_till_next_heartbeat > 0:
+                time_till_next_heartbeat = (
+                    self._workflow_run_heartbeat_interval
+                    - (time.time() - self._last_heartbeat_time)
+                )
+
+                while todo and time_till_next_heartbeat > 0:
+                    # log when this status started
+                    start_time = time.time()
+
+                    # remove status from todo and add to done
+                    status = todo.pop(0)
+
+                    # refresh internal state from db
+                    self.refresh_status_from_db(status)
+
+                    # how long the heartbeat took
+                    refresh_time = time.time()
+                    time_till_next_heartbeat -= (refresh_time - start_time)
+
+                    if status in self._command_generator_map.keys():
+                        # process any work
                         self.process_status(status, time_till_next_heartbeat)
-                        duration = int(time.time() - status_start)
-                        logger.info(f"Status processing for status={status} took {duration}s.")
-                        time_till_next_heartbeat -= duration
+                        # how long the full status took
+                        end_time = time.time()
+                        time_till_next_heartbeat -= (end_time - refresh_time)
+
+                    else:
+                        end_time = refresh_time
+
+                    done.append(status)
+                    logger.info(
+                        f"Status processing for status={status} took "
+                        f"{int((end_time - start_time))}s."
+                    )
+
+                # append done work to the end of the work order
+                todo += done
+                done = []
 
                 if time_till_next_heartbeat > 0:
                     time.sleep(time_till_next_heartbeat)
@@ -140,9 +167,6 @@ class DistributorService:
             timeout: time until we stop processing. -1 means process till no more work
         """
         start = time.time()
-
-        # syncronize statuses from the db
-        self._refresh_status_from_db(status)
 
         # generate new distributor commands from this status
         command_generator_callable = self._command_generator_map[status]
@@ -352,7 +376,7 @@ class DistributorService:
         signal.signal(signal.SIGHUP, handle_sighup)
         signal.signal(signal.SIGINT, handle_sigint)
 
-    def _refresh_status_from_db(self, status: str):
+    def refresh_status_from_db(self, status: str):
         """Got to DB to check the list tis status."""
         message = {
             "task_instance_ids": [

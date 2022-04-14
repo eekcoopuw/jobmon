@@ -96,7 +96,9 @@ def test_sync_statuses(client_env, tool, task_template):
     # distribute the task
     swarm.set_initial_fringe()
     swarm.process_commands()
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
     time.sleep(2)
 
@@ -209,12 +211,14 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
     swarm.process_commands()
 
     # check that we get the instantiating signal
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
     swarm.synchronize_state()
     assert swarm.tasks[t1.task_id].status == TaskStatus.INSTANTIATING
     assert swarm.tasks[t2.task_id].status == TaskStatus.INSTANTIATING
 
     # run the normal workflow sync protocol. only t1 should be done
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
     swarm.synchronize_state()
     assert swarm.tasks[t1.task_id].status == TaskStatus.DONE

@@ -173,7 +173,9 @@ def test_cold_resume(tool):
     distributor_service.set_workflow_run(wfr1.workflow_run_id)
     distributor_service.workflow_run.transition_to_launched()
     swarm._update_status(WorkflowRunStatus.RUNNING)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
     distributor_service.cluster.start()
 
@@ -202,6 +204,7 @@ def test_cold_resume(tool):
     # set workflow run to terminated
     swarm._terminate_task_instances()
 
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.KILL_SELF)
     distributor_service.process_status(TaskInstanceStatus.KILL_SELF)
     swarm._update_status(WorkflowRunStatus.TERMINATED)
 
@@ -251,7 +254,9 @@ def test_hot_resume(tool, task_template):
     # create task instances
     swarm.set_initial_fringe()
     swarm.process_commands()
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
     distributor_service.cluster.start()
 

@@ -39,6 +39,7 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
 
     # check the job turned into I
@@ -68,6 +69,7 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
                ) == 2
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 0
 
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # Once processed from INSTANTIATED, the sequential (being a single process), would
@@ -124,6 +126,7 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
 
     # check the job turned into I
@@ -153,6 +156,7 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
                ) == 2
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 0
 
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # check the job to be Launched
@@ -217,7 +221,9 @@ def test_job_submit_raises_error(db_cfg, tool):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # check the job finished
@@ -271,7 +277,9 @@ def test_array_submit_raises_error(db_cfg, tool):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # check the job finished
@@ -325,7 +333,9 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 2
@@ -371,7 +381,9 @@ def test_array_concurrency(
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     assert (
