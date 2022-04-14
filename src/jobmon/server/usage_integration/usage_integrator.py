@@ -179,7 +179,10 @@ class UsageIntegrator:
 
     def update_slurm_resources(self, tasks: List[QueuedTI]) -> None:
         """Update resources for jobs that run on the Slurm cluster."""
-        usage_stats = self._get_squid_resource_via_slurm_sdb(task_instances=tasks)
+        usage_stats = _get_squid_resource_via_slurm_sdb(
+            session=self.session_slurm_sdb,
+            tres_types=self.tres_types,
+            task_instances=tasks)
 
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:
