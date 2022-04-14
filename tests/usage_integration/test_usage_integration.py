@@ -30,7 +30,7 @@ class TUsageIntegrator(UsageIntegrator):
         # self.config = _get_config()
         conn_slurm_sdb_str = "mysql://{user}:{pw}@{host}:{port}/{db}".format(
             user="jobmon",
-            pw="aedohvupi+h5iegho4Haix8Eem0peebe",
+            pw="Fill in pass",
             host="gen-slurm-sdb-s02.cluster.ihme.washington.edu",
             port="3306",
             db="slurm_acct_db",
