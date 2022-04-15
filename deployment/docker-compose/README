@@ -1,0 +1,9 @@
+As of April 2022 his docker-compose config is not used.
+
+Jobmon 2.0 and later is deployed using kubernetes, not by docker-compose.
+These docker-compose files are work towards the "bare-metal" deployment of
+Jobmon onto a person's laptop.
+
+When the IHME Deployment repo is created this code will move to a similar distro-style repo.
+
+These config files probably refer to code that no longer exists.
