@@ -133,12 +133,13 @@ deploy_jobmon_to_k8s () {
     RANCHER_DB_SECRET=${6}
     RANCHER_SLACK_SECRET=${7}
     RANCHER_QPID_SECRET=${8}
-    KUBECONFIG=${9}
-    USE_LOGSTASH=${10}
-    JOBMON_VERSION=${11}
-    K8S_REAPER_NAMESPACE=${12}
-    DEPLOY_JOBMON=${13}
-    DEPLOY_ELK=${14}
+    RANCHER_DB_SLURM_SDB_SECRET=${9}
+    KUBECONFIG=${10}
+    USE_LOGSTASH=${11}
+    JOBMON_VERSION=${12}
+    K8S_REAPER_NAMESPACE=${13}
+    DEPLOY_JOBMON=${14}
+    DEPLOY_ELK=${15}
 
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
     docker pull $KUBECTL_CONTAINER
@@ -207,6 +208,7 @@ deploy_jobmon_to_k8s () {
             --set global.rancher_db_secret="$RANCHER_DB_SECRET" \
             --set global.rancher_project="$RANCHER_PROJECT_ID" \
             --set global.rancher_qpid_secret="$RANCHER_QPID_SECRET" \
+            --set global.rancher_db_slurm_sdb_secret="$RANCHER_DB_SLURM_SDB_SECRET" \
             --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
             --set global.use_logstash="$USE_LOGSTASH"
 
