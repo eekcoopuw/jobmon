@@ -82,8 +82,8 @@ spec:
               name: {{ .Values.global.rancher_db_slurm_sdb_secret }}
         resources:
           limits:
-            memory: 1200Mi
+            memory: 2400Mi
             cpu: 1200m
           requests:
             cpu: 1000m # m = mhz
-            memory: 600Mi
+            memory: 1200Mi
