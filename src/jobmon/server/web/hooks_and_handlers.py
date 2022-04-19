@@ -4,6 +4,7 @@ from typing import Any, Optional
 from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask, jsonify, request
 from werkzeug.local import LocalProxy
+from werkzeug.exceptions import BadRequest
 
 
 from jobmon.server.web.log_config import get_logger, set_logger
@@ -69,7 +70,13 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
     @app.before_request
     def add_requester_context() -> None:
         new_logger = logger.new()
-        data = request.get_json() or {}
+        try:
+            data = request.get_json()
+        except BadRequest:
+            # Some get requests come without any json data.
+            # All requests issued by Jobmon's requester automatically come with an empty dict;
+            # however, if we call raw get requests outside of Jobmon we should handle it
+            data = {}
         if request.method == "GET":
             server_structlog_context = data
         if request.method in ["POST", "PUT"]:

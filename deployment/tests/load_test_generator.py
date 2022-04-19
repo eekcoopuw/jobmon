@@ -17,7 +17,6 @@ from jobmon.client.task_template import TaskTemplate
 
 
 logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
 
 
 @dataclass
@@ -265,13 +264,13 @@ class LoadTestGenerator:
                             ) -> List[Task]:
         # First Tier
         task_template = self.task_templates_by_phase[phase]
+        sleep_time = random.randint(30, 41)
 
         for i in range(n_tasks):
             logger.info(f"Create task for phase {phase}. Task number={i}")
 
             # task args
             self.counter += 1
-            sleep_time = random.randint(30, 41)
             compute_resources = {
                 'cores': 1,
                 'memory': 1,

@@ -1,3 +1,4 @@
+from datetime import datetime, timedelta
 from typing import Dict
 
 import pytest
@@ -38,6 +39,7 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
 
     # check the job turned into I
@@ -67,6 +69,7 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
                ) == 2
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 0
 
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # Once processed from INSTANTIATED, the sequential (being a single process), would
@@ -123,6 +126,7 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
 
     # check the job turned into I
@@ -152,6 +156,7 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
                ) == 2
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 0
 
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # check the job to be Launched
@@ -159,7 +164,7 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
     DB = db_cfg["DB"]
     with app.app_context():
         sql = """
-        SELECT id, task_instance.status
+        SELECT id, status, distributor_id, array_step_id
         FROM task_instance
         WHERE task_id in :task_ids
         ORDER BY id"""
@@ -174,6 +179,14 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
     assert len(res) == 2
     assert res[0].status == "O"
     assert res[1].status == "O"
+    assert res[0].distributor_id is not None
+    assert res[1].distributor_id is not None
+
+    # Check that distributor id is logged correctly
+    submitted_job_id = distributor_service.cluster._next_job_id - 1
+    expected_dist_id = distributor_service.cluster._get_subtask_id
+    assert res[0].distributor_id == expected_dist_id(submitted_job_id, res[0].array_step_id)
+    assert res[1].distributor_id == expected_dist_id(submitted_job_id, res[1].array_step_id)
 
 
 def test_job_submit_raises_error(db_cfg, tool):
@@ -208,7 +221,9 @@ def test_job_submit_raises_error(db_cfg, tool):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # check the job finished
@@ -262,7 +277,9 @@ def test_array_submit_raises_error(db_cfg, tool):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # check the job finished
@@ -316,7 +333,9 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 2
@@ -362,7 +381,9 @@ def test_array_concurrency(
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     assert (
@@ -430,3 +451,90 @@ def test_dynamic_concurrency_limiting(tool, db_cfg, client_env, task_template):
     # distributor_service.distributor.stop(
     #     list(distributor_service._submitted_or_running.keys())
     # )
+
+
+def test_array_launch_transition(db_cfg, web_server_in_memory):
+
+    from jobmon.server.web.models.task import Task
+    from jobmon.server.web.models.task_instance import TaskInstance
+    from jobmon.constants import TaskStatus, TaskInstanceStatus
+
+    # Make up some tasks and task instances in I state
+    app, db = db_cfg['app'], db_cfg['DB']
+    t = Task(
+        array_id=1,
+        task_args_hash=123,
+        command='echo 1',
+        status=TaskStatus.INSTANTIATING
+    )
+
+    # Add the task
+    with app.app_context():
+        db.session.add(t)
+        db.session.commit()
+
+    ti_params = {
+        'task_id': t.id,
+        'status': TaskInstanceStatus.INSTANTIATED,
+        'array_id': 1,
+        'array_batch_num': 1,
+        'array_step_id': 0,
+    }
+
+    ti1 = TaskInstance(**ti_params)
+    ti2 = TaskInstance(**dict(ti_params, array_step_id=1))
+    ti3 = TaskInstance(**dict(ti_params, array_step_id=2))
+
+    # add tis to db
+    with app.app_context():
+        db.session.add_all([ti1, ti2, ti3])
+        db.session.commit()
+
+    # Post the transition route, check what comes back
+    resp = web_server_in_memory.post(
+        '/array/1/transition_to_launched',
+        json={
+            'batch_number': 1,
+            'next_report_increment': 5 * 60  # 5 minutes to report
+        }
+    )
+    assert resp.status_code == 200
+
+    # Check the statuses are updated
+    with app.app_context():
+        tnew = db.session.query(Task).where(Task.id == t.id).one()
+        ti1_r, ti2_r, ti3_r = db.session.query(TaskInstance).where(
+            TaskInstance.id.in_([ti1.id, ti2.id, ti3.id])
+        ).all()
+
+        assert tnew.status == TaskStatus.LAUNCHED
+        assert [ti1_r.status, ti2_r.status, ti3_r.status] == [TaskInstanceStatus.LAUNCHED] * 3
+
+        # Check a single datetime
+        submitted_date = ti1_r.submitted_date
+        next_update_date = ti1_r.report_by_date
+        assert next_update_date > datetime.now()
+        assert next_update_date <= timedelta(minutes=5) + datetime.now()
+        assert datetime.now() - timedelta(minutes=5) < submitted_date < datetime.now()
+
+    # Post a request to log the distributor ids
+    resp = web_server_in_memory.post(
+        '/array/1/log_distributor_id',
+        json={
+            'array_batch_num': 1,
+            'distributor_id_map': {
+                '0': '123_1',
+                '1': '123_2',
+                '2': '123_3'
+            }
+        }
+    )
+    assert resp.status_code == 200
+
+    with app.app_context():
+        ti1_r, ti2_r, ti3_r = db.session.query(TaskInstance).where(
+            TaskInstance.id.in_([ti1.id, ti2.id, ti3.id])
+        ).all()
+
+        assert [ti1_r.distributor_id, ti2_r.distributor_id, ti3_r.distributor_id] == \
+               ['123_1', '123_2', '123_3']

@@ -165,7 +165,9 @@ def test_triaging_to_specific_error(tool, db_cfg, client_env, task_template,
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # stage all the task instances as triaging
@@ -192,6 +194,7 @@ def test_triaging_to_specific_error(tool, db_cfg, client_env, task_template,
     ):
 
         # code logic to test
+        distributor_service.refresh_status_from_db(TaskInstanceStatus.TRIAGING)
         distributor_service.process_status(TaskInstanceStatus.TRIAGING)
 
     # check the jobs to be UNKNOWN_ERROR as expected

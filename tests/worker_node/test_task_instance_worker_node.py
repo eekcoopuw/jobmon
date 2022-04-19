@@ -66,7 +66,9 @@ def test_task_instance(db_cfg, tool):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     app = db_cfg["app"]
@@ -117,7 +119,9 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template, monkeypat
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     app = db_cfg["app"]
@@ -171,7 +175,9 @@ def test_ti_kill_self_state(db_cfg, tool):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # Bring in the worker node here since dummy executor is never run
@@ -266,7 +272,9 @@ def test_limited_error_log(tool, db_cfg):
         raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # check db

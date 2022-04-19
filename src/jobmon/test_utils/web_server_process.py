@@ -60,7 +60,9 @@ class WebServerProcess:
         # Wait for it to be up
         status = 404
         count = 0
-        max_tries = 60
+        # We try a total of 10 times with 3 seconds between tries. If the web service is not up
+        # in 30 seconds something is likely wrong.
+        max_tries = 10
         while not status == 200 and count < max_tries:
             try:
                 count += 1

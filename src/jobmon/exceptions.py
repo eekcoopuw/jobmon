@@ -141,3 +141,8 @@ class WorkflowTestError(Exception):
     """Workflow Run encountered and error"""
 
     pass
+
+
+class DistributorInterruptedError(Exception):
+    """raised when signal is sent to distributor."""
+    pass

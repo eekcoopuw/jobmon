@@ -17,17 +17,10 @@ tool_resources:
   sequential:
     queue: "null.q"
 task_template_resources:
-  long_queue_test:
+  phase_1:
     buster:
       queue: 'long.q'
       runtime: 90_000
     slurm:
       queue: 'long.q'
       runtime: 90_000
-  normal_queue_test:
-    buster:
-      queue: 'all.q'
-      runtime: 60
-    slurm:
-      queue: 'long.q'
-      runtime: 60
