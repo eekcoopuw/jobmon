@@ -21,9 +21,7 @@ class UsageIntegrator:
 
     def __init__(self) -> None:
         """Initialization of the UsageIntegrator class."""
-        self._connection_params = {}
         self.heartbeat_time = 0
-        self.user = "svcscicompci"
 
         # Initialize config
         self.config = _get_config()
@@ -53,20 +51,6 @@ class UsageIntegrator:
         for tres_type in tres_types:
             tt[tres_type[1]] = tres_type[0]
         return tt
-
-    @property
-    def connection_parameters(self) -> Dict:
-        """Cache the connection parameters of the Slurm cluster."""
-        if len(self._connection_params) == 0:
-            # Ask the database for params, then cache
-            # Hardcoded cluster for now, hopefully not long lived
-            sql = "SELECT connection_parameters FROM cluster WHERE name = 'slurm'"
-            row = self.session.execute(sql).fetchone()
-            self.session.commit()
-            if row:
-                params = json.loads(row.connection_parameters)
-                self._connection_params = params
-        return self._connection_params
 
     def populate_queue(self, starttime: float) -> None:
         """Collect jobs in terminal states that do not have resources; add to queue."""
@@ -173,10 +157,6 @@ class UsageIntegrator:
         sql = "UPDATE task_instance SET maxrss=1314 WHERE id IN ({})"
         self.session.execute(sql.format(values))
         self.session.commit()
-
-
-def _get_service_user_pwd(env_variable: str = "SVCSCICOMPCI_PWD") -> Optional[str]:
-    return os.getenv(env_variable)
 
 
 def _get_slurm_resource_via_slurm_sdb(session: Session,
