@@ -1,8 +1,7 @@
-import json
+import ast
 import logging
-import os
 from time import sleep, time
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 import slurm_rest  # type: ignore
 from sqlalchemy import create_engine
@@ -130,7 +129,7 @@ class UsageIntegrator:
         # So we probably aren't close to that limit.
         sql = (
             "INSERT INTO task_instance(id, maxrss, wallclock, task_id, status) "
-            "VALUES {values} "
+            "VALUES :values "
             "ON DUPLICATE KEY UPDATE "
             "maxrss=VALUES(maxrss), "
             "wallclock=VALUES(wallclock) "
@@ -146,7 +145,7 @@ class UsageIntegrator:
             ]
         )
 
-        self.session.execute(sql.format(values=values))
+        self.session.execute(sql, values=values)
         self.session.commit()
 
     def update_dummy_resources(self, task_instances: List[QueuedTI]) -> None:
@@ -169,31 +168,59 @@ def _get_slurm_resource_via_slurm_sdb(session: Session,
     Return 5 values: cpu, mem, node, billing and elapsed that are available from
     slurm_sdb.
     """
-    import ast
 
     all_usage_stats: Dict[QueuedTI, Dict[str, Optional[Any]]] = {}
 
     # mapping of distributor_id and task instance
-    dict_dist_ti: Dict[int, QueuedTI] = {}
+    dict_dist_ti: Dict[str, QueuedTI] = {}
     # with distributor_id as the key
-    raw_usage_stats: Dict[int, Dict[str, Optional[Any]]] = {}
+    raw_usage_stats: Dict[str, Dict[str, Optional[Any]]] = {}
 
-    distributor_ids: List[int] = [task_instance.distributor_id
-                                  for task_instance in task_instances]
-    for task_instance in task_instances:
-        dict_dist_ti[task_instance.distributor_id] = task_instance
+    nonarray_distributor_ids: List[str] = []
+    array_distributor_ids: List[Tuple[str, str]] = []
+
+    for ti in task_instances:
+        # Need to generate the id_job variable if the task is an array task
+        distributor_id_split = ti.distributor_id.split("_")
+        if len(distributor_id_split) == 2:
+            # Array tasks (slurm) have a distributor_id value like "xyz_abc"
+            # non array tasks have a distributor_id value like "xyz"
+            # The split call should give a list of length 2 or 1 depending on whether it's
+            # an array task or not.
+
+            # We have to assume a cluster-specific implementation here. The
+            # jobmon-slurm plugin and the SLURM cluster use an underscore to separate the
+            # array job id and the array task id, this isn't guaranteed to be universal
+            # (e.g. SGE will use a period instead, xyz.abc).
+            array_distributor_ids.append(*distributor_id_split)
+        elif len(distributor_id_split) == 1:
+            # Add to non array queue
+            nonarray_distributor_ids.append(ti.distributor_id)
+        else:
+            logger.warning(f"Couldn't parse distributor ID {ti.distributor_id}")
+            # Don't repopulate the queue since we can't do anything with this task instance
+
+        # Add the task instance to the distributor ID -> task instance ID map
+        dict_dist_ti[ti.distributor_id] = ti
 
     # get job_step data
     sql_step = "SELECT job.id_job, job.time_end - job.time_start AS elapsed, " \
                "job.tres_alloc, step.tres_usage_in_max " \
                "FROM general_step_table step " \
                "INNER JOIN general_job_table job ON step.job_db_inx = job.job_db_inx " \
-               "WHERE step.deleted = 0 AND job.deleted = 0 " \
-               "AND job.id_job IN :job_ids"
+               "WHERE step.deleted = 0"
 
-    steps = session.execute(sql_step, {"job_ids": distributor_ids}).all()
+    non_array_clause = "AND job.id_job IN :job_ids"
+    array_clause = "AND (job.id_array_job, job.id_array_task) IN :array_id_tuples"
+
+    non_array_steps = session.execute(
+        sql_step + non_array_clause, {"job_ids": nonarray_distributor_ids}
+    ).all()
+    array_steps = session.execute(
+        sql_step + array_clause, {"array_id_tuples": array_distributor_ids}
+    ).all()
     session.commit()
-    for step in steps:
+    for step in non_array_steps + array_steps:
         if step[0] in raw_usage_stats:
             job_stats = raw_usage_stats[step[0]]
             job_stats["runtime"] = max(job_stats["runtime"], step[1])
