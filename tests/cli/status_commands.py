@@ -288,9 +288,8 @@ def test_workflow_tasks(db_cfg, client_env, task_template, cli):
     workflow.bind()
     client_wfr = workflow._create_workflow_run()
     wfr = SwarmWorkflowRun(
-        workflow_id=workflow.workflow_id,
         workflow_run_id=client_wfr.workflow_run_id,
-        tasks=workflow.tasks.values(),
+        requester=workflow.requester
     )
 
     # we should get 2 tasks back in pending state
@@ -302,10 +301,9 @@ def test_workflow_tasks(db_cfg, client_env, task_template, cli):
     assert len(df.STATUS.unique()) == 1
 
     # execute the tasks
-    requester = Requester(client_env)
-    seq_distributor = SequentialDistributor()
     distributor = DistributorService(
-        workflow.workflow_id, wfr.workflow_run_id, seq_distributor, requester=requester
+        SequentialDistributor(),
+        workflow.requester,
     )
     with pytest.raises(RuntimeError):
         # Set the is_alive to always true
