@@ -1,4 +1,5 @@
 import ast
+import datetime
 import logging
 from time import sleep, time
 from typing import Any, Dict, List, Optional, Tuple
@@ -18,12 +19,12 @@ logger = logging.getLogger(__name__)
 class UsageIntegrator:
     """Retrieves usage data for jobs run on Slurm and UGE."""
 
-    def __init__(self) -> None:
+    def __init__(self, config: UsageConfig = None) -> None:
         """Initialization of the UsageIntegrator class."""
         self.heartbeat_time = 0
 
         # Initialize config
-        self.config = _get_config()
+        self.config = _get_config(config)
 
         # Initialize sqlalchemy session
         eng = create_engine(self.config["conn_str"], pool_recycle=200)
@@ -32,7 +33,7 @@ class UsageIntegrator:
 
         # Initialize sqlalchemy session for slurm_sdb
         eng_slurm_sdb = create_engine(self.config["conn_slurm_sdb_str"],
-                                      pool_recycle=200)
+                                      pool_recycle=200, pool_pre_ping=True)
         session_slurm_sdb = sessionmaker(bind=eng_slurm_sdb)
         self.session_slurm_sdb = session_slurm_sdb()
 
@@ -177,7 +178,7 @@ def _get_slurm_resource_via_slurm_sdb(session: Session,
     raw_usage_stats: Dict[str, Dict[str, Optional[Any]]] = {}
 
     nonarray_distributor_ids: List[str] = []
-    array_distributor_ids: List[Tuple[str, str]] = []
+    array_distributor_ids: List[Tuple[str]] = []
 
     for ti in task_instances:
         # Need to generate the id_job variable if the task is an array task
@@ -192,7 +193,7 @@ def _get_slurm_resource_via_slurm_sdb(session: Session,
             # jobmon-slurm plugin and the SLURM cluster use an underscore to separate the
             # array job id and the array task id, this isn't guaranteed to be universal
             # (e.g. SGE will use a period instead, xyz.abc).
-            array_distributor_ids.append(*distributor_id_split)
+            array_distributor_ids.append(tuple(distributor_id_split))
         elif len(distributor_id_split) == 1:
             # Add to non array queue
             nonarray_distributor_ids.append(ti.distributor_id)
@@ -204,22 +205,40 @@ def _get_slurm_resource_via_slurm_sdb(session: Session,
         dict_dist_ti[ti.distributor_id] = ti
 
     # get job_step data
-    sql_step = "SELECT job.id_job, job.time_end - job.time_start AS elapsed, " \
+    # Case is needed since we want to return a concatenation of parent array job and subtask
+    # id as the job_id for array jobs
+    sql_step = "SELECT " \
+               "CASE " \
+               "    WHEN job.id_array_job = 0 THEN job.id_job " \
+               "    ELSE CONCAT(job.id_array_job, '_', job.id_array_task) " \
+               "END AS job_id, " \
+               "job.time_end - job.time_start AS elapsed, " \
                "job.tres_alloc, step.tres_usage_in_max " \
                "FROM general_step_table step " \
                "INNER JOIN general_job_table job ON step.job_db_inx = job.job_db_inx " \
-               "WHERE step.deleted = 0"
+               "WHERE step.deleted = 0 "
 
+    # Issue two separate queries for array and non-array jobs. The where clauses are
+    # constructed differently, and figured this is simpler than a complex CASE statement.
+    #
     non_array_clause = "AND job.id_job IN :job_ids"
     array_clause = "AND (job.id_array_job, job.id_array_task) IN :array_id_tuples"
 
-    non_array_steps = session.execute(
-        sql_step + non_array_clause, {"job_ids": nonarray_distributor_ids}
-    ).all()
-    array_steps = session.execute(
-        sql_step + array_clause, {"array_id_tuples": array_distributor_ids}
-    ).all()
+    # Initialize results as empty lists. If we have anything to query on we will
+    array_steps, non_array_steps = [], []
+
+    if nonarray_distributor_ids:
+        non_array_steps = session.execute(
+            sql_step + non_array_clause, {"job_ids": nonarray_distributor_ids}
+        ).all()
+
+    if array_distributor_ids:
+        array_steps = session.execute(
+            sql_step + array_clause, {"array_id_tuples": array_distributor_ids}
+        ).all()
+
     session.commit()
+
     for step in non_array_steps + array_steps:
         if step[0] in raw_usage_stats:
             job_stats = raw_usage_stats[step[0]]
@@ -238,13 +257,13 @@ def _get_slurm_resource_via_slurm_sdb(session: Session,
         v["wallclock"] = v.pop("runtime")
         v["maxrss"] = v.pop("mem")
         logger.info(f"{k}: {v}")
-        all_usage_stats[dict_dist_ti[k]] = v
-
+        all_usage_stats[dict_dist_ti[str(k)]] = v
     return all_usage_stats
 
 
-def _get_config() -> dict:
-    config = UsageConfig.from_defaults()
+def _get_config(config: UsageConfig = None) -> dict:
+    if config is None:
+        config = UsageConfig.from_defaults()
     return {
         "conn_str": config.conn_str,
         "conn_slurm_sdb_str": config.conn_slurm_sdb_str,
@@ -253,12 +272,16 @@ def _get_config() -> dict:
     }
 
 
-def q_forever(init_time: float = 0) -> None:
+def q_forever(init_time: float = datetime.datetime(2022, 4, 8)) -> None:
     """A never stop method running in a thread that queries the SLURM and Jobmon databases.
 
     It constantly queries the maxpss value from the SLURM accounting database
     for completed jobmon jobs. If the maxpss is not found in the database,
     put the execution id back to the queue.
+
+    The default initialization time is set to 4/8/2022 since that's when Infra began
+    replicating the production accounting databases. We cannot query data from before that
+    date.
     """
     # allow the service to decide the time to go back to fill maxrss/maxpss
     last_heartbeat = init_time
@@ -281,7 +304,9 @@ def q_forever(init_time: float = 0) -> None:
         # Query DB to add newly completed jobs to q and log q length
         current_time = time()
         if int(current_time - last_heartbeat) > integrator.config["polling_interval"]:
-            logger.info("UsageQ length: {}".format(UsageQ.get_size()))
+            logger.info("UsageQ length: {}, last heartbeat time: {}".format(
+                UsageQ.get_size(), datetime.datetime.fromtimestamp(last_heartbeat)
+            ))
             try:
                 integrator.populate_queue(last_heartbeat)
                 logger.debug(f"Q length: {UsageQ.get_size()}")

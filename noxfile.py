@@ -22,8 +22,8 @@ def tests(session: Session) -> None:
     session.conda_install("mysqlclient", "openssl")
     session.install("-e", ".[test,server]")
 
-    # pytest skips. performance tests are a separate nox target
-    extra_args = ['-m', "not performance_tests"]
+    # pytest skips. performance tests are a separate nox target, so are integrator tests
+    extra_args = ['-m', "not performance_tests and not usage_integrator"]
 
     # pytest mproc
     session.run("pytest", *args, *extra_args)
@@ -38,6 +38,18 @@ def performance(session: Session) -> None:
     session.install("-e", ".[test,server]")
 
     extra_args = ["-m", "performance_tests"]
+    session.run("pytest", *args, *extra_args)
+
+
+@nox.session(python=python, venv_backend="conda")
+def usage_integrator(session: Session) -> None:
+    """Run the integrator tests that connect to the production accounting database."""
+    args = session.posargs or test_locations
+
+    session.conda_install("mysqlclient", "openssl")
+    session.install("-e", ".[test,server]")
+
+    extra_args = ["-m", "usage_integrator"]
     session.run("pytest", *args, *extra_args)
 
 

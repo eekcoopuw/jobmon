@@ -6,75 +6,59 @@ import pytest
 from unittest.mock import patch
 
 from jobmon.client.tool import Tool
-# Commented out since slurm_rest is not a testing requirement
-# from jobmon.server.usage_integration.usage_integrator import UsageIntegrator
-# from jobmon.server.usage_integration.usage_queue import UsageQ
-# from jobmon.server.usage_integration.usage_utils import QueuedTI
+from jobmon.server.usage_integration.usage_integrator import (
+    UsageIntegrator, _get_slurm_resource_via_slurm_sdb)
+from jobmon.server.usage_integration.usage_queue import UsageQ
+from jobmon.server.usage_integration.usage_utils import QueuedTI
 
 
-@pytest.mark.skip(
-    reason="This is not a regress test." "But useful to verify _get_squid_resource."
-)
-def test_get_slurm_resource_usages_on_slurm():
+@pytest.mark.usage_integrator
+def test_get_slurm_resource_usages_on_slurm(usage_integrator):
     """This is to verify _get_squid_resource works.
 
     This test uses a hard coded job id.
     No need to run as regression.
     """
-    r = os.system("scontrol")
-    if r > 0:
-        pytest.skip("This test only runs on slurm nodes.")
-    else:
-        import slurm_rest  # type: ignore
-        from jobmon.server.usage_integration.usage_integrator import _get_squid_resource
-        from jobmon.server.usage_integration.resilient_slurm_api import (
-            ResilientSlurmApi as slurm,
-        )
 
-        # a function to mock slurm auth token
-        def get_slurm_api(*args):
-            res = os.popen(f"scontrol token lifespan={300}").read()
-            token = res.split("=")[1].strip()
-            configuration = slurm_rest.Configuration(
-                host="https://api.cluster.ihme.washington.edu",
-                api_key={
-                    "X-SLURM-USER-NAME": getpass.getuser(),
-                    "X-SLURM-USER-TOKEN": token,
-                },
-            )
-            _slurm_api = slurm(slurm_rest.ApiClient(configuration))
-            return _slurm_api
+    # Random non array distributor id
+    distributor_id = '7931516'
+    qti = QueuedTI(
+        task_instance_id=1,
+        distributor_id=distributor_id,
+        cluster_type_name="slurm",
+        cluster_id=1,
+    )
+    integrator = UsageIntegrator(usage_integrator_config)
+    d = _get_slurm_resource_via_slurm_sdb(
+        session=integrator.session_slurm_sdb,
+        tres_types=integrator.tres_types,
+        task_instances=[qti]
+    )
+    # Known values
+    assert d[qti]["maxrss"] == 3721453568
+    assert d[qti]["wallclock"] == 214
 
-        slurm_api = get_slurm_api()
-        distributor_id = 563173
-        qti = QueuedTI(
-            task_instance_id=1,
-            distributor_id=distributor_id,
-            cluster_type_name="slurm",
-            cluster_id=1,
-        )
-        d = _get_squid_resource(slurm_api=slurm_api, task_instances=[qti])
-        # Known values
-        assert d[qti]["maxrss"] == 102400
-        assert d[qti]["wallclock"] == 16
+    # Query with a non array task as well
+    qti_array = QueuedTI(
+        task_instance_id=2,
+        distributor_id='7869919_4',
+        cluster_type_name='slurm',
+        cluster_id=1,
+    )
 
-
-@pytest.mark.skip("Don't autotest integrator")
-def test_get_uge_resource(db_cfg, client_env):
-
-    from jobmon.server.usage_integration.usage_integrator import _get_qpid_response
-
-    distributor_id = 117884202
-    qpid_uri = "https://jobapi.ihme.washington.edu/fair/jobmaxpss"
-
-    resp = _get_qpid_response(distributor_id, qpid_uri)
-    # known value from qacct
-    assert resp == (200, 468998)
+    array_nonarray_values = _get_slurm_resource_via_slurm_sdb(
+        session=integrator.session_slurm_sdb,
+        tres_types=integrator.tres_types,
+        task_instances=[qti, qti_array]
+    )
+    assert array_nonarray_values[qti] == d[qti]
+    assert array_nonarray_values[qti_array]["maxrss"] == 0
+    assert array_nonarray_values[qti_array]["wallclock"] == 7
 
 
-@pytest.mark.skip(reason="Probalem to run in parallel.")
-def test_maxrss_forever(db_cfg, client_env, ephemera):
-
+@pytest.mark.usage_integrator
+def test_maxrss_forever(db_cfg, client_env, ephemera, usage_integrator_config):
+    """Note: Do not run usage_integrator tests with multiprocessing."""
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="dummy", compute_resources={"queue": "null.q"}
@@ -95,78 +79,64 @@ def test_maxrss_forever(db_cfg, client_env, ephemera):
     workflow_run_status = workflow.run()
     assert workflow_run_status == "D"
 
-    # time to mock
-    def fake_config():
-        conn_str = "mysql+pymysql://{user}:{pw}@{host}:{port}/{db}".format(
-            user=ephemera["DB_USER"],
-            pw=ephemera["DB_PASS"],
-            host=ephemera["DB_HOST"],
-            port=ephemera["DB_PORT"],
-            db=ephemera["DB_NAME"],
-        )
-        return {"conn_str": conn_str, "polling_interval": 1, "max_update_per_sec": 10}
-
     # CLear the usage q
     UsageQ.empty_q()
 
-    with patch(
-        "jobmon.server.usage_integration.usage_integrator._get_config", fake_config
-    ):
-        app = db_cfg["app"]
-        DB = db_cfg["DB"]
-        with app.app_context():
-            tis = []
-            tids = [t.task_id for t in tasks]
-            sql = f"""
-                SELECT id, maxrss
-                FROM task_instance
-                WHERE task_id in {str(tids).replace("[", "(").replace("]", ")")}
+    app = db_cfg["app"]
+    DB = db_cfg["DB"]
+    with app.app_context():
+        tis = []
+        tids = [t.task_id for t in tasks]
+        sql = f"""
+            SELECT id, maxrss
+            FROM task_instance
+            WHERE task_id in {str(tids).replace("[", "(").replace("]", ")")}
+        """
+        rows = DB.session.execute(sql).fetchall()
+        assert rows is not None
+        for r in rows:
+            assert r["maxrss"] is None
+            tis.append(int(r["id"]))
+        # set a -1
+        sql_update = f"""
+            UPDATE task_instance
+            SET maxrss=-1
+            WHERE id={tis[0]}
+        """
+        DB.session.execute(sql_update)
+        DB.session.commit()
+        # set a 0
+        sql_update = f"""
+            UPDATE task_instance
+            SET maxrss=0
+            WHERE id={tis[1]}
             """
+        DB.session.execute(sql_update)
+        DB.session.commit()
+
+        assert UsageQ.get_size() == 0
+
+        try:
+            integrator = UsageIntegrator(usage_integrator_config)
+            # add completed tasks to Q
+            integrator.populate_queue(0)
+            assert UsageQ.get_size() == 5
+
+            # update maxrss
+            task_instances = [UsageQ.get() for _ in range(5)]
+            assert UsageQ.get_size() == 0
+            integrator.update_resources_in_db(task_instances)
             rows = DB.session.execute(sql).fetchall()
             assert rows is not None
             for r in rows:
-                assert r["maxrss"] is None
-                tis.append(int(r["id"]))
-            # set a -1
-            sql_update = f"""
-                UPDATE task_instance
-                SET maxrss=-1
-                WHERE id={tis[0]}
-            """
-            DB.session.execute(sql_update)
-            DB.session.commit()
-            # set a 0
-            sql_update = f"""
-                UPDATE task_instance
-                SET maxrss=0
-                WHERE id={tis[1]}
-                """
-            DB.session.execute(sql_update)
-            DB.session.commit()
-
-            assert UsageQ.get_size() == 0
-
-            try:
-                integrator = UsageIntegrator()
-                # add completed tasks to Q
-                integrator.populate_queue(0)
-                assert UsageQ.get_size() == 5
-
-                # update maxrss
-                task_instances = [UsageQ.get() for _ in range(5)]
-                assert UsageQ.get_size() == 0
-                integrator.update_resources_in_db(task_instances)
-                rows = DB.session.execute(sql).fetchall()
-                assert rows is not None
-                for r in rows:
-                    assert r["maxrss"] == "1314"
-            finally:
-                integrator.session.close()
+                assert r["maxrss"] == "1314"
+        finally:
+            integrator.session.close()
 
 
-@pytest.mark.skip("Don't autotest integrator")
+@pytest.mark.usage_integrator
 def test_usage_integrator(db_cfg, ephemera):
-
+    """Note: Do not run usage_integrator tests with multiprocessing."""
     from jobmon.server.usage_integration.usage_queue import UsageQ
 
     def fake_config():
