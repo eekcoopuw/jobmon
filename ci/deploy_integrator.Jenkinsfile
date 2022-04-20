@@ -17,9 +17,6 @@ pipeline {
     string(defaultValue: 'jobmon-slurm-sdb-dev',
      description: 'name of rancher secret to use for db variables',
      name: 'RANCHER_DB_SLURM_SDB_SECRET')
-    string(defaultValue: 'jobmon-qpid',
-     description: 'name of rancher secret to use for qpid variables',
-     name: 'RANCHER_QPID_SECRET')
     string(defaultValue: 'c-99499:p-4h54h',
      description: 'Rancher project must be created in the rancher web ui before running this job. Get this from the URL after you select the project in the rancher UI. Shouldnt change often',
      name: 'RANCHER_PROJECT_ID')
@@ -89,7 +86,6 @@ pipeline {
                       ${K8S_NAMESPACE} \
                       ${RANCHER_PROJECT_ID} \
                       ${RANCHER_DB_SECRET} \
-                      ${RANCHER_QPID_SECRET} \
                       ${JOBMON_VERSION} \
                       ${RANCHER_DB_SLURM_SDB_SECRET} \
                       ${KUBECONFIG}

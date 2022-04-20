@@ -278,17 +278,15 @@ deploy_integrator_to_k8s () {
     K8S_NAMESPACE=${3}
     RANCHER_PROJECT_ID=${4}
     RANCHER_DB_SECRET=${5}
-    RANCHER_QPID_SECRET=${6}
-    JOBMON_VERSION=${7}
-    RANCHER_DB_SLURM_SDB_SECRET=${8}
-    KUBECONFIG=${9}
+    JOBMON_VERSION=${6}
+    RANCHER_DB_SLURM_SDB_SECRET=${7}
+    KUBECONFIG=${8}
 
     echo "WORKSPACE $WORKSPACE"
     echo "JOBMON_CONTAINER_URI $JOBMON_CONTAINER_URI"
     echo "K8S_NAMESPACE $K8S_NAMESPACE"
     echo "RANCHER_PROJECT_ID $RANCHER_PROJECT_ID"
     echo "RANCHER_DB_SECRET $RANCHER_DB_SECRET"
-    echo "RANCHER_QPID_SECRET $RANCHER_QPID_SECRET"
     echo "KUBECONFIG $KUBECONFIG"
     echo "RANCHER_DB_SLURM_SDB_SECRET $RANCHER_DB_SLURM_SDB_SECRET"
     echo "JOBMON_VERSION $JOBMON_VERSION"
@@ -313,7 +311,7 @@ deploy_integrator_to_k8s () {
         docker run -t \
             --rm \
             -v $KUBECONFIG:/root/.kube/config \
-            -v "$WORKSPACE/deployment/k8s/integrator:/data" \
+            -v "$WORKSPACE/deployment/k8s/integrator/:/data" \
             alpine/helm \
                 template /data -s templates/01_namespace.yaml \
                 --set global.namespace="$K8S_NAMESPACE" \
@@ -339,7 +337,6 @@ deploy_integrator_to_k8s () {
         --set global.namespace="$K8S_NAMESPACE" \
         --set global.rancher_db_secret="$RANCHER_DB_SECRET" \
         --set global.rancher_project="$RANCHER_PROJECT_ID" \
-        --set global.rancher_qpid_secret="$RANCHER_QPID_SECRET" \
         --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
         --set global.rancher_db_slurm_sdb_secret="$RANCHER_DB_SLURM_SDB_SECRET"
 }
