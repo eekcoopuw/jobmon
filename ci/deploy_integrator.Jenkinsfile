@@ -86,7 +86,6 @@ pipeline {
                       ${K8S_NAMESPACE} \
                       ${RANCHER_PROJECT_ID} \
                       ${RANCHER_DB_SECRET} \
-                      ${JOBMON_VERSION} \
                       ${RANCHER_DB_SLURM_SDB_SECRET} \
                       ${KUBECONFIG}
 
