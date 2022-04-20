@@ -47,6 +47,11 @@ def test_create_array(db_cfg, client_env, task_template):
         array.compute_resources
         == task_template.default_compute_resources_set["sequential"]
     )
+    # test assigned name
+    assert "simple_template" in array.name
+    # test given name
+    array = task_template.create_array(name="test_array", arg="echo 2")
+    assert "test_array" in array.name
 
 
 def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
@@ -140,7 +145,7 @@ def test_create_tasks(db_cfg, client_env, tool):
         op_arg="baz",
         compute_resources={"queue": "null.q"},
     )
-    
+
     assert len(array.tasks) == 9  # Created on init
     wf = tool.create_workflow()
     wf.add_array(array)
