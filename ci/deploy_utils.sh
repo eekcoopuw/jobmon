@@ -329,7 +329,7 @@ deploy_integrator_to_k8s () {
     -v "$WORKSPACE/deployment/k8s/integrator:/apps" \
     -v $KUBECONFIG:/root/.kube/config \
     alpine/helm \
-        upgrade --install jobmon /apps/. \
+        upgrade --install jobmon-integrator /apps/. \
         -n "$K8S_NAMESPACE" \
         --history-max 3 \
         --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI" \
