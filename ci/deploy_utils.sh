@@ -278,9 +278,8 @@ deploy_integrator_to_k8s () {
     K8S_NAMESPACE=${3}
     RANCHER_PROJECT_ID=${4}
     RANCHER_DB_SECRET=${5}
-    JOBMON_VERSION=${6}
-    RANCHER_DB_SLURM_SDB_SECRET=${7}
-    KUBECONFIG=${8}
+    RANCHER_DB_SLURM_SDB_SECRET=${6}
+    KUBECONFIG=${7}
 
     echo "WORKSPACE $WORKSPACE"
     echo "JOBMON_CONTAINER_URI $JOBMON_CONTAINER_URI"
@@ -289,7 +288,6 @@ deploy_integrator_to_k8s () {
     echo "RANCHER_DB_SECRET $RANCHER_DB_SECRET"
     echo "KUBECONFIG $KUBECONFIG"
     echo "RANCHER_DB_SLURM_SDB_SECRET $RANCHER_DB_SLURM_SDB_SECRET"
-    echo "JOBMON_VERSION $JOBMON_VERSION"
 
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
     docker pull $KUBECTL_CONTAINER
@@ -323,6 +321,10 @@ deploy_integrator_to_k8s () {
             -v $KUBECONFIG:/root/.kube/config \
             ${KUBECTL_CONTAINER} apply -f /data/namespace.yaml
     fi
+
+    # Remove file, so helm doesn't attempt to re-deploy it
+    rm -f ./deployment/k8s/integrator/templates/01_namespace.yaml
+
     echo "Creating or updating integrator deployment"
     docker run -t \
     --rm \
@@ -333,10 +335,8 @@ deploy_integrator_to_k8s () {
         -n "$K8S_NAMESPACE" \
         --history-max 3 \
         --set global.jobmon_container_uri="$JOBMON_CONTAINER_URI" \
-        --set global.metallb_ip_pool="$METALLB_IP_POOL" \
         --set global.namespace="$K8S_NAMESPACE" \
         --set global.rancher_db_secret="$RANCHER_DB_SECRET" \
         --set global.rancher_project="$RANCHER_PROJECT_ID" \
-        --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
         --set global.rancher_db_slurm_sdb_secret="$RANCHER_DB_SLURM_SDB_SECRET"
 }
