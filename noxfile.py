@@ -42,7 +42,7 @@ def performance(session: Session) -> None:
 
 
 @nox.session(python=python, venv_backend="conda")
-def usage_integrator(session: Session) -> None:
+def test_integrator(session: Session) -> None:
     """Run the integrator tests that connect to the production accounting database."""
     args = session.posargs or test_locations
 

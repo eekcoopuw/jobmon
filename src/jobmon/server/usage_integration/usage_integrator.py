@@ -61,12 +61,14 @@ class UsageIntegrator:
             "cluster.id as cluster_id, "
             "task_instance.maxrss as maxrss, "
             "task_instance.maxpss as maxpss "
-            "FROM task_instance, cluster_type, cluster "
+            "FROM task_instance, cluster_type, cluster, task_resources, queue "
             'WHERE task_instance.status NOT IN ("B", "I", "R", "W") '
             "AND task_instance.distributor_id IS NOT NULL "
             "AND UNIX_TIMESTAMP(task_instance.status_date) > {starttime} "
             "AND (task_instance.maxrss IS NULL OR task_instance.maxpss IS NULL) "
-            "AND task_instance.cluster_type_id = cluster_type.id "
+            "AND task_instance.task_resources_id = task_resources.id "
+            "AND task_resources.queue_id = queue.id "
+            "AND queue.cluster_id = cluster.id "
             "AND cluster.cluster_type_id = cluster_type.id"
             "".format(starttime=starttime)
         )
@@ -206,7 +208,7 @@ def _get_slurm_resource_via_slurm_sdb(session: Session,
 
     # get job_step data
     # Case is needed since we want to return a concatenation of parent array job and subtask
-    # id as the job_id for array jobs
+    # id as the job_id for array jobs.
     sql_step = "SELECT " \
                "CASE " \
                "    WHEN job.id_array_job = 0 THEN job.id_job " \
@@ -272,7 +274,8 @@ def _get_config(config: UsageConfig = None) -> dict:
     }
 
 
-def q_forever(init_time: float = datetime.datetime(2022, 4, 8)) -> None:
+def q_forever(init_time: float = datetime.datetime(2022, 4, 8),
+              integrator_config: UsageConfig = None) -> None:
     """A never stop method running in a thread that queries the SLURM and Jobmon databases.
 
     It constantly queries the maxpss value from the SLURM accounting database
@@ -285,7 +288,7 @@ def q_forever(init_time: float = datetime.datetime(2022, 4, 8)) -> None:
     """
     # allow the service to decide the time to go back to fill maxrss/maxpss
     last_heartbeat = init_time
-    integrator = UsageIntegrator()
+    integrator = UsageIntegrator(integrator_config)
 
     while UsageQ.keep_running:
         # Since there isn't a good way to specify the thread priority in Python,
