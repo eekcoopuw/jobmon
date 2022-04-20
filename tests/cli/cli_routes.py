@@ -1,6 +1,17 @@
 import uuid
 
 
+def get_task_template(tool, template_name="my_template"):
+    tt = tool.get_task_template(
+        template_name=template_name,
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    return tt
+
+
 def test_get_tasks_dependencynotexist(db_cfg, client_env):
     from jobmon.client.tool import Tool
 
@@ -8,17 +19,13 @@ def test_get_tasks_dependencynotexist(db_cfg, client_env):
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
     )
-    task_template = tool.get_task_template(
-        template_name="cli_template_1",
-        command_template="{arg}",
-        node_args=["arg"],
-        task_args=[],
-        op_args=[],
-    )
 
-    t1 = task_template.create_task(arg="echo 1")
-    t2 = task_template.create_task(arg="echo 11")
-    t3 = task_template.create_task(arg="echo 111")
+    task_template_1 = get_task_template(tool, template_name="phase_1")
+    task_template_2 = get_task_template(tool, template_name="phase_2")
+    task_template_3 = get_task_template(tool, template_name="phase_3")
+    t1 = task_template_1.create_task(arg="echo 1")
+    t2 = task_template_2.create_task(arg="echo 11")
+    t3 = task_template_3.create_task(arg="echo 111")
     t2.add_upstream(t1)
     t3.add_upstream(t2)
 
