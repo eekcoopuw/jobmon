@@ -26,6 +26,7 @@ class TaskInstanceBatch:
         array_batch_num: int,
         task_resources_id: int,
         requester: Requester,
+        array_name: str,
     ):
         self.array_id = array_id
         self.batch_number = array_batch_num
@@ -36,8 +37,8 @@ class TaskInstanceBatch:
 
         self.requester = requester
 
-        # TODO: array class should have a name in the client model GBDSCI-4184
-        self.name = "foo"
+        self.array_name = array_name
+        self.name = f"{array_name}-{array_batch_num}"
 
     @property
     def requested_resources(self) -> Dict:

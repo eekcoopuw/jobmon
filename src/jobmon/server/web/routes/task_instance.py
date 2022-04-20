@@ -13,6 +13,7 @@ from jobmon.serializers import SerializeTaskInstanceBatch
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.exceptions import InvalidStateTransition
+from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.task_instance import TaskInstance
@@ -668,9 +669,18 @@ def instantiate_task_instances() -> Any:
             task_instance_ids = [
                 int(task_instance_id) for task_instance_id in task_instance_ids.split(",")
             ]
+            array_name_query = select(
+                Array.name
+            ).where(
+                Array.id == array_id
+            )
+            result = DB.session.execute(array_name_query)
+            for name in result:
+                array_name = name
             serialized_batches.append(
                 SerializeTaskInstanceBatch.to_wire(
                     array_id=array_id,
+                    array_name=array_name,
                     array_batch_num=array_batch_num,
                     task_resources_id=task_resources_id,
                     task_instance_ids=task_instance_ids

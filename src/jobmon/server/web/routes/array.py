@@ -58,6 +58,7 @@ def add_array() -> Any:
             task_template_version_id=data["task_template_version_id"],
             workflow_id=data["workflow_id"],
             max_concurrently_running=data["max_concurrently_running"],
+            name=data["name"],
         )
         DB.session.add(array)
     else:

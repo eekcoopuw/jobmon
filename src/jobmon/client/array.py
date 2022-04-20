@@ -39,11 +39,20 @@ class Array:
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, Any]] = None,
+        name: Optional[str] = None,
         requester: Optional[Requester] = None,
     ) -> None:
         """Initialize the array object."""
         # task template attributes
         self.task_template_version = task_template_version
+
+        # array name
+        if name:
+            self._name = name
+        else:
+            self._name = task_template_version.task_template.template_name + \
+                         str(task_args) + str(op_args)
+            self._name = self._name if len(self._name) < 255 else self._name[0: 254]
 
         # array attributes
         self.max_concurrently_running = max_concurrently_running
@@ -94,6 +103,11 @@ class Array:
     def array_id(self, val: int) -> None:
         """Set the array id."""
         self._array_id = val
+
+    @property
+    def name(self) -> str:
+        """Return the array name."""
+        return self._name
 
     @property
     def task_resources(self) -> TaskResources:
@@ -308,6 +322,7 @@ class Array:
                 "task_template_version_id": self.task_template_version.id,
                 "workflow_id": self.workflow.workflow_id,
                 "max_concurrently_running": self.max_concurrently_running,
+                "name": self.name
             },
             request_type="post",
         )

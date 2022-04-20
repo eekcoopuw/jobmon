@@ -23,10 +23,12 @@ class Array(DB.Model):
         serialized = SerializeDistributorArray.to_wire(
             array_id=self.id,
             max_concurrently_running=self.max_concurrently_running,
+            name=self.name,
         )
         return serialized
 
     id = DB.Column(DB.Integer, primary_key=True)
+    name = DB.Column(DB.String(255))
     task_template_version_id = DB.Column(DB.Integer)
     workflow_id = DB.Column(DB.Integer)
     max_concurrently_running = DB.Column(DB.Integer)

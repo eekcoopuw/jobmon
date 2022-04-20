@@ -225,6 +225,7 @@ class DistributorService:
                 array_id=task_instance_batch_kwargs["array_id"],
                 array_batch_num=task_instance_batch_kwargs["array_batch_num"],
                 task_resources_id=task_instance_batch_kwargs["task_resources_id"],
+                array_name=task_instance_batch_kwargs["array_name"],
                 requester=self.requester,
             )
 

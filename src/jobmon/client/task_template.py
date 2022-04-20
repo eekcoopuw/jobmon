@@ -518,6 +518,7 @@ class TaskTemplate:
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, Any]] = None,
         cluster_name: str = "",
+        name: Optional[str] = None,
         **kwargs: Any,
     ) -> Array:
         """Creates a client side array expectation.
@@ -574,6 +575,7 @@ class TaskTemplate:
             compute_resources=compute_resources,
             compute_resources_callable=compute_resources_callable,
             resource_scales=resource_scales,
+            name=name,
         )
 
         # Create tasks on the array

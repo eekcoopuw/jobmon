@@ -140,7 +140,7 @@ def test_create_tasks(db_cfg, client_env, tool):
         op_arg="baz",
         compute_resources={"queue": "null.q"},
     )
-
+    
     assert len(array.tasks) == 9  # Created on init
     wf = tool.create_workflow()
     wf.add_array(array)

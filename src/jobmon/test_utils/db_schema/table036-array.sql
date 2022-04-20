@@ -11,6 +11,7 @@ CREATE TABLE `array` (
   `workflow_id` INTEGER,
   `max_concurrently_running` INTEGER,
   `created_date` datetime DEFAULT NULL,
+  `name` varchar(250) NOT NULL,
   PRIMARY KEY (`id`)
  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ;
