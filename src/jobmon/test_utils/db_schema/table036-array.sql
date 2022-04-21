@@ -11,8 +11,7 @@ CREATE TABLE `array` (
   `workflow_id` INTEGER,
   `max_concurrently_running` INTEGER,
   `created_date` datetime DEFAULT NULL,
-  `name` varchar(250) NOT NULL,
-  PRIMARY KEY (`id`)
+   PRIMARY KEY (`id`)
  ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
 ;
 
@@ -21,3 +20,6 @@ ALTER TABLE `array` ADD INDEX `ix_workflow_id` (`workflow_id`);
 
 -- add constraint on task_template_version_id/workflow_id
 ALTER TABLE `array` ADD CONSTRAINT `uc_task_template_version_id_workflow_id` UNIQUE (`task_template_version_id`, `workflow_id`);
+
+-- add name colum; see GBDSCI-4184
+ALTER TABLE `array` ADD COLUMN `name` varchar(255) NOT NULL;
