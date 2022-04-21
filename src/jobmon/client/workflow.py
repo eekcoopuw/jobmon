@@ -392,7 +392,7 @@ class Workflow(object):
         reset_running_jobs: bool = True,
         distributor_startup_timeout: int = 180,
         resume_timeout: int = 300,
-        setup_logging: bool = True
+        setup_logging: bool = True,
     ) -> str:
         """Run the workflow.
 

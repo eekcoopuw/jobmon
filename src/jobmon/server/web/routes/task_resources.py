@@ -19,9 +19,7 @@ logger = LocalProxy(partial(get_logger, __name__))
 
 @finite_state_machine.route("/task_resources/<task_resources_id>", methods=["GET"])
 def get_task_resources(task_resources_id: int) -> Any:
-    """Return an task_resources.
-
-    """
+    """Return an task_resources."""
     bind_to_logger(task_resources_id=task_resources_id)
 
     # Check if the array is already bound, if so return it

@@ -429,9 +429,11 @@ class SerializeDistributorArray:
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Get the TaskTemplate resource usage information from the database."""
-        return {"array_id": wire_tuple[0],
-                "max_concurrently_running": wire_tuple[1],
-                "name": wire_tuple[2]}
+        return {
+            "array_id": wire_tuple[0],
+            "max_concurrently_running": wire_tuple[1],
+            "name": wire_tuple[2],
+        }
 
 
 class SerializeDistributorWorkflow:
@@ -448,20 +450,18 @@ class SerializeDistributorWorkflow:
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """"""
-        return {
-            "workflow_id": wire_tuple[0],
-            "max_concurrently_running": wire_tuple[1]
-        }
+        return {"workflow_id": wire_tuple[0], "max_concurrently_running": wire_tuple[1]}
 
 
 class SerializeTaskResources:
     """"""
+
     @staticmethod
     def to_wire(
         task_resources_id: int,
         queue_id: int,
         task_resources_type_id: str,
-        requested_resources: str
+        requested_resources: str,
     ) -> tuple:
         """"""
         return (
@@ -478,7 +478,7 @@ class SerializeTaskResources:
             "task_resources_id": wire_tuple[0],
             "queue_id": wire_tuple[1],
             "task_resources_type_id": wire_tuple[2],
-            "requested_resources": wire_tuple[3]
+            "requested_resources": wire_tuple[3],
         }
 
 

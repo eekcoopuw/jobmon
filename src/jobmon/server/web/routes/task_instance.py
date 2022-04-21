@@ -256,7 +256,9 @@ def log_error_worker_node(task_instance_id: int) -> Any:
         task_instance.distributor_id = distributor_id
     try:
         task_instance.transition(error_state)
-        error = TaskInstanceErrorLog(task_instance_id=task_instance.id, description=error_msg)
+        error = TaskInstanceErrorLog(
+            task_instance_id=task_instance.id, description=error_msg
+        )
         DB.session.add(error)
     except InvalidStateTransition as e:
         if task_instance.status == error_state:
@@ -444,9 +446,7 @@ def log_distributor_id(task_instance_id: int) -> Any:
     bind_to_logger(task_instance_id=task_instance_id)
     data = request.get_json()
     ti = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
-    msg = _update_task_instance_state(
-        ti, TaskInstanceStatus.LAUNCHED
-    )
+    msg = _update_task_instance_state(ti, TaskInstanceStatus.LAUNCHED)
     ti.distributor_id = data["distributor_id"]
 
     ti.report_by_date = func.ADDTIME(
@@ -595,7 +595,9 @@ def transition_task_instances(new_status: str) -> Any:
     return resp
 
 
-@finite_state_machine.route("/task_instance/instantiate_task_instances", methods=["POST"])
+@finite_state_machine.route(
+    "/task_instance/instantiate_task_instances", methods=["POST"]
+)
 def instantiate_task_instances() -> Any:
     """Sync status of given task intance IDs."""
     data = request.get_json()
@@ -603,45 +605,41 @@ def instantiate_task_instances() -> Any:
     try:
 
         # update the task table where FSM allows it
-        task_update = update(
-            Task
-        ).where(
-            Task.id.in_(
-                select(
-                    Task.id
-                ).join(
-                    TaskInstance, TaskInstance.task_id == Task.id
-                ).where(
-                    TaskInstance.id.in_(task_instance_ids_list),
-                    (Task.status == TaskStatus.QUEUED)
+        task_update = (
+            update(Task)
+            .where(
+                Task.id.in_(
+                    select(Task.id)
+                    .join(TaskInstance, TaskInstance.task_id == Task.id)
+                    .where(
+                        TaskInstance.id.in_(task_instance_ids_list),
+                        (Task.status == TaskStatus.QUEUED),
+                    )
                 )
             )
-        ).values(
-            status=TaskStatus.INSTANTIATING,
-            status_date=func.now()
-        ).execution_options(synchronize_session=False)
+            .values(status=TaskStatus.INSTANTIATING, status_date=func.now())
+            .execution_options(synchronize_session=False)
+        )
         DB.session.execute(task_update)
 
         # then propagate back into task instance where a change was made
-        task_instance_update = update(
-            TaskInstance
-        ).where(
-            TaskInstance.id.in_(
-                select(
-                    TaskInstance.id
-                ).join(
-                    Task, TaskInstance.task_id == Task.id
-                ).where(
-                    # a successful transition
-                    (Task.status == TaskStatus.INSTANTIATING),
-                    # and part of the current set
-                    TaskInstance.id.in_(task_instance_ids_list)
+        task_instance_update = (
+            update(TaskInstance)
+            .where(
+                TaskInstance.id.in_(
+                    select(TaskInstance.id)
+                    .join(Task, TaskInstance.task_id == Task.id)
+                    .where(
+                        # a successful transition
+                        (Task.status == TaskStatus.INSTANTIATING),
+                        # and part of the current set
+                        TaskInstance.id.in_(task_instance_ids_list),
+                    )
                 )
             )
-        ).values(
-            status=TaskInstanceStatus.INSTANTIATED,
-            status_date=func.now()
-        ).execution_options(synchronize_session=False)
+            .values(status=TaskInstanceStatus.INSTANTIATED, status_date=func.now())
+            .execution_options(synchronize_session=False)
+        )
         DB.session.execute(task_instance_update)
 
     except Exception:
@@ -650,30 +648,31 @@ def instantiate_task_instances() -> Any:
     else:
         DB.session.commit()
 
-        instantiated_batches_query = select(
-            TaskInstance.array_id,
-            TaskInstance.array_batch_num,
-            TaskInstance.task_resources_id,
-            func.group_concat(TaskInstance.id)
-        ).where(
-            TaskInstance.id.in_(task_instance_ids_list)
-            & (TaskInstance.status == TaskInstanceStatus.INSTANTIATED)
-        ).group_by(
-            TaskInstance.array_id,
-            TaskInstance.array_batch_num,
-            TaskInstance.task_resources_id
+        instantiated_batches_query = (
+            select(
+                TaskInstance.array_id,
+                TaskInstance.array_batch_num,
+                TaskInstance.task_resources_id,
+                func.group_concat(TaskInstance.id),
+            )
+            .where(
+                TaskInstance.id.in_(task_instance_ids_list)
+                & (TaskInstance.status == TaskInstanceStatus.INSTANTIATED)
+            )
+            .group_by(
+                TaskInstance.array_id,
+                TaskInstance.array_batch_num,
+                TaskInstance.task_resources_id,
+            )
         )
         result = DB.session.execute(instantiated_batches_query)
         serialized_batches = []
         for array_id, array_batch_num, task_resources_id, task_instance_ids in result:
             task_instance_ids = [
-                int(task_instance_id) for task_instance_id in task_instance_ids.split(",")
+                int(task_instance_id)
+                for task_instance_id in task_instance_ids.split(",")
             ]
-            array_name_query = select(
-                Array.name
-            ).where(
-                Array.id == array_id
-            )
+            array_name_query = select(Array.name).where(Array.id == array_id)
             result = DB.session.execute(array_name_query).fetchone()
             array_name = result["name"]
             serialized_batches.append(
@@ -682,7 +681,7 @@ def instantiate_task_instances() -> Any:
                     array_name=array_name,
                     array_batch_num=array_batch_num,
                     task_resources_id=task_resources_id,
-                    task_instance_ids=task_instance_ids
+                    task_instance_ids=task_instance_ids,
                 )
             )
 

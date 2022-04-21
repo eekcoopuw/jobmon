@@ -50,9 +50,12 @@ class Array:
         if name:
             self._name = name
         else:
-            self._name = task_template_version.task_template.template_name + \
-                         str(task_args) + str(op_args)
-            self._name = self._name if len(self._name) < 255 else self._name[0: 254]
+            self._name = (
+                task_template_version.task_template.template_name
+                + str(task_args)
+                + str(op_args)
+            )
+            self._name = self._name if len(self._name) < 255 else self._name[0:254]
 
         # array attributes
         self.max_concurrently_running = max_concurrently_running
@@ -322,7 +325,7 @@ class Array:
                 "task_template_version_id": self.task_template_version.id,
                 "workflow_id": self.workflow.workflow_id,
                 "max_concurrently_running": self.max_concurrently_running,
-                "name": self.name
+                "name": self.name,
             },
             request_type="post",
         )

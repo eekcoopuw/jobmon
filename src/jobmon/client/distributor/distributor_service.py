@@ -31,7 +31,7 @@ class DistributorService:
         heartbeat_report_by_buffer: float = 3.1,
         distributor_poll_interval: int = 10,
         worker_node_entry_point: Optional[str] = None,
-        raise_on_error: bool = False
+        raise_on_error: bool = False,
     ) -> None:
 
         # operational args
@@ -97,16 +97,18 @@ class DistributorService:
 
             done: List[str] = []
             todo = [
-                TaskInstanceStatus.QUEUED, TaskInstanceStatus.INSTANTIATED,
-                TaskInstanceStatus.LAUNCHED, TaskInstanceStatus.RUNNING,
-                TaskInstanceStatus.TRIAGING, TaskInstanceStatus.KILL_SELF,
+                TaskInstanceStatus.QUEUED,
+                TaskInstanceStatus.INSTANTIATED,
+                TaskInstanceStatus.LAUNCHED,
+                TaskInstanceStatus.RUNNING,
+                TaskInstanceStatus.TRIAGING,
+                TaskInstanceStatus.KILL_SELF,
             ]
             while True:
 
                 # loop through all statuses and do as much work as we can till the heartbeat
-                time_till_next_heartbeat = (
-                    self._workflow_run_heartbeat_interval
-                    - (time.time() - self._last_heartbeat_time)
+                time_till_next_heartbeat = self._workflow_run_heartbeat_interval - (
+                    time.time() - self._last_heartbeat_time
                 )
 
                 while todo and time_till_next_heartbeat > 0:
@@ -121,14 +123,14 @@ class DistributorService:
 
                     # how long the heartbeat took
                     refresh_time = time.time()
-                    time_till_next_heartbeat -= (refresh_time - start_time)
+                    time_till_next_heartbeat -= refresh_time - start_time
 
                     if status in self._command_generator_map.keys():
                         # process any work
                         self.process_status(status, time_till_next_heartbeat)
                         # how long the full status took
                         end_time = time.time()
-                        time_till_next_heartbeat -= (end_time - refresh_time)
+                        time_till_next_heartbeat -= end_time - refresh_time
 
                     else:
                         end_time = refresh_time
@@ -200,15 +202,17 @@ class DistributorService:
             self._task_instance_status_map[task_instance.status].add(task_instance)
 
     def instantiate_task_instances(
-        self,
-        task_instances: List[DistributorTaskInstance]
+        self, task_instances: List[DistributorTaskInstance]
     ) -> None:
         app_route = "/task_instance/instantiate_task_instances"
         return_code, result = self.requester.send_request(
             app_route=app_route,
-            message={"task_instance_ids": [task_instance.task_instance_id
-                                           for task_instance in task_instances]},
-            request_type="post"
+            message={
+                "task_instance_ids": [
+                    task_instance.task_instance_id for task_instance in task_instances
+                ]
+            },
+            request_type="post",
         )
         if not http_request_ok(return_code):
             raise InvalidResponse(
@@ -219,7 +223,9 @@ class DistributorService:
 
         # construct batch. associations are made inside batch init
         for batch in result["task_instance_batches"]:
-            task_instance_batch_kwargs = SerializeTaskInstanceBatch.kwargs_from_wire(batch)
+            task_instance_batch_kwargs = SerializeTaskInstanceBatch.kwargs_from_wire(
+                batch
+            )
 
             task_instance_batch = TaskInstanceBatch(
                 array_id=task_instance_batch_kwargs["array_id"],
@@ -234,7 +240,9 @@ class DistributorService:
                 task_instance.status = TaskInstanceStatus.INSTANTIATED
                 task_instance_batch.add_task(task_instance)
 
-    def launch_task_instance_batch(self, task_instance_batch: TaskInstanceBatch) -> None:
+    def launch_task_instance_batch(
+        self, task_instance_batch: TaskInstanceBatch
+    ) -> None:
         # record batch info in db
         task_instance_batch.prepare_task_instance_batch_for_launch()
 
@@ -276,12 +284,11 @@ class DistributorService:
         else:
             # if successful log a transition to launched
             launch_command = DistributorCommand(
-                task_instance_batch.transition_to_launched,
-                self._next_report_increment)
+                task_instance_batch.transition_to_launched, self._next_report_increment
+            )
             # Log the distributor IDs
             log_distributor_ids_command = DistributorCommand(
-                task_instance_batch.log_distributor_ids,
-                distributor_id_map
+                task_instance_batch.log_distributor_ids, distributor_id_map
             )
 
             distributor_commands.append(launch_command)
@@ -292,7 +299,9 @@ class DistributorService:
                 distributor_commands, self._distributor_commands
             )
 
-    def launch_task_instance(self, task_instance: DistributorTaskInstance, name: str) -> None:
+    def launch_task_instance(
+        self, task_instance: DistributorTaskInstance, name: str
+    ) -> None:
         """
         submits a task instance on a given distributor.
         adds the new task instance to self.submitted_or_running_task_instances
@@ -312,9 +321,7 @@ class DistributorService:
         # Submit to batch distributor
         try:
             distributor_id = self.cluster.submit_to_batch_distributor(
-                command=command,
-                name=name,
-                requested_resources=requested_resources
+                command=command, name=name, requested_resources=requested_resources
             )
 
         except Exception as e:
@@ -322,7 +329,9 @@ class DistributorService:
 
         else:
             # move from register queue to launch queue
-            task_instance.transition_to_launched(distributor_id, self._next_report_increment)
+            task_instance.transition_to_launched(
+                distributor_id, self._next_report_increment
+            )
 
     def triage_error(self, task_instance: DistributorTaskInstance) -> None:
         r_value, r_msg = self.cluster.get_remote_exit_info(task_instance.distributor_id)
@@ -335,7 +344,9 @@ class DistributorService:
         )
 
     def log_task_instance_report_by_date(self) -> None:
-        task_instances_launched = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
+        task_instances_launched = self._task_instance_status_map[
+            TaskInstanceStatus.LAUNCHED
+        ]
 
         submitted_or_running = self.cluster.get_submitted_or_running(
             [x.distributor_id for x in task_instances_launched]
@@ -344,12 +355,18 @@ class DistributorService:
         task_instance_ids_to_heartbeat: List[int] = []
         for task_instance_launched in task_instances_launched:
             if task_instance_launched.distributor_id in submitted_or_running:
-                task_instance_ids_to_heartbeat.append(task_instance_launched.task_instance_id)
+                task_instance_ids_to_heartbeat.append(
+                    task_instance_launched.task_instance_id
+                )
 
         """Log the heartbeat to show that the task instance is still alive."""
-        logger.info(f"Logging heartbeat for task_instance {task_instance_ids_to_heartbeat}")
-        message: Dict = {"next_report_increment": self._next_report_increment,
-                         "task_instance_ids": task_instance_ids_to_heartbeat}
+        logger.info(
+            f"Logging heartbeat for task_instance {task_instance_ids_to_heartbeat}"
+        )
+        message: Dict = {
+            "next_report_increment": self._next_report_increment,
+            "task_instance_ids": task_instance_ids_to_heartbeat,
+        }
         app_route = "/task_instance/log_report_by/batch"
         return_code, result = self.requester.send_request(
             app_route="/task_instance/log_report_by/batch",
@@ -421,7 +438,9 @@ class DistributorService:
                 task_instance.status = status
 
                 try:
-                    self._task_instance_status_map[task_instance.status].add(task_instance)
+                    self._task_instance_status_map[task_instance.status].add(
+                        task_instance
+                    )
                 except KeyError:
                     # If the task instance is in a terminal state, e.g. D, E, etc.,
                     # expire it from the distributor

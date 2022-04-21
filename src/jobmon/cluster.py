@@ -10,7 +10,7 @@ from jobmon.cluster_type.base import (
     ClusterQueue,
     ConcreteResource,
     ClusterDistributor,
-    ClusterWorkerNode
+    ClusterWorkerNode,
 )
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester

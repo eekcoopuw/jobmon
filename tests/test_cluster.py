@@ -1,5 +1,3 @@
-
-
 def test_plugin_loading(client_env):
     from jobmon.cluster import Cluster
     from jobmon.cluster_type import sequential

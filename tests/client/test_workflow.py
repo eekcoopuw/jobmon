@@ -18,12 +18,20 @@ def test_wfargs_update(tool):
 
     # Create identical dags
     t1 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
-    t2 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t1])
-    t3 = tool.active_task_templates["phase_3"].create_task(arg="sleep 3", upstream_tasks=[t2])
+    t2 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 2", upstream_tasks=[t1]
+    )
+    t3 = tool.active_task_templates["phase_3"].create_task(
+        arg="sleep 3", upstream_tasks=[t2]
+    )
 
     t4 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
-    t5 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t4])
-    t6 = tool.active_task_templates["phase_3"].create_task(arg="sleep 3", upstream_tasks=[t5])
+    t5 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 2", upstream_tasks=[t4]
+    )
+    t6 = tool.active_task_templates["phase_3"].create_task(
+        arg="sleep 3", upstream_tasks=[t5]
+    )
 
     wfa1 = "v1"
     wf1 = tool.create_workflow(wfa1)
@@ -60,7 +68,9 @@ def test_attempt_resume_on_complete_workflow(tool):
 
     # Create identical dags
     t1 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
-    t2 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t1])
+    t2 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 2", upstream_tasks=[t1]
+    )
 
     # initial workflow should run to completion
     wf1 = tool.create_workflow(name="attempt_resume_on_completed")
@@ -77,7 +87,9 @@ def test_attempt_resume_on_complete_workflow(tool):
 
     # second workflow shouldn't be able to start
     t1 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
-    t2 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t1])
+    t2 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 2", upstream_tasks=[t1]
+    )
 
     # initial workflow should run to completion
     workflow2 = tool.create_workflow(
@@ -98,7 +110,9 @@ def test_resume_with_old_and_new_workflow_attributes(db_cfg, tool):
 
     # Create identical dags
     t1 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
-    t2 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t1])
+    t2 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 2", upstream_tasks=[t1]
+    )
 
     # initial workflow should run to completion
     wf1 = tool.create_workflow(
@@ -117,7 +131,9 @@ def test_resume_with_old_and_new_workflow_attributes(db_cfg, tool):
 
     # second workflow
     t1 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
-    t2 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t1])
+    t2 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 2", upstream_tasks=[t1]
+    )
 
     workflow2 = tool.create_workflow(
         wf1.workflow_args,
@@ -243,30 +259,48 @@ def test_compute_resources(db_cfg, client_env):
     no workflow resources 2. task with no compute resources, workflow resources 3. tasks with
     less resources than workflow"""
     from jobmon.client.tool import Tool
+
     tool = Tool(name="cluster_resource_test")
-    wf_compute_resources = {"sequential": {"num_cores": 2, "mem": "2G",
-                                            "max_runtime_seconds": 10, "queue": "null.q",
-                                            "resource_scales": {"runtime": 0.7}},
-                             "buster": {"mem": "5G"}}
-    workflow_1 = tool.create_workflow(name="compute_resource_1",
-                                      compute_resources=wf_compute_resources)
+    wf_compute_resources = {
+        "sequential": {
+            "num_cores": 2,
+            "mem": "2G",
+            "max_runtime_seconds": 10,
+            "queue": "null.q",
+            "resource_scales": {"runtime": 0.7},
+        },
+        "buster": {"mem": "5G"},
+    }
+    workflow_1 = tool.create_workflow(
+        name="compute_resource_1", compute_resources=wf_compute_resources
+    )
     template = tool.get_task_template(
         template_name="my_template",
         command_template="echo {node_arg}",
-        node_args=["node_arg"]
+        node_args=["node_arg"],
     )
-    task_compute_resource = {"sequential": {"num_cores": 1, "mem": "1G",
-                                            "max_runtime_seconds": 1, "queue": "null.q",
-                                            "resource_scales": {"runtime": 0.5}},
-                             "buster": {"mem": "5G"}}
+    task_compute_resource = {
+        "sequential": {
+            "num_cores": 1,
+            "mem": "1G",
+            "max_runtime_seconds": 1,
+            "queue": "null.q",
+            "resource_scales": {"runtime": 0.5},
+        },
+        "buster": {"mem": "5G"},
+    }
     # Use case: Task compute resources, no workflow resources
-    task_1 = template.create_task(name="task_1", node_arg={1},
-                                  compute_resources=task_compute_resource,
-                                  cluster_name="sequential")
+    task_1 = template.create_task(
+        name="task_1",
+        node_arg={1},
+        compute_resources=task_compute_resource,
+        cluster_name="sequential",
+    )
 
     # Use case: No Task compute resources, inherit from workflow compute resources
-    task_2 = template.create_task(name="task_2", node_arg={2},
-                                  cluster_name="sequential")
+    task_2 = template.create_task(
+        name="task_2", node_arg={2}, cluster_name="sequential"
+    )
 
     # TODO: Add test case when we implement partial compute resource dicts
     # Use case: No Task compute resources, inherit from workflow compute resources
@@ -279,16 +313,14 @@ def test_compute_resources(db_cfg, client_env):
     workflow_1.bind()
 
     client_wfr = ClientWorkflowRun(
-        workflow_id=workflow_1.workflow_id,
-        executor_class="Sequential"
+        workflow_id=workflow_1.workflow_id, executor_class="Sequential"
     )
     client_wfr.bind(workflow_1.tasks, False, workflow_1._chunk_size)
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        query = "SELECT requested_resources " \
-                "FROM task_resources "
+        query = "SELECT requested_resources " "FROM task_resources "
         res = DB.session.execute(query).fetchall()
         DB.session.commit()
     assert res[0][0] == f"{task_compute_resource['sequential']}"
@@ -426,15 +458,19 @@ def test_workflow_validation(tool, task_template, caplog):
     caplog.clear()
     with caplog.at_level(logging.WARNING):
         wf1.validate(fail=False)
-        assert ("Failed validation, reasons: ResourceError: provided cores 1000"
-                in caplog.records[-1].message)
+        assert (
+            "Failed validation, reasons: ResourceError: provided cores 1000"
+            in caplog.records[-1].message
+        )
 
     # Try again for idempotency
     caplog.clear()
     with caplog.at_level(logging.WARNING):
         wf1.validate(fail=False)
-        assert ("Failed validation, reasons: ResourceError: provided cores 1000"
-                in caplog.records[-1].message)
+        assert (
+            "Failed validation, reasons: ResourceError: provided cores 1000"
+            in caplog.records[-1].message
+        )
 
     # Try with valid resources
     t2 = task_template.create_task(

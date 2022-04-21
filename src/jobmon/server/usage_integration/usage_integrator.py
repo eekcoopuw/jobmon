@@ -43,8 +43,9 @@ class UsageIntegrator:
         self.session = session()
 
         # Initialize sqlalchemy session for slurm_sdb
-        eng_slurm_sdb = create_engine(self.config["conn_slurm_sdb_str"],
-                                      pool_recycle=200)
+        eng_slurm_sdb = create_engine(
+            self.config["conn_slurm_sdb_str"], pool_recycle=200
+        )
         session_slurm_sdb = sessionmaker(bind=eng_slurm_sdb)
         self.session_slurm_sdb = session_slurm_sdb()
 
@@ -54,9 +55,7 @@ class UsageIntegrator:
     def _get_tres_types(self) -> Dict[str, int]:
         # get tres_type from tres_table
         tt: Dict[str, int] = {}
-        sql_tres_table = "SELECT id, type " \
-                         "FROM tres_table " \
-                         "WHERE deleted = 0"
+        sql_tres_table = "SELECT id, type " "FROM tres_table " "WHERE deleted = 0"
         tres_types = self.session_slurm_sdb.execute(sql_tres_table).all()
         self.session_slurm_sdb.commit()
         for tres_type in tres_types:
@@ -182,7 +181,8 @@ class UsageIntegrator:
         usage_stats = _get_squid_resource_via_slurm_sdb(
             session=self.session_slurm_sdb,
             tres_types=self.tres_types,
-            task_instances=tasks)
+            task_instances=tasks,
+        )
 
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:
@@ -291,10 +291,9 @@ def _get_service_user_pwd(env_variable: str = "SVCSCICOMPCI_PWD") -> Optional[st
     return os.getenv(env_variable)
 
 
-def _get_squid_resource_via_slurm_sdb(session: Session,
-                                      tres_types: Dict[str, int],
-                                      task_instances: List[QueuedTI]
-                                      ) -> Dict[QueuedTI, Dict[str, Optional[Any]]]:
+def _get_squid_resource_via_slurm_sdb(
+    session: Session, tres_types: Dict[str, int], task_instances: List[QueuedTI]
+) -> Dict[QueuedTI, Dict[str, Optional[Any]]]:
     """Collect the Slurm reported resource usage for a given list of task instances.
 
     Using slurm_sdb.
@@ -310,18 +309,21 @@ def _get_squid_resource_via_slurm_sdb(session: Session,
     # with distributor_id as the key
     raw_usage_stats: Dict[int, Dict[str, Optional[Any]]] = {}
 
-    distributor_ids: List[int] = [task_instance.distributor_id
-                                  for task_instance in task_instances]
+    distributor_ids: List[int] = [
+        task_instance.distributor_id for task_instance in task_instances
+    ]
     for task_instance in task_instances:
         dict_dist_ti[task_instance.distributor_id] = task_instance
 
     # get job_step data
-    sql_step = "SELECT job.id_job, job.time_end - job.time_start AS elapsed, " \
-               "job.tres_alloc, step.tres_usage_in_max " \
-               "FROM general_step_table step " \
-               "INNER JOIN general_job_table job ON step.job_db_inx = job.job_db_inx " \
-               "WHERE step.deleted = 0 AND job.deleted = 0 " \
-               "AND job.id_job IN :job_ids"
+    sql_step = (
+        "SELECT job.id_job, job.time_end - job.time_start AS elapsed, "
+        "job.tres_alloc, step.tres_usage_in_max "
+        "FROM general_step_table step "
+        "INNER JOIN general_job_table job ON step.job_db_inx = job.job_db_inx "
+        "WHERE step.deleted = 0 AND job.deleted = 0 "
+        "AND job.id_job IN :job_ids"
+    )
 
     steps = session.execute(sql_step, {"job_ids": distributor_ids}).all()
     session.commit()

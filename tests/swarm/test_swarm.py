@@ -194,9 +194,7 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
     distributor = WedgedDistributor()
     distributor.wedged_task_id = t2.task_id
     distributor_service = DistributorService(
-        cluster=distributor,
-        requester=workflow.requester,
-        raise_on_error=True
+        cluster=distributor, requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     wfr._update_status(WorkflowRunStatus.LAUNCHED)
@@ -234,14 +232,14 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
             SET status = 'O'
             WHERE id = :workflow_run_id
         """
-        DB.session.execute(sql, {'workflow_run_id': wfr.workflow_run_id})
+        DB.session.execute(sql, {"workflow_run_id": wfr.workflow_run_id})
 
         sql = """
             UPDATE workflow
             SET status = 'O'
             WHERE id = :workflow_id
         """
-        DB.session.execute(sql, {'workflow_id': workflow.workflow_id})
+        DB.session.execute(sql, {"workflow_id": workflow.workflow_id})
         DB.session.commit()
     # now run wedged dag route. make sure task 2 is now in done state
     with pytest.raises(RuntimeError):
@@ -312,9 +310,7 @@ def test_propagate_result(tool, task_template):
     wfr = workflow._create_workflow_run()
 
     # run the distributor
-    with DistributorContext(
-        'sequential', wfr.workflow_run_id, 180
-    ) as distributor:
+    with DistributorContext("sequential", wfr.workflow_run_id, 180) as distributor:
         # swarm calls
         swarm = SwarmWorkflowRun(
             workflow_run_id=wfr.workflow_run_id,
@@ -359,9 +355,7 @@ def test_callable_returns_valid_object(tool, task_template):
     swarm.from_workflow(workflow)
 
     # swarm calls
-    with DistributorContext(
-        'sequential', wfr.workflow_run_id, 180
-    ) as distributor:
+    with DistributorContext("sequential", wfr.workflow_run_id, 180) as distributor:
         try:
             swarm.run(distributor.alive, seconds_until_timeout=1)
         except RuntimeError:
@@ -421,15 +415,15 @@ def test_swarm_fails(tool):
 
     t1 = tool.active_task_templates["phase_1"].create_task(arg="echo 1")
     t2 = tool.active_task_templates["phase_1"].create_task(arg="exit 1", max_attempts=1)
-    t3 = tool.active_task_templates["phase_2"].create_task(arg="echo 3", upstream_tasks=[t2])
+    t3 = tool.active_task_templates["phase_2"].create_task(
+        arg="echo 3", upstream_tasks=[t2]
+    )
     workflow.add_tasks([t1, t2, t3])
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
     # run the distributor
-    with DistributorContext(
-            'sequential', wfr.workflow_run_id, 180
-    ) as distributor:
+    with DistributorContext("sequential", wfr.workflow_run_id, 180) as distributor:
         # swarm calls
         swarm = SwarmWorkflowRun(
             workflow_run_id=wfr.workflow_run_id,
@@ -450,7 +444,6 @@ def test_swarm_terminate(tool):
     """Test that when the workflow run terminates properly."""
 
     class MockSwarm(SwarmWorkflowRun):
-
         def __init__(self, *args, **kwargs):
             super().__init__(*args, **kwargs)
             self.sync_attempts = 0
@@ -467,15 +460,15 @@ def test_swarm_terminate(tool):
     t1 = tool.active_task_templates["phase_1"].create_task(
         arg="sleep 1000", max_attempts=1
     )  # Long sleep time
-    t2 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t1])
+    t2 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 2", upstream_tasks=[t1]
+    )
     workflow.add_tasks([t1, t2])
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
     # run the distributor
-    with DistributorContext(
-            'sequential', wfr.workflow_run_id, 180
-    ) as distributor:
+    with DistributorContext("sequential", wfr.workflow_run_id, 180) as distributor:
         # swarm calls
         swarm = MockSwarm(
             workflow_run_id=wfr.workflow_run_id,

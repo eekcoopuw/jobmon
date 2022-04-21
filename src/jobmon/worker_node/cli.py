@@ -49,7 +49,7 @@ class WorkerNodeCLI(CLI):
             array_id=args.array_id,
             batch_number=args.batch_number,
             cluster_name=args.cluster_name,
-            worker_node_config=worker_node_config
+            worker_node_config=worker_node_config,
         )
 
         try:

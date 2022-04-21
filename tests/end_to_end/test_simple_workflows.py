@@ -212,7 +212,7 @@ def test_fork_and_join_tasks_with_fatal_error(tool, tmpdir):
         script=remote_sleep_and_write,
         sleep_secs=1,
         output_file_path=os.path.join(str(tmpdir), "a.out"),
-        fail_always=""
+        fail_always="",
     )
     workflow.add_task(task_a)
 
@@ -305,7 +305,7 @@ def test_fork_and_join_tasks_with_retryable_error(tool, tmpdir):
         script=remote_sleep_and_write,
         sleep_secs=1,
         output_file_path=os.path.join(str(tmpdir), "a.out"),
-        fail_always=""
+        fail_always="",
     )
     workflow.add_task(task_a)
 
@@ -402,7 +402,7 @@ def test_bushy_real_dag(tool, tmpdir):
         script=remote_sleep_and_write,
         sleep_secs=1,
         output_file_path=os.path.join(str(tmpdir), "a.out"),
-        fail_always=""
+        fail_always="",
     )
     workflow.add_task(task_a)
 

@@ -154,9 +154,7 @@ class MultiprocessDistributor(ClusterDistributor):
         """Return the name of the cluster type."""
         return "multiprocess"
 
-    def _get_subtask_id(
-            self, distributor_id: int, array_step_id: int
-    ) -> str:
+    def _get_subtask_id(self, distributor_id: int, array_step_id: int) -> str:
         """Get the subtask_id based on distributor_id and array_step_id."""
         return str(distributor_id) + "." + str(array_step_id)
 
@@ -263,8 +261,7 @@ class MultiprocessDistributor(ClusterDistributor):
             self.task_queue.put(task)
 
     def get_submitted_or_running(
-        self,
-        distributor_ids: Optional[List[str]] = None
+        self, distributor_ids: Optional[List[str]] = None
     ) -> Set[str]:
         """Get tasks that are active."""
         self._update_internal_states()
@@ -316,9 +313,7 @@ class MultiprocessDistributor(ClusterDistributor):
         """Get the task instances that have errored out."""
         return {}
 
-    def get_remote_exit_info(
-        self, distributor_id: str
-    ) -> Tuple[str, str]:
+    def get_remote_exit_info(self, distributor_id: str) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 

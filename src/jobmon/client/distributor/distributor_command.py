@@ -8,12 +8,7 @@ logger = logging.getLogger(__name__)
 
 
 class DistributorCommand:
-    def __init__(
-        self,
-        func: Callable[..., None],
-        *args,
-        **kwargs
-    ):
+    def __init__(self, func: Callable[..., None], *args, **kwargs):
         """A command to be run by the distributor service.
 
         Args:

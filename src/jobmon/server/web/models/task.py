@@ -77,7 +77,7 @@ class Task(DB.Model):
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.ADJUSTING_RESOURCES),
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.QUEUED),
         (TaskStatus.ERROR_RECOVERABLE, TaskStatus.ERROR_FATAL),
-        (TaskStatus.ERROR_RECOVERABLE, TaskStatus.REGISTERING)
+        (TaskStatus.ERROR_RECOVERABLE, TaskStatus.REGISTERING),
     ]
 
     def reset(

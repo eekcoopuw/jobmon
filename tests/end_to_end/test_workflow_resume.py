@@ -157,8 +157,7 @@ def test_cold_resume(tool):
 
     # create task instances
     swarm = SwarmWorkflowRun(
-        workflow_run_id=wfr1.workflow_run_id,
-        requester=workflow1.requester
+        workflow_run_id=wfr1.workflow_run_id, requester=workflow1.requester
     )
     swarm.from_workflow(workflow1)
     swarm.set_initial_fringe()
@@ -168,7 +167,7 @@ def test_cold_resume(tool):
     distributor_service = DistributorService(
         MultiprocessDistributor(parallelism=3),
         requester=workflow1.requester,
-        raise_on_error=True
+        raise_on_error=True,
     )
     distributor_service.set_workflow_run(wfr1.workflow_run_id)
     distributor_service.workflow_run.transition_to_launched()
@@ -240,13 +239,12 @@ def test_hot_resume(tool, task_template):
     distributor_service = DistributorService(
         MultiprocessDistributor(parallelism=3),
         requester=workflow1.requester,
-        raise_on_error=True
+        raise_on_error=True,
     )
     distributor_service.set_workflow_run(wfr1.workflow_run_id)
     distributor_service.workflow_run.transition_to_launched()
     swarm = SwarmWorkflowRun(
-        workflow_run_id=wfr1.workflow_run_id,
-        requester=workflow1.requester
+        workflow_run_id=wfr1.workflow_run_id, requester=workflow1.requester
     )
     swarm.from_workflow(workflow1)
     swarm._update_status(WorkflowRunStatus.RUNNING)

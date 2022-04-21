@@ -110,53 +110,57 @@ def record_array_batch_num(array_id: int) -> Any:
 
     try:
         # update task status to acquire lock
-        update_stmt = update(
-            Task
-        ).where(
-            Task.id.in_(task_ids),
-            Task.status.in_([TaskStatus.REGISTERING, TaskStatus.ADJUSTING_RESOURCES])
-        ).values(
-            status=TaskStatus.QUEUED,
-            status_date=func.now(),
-            num_attempts=(Task.num_attempts + 1)
+        update_stmt = (
+            update(Task)
+            .where(
+                Task.id.in_(task_ids),
+                Task.status.in_(
+                    [TaskStatus.REGISTERING, TaskStatus.ADJUSTING_RESOURCES]
+                ),
+            )
+            .values(
+                status=TaskStatus.QUEUED,
+                status_date=func.now(),
+                num_attempts=(Task.num_attempts + 1),
+            )
         )
         DB.session.execute(update_stmt)
 
         # now insert them into task instance
         insert_stmt = insert(TaskInstance).from_select(
             # columns map 1:1 to selected rows
-            ["task_id", "workflow_run_id", "array_id", "task_resources_id", "array_batch_num",
-             "array_step_id", "status", "status_date"],
-
+            [
+                "task_id",
+                "workflow_run_id",
+                "array_id",
+                "task_resources_id",
+                "array_batch_num",
+                "array_step_id",
+                "status",
+                "status_date",
+            ],
             # select statement
             select(
                 # unique id
                 Task.id.label("task_id"),
-
                 # static associations
                 literal_column(str(workflow_run_id)).label("workflow_run_id"),
                 literal_column(str(array_id)).label("array_id"),
                 literal_column(str(task_resources_id)).label("task_resources_id"),
-
                 # batch info
-                select(
-                    func.coalesce(func.max(TaskInstance.array_batch_num) + 1, 1)
-                ).where(
+                select(func.coalesce(func.max(TaskInstance.array_batch_num) + 1, 1))
+                .where(
                     (TaskInstance.workflow_run_id == workflow_run_id)
                     & (TaskInstance.array_id == array_id)
-                ).label("array_batch_num"),
+                )
+                .label("array_batch_num"),
                 (func.row_number().over(order_by=Task.id) - 1).label("array_step_id"),
-
                 # status columns
                 literal_column(f"'{TaskInstanceStatus.QUEUED}'").label("status"),
-                func.now().label("status_date")
-
-            ).where(
-                Task.id.in_(task_ids) & (Task.status == TaskStatus.QUEUED)
-            ),
-
+                func.now().label("status_date"),
+            ).where(Task.id.in_(task_ids) & (Task.status == TaskStatus.QUEUED)),
             # no python side defaults. Server defaults only
-            include_defaults=False
+            include_defaults=False,
         )
         DB.session.execute(insert_stmt)
     except Exception:
@@ -165,11 +169,11 @@ def record_array_batch_num(array_id: int) -> Any:
     else:
         DB.session.commit()
 
-        tasks_by_status_query = select(
-            Task.status, func.group_concat(Task.id)
-        ).where(
-            Task.id.in_(task_ids)
-        ).group_by(Task.status)
+        tasks_by_status_query = (
+            select(Task.status, func.group_concat(Task.id))
+            .where(Task.id.in_(task_ids))
+            .group_by(Task.status)
+        )
         result_dict = {}
         for row in DB.session.execute(tasks_by_status_query):
             result_dict[row[0]] = [int(i) for i in row[1].split(",")]
@@ -179,50 +183,49 @@ def record_array_batch_num(array_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/array/<array_id>/transition_to_launched", methods=['POST'])
+@finite_state_machine.route(
+    "/array/<array_id>/transition_to_launched", methods=["POST"]
+)
 def transition_array_to_launched(array_id: int):
 
     bind_to_logger(array_id=array_id)
 
     data = request.get_json()
     batch_num = data["batch_number"]
-    next_report = data['next_report_increment']
+    next_report = data["next_report_increment"]
 
     try:
         # Acquire a lock and update tasks to launched
         update_task_stmt = (
-            update(Task).
-            where(
+            update(Task)
+            .where(
                 Task.id.in_(
-                    select(
-                        TaskInstance.task_id
-                    ).where(
+                    select(TaskInstance.task_id).where(
                         TaskInstance.array_id == array_id,
-                        TaskInstance.array_batch_num == batch_num
+                        TaskInstance.array_batch_num == batch_num,
                     )
                 ),
-                Task.status == TaskStatus.INSTANTIATING
-            ).
-            values(
-                status=TaskStatus.LAUNCHED,
-                status_date=func.now()
+                Task.status == TaskStatus.INSTANTIATING,
             )
+            .values(status=TaskStatus.LAUNCHED, status_date=func.now())
         ).execution_options(synchronize_session=False)
         DB.session.execute(update_task_stmt)
 
         # Transition all the task instances in the batch
         # Bypassing the ORM for performance reasons.
         update_stmt = (
-            update(TaskInstance).
-            where(TaskInstance.array_id == array_id,
-                  TaskInstance.status == TaskInstanceStatus.INSTANTIATED,
-                  TaskInstance.array_batch_num == batch_num
-                  ).
-            values(
-                   status=TaskInstanceStatus.LAUNCHED,
-                   submitted_date=func.now(),
-                   status_date=func.now(),
-                   report_by_date=func.ADDTIME(func.now(), func.SEC_TO_TIME(next_report)))
+            update(TaskInstance)
+            .where(
+                TaskInstance.array_id == array_id,
+                TaskInstance.status == TaskInstanceStatus.INSTANTIATED,
+                TaskInstance.array_batch_num == batch_num,
+            )
+            .values(
+                status=TaskInstanceStatus.LAUNCHED,
+                submitted_date=func.now(),
+                status_date=func.now(),
+                report_by_date=func.ADDTIME(func.now(), func.SEC_TO_TIME(next_report)),
+            )
         ).execution_options(synchronize_session=False)
 
         DB.session.execute(update_stmt)
@@ -240,12 +243,14 @@ def transition_array_to_launched(array_id: int):
 def log_array_distributor_id(array_id):
 
     data = request.get_json()
-    batch_num = data['array_batch_num']
-    distributor_id_map = data['distributor_id_map']
+    batch_num = data["array_batch_num"]
+    distributor_id_map = data["distributor_id_map"]
 
     # Create a list of dicts out of the distributor id map.
-    params = [{'step_id': key, 'distributor_id': val}
-              for key, val in distributor_id_map.items()]
+    params = [
+        {"step_id": key, "distributor_id": val}
+        for key, val in distributor_id_map.items()
+    ]
 
     # Acquire a lock and update the task instance table
     # Using bindparam only issues one query; unfortunately, the MariaDB optimizer actually
@@ -253,28 +258,25 @@ def log_array_distributor_id(array_id):
     # we are issuing a single bulk query.
     try:
         update_stmt = (
-            update(TaskInstance).
-            where(
+            update(TaskInstance)
+            .where(
                 TaskInstance.array_batch_num == batch_num,
                 TaskInstance.array_id == array_id,
-                TaskInstance.array_step_id == bindparam('step_id')
-            ).
-            values(
-                distributor_id=bindparam('distributor_id')
-            ).execution_options(synchronize_session=False)
+                TaskInstance.array_step_id == bindparam("step_id"),
+            )
+            .values(distributor_id=bindparam("distributor_id"))
+            .execution_options(synchronize_session=False)
         )
         DB.session.execute(update_stmt, params)
 
         # Return the affected rows and their distributor ids
         select_stmt = (
-            select(
-                TaskInstance.id,
-                TaskInstance.distributor_id
-            ).
-            where(
+            select(TaskInstance.id, TaskInstance.distributor_id)
+            .where(
                 TaskInstance.array_batch_num == batch_num,
-                TaskInstance.array_id == array_id
-            ).execution_options(synchronize_session=False)
+                TaskInstance.array_id == array_id,
+            )
+            .execution_options(synchronize_session=False)
         )
 
         res = DB.session.execute(select_stmt).fetchall()

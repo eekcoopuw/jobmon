@@ -1,4 +1,3 @@
-
 def test_swarmtask_resources_integration(tool, task_template, db_cfg):
     """Check that taskresources defined in task are passed to swarmtask appropriately"""
     from jobmon.constants import TaskResourcesType, WorkflowRunStatus
@@ -41,12 +40,14 @@ def test_swarmtask_resources_integration(tool, task_template, db_cfg):
     # Queue the task. TRs should then be validated
     swarm._set_validated_task_resources(swarmtask)
     # No change in resource values, so type id stays the same
-    assert swarmtask.current_task_resources.task_resources_type_id == \
-        TaskResourcesType.ORIGINAL
+    assert (
+        swarmtask.current_task_resources.task_resources_type_id
+        == TaskResourcesType.ORIGINAL
+    )
     assert id(swarmtask.current_task_resources) == id(initial_resources)
 
     # Move task to adjusting
-    app, DB = db_cfg['app'], db_cfg['DB']
+    app, DB = db_cfg["app"], db_cfg["DB"]
 
     with app.app_context():
         sql = """
@@ -54,7 +55,7 @@ def test_swarmtask_resources_integration(tool, task_template, db_cfg):
             SET status = :status
             WHERE id = :id
         """
-        DB.session.execute(sql, {'status': 'A', 'id': swarmtask.task_id})
+        DB.session.execute(sql, {"status": "A", "id": swarmtask.task_id})
         DB.session.commit()
 
     # Call adjust. Multiprocess doesn't implement adjust, but the path should work
