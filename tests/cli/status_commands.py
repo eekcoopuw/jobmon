@@ -648,6 +648,7 @@ def test_update_task_status(db_cfg, client_env, tool, cli):
 
     assert len(swarm.done_tasks) == 5
 
+
 def test_400_cli_route(db_cfg, client_env):
     from jobmon.requester import Requester
 
@@ -673,25 +674,23 @@ def test_get_yaml_data(db_cfg, client_env):
 
     t = Tool()
     wf = t.create_workflow(name="i_am_a_fake_wf")
-    task_template_1 = get_task_template(t, template_name="phase_1")
-    task_template_2 = get_task_template(t, template_name="phase_2")
-    # tt1 = t.get_task_template(
-    #     template_name="tt1", command_template="echo {arg}", node_args=["arg"]
-    # )
-    # tt2 = t.get_task_template(
-    #     template_name="tt2", command_template="sleep {arg}", node_args=["arg"]
-    # )
-    t1 = task_template_1.create_task(
+    # task_template_1 = get_task_template(t, template_name="phase_1")
+    # task_template_2 = get_task_template(t, template_name="phase_2")
+    tt1 = t.get_task_template(
+        template_name="tt1", command_template="echo {arg}", node_args=["arg"]
+    )
+    tt2 = t.get_task_template(
+        template_name="tt2", command_template="sleep {arg}", node_args=["arg"]
+    )
+    t1 = tt1.create_task(
         arg=1, cluster_name="sequential", compute_resources={"queue": "null.q"}
     )
-    t2 = task_template_2.create_task(
+    t2 = tt2.create_task(
         arg=2, cluster_name="sequential", compute_resources={"queue": "null2.q"}
     )
 
     wf.add_tasks([t1, t2])
     wf.run()
-
-    breakpoint()
 
     # manipulate data
     app = db_cfg["app"]

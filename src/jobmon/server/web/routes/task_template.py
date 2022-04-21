@@ -183,13 +183,14 @@ def get_most_popular_queue() -> Any:
     # parse args
     ttvis = request.args.get("task_template_version_ids")
     sql = f"""
-           SELECT t3.id as id,  t4.queue_id as queue_id
-           FROM task t1, node t2, task_template_version t3, task_resources t4
-           WHERE t3.id in {ttvis}
-           AND t2.task_template_version_id=t3.id
-           AND t1.node_id=t2.id
-           AND t4.task_id=t1.id
-           AND t4.queue_id is not null
+            SELECT task_template_version.id as id, task_resources.queue_id as queue_id
+            FROM task, node, task_template_version, task_resources, task_instance
+            WHERE task_template_version.id in {ttvis}
+            AND node.task_template_version_id=task_template_version.id
+            AND task.node_id=node.id
+            AND task_instance.task_id=task.id
+            AND task_instance.task_resources_id = task_resources.id
+            AND task_resources.queue_id is not null
     """
     rows = DB.session.execute(sql).fetchall()
     # return a "standard" json format for cli routes
