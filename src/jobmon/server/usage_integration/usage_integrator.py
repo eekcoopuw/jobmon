@@ -132,7 +132,7 @@ class UsageIntegrator:
         # So we probably aren't close to that limit.
         sql = (
             "INSERT INTO task_instance(id, maxrss, wallclock, task_id, status) "
-            "VALUES :values "
+            "VALUES {values} "
             "ON DUPLICATE KEY UPDATE "
             "maxrss=VALUES(maxrss), "
             "wallclock=VALUES(wallclock) "
@@ -148,7 +148,7 @@ class UsageIntegrator:
             ]
         )
 
-        self.session.execute(sql, values=values)
+        self.session.execute(sql.format(values=values))
         self.session.commit()
 
     def update_dummy_resources(self, task_instances: List[QueuedTI]) -> None:

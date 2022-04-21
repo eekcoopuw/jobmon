@@ -26,13 +26,6 @@ def six_job_test(cluster_name: str):
     # Deliberately put in on the long queue with max runtime > 1 day
     tool = Tool(name=f"Iguanodon alpha testing - {cluster_name}")
 
-    tool.set_default_compute_resources_from_yaml(
-        default_cluster_name=cluster_name,
-        yaml_file=os.path.join(thisdir, "six_job_test_resources.yaml"),
-        set_task_templates=True,
-        ignore_missing_keys=True
-    )
-
     t1 = get_task_template(tool, "phase_1").create_task(
         name='t1',
         command="sleep 10"
@@ -69,6 +62,13 @@ def six_job_test(cluster_name: str):
         name='t6',
         command="sleep 19",
         upstream_tasks=[t4, t5]
+    )
+
+    tool.set_default_compute_resources_from_yaml(
+        default_cluster_name=cluster_name,
+        yaml_file=os.path.join(thisdir, "six_job_test_resources.yaml"),
+        set_task_templates=True,
+        ignore_missing_keys=True
     )
 
     wf = tool.create_workflow(

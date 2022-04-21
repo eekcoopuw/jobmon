@@ -93,6 +93,7 @@ def test_maxrss_forever(db_cfg, client_env, ephemera, usage_integrator):
         """
         rows = DB.session.execute(sql).fetchall()
         assert rows is not None
+
         for r in rows:
             assert r["maxrss"] is None
             tis.append(int(r["id"]))
