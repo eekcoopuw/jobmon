@@ -105,11 +105,11 @@ def usage_integrator_config(ephemera):
         # Missing or improperly formatted json. Pull from environment variables. If not found
         # default to None, since this fixture shouldn't be used anyways.
         integrator_config_dict = {
-            "DB_HOST_SLURM_SDB": os.getenv("DB_HOST_SLURM_SDB"),
-            "DB_PASS_SLURM_SDB": os.getenv("DB_PASS_SLURM_SDB"),
-            "DB_USER_SLURM_SDB": os.getenv("DB_USER_SLURM_SDB"),
-            "DB_NAME_SLURM_SDB": os.getenv("DB_NAME_SLURM_SDB"),
-            "DB_PORT_SLURM_SDB": os.getenv("DB_PORT_SLURM_SDB")
+            "DB_HOST_SLURM_SDB": os.getenv("DB_HOST_SLURM_SDB", "not.a.host"),
+            "DB_PASS_SLURM_SDB": os.getenv("DB_PASS_SLURM_SDB", "not_a_pass"),
+            "DB_USER_SLURM_SDB": os.getenv("DB_USER_SLURM_SDB", "not_a_user"),
+            "DB_NAME_SLURM_SDB": os.getenv("DB_NAME_SLURM_SDB", "not_a_name"),
+            "DB_PORT_SLURM_SDB": os.getenv("DB_PORT_SLURM_SDB", "3306")
         }
 
     # Combine with ephemera to create the usage integrator config
