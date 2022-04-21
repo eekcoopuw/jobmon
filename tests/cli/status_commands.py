@@ -674,8 +674,6 @@ def test_get_yaml_data(db_cfg, client_env):
 
     t = Tool()
     wf = t.create_workflow(name="i_am_a_fake_wf")
-    # task_template_1 = get_task_template(t, template_name="phase_1")
-    # task_template_2 = get_task_template(t, template_name="phase_2")
     tt1 = t.get_task_template(
         template_name="tt1", command_template="echo {arg}", node_args=["arg"]
     )
