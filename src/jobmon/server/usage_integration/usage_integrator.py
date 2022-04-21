@@ -287,7 +287,7 @@ def q_forever(init_time: float = datetime.datetime(2022, 4, 8),
     date.
     """
     # allow the service to decide the time to go back to fill maxrss/maxpss
-    last_heartbeat = init_time
+    last_heartbeat = datetime.datetime.timestamp(init_time)
     integrator = UsageIntegrator(integrator_config)
 
     while UsageQ.keep_running:
