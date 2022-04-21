@@ -17,7 +17,7 @@ def test_heartbeat_on_launched(tool, db_cfg, client_env, task_template):
     workflow.add_tasks([t1, t2])
     workflow.bind()
     wfr = workflow._create_workflow_run()
-
+    
     # create task instances
     swarm = SwarmWorkflowRun(
         workflow_run_id=wfr.workflow_run_id,

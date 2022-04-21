@@ -674,9 +674,8 @@ def instantiate_task_instances() -> Any:
             ).where(
                 Array.id == array_id
             )
-            result = DB.session.execute(array_name_query)
-            for name in result:
-                array_name = name
+            result = DB.session.execute(array_name_query).fetchone()
+            array_name = result["name"]
             serialized_batches.append(
                 SerializeTaskInstanceBatch.to_wire(
                     array_id=array_id,
