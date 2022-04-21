@@ -45,6 +45,11 @@ spec:
             secretKeyRef:
               key: DB_PASS
               name: {{ .Values.global.rancher_db_secret }}
+        - name: DB_NAME
+          valueFrom:
+            secretKeyRef:
+              key: DB_NAME
+              name: {{ .Values.global.rancher_db_secret }}
         - name: DB_HOST_SLURM_SDB
           valueFrom:
             secretKeyRef:
