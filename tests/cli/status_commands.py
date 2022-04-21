@@ -498,12 +498,12 @@ def test_sub_dag(db_cfg, client_env, tool):
     t2 = task_template_3.create_task(arg="echo 2")
     t3 = task_template_3.create_task(arg="echo 3")
     t13_1 = task_template_2.create_task(arg="echo 131")
-    t1_11_213_1_1.add_upstream(t1_1) # DONE
-    t1_11_213_1_1.add_upstream(t1_2) # DONE
-    t1_11_213_1_1.add_upstream((t13_1)) # DONE
-    t1_2.add_upstream(t1) # DONE
-    t1_1.add_upstream(t1) # DONE
-    t13_1.add_upstream(t1) # DONE
+    t1_11_213_1_1.add_upstream(t1_1)
+    t1_11_213_1_1.add_upstream(t1_2)
+    t1_11_213_1_1.add_upstream((t13_1))
+    t1_2.add_upstream(t1)
+    t1_1.add_upstream(t1)
+    t13_1.add_upstream(t1)
     t13_1.add_upstream(t3)
     workflow.add_tasks([t1, t1_1, t1_2, t1_11_213_1_1, t2, t3, t13_1])
     workflow.bind()
