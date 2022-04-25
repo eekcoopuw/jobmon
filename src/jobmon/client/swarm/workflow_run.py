@@ -16,7 +16,7 @@ from jobmon.exceptions import (
     DistributorNotAlive,
     InvalidResponse,
     WorkflowTestError,
-    TransitionError
+    TransitionError,
 )
 
 from jobmon.requester import http_request_ok, Requester
@@ -30,11 +30,7 @@ logger = logging.getLogger(__name__)
 
 
 class SwarmCommand:
-    def __init__(
-        self,
-        func: Callable[..., None],
-        *args, **kwargs
-    ):
+    def __init__(self, func: Callable[..., None], *args, **kwargs):
         """A command to be run by the distributor service.
 
         Args:
@@ -146,12 +142,11 @@ class WorkflowRun:
             TaskStatus.QUEUED,
             TaskStatus.LAUNCHED,
             TaskStatus.RUNNING,
-            TaskStatus.INSTANTIATING
+            TaskStatus.INSTANTIATING,
         ]
-        any_active_tasks = (
-            any([any(self._task_status_map[s]) for s in active_task_states])
-            or any(self.ready_to_run)
-        )
+        any_active_tasks = any(
+            [any(self._task_status_map[s]) for s in active_task_states]
+        ) or any(self.ready_to_run)
         return any_active_tasks
 
     def from_workflow(self, workflow: Workflow) -> None:
@@ -213,8 +208,11 @@ class WorkflowRun:
         self.last_sync = self._get_current_time()
         self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
 
-    def run(self, distributor_alive_callable: Callable[..., bool],
-            seconds_until_timeout: int = 36000):
+    def run(
+        self,
+        distributor_alive_callable: Callable[..., bool],
+        seconds_until_timeout: int = 36000,
+    ):
         """Take a concrete DAG and queue al the Tasks that are not DONE.
 
         Uses forward chaining from initial fringe, hence out-of-date is not
@@ -245,8 +243,8 @@ class WorkflowRun:
             logger.info(f"Executing Workflow Run {self.workflow_run_id}")
             self._update_status(WorkflowRunStatus.RUNNING)
             self.set_initial_fringe()
-            time_since_last_full_sync = 0.
-            total_elapsed_time = 0.
+            time_since_last_full_sync = 0.0
+            total_elapsed_time = 0.0
             terminating_states = [
                 WorkflowRunStatus.COLD_RESUME,
                 WorkflowRunStatus.HOT_RESUME,
@@ -292,9 +290,8 @@ class WorkflowRun:
 
                 # process any commands that we can in the time allotted
                 loop_start = time.time()
-                time_till_next_heartbeat = (
-                    self._workflow_run_heartbeat_interval
-                    - (loop_start - self._last_heartbeat_time)
+                time_till_next_heartbeat = self._workflow_run_heartbeat_interval - (
+                    loop_start - self._last_heartbeat_time
                 )
                 if self.status == WorkflowRunStatus.RUNNING:
                     self.process_commands(timeout=time_till_next_heartbeat)
@@ -308,7 +305,7 @@ class WorkflowRun:
 
                 # then synchronize state
                 if time_since_last_full_sync > self.wedged_workflow_sync_interval:
-                    time_since_last_full_sync = 0.
+                    time_since_last_full_sync = 0.0
                     self.synchronize_state(full_sync=True)
                 else:
                     time_since_last_full_sync += loop_elapsed
@@ -353,8 +350,11 @@ class WorkflowRun:
         for t in [t for t in self._task_status_map[TaskStatus.ADJUSTING_RESOURCES]]:
             self._set_adjusted_task_resources(t)
             self.ready_to_run.append(t)
-        for t in [task for task in self._task_status_map[TaskStatus.REGISTERING]
-                  if task.all_upstreams_done]:
+        for t in [
+            task
+            for task in self._task_status_map[TaskStatus.REGISTERING]
+            if task.all_upstreams_done
+        ]:
             self._set_validated_task_resources(t)
             self.ready_to_run.append(t)
 
@@ -363,12 +363,17 @@ class WorkflowRun:
 
         # compute capacities. max - active
         active_tasks: Set[SwarmTask] = set()
-        for task_status in [TaskStatus.QUEUED, TaskStatus.INSTANTIATING, TaskStatus.LAUNCHED,
-                            TaskStatus.RUNNING]:
+        for task_status in [
+            TaskStatus.QUEUED,
+            TaskStatus.INSTANTIATING,
+            TaskStatus.LAUNCHED,
+            TaskStatus.RUNNING,
+        ]:
             active_tasks.union(self._task_status_map[task_status])
         workflow_capacity = self.max_concurrently_running - len(active_tasks)
         array_capacity_lookup: Dict[int, int] = {
-            aid: array.max_concurrently_running - len(active_tasks.intersection(array.tasks))
+            aid: array.max_concurrently_running
+            - len(active_tasks.intersection(array.tasks))
             for aid, array in self.arrays.items()
         }
 
@@ -519,9 +524,7 @@ class WorkflowRun:
             logger.warning(f"{num_newly_failed} newly failed tasks.")
 
     def _set_status_for_triaging(self):
-        app_route = (
-            f"/workflow_run/{self.workflow_run_id}/set_status_for_triaging"
-        )
+        app_route = f"/workflow_run/{self.workflow_run_id}/set_status_for_triaging"
         return_code, response = self._requester.send_request(
             app_route=app_route, message={}, request_type="post", logger=logger
         )
@@ -571,7 +574,7 @@ class WorkflowRun:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-        self._status = response['status']
+        self._status = response["status"]
         if self.status != status:
             raise TransitionError(
                 f"Cannot transition WFR {self.workflow_run_id} from current status "
@@ -691,7 +694,9 @@ class WorkflowRun:
     def _set_validated_task_resources(self, task: SwarmTask) -> None:
         # get cluster and original params
         cluster = task.cluster
-        resource_params = task.current_task_resources.concrete_resources.resources.copy()
+        resource_params = (
+            task.current_task_resources.concrete_resources.resources.copy()
+        )
         queue = task.current_task_resources.concrete_resources.queue
 
         # update with extra params
@@ -716,7 +721,9 @@ class WorkflowRun:
 
         # if validated concrete resources are different than original. get new resource object
         validated_resource_hash = hash(concrete_resource)
-        if validated_resource_hash != hash(task.current_task_resources.concrete_resources):
+        if validated_resource_hash != hash(
+            task.current_task_resources.concrete_resources
+        ):
             try:
                 task_resources = self._task_resources[hash(concrete_resource)]
             except KeyError:
@@ -736,7 +743,9 @@ class WorkflowRun:
         Use the cluster API to generate the new resources, then bind to input swarmtask.
         """
         # current resources
-        resource_params = task.current_task_resources.concrete_resources.resources.copy()
+        resource_params = (
+            task.current_task_resources.concrete_resources.resources.copy()
+        )
 
         concrete_resource = (
             task.cluster.concrete_resource_class.adjust_and_create_concrete_resource(

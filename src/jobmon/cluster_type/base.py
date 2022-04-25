@@ -91,13 +91,14 @@ class ClusterQueue(Protocol):
                 pass
 
             try:
-                raw_value, unit = re.findall(r'[A-Za-z]+|\d+', time_str)
+                raw_value, unit = re.findall(r"[A-Za-z]+|\d+", time_str)
             except ValueError:
                 # Raised if there are not exactly 2 values to unpack from above regex
                 raise ValueError(
                     "The provided runtime request must be in a format of numbers "
                     "followed by one or two characters indicating the unit. "
-                    "E.g. 1h, 60m, 3600s.")
+                    "E.g. 1h, 60m, 3600s."
+                )
 
             if "h" in unit:
                 # Hours provided
@@ -137,15 +138,13 @@ class ClusterDistributor(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def get_queueing_errors(
-        self, distributor_ids: List[str]
-    ) -> Dict[str, str]:
+    def get_queueing_errors(self, distributor_ids: List[str]) -> Dict[str, str]:
         """Get the task instances that have errored out."""
         raise NotImplementedError
 
     @abstractmethod
     def get_submitted_or_running(
-            self, distributor_ids: Optional[List[str]] = None
+        self, distributor_ids: Optional[List[str]] = None
     ) -> Set[str]:
         """Check which task instances are active.
 
@@ -163,9 +162,7 @@ class ClusterDistributor(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def get_remote_exit_info(
-        self, distributor_id: str
-    ) -> Tuple[str, str]:
+    def get_remote_exit_info(self, distributor_id: str) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
         raise RemoteExitInfoNotAvailable
 

@@ -9,7 +9,9 @@ from jobmon.constants import TaskInstanceStatus
 from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.cluster_type.dummy import DummyDistributor
-from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
+from jobmon.cluster_type.multiprocess.multiproc_distributor import (
+    MultiprocessDistributor,
+)
 from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
@@ -24,9 +26,12 @@ class DoNothingDistributor(DummyDistributor):
 
 
 class DoNothingArrayDistributor(MultiprocessDistributor):
-
     def submit_array_to_batch_distributor(
-        self, command: str, name: str, requested_resources, array_length: int,
+        self,
+        command: str,
+        name: str,
+        requested_resources,
+        array_length: int,
     ) -> Dict[int, str]:
         job_id = random.randint(1, int(1e7))
         mapping: Dict[int, str] = {}
@@ -52,8 +57,7 @@ def test_task_instance(db_cfg, tool):
 
     # create task instances
     swarm = SwarmWorkflowRun(
-        workflow_run_id=wfr.workflow_run_id,
-        requester=workflow.requester
+        workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
     )
     swarm.from_workflow(workflow)
     swarm.set_initial_fringe()
@@ -61,9 +65,7 @@ def test_task_instance(db_cfg, tool):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        DoNothingDistributor(),
-        requester=workflow.requester,
-        raise_on_error=True
+        DoNothingDistributor(), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -74,9 +76,7 @@ def test_task_instance(db_cfg, tool):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        task_instance_id_query = select(
-            TaskInstance.id
-        ).where(
+        task_instance_id_query = select(TaskInstance.id).where(
             TaskInstance.task_id == task_a.task_id
         )
 
@@ -85,7 +85,7 @@ def test_task_instance(db_cfg, tool):
 
     worker_node_task_instance = WorkerNodeTaskInstance(
         task_instance_id=task_instance_id,
-        cluster_name=distributor_service.cluster.cluster_name
+        cluster_name=distributor_service.cluster.cluster_name,
     )
     worker_node_task_instance.run()
     assert worker_node_task_instance.status == TaskInstanceStatus.DONE
@@ -105,8 +105,7 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template, monkeypat
 
     # create task instances
     swarm = SwarmWorkflowRun(
-        workflow_run_id=wfr.workflow_run_id,
-        requester=workflow.requester
+        workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
     )
     swarm.from_workflow(workflow)
     swarm.set_initial_fringe()
@@ -114,9 +113,7 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template, monkeypat
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        DoNothingArrayDistributor(),
-        requester=workflow.requester,
-        raise_on_error=True
+        DoNothingArrayDistributor(), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -129,9 +126,7 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template, monkeypat
     with app.app_context():
         task_instance_id_query = select(
             TaskInstance.distributor_id, TaskInstance.array_batch_num
-        ).where(
-            TaskInstance.array_id == array1.array_id
-        )
+        ).where(TaskInstance.array_id == array1.array_id)
         distributor_ids = DB.session.execute(task_instance_id_query).all()
         DB.session.commit()
 
@@ -141,8 +136,11 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template, monkeypat
         monkeypatch.setenv("JOB_ID", job_id)
         monkeypatch.setenv("ARRAY_STEP_ID", step_id)
 
-        wnti = WorkerNodeTaskInstance(cluster_name="multiprocess", array_id=array1.array_id,
-                                      batch_number=array_batch_num)
+        wnti = WorkerNodeTaskInstance(
+            cluster_name="multiprocess",
+            array_id=array1.array_id,
+            batch_number=array_batch_num,
+        )
         wnti.run()
 
         assert wnti.status == TaskInstanceStatus.DONE
@@ -161,8 +159,7 @@ def test_ti_kill_self_state(db_cfg, tool):
 
     # create task instances
     swarm = SwarmWorkflowRun(
-        workflow_run_id=wfr.workflow_run_id,
-        requester=workflow.requester
+        workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
     )
     swarm.from_workflow(workflow)
     swarm.set_initial_fringe()
@@ -170,9 +167,7 @@ def test_ti_kill_self_state(db_cfg, tool):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        DoNothingDistributor(),
-        requester=workflow.requester,
-        raise_on_error=True
+        DoNothingDistributor(), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -185,9 +180,7 @@ def test_ti_kill_self_state(db_cfg, tool):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
-        task_instance_id_query = select(
-            TaskInstance.id
-        ).where(
+        task_instance_id_query = select(TaskInstance.id).where(
             TaskInstance.task_id == task_a.task_id
         )
 
@@ -197,7 +190,7 @@ def test_ti_kill_self_state(db_cfg, tool):
     worker_node_task_instance = WorkerNodeTaskInstance(
         task_instance_id=task_instance_id,
         cluster_name=distributor_service.cluster.cluster_name,
-        heartbeat_interval=5
+        heartbeat_interval=5,
     )
 
     # Log running
@@ -267,9 +260,7 @@ def test_limited_error_log(tool, db_cfg):
     swarm.process_commands()
 
     distributor_service = DistributorService(
-        SequentialDistributor(),
-        requester=wf.requester,
-        raise_on_error=True
+        SequentialDistributor(), requester=wf.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -292,4 +283,4 @@ def test_limited_error_log(tool, db_cfg):
         DB.session.commit()
 
     error = res[0]
-    assert error == (("a" * 2 ** 10 + "\n") * (2 ** 8))[-10000:]
+    assert error == (("a" * 2**10 + "\n") * (2**8))[-10000:]

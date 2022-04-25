@@ -4,7 +4,9 @@ import time
 def test_multiprocess_distributor(
     tool, db_cfg, client_env, task_template, array_template
 ):
-    from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
+    from jobmon.cluster_type.multiprocess.multiproc_distributor import (
+        MultiprocessDistributor,
+    )
 
     # set up a MultiprocessDistributor with 5 consumers.
     dist = MultiprocessDistributor(5)

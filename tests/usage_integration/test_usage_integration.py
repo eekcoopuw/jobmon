@@ -6,6 +6,7 @@ import pytest
 from unittest.mock import patch
 
 from jobmon.client.tool import Tool
+
 # Commented out since slurm_rest is not a testing requirement
 # from jobmon.server.usage_integration.usage_integrator import UsageIntegrator
 # from jobmon.server.usage_integration.usage_queue import UsageQ

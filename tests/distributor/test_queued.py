@@ -1,4 +1,3 @@
-
 from jobmon.constants import TaskInstanceStatus
 
 
@@ -21,8 +20,7 @@ def test_queued(tool, db_cfg, client_env, task_template):
 
     # create task instances
     swarm = SwarmWorkflowRun(
-        workflow_run_id=wfr.workflow_run_id,
-        requester=workflow.requester
+        workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
     )
     swarm.from_workflow(workflow)
     assert swarm.max_concurrently_running == 10
@@ -33,14 +31,21 @@ def test_queued(tool, db_cfg, client_env, task_template):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        DummyDistributor(),
-        requester=workflow.requester,
-        raise_on_error=True
+        DummyDistributor(), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
-    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 10
+    assert (
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED])
+        == 10
+    )
 
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
-    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]
-               ) == 10
+    assert (
+        len(
+            distributor_service._task_instance_status_map[
+                TaskInstanceStatus.INSTANTIATED
+            ]
+        )
+        == 10
+    )

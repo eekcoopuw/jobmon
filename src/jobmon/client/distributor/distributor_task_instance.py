@@ -59,9 +59,7 @@ class DistributorTaskInstance:
         self._array_step_id = val
 
     def transition_to_launched(
-        self,
-        distributor_id: str,
-        next_report_increment: float
+        self, distributor_id: str, next_report_increment: float
     ) -> None:
         """Register the submission of a new task instance to a cluster.
 
@@ -181,5 +179,7 @@ class DistributorTaskInstance:
 
     def __repr__(self):
         """Return a short representation string."""
-        return f"DistributorTaskInstance(task_instance_id={self.task_instance_id}," \
-               f"status={self.status})"
+        return (
+            f"DistributorTaskInstance(task_instance_id={self.task_instance_id},"
+            f"status={self.status})"
+        )

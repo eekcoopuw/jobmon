@@ -7,7 +7,9 @@ from sqlalchemy.sql import text
 from jobmon.constants import TaskInstanceStatus
 from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
+from jobmon.cluster_type.multiprocess.multiproc_distributor import (
+    MultiprocessDistributor,
+)
 from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
 
 
@@ -25,8 +27,7 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
 
     # create task instances
     swarm = SwarmWorkflowRun(
-        workflow_run_id=wfr.workflow_run_id,
-        requester=workflow.requester
+        workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
     )
     swarm.from_workflow(workflow)
     swarm.set_initial_fringe()
@@ -34,9 +35,7 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        SequentialDistributor(),
-        requester=workflow.requester,
-        raise_on_error=True
+        SequentialDistributor(), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -64,10 +63,22 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
     assert res[1].status == "I"
 
     # Queued status should have turned into Instantiated status as well.
-    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 0
-    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]
-               ) == 2
-    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 0
+    assert (
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED])
+        == 0
+    )
+    assert (
+        len(
+            distributor_service._task_instance_status_map[
+                TaskInstanceStatus.INSTANTIATED
+            ]
+        )
+        == 2
+    )
+    assert (
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED])
+        == 0
+    )
 
     distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
@@ -112,8 +123,7 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
 
     # create task instances
     swarm = SwarmWorkflowRun(
-        workflow_run_id=wfr.workflow_run_id,
-        requester=workflow.requester
+        workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
     )
     swarm.from_workflow(workflow)
     swarm.set_initial_fringe()
@@ -121,9 +131,7 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        MultiprocessDistributor(),
-        requester=workflow.requester,
-        raise_on_error=True
+        MultiprocessDistributor(), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -151,10 +159,22 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
     assert res[1].status == "I"
 
     # Queued status should have turned into Instantiated status as well.
-    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED]) == 0
-    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]
-               ) == 2
-    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 0
+    assert (
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.QUEUED])
+        == 0
+    )
+    assert (
+        len(
+            distributor_service._task_instance_status_map[
+                TaskInstanceStatus.INSTANTIATED
+            ]
+        )
+        == 2
+    )
+    assert (
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED])
+        == 0
+    )
 
     distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
@@ -185,8 +205,12 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
     # Check that distributor id is logged correctly
     submitted_job_id = distributor_service.cluster._next_job_id - 1
     expected_dist_id = distributor_service.cluster._get_subtask_id
-    assert res[0].distributor_id == expected_dist_id(submitted_job_id, res[0].array_step_id)
-    assert res[1].distributor_id == expected_dist_id(submitted_job_id, res[1].array_step_id)
+    assert res[0].distributor_id == expected_dist_id(
+        submitted_job_id, res[0].array_step_id
+    )
+    assert res[1].distributor_id == expected_dist_id(
+        submitted_job_id, res[1].array_step_id
+    )
 
 
 def test_job_submit_raises_error(db_cfg, tool):
@@ -207,8 +231,7 @@ def test_job_submit_raises_error(db_cfg, tool):
 
     # create task instances
     swarm = SwarmWorkflowRun(
-        workflow_run_id=wfr.workflow_run_id,
-        requester=workflow.requester
+        workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
     )
     swarm.from_workflow(workflow)
     swarm.set_initial_fringe()
@@ -216,9 +239,7 @@ def test_job_submit_raises_error(db_cfg, tool):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        ErrorDistributor(),
-        requester=workflow.requester,
-        raise_on_error=True
+        ErrorDistributor(), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -263,8 +284,7 @@ def test_array_submit_raises_error(db_cfg, tool):
 
     # create task instances
     swarm = SwarmWorkflowRun(
-        workflow_run_id=wfr.workflow_run_id,
-        requester=workflow.requester
+        workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
     )
     swarm.from_workflow(workflow)
     swarm.set_initial_fringe()
@@ -272,9 +292,7 @@ def test_array_submit_raises_error(db_cfg, tool):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        ErrorDistributor(),
-        requester=workflow.requester,
-        raise_on_error=True
+        ErrorDistributor(), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -319,8 +337,7 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
     wfr = workflow._create_workflow_run()
 
     swarm = SwarmWorkflowRun(
-        workflow_run_id=wfr.workflow_run_id,
-        requester=workflow.requester
+        workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
     )
     swarm.from_workflow(workflow)
     swarm.set_initial_fringe()
@@ -330,7 +347,7 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
     distributor_service = DistributorService(
         MultiprocessDistributor(parallelism=3),
         requester=workflow.requester,
-        raise_on_error=True
+        raise_on_error=True,
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -338,7 +355,10 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
     distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
-    assert len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 2
+    assert (
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED])
+        == 2
+    )
 
     distributor_service.cluster.stop()
 
@@ -368,8 +388,7 @@ def test_array_concurrency(
     wfr = workflow._create_workflow_run()
 
     swarm = SwarmWorkflowRun(
-        workflow_run_id=wfr.workflow_run_id,
-        requester=workflow.requester
+        workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
     )
     swarm.from_workflow(workflow)
     swarm.set_initial_fringe()
@@ -378,7 +397,7 @@ def test_array_concurrency(
     distributor_service = DistributorService(
         MultiprocessDistributor(parallelism=3),
         requester=workflow.requester,
-        raise_on_error=True
+        raise_on_error=True,
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -460,12 +479,12 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
     from jobmon.constants import TaskStatus, TaskInstanceStatus
 
     # Make up some tasks and task instances in I state
-    app, db = db_cfg['app'], db_cfg['DB']
+    app, db = db_cfg["app"], db_cfg["DB"]
     t = Task(
         array_id=1,
         task_args_hash=123,
-        command='echo 1',
-        status=TaskStatus.INSTANTIATING
+        command="echo 1",
+        status=TaskStatus.INSTANTIATING,
     )
 
     # Add the task
@@ -474,11 +493,11 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
         db.session.commit()
 
     ti_params = {
-        'task_id': t.id,
-        'status': TaskInstanceStatus.INSTANTIATED,
-        'array_id': 1,
-        'array_batch_num': 1,
-        'array_step_id': 0,
+        "task_id": t.id,
+        "status": TaskInstanceStatus.INSTANTIATED,
+        "array_id": 1,
+        "array_batch_num": 1,
+        "array_step_id": 0,
     }
 
     ti1 = TaskInstance(**ti_params)
@@ -492,23 +511,27 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
 
     # Post the transition route, check what comes back
     resp = web_server_in_memory.post(
-        '/array/1/transition_to_launched',
+        "/array/1/transition_to_launched",
         json={
-            'batch_number': 1,
-            'next_report_increment': 5 * 60  # 5 minutes to report
-        }
+            "batch_number": 1,
+            "next_report_increment": 5 * 60,  # 5 minutes to report
+        },
     )
     assert resp.status_code == 200
 
     # Check the statuses are updated
     with app.app_context():
         tnew = db.session.query(Task).where(Task.id == t.id).one()
-        ti1_r, ti2_r, ti3_r = db.session.query(TaskInstance).where(
-            TaskInstance.id.in_([ti1.id, ti2.id, ti3.id])
-        ).all()
+        ti1_r, ti2_r, ti3_r = (
+            db.session.query(TaskInstance)
+            .where(TaskInstance.id.in_([ti1.id, ti2.id, ti3.id]))
+            .all()
+        )
 
         assert tnew.status == TaskStatus.LAUNCHED
-        assert [ti1_r.status, ti2_r.status, ti3_r.status] == [TaskInstanceStatus.LAUNCHED] * 3
+        assert [ti1_r.status, ti2_r.status, ti3_r.status] == [
+            TaskInstanceStatus.LAUNCHED
+        ] * 3
 
         # Check a single datetime
         submitted_date = ti1_r.submitted_date
@@ -519,22 +542,23 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
 
     # Post a request to log the distributor ids
     resp = web_server_in_memory.post(
-        '/array/1/log_distributor_id',
+        "/array/1/log_distributor_id",
         json={
-            'array_batch_num': 1,
-            'distributor_id_map': {
-                '0': '123_1',
-                '1': '123_2',
-                '2': '123_3'
-            }
-        }
+            "array_batch_num": 1,
+            "distributor_id_map": {"0": "123_1", "1": "123_2", "2": "123_3"},
+        },
     )
     assert resp.status_code == 200
 
     with app.app_context():
-        ti1_r, ti2_r, ti3_r = db.session.query(TaskInstance).where(
-            TaskInstance.id.in_([ti1.id, ti2.id, ti3.id])
-        ).all()
+        ti1_r, ti2_r, ti3_r = (
+            db.session.query(TaskInstance)
+            .where(TaskInstance.id.in_([ti1.id, ti2.id, ti3.id]))
+            .all()
+        )
 
-        assert [ti1_r.distributor_id, ti2_r.distributor_id, ti3_r.distributor_id] == \
-               ['123_1', '123_2', '123_3']
+        assert [ti1_r.distributor_id, ti2_r.distributor_id, ti3_r.distributor_id] == [
+            "123_1",
+            "123_2",
+            "123_3",
+        ]

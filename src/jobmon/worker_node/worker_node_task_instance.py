@@ -129,21 +129,27 @@ class WorkerNodeTaskInstance:
     def status(self) -> str:
         """Returns the last known status of the task instance."""
         if not hasattr(self, "_status"):
-            raise AttributeError("Cannot access status until log_running has been called.")
+            raise AttributeError(
+                "Cannot access status until log_running has been called."
+            )
         return self._status
 
     @property
     def command(self) -> str:
         """Returns the command this task instance will run."""
         if not hasattr(self, "_command"):
-            raise AttributeError("Cannot access command until log_running has been called.")
+            raise AttributeError(
+                "Cannot access command until log_running has been called."
+            )
         return self._command
 
     @property
     def command_return_code(self) -> int:
         """Returns the exit code of the command that was run"""
         if not hasattr(self, "_proc"):
-            raise AttributeError("Cannot access command_return_code until command has run.")
+            raise AttributeError(
+                "Cannot access command_return_code until command has run."
+            )
         return self._proc.returncode
 
     @property
@@ -231,7 +237,9 @@ class WorkerNodeTaskInstance:
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)
         else:
-            logger.info("No distributor_id was found in the worker_node env at this time.")
+            logger.info(
+                "No distributor_id was found in the worker_node env at this time."
+            )
 
         app_route = f"/task_instance/{self.task_instance_id}/log_running"
         return_code, response = self.requester.send_request(
@@ -248,7 +256,9 @@ class WorkerNodeTaskInstance:
                 f"code 200. Response content: {response}"
             )
 
-        kwargs = SerializeTaskInstance.kwargs_from_wire_worker_node(response["task_instance"])
+        kwargs = SerializeTaskInstance.kwargs_from_wire_worker_node(
+            response["task_instance"]
+        )
         self._task_instance_id = kwargs["task_instance_id"]
         self._status = kwargs["status"]
         self._command = kwargs["command"]
@@ -316,15 +326,17 @@ class WorkerNodeTaskInstance:
             # pipe fills up
             self._stderr = ""
             self._err_q: Queue = Queue()  # queues for returning stderr to main thread
-            err_thread = Thread(target=enqueue_stderr, args=(self._proc.stderr, self._err_q))
+            err_thread = Thread(
+                target=enqueue_stderr, args=(self._proc.stderr, self._err_q)
+            )
             err_thread.daemon = True  # thread dies with the program
             err_thread.start()
 
             is_done = False
             while not is_done:
                 # process any commands that we can in the time alotted
-                time_till_next_heartbeat = (
-                    self.heartbeat_interval - (time() - self.last_heartbeat_time)
+                time_till_next_heartbeat = self.heartbeat_interval - (
+                    time() - self.last_heartbeat_time
                 )
                 is_done = self._poll_subprocess(timeout=time_till_next_heartbeat)
 
@@ -333,8 +345,10 @@ class WorkerNodeTaskInstance:
 
         # some other deployment unit transitioned task instance out of R state
         except TransitionError as e:
-            msg = (f"TaskInstance is in status '{self.status}'. Expected status 'R'."
-                   f" Terminating command {self.command}.")
+            msg = (
+                f"TaskInstance is in status '{self.status}'. Expected status 'R'."
+                f" Terminating command {self.command}."
+            )
             logger.error(msg)
 
             # cleanup process
@@ -374,7 +388,9 @@ class WorkerNodeTaskInstance:
                 logger.info(f"Command: {self.command}. Finished Successfully.")
                 self.log_done()
             else:
-                logger.info(f"Command: {self.command}\n Failed with stderr:\n {self.stderr}")
+                logger.info(
+                    f"Command: {self.command}\n Failed with stderr:\n {self.stderr}"
+                )
                 error_state, msg = self.cluster_worker_node.get_exit_info(
                     self.command_return_code, self.stderr
                 )

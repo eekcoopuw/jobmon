@@ -41,9 +41,7 @@ class TaskInstance(DB.Model):
     def to_wire_as_worker_node_task_instance(self) -> Tuple:
         """Serialize task instance object."""
         return SerializeTaskInstance.to_wire_worker_node(
-            self.id,
-            self.task.command,
-            self.status
+            self.id, self.task.command, self.status
         )
 
     id = DB.Column(DB.Integer, primary_key=True)
@@ -226,12 +224,16 @@ class TaskInstance(DB.Model):
     def _validate_transition(self, new_state: str) -> None:
         """Ensure the TaskInstance status transition is valid."""
         if (self.status, new_state) not in self.__class__.valid_transitions:
-            raise InvalidStateTransition("TaskInstance", self.id, self.status, new_state)
+            raise InvalidStateTransition(
+                "TaskInstance", self.id, self.status, new_state
+            )
 
     def _is_timely_transition(self, new_state: str) -> bool:
         """Check if the transition is invalid due to a race condition."""
         if (self.status, new_state) in self.__class__.untimely_transitions:
-            msg = str(InvalidStateTransition("TaskInstance", self.id, self.status, new_state))
+            msg = str(
+                InvalidStateTransition("TaskInstance", self.id, self.status, new_state)
+            )
             msg += (
                 ". This is an untimely transition likely caused by a race "
                 " condition between the distributor_service and the worker_node."

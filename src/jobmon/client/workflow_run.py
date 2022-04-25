@@ -255,10 +255,10 @@ class WorkflowRun(object):
         queue = cluster.get_queue(queue_name)
 
         for resource, value in resource_params.items():
-            if resource == 'memory':
-                resource_params['memory'] = queue.convert_memory_to_gib(value)
-            if resource == 'runtime':
-                resource_params['runtime'] = queue.convert_runtime_to_s(value)
+            if resource == "memory":
+                resource_params["memory"] = queue.convert_memory_to_gib(value)
+            if resource == "runtime":
+                resource_params["runtime"] = queue.convert_runtime_to_s(value)
 
         concrete_resources = cluster.concrete_resource_class(queue, resource_params)
 
