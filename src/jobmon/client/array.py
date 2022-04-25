@@ -52,8 +52,7 @@ class Array:
         else:
             self._name = (
                 task_template_version.task_template.template_name
-                + str(task_args)
-                + str(op_args)
+                + '_'.join('{}={}'.format(*p) for p in task_args.items())
             )
             self._name = self._name if len(self._name) < 255 else self._name[0:254]
 
