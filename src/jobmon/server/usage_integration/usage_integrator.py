@@ -1,7 +1,8 @@
 import ast
 import datetime
 import logging
-from time import sleep, time
+import os
+import time
 from typing import Any, Dict, List, Optional, Tuple
 
 import slurm_rest  # type: ignore
@@ -58,7 +59,6 @@ class UsageIntegrator:
 
             mapping_res = self.session.execute(get_map_query).all()
             for queue in mapping_res:
-                print(queue)
                 self._queue_cluster_map[queue.queue_id] = (queue.cluster_id, queue.name)
 
         return self._queue_cluster_map
@@ -305,6 +305,12 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
     replicating the production accounting databases. We cannot query data from before that
     date.
     """
+
+    # We enforce Pacific time since that's what the database uses.
+    # Careful, this will set a global environment variable on initializing the q_forever loop.
+    os.environ['TZ'] = 'America/Los_Angeles'
+    time.tzset()
+
     # allow the service to decide the time to go back to fill maxrss/maxpss
     last_heartbeat = init_time
     integrator = UsageIntegrator(integrator_config)
@@ -313,7 +319,7 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
         # Since there isn't a good way to specify the thread priority in Python,
         # put a sleep in each attempt to not overload the CPU.
         # The avg daily job instance is about 20k; thus, sleep(1) should be ok.
-        sleep(1)
+        time.sleep(1)
         # Update slurm_max_update_per_second of jobs as defined in jobmon.cfg
         task_instances = [
             UsageQ.get() for _ in range(integrator.config["max_update_per_sec"])
@@ -324,7 +330,7 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
         integrator.update_resources_in_db(task_instances)
 
         # Query DB to add newly completed jobs to q and log q length
-        current_time = datetime.datetime.today()
+        current_time = datetime.datetime.now()
         if current_time - last_heartbeat > \
                 datetime.timedelta(seconds=integrator.config["polling_interval"]):
             logger.info("UsageQ length: {}, last heartbeat time: {}".format(
