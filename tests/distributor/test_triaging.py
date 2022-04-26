@@ -31,7 +31,9 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
     """tests that a task can be triaged and log as unknown error"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
+    from jobmon.cluster_type.multiprocess.multiproc_distributor import (
+        MultiprocessDistributor,
+    )
     from jobmon.server.web.models.task_instance import TaskInstance
 
     tool.set_default_compute_resources_from_dict(
@@ -62,9 +64,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        distributor,
-        requester=workflow.requester,
-        raise_on_error=True
+        distributor, requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
 
@@ -76,7 +76,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
             "running_status": TaskInstanceStatus.RUNNING,
             "task_id_1": tis[0].task_id,
             "task_id_2": tis[1].task_id,
-            "task_ids": [tis[x].task_id for x in range(len(tis))]
+            "task_ids": [tis[x].task_id for x in range(len(tis))],
         }
         sql = """
         UPDATE task_instance
@@ -116,20 +116,28 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
 
 @pytest.mark.parametrize(
     "error_state, error_message",
-    [(TaskInstanceStatus.RESOURCE_ERROR, "Insufficient resources requested. Task was lost"),
-     (TaskInstanceStatus.UNKNOWN_ERROR,
-      "One possible reason might be that either stderr or stdout is not accessible or writable"
-      ),
-     (TaskInstanceStatus.ERROR_FATAL, "Error Fatal occurred")
-     ],
+    [
+        (
+            TaskInstanceStatus.RESOURCE_ERROR,
+            "Insufficient resources requested. Task was lost",
+        ),
+        (
+            TaskInstanceStatus.UNKNOWN_ERROR,
+            "One possible reason might be that either stderr or stdout is not accessible or writable",
+        ),
+        (TaskInstanceStatus.ERROR_FATAL, "Error Fatal occurred"),
+    ],
 )
-def test_triaging_to_specific_error(tool, db_cfg, client_env, task_template,
-                                    error_state, error_message):
+def test_triaging_to_specific_error(
+    tool, db_cfg, client_env, task_template, error_state, error_message
+):
     """tests that a task can be triaged and log as unknown error"""
     from unittest import mock
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
+    from jobmon.cluster_type.multiprocess.multiproc_distributor import (
+        MultiprocessDistributor,
+    )
     from jobmon.server.web.models.task_instance import TaskInstance
 
     app = db_cfg["app"]
@@ -160,9 +168,7 @@ def test_triaging_to_specific_error(tool, db_cfg, client_env, task_template,
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        distributor,
-        requester=workflow.requester,
-        raise_on_error=True
+        distributor, requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -174,7 +180,7 @@ def test_triaging_to_specific_error(tool, db_cfg, client_env, task_template,
     with app.app_context():
         params = {
             "triaging_status": TaskInstanceStatus.TRIAGING,
-            "task_ids": [tis[x].task_id for x in range(len(tis))]
+            "task_ids": [tis[x].task_id for x in range(len(tis))],
         }
         sql = """
         UPDATE task_instance
@@ -190,7 +196,7 @@ def test_triaging_to_specific_error(tool, db_cfg, client_env, task_template,
     with mock.patch(
         "jobmon.cluster_type.multiprocess.multiproc_distributor."
         "MultiprocessDistributor.get_remote_exit_info",
-            return_value=(error_state, error_message)
+        return_value=(error_state, error_message),
     ):
 
         # code logic to test

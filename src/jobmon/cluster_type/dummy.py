@@ -95,7 +95,7 @@ class DummyDistributor(ClusterDistributor):
         return {}
 
     def get_submitted_or_running(
-            self, distributor_ids: Optional[List[str]] = None
+        self, distributor_ids: Optional[List[str]] = None
     ) -> Set[str]:
         """Check which task instances are active."""
         return set()
@@ -136,7 +136,7 @@ class DummyDistributor(ClusterDistributor):
             array_id=args.array_id,
             batch_number=args.batch_number,
             cluster_name=args.cluster_name,
-            worker_node_config=worker_node_config
+            worker_node_config=worker_node_config,
         )
 
         # Log running, log done, and exit

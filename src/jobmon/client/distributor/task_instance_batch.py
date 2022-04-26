@@ -26,6 +26,7 @@ class TaskInstanceBatch:
         array_batch_num: int,
         task_resources_id: int,
         requester: Requester,
+        array_name: str,
     ):
         self.array_id = array_id
         self.batch_number = array_batch_num
@@ -36,8 +37,8 @@ class TaskInstanceBatch:
 
         self.requester = requester
 
-        # TODO: array class should have a name in the client model GBDSCI-4184
-        self.name = "foo"
+        self.array_name = array_name
+        self.name = f"{array_name}-{array_batch_num}"
 
     @property
     def requested_resources(self) -> Dict:
@@ -64,8 +65,12 @@ class TaskInstanceBatch:
                 f"code 200. Response content: {response}"
             )
 
-        task_resources = SerializeTaskResources.kwargs_from_wire(response["task_resources"])
-        self._requested_resources = ast.literal_eval(task_resources["requested_resources"])
+        task_resources = SerializeTaskResources.kwargs_from_wire(
+            response["task_resources"]
+        )
+        self._requested_resources = ast.literal_eval(
+            task_resources["requested_resources"]
+        )
 
     def prepare_task_instance_batch_for_launch(self) -> None:
         """Add the current batch number to the current set of registered task instance ids."""
@@ -76,26 +81,24 @@ class TaskInstanceBatch:
 
         self.load_requested_resources()
 
-    def transition_to_launched(
-            self, next_report_by: float
-    ) -> None:
+    def transition_to_launched(self, next_report_by: float) -> None:
         """Transition all associated task instances to LAUNCHED state."""
 
         # Assertion that all bound task instances are indeed instantiated
         for ti in self.task_instances:
             if ti.status != TaskInstanceStatus.INSTANTIATED:
-                raise ValueError(f"{ti} is not in INSTANTIATED state, prior to launching.")
+                raise ValueError(
+                    f"{ti} is not in INSTANTIATED state, prior to launching."
+                )
 
-        app_route = f'/array/{self.array_id}/transition_to_launched'
+        app_route = f"/array/{self.array_id}/transition_to_launched"
         data = {
-            'batch_number': self.batch_number,
-            'next_report_increment': next_report_by
+            "batch_number": self.batch_number,
+            "next_report_increment": next_report_by,
         }
 
         rc, resp = self.requester.send_request(
-            app_route=app_route,
-            message=data,
-            request_type='post'
+            app_route=app_route, message=data, request_type="post"
         )
 
         if not http_request_ok(rc):
@@ -123,18 +126,17 @@ class TaskInstanceBatch:
 
             chunk_id_map = {}
             for task_instance in ti_chunk:
-                chunk_id_map[task_instance.array_step_id] = \
-                    distributor_id_map[task_instance.array_step_id]
+                chunk_id_map[task_instance.array_step_id] = distributor_id_map[
+                    task_instance.array_step_id
+                ]
 
             data = {
-                'array_batch_num': self.batch_number,
-                'distributor_id_map': chunk_id_map
+                "array_batch_num": self.batch_number,
+                "distributor_id_map": chunk_id_map,
             }
 
             rc, resp = self.requester.send_request(
-                app_route=app_route,
-                message=data,
-                request_type='post'
+                app_route=app_route, message=data, request_type="post"
             )
 
             # If 500 is returned the entire distributor service will exit, so I don't think
@@ -149,7 +151,7 @@ class TaskInstanceBatch:
                 )
 
             # append the return values to the ID map
-            ti_distributor_id_map.update(resp['task_instance_map'])
+            ti_distributor_id_map.update(resp["task_instance_map"])
 
         # Update status and distributor id in memory for all task instances
         # Since task instances are added to the batch by reference, modifying attributes here

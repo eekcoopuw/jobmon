@@ -66,7 +66,6 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     wfr1._update_status(WorkflowRunStatus.LAUNCHED)
     wfr1._update_status(WorkflowRunStatus.RUNNING)
 
-
     # Create a second workflow with one task. Don't log a heartbeat so that it can die
     task2 = sleepy_task_template.create_task(sleep=11)
     wf2 = base_tool.create_workflow(name="reaper_error_test", workflow_args="error_v_1")
@@ -284,9 +283,11 @@ def test_reaper_version(db_cfg, requester_no_retry, base_tool, sleepy_task_templ
     with patch.object(WorkflowReaper, "_version", new_callable=PropertyMock) as mock:
         mock.return_value = "foobar"
 
-        statuses = [WorkflowRunStatus.LINKING,
-                    WorkflowRunStatus.COLD_RESUME,
-                    WorkflowRunStatus.HOT_RESUME]
+        statuses = [
+            WorkflowRunStatus.LINKING,
+            WorkflowRunStatus.COLD_RESUME,
+            WorkflowRunStatus.HOT_RESUME,
+        ]
         no_wfrs = reaper._get_lost_workflow_runs(statuses)
         assert len(no_wfrs) == 0
 

@@ -145,4 +145,5 @@ class WorkflowTestError(Exception):
 
 class DistributorInterruptedError(Exception):
     """raised when signal is sent to distributor."""
+
     pass

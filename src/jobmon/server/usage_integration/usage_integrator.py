@@ -66,9 +66,7 @@ class UsageIntegrator:
     def _get_tres_types(self) -> Dict[str, int]:
         # get tres_type from tres_table
         tt: Dict[str, int] = {}
-        sql_tres_table = "SELECT id, type " \
-                         "FROM tres_table " \
-                         "WHERE deleted = 0"
+        sql_tres_table = "SELECT id, type " "FROM tres_table " "WHERE deleted = 0"
         tres_types = self.session_slurm_sdb.execute(sql_tres_table).all()
         self.session_slurm_sdb.commit()
         for tres_type in tres_types:
@@ -127,7 +125,8 @@ class UsageIntegrator:
         usage_stats = _get_slurm_resource_via_slurm_sdb(
             session=self.session_slurm_sdb,
             tres_types=self.tres_types,
-            task_instances=tasks)
+            task_instances=tasks,
+        )
 
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:

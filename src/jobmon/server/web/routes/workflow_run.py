@@ -219,7 +219,7 @@ def log_workflow_run_status_update(workflow_run_id: int) -> Any:
     logger.info(f"Log status update for workflow_run_id:{workflow_run_id}.")
 
     workflow_run = DB.session.query(WorkflowRun).filter_by(id=workflow_run_id).one()
-    status = data['status']
+    status = data["status"]
     try:
         workflow_run.transition(status)
         DB.session.commit()
@@ -419,11 +419,10 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
         "triaging_status": TaskInstanceStatus.TRIAGING,
         "kill_self_status": TaskInstanceStatus.KILL_SELF,
         "workflow_run_id": workflow_run_id,
-        "active_tasks":
-        [
+        "active_tasks": [
             TaskInstanceStatus.LAUNCHED,
             TaskInstanceStatus.RUNNING,
-        ]
+        ],
     }
     sql = """
         UPDATE task_instance

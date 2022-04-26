@@ -27,16 +27,13 @@ def test_scheduler_logging(client_env, caplog):
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
 
-    with DistributorContext(
-        'sequential', wfr.workflow_run_id, 180
-    ) as distributor:
+    with DistributorContext("sequential", wfr.workflow_run_id, 180) as distributor:
 
         assert "Starting Distributor Process" in caplog.text
         caplog.clear()
 
         swarm = SwarmWorkflowRun(
-            workflow_run_id=wfr.workflow_run_id,
-            requester=requester
+            workflow_run_id=wfr.workflow_run_id, requester=requester
         )
         swarm.from_workflow(workflow)
         swarm.run(distributor.alive)

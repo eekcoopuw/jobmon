@@ -346,8 +346,9 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def db_host_slurm_sdb(parser: configargparse.ArgumentParser) \
-            -> configargparse.ArgumentParser:
+    def db_host_slurm_sdb(
+        parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
         """Host running the Slurm SDB."""
         parser.add_argument(
             "--db_host_slurm_sdb",
@@ -359,8 +360,9 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def db_port_slurm_sdb(parser: configargparse.ArgumentParser) \
-            -> configargparse.ArgumentParser:
+    def db_port_slurm_sdb(
+        parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
         """Port to connect to the Slurm SDB on."""
         parser.add_argument(
             "--db_port_slurm_sdb",
@@ -372,8 +374,9 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def db_user_slurm_sdb(parser: configargparse.ArgumentParser) \
-            -> configargparse.ArgumentParser:
+    def db_user_slurm_sdb(
+        parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
         """DB username to use to connect to the Slurm SDB."""
         parser.add_argument(
             "--db_user_slurm_sdb",
@@ -385,8 +388,9 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def db_pass_slurm_sdb(parser: configargparse.ArgumentParser) \
-            -> configargparse.ArgumentParser:
+    def db_pass_slurm_sdb(
+        parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
         """Password to use to connect to the Slurm SDB."""
         parser.add_argument(
             "--db_pass_slurm_sdb",
@@ -398,8 +402,9 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def db_name_slurm_sdb(parser: configargparse.ArgumentParser) \
-            -> configargparse.ArgumentParser:
+    def db_name_slurm_sdb(
+        parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
         """Name of the Slurm SDB you want to connect to."""
         parser.add_argument(
             "--db_name_slurm_sdb",

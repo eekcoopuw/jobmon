@@ -422,14 +422,18 @@ class SerializeDistributorArray:
     """"""
 
     @staticmethod
-    def to_wire(array_id: int, max_concurrently_running: int) -> tuple:
+    def to_wire(array_id: int, max_concurrently_running: int, name: str) -> tuple:
         """Submit the TaskTemplate resource usage information to the database."""
-        return array_id, max_concurrently_running
+        return array_id, max_concurrently_running, name
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Get the TaskTemplate resource usage information from the database."""
-        return {"array_id": wire_tuple[0], "max_concurrently_running": wire_tuple[1]}
+        return {
+            "array_id": wire_tuple[0],
+            "max_concurrently_running": wire_tuple[1],
+            "name": wire_tuple[2],
+        }
 
 
 class SerializeDistributorWorkflow:
@@ -446,20 +450,18 @@ class SerializeDistributorWorkflow:
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """"""
-        return {
-            "workflow_id": wire_tuple[0],
-            "max_concurrently_running": wire_tuple[1]
-        }
+        return {"workflow_id": wire_tuple[0], "max_concurrently_running": wire_tuple[1]}
 
 
 class SerializeTaskResources:
     """"""
+
     @staticmethod
     def to_wire(
         task_resources_id: int,
         queue_id: int,
         task_resources_type_id: str,
-        requested_resources: str
+        requested_resources: str,
     ) -> tuple:
         """"""
         return (
@@ -476,7 +478,7 @@ class SerializeTaskResources:
             "task_resources_id": wire_tuple[0],
             "queue_id": wire_tuple[1],
             "task_resources_type_id": wire_tuple[2],
-            "requested_resources": wire_tuple[3]
+            "requested_resources": wire_tuple[3],
         }
 
 
@@ -488,7 +490,8 @@ class SerializeTaskInstanceBatch:
         array_id: int,
         array_batch_num: int,
         task_resources_id: int,
-        task_instance_ids: List[int]
+        task_instance_ids: List[int],
+        array_name: str,
     ) -> tuple:
         """"""
         return (
@@ -496,6 +499,7 @@ class SerializeTaskInstanceBatch:
             array_batch_num,
             task_resources_id,
             task_instance_ids,
+            array_name,
         )
 
     @staticmethod
@@ -505,5 +509,6 @@ class SerializeTaskInstanceBatch:
             "array_id": wire_tuple[0],
             "array_batch_num": wire_tuple[1],
             "task_resources_id": wire_tuple[2],
-            "task_instance_ids": wire_tuple[3]
+            "task_instance_ids": wire_tuple[3],
+            "array_name": wire_tuple[4],
         }
