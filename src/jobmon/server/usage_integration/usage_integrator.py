@@ -80,23 +80,23 @@ class UsageIntegrator:
             "task_instance.distributor_id as distributor_id, "
             "task_resources.queue_id as queue_id, "
             "task_instance.maxrss as maxrss, "
-            "task_instance.maxpss as maxpss, "
+            "task_instance.maxpss as maxpss "
             "FROM task_instance, task_resources "
             'WHERE task_instance.status NOT IN ("B", "I", "R", "W") '
             "AND task_instance.distributor_id IS NOT NULL "
-            "AND task_instance.status_date > {starttime} "
+            "AND task_instance.status_date > '{starttime}' "
             "AND (task_instance.maxrss IS NULL OR task_instance.maxpss IS NULL) "
             "AND task_instance.task_resources_id = task_resources.id "
-            "".format(starttime=starttime)
+            "".format(starttime=str(starttime))
         )
         task_instances = self.session.execute(sql).fetchall()
         self.session.commit()
         for ti in task_instances:
+            cluster_id, cluster_name = self.queue_cluster_map[ti.queue_id]
             if (
-                ti.cluster_type in ("slurm", "dummy")
+                cluster_name in ("slurm", "dummy")
                 and ti.maxrss in (None, 0, -1, "0", "-1")
             ):
-                cluster_id, cluster_name = self.queue_cluster_map[ti.queue_id]
                 queued_ti = QueuedTI(
                     task_instance_id=ti.id,
                     distributor_id=ti.distributor_id,

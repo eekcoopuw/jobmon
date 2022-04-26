@@ -3,7 +3,6 @@ from time import sleep
 from typing import List
 from unittest import mock
 
-from jobmon.requester import Requester
 from jobmon.server.usage_integration.usage_integrator import q_forever
 from jobmon.server.usage_integration.usage_queue import UsageQ
 from jobmon.server.usage_integration.usage_utils import QueuedTI
@@ -129,7 +128,6 @@ def test_slurm_update(usage_integrator):
     def mock_resources(task_instances: List[QueuedTI], *args, **kwargs):
         """Return a hardcoded dict to mock SQUID return values"""
         return {ti: {'maxrss': 100, 'wallclock': 100} for ti in task_instances}
-
 
     with mock.patch(
         "jobmon.server.usage_integration.usage_integrator._get_slurm_resource_via_slurm_sdb",
