@@ -297,8 +297,8 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
               integrator_config: UsageConfig = None) -> None:
     """A never stop method running in a thread that queries the SLURM and Jobmon databases.
 
-    It constantly queries the maxpss value from the SLURM accounting database
-    for completed jobmon jobs. If the maxpss is not found in the database,
+    It constantly queries the maxrss value from the SLURM accounting database
+    for completed jobmon jobs. If the maxrss is not found in the database,
     put the execution id back to the queue.
 
     The default initialization time is set to 4/8/2022 since that's when Infra began
