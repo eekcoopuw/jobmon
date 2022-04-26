@@ -56,6 +56,20 @@ def test_get_slurm_resource_usages_on_slurm(usage_integrator):
 
 
 @pytest.mark.usage_integrator
+def test_queue_map_cache(usage_integrator):
+
+    queue_cache = usage_integrator.queue_cluster_map
+    assert usage_integrator._queue_cluster_map is not None
+    assert id(queue_cache) == id(usage_integrator.queue_cluster_map)  # Check cache was hit
+    assert len(queue_cache) == 8  # 8 queues defined in the Jobmon test_utils schema
+
+    # Cherrypick a few test values
+    assert queue_cache[1] == (2, 'sequential')  # null.q sequential cluster
+    assert queue_cache[3] == (1, 'dummy')  # null.q dummy cluster
+    assert queue_cache[8] == (3, 'multiprocess')  # null.q multiprocess cluster
+
+
+@pytest.mark.usage_integrator
 def test_maxrss_forever(db_cfg, client_env, ephemera, usage_integrator):
     """Note: Do not run usage_integrator tests with multiprocessing."""
     tool = Tool()

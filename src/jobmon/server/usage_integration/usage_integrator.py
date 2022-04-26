@@ -40,6 +40,29 @@ class UsageIntegrator:
         self.tres_types = self._get_tres_types()
         logger.debug(f"tres types = {self.tres_types}")
 
+        # Initialize empty queue-cluster mapping, to be populated and cached on startup
+        self._queue_cluster_map: Optional[Dict] = None
+
+    @property
+    def queue_cluster_map(self):
+        """Keep an in-memory cache of the mapping of queue id to cluster and cluster type id"""
+
+        if self._queue_cluster_map is None:
+            self._queue_cluster_map = {}
+            get_map_query = (
+                "SELECT queue.id AS queue_id, cluster.id AS cluster_id, cluster_type.name "
+                "FROM queue "
+                "JOIN cluster ON queue.cluster_id = cluster.id "
+                "JOIN cluster_type ON cluster.cluster_type_id = cluster_type.id"
+            )
+
+            mapping_res = self.session.execute(get_map_query).all()
+            for queue in mapping_res:
+                print(queue)
+                self._queue_cluster_map[queue.queue_id] = (queue.cluster_id, queue.name)
+
+        return self._queue_cluster_map
+
     def _get_tres_types(self) -> Dict[str, int]:
         # get tres_type from tres_table
         tt: Dict[str, int] = {}
@@ -52,24 +75,20 @@ class UsageIntegrator:
             tt[tres_type[1]] = tres_type[0]
         return tt
 
-    def populate_queue(self, starttime: float) -> None:
+    def populate_queue(self, starttime: datetime.datetime) -> None:
         """Collect jobs in terminal states that do not have resources; add to queue."""
         sql = (
             "SELECT task_instance.id as id,  "
             "task_instance.distributor_id as distributor_id, "
-            "cluster_type.name as cluster_type, "
-            "cluster.id as cluster_id, "
+            "task_resources.queue_id as queue_id, "
             "task_instance.maxrss as maxrss, "
-            "task_instance.maxpss as maxpss "
-            "FROM task_instance, cluster_type, cluster, task_resources, queue "
+            "task_instance.maxpss as maxpss, "
+            "FROM task_instance, task_resources "
             'WHERE task_instance.status NOT IN ("B", "I", "R", "W") '
             "AND task_instance.distributor_id IS NOT NULL "
-            "AND UNIX_TIMESTAMP(task_instance.status_date) > {starttime} "
+            "AND task_instance.status_date > {starttime} "
             "AND (task_instance.maxrss IS NULL OR task_instance.maxpss IS NULL) "
             "AND task_instance.task_resources_id = task_resources.id "
-            "AND task_resources.queue_id = queue.id "
-            "AND queue.cluster_id = cluster.id "
-            "AND cluster.cluster_type_id = cluster_type.id"
             "".format(starttime=starttime)
         )
         task_instances = self.session.execute(sql).fetchall()
@@ -79,11 +98,12 @@ class UsageIntegrator:
                 ti.cluster_type in ("slurm", "dummy")
                 and ti.maxrss in (None, 0, -1, "0", "-1")
             ):
+                cluster_id, cluster_name = self.queue_cluster_map[ti.queue_id]
                 queued_ti = QueuedTI(
                     task_instance_id=ti.id,
                     distributor_id=ti.distributor_id,
-                    cluster_type_name=ti.cluster_type,
-                    cluster_id=ti.cluster_id,
+                    cluster_type_name=cluster_name,
+                    cluster_id=cluster_id,
                 )
                 UsageQ.put(queued_ti)
 
@@ -274,7 +294,7 @@ def _get_config(config: UsageConfig = None) -> dict:
     }
 
 
-def q_forever(init_time: float = datetime.datetime(2022, 4, 8),
+def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
               integrator_config: UsageConfig = None) -> None:
     """A never stop method running in a thread that queries the SLURM and Jobmon databases.
 
@@ -287,7 +307,7 @@ def q_forever(init_time: float = datetime.datetime(2022, 4, 8),
     date.
     """
     # allow the service to decide the time to go back to fill maxrss/maxpss
-    last_heartbeat = datetime.datetime.timestamp(init_time)
+    last_heartbeat = init_time
     integrator = UsageIntegrator(integrator_config)
 
     while UsageQ.keep_running:
@@ -305,10 +325,11 @@ def q_forever(init_time: float = datetime.datetime(2022, 4, 8),
         integrator.update_resources_in_db(task_instances)
 
         # Query DB to add newly completed jobs to q and log q length
-        current_time = time()
-        if int(current_time - last_heartbeat) > integrator.config["polling_interval"]:
+        current_time = datetime.datetime.today()
+        if current_time - last_heartbeat > \
+                datetime.timedelta(seconds=integrator.config["polling_interval"]):
             logger.info("UsageQ length: {}, last heartbeat time: {}".format(
-                UsageQ.get_size(), datetime.datetime.fromtimestamp(last_heartbeat)
+                UsageQ.get_size(), str(last_heartbeat)
             ))
             try:
                 integrator.populate_queue(last_heartbeat)

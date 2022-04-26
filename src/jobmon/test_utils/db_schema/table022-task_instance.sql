@@ -42,3 +42,4 @@ ALTER TABLE `task_instance` ADD INDEX `ix_status` (`status`);
 ALTER TABLE `task_instance` ADD INDEX `ix_cluster_type_id` (`cluster_type_id`);
 ALTER TABLE `task_instance` ADD INDEX `ix_cluster_id` (`cluster_id`);
 ALTER TABLE `task_instance` ADD INDEX `ix_array_batch_index` (`array_id`,`array_batch_num`, `array_step_id`);
+ALTER TABLE `task_instance` ADD INDEX `ix_status_status_date` (`status`, `status_date`);
