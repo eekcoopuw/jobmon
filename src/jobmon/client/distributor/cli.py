@@ -27,9 +27,9 @@ class DistributorCLI(CLI):
             DistributorConfig,
         )
 
-        ClientLogging(log_level=logging.DEBUG).attach("jobmon.client.distributor")
-        distributor_logger = logging.getLogger("jobmon.client.distributor")
-        distributor_logger.setLevel(logging.INFO)
+        #ClientLogging(log_level=logging.DEBUG).attach("jobmon.client.distributor")
+        #distributor_logger = logging.getLogger("jobmon.client.distributor")
+        #distributor_logger.setLevel(logging.INFO)
 
         distributor_config = DistributorConfig(
             worker_node_entry_point=args.worker_node_entry_point,

@@ -352,16 +352,12 @@ class WorkflowRun:
             self._set_adjusted_task_resources(t)
             self.ready_to_run.append(t)
 
-        i = 0
         for t in [
             task
             for task in self._task_status_map[TaskStatus.REGISTERING]
             if task.all_upstreams_done
         ]:
-            i += 0
-            start = time.time()
             self._set_validated_task_resources(t)
-            print(i, start - time.time())
             self.ready_to_run.append(t)
 
     def get_swarm_commands(self) -> Generator[SwarmCommand, None, None]:
