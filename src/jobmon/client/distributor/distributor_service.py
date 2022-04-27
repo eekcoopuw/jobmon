@@ -238,7 +238,7 @@ class DistributorService:
             for task_instance_id in task_instance_batch_kwargs["task_instance_ids"]:
                 task_instance = self._task_instances[task_instance_id]
                 task_instance.status = TaskInstanceStatus.INSTANTIATED
-                task_instance_batch.add_task(task_instance)
+                task_instance_batch.add_task_instance(task_instance)
 
     def launch_task_instance_batch(
         self, task_instance_batch: TaskInstanceBatch
