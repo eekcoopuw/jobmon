@@ -199,6 +199,7 @@ class Workflow(object):
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
 
         self._fail_after_n_executions = 1_000_000_000
+        self.last_workflow_run_id = None
 
     @property
     def is_bound(self) -> bool:
@@ -467,6 +468,8 @@ class Workflow(object):
                 for task in self.tasks.values():
                     task.final_status = swarm.tasks[task.task_id].status
                 self._num_newly_completed = num_new_completed
+
+        self.last_workflow_run_id = wfr.workflow_run_id
 
         return swarm.status
 
