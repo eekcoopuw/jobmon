@@ -242,7 +242,6 @@ class WorkflowRun:
         try:
             logger.info(f"Executing Workflow Run {self.workflow_run_id}")
             self._update_status(WorkflowRunStatus.RUNNING)
-            logger.info("Computing initial fringe")
             self.set_initial_fringe()
             time_since_last_full_sync = 0.0
             total_elapsed_time = 0.0
