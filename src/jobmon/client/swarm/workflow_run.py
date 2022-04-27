@@ -242,6 +242,7 @@ class WorkflowRun:
         try:
             logger.info(f"Executing Workflow Run {self.workflow_run_id}")
             self._update_status(WorkflowRunStatus.RUNNING)
+            logger.info("Computing initial fringe")
             self.set_initial_fringe()
             time_since_last_full_sync = 0.0
             total_elapsed_time = 0.0
@@ -350,12 +351,17 @@ class WorkflowRun:
         for t in [t for t in self._task_status_map[TaskStatus.ADJUSTING_RESOURCES]]:
             self._set_adjusted_task_resources(t)
             self.ready_to_run.append(t)
+
+        i = 0
         for t in [
             task
             for task in self._task_status_map[TaskStatus.REGISTERING]
             if task.all_upstreams_done
         ]:
+            i += 0
+            start = time.time()
             self._set_validated_task_resources(t)
+            print(i, start - time.time())
             self.ready_to_run.append(t)
 
     def get_swarm_commands(self) -> Generator[SwarmCommand, None, None]:
@@ -721,17 +727,15 @@ class WorkflowRun:
 
         # if validated concrete resources are different than original. get new resource object
         validated_resource_hash = hash(concrete_resource)
-        if validated_resource_hash != hash(
-            task.current_task_resources.concrete_resources
-        ):
+        if validated_resource_hash != hash(task.current_task_resources.concrete_resources):
             try:
-                task_resources = self._task_resources[hash(concrete_resource)]
+                task_resources = self._task_resources[validated_resource_hash]
             except KeyError:
                 task_resources = TaskResources(
                     concrete_resources=concrete_resource,
                     task_resources_type_id=TaskResourcesType.VALIDATED,
                 )
-                self._task_resources[hash(task_resources)] = task_resources
+                self._task_resources[validated_resource_hash] = task_resources
         else:
             task_resources = task.current_task_resources
             self._task_resources[validated_resource_hash] = task_resources
