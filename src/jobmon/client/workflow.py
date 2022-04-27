@@ -320,9 +320,13 @@ class Workflow(object):
 
     def add_tasks(self, tasks: Sequence[Task]) -> None:
         """Add a list of task to the workflow to be executed."""
+        i = 0
         for task in tasks:
+            i += 1
+            start = time.time()
             # add the task
             self.add_task(task)
+            print(i, time.time() - start)
 
     def add_array(self, array: Array) -> None:
         """Add an array and its tasks to the workflow."""
