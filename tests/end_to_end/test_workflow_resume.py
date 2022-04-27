@@ -94,6 +94,7 @@ def test_fail_one_task_resume(db_cfg, tool, task_template_fail_one, tmpdir):
 
     assert workflow_run_status == WorkflowRunStatus.ERROR
     assert len(workflow1.task_errors) == 1
+    assert workflow1.last_workflow_run_id is not None
 
     # set workflow args and name to be identical to previous workflow
     workflow2 = tool.create_workflow(
