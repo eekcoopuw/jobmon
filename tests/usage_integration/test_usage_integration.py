@@ -14,7 +14,6 @@ def test_get_slurm_resource_usages_on_slurm(usage_integrator):
     """This is to verify _get_squid_resource works.
 
     This test uses a hard coded job id.
-    No need to run as regression.
     """
 
     # Random non array distributor id
