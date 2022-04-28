@@ -2,28 +2,28 @@
 kind: Deployment
 apiVersion: apps/v1
 metadata:
-  name: jobmon-qpid-integration
+  name: jobmon-integration
   namespace: {{ .Values.global.namespace }}
   labels:
-    app: jobmon-qpid-integration
+    app: jobmon-integration
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: jobmon-qpid-integration
+      app: jobmon-integration
   template:
     metadata:
       labels:
-        app: jobmon-qpid-integration
-        name: jobmon-qpid-integration
+        app: jobmon-integration
+        name: jobmon-integration
     spec:
       terminationGracePeriodSeconds: 60
       containers:
       - image: {{ .Values.global.jobmon_container_uri }}
         imagePullPolicy: Always
-        name: jobmon-qpid-integration
+        name: jobmon-integration
         command: ["jobmon_server"]
-        args: ["qpid_integration", "start"]
+        args: ["integration", "start"]
         env:
         - name: DB_HOST
           valueFrom:
@@ -45,16 +45,11 @@ spec:
             secretKeyRef:
               key: DB_PASS
               name: {{ .Values.global.rancher_db_secret }}
-        - name: QPID_URI
+        - name: DB_NAME
           valueFrom:
             secretKeyRef:
-              key: QPID_URI
-              name: {{ .Values.global.rancher_qpid_secret }}
-        - name: SVCSCICOMPCI_PWD
-          valueFrom:
-            secretKeyRef:
-              key: SVCSCICOMPCI_PWD
-              name: {{ .Values.global.rancher_qpid_secret }}
+              key: DB_NAME
+              name: {{ .Values.global.rancher_db_secret }}
         - name: DB_HOST_SLURM_SDB
           valueFrom:
             secretKeyRef:

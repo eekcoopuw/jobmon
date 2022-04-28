@@ -22,7 +22,7 @@ class ServerCLI(CLI):
         # now add specific sub parsers
         self._add_web_service_subparser()
         self._add_workflow_reaper_subparser()
-        self._add_qpid_integration_subparser()
+        self._add_integrator_subparser()
 
     def web_service(self, args: configargparse.Namespace) -> None:
         """Web service entrypoint logic."""
@@ -85,8 +85,8 @@ class ServerCLI(CLI):
                 "Invalid command choice. Options are (start), got " f"({args.command})"
             )
 
-    def qpid_integration(self, args: configargparse.Namespace) -> None:
-        """QPID integration service entrypoint logic."""
+    def integration(self, args: configargparse.Namespace) -> None:
+        """integration service entrypoint logic."""
         # TODO: need dependency injection into squid integration
         from jobmon.server.usage_integration.api import start_usage_integration
 
@@ -146,16 +146,16 @@ class ServerCLI(CLI):
         ParserDefaults.workflow_run_heartbeat_interval(reaper_parser)
         ParserDefaults.heartbeat_report_by_buffer(reaper_parser)
 
-    def _add_qpid_integration_subparser(self) -> None:
-        qpid_parser = self._subparsers.add_parser("qpid_integration", **PARSER_KWARGS)
-        qpid_parser.set_defaults(func=self.qpid_integration)
-        qpid_parser.add_argument(
+    def _add_integrator_subparser(self) -> None:
+        integrator_parser = self._subparsers.add_parser("integration", **PARSER_KWARGS)
+        integrator_parser.set_defaults(func=self.integration)
+        integrator_parser.add_argument(
             "command",
             type=str,
             choices=["start"],
             help=(
-                "The squid_integration sub-command to run: (start). Start command runs "
-                "squid.maxrss_forever()."
+                "The integrator sub-command to run: (start). Start command runs "
+                "usage_integration.maxrss_forever()."
             ),
         )
 

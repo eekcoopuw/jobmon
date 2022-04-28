@@ -13,7 +13,7 @@ class QueuedTI:
     def __init__(
         self,
         task_instance_id: int,
-        distributor_id: int,
+        distributor_id: str,
         cluster_type_name: str,
         cluster_id: int,
     ) -> None:

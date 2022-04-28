@@ -304,73 +304,44 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def qpid_cluster(
+    def slurm_polling_interval(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
-        """Cluster to pull maxpss data from. Default is fair."""
+        """Interval between polling cycles for the usage integrator service."""
         parser.add_argument(
-            "--qpid_cluster",
-            type=str,
-            help="which cluster to pull maxpss for",
-            default="fair",
-            env_var="QPID_CLUSTER",
-        )
-        return parser
-
-    @staticmethod
-    def qpid_uri(
-        parser: configargparse.ArgumentParser,
-    ) -> configargparse.ArgumentParser:
-        """URI for qpid service if using qpid service."""
-        parser.add_argument(
-            "--qpid_uri",
-            type=str,
-            help="uri for qpid service",
-            required=True,
-            default="https://jobapi.ihme.washington.edu",
-            env_var="QPID_URI",
-        )
-        return parser
-
-    @staticmethod
-    def squid_polling_interval(
-        parser: configargparse.ArgumentParser,
-    ) -> configargparse.ArgumentParser:
-        """Interval between squid polling cycles if connecting qpid service."""
-        parser.add_argument(
-            "--squid_polling_interval",
+            "--slurm_polling_interval",
             type=int,
-            help="Interval between qpid polling cycles",
+            help="Interval between integrator polling cycles",
             default=60,
-            env_var="SQUID_POLLING_INTERVAL",
+            env_var="SLURM_POLLING_INTERVAL",
         )
         return parser
 
     @staticmethod
-    def squid_max_update_per_second(
+    def slurm_max_update_per_second(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
         """Number of maxrss updates per second."""
         parser.add_argument(
-            "--squid_max_update_per_second",
+            "--slurm_max_update_per_second",
             type=int,
-            help="Amount of marrss updates per second",
+            help="Amount of maxrss updates per second",
             default=100,
-            env_var="SQUID_MAX_UPDATE_PER_SECOND",
+            env_var="SLURM_MAX_UPDATE_PER_SECOND",
         )
         return parser
 
     @staticmethod
-    def squid_cluster(
+    def slurm_cluster(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
-        """Cluster to pull maxrss data from. Default is fair."""
+        """Cluster to pull maxrss data from. Default is slurm."""
         parser.add_argument(
-            "--squid_cluster",
+            "--slurm_cluster",
             type=str,
             help="which cluster to pull maxrss for",
             default="slurm",
-            env_var="SQUID_CLUSTER",
+            env_var="SLURM_CLUSTER",
         )
         return parser
 
