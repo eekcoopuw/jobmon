@@ -514,10 +514,12 @@ class Task:
 
     def __hash__(self) -> int:
         """Create the hash for a task to determine if it is unique within a dag."""
-        hash_value = hashlib.sha1()
-        hash_value.update(bytes(str(hash(self.node)).encode("utf-8")))
-        hash_value.update(bytes(str(self.task_args_hash).encode("utf-8")))
-        return int(hash_value.hexdigest(), 16)
+        if not hasattr(self, "_hash_val"):
+            hash_value = hashlib.sha1()
+            hash_value.update(bytes(str(hash(self.node)).encode("utf-8")))
+            hash_value.update(bytes(str(self.task_args_hash).encode("utf-8")))
+            self._hash_val = int(hash_value.hexdigest(), 16)
+        return self._hash_val
 
     def __repr__(self) -> str:
         """A representation string for a Task instance."""

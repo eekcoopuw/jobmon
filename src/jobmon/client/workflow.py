@@ -498,7 +498,7 @@ class Workflow(object):
                     if fail:
                         raise ValueError(queue_msg)
                     else:
-                        print(queue_msg)
+                        logger.warning(queue_msg)
                         continue
 
                 # validate the constructed resources
@@ -511,6 +511,14 @@ class Workflow(object):
                 elif not is_valid:
                     logger.warning(f"Failed validation, reasons: {msg}")
 
+        for array in self.arrays.values():
+            try:
+                array.validate()
+            except ValueError as e:
+                if fail:
+                    raise
+                else:
+                    logger.warning(e)
         try:
             cluster_names = list(self._clusters.keys())
             if len(list(self._clusters.keys())) > 1:
@@ -532,6 +540,8 @@ class Workflow(object):
             return
 
         self.validate(fail=False)
+        for array in self.arrays.values():
+            array.validate()
         self._dag.validate()
         self._matching_wf_args_diff_hash()
 
