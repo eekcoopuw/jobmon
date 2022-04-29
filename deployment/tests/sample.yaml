@@ -11,25 +11,25 @@ load_test_parameters:
 
     # approximate ratio between phases.
     # phase 2 is 3x phase 1 and phase 3 is 1/30th phase 2
-    phase_task_ratios: [1]
+    phase_task_ratios: [10, 30, 1]
 
     # number of attributes per phase
-    phase_n_attr: [0]
+    phase_n_attr: [10, 5, 0]
 
     # percentage of previous phase tasks that will be upstream nodes
     # into next phase. first element in list must always be 0
-    phase_percent_in_degree: [0]
+    phase_percent_in_degree: [0, 1, 100]
 
     # the probability that a task in a phase will fail once before succeeding
-    phase_percent_intermittent_fail: [5]
+    phase_percent_intermittent_fail: [15, 10, 30]
 
     # the probability that a task in a phase will fail due to over runtime
     # before succeeding
-    phase_percent_sleep_timeout: [5]
+    phase_percent_sleep_timeout: [10, 5, 0]
 
     # the probability that a task in a phase will always fail until no retries
     # are left
-    phase_percent_fail_always: [0]
+    phase_percent_fail_always: [0, 0, 0]
   foo2:
     random_seed: 456
     use_array: 0

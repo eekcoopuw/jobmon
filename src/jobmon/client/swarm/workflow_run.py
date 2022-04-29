@@ -73,6 +73,12 @@ class WorkflowRun:
         self.workflow_run_id = workflow_run_id
 
         # state tracking
+        self._active_states = [
+            TaskStatus.QUEUED,
+            TaskStatus.INSTANTIATING,
+            TaskStatus.LAUNCHED,
+            TaskStatus.RUNNING,
+        ]
         self.tasks: Dict[int, SwarmTask] = {}
         self.arrays: Dict[int, SwarmArray] = {}
         self.ready_to_run: List[SwarmTask] = []
@@ -138,14 +144,8 @@ class WorkflowRun:
         if self.status in (WorkflowRunStatus.ERROR, WorkflowRunStatus.TERMINATED):
             return False
 
-        active_task_states = [
-            TaskStatus.QUEUED,
-            TaskStatus.LAUNCHED,
-            TaskStatus.RUNNING,
-            TaskStatus.INSTANTIATING,
-        ]
         any_active_tasks = any(
-            [any(self._task_status_map[s]) for s in active_task_states]
+            [any(self._task_status_map[s]) for s in self._active_states]
         ) or any(self.ready_to_run)
         return any_active_tasks
 
@@ -365,17 +365,11 @@ class WorkflowRun:
 
         # compute capacities. max - active
         active_tasks: Set[SwarmTask] = set()
-        for task_status in [
-            TaskStatus.QUEUED,
-            TaskStatus.INSTANTIATING,
-            TaskStatus.LAUNCHED,
-            TaskStatus.RUNNING,
-        ]:
-            active_tasks.union(self._task_status_map[task_status])
+        for task_status in self._active_states:
+            active_tasks = active_tasks.union(self._task_status_map[task_status])
         workflow_capacity = self.max_concurrently_running - len(active_tasks)
         array_capacity_lookup: Dict[int, int] = {
-            aid: array.max_concurrently_running
-            - len(active_tasks.intersection(array.tasks))
+            aid: array.max_concurrently_running - len(active_tasks.intersection(array.tasks))
             for aid, array in self.arrays.items()
         }
 

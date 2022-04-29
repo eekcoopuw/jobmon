@@ -344,6 +344,7 @@ class DistributorService:
         )
 
     def log_task_instance_report_by_date(self) -> None:
+        """Log the heartbeat to show that the task instance is still alive."""
         task_instances_launched = self._task_instance_status_map[
             TaskInstanceStatus.LAUNCHED
         ]
@@ -359,8 +360,7 @@ class DistributorService:
                     task_instance_launched.task_instance_id
                 )
 
-        """Log the heartbeat to show that the task instance is still alive."""
-        logger.info(
+        logger.debug(
             f"Logging heartbeat for task_instance {task_instance_ids_to_heartbeat}"
         )
         message: Dict = {

@@ -104,6 +104,7 @@ class LoadTestGenerator:
             pass
         self.workflow = self.tool.create_workflow(
             name='generated_workflow',
+            max_concurrently_running=100_000,
             default_cluster_name=cluster_name,
             default_compute_resources_set={
                 cluster_name: {

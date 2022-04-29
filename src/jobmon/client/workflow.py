@@ -11,6 +11,7 @@ import uuid
 
 from jobmon.client.array import Array
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.client_logging import LoggerFactory
 from jobmon.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
@@ -33,7 +34,6 @@ from jobmon.exceptions import (
 from jobmon.requester import http_request_ok, Requester
 
 
-_DEFAULT_LOG_FORMAT = "%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s: %(message)s"
 logger = logging.getLogger(__name__)
 
 
@@ -393,7 +393,7 @@ class Workflow(object):
         reset_running_jobs: bool = True,
         distributor_startup_timeout: int = 180,
         resume_timeout: int = 300,
-        jobmon_log_config: Union[bool, Dict] = True,
+        configure_logging: bool = True,
     ) -> str:
         """Run the workflow.
 
@@ -412,42 +412,13 @@ class Workflow(object):
             distributor_startup_timeout: amount of time to wait for the distributor process to
                 start up
             resume_timeout: seconds to wait for a workflow to become resumable before giving up
-            jobmon_log_config: setup jobmon logging. If False, no logging will be configured.
-                If True, default logging will be configured. If a dict is passed in, it will be
-                used to override jobmon's default logging.
-
+            configure_logging: setup jobmon logging. If False, no logging will be configured.
+                If True, default logging will be configured.
         Returns:
             str of WorkflowRunStatus
         """
-        if jobmon_log_config is True:
-            dict_config = {
-                "version": 1,
-                "disable_existing_loggers": False,
-                "formatters": {
-                    "default": {
-                        "format": _DEFAULT_LOG_FORMAT,
-                        "datefmt": '%Y-%m-%d %H:%M:%S'
-                    }
-                },
-                "handlers": {
-                    "default": {
-                        "level": "INFO",
-                        "class": "logging.StreamHandler",
-                        "formatter": "default",
-                        "stream": sys.stdout
-                    }
-                },
-                "loggers": {
-                    "jobmon.client": {
-                        "handlers": ["default"],
-                        "level": "INFO",
-                        "propagate": False,
-                    },
-                }
-            }
-            logging.config.dictConfig(dict_config)
-        elif isinstance(jobmon_log_config, dict):
-            logging.config.dictConfig(jobmon_log_config)
+        if configure_logging is True:
+            LoggerFactory.add_logger("jobmon.client")
 
         # bind to database
         logger.info("Adding Workflow metadata to database")
