@@ -40,7 +40,7 @@ class DistributorService:
         self._task_instance_heartbeat_interval = task_instance_heartbeat_interval
         self._heartbeat_report_by_buffer = heartbeat_report_by_buffer
         self._distributor_poll_interval = distributor_poll_interval
-        self.raise_on_error = True
+        self.raise_on_error = raise_on_error
 
         # indexing of task instance by associated id
         self._task_instances: Dict[int, DistributorTaskInstance] = {}
