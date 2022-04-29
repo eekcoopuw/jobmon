@@ -107,8 +107,8 @@ class LoadTestGenerator:
             default_cluster_name=cluster_name,
             default_compute_resources_set={
                 cluster_name: {
-                    'stderr': f"{scratch_dir}/err",
-                    'stdout': f"{scratch_dir}/out",
+                    # 'stderr': f"{scratch_dir}/err",
+                    # 'stdout': f"{scratch_dir}/out",
                     'project': "proj_scicomp"}
             }
         )
