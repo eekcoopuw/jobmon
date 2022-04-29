@@ -539,7 +539,7 @@ class Workflow(object):
         if self.is_bound:
             return
 
-        self.validate(fail=False)
+        self.validate(fail=True)
         for array in self.arrays.values():
             array.validate()
         self._dag.validate()
