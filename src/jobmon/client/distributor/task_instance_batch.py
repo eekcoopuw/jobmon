@@ -49,9 +49,9 @@ class TaskInstanceBatch:
             )
         return self._requested_resources
 
-    def add_task(self, task: DistributorTaskInstance) -> None:
-        self.task_instances.add(task)
-        task.batch = self
+    def add_task_instance(self, task_instsance: DistributorTaskInstance) -> None:
+        self.task_instances.add(task_instsance)
+        task_instsance.batch = self
 
     def load_requested_resources(self) -> None:
         app_route = f"/task_resources/{self.task_resources_id}"

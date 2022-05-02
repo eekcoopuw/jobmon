@@ -1,42 +1,71 @@
 """Configuration setting for client-side only."""
 import logging
+import logging.config
 import sys
-from typing import Any, Optional, Union
+from typing import Dict
 
 
-DEFAULT_FORMAT = "%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s: %(message)s"
+_DEFAULT_LOG_FORMAT = "%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s: %(message)s"
 
 
-class ClientLogging:
+class LoggerFactory:
     """A class to automatically format and attach handlers to client logging modules."""
 
-    def __init__(
-        self,
-        log_format: Optional[str] = None,
-        log_level: Union[int, str] = logging.INFO,
-    ) -> None:
-        """Initialization of client logging."""
-        self._format = log_format if log_format else DEFAULT_FORMAT
-        self._level = log_level
+    dict_config: Dict = {
+        "version": 1,
+        "disable_existing_loggers": False,
+        "formatters": {
+            "default": {
+                "format": _DEFAULT_LOG_FORMAT,
+                "datefmt": '%Y-%m-%d %H:%M:%S'
+            }
+        },
+        "handlers": {
+            "default": {
+                "level": "INFO",
+                "class": "logging.StreamHandler",
+                "formatter": "default",
+                "stream": sys.stdout
+            }
+        },
+    }
 
-    def attach(
-        self, logger_name: Optional[str] = None, handler: Optional[Any] = None
-    ) -> None:
-        """A method to attach a log handler to a given log level.
+    @classmethod
+    def set_default_logging_config(cls, dict_config: Dict) -> None:
+        """Set the default logging configuration for this factory
 
         Args:
-            logger_name: The logger to attach the handler to. Use root logger if none.
-            handler: The handler to attach to. Use StdOut if none.
+            dict_config: A logging dict config to utilize when adding new loggers. each logger
+                added via add_logger method expects to find a handler called "default"
+        """
+        if not isinstance(dict_config, dict):
+            raise ValueError(
+                f"dict_config param must be a dict or None. Got {type(dict_config)}"
+            )
+        else:
+            cls.dict_config = dict_config
+
+    @classmethod
+    def add_logger(
+        cls,
+        logger_name: str,
+        log_level: int = logging.INFO
+    ) -> None:
+        """A method to setup the default logging config for a specific logger_name.
+
+        Args:
+            logger_name: The logger to setup
 
         Returns: None
-
         """
-        if logger_name:
-            logger = logging.getLogger(logger_name)
-        else:
-            logger = logging.getLogger()
-        if not handler:
-            handler = logging.StreamHandler(sys.stdout)
-            handler.setFormatter(logging.Formatter(self._format))
-            handler.setLevel(self._level)
-        logger.addHandler(handler)
+        logger_config = {
+            "loggers": {
+                logger_name: {
+                    "handlers": ["default"],
+                    "level": log_level,
+                    "propagate": False,
+                },
+            }
+        }
+        cls.dict_config.update(logger_config)
+        logging.config.dictConfig(cls.dict_config)

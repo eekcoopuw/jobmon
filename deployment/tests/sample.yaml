@@ -7,7 +7,7 @@ load_test_parameters:
     use_array: 0
 
     # approximate number of tasks to include in workflow
-    n_tasks: 10000
+    n_tasks: 30000
 
     # approximate ratio between phases.
     # phase 2 is 3x phase 1 and phase 3 is 1/30th phase 2
