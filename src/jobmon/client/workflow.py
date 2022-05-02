@@ -57,6 +57,7 @@ class DistributorContext:
             "--workflow_run_id",
             str(self._workflow_run_id),
         ]
+        print(cmd)
         self.process = Popen(cmd, stderr=PIPE, universal_newlines=True)
 
         # check if stderr contains "ALIVE"
@@ -65,8 +66,7 @@ class DistributorContext:
         if stderr_val != "ALIVE":
             err = self._shutdown()
             raise DistributorStartupTimeout(
-                "Distributor process did not start within the alloted timeout "
-                f"t={self._timeout}s. stderr={err}"
+                f"Distributor process did not start, stderr='{err}'"
             )
         return self
 
