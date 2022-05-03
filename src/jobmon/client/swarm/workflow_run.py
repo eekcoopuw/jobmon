@@ -244,8 +244,8 @@ class WorkflowRun:
             if initialize:
                 logger.info(f"Executing Workflow Run {self.workflow_run_id}")
                 self._update_status(WorkflowRunStatus.RUNNING)
-                logger.info("Computing initial fringe")
                 self.set_initial_fringe()
+
             time_since_last_full_sync = 0.0
             total_elapsed_time = 0.0
             terminating_states = [
@@ -328,7 +328,7 @@ class WorkflowRun:
                 raise
             else:
                 logger.info("Continuing jobmon...")
-                seconds_until_timeout = seconds_until_timeout - loop_elapsed
+                seconds_until_timeout = int(seconds_until_timeout - loop_elapsed)
                 self.run(distributor_alive_callable, seconds_until_timeout, initialize=False)
 
         # unexpected errors. raise

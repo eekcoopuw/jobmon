@@ -98,11 +98,11 @@ class DummyDistributor(ClusterDistributor):
         self, distributor_ids: Optional[List[str]] = None
     ) -> Set[str]:
         """Check which task instances are active."""
-        raise NotImplementedError
+        return set()
 
     def terminate_task_instances(self, distributor_ids: List[str]) -> None:
         """No such thing as running Dummy tasks. Therefore, nothing to terminate."""
-        raise NotImplementedError
+        return
 
     def submit_to_batch_distributor(
         self,
