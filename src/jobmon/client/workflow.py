@@ -1,6 +1,7 @@
 """The overarching framework to create tasks and dependencies within."""
 import hashlib
 import logging
+import logging.config
 import psutil
 from subprocess import Popen, PIPE, TimeoutExpired
 import sys
@@ -10,7 +11,7 @@ import uuid
 
 from jobmon.client.array import Array
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.client_logging import ClientLogging
+from jobmon.client.client_logging import LoggerFactory
 from jobmon.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
@@ -393,7 +394,7 @@ class Workflow(object):
         reset_running_jobs: bool = True,
         distributor_startup_timeout: int = 180,
         resume_timeout: int = 300,
-        setup_logging: bool = True,
+        configure_logging: bool = True,
     ) -> str:
         """Run the workflow.
 
@@ -412,15 +413,13 @@ class Workflow(object):
             distributor_startup_timeout: amount of time to wait for the distributor process to
                 start up
             resume_timeout: seconds to wait for a workflow to become resumable before giving up
-            setup_logging: whether to setup the default streamhandler for jobmon logging
-
+            configure_logging: setup jobmon logging. If False, no logging will be configured.
+                If True, default logging will be configured.
         Returns:
             str of WorkflowRunStatus
         """
-        if setup_logging:
-            ClientLogging().attach("jobmon.client")
-            client_logger = logging.getLogger("jobmon.client")
-            client_logger.setLevel(logging.INFO)
+        if configure_logging is True:
+            LoggerFactory.add_logger("jobmon.client")
 
         # bind to database
         logger.info("Adding Workflow metadata to database")
@@ -498,7 +497,7 @@ class Workflow(object):
                     if fail:
                         raise ValueError(queue_msg)
                     else:
-                        logger.warning(queue_msg)
+                        logger.info(queue_msg)
                         continue
 
                 # validate the constructed resources
@@ -518,7 +517,7 @@ class Workflow(object):
                 if fail:
                     raise
                 else:
-                    logger.warning(e)
+                    logger.info(e)
         try:
             cluster_names = list(self._clusters.keys())
             if len(list(self._clusters.keys())) > 1:
@@ -532,7 +531,7 @@ class Workflow(object):
             if fail:
                 raise
             else:
-                logger.warning(e)
+                logger.info(e)
 
     def bind(self) -> None:
         """Get a workflow_id."""
