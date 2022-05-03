@@ -418,7 +418,9 @@ class Workflow(object):
             str of WorkflowRunStatus
         """
         if configure_logging is True:
-            JobmonLoggerConfig.attach_default_handler(logger="jobmon", log_level=logging.INFO)
+            JobmonLoggerConfig.attach_default_handler(
+                logger_name="jobmon", log_level=logging.INFO
+            )
 
         # bind to database
         logger.info("Adding Workflow metadata to database")
