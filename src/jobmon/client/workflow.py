@@ -65,8 +65,7 @@ class DistributorContext:
         if stderr_val != "ALIVE":
             err = self._shutdown()
             raise DistributorStartupTimeout(
-                "Distributor process did not start within the alloted timeout "
-                f"t={self._timeout}s. stderr={err}"
+                f"Distributor process did not start, stderr='{err}'"
             )
         return self
 
