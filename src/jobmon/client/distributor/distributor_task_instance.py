@@ -75,7 +75,6 @@ class DistributorTaskInstance:
                 "next_report_increment": next_report_increment,
             },
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -101,7 +100,6 @@ class DistributorTaskInstance:
             app_route=app_route,
             message={"no_id_err_msg": no_id_err_msg},
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -131,7 +129,6 @@ class DistributorTaskInstance:
                 "distributor_id": distributor_id,
             },
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(

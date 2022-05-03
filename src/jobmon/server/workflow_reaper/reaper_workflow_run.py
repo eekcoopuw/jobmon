@@ -45,7 +45,7 @@ class ReaperWorkflowRun(object):
         """Transition workflow run to error."""
         app_route = f"/workflow_run/{self.workflow_run_id}/reap"
         return_code, response = self._requester.send_request(
-            app_route=app_route, message={}, request_type="put", logger=logger
+            app_route=app_route, message={}, request_type="put"
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(

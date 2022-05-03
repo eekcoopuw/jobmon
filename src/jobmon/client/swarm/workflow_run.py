@@ -73,6 +73,12 @@ class WorkflowRun:
         self.workflow_run_id = workflow_run_id
 
         # state tracking
+        self._active_states = [
+            TaskStatus.QUEUED,
+            TaskStatus.INSTANTIATING,
+            TaskStatus.LAUNCHED,
+            TaskStatus.RUNNING,
+        ]
         self.tasks: Dict[int, SwarmTask] = {}
         self.arrays: Dict[int, SwarmArray] = {}
         self.ready_to_run: List[SwarmTask] = []
@@ -138,14 +144,8 @@ class WorkflowRun:
         if self.status in (WorkflowRunStatus.ERROR, WorkflowRunStatus.TERMINATED):
             return False
 
-        active_task_states = [
-            TaskStatus.QUEUED,
-            TaskStatus.LAUNCHED,
-            TaskStatus.RUNNING,
-            TaskStatus.INSTANTIATING,
-        ]
         any_active_tasks = any(
-            [any(self._task_status_map[s]) for s in active_task_states]
+            [any(self._task_status_map[s]) for s in self._active_states]
         ) or any(self.ready_to_run)
         return any_active_tasks
 
@@ -212,6 +212,7 @@ class WorkflowRun:
         self,
         distributor_alive_callable: Callable[..., bool],
         seconds_until_timeout: int = 36000,
+        initialize: bool = True
     ):
         """Take a concrete DAG and queue al the Tasks that are not DONE.
 
@@ -240,10 +241,11 @@ class WorkflowRun:
             workflow_run status
         """
         try:
-            logger.info(f"Executing Workflow Run {self.workflow_run_id}")
-            self._update_status(WorkflowRunStatus.RUNNING)
-            logger.info("Computing initial fringe")
-            self.set_initial_fringe()
+            if initialize:
+                logger.info(f"Executing Workflow Run {self.workflow_run_id}")
+                self._update_status(WorkflowRunStatus.RUNNING)
+                logger.info("Computing initial fringe")
+                self.set_initial_fringe()
             time_since_last_full_sync = 0.0
             total_elapsed_time = 0.0
             terminating_states = [
@@ -319,11 +321,15 @@ class WorkflowRun:
             logger.warning("Keyboard interrupt raised")
             confirm = input("Are you sure you want to exit (y/n): ")
             confirm = confirm.lower().strip()
+            # breakpoint()
+
             if confirm == "y":
                 self._update_status(WorkflowRunStatus.STOPPED)
                 raise
             else:
                 logger.info("Continuing jobmon...")
+                seconds_until_timeout = seconds_until_timeout - loop_elapsed
+                self.run(distributor_alive_callable, seconds_until_timeout, initialize=False)
 
         # unexpected errors. raise
         except Exception as e:
@@ -365,17 +371,11 @@ class WorkflowRun:
 
         # compute capacities. max - active
         active_tasks: Set[SwarmTask] = set()
-        for task_status in [
-            TaskStatus.QUEUED,
-            TaskStatus.INSTANTIATING,
-            TaskStatus.LAUNCHED,
-            TaskStatus.RUNNING,
-        ]:
-            active_tasks.union(self._task_status_map[task_status])
+        for task_status in self._active_states:
+            active_tasks = active_tasks.union(self._task_status_map[task_status])
         workflow_capacity = self.max_concurrently_running - len(active_tasks)
         array_capacity_lookup: Dict[int, int] = {
-            aid: array.max_concurrently_running
-            - len(active_tasks.intersection(array.tasks))
+            aid: array.max_concurrently_running - len(active_tasks.intersection(array.tasks))
             for aid, array in self.arrays.items()
         }
 
@@ -461,14 +461,7 @@ class WorkflowRun:
     def synchronize_state(self, full_sync: bool = False) -> None:
         self._set_status_for_triaging()
         self._log_heartbeat()
-
-        # TODO: should we be excluding DONE and ERROR_FATAL on full_sync?
-        if full_sync:
-            updated_tasks = self._get_task_status_updates(set(self.tasks.values()))
-
-        else:
-            updated_tasks = self._get_task_status_updates()
-        self._refresh_task_status_map(updated_tasks)
+        self._task_status_updates(full_sync=full_sync)
 
     def _refresh_task_status_map(self, updated_tasks: Set[SwarmTask]) -> None:
         # remove these tasks from old mapping
@@ -504,7 +497,9 @@ class WorkflowRun:
 
             elif task.status == TaskStatus.ADJUSTING_RESOURCES:
                 self._set_adjusted_task_resources(task)
-                self.ready_to_run.append(task)
+
+                # put at front of queue since we already tried it once
+                self.ready_to_run = [task] + self.ready_to_run
 
             else:
                 logger.debug(
@@ -528,7 +523,7 @@ class WorkflowRun:
     def _set_status_for_triaging(self):
         app_route = f"/workflow_run/{self.workflow_run_id}/set_status_for_triaging"
         return_code, response = self._requester.send_request(
-            app_route=app_route, message={}, request_type="post", logger=logger
+            app_route=app_route, message={}, request_type="post"
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -549,7 +544,6 @@ class WorkflowRun:
                 "next_report_increment": next_report_increment,
             },
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -568,7 +562,6 @@ class WorkflowRun:
             app_route=app_route,
             message={"status": status},
             request_type="put",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -587,7 +580,7 @@ class WorkflowRun:
         """Terminate the workflow run."""
         app_route = f"/workflow_run/{self.workflow_run_id}/terminate_task_instances"
         return_code, response = self._requester.send_request(
-            app_route=app_route, message={}, request_type="put", logger=logger
+            app_route=app_route, message={}, request_type="put"
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -611,7 +604,7 @@ class WorkflowRun:
     def _get_current_time(self) -> datetime:
         app_route = "/time"
         return_code, response = self._requester.send_request(
-            app_route=app_route, message={}, request_type="get", logger=logger
+            app_route=app_route, message={}, request_type="get"
         )
 
         if http_request_ok(return_code) is False:
@@ -622,23 +615,21 @@ class WorkflowRun:
             )
         return response["time"]
 
-    def _get_task_status_updates(self, tasks: Set[SwarmTask] = None) -> Set[SwarmTask]:
+    def _task_status_updates(self, full_sync: bool = False) -> None:
         """Update internal state of tasks to match the database.
 
         If no tasks are specified, get all tasks.
         """
-        if tasks is None:
-            tasks = set()
-        task_tuples = [(t.task_id, t.status) for t in tasks]
+        if full_sync:
+            message = {}
+        else:
+            message = {"last_sync": str(self.last_sync)}
+
         app_route = f"/workflow/{self.workflow_id}/task_status_updates"
         return_code, response = self._requester.send_request(
             app_route=app_route,
-            message={
-                "last_sync": str(self.last_sync),
-                "swarm_tasks_tuples": task_tuples,
-            },
+            message=message,
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -646,21 +637,16 @@ class WorkflowRun:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-
         self.last_sync = response["time"]
 
         new_status_tasks: Set[SwarmTask] = set()
-        for wire_tuple in response["task_dcts"]:
-            task_id = int(wire_tuple[0])
-            new_status = wire_tuple[1]
-
-            # mutate the task
-            task = self.tasks[task_id]
-            if new_status != task.status:
-                task.status = new_status
-                new_status_tasks.add(task)
-
-        return new_status_tasks
+        for current_status, task_ids in response["tasks_by_status"].items():
+            for task_id in task_ids:
+                task = self.tasks[task_id]
+                if current_status != task.status:
+                    task.status = current_status
+                    new_status_tasks.add(task)
+        self._refresh_task_status_map(new_status_tasks)
 
     def queue_task_batch(self, tasks: List[SwarmTask]) -> None:
         first_task = tasks[0]

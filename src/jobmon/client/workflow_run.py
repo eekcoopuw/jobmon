@@ -106,7 +106,6 @@ class WorkflowRun(object):
             app_route=app_route,
             message={"status": status},
             request_type="put",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -127,7 +126,6 @@ class WorkflowRun(object):
                 "jobmon_version": __version__,
             },
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(rc) is False:
             raise InvalidResponse(f"Invalid Response to {app_route}: {rc}")
@@ -139,7 +137,6 @@ class WorkflowRun(object):
             app_route=app_route,
             message={"next_report_increment": next_report_increment},
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -157,7 +154,6 @@ class WorkflowRun(object):
                 "status": WorkflowRunStatus.LINKING,
             },
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -224,7 +220,6 @@ class WorkflowRun(object):
                 app_route=app_route,
                 message=parameters,
                 request_type="put",
-                logger=logger,
             )
             if http_request_ok(return_code) is False:
                 raise InvalidResponse(

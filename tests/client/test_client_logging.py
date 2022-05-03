@@ -1,7 +1,10 @@
 import logging
 from datetime import date
 
+import pytest
 
+
+@pytest.mark.skip()
 def test_client_logging_default_format(client_env, capsys):
     from jobmon.client.client_logging import ClientLogging
 
@@ -20,6 +23,7 @@ def test_client_logging_default_format(client_env, capsys):
             assert "This is a test" in log
 
 
+@pytest.mark.skip()
 def test_client_logging_customized_handler(client_env, capsys):
     from jobmon.client.client_logging import ClientLogging
 

@@ -90,7 +90,7 @@ class TaskResources:
             "requested_resources": self._requested_resources,
         }
         return_code, response = self.requester.send_request(
-            app_route=app_route, message=msg, request_type="post", logger=logger
+            app_route=app_route, message=msg, request_type="post"
         )
 
         if return_code != StatusCodes.OK:

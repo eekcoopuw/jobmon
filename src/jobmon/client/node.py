@@ -129,7 +129,6 @@ class Node:
                 "node_args_hash": self.node_args_hash,
             },
             request_type="get",
-            logger=logger,
         )
         if return_code == StatusCodes.OK:
             return response["node_id"]
@@ -151,7 +150,6 @@ class Node:
                 "node_args": json.dumps(self.mapped_node_args),
             },
             request_type="post",
-            logger=logger,
         )
         if return_code == StatusCodes.OK:
             return response["node_id"]
@@ -222,7 +220,9 @@ class Node:
 
     def __hash__(self) -> int:
         """Create a hash that will be a unique identifier for the node."""
-        hash_value = hashlib.sha1()
-        hash_value.update(bytes(str(self.node_args_hash).encode("utf-8")))
-        hash_value.update(bytes(str(self.task_template_version_id).encode("utf-8")))
-        return int(hash_value.hexdigest(), 16)
+        if not hasattr(self, "_hash_val"):
+            hash_value = hashlib.sha1()
+            hash_value.update(bytes(str(self.node_args_hash).encode("utf-8")))
+            hash_value.update(bytes(str(self.task_template_version_id).encode("utf-8")))
+            self._hash_val = int(hash_value.hexdigest(), 16)
+        return self._hash_val

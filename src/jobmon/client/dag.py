@@ -77,7 +77,6 @@ class Dag(object):
             app_route="/dag",
             message={"dag_hash": dag_hash},
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise ValueError(
@@ -141,7 +140,6 @@ class Dag(object):
                 app_route="/nodes",
                 message={"nodes": nodes_to_send},
                 request_type="post",
-                logger=logger,
             )
             if http_request_ok(rc) is False:
                 raise InvalidResponse(
@@ -172,7 +170,6 @@ class Dag(object):
             app_route="/dag",
             message={"dag_hash": dag_hash},
             request_type="get",
-            logger=logger,
         )
         if return_code == StatusCodes.OK:
             return response["dag_id"]
@@ -217,7 +214,7 @@ class Dag(object):
 
             app_route = f"/dag/{dag_id}/edges"
             return_code, response = self.requester.send_request(
-                app_route=app_route, message=message, request_type="post", logger=logger
+                app_route=app_route, message=message, request_type="post"
             )
             if http_request_ok(return_code) is False:
                 raise ValueError(

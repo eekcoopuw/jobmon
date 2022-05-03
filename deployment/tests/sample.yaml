@@ -4,7 +4,7 @@ load_test_parameters:
     random_seed: 123
 
     # approximate number of tasks to include in workflow
-    n_tasks: 10000
+    n_tasks: 3000
 
     # approximate ratio between phases.
     # phase 2 is 3x phase 1 and phase 3 is 1/30th phase 2
@@ -36,7 +36,3 @@ load_test_parameters:
     phase_percent_intermittent_fail: [15, 10, 30]
     phase_percent_sleep_timeout: [10, 5, 0]
     phase_percent_fail_always: [0, 0, 0]
-  foo3:
-    random_seed: 456
-    n_tasks: 10
-    phase_task_ratios: [ 10, 30, 10 ]

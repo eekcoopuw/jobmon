@@ -384,7 +384,7 @@ class Tool:
     def _load_tool_versions(self) -> List[ToolVersion]:
         app_route = f"/tool/{self.id}/tool_versions"
         return_code, response = self.requester.send_request(
-            app_route=app_route, message={}, request_type="get", logger=logger
+            app_route=app_route, message={}, request_type="get"
         )
 
         if return_code != StatusCodes.OK:
@@ -406,7 +406,6 @@ class Tool:
             app_route=app_route,
             message={"name": self.name},
             request_type="post",
-            logger=logger,
         )
 
         if return_code != StatusCodes.OK:

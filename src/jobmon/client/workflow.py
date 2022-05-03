@@ -1,6 +1,7 @@
 """The overarching framework to create tasks and dependencies within."""
 import hashlib
 import logging
+import logging.config
 import psutil
 from subprocess import Popen, PIPE, TimeoutExpired
 import sys
@@ -10,7 +11,7 @@ import uuid
 
 from jobmon.client.array import Array
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.client_logging import ClientLogging
+from jobmon.client.logging import JobmonLoggerConfig
 from jobmon.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
@@ -255,7 +256,6 @@ class Workflow(object):
             app_route=app_route,
             message={"workflow_attributes": workflow_attributes},
             request_type="put",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -392,7 +392,7 @@ class Workflow(object):
         reset_running_jobs: bool = True,
         distributor_startup_timeout: int = 180,
         resume_timeout: int = 300,
-        setup_logging: bool = True,
+        configure_logging: bool = True,
     ) -> str:
         """Run the workflow.
 
@@ -411,15 +411,16 @@ class Workflow(object):
             distributor_startup_timeout: amount of time to wait for the distributor process to
                 start up
             resume_timeout: seconds to wait for a workflow to become resumable before giving up
-            setup_logging: whether to setup the default streamhandler for jobmon logging
+            configure_logging: setup jobmon logging. If False, no logging will be configured.
+                If True, default logging will be configured.
 
         Returns:
             str of WorkflowRunStatus
         """
-        if setup_logging:
-            ClientLogging().attach("jobmon.client")
-            client_logger = logging.getLogger("jobmon.client")
-            client_logger.setLevel(logging.INFO)
+        if configure_logging is True:
+            JobmonLoggerConfig.attach_default_handler(
+                logger_name="jobmon", log_level=logging.INFO
+            )
 
         # bind to database
         logger.info("Adding Workflow metadata to database")
@@ -495,7 +496,7 @@ class Workflow(object):
                     if fail:
                         raise ValueError(queue_msg)
                     else:
-                        logger.warning(queue_msg)
+                        logger.info(queue_msg)
                         continue
 
                 # validate the constructed resources
@@ -504,9 +505,9 @@ class Workflow(object):
                     **resource_params
                 )
                 if fail and not is_valid:
-                    raise ValueError(f"Failed validation, reasons: {msg}")
+                    raise ValueError(f"Task={task} failed validation, reasons: {msg}")
                 elif not is_valid:
-                    logger.warning(f"Failed validation, reasons: {msg}")
+                    logger.info(f"Task={task} failed validation, reasons: {msg}")
 
         for array in self.arrays.values():
             try:
@@ -515,7 +516,7 @@ class Workflow(object):
                 if fail:
                     raise
                 else:
-                    logger.warning(e)
+                    logger.info(e)
         try:
             cluster_names = list(self._clusters.keys())
             if len(list(self._clusters.keys())) > 1:
@@ -529,7 +530,7 @@ class Workflow(object):
             if fail:
                 raise
             else:
-                logger.warning(e)
+                logger.info(e)
 
     def bind(self) -> None:
         """Get a workflow_id."""
@@ -561,7 +562,6 @@ class Workflow(object):
                 "workflow_attributes": self.workflow_attributes,
             },
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -659,7 +659,6 @@ class Workflow(object):
             app_route=f"/workflow/{str(self.workflow_args_hash)}",
             message={},
             request_type="get",
-            logger=logger,
         )
         bound_workflow_hashes = response["matching_workflows"]
         for task_hash, tool_version_id, dag_hash in bound_workflow_hashes:
@@ -687,7 +686,6 @@ class Workflow(object):
                 "workflow_attributes": self.workflow_attributes,
             },
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -707,7 +705,7 @@ class Workflow(object):
             )
             app_route = f"/workflow/{self.workflow_id}/is_resumable"
             return_code, response = self.requester.send_request(
-                app_route=app_route, message={}, request_type="get", logger=logger
+                app_route=app_route, message={}, request_type="get"
             )
             if http_request_ok(return_code) is False:
                 raise InvalidResponse(
