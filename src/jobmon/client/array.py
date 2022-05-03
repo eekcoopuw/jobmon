@@ -34,7 +34,6 @@ class Array:
         cluster_name: str,
         max_concurrently_running: int = 10_000,
         max_attempts: int = 3,
-        threshold_to_submit: int = 100,
         upstream_tasks: Optional[List[Task]] = None,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
@@ -58,7 +57,6 @@ class Array:
 
         # array attributes
         self.max_concurrently_running = max_concurrently_running
-        self.threshold_to_submit = threshold_to_submit
 
         # task passthrough attributes
         self.task_args = task_args
