@@ -173,7 +173,6 @@ class WorkerNodeTaskInstance:
             app_route=f"/task_instance/{self.task_instance_id}/log_done",
             message=message,
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -207,7 +206,6 @@ class WorkerNodeTaskInstance:
             app_route=app_route,
             message=message,
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -246,7 +244,6 @@ class WorkerNodeTaskInstance:
             app_route=app_route,
             message=message,
             request_type="post",
-            logger=logger,
         )
 
         if http_request_ok(return_code) is False:
@@ -286,7 +283,6 @@ class WorkerNodeTaskInstance:
             app_route=app_route,
             message=message,
             request_type="post",
-            logger=logger,
         )
 
         if http_request_ok(return_code) is False:

@@ -100,7 +100,6 @@ class WorkflowReaper(object):
             app_route=app_route,
             message={"workflow_id": workflow_id},
             request_type="get",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -119,7 +118,6 @@ class WorkflowReaper(object):
             app_route=app_route,
             message={"status": status, "version": self._version},
             request_type="get",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -218,7 +216,6 @@ class WorkflowReaper(object):
             app_route=app_route,
             message={},
             request_type="put",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(

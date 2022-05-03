@@ -63,9 +63,13 @@ class SwarmTask(object):
     @property
     def all_upstreams_done(self) -> bool:
         """Return a bool of if upstreams are done or not."""
-        if self.num_upstreams_done >= len(self.upstream_tasks):
+        if self.num_upstreams_done == len(self.upstream_tasks):
             logger.debug(f"task id: {self.task_id} is checking all upstream tasks")
-            return all([u.status == TaskStatus.DONE for u in self.upstream_tasks])
+            return True
+        elif self.num_upstreams_done > len(self.upstream_tasks):
+            raise RuntimeError(
+                "Error in dependency management. More upstream tasks done than exist in DAG."
+            )
         else:
             return False
 

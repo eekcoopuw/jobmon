@@ -54,7 +54,7 @@ def workflow_status(
     requester = Requester(requester_url)
 
     rc, res = requester.send_request(
-        app_route="/workflow_status", message=msg, request_type="get", logger=logger
+        app_route="/workflow_status", message=msg, request_type="get"
     )
     if json:
         return res["workflows"]
@@ -98,7 +98,6 @@ def workflow_tasks(
         app_route=f"/workflow/{workflow_id}/workflow_tasks",
         message=msg,
         request_type="get",
-        logger=logger,
     )
     if json:
         return res["workflow_tasks"]
@@ -150,7 +149,7 @@ def task_template_resources(
 
     app_route = "/task_template_resource_usage"
     return_code, response = requester.send_request(
-        app_route=app_route, message=message, request_type="post", logger=logger
+        app_route=app_route, message=message, request_type="post"
     )
 
     def format_bytes(value: Any) -> Optional[str]:
@@ -204,7 +203,7 @@ def task_status(
     requester = Requester(requester_url)
 
     rc, res = requester.send_request(
-        app_route="/task_status", message=msg, request_type="get", logger=logger
+        app_route="/task_status", message=msg, request_type="get"
     )
     if json:
         return res["task_instance_status"]
@@ -304,7 +303,6 @@ def update_task_status(
             app_route="/tasks_recursive/" + ("up" if new_status == "D" else "down"),
             message={"task_ids": task_ids},
             request_type="put",
-            logger=logger,
         )
         if rc != 200:
             raise AssertionError(f"Server return HTTP error code: {rc}")
@@ -344,7 +342,6 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
         app_route=f"/workflow/{workflow_id}/validate_username/{username}",
         message={},
         request_type="get",
-        logger=logger,
     )
     if not res["validation"]:
         raise AssertionError(f"User {username} is not allowed to reset this workflow.")
@@ -436,7 +433,6 @@ def workflow_reset(workflow_id: int, requester_url: Optional[str] = None) -> str
         app_route=f"/workflow/{workflow_id}/validate_for_workflow_reset/{username}",
         message={},
         request_type="get",
-        logger=logger,
     )
     if rc != 200:
         raise AssertionError(f"Server return HTTP error code: {rc}")
@@ -445,7 +441,6 @@ def workflow_reset(workflow_id: int, requester_url: Optional[str] = None) -> str
             app_route=f"/workflow/{workflow_id}/reset",
             message={},
             request_type="put",
-            logger=logger,
         )
         if rc != 200:
             raise AssertionError(f"Server return HTTP error code: {rc}")
@@ -474,7 +469,6 @@ def _get_yaml_data(
         app_route="/get_task_template_version",
         message={"task_id": tid} if wfid is None else {"workflow_id": wfid},
         request_type="get",
-        logger=logger,
     )
     if rc != 200:
         raise AssertionError(

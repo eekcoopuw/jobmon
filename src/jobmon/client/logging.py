@@ -8,7 +8,7 @@ from typing import Dict
 _DEFAULT_LOG_FORMAT = "%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s: %(message)s"
 
 
-class LoggerFactory:
+class JobmonLoggerConfig:
     """A class to automatically format and attach handlers to client logging modules."""
 
     dict_config: Dict = {
@@ -46,7 +46,7 @@ class LoggerFactory:
             cls.dict_config = dict_config
 
     @classmethod
-    def add_logger(
+    def attach_default_handler(
         cls,
         logger_name: str,
         log_level: int = logging.INFO

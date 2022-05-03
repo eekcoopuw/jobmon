@@ -456,19 +456,19 @@ def test_workflow_validation(tool, task_template, caplog):
 
     # Without fail set, validate and check coercion
     caplog.clear()
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.INFO):
         wf1.validate(fail=False)
         assert (
-            "Failed validation, reasons: ResourceError: provided cores 1000"
+            "failed validation, reasons: ResourceError: provided cores 1000 exceeds queue"
             in caplog.records[-1].message
         )
 
     # Try again for idempotency
     caplog.clear()
-    with caplog.at_level(logging.WARNING):
+    with caplog.at_level(logging.INFO):
         wf1.validate(fail=False)
         assert (
-            "Failed validation, reasons: ResourceError: provided cores 1000"
+            "failed validation, reasons: ResourceError: provided cores 1000 exceeds queue"
             in caplog.records[-1].message
         )
 

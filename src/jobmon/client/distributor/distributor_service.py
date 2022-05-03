@@ -334,8 +334,10 @@ class DistributorService:
             )
 
     def triage_error(self, task_instance: DistributorTaskInstance) -> None:
+        start = time.time()
         r_value, r_msg = self.cluster.get_remote_exit_info(task_instance.distributor_id)
         task_instance.transition_to_error(r_msg, r_value)
+        print(f"triaging: {task_instance.task_instance_id}: {time.time() - start}")
 
     def kill_self(self, task_instance: DistributorTaskInstance) -> None:
         self.cluster.terminate_task_instances([task_instance.distributor_id])
@@ -372,7 +374,6 @@ class DistributorService:
             app_route="/task_instance/log_report_by/batch",
             message=message,
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -388,7 +389,7 @@ class DistributorService:
             raise DistributorInterruptedError("Got signal SIGTERM.")
 
         def handle_sigint(signal, frame):
-            raise DistributorInterruptedError("Got signal SIGINT.")
+            pass
 
         signal.signal(signal.SIGTERM, handle_sigterm)
         signal.signal(signal.SIGHUP, handle_sighup)

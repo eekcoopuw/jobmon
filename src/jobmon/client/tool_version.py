@@ -54,7 +54,7 @@ class ToolVersion:
         message = {"tool_id": tool.id}
         app_route = "/tool_version"
         return_code, response = tool.requester.send_request(
-            app_route=app_route, message=message, request_type="post", logger=logger
+            app_route=app_route, message=message, request_type="post"
         )
 
         if return_code != StatusCodes.OK:
@@ -95,7 +95,7 @@ class ToolVersion:
         """Get all task_templates associated with this tool version from the database."""
         app_route = f"/tool_version/{self.id}/task_templates"
         return_code, response = self.requester.send_request(
-            app_route=app_route, message={}, request_type="get", logger=logger
+            app_route=app_route, message={}, request_type="get"
         )
 
         if return_code != StatusCodes.OK:
