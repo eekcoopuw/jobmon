@@ -413,11 +413,12 @@ class Workflow(object):
             resume_timeout: seconds to wait for a workflow to become resumable before giving up
             configure_logging: setup jobmon logging. If False, no logging will be configured.
                 If True, default logging will be configured.
+
         Returns:
             str of WorkflowRunStatus
         """
         if configure_logging is True:
-            JobmonLoggerConfig.attach_default_handler("jobmon")
+            JobmonLoggerConfig.attach_default_handler(logger="jobmon", log_level=logging.INFO)
 
         # bind to database
         logger.info("Adding Workflow metadata to database")
