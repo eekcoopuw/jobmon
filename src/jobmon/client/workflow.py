@@ -502,12 +502,12 @@ class Workflow(object):
                 # validate the constructed resources
                 queue = cluster.get_queue(queue_name)
                 is_valid, msg, valid_resources = queue.validate_resources(
-                    **resource_params
+                    fail, **resource_params
                 )
-                if fail and not is_valid:
-                    raise ValueError(f"Task={task} failed validation, reasons: {msg}")
-                elif not is_valid:
-                    logger.info(f"Task={task} failed validation, reasons: {msg}")
+                if not is_valid:
+                    raise ValueError(f"Failed validation, reasons: {msg}")
+                elif len(msg) > 0:
+                    logger.warning(f"Failed validation, reasons: {msg}")
 
         for array in self.arrays.values():
             try:
