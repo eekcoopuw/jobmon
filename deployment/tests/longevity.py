@@ -42,15 +42,17 @@ def generate_random_workflow_yaml(
         phase_percent_fail_always = [0 for i in range(0, n_phases)]
 
     config_dict: Dict = {
-        wf_name: {
-            "random_seed": random_seed,
-            "n_tasks": n_tasks,
-            "phase_n_attr": phase_n_attr,
-            "phase_task_ratios": phase_task_ratios,
-            "phase_percent_in_degree": phase_percent_in_degree,
-            "phase_percent_intermittent_fail": phase_percent_intermittent_fail,
-            "phase_percent_sleep_timeout": phase_percent_sleep_timeout,
-            "phase_percent_fail_always": phase_percent_fail_always
+        "load_test_parameters": {
+            wf_name: {
+                "random_seed": random_seed,
+                "n_tasks": n_tasks,
+                "phase_n_attr": phase_n_attr,
+                "phase_task_ratios": phase_task_ratios,
+                "phase_percent_in_degree": phase_percent_in_degree,
+                "phase_percent_intermittent_fail": phase_percent_intermittent_fail,
+                "phase_percent_sleep_timeout": phase_percent_sleep_timeout,
+                "phase_percent_fail_always": phase_percent_fail_always
+            }
         }
     }
 
