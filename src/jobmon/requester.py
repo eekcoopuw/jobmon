@@ -6,7 +6,8 @@ from typing import Any, Dict, Tuple
 import requests
 import tenacity
 
-default_logger = logging.getLogger(__name__)
+
+logger = logging.getLogger(__name__)
 
 
 def http_request_ok(status_code: int) -> bool:
@@ -41,7 +42,6 @@ class Requester(object):
         app_route: str,
         message: dict,
         request_type: str,
-        logger: logging.Logger = default_logger,
         tenacious: bool = True,
     ) -> Tuple[int, Any]:
         """Send request to server.
@@ -55,7 +55,6 @@ class Requester(object):
                 interact. The app_route must always start with a slash ('/') and
                 must match one of the function decorations of @jsm.route or
                 @jqs.route on the server side.
-
             message: The message dict to be sent to the server.
                 Must contain any arguments the JSM/JQS route needs to operate.
                 If the request is a 'GET', the value of the message dict will
@@ -70,9 +69,6 @@ class Requester(object):
                      'dag_hash': 'my_dag_hash'}
 
             request_type: The type of request desired, either 'get', 'post, or 'put'
-
-            logger: which logging context to use for message and response logging
-
             tenacious: use tenacity for retries
 
 
@@ -84,9 +80,9 @@ class Requester(object):
 
         """
         if tenacious:
-            res = self._tenacious_send_request(app_route, message, request_type, logger)
+            res = self._tenacious_send_request(app_route, message, request_type)
         else:
-            res = self._send_request(app_route, message, request_type, logger)
+            res = self._send_request(app_route, message, request_type)
         return res
 
     def _tenacious_send_request(
@@ -94,7 +90,6 @@ class Requester(object):
         app_route: str,
         message: dict,
         request_type: str,
-        logger: logging.Logger = default_logger,
     ) -> Tuple[int, Any]:
         """Use tenacity to retry requests if they get an unsatisfactory return code."""
 
@@ -103,9 +98,10 @@ class Requester(object):
             status = result[0]
             is_bad = status > 499 and status < 600
             if is_bad:
-                logger.warning(f"is_5XX? status: {status}")
-            else:
-                logger.debug(f"is_5XX? status: {status}")
+                logger.warning(
+                    f"Got HTTP status_code={status} from server. app_route: {app_route}."
+                    f" message: {message}"
+                )
             return is_bad
 
         def raise_if_exceed_retry(retry_state: tenacity.RetryCallState) -> None:
@@ -129,7 +125,7 @@ class Requester(object):
         )
 
         return self._retry.__call__(
-            self._send_request, app_route, message, request_type, logger
+            self._send_request, app_route, message, request_type
         )
 
     def _send_request(
@@ -137,7 +133,6 @@ class Requester(object):
         app_route: str,
         message: dict,
         request_type: str,
-        logger: logging.Logger = default_logger,
     ) -> Tuple[int, Any]:
         # construct url
         route = self.url + app_route

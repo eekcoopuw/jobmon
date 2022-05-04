@@ -54,7 +54,7 @@ class Cluster:
         """Bind Cluster to the database, getting an id back."""
         app_route = f"/cluster/{self.cluster_name}"
         return_code, response = self.requester.send_request(
-            app_route=app_route, message={}, request_type="get", logger=logger
+            app_route=app_route, message={}, request_type="get"
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -130,7 +130,7 @@ class Cluster:
             queue_class = self.plugin.get_cluster_queue_class()
             app_route = f"/cluster/{self.id}/queue/{queue_name}"
             return_code, response = self.requester.send_request(
-                app_route=app_route, message={}, request_type="get", logger=logger
+                app_route=app_route, message={}, request_type="get"
             )
             if http_request_ok(return_code) is False:
                 raise InvalidResponse(

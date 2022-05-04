@@ -378,7 +378,6 @@ def test_fork_and_join_tasks_with_retryable_error(tool, tmpdir):
     assert workflow.tasks[hash(task_d)].final_status == TaskStatus.DONE
 
 
-@pytest.mark.qsubs_jobs
 def test_bushy_real_dag(tool, tmpdir):
     """
     Similar to the a small fork and join real_dag but with connections between

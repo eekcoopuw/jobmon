@@ -146,7 +146,6 @@ class TaskTemplateVersion:
                 "op_args": list(self.op_args),
             },
             request_type="post",
-            logger=logger,
         )
 
         if return_code != StatusCodes.OK:

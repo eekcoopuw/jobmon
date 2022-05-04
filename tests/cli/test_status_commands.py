@@ -551,6 +551,7 @@ def test_sub_dag(db_cfg, client_env, tool):
     assert str(t2.task_id) in tree.keys()
 
 
+@pytest.mark.skip()
 def test_dynamic_concurrency_limiting_cli(db_cfg, client_env, cli):
     """The server-side logic is checked in distributor/test_instantiate.
 
@@ -654,7 +655,7 @@ def test_400_cli_route(db_cfg, client_env):
 
     requester = Requester(client_env)
     rc, resp = requester.send_request(
-        app_route="/task_status", message={}, request_type="get", logger=logger
+        app_route="/task_status", message={}, request_type="get"
     )
     assert rc == 400
 
@@ -664,7 +665,7 @@ def test_bad_put_route(db_cfg, client_env):
 
     requester = Requester(client_env, logger)
     rc, resp = requester.send_request(
-        app_route="/task/update_statuses", message={}, request_type="put", logger=logger
+        app_route="/task/update_statuses", message={}, request_type="put"
     )
     assert rc == 400
 

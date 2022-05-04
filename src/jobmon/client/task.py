@@ -347,7 +347,6 @@ class Task:
             app_route=app_route,
             message={"task_attributes": task_attributes},
             request_type="put",
-            logger=logger,
         )
         if return_code != StatusCodes.OK:
             raise ValueError(
@@ -376,7 +375,6 @@ class Task:
                 app_route=f"/task/{self._task_id}/most_recent_ti_error",
                 message={},
                 request_type="get",
-                logger=logger,
             )
             if return_code == StatusCodes.OK:
                 task_instance_id = response["task_instance_id"]
@@ -440,7 +438,6 @@ class Task:
                 "task_args_hash": self.task_args_hash,
             },
             request_type="get",
-            logger=logger,
         )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
@@ -463,7 +460,6 @@ class Task:
                 "task_attributes": self.task_attributes,
             },
             request_type="put",
-            logger=logger,
         )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
@@ -492,7 +488,6 @@ class Task:
             app_route=app_route,
             message={"tasks": tasks},
             request_type="post",
-            logger=logger,
         )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
@@ -542,7 +537,6 @@ class Task:
             app_route=app_route,
             message={"task_id": self.task_id},
             request_type="get",
-            logger=logger,
         )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
