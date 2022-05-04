@@ -456,11 +456,8 @@ def test_workflow_validation(tool, task_template, caplog):
         wf1.validate()  # Max cores on multiprocess null.q is 20. Should fail
 
     # Without fail set, validate and check coercion
-    # JobmonLoggerConfig.attach_default_handler(
-    #     logger_name="jobmon.client", log_level=logging.INFO
-    # )
     caplog.clear()
-    with caplog.at_level(logging.INFO, logger="jobmon"):
+    with caplog.at_level(logging.INFO, logger="jobmon.client"):
         wf1.validate(fail=False)
         assert (
             "failed validation, reasons: ResourceError: provided cores 1000 exceeds queue"
@@ -469,7 +466,7 @@ def test_workflow_validation(tool, task_template, caplog):
 
     # Try again for idempotency
     caplog.clear()
-    with caplog.at_level(logging.INFO, logger="jobmon"):
+    with caplog.at_level(logging.INFO, logger="jobmon.client"):
         wf1.validate(fail=False)
         assert (
             "failed validation, reasons: ResourceError: provided cores 1000 exceeds queue"
@@ -483,8 +480,6 @@ def test_workflow_validation(tool, task_template, caplog):
     wf2 = tool.create_workflow()
     wf2.add_task(t2)
     wf2.validate()
-
-    # JobmonLoggerConfig.set_default_config()
 
 
 def test_workflow_get_errors(tool, task_template, db_cfg):
