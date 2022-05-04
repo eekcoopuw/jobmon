@@ -334,10 +334,8 @@ class DistributorService:
             )
 
     def triage_error(self, task_instance: DistributorTaskInstance) -> None:
-        start = time.time()
         r_value, r_msg = self.cluster.get_remote_exit_info(task_instance.distributor_id)
         task_instance.transition_to_error(r_msg, r_value)
-        print(f"triaging: {task_instance.task_instance_id}: {time.time() - start}")
 
     def kill_self(self, task_instance: DistributorTaskInstance) -> None:
         self.cluster.terminate_task_instances([task_instance.distributor_id])

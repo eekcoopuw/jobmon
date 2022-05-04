@@ -394,7 +394,6 @@ def task_status_updates(workflow_id: int) -> Any:
         .where(*filter_criteria)
         .group_by(Task.status)
     )
-    print(tasks_by_status_query)
     result_dict = {}
     for row in DB.session.execute(tasks_by_status_query):
         result_dict[row[0]] = [int(i) for i in row[1].split(",")]

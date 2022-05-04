@@ -321,7 +321,6 @@ class WorkflowRun:
             logger.warning("Keyboard interrupt raised")
             confirm = input("Are you sure you want to exit (y/n): ")
             confirm = confirm.lower().strip()
-            # breakpoint()
 
             if confirm == "y":
                 self._update_status(WorkflowRunStatus.STOPPED)

@@ -460,7 +460,7 @@ def test_workflow_validation(tool, task_template, caplog):
     #     logger_name="jobmon.client", log_level=logging.INFO
     # )
     caplog.clear()
-    with caplog.at_level(logging.INFO, logger="jobmon.client"):
+    with caplog.at_level(logging.INFO, logger="jobmon"):
         wf1.validate(fail=False)
         assert (
             "failed validation, reasons: ResourceError: provided cores 1000 exceeds queue"
@@ -469,7 +469,7 @@ def test_workflow_validation(tool, task_template, caplog):
 
     # Try again for idempotency
     caplog.clear()
-    with caplog.at_level(logging.INFO, logger="jobmon.client"):
+    with caplog.at_level(logging.INFO, logger="jobmon"):
         wf1.validate(fail=False)
         assert (
             "failed validation, reasons: ResourceError: provided cores 1000 exceeds queue"
