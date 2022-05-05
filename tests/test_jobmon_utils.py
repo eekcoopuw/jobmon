@@ -6,7 +6,6 @@ import pytest
 from jobmon.jobmon_utils import true_path
 
 
-@pytest.mark.unittest
 def test_true_path():
     with pytest.raises(ValueError) as exc_info:
         true_path()

@@ -11,7 +11,7 @@ import uuid
 
 from jobmon.client.array import Array
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.client_logging import LoggerFactory
+from jobmon.client.logging import JobmonLoggerConfig
 from jobmon.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
@@ -256,7 +256,6 @@ class Workflow(object):
             app_route=app_route,
             message={"workflow_attributes": workflow_attributes},
             request_type="put",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -393,7 +392,7 @@ class Workflow(object):
         reset_running_jobs: bool = True,
         distributor_startup_timeout: int = 180,
         resume_timeout: int = 300,
-        configure_logging: bool = True,
+        configure_logging: bool = False,
     ) -> str:
         """Run the workflow.
 
@@ -414,11 +413,14 @@ class Workflow(object):
             resume_timeout: seconds to wait for a workflow to become resumable before giving up
             configure_logging: setup jobmon logging. If False, no logging will be configured.
                 If True, default logging will be configured.
+
         Returns:
             str of WorkflowRunStatus
         """
         if configure_logging is True:
-            LoggerFactory.add_logger("jobmon.client")
+            JobmonLoggerConfig.attach_default_handler(
+                logger_name="jobmon", log_level=logging.INFO
+            )
 
         # bind to database
         logger.info("Adding Workflow metadata to database")
@@ -562,7 +564,6 @@ class Workflow(object):
                 "workflow_attributes": self.workflow_attributes,
             },
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -660,7 +661,6 @@ class Workflow(object):
             app_route=f"/workflow/{str(self.workflow_args_hash)}",
             message={},
             request_type="get",
-            logger=logger,
         )
         bound_workflow_hashes = response["matching_workflows"]
         for task_hash, tool_version_id, dag_hash in bound_workflow_hashes:
@@ -688,7 +688,6 @@ class Workflow(object):
                 "workflow_attributes": self.workflow_attributes,
             },
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -708,7 +707,7 @@ class Workflow(object):
             )
             app_route = f"/workflow/{self.workflow_id}/is_resumable"
             return_code, response = self.requester.send_request(
-                app_route=app_route, message={}, request_type="get", logger=logger
+                app_route=app_route, message={}, request_type="get"
             )
             if http_request_ok(return_code) is False:
                 raise InvalidResponse(

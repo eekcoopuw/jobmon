@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import time
 
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse
@@ -34,7 +33,6 @@ class DistributorWorkflowRun:
             app_route=app_route,
             message={"status": status},
             request_type="put",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(

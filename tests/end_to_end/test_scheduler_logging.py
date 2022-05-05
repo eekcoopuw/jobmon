@@ -1,11 +1,14 @@
 import logging
 
+import pytest
+
 from jobmon.client.api import Tool
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.workflow import DistributorContext
 from jobmon.requester import Requester
 
 
+@pytest.mark.skip()
 def test_scheduler_logging(client_env, caplog):
     """Test to check that scheduler logs are sent to stdout properly."""
 

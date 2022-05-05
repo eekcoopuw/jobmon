@@ -129,7 +129,6 @@ class Node:
                 "node_args_hash": self.node_args_hash,
             },
             request_type="get",
-            logger=logger,
         )
         if return_code == StatusCodes.OK:
             return response["node_id"]
@@ -151,7 +150,6 @@ class Node:
                 "node_args": json.dumps(self.mapped_node_args),
             },
             request_type="post",
-            logger=logger,
         )
         if return_code == StatusCodes.OK:
             return response["node_id"]

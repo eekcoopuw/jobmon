@@ -56,7 +56,7 @@ class TaskInstanceBatch:
     def load_requested_resources(self) -> None:
         app_route = f"/task_resources/{self.task_resources_id}"
         return_code, response = self.requester.send_request(
-            app_route=app_route, message={}, request_type="get", logger=logger
+            app_route=app_route, message={}, request_type="get"
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(

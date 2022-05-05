@@ -130,7 +130,6 @@ class TaskTemplate:
                 "task_template_name": self.template_name,
             },
             request_type="post",
-            logger=logger,
         )
 
         if return_code != StatusCodes.OK:
@@ -345,7 +344,7 @@ class TaskTemplate:
         """Load task template versions associated with this task template from the database."""
         app_route = f"/task_template/{self.id}/versions"
         return_code, response = self.requester.send_request(
-            app_route=app_route, message={}, request_type="get", logger=logger
+            app_route=app_route, message={}, request_type="get"
         )
 
         if return_code != StatusCodes.OK:
@@ -629,7 +628,7 @@ class TaskTemplate:
             message["ci"] = ci
         app_route = "/task_template_resource_usage"
         return_code, response = self.requester.send_request(
-            app_route=app_route, message=message, request_type="post", logger=logger
+            app_route=app_route, message=message, request_type="post"
         )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(

@@ -34,7 +34,9 @@ class DummyQueue(ClusterQueue):
         self._queue_name = queue_name
         self._parameters = parameters
 
-    def validate_resources(self, **kwargs: Dict) -> Tuple[bool, str, Dict]:
+    def validate_resources(
+        self, fail: bool = False, **kwargs: Dict
+    ) -> Tuple[bool, str, Dict]:
         """No resources defined for sequential execution. All resources valid."""
         return True, "", kwargs
 
