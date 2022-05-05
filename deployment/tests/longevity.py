@@ -108,26 +108,29 @@ def main(duration: int, concurrency: int, output_dir: str):
     wf_procs: List[Popen] = []
     for i in range(concurrency):
         WFID += 1
-        wf_procs.append(popen_workflow(output_dir, WFID, BASE_SEED + WFID))
+        wf_procs.append(popen_workflow(output_dir, f"longevity_{WFID}", BASE_SEED + WFID))
 
-    while time.time() - START_TIME < duration:
+    try:
+        keep_running = (time.time() - START_TIME) < duration
+        while keep_running:
+            # sleep to reduce CPU
+            time.sleep(0.5)
+            keep_running = (time.time() - START_TIME) < duration
 
-        # initializing loop
-        while len(wf_procs) == concurrency:
-            try:
-                proc = wf_procs.pop(0)
-                outs, errs = proc.communicate(timeout=3)
-            except TimeoutExpired:
+            # check next proc status
+            proc = wf_procs.pop(0)
+            ret_code = proc.poll()
+            if ret_code is None:
                 wf_procs.append(proc)
-            else:
-                print(outs, errs)
+            elif ret_code == 0:
                 WFID += 1
-                wf_procs.append(popen_workflow(output_dir, WFID, BASE_SEED + WFID))
+                wf = popen_workflow(output_dir, f"longevity_{WFID}", BASE_SEED + WFID)
+                wf_procs.append(wf)
+            elif ret_code != 0:
+                keep_running = False
 
-    for proc in wf_procs:
-        try:
-            outs, errs = proc.communicate(timeout=1)
-        except TimeoutExpired:
+    finally:
+        for proc in wf_procs:
             proc.kill()
 
 

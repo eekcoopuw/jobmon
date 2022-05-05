@@ -302,7 +302,7 @@ if __name__ == "__main__":
     args = parse_arguments()
     params = LoadTestParameters.from_yaml_file(args.yaml_path, args.wfid)
     load_test_generator = LoadTestGenerator.from_parameters(args.scratch_dir, params)
-    status = load_test_generator.workflow.run()
+    status = load_test_generator.workflow.run(configure_logging=True)
     if status != "D":
         raise RuntimeError(
             f"Workflow {load_test_generator.workflow} finished with status {status}"
