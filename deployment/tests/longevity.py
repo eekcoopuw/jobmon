@@ -16,8 +16,8 @@ def generate_random_workflow_yaml(
     output_dir: str,
     wf_name: str = "foo",
     random_seed: int = 123,
-    n_tasks: int = 100,
-    n_phases: int = 3,
+    n_tasks: int = 2000,
+    n_phases: int = 4,
     intermittent_fails: bool = True,
     resource_fails: bool = True,
     fail_always: bool = False
@@ -110,28 +110,26 @@ def main(duration: int, concurrency: int, output_dir: str):
         WFID += 1
         wf_procs.append(popen_workflow(output_dir, f"longevity_{WFID}", BASE_SEED + WFID))
 
-    try:
-        keep_running = (time.time() - START_TIME) < duration
-        while keep_running:
+    while (time.time() - START_TIME) < duration:
+
+        # check next proc status
+        proc = wf_procs.pop(0)
+        ret_code = proc.poll()
+        if ret_code is None:
             # sleep to reduce CPU
             time.sleep(0.5)
-            keep_running = (time.time() - START_TIME) < duration
+            wf_procs.append(proc)
 
-            # check next proc status
-            proc = wf_procs.pop(0)
-            ret_code = proc.poll()
-            if ret_code is None:
-                wf_procs.append(proc)
-            elif ret_code == 0:
-                WFID += 1
-                wf = popen_workflow(output_dir, f"longevity_{WFID}", BASE_SEED + WFID)
-                wf_procs.append(wf)
-            elif ret_code != 0:
-                keep_running = False
+        elif ret_code == 0:
+            WFID += 1
+            wf = popen_workflow(output_dir, f"longevity_{WFID}", BASE_SEED + WFID)
+            wf_procs.append(wf)
 
-    finally:
-        for proc in wf_procs:
-            proc.kill()
+        elif ret_code != 0:
+            break
+
+    for proc in wf_procs:
+        proc.kill()
 
 
 if __name__ == "__main__":
