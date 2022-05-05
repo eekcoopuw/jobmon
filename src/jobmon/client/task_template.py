@@ -267,6 +267,7 @@ class TaskTemplate:
             compute_resources: dictionary of default compute resources to run tasks
                 with. Can be overridden at task level. dict of {resource_name: resource_value}
         """
+        self.default_cluster_name = cluster_name
         self.active_task_template_version.set_default_compute_resources_from_dict(
             cluster_name, compute_resources
         )
@@ -489,6 +490,10 @@ class TaskTemplate:
 
         # build node
         node = Node(self.active_task_template_version, node_args, self.requester)
+
+        # use task template cluster name is empty, GBDSCI-4220
+        if cluster_name is None or len(cluster_name) == 0:
+            cluster_name = self.default_cluster_name
 
         # build task
         task = Task(

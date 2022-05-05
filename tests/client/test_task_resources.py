@@ -93,3 +93,14 @@ def test_task_resource_bind(db_cfg, client_env, tool, task_template):
     assert tr1 is tr2
     assert tr1 is tr3
     assert tr1.id == res[0].id
+
+
+def test_default_cluster_name_pass_down(db_cfg, client_env, tool, task_template):
+    resources = {"queue": "null.q"}
+    task_template.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources=resources
+    )
+    t1 = task_template.create_task(cluster_name="sequential", arg="echo 1")
+    t2 = task_template.create_task(arg="echo 2")
+    assert t1.cluster_name == "sequential"
+    assert t2.cluster_name == "sequential"
