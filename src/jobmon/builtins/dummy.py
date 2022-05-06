@@ -196,20 +196,6 @@ class ConcreteDummyResource(ConcreteResource):
         return self._resources
 
     @classmethod
-    def validate_and_create_concrete_resource(
-        cls: Any, queue: ClusterQueue, requested_resources: Dict
-    ) -> Tuple[bool, str, ConcreteDummyResource]:
-        """Validate that the resources are available on the queue and return an instance.
-
-        Args:
-            queue: The queue to validate the requested resources against.
-            requested_resources: Which resources the user wants to run the task with on the
-                given queue.
-        """
-        is_valid, msg, valid_resources = queue.validate_resources(**requested_resources)
-        return is_valid, msg, cls(queue=queue, resources=valid_resources)
-
-    @classmethod
     def adjust_and_create_concrete_resource(
         cls: Any,
         expected_queue: ClusterQueue,

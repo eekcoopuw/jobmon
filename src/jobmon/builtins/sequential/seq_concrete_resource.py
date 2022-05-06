@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 from jobmon.cluster_type import ClusterQueue, ConcreteResource
 
@@ -25,19 +25,6 @@ class ConcreteSequentialResource(ConcreteResource):
     def resources(self) -> Dict[str, Any]:
         """Return the resources."""
         return self._resources
-
-    @classmethod
-    def validate_and_create_concrete_resource(
-        cls: Any, queue: ClusterQueue, requested_resources: Dict
-    ) -> Tuple[bool, str, ConcreteSequentialResource]:
-        """Validate resources against the specified queue.
-
-        Args:
-            queue: ClusterQueue to validate against.
-            requested_resources: the compute resources the user requested.
-        """
-        is_valid, msg, valid_resources = queue.validate_resources(**requested_resources)
-        return is_valid, msg, cls(queue=queue, resources=valid_resources)
 
     @classmethod
     def adjust_and_create_concrete_resource(

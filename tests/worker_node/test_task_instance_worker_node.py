@@ -47,7 +47,6 @@ def test_task_instance(db_cfg, tool):
     and fail"""
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
 
     workflow = tool.create_workflow(name="test_ti_kill_self_state")
     task_a = tool.active_task_templates["simple_template"].create_task(arg="echo 1")

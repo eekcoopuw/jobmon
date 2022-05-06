@@ -336,20 +336,6 @@ class ConcreteResource(Protocol):
 
     @classmethod
     @abstractmethod
-    def validate_and_create_concrete_resource(
-        cls: Any, queue: ClusterQueue, requested_resources: Dict[str, Any]
-    ) -> Tuple[bool, str, ConcreteResource]:
-        """Validate that the resources are available on the queue and return an instance.
-
-        Args:
-            queue: The queue to validate the requested resources agains.
-            requested_resources: Which resources the user wants to run the task with on the
-                given queue.
-        """
-        raise NotImplementedError
-
-    @classmethod
-    @abstractmethod
     def adjust_and_create_concrete_resource(
         cls: Any,
         expected_queue: ClusterQueue,
