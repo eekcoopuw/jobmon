@@ -323,7 +323,6 @@ class DistributorService:
             distributor_id, output_path, error_path = self.cluster.submit_to_batch_distributor(
                 command=command, name=name, requested_resources=requested_resources
             )
-
         except Exception as e:
             task_instance.transition_to_no_distributor_id(no_id_err_msg=str(e))
 
