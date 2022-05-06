@@ -6,9 +6,7 @@ from jobmon.constants import TaskInstanceStatus
 def test_heartbeat_on_launched(tool, db_cfg, client_env, task_template):
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.cluster_type.multiprocess.multiproc_distributor import (
-        MultiprocessDistributor,
-    )
+    from jobmon.builtins.multiprocess.multiproc_distributor import MultiprocessDistributor
     from jobmon.server.web.models.task_instance import TaskInstance
 
     # create the workflow and bind to database
@@ -30,7 +28,7 @@ def test_heartbeat_on_launched(tool, db_cfg, client_env, task_template):
 
     # launch the task then log a heartbeat
     distributor_service = DistributorService(
-        MultiprocessDistributor(parallelism=2),
+        MultiprocessDistributor(cluster_name="multiprocessing", parallelism=2),
         requester=workflow.requester,
         raise_on_error=True,
     )
@@ -63,4 +61,4 @@ def test_heartbeat_on_launched(tool, db_cfg, client_env, task_template):
     for ti in task_instances:
         assert ti.status_date < ti.report_by_date
 
-    distributor_service.cluster.stop()
+    distributor_service.cluster_interface.stop()

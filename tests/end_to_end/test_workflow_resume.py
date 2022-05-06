@@ -4,9 +4,7 @@ import time
 
 from jobmon.constants import WorkflowRunStatus, TaskInstanceStatus
 from jobmon.exceptions import WorkflowAlreadyExists, WorkflowNotResumable
-from jobmon.cluster_type.multiprocess.multiproc_distributor import (
-    MultiprocessDistributor,
-)
+from jobmon.builtins.multiprocess.multiproc_distributor import MultiprocessDistributor
 
 from mock import patch
 
@@ -166,7 +164,7 @@ def test_cold_resume(tool):
 
     # run first 3 tasks
     distributor_service = DistributorService(
-        MultiprocessDistributor(parallelism=3),
+        MultiprocessDistributor("multiprocess", parallelism=3),
         requester=workflow1.requester,
         raise_on_error=True,
     )
@@ -177,14 +175,14 @@ def test_cold_resume(tool):
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
-    distributor_service.cluster.start()
+    distributor_service.cluster_interface.start()
 
     i = 0
     while len(swarm.done_tasks) < 3 and i < 20:
         swarm.synchronize_state()
         i += 1
         time.sleep(1)
-    distributor_service.cluster.stop()
+    distributor_service.cluster_interface.stop()
     assert len(swarm.done_tasks) == 3
 
     # create new workflow run, causing the old one to reset. resume timeout is
@@ -238,7 +236,7 @@ def test_hot_resume(tool, task_template):
 
     # run first 3 tasks
     distributor_service = DistributorService(
-        MultiprocessDistributor(parallelism=3),
+        MultiprocessDistributor("multiprocess", parallelism=3),
         requester=workflow1.requester,
         raise_on_error=True,
     )
@@ -257,14 +255,14 @@ def test_hot_resume(tool, task_template):
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
-    distributor_service.cluster.start()
+    distributor_service.cluster_interface.start()
 
     i = 0
     while len(swarm.done_tasks) < 3 and i < 20:
         swarm.synchronize_state()
         i += 1
         time.sleep(1)
-    distributor_service.cluster.stop()
+    distributor_service.cluster_interface.stop()
     assert len(swarm.done_tasks) == 3
 
     # now make another workflow and set a hot resume with a quick timeout

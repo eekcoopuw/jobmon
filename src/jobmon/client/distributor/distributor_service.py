@@ -11,7 +11,7 @@ from jobmon.client.distributor.distributor_command import DistributorCommand
 from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
 from jobmon.client.distributor.task_instance_batch import TaskInstanceBatch
-from jobmon.cluster_type.base import ClusterDistributor
+from jobmon.cluster_type import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse, DistributorInterruptedError
 from jobmon.requester import http_request_ok, Requester
@@ -24,7 +24,7 @@ logger = logging.getLogger(__name__)
 class DistributorService:
     def __init__(
         self,
-        cluster: ClusterDistributor,
+        cluster_interface: ClusterDistributor,
         requester: Requester,
         workflow_run_heartbeat_interval: int = 30,
         task_instance_heartbeat_interval: int = 90,
@@ -70,7 +70,7 @@ class DistributorService:
         self._last_heartbeat_time = time.time()
 
         # cluster API
-        self.cluster = cluster
+        self.cluster_interface = cluster_interface
 
         # web service API
         self.requester = requester
@@ -88,7 +88,7 @@ class DistributorService:
         # start the cluster
         try:
             self._initialize_signal_handlers()
-            self.cluster.start()
+            self.cluster_interface.start()
             self.workflow_run.transition_to_launched()
 
             # signal via pipe that we are alive
@@ -155,7 +155,7 @@ class DistributorService:
 
         finally:
             # stop distributor
-            self.cluster.stop()
+            self.cluster_interface.stop()
 
             # signal via pipe that we are shutdown
             sys.stderr.write("SHUTDOWN")
@@ -247,7 +247,7 @@ class DistributorService:
         task_instance_batch.prepare_task_instance_batch_for_launch()
 
         # build worker node command
-        command = self.cluster.build_worker_node_command(
+        command = self.cluster_interface.build_worker_node_command(
             task_instance_id=None,
             array_id=task_instance_batch.array_id,
             batch_number=task_instance_batch.batch_number,
@@ -256,7 +256,7 @@ class DistributorService:
             distributor_commands: List[DistributorCommand] = []
 
             # submit array to distributor
-            distributor_id_map = self.cluster.submit_array_to_batch_distributor(
+            distributor_id_map = self.cluster_interface.submit_array_to_batch_distributor(
                 command=command,
                 name=task_instance_batch.name,
                 requested_resources=task_instance_batch.requested_resources,
@@ -314,13 +314,13 @@ class DistributorService:
             requested_resources = task_instance.batch.requested_resources
 
         # Fetch the worker node command
-        command = self.cluster.build_worker_node_command(
+        command = self.cluster_interface.build_worker_node_command(
             task_instance_id=task_instance.task_instance_id
         )
 
         # Submit to batch distributor
         try:
-            distributor_id = self.cluster.submit_to_batch_distributor(
+            distributor_id = self.cluster_interface.submit_to_batch_distributor(
                 command=command, name=name, requested_resources=requested_resources
             )
 
@@ -334,11 +334,13 @@ class DistributorService:
             )
 
     def triage_error(self, task_instance: DistributorTaskInstance) -> None:
-        r_value, r_msg = self.cluster.get_remote_exit_info(task_instance.distributor_id)
+        r_value, r_msg = self.cluster_interface.get_remote_exit_info(
+            task_instance.distributor_id
+        )
         task_instance.transition_to_error(r_msg, r_value)
 
     def kill_self(self, task_instance: DistributorTaskInstance) -> None:
-        self.cluster.terminate_task_instances([task_instance.distributor_id])
+        self.cluster_interface.terminate_task_instances([task_instance.distributor_id])
         task_instance.transition_to_error(
             "Task instance was self-killed.", TaskInstanceStatus.ERROR_FATAL
         )
@@ -349,7 +351,7 @@ class DistributorService:
             TaskInstanceStatus.LAUNCHED
         ]
 
-        submitted_or_running = self.cluster.get_submitted_or_running(
+        submitted_or_running = self.cluster_interface.get_submitted_or_running(
             [x.distributor_id for x in task_instances_launched]
         )
 

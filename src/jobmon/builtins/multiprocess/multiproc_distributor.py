@@ -9,7 +9,7 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import psutil
 
-from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
+from jobmon.cluster_type import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 
@@ -113,7 +113,13 @@ class MultiprocessDistributor(ClusterDistributor):
         ----> subconsumerN
     """
 
-    def __init__(self, parallelism: int = 3, *args: tuple, **kwargs: dict) -> None:
+    def __init__(
+        self,
+        cluster_name: str,
+        parallelism: int = 3,
+        *args: tuple,
+        **kwargs: dict
+    ) -> None:
         """Initialization of the multiprocess distributor.
 
         Args:
@@ -122,6 +128,7 @@ class MultiprocessDistributor(ClusterDistributor):
         """
         self.temp_dir: Optional[str] = None
         self.started = False
+        self._cluster_name = cluster_name
 
         worker_node_entry_point = shutil.which("worker_node_entry_point")
         if not worker_node_entry_point:
@@ -152,7 +159,7 @@ class MultiprocessDistributor(ClusterDistributor):
     @property
     def cluster_name(self) -> str:
         """Return the name of the cluster type."""
-        return "multiprocess"
+        return self._cluster_name
 
     def _get_subtask_id(self, distributor_id: int, array_step_id: int) -> str:
         """Get the subtask_id based on distributor_id and array_step_id."""

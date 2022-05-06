@@ -5,7 +5,7 @@ import os
 import shutil
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-from jobmon.cluster_type.base import ClusterDistributor, ClusterWorkerNode
+from jobmon.cluster_type import ClusterDistributor, ClusterWorkerNode
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.worker_node.cli import WorkerNodeCLI
@@ -38,7 +38,11 @@ class SequentialDistributor(ClusterDistributor):
     """Executor to run tasks one at a time."""
 
     def __init__(
-        self, exit_info_queue_size: int = 1000, *args: tuple, **kwargs: dict
+        self,
+        cluster_name: str,
+        exit_info_queue_size: int = 1000,
+        *args: tuple,
+        **kwargs: dict
     ) -> None:
         """Initialization of the sequential distributor.
 
@@ -47,6 +51,7 @@ class SequentialDistributor(ClusterDistributor):
         """
         self.started = False
 
+        self._cluster_name = cluster_name
         worker_node_entry_point = shutil.which("worker_node_entry_point")
         if not worker_node_entry_point:
             raise ValueError("worker_node_entry_point can't be found.")
@@ -63,7 +68,7 @@ class SequentialDistributor(ClusterDistributor):
     @property
     def cluster_name(self) -> str:
         """Return the name of the cluster type."""
-        return "sequential"
+        return self._cluster_name
 
     def start(self) -> None:
         """Start the distributor."""

@@ -7,10 +7,10 @@ from sqlalchemy.sql import text
 from jobmon.constants import TaskInstanceStatus
 from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-from jobmon.cluster_type.multiprocess.multiproc_distributor import (
+from jobmon.builtins.multiprocess.multiproc_distributor import (
     MultiprocessDistributor,
 )
-from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+from jobmon.builtins.sequential.seq_distributor import SequentialDistributor
 
 
 def test_instantiate_job(tool, db_cfg, client_env, task_template):
@@ -35,7 +35,7 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        SequentialDistributor(), requester=workflow.requester, raise_on_error=True
+        SequentialDistributor("sequential"), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -131,7 +131,8 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        MultiprocessDistributor(), requester=workflow.requester, raise_on_error=True
+        MultiprocessDistributor("multiprocess"), requester=workflow.requester,
+        raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -203,8 +204,8 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
     assert res[1].distributor_id is not None
 
     # Check that distributor id is logged correctly
-    submitted_job_id = distributor_service.cluster._next_job_id - 1
-    expected_dist_id = distributor_service.cluster._get_subtask_id
+    submitted_job_id = distributor_service.cluster_interface._next_job_id - 1
+    expected_dist_id = distributor_service.cluster_interface._get_subtask_id
     assert res[0].distributor_id == expected_dist_id(
         submitted_job_id, res[0].array_step_id
     )
@@ -239,7 +240,7 @@ def test_job_submit_raises_error(db_cfg, tool):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        ErrorDistributor(), requester=workflow.requester, raise_on_error=True
+        ErrorDistributor("sequential"), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -292,7 +293,7 @@ def test_array_submit_raises_error(db_cfg, tool):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        ErrorDistributor(), requester=workflow.requester, raise_on_error=True
+        ErrorDistributor("sequential"), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -345,7 +346,7 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        MultiprocessDistributor(parallelism=3),
+        MultiprocessDistributor("multiprocess", parallelism=3),
         requester=workflow.requester,
         raise_on_error=True,
     )
@@ -360,7 +361,7 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
         == 2
     )
 
-    distributor_service.cluster.stop()
+    distributor_service.cluster_interface.stop()
 
 
 @pytest.mark.parametrize(
@@ -395,7 +396,7 @@ def test_array_concurrency(
     swarm.process_commands()
 
     distributor_service = DistributorService(
-        MultiprocessDistributor(parallelism=3),
+        MultiprocessDistributor("multiprocess", parallelism=3),
         requester=workflow.requester,
         raise_on_error=True,
     )
@@ -410,7 +411,7 @@ def test_array_concurrency(
         == expected_len
     )
 
-    distributor_service.cluster.stop()
+    distributor_service.cluster_interface.stop()
 
 
 @pytest.mark.skip()

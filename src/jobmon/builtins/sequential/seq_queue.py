@@ -1,7 +1,7 @@
 """The client for the Sequential Executor."""
 from typing import Dict, List, Tuple
 
-from jobmon.cluster_type.base import ClusterQueue
+from jobmon.cluster_type import ClusterQueue
 
 
 class SequentialQueue(ClusterQueue):

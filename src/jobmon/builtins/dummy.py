@@ -6,7 +6,7 @@ import os
 import random
 from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
-from jobmon.cluster_type.base import (
+from jobmon.cluster_type import (
     ClusterDistributor,
     ClusterQueue,
     ClusterWorkerNode,
@@ -64,15 +64,10 @@ class DummyQueue(ClusterQueue):
 class DummyDistributor(ClusterDistributor):
     """The Dummy Executor fakes the execution of a Task and acts as though it succeeded."""
 
-    def __init__(self, *args: tuple, **kwargs: dict) -> None:
+    def __init__(self, cluster_name: str, *args: tuple, **kwargs: dict) -> None:
         """Initialization of the dummy distributor."""
         self.started = False
-        # Parse the config
-        worker_node_config = WorkerNodeConfig.from_defaults()
-        self.heartbeat_report_by_buffer = worker_node_config.heartbeat_report_by_buffer
-        self.task_instance_heartbeat_interval = (
-            worker_node_config.task_instance_heartbeat_interval
-        )
+        self._cluster_name = cluster_name
 
     @property
     def worker_node_entry_point(self) -> str:
@@ -82,7 +77,7 @@ class DummyDistributor(ClusterDistributor):
     @property
     def cluster_name(self) -> str:
         """Return the name of the cluster type."""
-        return "dummy"
+        return self._cluster_name
 
     def start(self) -> None:
         """Start the executor."""

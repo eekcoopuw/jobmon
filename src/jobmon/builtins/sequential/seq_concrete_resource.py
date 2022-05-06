@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from jobmon.cluster_type.base import ClusterQueue, ConcreteResource
+from jobmon.cluster_type import ClusterQueue, ConcreteResource
 
 
 class ConcreteSequentialResource(ConcreteResource):

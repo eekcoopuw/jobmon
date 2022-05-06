@@ -6,7 +6,7 @@ import logging
 from typing import Dict, Optional
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.cluster_type.base import ClusterQueue, ConcreteResource
+from jobmon.cluster_type import ClusterQueue, ConcreteResource
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 

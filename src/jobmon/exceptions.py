@@ -96,12 +96,6 @@ class DuplicateNodeArgsError(Exception):
     pass
 
 
-class UnregisteredClusterType(Exception):
-    """cluster type has not registered as a plugin yet."""
-
-    pass
-
-
 class InvalidMemoryFormat(Exception):
     """Memory input invalid."""
 

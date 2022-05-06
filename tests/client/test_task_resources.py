@@ -1,5 +1,5 @@
 from jobmon.client.task_resources import TaskResources
-from jobmon.cluster_type.base import ConcreteResource
+from jobmon.cluster_type import ConcreteResource
 
 
 def test_task_resources_hash(client_env):

@@ -698,11 +698,7 @@ class WorkflowRun:
             resource_params.update(dynamic_compute_resources)
             task.compute_resources_callable = None
 
-        (
-            _,
-            _,
-            concrete_resource,
-        ) = cluster.concrete_resource_class.validate_and_create_concrete_resource(
+        concrete_resource = cluster.get_validated_concrete_resources(
             queue, resource_params
         )
 
@@ -731,14 +727,13 @@ class WorkflowRun:
         resource_params = (
             task.current_task_resources.concrete_resources.resources.copy()
         )
+        cluster = task.cluster
 
-        concrete_resource = (
-            task.cluster.concrete_resource_class.adjust_and_create_concrete_resource(
-                existing_resources=resource_params,
-                resource_scales=task.resource_scales,
-                expected_queue=task.current_task_resources.queue,
-                fallback_queues=task.fallback_queues,
-            )
+        concrete_resource = cluster.get_adjusted_concrete_resources(
+            existing_resources=resource_params,
+            resource_scales=task.resource_scales,
+            expected_queue=task.current_task_resources.queue,
+            fallback_queues=task.fallback_queues,
         )
 
         try:
