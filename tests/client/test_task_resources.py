@@ -95,12 +95,34 @@ def test_task_resource_bind(db_cfg, client_env, tool, task_template):
     assert tr1.id == res[0].id
 
 
-def test_default_cluster_name_pass_down(db_cfg, client_env, tool, task_template):
-    resources = {"queue": "null.q"}
+def test_defaults_pass_down_and_overrides(db_cfg, client_env, tool, task_template):
+    resources = {"queue": "null.q", "memory": 34, "runtime": 56}
+    scales = {"runtime": 0.7, "cores": 0.6, "memory": 0.8}
     task_template.set_default_compute_resources_from_dict(
-        cluster_name="sequential", compute_resources=resources
+        cluster_name="sequential", compute_resources=resources,
+    )
+    task_template.set_default_resource_scales_from_dict(
+        cluster_name="sequential", resource_scales=scales,
     )
     t1 = task_template.create_task(cluster_name="sequential", arg="echo 1")
-    t2 = task_template.create_task(arg="echo 2")
+    t2 = task_template.create_task(arg="echo 2",
+                                   compute_resources={"queue": "null.q",
+                                                      "memory": 22, "runtime": 222},
+                                   resource_scales={"runtime": 0.2, "cores": 0.22,
+                                                    "memory": 0.222}
+                                   )
+
     assert t1.cluster_name == "sequential"
     assert t2.cluster_name == "sequential"
+
+    assert t1.compute_resources["memory"] == 34
+    assert t1.compute_resources["runtime"] == 56
+    assert t1.resource_scales["runtime"] == 0.7
+    assert t1.resource_scales["cores"] == 0.6
+    assert t1.resource_scales["memory"] == 0.8
+
+    assert t2.compute_resources["memory"] == 22
+    assert t2.compute_resources["runtime"] == 222
+    assert t2.resource_scales["runtime"] == 0.2
+    assert t2.resource_scales["cores"] == 0.22
+    assert t2.resource_scales["memory"] == 0.222

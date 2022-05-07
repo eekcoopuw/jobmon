@@ -102,6 +102,11 @@ class Tool:
         return self.active_tool_version.default_compute_resources_set
 
     @property
+    def default_resource_scales_set(self) -> Dict[Dict[str, float]]:
+        """Default resource scales associated with active tool version."""
+        return self.active_tool_version.default_resource_scales_set
+
+    @property
     def default_cluster_name(self) -> str:
         """Default cluster_name associated with active tool version."""
         return self.active_tool_version.default_cluster_name
@@ -146,6 +151,7 @@ class Tool:
         op_args: List[str] = None,
         default_cluster_name: str = "",
         default_compute_resources: Optional[Dict[str, Any]] = None,
+        default_resource_scales: Optional[Dict[str, float]] = None,
         yaml_file: str = None,
     ) -> TaskTemplate:
         """Create or get task a task template.
@@ -169,6 +175,9 @@ class Tool:
             default_compute_resources: dictionary of default compute resources to run tasks
                 with. Can be overridden at task level. dict of {resource_name: resource_value}.
                 Must specify default_cluster_name when this option is used.
+            default_resource_scales: dictionary of default resource scales to adjust task
+                resources with. Can be overridden at task level.
+                dict of {resource_name: scale_value}.
             yaml_file: path to YAML file that contains user-specified compute resources.
         """
         if node_args is None:
@@ -178,26 +187,34 @@ class Tool:
         if op_args is None:
             op_args = []
 
-        if default_compute_resources is not None and not default_cluster_name:
+        if (default_compute_resources is not None or default_resource_scales is not None) \
+                and not default_cluster_name:
             raise ValueError(
-                "Must specify default_cluster_name when using default_compute_resources option"
+                "Must specify default_cluster_name when using "
+                "default_compute_resources or default_resource_scales option"
             )
 
         tt = self.active_tool_version.get_task_template(template_name)
 
-        # Read in compute resources from YAML
-        if yaml_file and default_compute_resources is None:
+        # Read in compute resources and resources scales from YAML
+        if yaml_file and \
+                (default_compute_resources is None or default_resource_scales is None):
             with open(yaml_file, "r") as stream:
                 try:
-                    default_compute_resources = yaml.safe_load(stream)
+                    yaml_stream = yaml.safe_load(stream)
                 except yaml.YAMLError as exc:
                     raise Exception(
                         f"Unable to read resources from {yaml_file}. "
                         f"Exception: {exc}"
                     )
-            default_compute_resources = default_compute_resources[
-                "task_template_resources"
-            ][tt.template_name][default_cluster_name]
+            if default_compute_resources is None:
+                default_compute_resources = yaml_stream[
+                    "task_template_resources"
+                ][tt.template_name][default_cluster_name]
+            if default_resource_scales is None:
+                default_resource_scales = yaml_stream[
+                    "task_template_scales"
+                ][tt.template_name][default_cluster_name]
         tt.get_task_template_version(
             command_template,
             node_args,
@@ -207,6 +224,9 @@ class Tool:
         tt.default_cluster_name = default_cluster_name
         tt.set_default_compute_resources_from_dict(
             default_cluster_name, default_compute_resources
+        )
+        tt.set_default_resource_scales_from_dict(
+            default_cluster_name, default_resource_scales
         )
         return tt
 
@@ -220,6 +240,7 @@ class Tool:
         chunk_size: int = 500,
         default_cluster_name: str = "",
         default_compute_resources_set: Optional[Dict] = None,
+        default_resource_scales_set: Optional[Dict[str, float]] = None,
     ) -> Workflow:
         """Create a workflow object associated with the active tool version.
 
@@ -236,6 +257,9 @@ class Tool:
             default_compute_resources_set: dictionary of default compute resources to run tasks
                 with. Can be overridden at task template or task level.
                 dict of {cluster_name: {resource_name: resource_value}}
+            default_resource_scales_set: dictionary of default resource_scales to adjust the
+                resources with. Can be overridden at task template or task level.
+                dict of {resource_name: scale_value}
         """
         wf = Workflow(
             self.active_tool_version,
@@ -259,6 +283,11 @@ class Tool:
         else:
             if self.active_tool_version.default_compute_resources_set:
                 wf.default_compute_resources_set = self.default_compute_resources_set
+        if default_resource_scales_set:
+            wf.default_resource_scales_set = default_resource_scales_set
+        else:
+            if self.active_tool_version.default_resource_scales_set:
+                wf.default_resource_scales_set = self.default_resource_scales_set
 
         return wf
 
@@ -277,6 +306,24 @@ class Tool:
         if not self.default_cluster_name:
             self.active_tool_version.default_cluster_name = cluster_name
         self.active_tool_version.update_default_compute_resources(
+            cluster_name, **kwargs
+        )
+
+    def update_default_resource_scales(
+        self, cluster_name: str, **kwargs: Any
+    ) -> None:
+        """Update default resource scales in place only overridding specified keys.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to modify default values for.
+            **kwargs: any key/value pair you want to update specified as an argument.
+        """
+        if not self.default_cluster_name:
+            self.active_tool_version.default_cluster_name = cluster_name
+        self.active_tool_version.update_default_resource_scales(
             cluster_name, **kwargs
         )
 
@@ -353,6 +400,79 @@ class Tool:
                     else:
                         raise KeyError(msg) from exc
 
+    def set_default_resource_scales_from_yaml(
+        self,
+        default_cluster_name: str,
+        yaml_file: str,
+        set_task_templates: bool = False,
+        ignore_missing_keys: bool = False,
+    ) -> None:
+        """Set default resource scales from a user provided yaml file for tool level.
+
+        Args:
+            default_cluster_name: name of cluster to set default values for.
+            yaml_file: the yaml file that is providing the default compute resource values.
+            set_task_templates: whether or not the user wants to set the default compute
+                resource values for all of the TaskTemplates associated with Tool.
+            ignore_missing_keys: Whether or not to raise an error if a key is missing from the
+                yaml file.
+        """
+        with open(yaml_file, "r") as stream:
+            try:
+                default_resource_scales = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                raise ValueError(
+                    f"Unable to read default resource scales from " f"{yaml_file}."
+                ) from exc
+
+        # Set the Tool level resource scales
+        try:
+            resource_scales = default_resource_scales["tool_scales"][
+                default_cluster_name
+            ]
+        except KeyError as exc:
+            msg = f"No Tool scales matching cluster name in yaml file: {yaml_file}."
+            if ignore_missing_keys:
+                logger.info(msg)
+            else:
+                raise KeyError(msg) from exc
+
+        self.active_tool_version.set_default_resource_scales_from_dict(
+            cluster_name=default_cluster_name, resource_scales=resource_scales
+        )
+        self.active_tool_version.default_cluster_name = default_cluster_name
+
+        if not set_task_templates:
+            return
+
+        if not self.active_task_templates:
+            raise Exception(
+                "No TaskTemplates associated with Tool, unable to set default "
+                "resource scales for TaskTemplates."
+            )
+
+        if set_task_templates:
+            # Set the the resource scales for the TaskTemplates associated with the Tool
+            for tt in self.active_task_templates.values():
+                try:
+                    tt.set_default_resource_scales_from_dict(
+                        cluster_name=default_cluster_name,
+                        resource_scales=(
+                            default_resource_scales["task_template_scales"][
+                                tt.template_name
+                            ][default_cluster_name]
+                        ),
+                    )
+                except KeyError as exc:
+                    msg = (
+                        f"No resource scales discovered in yaml file {yaml_file} for"
+                        f"TaskTemplate {tt.template_name}"
+                    )
+                    if ignore_missing_keys:
+                        logger.info(msg)
+                    else:
+                        raise KeyError(msg) from exc
+
     def set_default_compute_resources_from_dict(
         self, cluster_name: str, compute_resources: Dict[str, Any]
     ) -> None:
@@ -371,6 +491,26 @@ class Tool:
             self.active_tool_version.default_cluster_name = cluster_name
         self.active_tool_version.set_default_compute_resources_from_dict(
             cluster_name, compute_resources
+        )
+
+    def set_default_resource_scales_from_dict(
+        self, cluster_name: str, resource_scales: Dict[str, float]
+    ) -> None:
+        """Set default compute resources for a given cluster_name.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            resource_scales: dictionary of default resource scales to adjust task
+                resources with. Can be overridden at task level.
+                dict of {resource_name: scale_value}
+        """
+        if not self.default_cluster_name:
+            self.active_tool_version.default_cluster_name = cluster_name
+        self.active_tool_version.set_default_resource_scales_from_dict(
+            cluster_name, resource_scales
         )
 
     def set_default_cluster_name(self, cluster_name: str) -> None:
