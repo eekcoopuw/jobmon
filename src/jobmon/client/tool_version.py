@@ -36,7 +36,7 @@ class ToolVersion:
         self.task_templates: Dict[str, TaskTemplate] = {}
 
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
-        self.default_resource_scales_set: Dict[str, float] = {}
+        self.default_resource_scales_set: Dict[str, Dict[str, float]] = {}
         self.default_cluster_name: str = ""
 
         if requester is None:
