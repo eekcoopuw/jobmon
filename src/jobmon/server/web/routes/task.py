@@ -595,6 +595,8 @@ def get_task_status() -> Any:
             distributor_id AS DISTRIBUTOR_ID,
             task_instance_status.label AS STATUS,
             usage_str AS RESOURCE_USAGE,
+            task_instance.stdout AS STDOUT,
+            task_instance.stderr AS STDERR,
             description AS ERROR_TRACE
         FROM task
         JOIN task_instance
@@ -621,6 +623,8 @@ def get_task_status() -> Any:
                 "DISTRIBUTOR_ID",
                 "STATUS",
                 "RESOURCE_USAGE",
+                "STDOUT",
+                "STDERR",
                 "ERROR_TRACE",
             ]
         ]
@@ -633,6 +637,8 @@ def get_task_status() -> Any:
                 "DISTRIBUTOR_ID",
                 "STATUS",
                 "RESOURCE_USAGE",
+                "STDOUT",
+                "STDERR",
                 "ERROR_TRACE",
             ],
         )

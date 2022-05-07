@@ -412,6 +412,22 @@ def test_task_status(db_cfg, client_env, tool, cli):
     df_all = task_status(all_args.task_ids, all_args.status)
     assert len(df_all) == 3
 
+    # Check that the filepaths are returned correctly
+    app, db = db_cfg['app'], db_cfg['DB']
+    with app.app_context():
+        sql = """
+        UPDATE task_instance
+        SET stdout="/stdout/dir/file.o123", stderr="/stderr/dir/file.e123"
+        WHERE task_id IN {task_ids}
+        """
+        db.session.execute(sql.format(task_ids=(t1.task_id, t2.task_id)))
+        db.session.commit()
+
+    args = cli.parse_args(command_str)
+    df = task_status(args.task_ids)
+    assert set(df.STDOUT) == {"/stdout/dir/file.o123"}
+    assert set(df.STDERR) == {"/stderr/dir/file.e123"}
+
 
 def test_task_reset(db_cfg, client_env, tool, monkeypatch):
     from jobmon.requester import Requester
