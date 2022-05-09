@@ -545,7 +545,9 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
         "/array/1/log_distributor_id",
         json={
             "array_batch_num": 1,
-            "distributor_id_map": {"0": "123_1", "1": "123_2", "2": "123_3"},
+            "distributor_id_map": {"0": ("123_1", "foo/out/file", "foo/err/file"),
+                                   "1": ("123_2", "foo/out/file", "foo/err/file"),
+                                   "2": ("123_3", "foo/out/file", "foo/err/file")},
         },
     )
     assert resp.status_code == 200
@@ -562,3 +564,6 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
             "123_2",
             "123_3",
         ]
+
+        assert {ti1_r.stdout, ti2_r.stdout, ti3_r.stdout} == {"foo/out/file"}
+        assert {ti1_r.stderr, ti2_r.stderr, ti3_r.stderr} == {"foo/err/file"}

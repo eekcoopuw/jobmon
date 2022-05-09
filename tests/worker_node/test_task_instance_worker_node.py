@@ -1,6 +1,6 @@
 import os
 import random
-from typing import Dict
+from typing import Dict, Tuple
 
 from unittest.mock import patch
 from sqlalchemy import select
@@ -20,9 +20,9 @@ from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
 class DoNothingDistributor(DummyDistributor):
     def submit_to_batch_distributor(
         self, command: str, name: str, requested_resources
-    ) -> str:
+    ) -> Tuple[str, str, str]:
         distributor_id = random.randint(1, int(1e7))
-        return str(distributor_id)
+        return str(distributor_id), "/foo", "/bar"
 
 
 class DoNothingArrayDistributor(MultiprocessDistributor):
@@ -32,12 +32,12 @@ class DoNothingArrayDistributor(MultiprocessDistributor):
         name: str,
         requested_resources,
         array_length: int,
-    ) -> Dict[int, str]:
+    ) -> Dict[int, Tuple[str, str, str]]:
         job_id = random.randint(1, int(1e7))
-        mapping: Dict[int, str] = {}
+        mapping: Dict[int, Tuple[str, str, str]] = {}
         for array_step_id in range(0, array_length):
             distributor_id = self._get_subtask_id(job_id, array_step_id)
-            mapping[array_step_id] = distributor_id
+            mapping[array_step_id] = distributor_id, "/foo", "/bar"
 
         return mapping
 
@@ -125,12 +125,18 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template, monkeypat
     DB = db_cfg["DB"]
     with app.app_context():
         task_instance_id_query = select(
-            TaskInstance.distributor_id, TaskInstance.array_batch_num
+            TaskInstance.distributor_id, TaskInstance.array_batch_num,
+            TaskInstance.stdout, TaskInstance.stderr
         ).where(TaskInstance.array_id == array1.array_id)
         distributor_ids = DB.session.execute(task_instance_id_query).all()
         DB.session.commit()
 
-    for distributor_id, array_batch_num in distributor_ids:
+    # Check the filepaths are logged correctly
+    for *_, stdout, stderr in distributor_ids:
+        assert stdout == '/foo'
+        assert stderr == '/bar'
+
+    for distributor_id, array_batch_num, *_ in distributor_ids:
 
         job_id, step_id = distributor_id.split(".")
         monkeypatch.setenv("JOB_ID", job_id)

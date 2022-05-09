@@ -269,7 +269,7 @@ class MultiprocessDistributor(ClusterDistributor):
 
     def submit_to_batch_distributor(
         self, command: str, name: str, requested_resources: dict
-    ) -> str:
+    ) -> Tuple[str, str, str]:
         """Execute a task instance."""
         # add an executor id to the environment
         distributor_id = str(self._next_job_id)
@@ -279,7 +279,7 @@ class MultiprocessDistributor(ClusterDistributor):
         )
         self.task_queue.put(task)
         self._running_or_submitted.update({distributor_id: None})
-        return distributor_id
+        return distributor_id, "", ""
 
     def submit_array_to_batch_distributor(
         self,
@@ -287,18 +287,18 @@ class MultiprocessDistributor(ClusterDistributor):
         name: str,
         requested_resources: Dict[str, Any],
         array_length: int,
-    ) -> Dict[int, str]:
+    ) -> Dict[int, Tuple[str, str, str]]:
         """Submit an array task to the multiprocess cluster.
 
-        Return: a mapping of array_step_id to distributor_id
+        Return: a mapping of array_step_id to distributor_id, output path, and error path
         """
         job_id = self._next_job_id
         self._next_job_id += 1
 
-        mapping: Dict[int, str] = {}
+        mapping: Dict[int, Tuple[str, str, str]] = {}
         for array_step_id in range(0, array_length):
             distributor_id = self._get_subtask_id(job_id, array_step_id)
-            mapping[array_step_id] = distributor_id
+            mapping[array_step_id] = distributor_id, "", ""
             task = PickableTask(
                 distributor_id,
                 self.worker_node_entry_point + " " + command,

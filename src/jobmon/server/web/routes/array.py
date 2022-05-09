@@ -247,7 +247,7 @@ def log_array_distributor_id(array_id):
 
     # Create a list of dicts out of the distributor id map.
     params = [
-        {"step_id": key, "distributor_id": val}
+        {"step_id": key, "distributor_id": val[0], "stdout": val[1], "stderr": val[2]}
         for key, val in distributor_id_map.items()
     ]
 
@@ -263,7 +263,9 @@ def log_array_distributor_id(array_id):
                 TaskInstance.array_id == array_id,
                 TaskInstance.array_step_id == bindparam("step_id"),
             )
-            .values(distributor_id=bindparam("distributor_id"))
+            .values(distributor_id=bindparam("distributor_id"),
+                    stdout=bindparam("stdout"),
+                    stderr=bindparam("stderr"))
             .execution_options(synchronize_session=False)
         )
         DB.session.execute(update_stmt, params)

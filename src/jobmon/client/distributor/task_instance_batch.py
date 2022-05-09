@@ -109,7 +109,9 @@ class TaskInstanceBatch:
             )
 
     def log_distributor_ids(self, distributor_id_map: Dict, chunk_size: int = 1000):
-        """Log the distributor ID in the database for all task instances in the batch.
+        """Log the distributor ID and the output/error path in the database.
+
+        Done for all task instances in the batch.
 
         Send data to the server in chunks, so that we don't hold a lock for more than a few
         milliseconds."""
