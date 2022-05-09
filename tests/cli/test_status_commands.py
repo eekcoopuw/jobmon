@@ -840,3 +840,8 @@ def test_create_yaml():
     input = {1: ["tt1", 1, 400, 10, "all.q"], 2: ["tt2", 1, 600, 20, "long.q"]}
     result = _create_yaml(input, ["ihme_slurm", "ihme_uge"])
     assert result == expected
+
+
+def test_get_tasks_from_array_name(db_cfg, web_server_in_memory, tool, task_template):
+
+    pass

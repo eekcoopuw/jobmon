@@ -181,7 +181,7 @@ def task_status(
     status: Optional[List[str]] = None,
     json: bool = False,
     requester_url: Optional[str] = None,
-) -> Tuple[str, pd.DataFrame]:
+) -> Union[dict, pd.DataFrame]:
     """Get metadata about a task and its task instances.
 
     Args:
