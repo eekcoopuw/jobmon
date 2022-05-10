@@ -305,7 +305,7 @@ def test_inconsistent_status(db_cfg, client_env):
 
     workflows = []
     for i in range(3):
-        workflows[i] = _create_workflow_inconsistency_check(tool, i)
+        workflows.append(_create_workflow_inconsistency_check(tool, i))
         workflows[i].run()
 
     # Now force the first one to be inconsistent
