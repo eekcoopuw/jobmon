@@ -17,7 +17,7 @@ pipeline {
     string(defaultValue: 'jobmon-slurm-sdb-dev',
      description: 'name of rancher secret to use for db variables',
      name: 'RANCHER_DB_SLURM_SDB_SECRET')
-    booleanParam(defaultValue: 'false',
+    booleanParam(defaultValue: 'true',
      description: 'Whether or not to keep task instances that are not able to integrate in the queue forever',
      name: 'INTEGRATOR_NEVER_RETIRE')
     string(defaultValue: 'c-99499:p-4h54h',
@@ -80,7 +80,17 @@ pipeline {
           // Scicomp kubernetes cluster container
           withCredentials([file(credentialsId: 'k8s-scicomp-cluster-kubeconf',
                                 variable: 'KUBECONFIG')]) {
-
+            sh '''echo \
+                  deploy_integrator_to_k8s \
+                      ${WORKSPACE} \
+                      ${JOBMON_CONTAINER_URI} \
+                      ${K8S_NAMESPACE} \
+                      ${RANCHER_PROJECT_ID} \
+                      ${RANCHER_DB_SECRET} \
+                      ${RANCHER_DB_SLURM_SDB_SECRET} \
+                      ${KUBECONFIG}
+                      ${INTEGRATOR_NEVER_RETIRE}
+               '''
             sh '''#!/bin/bash
                   . ${WORKSPACE}/ci/deploy_utils.sh
                   deploy_integrator_to_k8s \
