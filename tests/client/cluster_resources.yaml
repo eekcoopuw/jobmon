@@ -9,6 +9,10 @@ tool_resources:
     m_mem_free: "2G"
     max_runtime_seconds: (60 * 60 * 24)
     queue: "null.q"
+tool_scales:
+  sequential:
+    memory: 0.1
+    runtime: 0.1
 task_template_resources:
   preprocess:
     sequential:
@@ -27,3 +31,12 @@ task_template_resources:
       m_mem_free: "2G"
       max_runtime_seconds: (60 * 60 * 24)
       queue: "null.q"
+task_template_scales:
+  preprocess:
+    sequential:
+      memory: 0.2
+      runtime: 0.3
+  model:
+    sequential:
+      memory: 0.4
+      runtime: 0.6

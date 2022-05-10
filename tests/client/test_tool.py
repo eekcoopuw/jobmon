@@ -47,12 +47,12 @@ def test_create_tool_version(db_cfg, client_env):
     assert t1.active_tool_version.id == new_tool_version_id
 
 
-def test_yaml_compute_resources(db_cfg, client_env):
+def test_yaml_compute_resources_and_scales(db_cfg, client_env):
     """Test that we can set Tool ComputeResources via YAML file."""
     from jobmon.client.tool import Tool
 
     thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
-    tool = Tool(name="test_resources")
+    tool = Tool(name="test_resources_scales")
     tt_1 = tool.get_task_template(
         template_name="preprocess",
         command_template="{arg}",
@@ -72,12 +72,20 @@ def test_yaml_compute_resources(db_cfg, client_env):
         yaml_file=os.path.join(thisdir, "cluster_resources.yaml"),
         set_task_templates=True,
     )
-
+    tool.set_default_resource_scales_from_yaml(
+        default_cluster_name="sequential",
+        yaml_file=os.path.join(thisdir, "cluster_resources.yaml"),
+        set_task_templates=True,
+    )
     assert tool.default_compute_resources_set["sequential"] == {
         "num_cores": 2,
         "m_mem_free": "2G",
         "max_runtime_seconds": "(60 * 60 * 24)",
         "queue": "null.q",
+    }
+    assert tool.default_resource_scales_set["sequential"] == {
+        "memory": 0.1,
+        "runtime": 0.1
     }
     assert tt_1.default_compute_resources_set["sequential"] == {
         "num_cores": 1,
@@ -90,4 +98,12 @@ def test_yaml_compute_resources(db_cfg, client_env):
         "m_mem_free": "2G",
         "max_runtime_seconds": "(60 * 60 * 24)",
         "queue": "null.q",
+    }
+    assert tt_1.default_resource_scales_set["sequential"] == {
+        "memory": 0.2,
+        "runtime": 0.3
+    }
+    assert tt_2.default_resource_scales_set["sequential"] == {
+        "memory": 0.4,
+        "runtime": 0.6
     }
