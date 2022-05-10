@@ -137,7 +137,11 @@ class UsageIntegrator:
             if resources is None:
                 usage_stats.pop(task)
                 task.age += 1
-                UsageQ.put(task, task.age)
+                # discard older than 10 tasks when never_retire is False
+                if UsageConfig.integrator_never_retire or task.age < 10:
+                    UsageQ.put(task, task.age)
+                else:
+                    logger.info(f"Retire {task.task_instance_id}")
 
         if len(usage_stats) == 0:
             return  # No values to update
@@ -294,7 +298,7 @@ def _get_config(config: UsageConfig = None) -> dict:
 
 
 def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
-              integrator_config: UsageConfig = None) -> None:
+              integrator_config: UsageConfig = None, never_retire: bool = True) -> None:
     """A never stop method running in a thread that queries the SLURM and Jobmon databases.
 
     It constantly queries the maxrss value from the SLURM accounting database
@@ -327,7 +331,7 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
         # If the queue is empty, drop the None entries
         task_instances = [t for t in task_instances if t is not None]
 
-        integrator.update_resources_in_db(task_instances)
+        integrator.update_resources_in_db(task_instances, never_retire)
 
         # Query DB to add newly completed jobs to q and log q length
         current_time = datetime.datetime.now()

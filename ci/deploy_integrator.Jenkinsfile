@@ -17,6 +17,9 @@ pipeline {
     string(defaultValue: 'jobmon-slurm-sdb-dev',
      description: 'name of rancher secret to use for db variables',
      name: 'RANCHER_DB_SLURM_SDB_SECRET')
+    booleanParam(defaultValue: 'false',
+     description: 'Whether or not to keep task instances that are not able to integrate in the queue forever',
+     name: 'INTEGRATOR_NEVER_RETIRE')
     string(defaultValue: 'c-99499:p-4h54h',
      description: 'Rancher project must be created in the rancher web ui before running this job. Get this from the URL after you select the project in the rancher UI. Shouldnt change often',
      name: 'RANCHER_PROJECT_ID')
@@ -88,6 +91,7 @@ pipeline {
                       ${RANCHER_DB_SECRET} \
                       ${RANCHER_DB_SLURM_SDB_SECRET} \
                       ${KUBECONFIG}
+                      ${INTEGRATOR_NEVER_RETIRE}
 
                '''
           } // end credentials
@@ -98,10 +102,6 @@ pipeline {
   post {
     always {
       node('docker') {
-        // Delete the workspace directory.
-        deleteDir()
-      } // end node
-      node('qlogin') {
         // Delete the workspace directory.
         deleteDir()
       } // end node

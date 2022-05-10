@@ -416,6 +416,20 @@ class ParserDefaults:
         return parser
 
     @staticmethod
+    def integrator_never_retire(
+            parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
+        """Name of the Slurm SDB you want to connect to."""
+        parser.add_argument(
+            "--integrator_never_retire",
+            type=bool,
+            help="whether to retire failed to integrate ti",
+            default="True",
+            env_var="INTEGRATOR_NEVER_RETIRE",
+        )
+        return parser
+
+    @staticmethod
     def worker_node_entry_point(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
