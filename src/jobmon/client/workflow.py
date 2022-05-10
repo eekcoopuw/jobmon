@@ -489,16 +489,12 @@ class Workflow(object):
             if task.compute_resources_callable is None:
                 resource_params = task.compute_resources
                 try:
-                    queue_name: str = resource_params["queue"]
-                except KeyError:
-                    queue_msg = (
-                        "A queue name must be provided in the specified compute resources. Got"
-                        f" compute_resources={resource_params}"
-                    )
+                    queue_name = task.queue_name
+                except ValueError as e:
                     if fail:
-                        raise ValueError(queue_msg)
+                        raise e
                     else:
-                        logger.info(queue_msg)
+                        logger.info(e)
                         continue
 
                 # validate the constructed resources

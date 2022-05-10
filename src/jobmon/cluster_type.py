@@ -2,24 +2,18 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from datetime import datetime
-import hashlib
 import importlib
-import json
-from math import ceil
-import re
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 # the following try-except is to accommodate Python versions on both >=3.8 and 3.7.
 # The Protocol was officially introduced in 3.8, with typing_extensions slapped on 3.7.
 try:
-    from typing import Protocol, runtime_checkable
+    from typing import Protocol
 except ImportError:
-    from typing_extensions import Protocol, runtime_checkable  # type: ignore
+    from typing_extensions import Protocol  # type: ignore
 
 from jobmon import __version__
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-from jobmon.units import MemUnit, TimeUnit
 
 
 _plugins: Dict[str, Any] = {}
@@ -27,7 +21,6 @@ _interface = [
     "get_cluster_queue_class",
     "get_cluster_distributor_class",
     "get_cluster_worker_node_class",
-    "get_concrete_resource_class",
 ]
 
 
@@ -85,11 +78,6 @@ class ClusterType:
     def plugin(self) -> Any:
         """If the cluster is bound, return the cluster interface for the type of cluster."""
         return get_plugin(self.package_location)
-
-    @property
-    def concrete_resource_class(self) -> Type[ConcreteResource]:
-        """If the cluster is bound, access the concrete resource class."""
-        return self.plugin.get_concrete_resource_class()
 
     @property
     def cluster_queue_class(self) -> Type[ClusterQueue]:

@@ -1,32 +1,10 @@
 from jobmon.client.task_resources import TaskResources
-from jobmon.cluster_type import ConcreteResource
 
 
 def test_task_resources_hash(client_env):
-    class MockConcreteResource(ConcreteResource):
-        """Mock the concrete resource object."""
 
-        def __init__(self, resource_dict: dict):
-            self._resources = resource_dict
-
-        @property
-        def queue(self):
-            class MockQueue:
-                queue_name: str = "mock-queue"
-
-            return MockQueue()
-
-        @property
-        def resources(self):
-            return self._resources
-
-        @classmethod
-        def validate_and_create_concrete_resource(cls, *args, **kwargs):
-            pass
-
-        @classmethod
-        def adjust_and_create_concrete_resource(cls, *args, **kwargs):
-            pass
+    class MockQueue:
+        queue_name: str = "mock-queue"
 
     # keys purposefully out of order
     resources_dict = {"d": "string datatype", "b": 123, "a": ["list", "data", "type"]}
@@ -35,14 +13,15 @@ def test_task_resources_hash(client_env):
     resource_dict_sorted = {key: resources_dict[key] for key in sorted(resources_dict)}
 
     # resources 1 and 2 should be equal, 3 should be different
-    resource_1 = MockConcreteResource(resources_dict)
-    resource_2 = MockConcreteResource(resource_dict_sorted)
-    resource_3 = MockConcreteResource(dict(resources_dict, b=100))
+    resource_1 = resources_dict
+    resource_2 = resource_dict_sorted
+    resource_3 = dict(resources_dict, b=100)
 
-    tr1 = TaskResources(task_resources_type_id="O", concrete_resources=resource_1)
-    tr2 = TaskResources(task_resources_type_id="O", concrete_resources=resource_2)
-    tr1_clone = TaskResources("O", resource_1)
-    tr3 = TaskResources("O", resource_3)
+    tr1 = TaskResources(requested_resources=resource_1, queue=MockQueue())
+    tr2 = TaskResources(requested_resources=resource_2, queue=MockQueue())
+    tr1_clone = TaskResources(resource_1, queue=MockQueue())
+
+    tr3 = TaskResources(resource_3, MockQueue())
 
     assert tr1 == tr1_clone
     assert tr1 == tr2

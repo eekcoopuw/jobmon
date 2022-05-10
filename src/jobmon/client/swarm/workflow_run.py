@@ -695,17 +695,11 @@ class WorkflowRun:
             requested_resources.update(dynamic_compute_resources)
             task.compute_resources_callable = None
             task_resources = TaskResources(
-                TaskResourcesType.ORIGINAL, requested_resources,
-                task.current_task_resources.queue
-
+                requested_resources, task.current_task_resources.queue
             )
 
         # now check if we need to coerce them to valid values
         validated_task_resources = task_resources.coerce_resources()
-
-        # if validated resources are different than original. check for cached version
-        if hash(validated_task_resources) != hash(task.current_task_resources):
-            validated_task_resources.task_resources_type_id = TaskResourcesType.VALIDATED
 
         # check for a cached version
         validated_resource_hash = hash(validated_task_resources)

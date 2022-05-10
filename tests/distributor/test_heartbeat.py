@@ -37,6 +37,7 @@ def test_heartbeat_on_launched(tool, db_cfg, client_env, task_template):
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+    # distributor_service.refresh_status_from_db(TaskInstanceStatus.LAUNCHED)
 
     # log a heartbeat. sequential will think it's still running
     distributor_service.log_task_instance_report_by_date()

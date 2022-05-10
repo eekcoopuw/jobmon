@@ -25,13 +25,11 @@ class TaskResources:
 
     def __init__(
         self,
-        task_resources_type_id: str,
         requested_resources: Dict[str, Any],
         queue: ClusterQueue,
         requester: Optional[Requester] = None,
     ) -> None:
         """Initialize the task resource object."""
-        self.task_resources_type_id = task_resources_type_id
         for resource, value in requested_resources.items():
             if resource == "memory":
                 requested_resources[resource] = self.convert_memory_to_gib(value)
@@ -72,7 +70,7 @@ class TaskResources:
         app_route = "/task/bind_resources"
         msg = {
             "queue_id": self.queue.queue_id,
-            "task_resources_type_id": self.task_resources_type_id,
+            "task_resources_type_id": "O",
             "requested_resources": self.requested_resources,
         }
         return_code, response = self.requester.send_request(
@@ -87,21 +85,11 @@ class TaskResources:
             )
         self._id = response
 
-    def to_wire(self) -> Dict:
-        """Resources to dictionary."""
-        return {
-            "queue_id": self.queue.queue_id,
-            "task_resources_type_id": self.task_resources_type_id,
-            "requested_resources": self.requested_resources,
-        }
-
     def coerce_resources(self: TaskResources) -> TaskResources:
         """Coerce TaskResources to fit on queue. If resources change return a new object."""
         _, _, valid_resources = self.queue.validate_resources(**self.requested_resources)
-        coerced_task_resources = self.__class__(self.task_resources_type_id, valid_resources,
-                                                self.queue)
+        coerced_task_resources = self.__class__(valid_resources, self.queue)
         if coerced_task_resources != self:
-            coerced_task_resources.task_resources_type_id = "V"
             return coerced_task_resources
         else:
             return self
@@ -111,7 +99,7 @@ class TaskResources:
         resource_scales: Dict[str, float],
         fallback_queues: Optional[List[ClusterQueue]] = None,
     ) -> TaskResources:
-        """Adjust TaskResources after a resource error is detected, returning a new object.
+        """Adjust TaskResources after a resource error, returning a new object if it changed.
 
         Args:
             resource_scales: Specifies how much to scale the failed Task's resources by.
@@ -147,7 +135,11 @@ class TaskResources:
                 fail=False, **scaled_resources
             )
 
-        return self.__class__("A", valid_resources, next_queue)
+        adjust_resources = self.__class__(valid_resources, next_queue)
+        if adjust_resources != self:
+            return adjust_resources
+        else:
+            return self
 
     @staticmethod
     def convert_memory_to_gib(memory_str: str) -> int:
@@ -220,7 +212,6 @@ class TaskResources:
 
         # Uniqueness is determined by queue name and the resources parameter.
         hashval = hashlib.sha1()
-        hashval.update((self.task_resources_type_id).encode("utf-8"))
         hashval.update(bytes(str(hash(self.queue.queue_name)).encode("utf-8")))
         resources_str = str(hash(json.dumps(self.requested_resources, sort_keys=True)))
         hashval.update(bytes(resources_str.encode("utf-8")))
@@ -235,8 +226,8 @@ class TaskResources:
     def __repr__(self) -> str:
         """A representation string for a TaskResources instance."""
         repr_string = (
-            f"TaskResources(task_resources_type_id={self.task_resources_type_id}, "
-            f"queue={self.queue.queue_name}, requested_resources={self.requested_resources}"
+            f"TaskResources(queue={self.queue.queue_name}, "
+            f"requested_resources={self.requested_resources}"
         )
 
         try:

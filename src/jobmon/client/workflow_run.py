@@ -10,7 +10,7 @@ from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
-from jobmon.constants import WorkflowRunStatus, TaskResourcesType
+from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import http_request_ok, Requester
 
@@ -241,7 +241,6 @@ class WorkflowRun(object):
         cluster = self._workflow.get_cluster_by_name(task.cluster_name)
         queue = cluster.get_queue(task.queue_name)
         task_resources = TaskResources(
-            task_resources_type_id=TaskResourcesType.ORIGINAL,
             requested_resources=task.compute_resources,
             queue=queue
         )

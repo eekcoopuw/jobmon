@@ -7,10 +7,9 @@ import random
 from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 from jobmon.cluster_type import (
-    ClusterDistributor,
     ClusterQueue,
+    ClusterDistributor,
     ClusterWorkerNode,
-    ConcreteResource,
 )
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
@@ -173,40 +172,6 @@ class DummyWorkerNode(ClusterWorkerNode):
         """Usage information specific to the exector."""
         return {}
 
-
-class ConcreteDummyResource(ConcreteResource):
-    """A version of a private constructor in Python."""
-
-    def __init__(self, queue: ClusterQueue, resources: Dict) -> None:
-        """Always assumed to be valid.
-
-        Don't call init directly, this object should be created by validate or adjust.
-        """
-        self._queue = queue
-        self._resources = resources
-
-    @property
-    def queue(self) -> ClusterQueue:
-        """The queue that the resources have been validated against."""
-        return self._queue
-
-    @property
-    def resources(self) -> Dict[str, Any]:
-        """The resources that the task needs to run successfully on a given cluster queue."""
-        return self._resources
-
-    @classmethod
-    def adjust_and_create_concrete_resource(
-        cls: Any,
-        expected_queue: ClusterQueue,
-        existing_resources: Dict,
-        fallback_queues: Optional[List[ClusterQueue]],
-        resource_scales: Optional[Dict[str, float]],
-    ) -> ConcreteDummyResource:
-        """No adjustment defined for dummy execution. Return original parameters."""
-        return cls(queue=expected_queue, valid_resources=existing_resources)
-
-
 def get_cluster_queue_class() -> Type[ClusterQueue]:
     """Return the queue class for the dummy executor."""
     return DummyQueue
@@ -220,8 +185,3 @@ def get_cluster_distributor_class() -> Type[ClusterDistributor]:
 def get_cluster_worker_node_class() -> Type[ClusterWorkerNode]:
     """Return the cluster worker node class for the dummy executor."""
     return DummyWorkerNode
-
-
-def get_concrete_resource_class() -> Type[ConcreteResource]:
-    """Return the queue class for the dummy executor."""
-    return ConcreteDummyResource

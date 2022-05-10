@@ -4,7 +4,6 @@ from jobmon.cluster_type import (
     ClusterQueue,
     ClusterDistributor,
     ClusterWorkerNode,
-    ConcreteResource,
 )
 
 
@@ -28,11 +27,3 @@ def get_cluster_worker_node_class() -> Type[ClusterWorkerNode]:
     )
 
     return MultiprocessWorkerNode
-
-
-def get_concrete_resource_class() -> Type[ConcreteResource]:
-    from jobmon.builtins.multiprocess.multiproc_concrete_resource import (
-        ConcreteMultiprocResource,
-    )
-
-    return ConcreteMultiprocResource
