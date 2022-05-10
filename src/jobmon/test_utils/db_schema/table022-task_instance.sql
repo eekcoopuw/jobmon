@@ -23,6 +23,8 @@ CREATE TABLE `task_instance`(
   `maxpss` varchar(50) DEFAULT NULL,
   `cpu` varchar(50) DEFAULT NULL,
   `io` varchar(50) DEFAULT NULL,
+  `stdout` varchar(150) DEFAULT NULL,
+  `stderr` varchar(150) DEFAULT NULL,
   `status` varchar(1) NOT NULL,
   `submitted_date` datetime DEFAULT NULL,
   `status_date` datetime DEFAULT NULL,

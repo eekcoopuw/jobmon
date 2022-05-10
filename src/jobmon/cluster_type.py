@@ -192,7 +192,7 @@ class ClusterDistributor(Protocol):
     @abstractmethod
     def submit_to_batch_distributor(
         self, command: str, name: str, requested_resources: Dict[str, Any]
-    ) -> str:
+    ) -> Tuple[str, str, str]:
         """Submit the command on the cluster technology and return a distributor_id.
 
         The distributor_id can be used to identify the associated TaskInstance, terminate
@@ -204,6 +204,10 @@ class ClusterDistributor(Protocol):
             command: command to be run
             name: name of task
             requested_resources: resource requests sent to distributor API
+
+        Returns:
+            A tuple indicating the distributor id, the full output file location,
+            and full error location.
         """
         raise NotImplementedError
 
@@ -213,7 +217,7 @@ class ClusterDistributor(Protocol):
         name: str,
         requested_resources: Dict[str, Any],
         array_length: int,
-    ) -> Dict[int, str]:
+    ) -> Dict[int, Tuple[str, str, str]]:
         """Submit an array task to the underlying distributor and return a distributor_id.
 
         The distributor ID represents the ID of the overall array job, sub-tasks will have
@@ -225,7 +229,7 @@ class ClusterDistributor(Protocol):
             requested_resources: resources with which to run the array
             array_length: how many tasks associated with the array
         Return:
-            a mapping of array_step_id to distributor_id
+            a mapping of array_step_id to distributor_id, output location, and error location.
         """
         raise NotImplementedError
 

@@ -252,9 +252,9 @@ class DistributorService:
             array_id=task_instance_batch.array_id,
             batch_number=task_instance_batch.batch_number,
         )
-        try:
-            distributor_commands: List[DistributorCommand] = []
+        distributor_commands: List[DistributorCommand] = []
 
+        try:
             # submit array to distributor
             distributor_id_map = self.cluster_interface.submit_array_to_batch_distributor(
                 command=command,
@@ -320,17 +320,17 @@ class DistributorService:
 
         # Submit to batch distributor
         try:
-            distributor_id = self.cluster_interface.submit_to_batch_distributor(
+            resp = self.cluster_interface.submit_to_batch_distributor(
                 command=command, name=name, requested_resources=requested_resources
             )
-
+            distributor_id, output_path, error_path = resp  # unpack response tuple
         except Exception as e:
             task_instance.transition_to_no_distributor_id(no_id_err_msg=str(e))
 
         else:
             # move from register queue to launch queue
             task_instance.transition_to_launched(
-                distributor_id, self._next_report_increment
+                distributor_id, self._next_report_increment, output_path, error_path
             )
 
     def triage_error(self, task_instance: DistributorTaskInstance) -> None:

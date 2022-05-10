@@ -324,14 +324,38 @@ def workflow_is_resumable(workflow_id: int) -> Any:
     return resp
 
 
+@finite_state_machine.route("/workflow/<workflow_id>/get_max_concurrently_running", methods=["GET"])
+def get_max_concurrently_running(workflow_id: int) -> Any:
+    """Return the maximum concurrency of this workflow"""
+    bind_to_logger(workflow_id=workflow_id)
+    query = """
+        SELECT
+             workflow.*
+        FROM
+            workflow
+        WHERE
+            workflow.id = :workflow_id
+    """
+    workflow = (
+        DB.session.query(Workflow.max_concurrently_running)
+        .from_statement(text(query))
+        .params(workflow_id=workflow_id)
+        .one()
+    )
+    DB.session.commit()
+    resp = jsonify(max_concurrently_running=workflow.max_concurrently_running)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @finite_state_machine.route(
-    "workflow/<workflow_id>/update_max_running", methods=["PUT"]
+    "workflow/<workflow_id>/update_max_concurrently_running", methods=["PUT"]
 )
 def update_max_running(workflow_id: int) -> Any:
     """Update the number of tasks that can be running concurrently for a given workflow."""
     data = request.get_json()
     bind_to_logger(workflow_id=workflow_id)
-    logger.debug("Update workflow max running")
+    logger.debug("Update workflow max concurrently running")
     try:
         new_limit = data["max_tasks"]
     except KeyError as e:
@@ -352,11 +376,11 @@ def update_max_running(workflow_id: int) -> Any:
 
     if res.rowcount == 0:  # Return a warning message if no update was performed
         message = (
-            f"No update performed for workflow ID {workflow_id}, max_concurrency is "
+            f"No update performed for workflow ID {workflow_id}, max_concurrently_running is "
             f"{new_limit}"
         )
     else:
-        message = f"Workflow ID {workflow_id} max concurrency updated to {new_limit}"
+        message = f"Workflow ID {workflow_id} max concurrently running updated to {new_limit}"
 
     resp = jsonify(message=message)
     resp.status_code = StatusCodes.OK

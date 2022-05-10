@@ -72,3 +72,61 @@ def test_task_resource_bind(db_cfg, client_env, tool, task_template):
     assert tr1 is tr2
     assert tr1 is tr3
     assert tr1.id == res[0].id
+
+
+def test_defaults_pass_down_and_overrides(db_cfg, client_env, tool, task_template):
+    # test resource_scales == {runtime: 0.5, memory: 0.5} for unspecified
+    resources = {"queue": "null.q"}
+    task_template.set_default_compute_resources_from_dict(cluster_name="dummy",
+                                                          compute_resources=resources)
+    t = task_template.create_task(cluster_name="dummy", arg="echo 1")
+    wf = tool.create_workflow()
+    wf.add_tasks([t])
+    assert t.resource_scales["runtime"] == 0.5
+    assert t.resource_scales["memory"] == 0.5
+
+    # test from multiple clusters with resources/scales sets, and select a single one.
+    resources = {"queue": "null.q", "memory": 34, "runtime": 56}
+    scales = {"runtime": 0.7, "cores": 0.6, "memory": 0.8}
+    task_template.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources=resources,
+    )
+    task_template.set_default_resource_scales_from_dict(
+        cluster_name="sequential", resource_scales=scales,
+    )
+
+    resources_m = {"queue": "null.q", "memory": 9999, "runtime": 9999}
+    scales_m = {"runtime": 0.9999, "cores": 0.9999, "memory": 0.9999}
+    task_template.set_default_compute_resources_from_dict(cluster_name="multiprocess",
+                                                          compute_resources=resources_m)
+    task_template.set_default_resource_scales_from_dict(cluster_name="multiprocess",
+                                                        resource_scales=scales_m)
+
+    # later default setting will take precedence.
+    assert task_template.default_cluster_name == "multiprocess"
+
+    # pointing only to the sequential set
+    t1 = task_template.create_task(cluster_name="sequential", arg="echo 1")
+    t2 = task_template.create_task(cluster_name="sequential", arg="echo 2",
+                                   compute_resources={"queue": "null.q",
+                                                      "memory": 22, "runtime": 222},
+                                   resource_scales={"runtime": 0.2, "cores": 0.22,
+                                                    "memory": 0.222}
+                                   )
+    wf = tool.create_workflow()
+    wf.add_tasks([t1, t2])
+
+    assert t1.cluster_name == "sequential"
+    assert t2.cluster_name == "sequential"
+
+    assert t1.compute_resources["memory"] == 34
+    assert t1.compute_resources["runtime"] == 56
+    assert t1.resource_scales["runtime"] == 0.7
+    assert t1.resource_scales["cores"] == 0.6
+    assert t1.resource_scales["memory"] == 0.8
+
+    assert t2.compute_resources["memory"] == 22
+    assert t2.compute_resources["runtime"] == 222
+    assert t2.resource_scales["runtime"] == 0.2
+    assert t2.resource_scales["cores"] == 0.22
+    assert t2.resource_scales["memory"] == 0.222

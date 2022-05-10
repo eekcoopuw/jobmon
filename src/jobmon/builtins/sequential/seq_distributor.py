@@ -122,7 +122,7 @@ class SequentialDistributor(ClusterDistributor):
         command: str,
         name: str,
         requested_resources: Dict[str, Any],
-    ) -> str:
+    ) -> Tuple[str, str, str]:
         """Execute sequentially."""
         # add an executor id to the environment
         os.environ["JOB_ID"] = str(self._next_distributor_id)
@@ -141,7 +141,7 @@ class SequentialDistributor(ClusterDistributor):
                 raise
 
         self._exit_info[distributor_id] = exit_code
-        return str(distributor_id)
+        return str(distributor_id), "", ""
 
 
 class SequentialWorkerNode(ClusterWorkerNode):

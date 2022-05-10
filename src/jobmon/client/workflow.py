@@ -197,6 +197,7 @@ class Workflow(object):
         self._clusters: Dict[str, Cluster] = {}
         self.default_cluster_name: str = ""
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
+        self.default_resource_scales_set: Dict[str, Dict[str, float]] = {}
 
         self._fail_after_n_executions = 1_000_000_000
         self.last_workflow_run_id = None
@@ -361,6 +362,19 @@ class Workflow(object):
         """
         # TODO: Do we need to handle the scenario where no cluster name is specified?
         self.default_compute_resources_set[cluster_name] = dictionary
+
+    def set_default_resource_scales_from_dict(
+        self, cluster_name: str, dictionary: Dict[str, float]
+    ) -> None:
+        """Set default resource scales for a given cluster_name.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            dictionary: dictionary of default resource scales to adjust task
+                resources with. Can be overridden at task template or task level.
+        """
+        # TODO: Do we need to handle the scenario where no cluster name is specified?
+        self.default_resource_scales_set[cluster_name] = dictionary
 
     def set_default_cluster_name(self, cluster_name: str) -> None:
         """Set the default cluster.

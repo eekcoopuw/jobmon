@@ -167,11 +167,10 @@ class Task:
             compute_resources if compute_resources is not None else {}
         )
         self._instance_compute_resources_callable = compute_resources_callable
-        self.resource_scales: Dict[str, float] = (
-            resource_scales
-            if resource_scales is not None
-            else {"memory": 0.5, "runtime": 0.5}
+        self._instance_resource_scales = (
+            resource_scales if resource_scales is not None else {}
         )
+
         self.fallback_queues: List[str] = (
             fallback_queues if fallback_queues is not None else []
         )
@@ -201,6 +200,17 @@ class Task:
         except KeyError:
             pass
         return resources
+
+    def resource_scales(self) -> Dict[str, float]:
+        """A dictionary that includes the users requested resource scales for the current run.
+
+        E.g. {memory: 0.1, runtime: 0.7}"""
+        try:
+            scales = self.array.resource_scales
+        except AttributeError:
+            scales = {}
+        scales.update(self._instance_resource_scales.copy())
+        return scales if scales else {"memory": 0.5, "runtime": 0.5}
 
     @property
     def cluster_name(self) -> str:
@@ -429,6 +439,10 @@ class Task:
     def update_compute_resources(self, **kwargs: Any) -> None:
         """Function that allows users to update their compute resources."""
         self.compute_resources.update(kwargs)
+
+    def update_resource_scales(self, **kwargs: Any) -> None:
+        """Function that allows users to update their resource scales."""
+        self.resource_scales.update(kwargs)
 
     def _hash_task_args(self) -> int:
         """A hash of the encoded result of the args and values concatenated together."""

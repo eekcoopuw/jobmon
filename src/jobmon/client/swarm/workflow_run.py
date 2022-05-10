@@ -36,7 +36,7 @@ class SwarmCommand:
         Args:
             func: a callable which does work and optionally modifies task instance state
             *args: positional args to be passed into func
-            **kwargs: kwargs to be to be passed into func
+            **kwargs: kwargs to be passed into func
         """
         self._func = func
         self._args = args
@@ -461,6 +461,7 @@ class WorkflowRun:
         self._set_status_for_triaging()
         self._log_heartbeat()
         self._task_status_updates(full_sync=full_sync)
+        self._synchronize_max_concurrently_running()
 
     def _refresh_task_status_map(self, updated_tasks: Set[SwarmTask]) -> None:
         # remove these tasks from old mapping
@@ -646,6 +647,20 @@ class WorkflowRun:
                     task.status = current_status
                     new_status_tasks.add(task)
         self._refresh_task_status_map(new_status_tasks)
+
+    def _synchronize_max_concurrently_running(self) -> None:
+        app_route = f"/workflow/{self.workflow_id}/get_max_concurrently_running"
+        return_code, response = self._requester.send_request(
+            app_route=app_route, message={}, request_type="get"
+        )
+
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from GET "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
+        self.max_concurrently_running = response["max_concurrently_running"]
 
     def queue_task_batch(self, tasks: List[SwarmTask]) -> None:
         first_task = tasks[0]

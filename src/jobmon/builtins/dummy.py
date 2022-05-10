@@ -105,11 +105,11 @@ class DummyDistributor(ClusterDistributor):
         command: str,
         name: str,
         requested_resources: Dict[str, Any],
-    ) -> str:
+    ) -> Tuple[str, str, str]:
         """Run a fake execution of the task.
 
         In a real executor, this is where qsub would happen. Here, since it's a dummy executor,
-        we just get a random number.
+        we just get a random number and empty file paths.
         """
         logger.debug("This is the Dummy Distributor")
         # even number for non array tasks
@@ -139,7 +139,7 @@ class DummyDistributor(ClusterDistributor):
         worker_node_task_instance.log_running()
         worker_node_task_instance.log_done()
 
-        return str(distributor_id)
+        return str(distributor_id), "", ""
 
     def get_remote_exit_info(self, distributor_id: str) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""

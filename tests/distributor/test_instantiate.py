@@ -4,13 +4,14 @@ from typing import Dict
 import pytest
 from sqlalchemy.sql import text
 
-from jobmon.constants import TaskInstanceStatus
 from jobmon.client.distributor.distributor_service import DistributorService
+from jobmon.client.status_commands import concurrency_limit
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.builtins.multiprocess.multiproc_distributor import (
     MultiprocessDistributor,
 )
 from jobmon.builtins.sequential.seq_distributor import SequentialDistributor
+from jobmon.constants import TaskInstanceStatus
 
 
 def test_instantiate_job(tool, db_cfg, client_env, task_template):
@@ -414,16 +415,8 @@ def test_array_concurrency(
     distributor_service.cluster_interface.stop()
 
 
-@pytest.mark.skip()
-def test_dynamic_concurrency_limiting(tool, db_cfg, client_env, task_template):
+def test_dynamic_concurrency_limiting(tool, db_cfg, task_template):
     """tests that the CLI functionality to update concurrent jobs behaves as expected"""
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.client.status_commands import concurrency_limit
-    from jobmon.cluster_type.multiprocess.multiproc_distributor import (
-        MultiprocessDistributor,
-    )
-    from jobmon.requester import Requester
 
     tasks = []
     for i in range(20):
@@ -433,44 +426,51 @@ def test_dynamic_concurrency_limiting(tool, db_cfg, client_env, task_template):
         tasks.append(task)
 
     workflow = tool.create_workflow(
-        name="dynamic_concurrency_limiting", max_concurrently_running=2
+        name="test_dynamic_concurrency_limiting", max_concurrently_running=2
     )
-    # TODO: parallelism
-    # workflow.set_executor(MultiprocessExecutor(parallelism=3))
+
     workflow.add_tasks(tasks)
-
     workflow.bind()
+    print(workflow)
+
+    # Start with limit of 2. Adjust up to 5 and try again
+
     wfr = workflow._create_workflow_run()
+    # queue the tasks
+    swarm = SwarmWorkflowRun(
+        workflow_run_id=wfr.workflow_run_id,
+        requester=workflow.requester
+    )
+    swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
+    swarm.process_commands()
+    distributor_service = DistributorService(
+        MultiprocessDistributor(parallelism=2),
+        requester=workflow.requester,
+        raise_on_error=True,
+    )
+    distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+    from time import sleep
+    sleep(5)
+    assert (
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 2
+    )
 
-    # # queue the tasks
-    # swarm = SwarmWorkflowRun(
-    #     workflow_id=wfr.workflow_id,
-    #     workflow_run_id=wfr.workflow_run_id,
-    #     tasks=list(workflow.tasks.values()),
-    # )
-    # swarm.compute_initial_dag_state()
-    # list(swarm.queue_tasks())  # expand the generator
-
-    # # Started with a default of 2. Adjust up to 5 and try again
-    # concurrency_limit(workflow.workflow_id, 5)
-
-    # # wfr2 = workflow._create_workflow_run(resume=True)
-
-    # requester = Requester(client_env)
-    # distributor_service = DistributorService(
-    #     workflow.workflow_id,
-    #     wfr.workflow_run_id,
-    #     MultiprocessDistributor(parallelism=3),
-    #     requester=requester,
-    # )
-
-    # # Query should return 5 jobs
-    # select_tasks = distributor_service._get_tasks_queued_for_instantiation()
-    # assert len(select_tasks) == 5
-
-    # distributor_service.distributor.stop(
-    #     list(distributor_service._submitted_or_running.keys())
-    # )
+    concurrency_limit(workflow.workflow_id, 5)
+    # This checks the route on the server
+    swarm._synchronize_max_concurrently_running()
+    swarm.process_commands()
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+    assert (
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 5
+    )
 
 
 def test_array_launch_transition(db_cfg, web_server_in_memory):
@@ -546,7 +546,9 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
         "/array/1/log_distributor_id",
         json={
             "array_batch_num": 1,
-            "distributor_id_map": {"0": "123_1", "1": "123_2", "2": "123_3"},
+            "distributor_id_map": {"0": ("123_1", "foo/out/file", "foo/err/file"),
+                                   "1": ("123_2", "foo/out/file", "foo/err/file"),
+                                   "2": ("123_3", "foo/out/file", "foo/err/file")},
         },
     )
     assert resp.status_code == 200
@@ -563,3 +565,6 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
             "123_2",
             "123_3",
         ]
+
+        assert {ti1_r.stdout, ti2_r.stdout, ti3_r.stdout} == {"foo/out/file"}
+        assert {ti1_r.stderr, ti2_r.stderr, ti3_r.stderr} == {"foo/err/file"}

@@ -63,6 +63,8 @@ class TaskInstance(DB.Model):
     maxpss = DB.Column(DB.String(50))
     cpu = DB.Column(DB.String(50))
     io = DB.Column(DB.String(50))
+    stdout = DB.Column(DB.String(150))
+    stderr = DB.Column(DB.String(150))
 
     # status/state
     status = DB.Column(
