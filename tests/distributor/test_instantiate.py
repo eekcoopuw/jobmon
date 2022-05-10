@@ -445,7 +445,7 @@ def test_dynamic_concurrency_limiting(tool, db_cfg, task_template):
     swarm.set_initial_fringe()
     swarm.process_commands()
     distributor_service = DistributorService(
-        MultiprocessDistributor(parallelism=2),
+        MultiprocessDistributor("multiprocess", parallelism=2),
         requester=workflow.requester,
         raise_on_error=True,
     )
@@ -454,8 +454,7 @@ def test_dynamic_concurrency_limiting(tool, db_cfg, task_template):
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
-    from time import sleep
-    sleep(5)
+
     assert (
         len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 2
     )

@@ -201,6 +201,7 @@ class Task:
             pass
         return resources
 
+    @property
     def resource_scales(self) -> Dict[str, float]:
         """A dictionary that includes the users requested resource scales for the current run.
 
