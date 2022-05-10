@@ -2,6 +2,68 @@
 Advanced Usage
 **************
 
+Arrays
+######
+As of the 3.1.0 release, users are able to use job arrays in Jobmon. The effect is that Jobmon
+uses one sbatch command to launch all the jobs in one TaskTemplate, rather than one sbatch
+command to launch a single job. This allows Jobmon to launch jobs faster.
+
+Usage
+*****
+.. code-tabs::
+
+    .. code-tab:: python
+      :title: Python
+
+        example_task_template = tool.get_task_template(
+            template_name="my_example_task_template",
+            command_template="python model_script.py --loc_id {location_id}",
+            node_args=["location_id"],
+            default_cluster_name="slurm",
+            default_compute_resources={"queue": "all.q"},
+        )
+
+        example_array = example_task_template.create_array(
+            location_id=[1, 2, 3],
+        )
+
+        workflow = tool.create_workflow()
+        workflow.add_array(example_array)
+        workflow.run()
+
+    .. code-tab:: R
+      :title: R
+        library(jobmonr)
+
+        example_tool <- jobmonr::tool("example_project")
+
+        example_task_template <- jobmonr::task_template(
+            template_name="my_example_task_template",
+            command_template="python model_script.py --loc_id {location_id}",
+            node_args=c("location_id")
+        )
+
+        workflow <- jobmonr::workflow(example_tool)
+
+        example_array <- jobmonr::array(example_task_template, location_id=1:3)
+
+        jobmonr::add_arrays(workflow, c(example_array))
+
+        status <- jobmonr::run(workflow)
+
+Array Inference
+***************
+As of Jobmon 3.1.0 all tasks are also considered arrays (even tasks that were created using
+create_task() instead of create_array()). Tasks that share the same task_template and
+compute_resources will be grouped into arrays during workflow.run().
+
+This means that if a user has tasks that execute in different phases within a workflow the
+tasks should belong to different task_templates.
+
+Slurm Job Arrays
+****************
+For more info about job arrays on a Slurm cluster, see here: https://slurm.schedmd.com/job_array.html
+
 Retries
 #######
 
