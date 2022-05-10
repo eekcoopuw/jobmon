@@ -33,6 +33,7 @@ Usage
 
     .. code-tab:: R
       :title: R
+
         library(jobmonr)
 
         example_tool <- jobmonr::tool("example_project")
