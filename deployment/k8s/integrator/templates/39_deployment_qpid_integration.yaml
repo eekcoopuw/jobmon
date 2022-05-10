@@ -70,16 +70,14 @@ spec:
             secretKeyRef:
               key: DB_PASS_SLURM_SDB
               name: {{ .Values.global.rancher_db_slurm_sdb_secret }}
-        - name: INTEGRATOR_NEVER_RETIRE
+        - name: DB_NAME_SLURM_SDB
           valueFrom:
             secretKeyRef:
-              key: INTEGRATOR_NEVER_RETIRE
+              key: DB_NAME_SLURM_SDB
               name: {{ .Values.global.rancher_db_slurm_sdb_secret }}
-        - name: DB_NAME_SLURM_SDB
-            valueFrom:
-              secretKeyRef:
-                key: DB_NAME_SLURM_SDB
-                name: { { .Values.global.rancher_never_retire } }
+        - name: INTEGRATOR_NEVER_RETIRE
+          value: {{ .Values.global.rancher_never_retire }}
+
         resources:
           limits:
             memory: 2400Mi

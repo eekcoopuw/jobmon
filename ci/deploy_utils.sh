@@ -314,6 +314,7 @@ deploy_integrator_to_k8s () {
             -v "$WORKSPACE/deployment/k8s/integrator/:/data" \
             alpine/helm \
                 template /data -s templates/01_namespace.yaml \
+                --set global.rancher_never_retire="$NEVER_RETIRE" \
                 --set global.namespace="$K8S_NAMESPACE" \
                 --set global.rancher_project="$RANCHER_PROJECT_ID" >> \
                 "$WORKSPACE/deployment/k8s/integrator/namespace.yaml"
