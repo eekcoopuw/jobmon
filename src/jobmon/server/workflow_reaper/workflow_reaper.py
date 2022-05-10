@@ -17,7 +17,7 @@ class WorkflowReaper(object):
 
     _version = __version__
 
-    # starting point of inconsistency query
+    # starting point of F-D inconsistency query
     _current_starting_row = 0
 
     _reaper_message = {
@@ -85,7 +85,7 @@ class WorkflowReaper(object):
                 self._halted_state()
                 self._aborted_state()
                 self._error_state()
-                self._inconsistent_status()
+                self._inconsistent_status(500)
                 sleep(self._poll_interval_minutes * 60)
         except RuntimeError as e:
             logger.debug(f"Error in monitor_forever() in workflow reaper: {e}")
@@ -205,7 +205,7 @@ class WorkflowReaper(object):
                 messages += message
         return messages
 
-    def _inconsistent_status(self) -> None:
+    def _inconsistent_status(self, step_size: int) -> None:
         """Find wf in F with all tasks in D and fix them."""
         logger.info("Find wf in F with all tasks in D and fix them.")
 
@@ -214,7 +214,7 @@ class WorkflowReaper(object):
         )
         return_code, result = self._requester.send_request(
             app_route=app_route,
-            message={},
+            message={"increase_step": step_size},
             request_type="put",
         )
         if http_request_ok(return_code) is False:
