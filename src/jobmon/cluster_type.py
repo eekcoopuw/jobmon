@@ -6,8 +6,9 @@ from datetime import datetime
 import hashlib
 import importlib
 import json
+from math import ceil
 import re
-from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
 
 # the following try-except is to accommodate Python versions on both >=3.8 and 3.7.
 # The Protocol was officially introduced in 3.8, with typing_extensions slapped on 3.7.
@@ -311,125 +312,3 @@ class ClusterWorkerNode(Protocol):
         array_step_id.
         """
         raise NotImplementedError
-
-
-@runtime_checkable
-class ConcreteResource(Protocol):
-    """The protocol class for concrete resources."""
-
-    @abstractmethod
-    def __init__(self, queue: ClusterQueue, requested_resources: Dict) -> None:
-        """Initialization of ClusterQueue."""
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def queue(self) -> ClusterQueue:
-        """The queue that these resources have been validated against."""
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def resources(self) -> Dict[str, Any]:
-        """The resources that the task needs to run successfully on a given cluster queue."""
-        raise NotImplementedError
-
-    @classmethod
-    @abstractmethod
-    def adjust_and_create_concrete_resource(
-        cls: Any,
-        expected_queue: ClusterQueue,
-        existing_resources: Dict[str, Any],
-        fallback_queues: Optional[List[ClusterQueue]],
-        resource_scales: Optional[Dict[str, float]],
-    ) -> ConcreteResource:
-        """Adjust resources after a resource error is detected by the distributor.
-
-        Args:
-            expected_queue: The queue we expect to run on.
-            existing_resources: The resources the user ran with previously that failed due to
-                a resource error.
-            fallback_queues: list of queues that users specify. If their jobs exceed the
-                resources of a given queue, Jobmon will try to run their jobs on the fallback
-                queues.
-            resource_scales: Specifies how much to scale the failed Task's resources by.
-        """
-        raise NotImplementedError
-
-    @staticmethod
-    def convert_memory_to_gib(memory_str: str) -> int:
-        """Given a memory request with a unit suffix, convert to GiB."""
-        try:
-            # User could pass in a raw value for memory, assume to be in GiB.
-            # This is also the path taken by adjust
-            return int(memory_str)
-        except ValueError:
-            return MemUnit.convert(memory_str, to="G")
-
-    @staticmethod
-    def convert_runtime_to_s(time_str: Union[str, float, int]) -> int:
-        """Given a runtime request, coerce to seconds for recording in the DB."""
-
-        try:
-            # If a numeric is provided, assumed to be in seconds
-            return int(time_str)
-        except ValueError:
-
-            time_str = str(time_str).lower()
-
-            # convert to seconds if its datetime with a supported format
-            try:
-                time_object = datetime.strptime(time_str, "%H:%M:%S")
-                time_seconds = (
-                    time_object.hour * 60 * 60
-                    + time_object.minute * 60
-                    + time_object.second
-                )
-                time_str = str(time_seconds) + "s"
-            except Exception:
-                pass
-
-            try:
-                raw_value, unit = re.findall(r"[A-Za-z]+|\d+", time_str)
-            except ValueError:
-                # Raised if there are not exactly 2 values to unpack from above regex
-                raise ValueError(
-                    "The provided runtime request must be in a format of numbers "
-                    "followed by one or two characters indicating the unit. "
-                    "E.g. 1h, 60m, 3600s."
-                )
-
-            if "h" in unit:
-                # Hours provided
-                return TimeUnit.hour_to_sec(int(raw_value))
-            elif "m" in unit:
-                # Minutes provided
-                return TimeUnit.min_to_sec(int(raw_value))
-            elif "s" in unit:
-                return int(raw_value)
-            else:
-                raise ValueError("Expected one of h, m, s as the suffixed unit.")
-
-    def __hash__(self) -> int:
-        """Determine the hash of a concrete resources object."""
-        # Note: this algorithm assumes all keys and values in the resources dict are
-        # JSON-serializable. Since that's a requirement for logging in the database,
-        # this assumption should be safe.
-
-        # Uniqueness is determined by queue name and the resources parameter.
-        hashval = hashlib.sha1()
-        hashval.update(bytes(str(hash(self.queue.queue_name)).encode("utf-8")))
-        hashval.update(
-            bytes(str(hash(json.dumps(self.resources, sort_keys=True))).encode("utf-8"))
-        )
-        return int(hashval.hexdigest(), 16)
-
-    def __eq__(self, other: object) -> bool:
-        """Check equality of task resources objects."""
-        if not isinstance(other, ConcreteResource):
-            return False
-        return hash(self) == hash(other)
-
-    def __repr__(self) -> str:
-        """A representation string for a ConcreteResource instance."""
-        return str({self.queue.queue_name: self.resources})

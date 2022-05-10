@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional, List
+from typing import Any, Dict, Optional
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.cluster_type import ClusterType
 from jobmon.cluster_type import (
     ClusterQueue,
-    ConcreteResource,
     ClusterDistributor,
     ClusterWorkerNode,
 )
@@ -86,45 +85,6 @@ class Cluster:
         if not self.is_bound:
             raise AttributeError("Cannot access id until Cluster is bound to database")
         return self._cluster_id
-
-    def get_original_concrete_resources(
-        self,
-        queue: ClusterQueue,
-        resource_params: Dict,
-    ) -> ConcreteResource:
-        concrete_resources_class = self._cluster_type.concrete_resource_class
-        for resource, value in resource_params.items():
-            if resource == "memory":
-                val = concrete_resources_class.convert_memory_to_gib(value)
-                resource_params["memory"] = val
-            if resource == "runtime":
-                val = concrete_resources_class.convert_runtime_to_s(value)
-                resource_params["runtime"] = val
-        return concrete_resources_class(queue, resource_params)
-
-    def get_validated_concrete_resources(
-        self,
-        queue: ClusterQueue,
-        resource_params: Dict,
-    ) -> ConcreteResource:
-        _, _, valid_resources = queue.validate_resources(**resource_params)
-        concrete_resources_class = self._cluster_type.concrete_resource_class
-        return concrete_resources_class(queue, resource_params)
-
-    def get_adjusted_concrete_resources(
-        self,
-        existing_resources: Dict,
-        resource_scales: Dict,
-        expected_queue: ClusterQueue,
-        fallback_queues: Optional[List[ClusterQueue]] = None,
-    ) -> ConcreteResource:
-        concrete_resources_class = self._cluster_type.concrete_resource_class
-        return concrete_resources_class.adjust_and_create_concrete_resource(
-            existing_resources=existing_resources,
-            resource_scales=resource_scales,
-            expected_queue=expected_queue,
-            fallback_queues=fallback_queues,
-        )
 
     def get_worker_node(self) -> ClusterWorkerNode:
         cluster_worker_node_class = self._cluster_type.cluster_worker_node_class

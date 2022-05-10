@@ -1,14 +1,20 @@
 """The client Task Resources with the resources initiation and binding to Task ID."""
 from __future__ import annotations
 
+from datetime import datetime
+import hashlib
 from http import HTTPStatus as StatusCodes
+import json
 import logging
-from typing import Dict, Optional
+from math import ceil
+import re
+from typing import Any, Dict, List, Optional, Union
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.cluster_type import ClusterQueue, ConcreteResource
+from jobmon.cluster_type import ClusterQueue
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
+from jobmon.units import MemUnit, TimeUnit
 
 
 logger = logging.getLogger(__name__)
@@ -20,22 +26,24 @@ class TaskResources:
     def __init__(
         self,
         task_resources_type_id: str,
-        concrete_resources: ConcreteResource,
+        requested_resources: Dict[str, Any],
+        queue: ClusterQueue,
         requester: Optional[Requester] = None,
     ) -> None:
         """Initialize the task resource object."""
-        self._task_resources_type_id = task_resources_type_id
-        self._concrete_resources = concrete_resources
+        self.task_resources_type_id = task_resources_type_id
+        for resource, value in requested_resources.items():
+            if resource == "memory":
+                requested_resources[resource] = self.convert_memory_to_gib(value)
+            if resource == "runtime":
+                requested_resources[resource] = self.convert_runtime_to_s(value)
+        self.requested_resources = requested_resources
+        self.queue = queue
 
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
             requester = Requester(requester_url)
-        self._requester = requester
-        self._requested_resources = concrete_resources.resources
-
-    def __call__(self) -> TaskResources:
-        """Return TaskResource object."""
-        return self
+        self.requester = requester
 
     @property
     def is_bound(self) -> bool:
@@ -51,27 +59,7 @@ class TaskResources:
             )
         return self._id
 
-    @property
-    def queue(self) -> ClusterQueue:
-        """Return the queue."""
-        return self._concrete_resources.queue
-
-    @property
-    def task_resources_type_id(self) -> str:
-        """Return the type ID of the task resource."""
-        return self._task_resources_type_id
-
-    @property
-    def concrete_resources(self) -> ConcreteResource:
-        """Return the requested resources dictionary."""
-        return self._concrete_resources
-
-    @property
-    def requester(self) -> Requester:
-        """Return the requester."""
-        return self._requester
-
-    def bind(self, task_resources_type_id: str = None) -> None:
+    def bind(self) -> None:
         """Bind TaskResources to the database."""
         # Check if it's already been bound
         if self.is_bound:
@@ -82,12 +70,10 @@ class TaskResources:
             return
 
         app_route = "/task/bind_resources"
-        if task_resources_type_id is None:
-            task_resources_type_id = self._task_resources_type_id
         msg = {
             "queue_id": self.queue.queue_id,
-            "task_resources_type_id": task_resources_type_id,
-            "requested_resources": self._requested_resources,
+            "task_resources_type_id": self.task_resources_type_id,
+            "requested_resources": self.requested_resources,
         }
         return_code, response = self.requester.send_request(
             app_route=app_route, message=msg, request_type="post"
@@ -105,13 +91,140 @@ class TaskResources:
         """Resources to dictionary."""
         return {
             "queue_id": self.queue.queue_id,
-            "task_resources_type_id": self._task_resources_type_id,
-            "requested_resources": self._requested_resources,
+            "task_resources_type_id": self.task_resources_type_id,
+            "requested_resources": self.requested_resources,
         }
+
+    def coerce_resources(self: TaskResources) -> TaskResources:
+        """Coerce TaskResources to fit on queue. If resources change return a new object."""
+        _, _, valid_resources = self.queue.validate_resources(**self.requested_resources)
+        coerced_task_resources = self.__class__(self.task_resources_type_id, valid_resources,
+                                                self.queue)
+        if coerced_task_resources != self:
+            coerced_task_resources.task_resources_type_id = "V"
+            return coerced_task_resources
+        else:
+            return self
+
+    def adjust_resources(
+        self: TaskResources,
+        resource_scales: Dict[str, float],
+        fallback_queues: Optional[List[ClusterQueue]] = None,
+    ) -> TaskResources:
+        """Adjust TaskResources after a resource error is detected, returning a new object.
+
+        Args:
+            resource_scales: Specifies how much to scale the failed Task's resources by.
+            fallback_queues: list of queues that users specify. If their jobs exceed the
+                resources of a given queue, Jobmon will try to run their jobs on the fallback
+                queues.
+        """
+        if fallback_queues is None:
+            fallback_queues = []
+        existing_resources = self.requested_resources.copy()
+        resource_updates: Dict[str, Any] = {}
+
+        # Only cores, memory, and runtime get scaled
+        for resource, scaling_factor in resource_scales.items():
+            if resource in existing_resources.keys():
+                resource_updates[resource] = self.scale_val(
+                    existing_resources[resource], scaling_factor
+                )
+
+        scaled_resources = dict(existing_resources, **resource_updates)
+
+        # If it fails, try the fallback queues.
+        queues = [self.queue] + fallback_queues
+        while queues:
+            next_queue = queues.pop(0)
+            is_valid, _, _ = next_queue.validate_resources(fail=True, **scaled_resources)
+            if is_valid:
+                valid_resources = scaled_resources
+                break
+        else:  # no break
+            # We've run out of queues so use the final queue and coerce
+            _, _, valid_resources = next_queue.validate_resources(
+                fail=False, **scaled_resources
+            )
+
+        return self.__class__("A", valid_resources, next_queue)
+
+    @staticmethod
+    def convert_memory_to_gib(memory_str: str) -> int:
+        """Given a memory request with a unit suffix, convert to GiB."""
+        try:
+            # User could pass in a raw value for memory, assume to be in GiB.
+            # This is also the path taken by adjust
+            return int(memory_str)
+        except ValueError:
+            return MemUnit.convert(memory_str, to="G")
+
+    @staticmethod
+    def convert_runtime_to_s(time_str: Union[str, float, int]) -> int:
+        """Given a runtime request, coerce to seconds for recording in the DB."""
+
+        try:
+            # If a numeric is provided, assumed to be in seconds
+            return int(time_str)
+        except ValueError:
+
+            time_str = str(time_str).lower()
+
+            # convert to seconds if its datetime with a supported format
+            try:
+                time_object = datetime.strptime(time_str, "%H:%M:%S")
+                time_seconds = (
+                    time_object.hour * 60 * 60
+                    + time_object.minute * 60
+                    + time_object.second
+                )
+                time_str = str(time_seconds) + "s"
+            except Exception:
+                pass
+
+            try:
+                raw_value, unit = re.findall(r"[A-Za-z]+|\d+", time_str)
+            except ValueError:
+                # Raised if there are not exactly 2 values to unpack from above regex
+                raise ValueError(
+                    "The provided runtime request must be in a format of numbers "
+                    "followed by one or two characters indicating the unit. "
+                    "E.g. 1h, 60m, 3600s."
+                )
+
+            if "h" in unit:
+                # Hours provided
+                return TimeUnit.hour_to_sec(int(raw_value))
+            elif "m" in unit:
+                # Minutes provided
+                return TimeUnit.min_to_sec(int(raw_value))
+            elif "s" in unit:
+                return int(raw_value)
+            else:
+                raise ValueError("Expected one of h, m, s as the suffixed unit.")
+
+    @staticmethod
+    def scale_val(val: int, scaling_factor: float) -> float:
+        """Used ceil instead of round or floor, to handle case when resources is 1.
+
+        For example, if runtime was 1, resource scales was 0.2. Then the resource would adjust
+        to 1.2, which would be truncated to 1 again if using floor/round.
+        """
+        return int(ceil(val * (1 + scaling_factor)))
 
     def __hash__(self) -> int:
         """Determine the hash of a task resources object."""
-        return hash(self.concrete_resources)
+        # Note: this algorithm assumes all keys and values in the resources dict are
+        # JSON-serializable. Since that's a requirement for logging in the database,
+        # this assumption should be safe.
+
+        # Uniqueness is determined by queue name and the resources parameter.
+        hashval = hashlib.sha1()
+        hashval.update((self.task_resources_type_id).encode("utf-8"))
+        hashval.update(bytes(str(hash(self.queue.queue_name)).encode("utf-8")))
+        resources_str = str(hash(json.dumps(self.requested_resources, sort_keys=True)))
+        hashval.update(bytes(resources_str.encode("utf-8")))
+        return int(hashval.hexdigest(), 16)
 
     def __eq__(self, other: object) -> bool:
         """Check equality of task resources objects."""
@@ -123,7 +236,7 @@ class TaskResources:
         """A representation string for a TaskResources instance."""
         repr_string = (
             f"TaskResources(task_resources_type_id={self.task_resources_type_id}, "
-            f"concrete_resources={self.concrete_resources}"
+            f"queue={self.queue.queue_name}, requested_resources={self.requested_resources}"
         )
 
         try:

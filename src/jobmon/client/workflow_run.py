@@ -238,26 +238,17 @@ class WorkflowRun(object):
         return self._workflow.tasks
 
     def _set_original_task_resources(self, task: Task) -> None:
-        resource_params = task.compute_resources
         cluster = self._workflow.get_cluster_by_name(task.cluster_name)
+        queue = cluster.get_queue(task.queue_name)
+        task_resources = TaskResources(
+            task_resources_type_id=TaskResourcesType.ORIGINAL,
+            requested_resources=task.compute_resources,
+            queue=queue
+        )
 
         try:
-            queue_name: str = resource_params["queue"]
+            task_resources = self._task_resources[hash(task_resources)]
         except KeyError:
-            raise ValueError(
-                "A queue name must be provided in the specified compute resources."
-            )
-        queue = cluster.get_queue(queue_name)
-
-        concrete_resources = cluster.get_original_concrete_resources(queue, resource_params)
-
-        try:
-            task_resources = self._task_resources[hash(concrete_resources)]
-        except KeyError:
-            task_resources = TaskResources(
-                concrete_resources=concrete_resources,
-                task_resources_type_id=TaskResourcesType.ORIGINAL,
-            )
             task_resources.bind()
             self._task_resources[hash(task_resources)] = task_resources
 

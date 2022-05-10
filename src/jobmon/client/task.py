@@ -85,13 +85,10 @@ class Task:
         context of your workflow.
 
         Args:
-            command: the unique command for this Task, also readable by humans. Should
-                include all parameters. Two Tasks are equal (__eq__) iff they have the same
-                command.
             node: Node this task is associated with.
             task_args: Task arguments that make the command unique across workflows
                 usually pertaining to data flowing through the task.
-            task_args: Task arguments that can change across runs of the same workflow.
+            op_args: Task arguments that can change across runs of the same workflow.
                 usually pertaining to trivial things like log level or code location.
             cluster_name: the name of the cluster the user wants to run their task on.
             compute_resources: A dictionary that includes the users requested resources
@@ -185,15 +182,24 @@ class Task:
         ] = None
 
     @property
-    def compute_resources(self) -> Dict[str, Any]:
-        """A dictionary that includes the users requested resources for the current run.
-
-        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}"""
+    def _raw_resources(self) -> Dict[str, Any]:
         try:
             resources = self.array.compute_resources
         except AttributeError:
             resources = {}
         resources.update(self._instance_compute_resources.copy())
+        return resources
+
+    @property
+    def compute_resources(self) -> Dict[str, Any]:
+        """A dictionary that includes the users requested resources for the current run.
+
+        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}"""
+        resources = self._raw_resources
+        try:
+            resources.pop("queue")
+        except KeyError:
+            pass
         return resources
 
     @property
@@ -215,6 +221,17 @@ class Task:
         if compute_resources_callable is None:
             compute_resources_callable = self.array.compute_resources_callable
         return compute_resources_callable
+
+    @property
+    def queue_name(self) -> str:
+        resources = self._raw_resources
+        try:
+            queue_name = resources.pop("queue")
+        except KeyError:
+            raise ValueError(
+                "A queue name must be provided in the specified compute resources."
+            )
+        return queue_name
 
     @property
     def original_task_resources(self) -> TaskResources:
