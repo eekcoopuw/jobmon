@@ -327,7 +327,6 @@ def workflow_is_resumable(workflow_id: int) -> Any:
 @finite_state_machine.route("/workflow/<workflow_id>/get_max_concurrently_running", methods=["GET"])
 def get_max_concurrently_running(workflow_id: int) -> Any:
     """Return the maximum concurrency of this workflow"""
-    print(f"QQQQ Server workflow id {workflow_id}")
     bind_to_logger(workflow_id=workflow_id)
     query = """
         SELECT
