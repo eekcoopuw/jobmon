@@ -292,40 +292,48 @@ def log_array_distributor_id(array_id):
 
 
 @finite_state_machine.route(
-    "/array/<array_name>/<workflow_id>/get_array_tasks", methods=["GET"])
-def get_array_tasks(array_name: str, workflow_id: int):
-    """Provided an array name, fetch all associated tasks and task instances.
+    "/array/<workflow_id>/get_array_tasks")
+def get_array_task_instances(workflow_id: int):
+    """Return error/output filepaths for task instances filtered by array name.
+
+    The user can also optionally filter by job name as well.
 
     To avoid overly-large returned results, the user must also pass in a workflow ID.
     """
 
+    data = request.get_json()
+    array_name = data.get("array_name")
+    job_name = data.get("job_name")
+    limit = data.get("limit", 15)
+
+    query_filters = [
+        Task.workflow_id == workflow_id,
+        TaskInstance.task_id == Task.id,
+        Task.array_id == Array.id,
+    ]
+
+    if array_name:
+        query_filters.append(Array.name == array_name)
+
+    if job_name:
+        query_filters.append(Task.name == job_name)
     select_stmt = (
         select(
-            Task.id.label("TASK_ID"),
+            Task.id,
             Task.name,
             TaskInstance.id,
             TaskInstance.stdout,
             TaskInstance.stderr,
         )
-        .select_from(
-            TaskInstance.join(Task, TaskInstance.task_id == Task.id),
-            Task.join(Array, Task.array_id == Array.id),
-        )
         .where(
-            Task.workflow_id == workflow_id,
-            Array.name == array_name,
+            *query_filters
         )
+        .limit(limit)
     )
-
     result = DB.session.execute(select_stmt).fetchall()
-    print(result)
+    column_names = ("TASK_ID", "TASK_NAME", "TASK_INSTANCE_ID", "OUTPUT_PATH", "ERROR_PATH")
     resp = jsonify(
-        array_tasks=[
-            dict(zip(
-                ("TASK_ID", "TASK_NAME", "TASK_INSTANCE_ID", "OUTPUT_PATH", "ERROR_PATH"), ti
-            ))
-            for ti in result
-        ]
+        array_tasks=[dict(zip(column_names, ti)) for ti in result]
     )
     resp.status_code = StatusCodes.OK
     return resp

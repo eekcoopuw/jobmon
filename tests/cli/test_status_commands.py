@@ -11,17 +11,6 @@ from unittest.mock import patch, PropertyMock
 from jobmon.client.workflow import DistributorContext
 
 
-@pytest.fixture
-def tool(db_cfg, client_env):
-    from jobmon.client.tool import Tool
-
-    tool = Tool()
-    tool.set_default_compute_resources_from_dict(
-        cluster_name="sequential", compute_resources={"queue": "null.q"}
-    )
-    return tool
-
-
 def get_task_template(tool, template_name="my_template"):
     tt = tool.get_task_template(
         template_name=template_name,
@@ -418,9 +407,9 @@ def test_task_status(db_cfg, client_env, tool, cli):
         sql = """
         UPDATE task_instance
         SET stdout="/stdout/dir/file.o123", stderr="/stderr/dir/file.e123"
-        WHERE task_id IN {task_ids}
+        WHERE task_id IN :task_ids
         """
-        db.session.execute(sql.format(task_ids=(t1.task_id, t2.task_id)))
+        db.session.execute(sql, {'task_ids': (t1.task_id, t2.task_id)})
         db.session.commit()
 
     args = cli.parse_args(command_str)
@@ -842,6 +831,91 @@ def test_create_yaml():
     assert result == expected
 
 
-def test_get_tasks_from_array_name(db_cfg, web_server_in_memory, tool, task_template):
+def test_get_tasks_from_array_or_job_name(db_cfg, web_server_in_memory, tool, array_template):
 
-    pass
+    from jobmon.server.web.models.task_instance import TaskInstance
+
+    # Create task, and task instance metadata in the database.
+    wf = tool.create_workflow()
+
+    array = array_template.create_array(
+        name='foobar array',
+        arg=['foo', 'bar', 'baz']
+    )
+
+    wf.add_array(array)
+    wf.bind()
+
+    wfr = wf._create_workflow_run()
+
+    task_instances = []
+    for idx, task in enumerate(wf.tasks.values()):
+        ti = TaskInstance(
+            workflow_run_id=wfr.workflow_run_id,
+            array_id=array.array_id,
+            cluster_id=1,
+            distributor_id=f"123_{idx}",
+            task_id=task.task_id,
+            array_batch_num=1,
+            array_step_id=idx,
+            stdout=f"/cool/filepath.o123_{idx}",
+            stderr=f"/cool/filepath.e123_{idx}"
+        )
+        task_instances.append(ti)
+
+    app, db = db_cfg['app'], db_cfg['DB']
+
+    with app.app_context():
+        db.session.bulk_save_objects(task_instances)
+        db.session.commit()
+
+    # Database is now populated with juicy task instances
+    # Call the get_array_tasks route. Should return 3 results
+    response = web_server_in_memory.get(
+        f"/array/{wf.workflow_id}/get_array_tasks",
+        json={
+            'array_name': 'foobar array'
+        }
+    )
+    assert response.status_code == 200
+
+    df = pd.DataFrame(response.json['array_tasks'])
+    assert set(df.ERROR_PATH) == {
+        "/cool/filepath.e123_0", "/cool/filepath.e123_1", "/cool/filepath.e123_2"
+    }
+    assert set(df.OUTPUT_PATH) == {
+        "/cool/filepath.o123_0", "/cool/filepath.o123_1", "/cool/filepath.o123_2"
+    }
+    assert set(df.TASK_NAME) == {
+        "array_template_arg-foo", "array_template_arg-bar", "array_template_arg-baz"
+    }
+    assert len(df) == 3
+
+    # Filter additionally by task names
+    task_response = web_server_in_memory.get(
+        f"/array/{wf.workflow_id}/get_array_tasks",
+        json={
+            'array_name': 'foobar array',
+            'job_name': 'array_template_arg-foo'
+        }
+    )
+    assert task_response.status_code == 200
+
+    assert len(task_response.json['array_tasks']) == 1
+    task_response = task_response.json['array_tasks'].pop()
+    assert task_response['TASK_NAME'] == 'array_template_arg-foo'
+    assert task_response['OUTPUT_PATH'] == \
+           df.set_index('TASK_NAME').loc['array_template_arg-foo', 'OUTPUT_PATH']
+
+    # Add an optional limit
+    response = web_server_in_memory.get(
+        f"/array/{wf.workflow_id}/get_array_tasks",
+        json={
+            'array_name': 'foobar array',
+            'limit': 1
+        }
+    )
+    assert response.status_code == 200
+
+    single_task = response.json['array_tasks']
+    assert len(single_task) == 1
