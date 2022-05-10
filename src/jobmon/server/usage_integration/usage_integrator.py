@@ -331,7 +331,7 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
         # If the queue is empty, drop the None entries
         task_instances = [t for t in task_instances if t is not None]
 
-        integrator.update_resources_in_db(task_instances, never_retire)
+        integrator.update_resources_in_db(task_instances)
 
         # Query DB to add newly completed jobs to q and log q length
         current_time = datetime.datetime.now()
