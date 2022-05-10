@@ -576,16 +576,6 @@ class TaskTemplate:
         # build node
         node = Node(self.active_task_template_version, node_args, self.requester)
 
-        # use task template cluster name is empty, GBDSCI-4220
-        if cluster_name is None or len(cluster_name) == 0:
-            cluster_name = self.default_cluster_name
-
-        if compute_resources is None:
-            compute_resources = self.default_compute_resources_set.get(cluster_name, None)
-
-        if resource_scales is None:
-            resource_scales = self.default_resource_scales_set.get(cluster_name, None)
-
         # build task
         task = Task(
             node=node,

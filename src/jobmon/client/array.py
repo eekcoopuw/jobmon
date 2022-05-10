@@ -37,7 +37,7 @@ class Array:
         upstream_tasks: Optional[List[Task]] = None,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
-        resource_scales: Optional[Dict[str, Any]] = None,
+        resource_scales: Optional[Dict[str, float]] = None,
         name: Optional[str] = None,
         requester: Optional[Requester] = None,
     ) -> None:
@@ -75,7 +75,9 @@ class Array:
             compute_resources if compute_resources is not None else {}
         )
         self.compute_resources_callable = compute_resources_callable
-        self.resource_scales = resource_scales
+        self._instance_resource_scales = (
+            resource_scales if resource_scales is not None else {}
+        )
         self.max_attempts = max_attempts
         self._task_resources: Optional[TaskResources] = None  # Initialize to None
 
@@ -148,6 +150,25 @@ class Array:
         )
         resources.update(self._instance_compute_resource.copy())
         return resources
+
+    @property
+    def resource_scales(self) -> Dict[str, float]:
+        """A dictionary that includes the users requested resource scales for the current run.
+
+        E.g. {memory: 0.6, runtime: 0.3}"""
+        try:
+            scales = self.workflow.default_resource_scales_set.get(
+                self.cluster_name, {}
+            ).copy()
+        except AttributeError:
+            scales = {}
+        scales.update(
+            self.task_template_version.default_resource_scales_set.get(
+                self.cluster_name, {}
+            ).copy()
+        )
+        scales.update(self._instance_resource_scales.copy())
+        return scales
 
     @property
     def cluster_name(self) -> str:
