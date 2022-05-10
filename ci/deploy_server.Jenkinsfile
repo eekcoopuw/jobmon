@@ -48,7 +48,7 @@ pipeline {
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
     DOCKER_ACTIVATE = "source /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
-    QLOGIN_ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
+    SLURM_ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
     SCICOMP_DOCKER_REG_URL = "docker-scicomp.artifactory.ihme.washington.edu"
     SCICOMP_DOCKER_DEV_URL = "docker-scicomp-dev.artifactory.ihme.washington.edu"
   } // end environment
@@ -204,19 +204,19 @@ pipeline {
    } //stage
     stage ('Test Deployment') {
       steps {
-        node('qlogin') {
+        node('slurm') {
           // Download jobmon
           checkout scm
           sh '''#!/bin/bash
                 . ${WORKSPACE}/ci/deploy_utils.sh
                 test_server \
                     ${WORKSPACE} \
-                    "${QLOGIN_ACTIVATE}" \
+                    "${SLURM_ACTIVATE}" \
                     ${JOBMON_VERSION} \
                     ${JOBMON_SERVICE_FQDN} \
                     ${JOBMON_SERVICE_PORT}
              '''
-        } // end qlogin
+        } // end slurm
       } // end steps
     } // end test deployment stage
   } // end stages
@@ -226,10 +226,10 @@ pipeline {
         // Delete the workspace directory.
         deleteDir()
       } // end node
-      node('qlogin') {
+      node('slurm') {
         // Delete the workspace directory.
         deleteDir()
-      } // end node
+      } // end slurm
     } // end always
   } // end post
 } // end pipeline

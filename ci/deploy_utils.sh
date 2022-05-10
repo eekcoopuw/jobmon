@@ -253,21 +253,21 @@ test_conda_client_slurm () {
 
 test_server () {
     WORKSPACE=$1
-    QLOGIN_ACTIVATE=$2
+    SLURM_ACTIVATE=$2
     JOBMON_VERSION=$3
     WEB_SERVICE_FQDN=$4
     WEB_SERVICE_PORT=$5
 
     CONDA_DIR=$WORKSPACE/.conda_env/load_test
-    $QLOGIN_ACTIVATE && \
+    $SLURM_ACTIVATE && \
         conda create --prefix $CONDA_DIR python==3.7
-    $QLOGIN_ACTIVATE &&
+    $SLURM_ACTIVATE &&
         conda activate $CONDA_DIR && \
         pip install jobmon==$JOBMON_VERSION && \
         jobmon_config update --web_service_fqdn $WEB_SERVICE_FQDN --web_service_port $WEB_SERVICE_PORT && \
         python $WORKSPACE/deployment/tests/six_job_test.py sequential
     # Disable jobmonr test because it cannot pass version check
-    #$QLOGIN_ACTIVATE &&
+    #$SLURM_ACTIVATE &&
     #    /bin/bash /ihme/singularity-images/rstudio/shells/execRscript.sh -s $WORKSPACE/jobmonr/deployment/six_job_test.r \
     #        --python-path $CONDA_DIR/bin/python --jobmonr-loc $WORKSPACE/jobmonr/jobmonr
 }

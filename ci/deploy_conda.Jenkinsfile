@@ -26,7 +26,7 @@ pipeline {
   environment {
     // Jenkins commands run in separate processes, so need to activate the environment to run nox.
     DOCKER_ACTIVATE = "source /mnt/team/scicomp/pub/jenkins/miniconda3/bin/activate base"
-    QLOGIN_ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
+    SLURM_ACTIVATE = "source /homes/svcscicompci/miniconda3/bin/activate base"
     MINICONDA_PATH = "/homes/svcscicompci/miniconda3/bin/activate"
     CONDA_ENV_NAME = "base"
     PYPI_URL = "https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
@@ -156,12 +156,12 @@ pipeline {
                 cp -r ${WORKSPACE}/out/_html /mnt/team/scicomp/pub/docs_temp
                '''
         } // end script
-        node('qlogin') {
+        node('slurm') {
           // Download jobmon
           checkout scm
           script {
             sh '''#!/bin/bash
-              ${QLOGIN_ACTIVATE} &&
+              ${SLURM_ACTIVATE} &&
               echo ${JOBMON_VERSION}
               if [[ ! "${JOBMON_VERSION}" =~ "dev" ]]
               then
@@ -171,12 +171,12 @@ pipeline {
               python $WORKSPACE/docsource/_ext/symlinks.py '/ihme/centralcomp/docs/jobmon'
             '''
           } // end script
-        } // end qlogin
+        } // end slurm
       } // end steps
     } // end upload doc stage
     stage ('Test Conda Client Slurm') {
       steps {
-        node('qlogin') {
+        node('slurm') {
 
           // Be very, very careful with nested quotes here, it is safest not to use them
           // because ssh parses and recreates the remote string.
@@ -206,7 +206,7 @@ pipeline {
                sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.cluster.ihme.washington.edu '${ssh_cmd}'"
             } // end ssh
           } // end script
-        } // end qlogin
+        } // end slurm
       } // end steps
     } // end test deployment stage
   } // end stages
