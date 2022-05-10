@@ -88,7 +88,7 @@ pipeline {
                       ${RANCHER_PROJECT_ID} \
                       ${RANCHER_DB_SECRET} \
                       ${RANCHER_DB_SLURM_SDB_SECRET} \
-                      ${KUBECONFIG}
+                      ${KUBECONFIG} \
                       ${INTEGRATOR_NEVER_RETIRE}
                '''
             sh '''#!/bin/bash
@@ -100,7 +100,7 @@ pipeline {
                       ${RANCHER_PROJECT_ID} \
                       ${RANCHER_DB_SECRET} \
                       ${RANCHER_DB_SLURM_SDB_SECRET} \
-                      ${KUBECONFIG}
+                      ${KUBECONFIG} \
                       ${INTEGRATOR_NEVER_RETIRE}
 
                '''
