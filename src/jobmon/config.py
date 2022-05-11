@@ -424,7 +424,7 @@ class ParserDefaults:
             "--integrator_retire_age",
             type=int,
             help="whether to retire failed to integrate ti",
-            default="T",
+            default=0,
             env_var="INTEGRATOR_RETIRE_AGE",
         )
         return parser
