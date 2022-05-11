@@ -301,10 +301,11 @@ def get_array_task_instances(workflow_id: int):
     To avoid overly-large returned results, the user must also pass in a workflow ID.
     """
 
-    data = request.get_json()
+    data = request.args
     array_name = data.get("array_name")
     job_name = data.get("job_name")
-    limit = data.get("limit", 15)
+    limit = data.get("limit", 5)
+    print(data)
 
     query_filters = [
         Task.workflow_id == workflow_id,
@@ -317,10 +318,12 @@ def get_array_task_instances(workflow_id: int):
 
     if job_name:
         query_filters.append(Task.name == job_name)
+
     select_stmt = (
         select(
             Task.id,
             Task.name,
+            Array.name,
             TaskInstance.id,
             TaskInstance.stdout,
             TaskInstance.stderr,
@@ -330,8 +333,10 @@ def get_array_task_instances(workflow_id: int):
         )
         .limit(limit)
     )
+    print(select_stmt)
     result = DB.session.execute(select_stmt).fetchall()
-    column_names = ("TASK_ID", "TASK_NAME", "TASK_INSTANCE_ID", "OUTPUT_PATH", "ERROR_PATH")
+    column_names = ("TASK_ID", "TASK_NAME", "ARRAY_NAME",
+                    "TASK_INSTANCE_ID", "OUTPUT_PATH", "ERROR_PATH")
     resp = jsonify(
         array_tasks=[dict(zip(column_names, ti)) for ti in result]
     )

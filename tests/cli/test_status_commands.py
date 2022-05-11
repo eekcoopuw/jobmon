@@ -831,91 +831,114 @@ def test_create_yaml():
     assert result == expected
 
 
-def test_get_tasks_from_array_or_job_name(db_cfg, web_server_in_memory, tool, array_template):
+def test_get_filepaths(db_cfg, tool, array_template, task_template, cli):
 
     from jobmon.server.web.models.task_instance import TaskInstance
+    from jobmon.client.status_commands import get_filepaths
 
     # Create task, and task instance metadata in the database.
-    wf = tool.create_workflow()
+    def create_metadata(tasks=None, arrays=None):
+
+        wf = tool.create_workflow()
+
+        if tasks:
+            wf.add_tasks(tasks)
+
+        if arrays:
+            wf.add_arrays(arrays)
+
+        wf.bind()
+
+        wfr = wf._create_workflow_run()
+
+        task_instances = []
+        for idx, task in enumerate(wf.tasks.values()):
+            ti = TaskInstance(
+                workflow_run_id=wfr.workflow_run_id,
+                array_id=task.array.array_id,
+                cluster_id=1,
+                distributor_id=f"123_{idx}",
+                task_id=task.task_id,
+                array_batch_num=1,
+                array_step_id=idx,
+                stdout=f"/cool/filepath.o123_{idx}",
+                stderr=f"/cool/filepath.e123_{idx}"
+            )
+            task_instances.append(ti)
+
+        app, db = db_cfg['app'], db_cfg['DB']
+
+        with app.app_context():
+            db.session.bulk_save_objects(task_instances)
+            db.session.commit()
+
+        return wf
 
     array = array_template.create_array(
         name='foobar array',
         arg=['foo', 'bar', 'baz']
     )
-
-    wf.add_array(array)
-    wf.bind()
-
-    wfr = wf._create_workflow_run()
-
-    task_instances = []
-    for idx, task in enumerate(wf.tasks.values()):
-        ti = TaskInstance(
-            workflow_run_id=wfr.workflow_run_id,
-            array_id=array.array_id,
-            cluster_id=1,
-            distributor_id=f"123_{idx}",
-            task_id=task.task_id,
-            array_batch_num=1,
-            array_step_id=idx,
-            stdout=f"/cool/filepath.o123_{idx}",
-            stderr=f"/cool/filepath.e123_{idx}"
-        )
-        task_instances.append(ti)
-
-    app, db = db_cfg['app'], db_cfg['DB']
-
-    with app.app_context():
-        db.session.bulk_save_objects(task_instances)
-        db.session.commit()
+    wf = create_metadata(arrays=[array])
 
     # Database is now populated with juicy task instances
-    # Call the get_array_tasks route. Should return 3 results
-    response = web_server_in_memory.get(
-        f"/array/{wf.workflow_id}/get_array_tasks",
-        json={
-            'array_name': 'foobar array'
-        }
+    # Test CLI parsing
+    command_str = f"get_filepaths -w {wf.workflow_id}"
+    args = cli.parse_args(command_str + " -a 'foobar array'")
+
+    assert args.workflow_id == wf.workflow_id
+    assert args.array_name == "foobar array"
+
+    df_cli = get_filepaths(
+        workflow_id=args.workflow_id,
+        array_name=args.array_name
     )
-    assert response.status_code == 200
 
-    df = pd.DataFrame(response.json['array_tasks'])
-    assert set(df.ERROR_PATH) == {
-        "/cool/filepath.e123_0", "/cool/filepath.e123_1", "/cool/filepath.e123_2"
-    }
-    assert set(df.OUTPUT_PATH) == {
-        "/cool/filepath.o123_0", "/cool/filepath.o123_1", "/cool/filepath.o123_2"
-    }
-    assert set(df.TASK_NAME) == {
-        "array_template_arg-foo", "array_template_arg-bar", "array_template_arg-baz"
-    }
-    assert len(df) == 3
+    assert len(df_cli) == 3
+    df_cli = pd.DataFrame(df_cli)
+    assert set(df_cli.OUTPUT_PATH) == \
+        {'/cool/filepath.o123_0', '/cool/filepath.o123_1', '/cool/filepath.o123_2'}
+    assert set(df_cli.ERROR_PATH) == \
+        {'/cool/filepath.e123_0', '/cool/filepath.e123_1', '/cool/filepath.e123_2'}
+    assert set(df_cli.ARRAY_NAME == "foobar array")
 
-    # Filter additionally by task names
-    task_response = web_server_in_memory.get(
-        f"/array/{wf.workflow_id}/get_array_tasks",
-        json={
-            'array_name': 'foobar array',
-            'job_name': 'array_template_arg-foo'
-        }
+    one_task_df = get_filepaths(
+        workflow_id=wf.workflow_id,
+        array_name='foobar array',
+        job_name='array_template_arg-foo'
     )
-    assert task_response.status_code == 200
 
-    assert len(task_response.json['array_tasks']) == 1
-    task_response = task_response.json['array_tasks'].pop()
-    assert task_response['TASK_NAME'] == 'array_template_arg-foo'
-    assert task_response['OUTPUT_PATH'] == \
-           df.set_index('TASK_NAME').loc['array_template_arg-foo', 'OUTPUT_PATH']
+    assert len(one_task_df) == 1
 
-    # Add an optional limit
-    response = web_server_in_memory.get(
-        f"/array/{wf.workflow_id}/get_array_tasks",
-        json={
-            'array_name': 'foobar array',
-            'limit': 1
-        }
+    # Check that the fetch results work with create_task as well.
+    tasks = [
+        task_template.create_task(name=val, arg=f"echo {val}")
+        for val in ('qux', 'quux', 'quuz')
+    ]
+    wf2 = create_metadata(arrays=[array], tasks=tasks)
+
+    # Check that we get 6 tasks in the workflow
+    command_str = f"get_filepaths -w {wf2.workflow_id} -l 6"
+    args = cli.parse_args(command_str)
+
+    df_full = get_filepaths(
+        workflow_id=args.workflow_id,
+        limit=args.limit
     )
-    assert response.status_code == 200
+    assert len(df_full) == 6
 
-    single_task = response.json['array_tasks']
-    assert len(single_task) == 1
+    # Filter by array name - the simple array
+    df_array1 = get_filepaths(
+        workflow_id=args.workflow_id,
+        array_name='simple_template'
+    )
+    assert len(df_array1) == 3
+    df_array1 = pd.DataFrame(df_array1)
+    assert set(df_array1.TASK_NAME) == {'qux', 'quux', 'quuz'}
+    assert len(set(df_array1.OUTPUT_PATH)) == 3
+
+    qux_task = get_filepaths(
+        workflow_id=args.workflow_id,
+        job_name='qux'
+    )
+    assert len(qux_task) == 1
+    assert qux_task[0]['TASK_ID'] == df_array1.set_index('TASK_NAME').loc['qux', 'TASK_ID']
