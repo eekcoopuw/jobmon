@@ -43,6 +43,12 @@ class UsageIntegrator:
 
         # Initialize empty queue-cluster mapping, to be populated and cached on startup
         self._queue_cluster_map: Optional[Dict] = None
+        self._integrator_retire_age: int = int(os.getenv("INTEGRATOR_RETIRE_AGE")) \
+            if os.getenv("INTEGRATOR_RETIRE_AGE") else 0
+
+    @property
+    def integrator_retire_age(self):
+        return self._integrator_retire_age
 
     @property
     def queue_cluster_map(self):
@@ -140,12 +146,12 @@ class UsageIntegrator:
             if resources is None:
                 try:
                     logger.warning(f"5***************** None")
-                    logger.warning(f"6*****************UsageConfig.integrator_retire_age {UsageConfig.integrator_retire_age}")
+                    logger.warning(f"6*****************integrator_retire_age {self.integrator_retire_age}")
                     usage_stats.pop(task)
                     task.age += 1
                     # discard older than 10 tasks when never_retire is False
-                    if UsageConfig.integrator_retire_age <= 0 \
-                            or task.age < UsageConfig.integrator_retire_age:
+                    if self.integrator_retire_age <= 0 \
+                            or task.age < self.integrator_retire_age:
                         UsageQ.put(task, task.age)
                     else:
                         logger.info(f"Retire {task.task_instance_id}")

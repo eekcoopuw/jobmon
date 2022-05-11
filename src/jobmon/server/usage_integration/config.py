@@ -26,7 +26,6 @@ class UsageConfig:
         ParserDefaults.slurm_polling_interval(cli.parser)
         ParserDefaults.slurm_max_update_per_second(cli.parser)
         ParserDefaults.slurm_cluster(cli.parser)
-        ParserDefaults.integrator_retire_age(cli.parser)
 
         # passing an empty string forces this method to ignore sys.argv
         args = cli.parse_args("")
@@ -46,8 +45,6 @@ class UsageConfig:
             slurm_polling_interval=args.slurm_polling_interval,
             slurm_max_update_per_second=args.slurm_max_update_per_second,
             slurm_cluster=args.slurm_cluster,
-            # usage integrator
-            integrator_retire_age=args.integrator_retire_age,
         )
 
     def __init__(
@@ -66,8 +63,6 @@ class UsageConfig:
         slurm_polling_interval: int,
         slurm_max_update_per_second: int,
         slurm_cluster: str,
-        # whether to retire failed to integrate ti
-        integrator_retire_age: int = 0
     ) -> None:
         """Initialization of the integrator configuration."""
         self.db_host = db_host
@@ -84,7 +79,6 @@ class UsageConfig:
         self.slurm_polling_interval = slurm_polling_interval
         self.slurm_max_update_per_second = slurm_max_update_per_second
         self.slurm_cluster = slurm_cluster
-        self.integrator_retire_age = integrator_retire_age
 
     @property
     def conn_str(self) -> str:
