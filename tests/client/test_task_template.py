@@ -208,3 +208,34 @@ def test_task_template_resources_yaml(client_env, db_cfg, tool):
         "max_runtime_seconds": "(60 * 60 * 24)",
         "queue": "null.q",
     }
+
+
+def test_task_template_hash_unique(db_cfg, client_env, tool):
+    """Test task_template arg_mapping hash logic. Part of GBDSCI-4593"""
+    task_template = tool.get_task_template(
+        template_name="task_template_unique_hash",
+        command_template="echo {apple} {banana} {cherry} {durian} {elderberry}",
+        node_args=["apple", "banana", "cherry"],
+        task_args=["durian", "elderberry"],
+    )
+    tool.get_task_template(
+        template_name="task_template_unique_hash",
+        command_template="echo {apple} {banana} {cherry} {durian} {elderberry}",
+        node_args=["apple", "banana"],
+        task_args=["cherry", "durian", "elderberry"],
+    )
+    tool.get_task_template(
+        template_name="task_template_unique_hash",
+        command_template="echo {apple} {banana} {cherry} {durian} {elderberry}",
+        node_args=["apple", "cherry"],
+        task_args=["banana", "durian", "elderberry"],
+    )
+
+    # Check that three unique task template versions were created
+    assert len(task_template.task_template_versions) == 3
+
+    # Check that there are three unique arg mapping hash values
+    arg_mapping_set = set()
+    for tt_version in task_template.task_template_versions:
+        arg_mapping_set.add(tt_version.arg_mapping_hash)
+    assert len(arg_mapping_set) == 3

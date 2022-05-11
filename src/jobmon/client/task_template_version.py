@@ -296,9 +296,10 @@ class TaskTemplateVersion:
     @property
     def arg_mapping_hash(self) -> int:
         """Hash args to identify unique task_template."""
-        hashable = "".join(
-            sorted(self.node_args) + sorted(self.task_args) + sorted(self.op_args)
-        )
+        node_args = "".join(sorted(self.node_args))
+        task_args = "".join(sorted(self.task_args))
+        op_args = "".join(sorted(self.op_args))
+        hashable = ",".join([node_args, task_args, op_args])
         return int(hashlib.sha1(hashable.encode("utf-8")).hexdigest(), 16)
 
     def filter_kwargs(self, arg_type: str, **kwargs) -> Dict[str, Any]:
