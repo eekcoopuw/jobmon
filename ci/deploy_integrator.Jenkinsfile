@@ -17,7 +17,7 @@ pipeline {
     string(defaultValue: 'jobmon-slurm-sdb-dev',
      description: 'name of rancher secret to use for db variables',
      name: 'RANCHER_DB_SLURM_SDB_SECRET')
-    integer(defaultValue: 0,
+    string(defaultValue: "0",
      description: 'How many times should the integrator try to get the resource usage value before giving up. Put 0 to try forever.',
      name: 'INTEGRATOR_RETIRE_AGE')
     string(defaultValue: 'c-99499:p-4h54h',

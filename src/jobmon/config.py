@@ -422,10 +422,10 @@ class ParserDefaults:
         """Name of the Slurm SDB you want to connect to."""
         parser.add_argument(
             "--integrator_retire_age",
-            type=str,
+            type=int,
             help="whether to retire failed to integrate ti",
             default="T",
-            env_var="integrator_retire_age",
+            env_var="INTEGRATOR_RETIRE_AGE",
         )
         return parser
 
