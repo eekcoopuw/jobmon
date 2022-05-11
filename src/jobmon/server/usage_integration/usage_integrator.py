@@ -133,32 +133,24 @@ class UsageIntegrator:
             tres_types=self.tres_types,
             task_instances=tasks,
         )
-        logger.warning(f"1*****************test msg {usage_stats}")
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:
-            logger.warning(f"2*****************{task.task_instance_id }")
             try:
                 resources = usage_stats[task]
-                logger.warning(f"3*****************{resources}")
             except KeyError:
-                logger.warning(f"4*****************key error")
                 resources = None
             if resources is None:
                 try:
-                    logger.warning(f"5***************** None")
-                    logger.warning(f"6*****************integrator_retire_age {self.integrator_retire_age}")
                     task.age += 1
                     # discard older than 10 tasks when never_retire is False
                     if self.integrator_retire_age <= 0 \
                             or task.age < self.integrator_retire_age:
                         UsageQ.put(task, task.age)
-                        logger.warning(f"8***************** put {task.task_instance_id} back to the queue with age {task.age}")
                     else:
                         logger.info(f"Retire {task.task_instance_id}")
-                except:
-                    logger.warning(f"9***************** I fail")
-                    task.age += 1
-                    UsageQ.put(task, task.age)
+                except Exception as e:
+                    # keeps integrator running with failures
+                    logger.warning(e.message)
 
         if len(usage_stats) == 0:
             return  # No values to update
