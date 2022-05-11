@@ -17,9 +17,9 @@ pipeline {
     string(defaultValue: 'jobmon-slurm-sdb-dev',
      description: 'name of rancher secret to use for db variables',
      name: 'RANCHER_DB_SLURM_SDB_SECRET')
-    booleanParam(defaultValue: 'true',
-     description: 'Whether or not to keep task instances that are not able to integrate in the queue forever',
-     name: 'INTEGRATOR_NEVER_RETIRE')
+    integer(defaultValue: 0,
+     description: 'How many times should the integrator try to get the resource usage value before giving up. Put 0 to try forever.',
+     name: 'INTEGRATOR_RETIRE_AGE')
     string(defaultValue: 'c-99499:p-4h54h',
      description: 'Rancher project must be created in the rancher web ui before running this job. Get this from the URL after you select the project in the rancher UI. Shouldnt change often',
      name: 'RANCHER_PROJECT_ID')
@@ -89,7 +89,7 @@ pipeline {
                       ${RANCHER_DB_SECRET} \
                       ${RANCHER_DB_SLURM_SDB_SECRET} \
                       ${KUBECONFIG} \
-                      ${INTEGRATOR_NEVER_RETIRE}
+                      ${INTEGRATOR_RETIRE_AGE}
                '''
             sh '''#!/bin/bash
                   . ${WORKSPACE}/ci/deploy_utils.sh
@@ -101,7 +101,7 @@ pipeline {
                       ${RANCHER_DB_SECRET} \
                       ${RANCHER_DB_SLURM_SDB_SECRET} \
                       ${KUBECONFIG} \
-                      ${INTEGRATOR_NEVER_RETIRE}
+                      ${INTEGRATOR_RETIRE_AGE}
 
                '''
           } // end credentials

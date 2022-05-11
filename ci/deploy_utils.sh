@@ -280,7 +280,7 @@ deploy_integrator_to_k8s () {
     RANCHER_DB_SECRET=${5}
     RANCHER_DB_SLURM_SDB_SECRET=${6}
     KUBECONFIG=${7}
-    NEVER_RETIRE=${8}
+    RETIRE_AGE=${8}
 
     echo "WORKSPACE $WORKSPACE"
     echo "JOBMON_CONTAINER_URI $JOBMON_CONTAINER_URI"
@@ -289,7 +289,7 @@ deploy_integrator_to_k8s () {
     echo "RANCHER_DB_SECRET $RANCHER_DB_SECRET"
     echo "KUBECONFIG $KUBECONFIG"
     echo "RANCHER_DB_SLURM_SDB_SECRET $RANCHER_DB_SLURM_SDB_SECRET"
-    echo "NEVER_RETIRE" $NEVER_RETIRE
+    echo "RETIRE_AGE" $RETIRE_AGE
 
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
     docker pull $KUBECTL_CONTAINER
@@ -314,7 +314,7 @@ deploy_integrator_to_k8s () {
             -v "$WORKSPACE/deployment/k8s/integrator/:/data" \
             alpine/helm \
                 template /data -s templates/01_namespace.yaml \
-                --set global.rancher_never_retire="$NEVER_RETIRE" \
+                --set global.rancher_retire_age="$RETIRE_AGE" \
                 --set global.namespace="$K8S_NAMESPACE" \
                 --set global.rancher_project="$RANCHER_PROJECT_ID" >> \
                 "$WORKSPACE/deployment/k8s/integrator/namespace.yaml"
@@ -342,5 +342,5 @@ deploy_integrator_to_k8s () {
         --set global.rancher_db_secret="$RANCHER_DB_SECRET" \
         --set global.rancher_project="$RANCHER_PROJECT_ID" \
         --set global.rancher_db_slurm_sdb_secret="$RANCHER_DB_SLURM_SDB_SECRET" \
-        --set global.rancher_never_retire="$NEVER_RETIRE"
+        --set global.rancher_retire_age="$RETIRE_AGE"
 }

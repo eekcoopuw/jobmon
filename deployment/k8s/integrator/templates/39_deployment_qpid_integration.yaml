@@ -75,8 +75,8 @@ spec:
             secretKeyRef:
               key: DB_NAME_SLURM_SDB
               name: {{ .Values.global.rancher_db_slurm_sdb_secret }}
-        - name: INTEGRATOR_NEVER_RETIRE
-          value: {{ .Values.global.rancher_never_retire }}
+        - name: INTEGRATOR_RETIRE_AGE
+          value: {{ .Values.global.rancher_retire_age }}
 
         resources:
           limits:
