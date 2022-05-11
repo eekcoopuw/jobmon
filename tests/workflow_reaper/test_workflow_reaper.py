@@ -299,9 +299,9 @@ def test_inconsistent_status(db_cfg, client_env):
 
     # setup workflow
     tool = Tool()
-    tool.set_default_compute_resources_from_dict(
-        cluster_name="sequential", compute_resources={"queue": "null.q"}
-    )
+    # tool.set_default_compute_resources_from_dict(
+    #     cluster_name="sequential", compute_resources={"queue": "null.q"}
+    # )
 
     workflows = []
     for i in range(3):
