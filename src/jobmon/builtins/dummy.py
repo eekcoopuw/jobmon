@@ -34,10 +34,13 @@ class DummyQueue(ClusterQueue):
         self._parameters = parameters
 
     def validate_resources(
-        self, fail: bool = False, **kwargs: Dict
-    ) -> Tuple[bool, str, Dict]:
+        self, strict: bool = False, **kwargs: Dict
+    ) -> Tuple[bool, str]:
         """No resources defined for sequential execution. All resources valid."""
-        return True, "", kwargs
+        return True, ""
+
+    def coerce_resources(self, **kwargs) -> Dict:
+        return kwargs
 
     @property
     def queue_id(self) -> int:

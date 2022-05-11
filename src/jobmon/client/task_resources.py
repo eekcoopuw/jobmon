@@ -8,7 +8,7 @@ import json
 import logging
 from math import ceil
 import re
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.cluster_type import ClusterQueue
@@ -85,9 +85,13 @@ class TaskResources:
             )
         self._id = response
 
+    def validate_resources(self: TaskResources, strict: bool = False) -> Tuple[bool, str]:
+        is_valid, msg = self.queue.validate_resources(strict, **self.requested_resources)
+        return is_valid, msg
+
     def coerce_resources(self: TaskResources) -> TaskResources:
         """Coerce TaskResources to fit on queue. If resources change return a new object."""
-        _, _, valid_resources = self.queue.validate_resources(**self.requested_resources)
+        valid_resources = self.queue.coerce_resources(**self.requested_resources)
         coerced_task_resources = self.__class__(valid_resources, self.queue)
         if coerced_task_resources != self:
             return coerced_task_resources
@@ -125,15 +129,14 @@ class TaskResources:
         queues = [self.queue] + fallback_queues
         while queues:
             next_queue = queues.pop(0)
-            is_valid, _, _ = next_queue.validate_resources(fail=True, **scaled_resources)
+            is_valid, _ = next_queue.validate_resources(strict=True, **scaled_resources)
             if is_valid:
                 valid_resources = scaled_resources
                 break
         else:  # no break
             # We've run out of queues so use the final queue and coerce
-            _, _, valid_resources = next_queue.validate_resources(
-                fail=False, **scaled_resources
-            )
+            breakpoint()
+            valid_resources = next_queue.coerce_resources(**scaled_resources)
 
         adjust_resources = self.__class__(valid_resources, next_queue)
         if adjust_resources != self:

@@ -431,7 +431,6 @@ def test_dynamic_concurrency_limiting(tool, db_cfg, task_template):
 
     workflow.add_tasks(tasks)
     workflow.bind()
-    print(workflow)
 
     # Start with limit of 2. Adjust up to 5 and try again
 
