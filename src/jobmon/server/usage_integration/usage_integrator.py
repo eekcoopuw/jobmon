@@ -138,16 +138,22 @@ class UsageIntegrator:
                 logger.warning(f"4*****************key error")
                 resources = None
             if resources is None:
-                logger.warning(f"5***************** None")
-                logger.warning(f"6*****************UsageConfig.integrator_retire_age {UsageConfig.integrator_retire_age}")
-                usage_stats.pop(task)
-                task.age += 1
-                # discard older than 10 tasks when never_retire is False
-                if UsageConfig.integrator_retire_age <= 0 \
-                        or task.age < UsageConfig.integrator_retire_age:
+                try:
+                    logger.warning(f"5***************** None")
+                    logger.warning(f"6*****************UsageConfig.integrator_retire_age {UsageConfig.integrator_retire_age}")
+                    usage_stats.pop(task)
+                    task.age += 1
+                    # discard older than 10 tasks when never_retire is False
+                    if UsageConfig.integrator_retire_age <= 0 \
+                            or task.age < UsageConfig.integrator_retire_age:
+                        UsageQ.put(task, task.age)
+                    else:
+                        logger.info(f"Retire {task.task_instance_id}")
+                except:
+                    logger.warning(f"7***************** I fail")
+                    usage_stats.pop(task)
+                    task.age += 1
                     UsageQ.put(task, task.age)
-                else:
-                    logger.info(f"Retire {task.task_instance_id}")
 
         if len(usage_stats) == 0:
             return  # No values to update
