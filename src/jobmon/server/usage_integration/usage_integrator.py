@@ -145,7 +145,7 @@ class UsageIntegrator:
                     # discard older than 10 tasks when never_retire is False
                     if self.integrator_retire_age <= 0 \
                             or task.age < self.integrator_retire_age:
-                        logger.info(f"Put {task.id} back to the queue with age {task.age}")
+                        logger.info(f"Put {task.task_instance_id} back to the queue with age {task.age}")
                         UsageQ.put(task, task.age)
                     else:
                         logger.info(f"Retire {task.task_instance_id} at age {task.age}")
