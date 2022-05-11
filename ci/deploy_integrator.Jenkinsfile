@@ -18,7 +18,7 @@ pipeline {
      description: 'name of rancher secret to use for db variables',
      name: 'RANCHER_DB_SLURM_SDB_SECRET')
     string(defaultValue: "0",
-     description: 'How many times should the integrator try to get the resource usage value before giving up. Put 0 to try forever.',
+     description: 'How many pooling intervals should the integrator try to get the resource usage value before giving up. Put 0 to try forever.',
      name: 'INTEGRATOR_RETIRE_AGE')
     string(defaultValue: 'c-99499:p-4h54h',
      description: 'Rancher project must be created in the rancher web ui before running this job. Get this from the URL after you select the project in the rancher UI. Shouldnt change often',

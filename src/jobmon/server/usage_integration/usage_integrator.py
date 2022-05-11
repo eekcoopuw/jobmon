@@ -336,9 +336,9 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
         # put a sleep in each attempt to not overload the CPU.
         # The avg daily job instance is about 20k; thus, sleep(1) should be ok.
         time.sleep(1)
-        # if all tis in Q has already been integrated in this polling_interval, skip
-        if processed_size <= initial_q_size:
-            logger.info(f"Processed size in this polling interval: {processed_size}")
+        # if all this in Q has already been integrated in this polling_interval, skip
+        if processed_size < initial_q_size:
+            logger.debug(f"Processed size in this polling interval: {processed_size}")
             # Update slurm_max_update_per_second of jobs as defined in jobmon.cfg
             task_instances = [
                 UsageQ.get() for _ in range(integrator.config["max_update_per_sec"])
