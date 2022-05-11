@@ -136,7 +136,7 @@ class UsageIntegrator:
                 logger.warning(f"3*****************{resources}")
             except KeyError:
                 logger.warning(f"4*****************key error")
-                continue
+                resources = None
             if resources is None:
                 logger.warning(f"5***************** None")
                 logger.warning(f"6*****************UsageConfig.integrator_retire_age {UsageConfig.integrator_retire_age}")
