@@ -147,16 +147,18 @@ class UsageIntegrator:
                 try:
                     logger.warning(f"5***************** None")
                     logger.warning(f"6*****************integrator_retire_age {self.integrator_retire_age}")
-                    usage_stats.pop(task)
+                    UsageQ.pop(task)
+                    logger.warning(f"7***************** poped {task.task_instance_id} from UsageQ")
                     task.age += 1
                     # discard older than 10 tasks when never_retire is False
                     if self.integrator_retire_age <= 0 \
                             or task.age < self.integrator_retire_age:
                         UsageQ.put(task, task.age)
+                        logger.warning(f"8***************** put {task.task_instance_id} back to the queue with age {task.age}")
                     else:
                         logger.info(f"Retire {task.task_instance_id}")
                 except:
-                    logger.warning(f"7***************** I fail")
+                    logger.warning(f"9***************** I fail")
                     task.age += 1
                     UsageQ.put(task, task.age)
 
