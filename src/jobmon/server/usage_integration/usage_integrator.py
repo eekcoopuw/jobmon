@@ -145,6 +145,7 @@ class UsageIntegrator:
                     # discard older than 10 tasks when never_retire is False
                     if self.integrator_retire_age <= 0 \
                             or task.age < self.integrator_retire_age:
+                        logger.info(f"Put {task.id} back to the queue with age {task.age}")
                         UsageQ.put(task, task.age)
                     else:
                         logger.info(f"Retire {task.task_instance_id} at age {task.age}")
@@ -338,7 +339,7 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
         time.sleep(1)
         # if all this in Q has already been integrated in this polling_interval, skip
         if processed_size < initial_q_size:
-            logger.debug(f"Processed size in this polling interval: {processed_size}")
+            logger.info(f"Processed size in this polling interval: {processed_size}")
             # Update slurm_max_update_per_second of jobs as defined in jobmon.cfg
             task_instances = [
                 UsageQ.get() for _ in range(integrator.config["max_update_per_sec"])
@@ -358,7 +359,7 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
             try:
                 integrator.populate_queue(last_heartbeat)
                 # restart counter
-                initail_q_size = UsageQ.get_size()
+                initial_q_size = UsageQ.get_size()
                 processed_size = 0
                 logger.debug(f"Q length: {UsageQ.get_size()}")
             except Exception as e:
