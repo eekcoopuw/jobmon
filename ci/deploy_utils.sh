@@ -280,7 +280,7 @@ deploy_integrator_to_k8s () {
     RANCHER_DB_SECRET=${5}
     RANCHER_DB_SLURM_SDB_SECRET=${6}
     KUBECONFIG=${7}
-    RETIRE_AGE=${8}
+    RETIRE_AGE=$( printf '%03d' ${8} ) # to string
 
     echo "WORKSPACE $WORKSPACE"
     echo "JOBMON_CONTAINER_URI $JOBMON_CONTAINER_URI"
