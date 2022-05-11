@@ -76,7 +76,7 @@ spec:
               key: DB_NAME_SLURM_SDB
               name: {{ .Values.global.rancher_db_slurm_sdb_secret }}
         - name: INTEGRATOR_RETIRE_AGE
-          value: {{ .Values.global.rancher_retire_age }}
+          value: {{ .Values.global.rancher_retire_age | quote }}
 
         resources:
           limits:
