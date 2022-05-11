@@ -147,7 +147,7 @@ class UsageIntegrator:
                             or task.age < self.integrator_retire_age:
                         UsageQ.put(task, task.age)
                     else:
-                        logger.info(f"Retire {task.task_instance_id}")
+                        logger.info(f"Retire {task.task_instance_id} at age {task.age}")
                 except Exception as e:
                     # keeps integrator running with failures
                     logger.warning(e.message)
@@ -328,19 +328,25 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
     last_heartbeat = init_time
     integrator = UsageIntegrator(integrator_config)
 
+    # only query each ti once in one polling_interval
+    initial_q_size = UsageQ.get_size()
+    processed_size = 0
     while UsageQ.keep_running:
         # Since there isn't a good way to specify the thread priority in Python,
         # put a sleep in each attempt to not overload the CPU.
         # The avg daily job instance is about 20k; thus, sleep(1) should be ok.
         time.sleep(1)
-        # Update slurm_max_update_per_second of jobs as defined in jobmon.cfg
-        task_instances = [
-            UsageQ.get() for _ in range(integrator.config["max_update_per_sec"])
-        ]
-        # If the queue is empty, drop the None entries
-        task_instances = [t for t in task_instances if t is not None]
-
-        integrator.update_resources_in_db(task_instances)
+        # if all tis in Q has already been integrated in this polling_interval, skip
+        if processed_size <= initial_q_size:
+            logger.info(f"Processed size in this polling interval: {processed_size}")
+            # Update slurm_max_update_per_second of jobs as defined in jobmon.cfg
+            task_instances = [
+                UsageQ.get() for _ in range(integrator.config["max_update_per_sec"])
+            ]
+            # If the queue is empty, drop the None entries
+            task_instances = [t for t in task_instances if t is not None]
+            processed_size += len(task_instances)
+            integrator.update_resources_in_db(task_instances)
 
         # Query DB to add newly completed jobs to q and log q length
         current_time = datetime.datetime.now()
@@ -351,6 +357,9 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
             ))
             try:
                 integrator.populate_queue(last_heartbeat)
+                # restart counter
+                initail_q_size = UsageQ.get_size()
+                processed_size = 0
                 logger.debug(f"Q length: {UsageQ.get_size()}")
             except Exception as e:
                 logger.error(str(e))
