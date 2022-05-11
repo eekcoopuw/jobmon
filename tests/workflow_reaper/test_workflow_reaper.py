@@ -352,7 +352,7 @@ def test_inconsistent_status(db_cfg, client_env):
 def _create_workflow_inconsistency_check(tool, wf_id: int):
     task_template = tool.get_task_template(
         template_name=f"test_inconsistent_status",
-        command_template="echo {arg}",
+        command_template="sleep 40 && echo {arg}",
         node_args=["arg"],
         task_args=[],
         op_args=[],
