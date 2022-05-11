@@ -151,7 +151,6 @@ class UsageIntegrator:
                         logger.info(f"Retire {task.task_instance_id}")
                 except:
                     logger.warning(f"7***************** I fail")
-                    usage_stats.pop(task)
                     task.age += 1
                     UsageQ.put(task, task.age)
 
