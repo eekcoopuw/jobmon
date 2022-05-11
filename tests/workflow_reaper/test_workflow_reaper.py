@@ -83,7 +83,7 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
 
     # Instantiate reaper, have it check for workflow runs in error state
     reaper = WorkflowReaper(
-        poll_interval_seconds=1,
+        poll_interval_seconds=30,
         requester=requester_no_retry,
         wf_notification_sink=mock_slack_notifier,
     )
