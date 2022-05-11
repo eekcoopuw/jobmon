@@ -31,7 +31,7 @@ def start_workflow_reaper(
 
     requester = Requester(workflow_reaper_config.url)
     reaper = WorkflowReaper(
-        poll_interval_minutes=workflow_reaper_config.poll_interval_minutes,
+        poll_interval_seconds=workflow_reaper_config.poll_interval_minutes * 60,
         requester=requester,
         wf_notification_sink=wf_sink,
     )

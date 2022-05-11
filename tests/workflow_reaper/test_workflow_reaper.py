@@ -83,7 +83,7 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
 
     # Instantiate reaper, have it check for workflow runs in error state
     reaper = WorkflowReaper(
-        poll_interval_minutes=1,
+        poll_interval_seconds=1,
         requester=requester_no_retry,
         wf_notification_sink=mock_slack_notifier,
     )
@@ -299,9 +299,9 @@ def test_inconsistent_status(db_cfg, client_env):
 
     # setup workflow
     tool = Tool()
-    # tool.set_default_compute_resources_from_dict(
-    #     cluster_name="sequential", compute_resources={"queue": "null.q"}
-    # )
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
 
     workflows = []
     for i in range(3):
@@ -324,8 +324,9 @@ def test_inconsistent_status(db_cfg, client_env):
         DB.session.commit()
 
     # make sure it starts with 0
+    # Reaps every 5 seconds
     WorkflowReaper._current_starting_row = 0
-    WorkflowReaper(1, workflows[0].requester)._inconsistent_status(1)
+    WorkflowReaper(poll_interval_seconds=5, requester=workflows[0].requester)._inconsistent_status(1)
     assert WorkflowReaper._current_starting_row == 1
 
     # check workflow status changed

@@ -49,24 +49,25 @@ class WorkflowReaper(object):
 
     def __init__(
         self,
-        poll_interval_minutes: int,
+        poll_interval_seconds: int,
         requester: Requester,
         wf_notification_sink: Callable[..., None] = None,
     ) -> None:
         """Initializes WorkflowReaper class with specified poll interval and slack info.
 
         Args:
-            poll_interval_minutes(int): how often the WorkflowReaper should check the
-                database and reap workflows.
+            poll_interval_seconds(int): how often the WorkflowReaper should check the
+                database and reap workflows. Using seconds, rather than minutes, makes
+                the tests run faster.
             requester (Requester): requester to communicate with Flask.
             wf_notification_sink (Callable): Slack notifier send().
         """
         logger.info(
-            f"WorkflowReaper initializing with: poll_interval_minutes={poll_interval_minutes},"
+            f"WorkflowReaper initializing with: poll_interval_minutes={poll_interval_seconds},"
             f"requester_url={requester.url}"
         )
 
-        self._poll_interval_minutes = poll_interval_minutes
+        self._poll_interval_seconds = poll_interval_seconds
         self._requester = requester
         self._wf_notification_sink = wf_notification_sink
 
@@ -86,7 +87,7 @@ class WorkflowReaper(object):
                 self._aborted_state()
                 self._error_state()
                 self._inconsistent_status(500)
-                sleep(self._poll_interval_minutes * 60)
+                sleep(self._poll_interval_seconds * 10)
         except RuntimeError as e:
             logger.debug(f"Error in monitor_forever() in workflow reaper: {e}")
 
