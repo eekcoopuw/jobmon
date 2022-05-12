@@ -89,9 +89,8 @@ pipeline {
         } // End build docs stage
         stage('Tests') {
           steps {
-            //sh "${ACTIVATE} && nox --session tests -- tests/ -n 3 || true"
-            sh "echo \"I do not need test\""
-           }
+             sh "${ACTIVATE} && nox --session tests -- tests/ -n 3 || true"
+            }
           post {
             always {
               // Publish the coverage reports.
