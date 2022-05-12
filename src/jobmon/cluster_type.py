@@ -101,7 +101,7 @@ class ClusterQueue(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def validate_resources(self, strict: bool, **kwargs: Dict) -> Tuple[bool, str]:
+    def validate_resources(self, strict: bool = False, **kwargs: Dict) -> Tuple[bool, str]:
         """Ensures that requested resources aren't greater than what's available."""
         raise NotImplementedError
 
