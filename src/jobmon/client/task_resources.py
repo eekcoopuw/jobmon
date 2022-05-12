@@ -135,7 +135,6 @@ class TaskResources:
                 break
         else:  # no break
             # We've run out of queues so use the final queue and coerce
-            breakpoint()
             valid_resources = next_queue.coerce_resources(**scaled_resources)
 
         adjust_resources = self.__class__(valid_resources, next_queue)
