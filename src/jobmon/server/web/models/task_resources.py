@@ -18,7 +18,7 @@ class TaskResources(DB.Model):
         """Serialize executor task object."""
         serialized = SerializeTaskResources.to_wire(
             task_resources_id=self.id,
-            queue_id=self.queue_id,
+            queue_name=self.queue.name,
             task_resources_type_id=self.task_resources_type_id,
             requested_resources=self.requested_resources,
         )
