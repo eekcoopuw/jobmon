@@ -87,7 +87,7 @@ class WorkflowReaper(object):
                 self._aborted_state()
                 self._error_state()
                 self._inconsistent_status(500)
-                sleep(self._poll_interval_seconds * 10)
+                sleep(self._poll_interval_seconds * 60 * 60)
         except RuntimeError as e:
             logger.debug(f"Error in monitor_forever() in workflow reaper: {e}")
 

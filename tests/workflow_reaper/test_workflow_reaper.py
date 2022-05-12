@@ -343,9 +343,9 @@ def test_inconsistent_status(db_cfg, client_env):
         assert s == "D"
 
     # Now check that the workflow_id wraps
-    WorkflowReaper(1, workflows[0].requester)._inconsistent_status(1)
+    WorkflowReaper(poll_interval_seconds=5, requester=workflows[0].requester)._inconsistent_status(1)
     assert WorkflowReaper._current_starting_row == 2
-    WorkflowReaper(1, workflows[0].requester)._inconsistent_status(10)
+    WorkflowReaper(poll_interval_seconds=5, requester=workflows[0].requester)._inconsistent_status(10)
     assert WorkflowReaper._current_starting_row == 0
 
 
