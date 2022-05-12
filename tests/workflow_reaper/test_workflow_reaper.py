@@ -304,7 +304,7 @@ def test_inconsistent_status(db_cfg, client_env):
     )
 
     workflows = []
-    for i in range(5):
+    for i in range(4):
         workflows.append(_create_workflow_inconsistency_check(tool, i))
         workflows[i].run()
 
@@ -323,9 +323,10 @@ def test_inconsistent_status(db_cfg, client_env):
 
     # make sure it starts with 0
     # Force it to check
+    # Check a large window because pervious tests will leave workflows in the database
     WorkflowReaper._current_starting_row = 0
-    WorkflowReaper(poll_interval_seconds=5*60, requester=workflows[0].requester)._inconsistent_status(2)
-    assert WorkflowReaper._current_starting_row == 2
+    WorkflowReaper(poll_interval_seconds=5*60, requester=workflows[0].requester)._inconsistent_status(200)
+    assert WorkflowReaper._current_starting_row == 0
 
     # check workflow status changed on both
     with app.app_context():
@@ -347,8 +348,8 @@ def test_inconsistent_status(db_cfg, client_env):
 
     # Now check that the workflow_id wraps
     WorkflowReaper(poll_interval_seconds=5*60, requester=workflows[0].requester)._inconsistent_status(1)
-    assert WorkflowReaper._current_starting_row == 3
-    WorkflowReaper(poll_interval_seconds=5*60, requester=workflows[0].requester)._inconsistent_status(10)
+    assert WorkflowReaper._current_starting_row == 1
+    WorkflowReaper(poll_interval_seconds=5*60, requester=workflows[0].requester)._inconsistent_status(1000)
     assert WorkflowReaper._current_starting_row == 0
 
 

@@ -787,12 +787,11 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
     Find wf in F with all tasks in D and fix them.
     For flexibility, pass in the step size. It is easier to redeploy the reaper than the service.
     """
-
     data = request.get_json()
     increase_step = data["increase_step"]
 
     bind_to_logger(workflow_id=workflow_id)
-    logger.info(f"Fix inconsistencies starting from workflow {workflow_id} by {increase_step} inclusive")
+    logger.debug(f"Fix inconsistencies starting from workflow {workflow_id} by {increase_step}")
     sql = "SELECT COUNT(*) as total FROM workflow"
     # the id to return to reaper as next start point
     total_wf = int(DB.session.execute(sql).fetchone()["total"])
@@ -805,7 +804,7 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
 
     current_max_wf_id = int(workflow_id) + int(increase_step)
     if current_max_wf_id > total_wf:
-        logger.debug("Fix inconsistencies starting from workflow_id zero again")
+        logger.info("Fix inconsistencies starting from workflow_id zero again")
         current_max_wf_id = 0
 
     # Update wf in F with all task in D to D
@@ -827,7 +826,7 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
         low_wfid=workflow_id, high_wfid=int(workflow_id) + increase_step
     )
 
-    result_list = DB.session.execute(query_sql).all()
+    result_list = DB.session.execute(query_sql).fetchall()
     DB.session.commit()
     if result_list is None or len(result_list) == 0:
         logger.debug(f"No inconsistent F-D workflows to fix.")
