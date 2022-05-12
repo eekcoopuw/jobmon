@@ -31,7 +31,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
     """tests that a task can be triaged and log as unknown error"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.cluster_type.multiprocess.multiproc_distributor import (
+    from jobmon.builtins.multiprocess.multiproc_distributor import (
         MultiprocessDistributor,
     )
     from jobmon.server.web.models.task_instance import TaskInstance
@@ -59,7 +59,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
 
-    distributor = MultiprocessDistributor(5)
+    distributor = MultiprocessDistributor("multiprocess", 5)
     distributor.start()
 
     # test that we can launch via the normal job pathway
@@ -135,7 +135,7 @@ def test_triaging_to_specific_error(
     from unittest import mock
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.cluster_type.multiprocess.multiproc_distributor import (
+    from jobmon.builtins.multiprocess.multiproc_distributor import (
         MultiprocessDistributor,
     )
     from jobmon.server.web.models.task_instance import TaskInstance
@@ -163,7 +163,7 @@ def test_triaging_to_specific_error(
     swarm.set_initial_fringe()
     swarm.process_commands()
 
-    distributor = MultiprocessDistributor(5)
+    distributor = MultiprocessDistributor("multiprocess", 5)
     distributor.start()
 
     # test that we can launch via the normal job pathway
@@ -194,7 +194,7 @@ def test_triaging_to_specific_error(
     # distributor_service._check_for_work(TaskInstanceStatus.TRIAGING)
 
     with mock.patch(
-        "jobmon.cluster_type.multiprocess.multiproc_distributor."
+        "jobmon.builtins.multiprocess.multiproc_distributor."
         "MultiprocessDistributor.get_remote_exit_info",
         return_value=(error_state, error_message),
     ):

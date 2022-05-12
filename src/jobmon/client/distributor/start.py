@@ -17,12 +17,11 @@ def get_distributor_service(
     requester = Requester(distributor_config.url)
 
     # get the cluster_distributor API
-    cluster = Cluster(cluster_name, requester)
-    cluster.bind()
-    cluster_distributor = cluster.cluster_distributor_class()
+    cluster = Cluster.get_cluster(cluster_name, requester)
+    cluster_interface = cluster.get_distributor()
 
     distributor_service = DistributorService(
-        cluster=cluster_distributor,
+        cluster_interface=cluster_interface,
         requester=requester,
         task_instance_heartbeat_interval=distributor_config.task_instance_heartbeat_interval,
         heartbeat_report_by_buffer=distributor_config.heartbeat_report_by_buffer,

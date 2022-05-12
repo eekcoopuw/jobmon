@@ -57,7 +57,7 @@ def test_log_heartbeat(tool, task_template, db_cfg):
     assert wf._status == WorkflowStatus.REGISTERING
 
 
-def test_task_resouces_conversion(tool, task_template):
+def test_task_resources_conversion(tool, task_template):
     too_many_cores = {"memory": "20G", "queue": "null.q", "runtime": "01:02:33"}
     t1 = task_template.create_task(
         arg="echo 1", compute_resources=too_many_cores, cluster_name="multiprocess"
@@ -69,8 +69,8 @@ def test_task_resouces_conversion(tool, task_template):
     wf1.bind()
     wfr = wf1._create_workflow_run()
     task_resources = list(wfr._task_resources.values())[0]
-    assert task_resources.concrete_resources.resources["memory"] == 20
+    assert task_resources.requested_resources["memory"] == 20
     assert task_resources.queue.queue_name == "null.q"
-    assert task_resources.concrete_resources.resources["runtime"] == 3753
+    assert task_resources.requested_resources["runtime"] == 3753
 
     assert wfr.status == "B"

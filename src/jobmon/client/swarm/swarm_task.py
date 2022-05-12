@@ -6,8 +6,7 @@ from typing import Callable, Dict, List, Optional, Set
 
 from jobmon.client.task_resources import TaskResources
 from jobmon.cluster import Cluster
-from jobmon.cluster_type.base import ClusterQueue
-from jobmon.constants import TaskStatus
+from jobmon.cluster_type import ClusterQueue
 
 
 logger = logging.getLogger(__name__)

@@ -1,5 +1,6 @@
 """Serializing data when going to and from the database."""
 import ast
+import json
 from datetime import datetime
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -315,12 +316,13 @@ class SerializeCluster:
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Get the Cluster information from the database."""
+        connection_parameters = json.loads(wire_tuple[4]) if wire_tuple[4] is not None else {}
         return {
             "id": int(wire_tuple[0]),
             "name": str(wire_tuple[1]),
             "cluster_type_name": str(wire_tuple[2]),
             "package_location": str(wire_tuple[3]),
-            "connection_parameters": str(wire_tuple[4]),
+            "connection_parameters": connection_parameters,
         }
 
 

@@ -2,22 +2,94 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-from datetime import datetime
-import hashlib
-import json
-import re
-from typing import Any, Dict, List, Optional, Set, Tuple, Union
+import importlib
+from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 # the following try-except is to accommodate Python versions on both >=3.8 and 3.7.
 # The Protocol was officially introduced in 3.8, with typing_extensions slapped on 3.7.
 try:
-    from typing import Protocol, runtime_checkable
+    from typing import Protocol
 except ImportError:
-    from typing_extensions import Protocol, runtime_checkable  # type: ignore
+    from typing_extensions import Protocol  # type: ignore
 
 from jobmon import __version__
 from jobmon.exceptions import RemoteExitInfoNotAvailable
-from jobmon.units import MemUnit, TimeUnit
+
+
+_plugins: Dict[str, Any] = {}
+_interface = [
+    "get_cluster_queue_class",
+    "get_cluster_distributor_class",
+    "get_cluster_worker_node_class",
+]
+
+
+def get_plugin(plugin_module_path: str) -> Any:
+    """Get a cluster interface for a given type of cluster.
+
+    Args:
+        cluster_type_name: the name of the cluster technology.
+    """
+    module = _plugins.get(plugin_module_path)
+    if module is None:
+        try:
+            module = importlib.import_module(plugin_module_path)
+            msg = ""
+            for func in _interface:
+                if not hasattr(module, func):
+                    msg += f"Required function {func} missing from plugin interface. \n"
+            if msg:
+                raise AttributeError(f"Invalid jobmon plugin {module}" + msg)
+            _plugins[plugin_module_path] = module
+        except ModuleNotFoundError as e:
+            msg = f"Interface not found for cluster_type_name={plugin_module_path}"
+            raise ValueError(msg) from e
+    return module
+
+
+class ClusterType:
+
+    _cache: Dict[str, ClusterType] = {}
+
+    def __new__(cls, *args, **kwds):
+        key = args[0] if args else kwds["cluster_type_name"]
+        inst = cls._cache.get(key, None)
+        if inst is None:
+            inst = super(ClusterType, cls).__new__(cls)
+            inst.__init__(key)
+            cls._cache[key] = inst
+        return inst
+
+    def __init__(self, cluster_type_name: str):
+        self.cluster_type_name = cluster_type_name
+        self._package_location = ""
+
+    @property
+    def package_location(self) -> str:
+        if not self._package_location:
+            raise AttributeError("package_location not set.")
+        return self._package_location
+
+    @package_location.setter
+    def package_location(self, val: str):
+        self._package_location = val
+
+    @property
+    def plugin(self) -> Any:
+        """If the cluster is bound, return the cluster interface for the type of cluster."""
+        return get_plugin(self.package_location)
+
+    @property
+    def cluster_queue_class(self) -> Type[ClusterQueue]:
+        return self.plugin.get_cluster_queue_class()
+
+    @property
+    def cluster_distributor_class(self) -> Type[ClusterDistributor]:
+        return self.plugin.get_cluster_distributor_class()
+
+    @property
+    def cluster_worker_node_class(self) -> Type[ClusterWorkerNode]:
+        return self.plugin.get_cluster_worker_node_class()
 
 
 class ClusterQueue(Protocol):
@@ -29,7 +101,12 @@ class ClusterQueue(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def validate_resources(self, fail: bool, **kwargs: Dict) -> Tuple[bool, str, Dict]:
+    def validate_resources(self, strict: bool = False, **kwargs: Dict) -> Tuple[bool, str]:
+        """Ensures that requested resources aren't greater than what's available."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def coerce_resources(self, **kwargs: Dict) -> Dict:
         """Ensures that requested resources aren't greater than what's available."""
         raise NotImplementedError
 
@@ -57,63 +134,14 @@ class ClusterQueue(Protocol):
         """Returns the list of resources that are required."""
         raise NotImplementedError
 
-    @staticmethod
-    def convert_memory_to_gib(memory_str: str) -> int:
-        """Given a memory request with a unit suffix, convert to GiB."""
-        try:
-            # User could pass in a raw value for memory, assume to be in GiB.
-            # This is also the path taken by adjust
-            return int(memory_str)
-        except ValueError:
-            return MemUnit.convert(memory_str, to="G")
-
-    @staticmethod
-    def convert_runtime_to_s(time_str: Union[str, float, int]) -> int:
-        """Given a runtime request, coerce to seconds for recording in the DB."""
-
-        try:
-            # If a numeric is provided, assumed to be in seconds
-            return int(time_str)
-        except ValueError:
-
-            time_str = str(time_str).lower()
-
-            # convert to seconds if its datetime with a supported format
-            try:
-                time_object = datetime.strptime(time_str, "%H:%M:%S")
-                time_seconds = (
-                    time_object.hour * 60 * 60
-                    + time_object.minute * 60
-                    + time_object.second
-                )
-                time_str = str(time_seconds) + "s"
-            except Exception:
-                pass
-
-            try:
-                raw_value, unit = re.findall(r"[A-Za-z]+|\d+", time_str)
-            except ValueError:
-                # Raised if there are not exactly 2 values to unpack from above regex
-                raise ValueError(
-                    "The provided runtime request must be in a format of numbers "
-                    "followed by one or two characters indicating the unit. "
-                    "E.g. 1h, 60m, 3600s."
-                )
-
-            if "h" in unit:
-                # Hours provided
-                return TimeUnit.hour_to_sec(int(raw_value))
-            elif "m" in unit:
-                # Minutes provided
-                return TimeUnit.min_to_sec(int(raw_value))
-            elif "s" in unit:
-                return int(raw_value)
-            else:
-                raise ValueError("Expected one of h, m, s as the suffixed unit.")
-
 
 class ClusterDistributor(Protocol):
     """The protocol class for cluster distributors."""
+
+    @abstractmethod
+    def __init__(self, cluster_name: str, *args, **kwargs) -> None:
+        """Initialization of ClusterQueue."""
+        raise NotImplementedError
 
     @property
     @abstractmethod
@@ -281,85 +309,3 @@ class ClusterWorkerNode(Protocol):
         array_step_id.
         """
         raise NotImplementedError
-
-
-@runtime_checkable
-class ConcreteResource(Protocol):
-    """The protocol class for concrete resources."""
-
-    @abstractmethod
-    def __init__(self, queue: ClusterQueue, requested_resources: Dict) -> None:
-        """Initialization of ClusterQueue."""
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def queue(self) -> ClusterQueue:
-        """The queue that these resources have been validated against."""
-        raise NotImplementedError
-
-    @property
-    @abstractmethod
-    def resources(self) -> Dict[str, Any]:
-        """The resources that the task needs to run successfully on a given cluster queue."""
-        raise NotImplementedError
-
-    @classmethod
-    @abstractmethod
-    def validate_and_create_concrete_resource(
-        cls: Any, queue: ClusterQueue, requested_resources: Dict[str, Any]
-    ) -> Tuple[bool, str, ConcreteResource]:
-        """Validate that the resources are available on the queue and return an instance.
-
-        Args:
-            queue: The queue to validate the requested resources agains.
-            requested_resources: Which resources the user wants to run the task with on the
-                given queue.
-        """
-        raise NotImplementedError
-
-    @classmethod
-    @abstractmethod
-    def adjust_and_create_concrete_resource(
-        cls: Any,
-        expected_queue: ClusterQueue,
-        existing_resources: Dict[str, Any],
-        fallback_queues: Optional[List[ClusterQueue]],
-        resource_scales: Optional[Dict[str, float]],
-    ) -> ConcreteResource:
-        """Adjust resources after a resource error is detected by the distributor.
-
-        Args:
-            expected_queue: The queue we expect to run on.
-            existing_resources: The resources the user ran with previously that failed due to
-                a resource error.
-            fallback_queues: list of queues that users specify. If their jobs exceed the
-                resources of a given queue, Jobmon will try to run their jobs on the fallback
-                queues.
-            resource_scales: Specifies how much to scale the failed Task's resources by.
-        """
-        raise NotImplementedError
-
-    def __hash__(self) -> int:
-        """Determine the hash of a concrete resources object."""
-        # Note: this algorithm assumes all keys and values in the resources dict are
-        # JSON-serializable. Since that's a requirement for logging in the database,
-        # this assumption should be safe.
-
-        # Uniqueness is determined by queue name and the resources parameter.
-        hashval = hashlib.sha1()
-        hashval.update(bytes(str(hash(self.queue.queue_name)).encode("utf-8")))
-        hashval.update(
-            bytes(str(hash(json.dumps(self.resources, sort_keys=True))).encode("utf-8"))
-        )
-        return int(hashval.hexdigest(), 16)
-
-    def __eq__(self, other: object) -> bool:
-        """Check equality of task resources objects."""
-        if not isinstance(other, ConcreteResource):
-            return False
-        return hash(self) == hash(other)
-
-    def __repr__(self) -> str:
-        """A representation string for a ConcreteResource instance."""
-        return str({self.queue.queue_name: self.resources})

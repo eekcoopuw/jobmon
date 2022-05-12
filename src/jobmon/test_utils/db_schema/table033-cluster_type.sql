@@ -19,7 +19,7 @@ ALTER TABLE `cluster_type` ADD UNIQUE INDEX `ui_name` (`name`);
 LOCK TABLES `cluster_type` WRITE;
 INSERT INTO `cluster_type`(`name`, `package_location`)
 VALUES
-    ('dummy', 'jobmon.cluster_type.dummy'),
-    ('sequential', 'jobmon.cluster_type.sequential'),
-    ('multiprocess', 'jobmon.cluster_type.multiprocess');
+    ('dummy', 'jobmon.builtins.dummy'),
+    ('sequential', 'jobmon.builtins.sequential'),
+    ('multiprocess', 'jobmon.builtins.multiprocess');
 UNLOCK TABLES;

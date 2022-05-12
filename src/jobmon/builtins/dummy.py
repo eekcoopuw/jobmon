@@ -6,11 +6,10 @@ import os
 import random
 from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
-from jobmon.cluster_type.base import (
-    ClusterDistributor,
+from jobmon.cluster_type import (
     ClusterQueue,
+    ClusterDistributor,
     ClusterWorkerNode,
-    ConcreteResource,
 )
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
@@ -35,10 +34,13 @@ class DummyQueue(ClusterQueue):
         self._parameters = parameters
 
     def validate_resources(
-        self, fail: bool = False, **kwargs: Dict
-    ) -> Tuple[bool, str, Dict]:
+        self, strict: bool = False, **kwargs: Dict
+    ) -> Tuple[bool, str]:
         """No resources defined for sequential execution. All resources valid."""
-        return True, "", kwargs
+        return True, ""
+
+    def coerce_resources(self, **kwargs) -> Dict:
+        return kwargs
 
     @property
     def queue_id(self) -> int:
@@ -64,15 +66,10 @@ class DummyQueue(ClusterQueue):
 class DummyDistributor(ClusterDistributor):
     """The Dummy Executor fakes the execution of a Task and acts as though it succeeded."""
 
-    def __init__(self, *args: tuple, **kwargs: dict) -> None:
+    def __init__(self, cluster_name: str, *args: tuple, **kwargs: dict) -> None:
         """Initialization of the dummy distributor."""
         self.started = False
-        # Parse the config
-        worker_node_config = WorkerNodeConfig.from_defaults()
-        self.heartbeat_report_by_buffer = worker_node_config.heartbeat_report_by_buffer
-        self.task_instance_heartbeat_interval = (
-            worker_node_config.task_instance_heartbeat_interval
-        )
+        self._cluster_name = cluster_name
 
     @property
     def worker_node_entry_point(self) -> str:
@@ -82,7 +79,7 @@ class DummyDistributor(ClusterDistributor):
     @property
     def cluster_name(self) -> str:
         """Return the name of the cluster type."""
-        return "dummy"
+        return self._cluster_name
 
     def start(self) -> None:
         """Start the executor."""
@@ -178,54 +175,6 @@ class DummyWorkerNode(ClusterWorkerNode):
         """Usage information specific to the exector."""
         return {}
 
-
-class ConcreteDummyResource(ConcreteResource):
-    """A version of a private constructor in Python."""
-
-    def __init__(self, queue: ClusterQueue, resources: Dict) -> None:
-        """Always assumed to be valid.
-
-        Don't call init directly, this object should be created by validate or adjust.
-        """
-        self._queue = queue
-        self._resources = resources
-
-    @property
-    def queue(self) -> ClusterQueue:
-        """The queue that the resources have been validated against."""
-        return self._queue
-
-    @property
-    def resources(self) -> Dict[str, Any]:
-        """The resources that the task needs to run successfully on a given cluster queue."""
-        return self._resources
-
-    @classmethod
-    def validate_and_create_concrete_resource(
-        cls: Any, queue: ClusterQueue, requested_resources: Dict
-    ) -> Tuple[bool, str, ConcreteDummyResource]:
-        """Validate that the resources are available on the queue and return an instance.
-
-        Args:
-            queue: The queue to validate the requested resources against.
-            requested_resources: Which resources the user wants to run the task with on the
-                given queue.
-        """
-        is_valid, msg, valid_resources = queue.validate_resources(**requested_resources)
-        return is_valid, msg, cls(queue=queue, resources=valid_resources)
-
-    @classmethod
-    def adjust_and_create_concrete_resource(
-        cls: Any,
-        expected_queue: ClusterQueue,
-        existing_resources: Dict,
-        fallback_queues: Optional[List[ClusterQueue]],
-        resource_scales: Optional[Dict[str, float]],
-    ) -> ConcreteDummyResource:
-        """No adjustment defined for dummy execution. Return original parameters."""
-        return cls(queue=expected_queue, valid_resources=existing_resources)
-
-
 def get_cluster_queue_class() -> Type[ClusterQueue]:
     """Return the queue class for the dummy executor."""
     return DummyQueue
@@ -239,8 +188,3 @@ def get_cluster_distributor_class() -> Type[ClusterDistributor]:
 def get_cluster_worker_node_class() -> Type[ClusterWorkerNode]:
     """Return the cluster worker node class for the dummy executor."""
     return DummyWorkerNode
-
-
-def get_concrete_resource_class() -> Type[ConcreteResource]:
-    """Return the queue class for the dummy executor."""
-    return ConcreteDummyResource

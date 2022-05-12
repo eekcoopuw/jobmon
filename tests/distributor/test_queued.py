@@ -6,7 +6,7 @@ def test_queued(tool, db_cfg, client_env, task_template):
     parameter"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.cluster_type.dummy import DummyDistributor
+    from jobmon.builtins.dummy import DummyDistributor
 
     tasks = []
     for i in range(20):
@@ -31,7 +31,7 @@ def test_queued(tool, db_cfg, client_env, task_template):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        DummyDistributor(), requester=workflow.requester, raise_on_error=True
+        DummyDistributor("dummy"), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)

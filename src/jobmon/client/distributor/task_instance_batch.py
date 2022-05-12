@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import logging
-from typing import Dict, Set, TYPE_CHECKING
+from typing import Dict, Optional, Set, TYPE_CHECKING
 
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
@@ -33,7 +33,7 @@ class TaskInstanceBatch:
         self.task_resources_id = task_resources_id
         self.task_instances: Set[DistributorTaskInstance] = set()
 
-        self._requested_resources: Dict = {}
+        self._requested_resources: Optional[Dict] = None
 
         self.requester = requester
 
@@ -42,7 +42,7 @@ class TaskInstanceBatch:
 
     @property
     def requested_resources(self) -> Dict:
-        if not self._requested_resources:
+        if self._requested_resources is None:
             raise AttributeError(
                 "Requested Resources cannot be accessed before the array batch is prepared for"
                 " launch."

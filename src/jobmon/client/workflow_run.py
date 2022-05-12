@@ -10,7 +10,7 @@ from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
-from jobmon.constants import WorkflowRunStatus, TaskResourcesType
+from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import http_request_ok, Requester
 
@@ -238,32 +238,16 @@ class WorkflowRun(object):
         return self._workflow.tasks
 
     def _set_original_task_resources(self, task: Task) -> None:
-        resource_params = task.compute_resources
         cluster = self._workflow.get_cluster_by_name(task.cluster_name)
+        queue = cluster.get_queue(task.queue_name)
+        task_resources = TaskResources(
+            requested_resources=task.compute_resources,
+            queue=queue
+        )
 
         try:
-            queue_name: str = resource_params["queue"]
+            task_resources = self._task_resources[hash(task_resources)]
         except KeyError:
-            raise ValueError(
-                "A queue name must be provided in the specified compute resources."
-            )
-        queue = cluster.get_queue(queue_name)
-
-        for resource, value in resource_params.items():
-            if resource == "memory":
-                resource_params["memory"] = queue.convert_memory_to_gib(value)
-            if resource == "runtime":
-                resource_params["runtime"] = queue.convert_runtime_to_s(value)
-
-        concrete_resources = cluster.concrete_resource_class(queue, resource_params)
-
-        try:
-            task_resources = self._task_resources[hash(concrete_resources)]
-        except KeyError:
-            task_resources = TaskResources(
-                concrete_resources=concrete_resources,
-                task_resources_type_id=TaskResourcesType.ORIGINAL,
-            )
             task_resources.bind()
             self._task_resources[hash(task_resources)] = task_resources
 

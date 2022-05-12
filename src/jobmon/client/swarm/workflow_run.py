@@ -694,14 +694,10 @@ class WorkflowRun:
         self._refresh_task_status_map(updated_tasks)
 
     def _set_validated_task_resources(self, task: SwarmTask) -> None:
-        # get cluster and original params
-        cluster = task.cluster
-        resource_params = (
-            task.current_task_resources.concrete_resources.resources.copy()
-        )
-        queue = task.current_task_resources.concrete_resources.queue
+        # original resources
+        task_resources = task.current_task_resources
 
-        # update with extra params
+        # update with dynamic params
         if task.compute_resources_callable is not None:
             dynamic_compute_resources = task.compute_resources_callable()
             if not isinstance(dynamic_compute_resources, dict):
@@ -710,32 +706,25 @@ class WorkflowRun:
                     f"task_id={task.task_id} returned an invalid type. Must return dict. got "
                     f"{type(dynamic_compute_resources)}."
                 )
-            resource_params.update(dynamic_compute_resources)
+            requested_resources = task.current_task_resources.requested_resources.copy()
+            requested_resources.update(dynamic_compute_resources)
             task.compute_resources_callable = None
+            task_resources = TaskResources(
+                requested_resources, task.current_task_resources.queue
+            )
 
-        (
-            _,
-            _,
-            concrete_resource,
-        ) = cluster.concrete_resource_class.validate_and_create_concrete_resource(
-            queue, resource_params
-        )
+        # now check if we need to coerce them to valid values
+        validated_task_resources = task_resources.coerce_resources()
 
-        # if validated concrete resources are different than original. get new resource object
-        validated_resource_hash = hash(concrete_resource)
-        if validated_resource_hash != hash(task.current_task_resources.concrete_resources):
-            try:
-                task_resources = self._task_resources[validated_resource_hash]
-            except KeyError:
-                task_resources = TaskResources(
-                    concrete_resources=concrete_resource,
-                    task_resources_type_id=TaskResourcesType.VALIDATED,
-                )
-                self._task_resources[validated_resource_hash] = task_resources
-        else:
-            task_resources = task.current_task_resources
-            self._task_resources[validated_resource_hash] = task_resources
-        task.current_task_resources = task_resources
+        # check for a cached version
+        validated_resource_hash = hash(validated_task_resources)
+        try:
+            validated_task_resources = self._task_resources[validated_resource_hash]
+        except KeyError:
+            self._task_resources[validated_resource_hash] = validated_task_resources
+
+        # now set as current
+        task.current_task_resources = validated_task_resources
 
     def _set_adjusted_task_resources(self, task: SwarmTask) -> None:
         """Adjust the swarm task's parameters.
@@ -743,25 +732,14 @@ class WorkflowRun:
         Use the cluster API to generate the new resources, then bind to input swarmtask.
         """
         # current resources
-        resource_params = (
-            task.current_task_resources.concrete_resources.resources.copy()
+        task_resources = task.current_task_resources.adjust_resources(
+            resource_scales=task.resource_scales,
+            fallback_queues=task.fallback_queues,
         )
 
-        concrete_resource = (
-            task.cluster.concrete_resource_class.adjust_and_create_concrete_resource(
-                existing_resources=resource_params,
-                resource_scales=task.resource_scales,
-                expected_queue=task.current_task_resources.queue,
-                fallback_queues=task.fallback_queues,
-            )
-        )
-
+        resource_hash = hash(task_resources)
         try:
-            task_resources = self._task_resources[hash(concrete_resource)]
+            task_resources = self._task_resources[resource_hash]
         except KeyError:
-            task_resources = TaskResources(
-                concrete_resources=concrete_resource,
-                task_resources_type_id=TaskResourcesType.ADJUSTED,
-            )
-            self._task_resources[hash(task_resources)] = task_resources
+            self._task_resources[resource_hash] = task_resources
         task.current_task_resources = task_resources

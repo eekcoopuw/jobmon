@@ -109,7 +109,6 @@ def test_invalid_args(db_cfg, client_env, tool):
 
 def test_task_template_resources(db_cfg, client_env, tool):
     """Test task/task template compute resources hierarchy."""
-    from jobmon.client.workflow_run import WorkflowRun
 
     workflow1 = tool.create_workflow(name="test_template_resources")
     tt_resources = {"queue": "null.q", "cores": 1, "max_runtime_seconds": 3}
@@ -132,21 +131,21 @@ def test_task_template_resources(db_cfg, client_env, tool):
     workflow1.bind()
     workflow1._create_workflow_run()
 
-    assert task1.original_task_resources._requested_resources == {
+    assert task1.original_task_resources.requested_resources == {
         "cores": 1,
         "max_runtime_seconds": 2,
-        "queue": "null.q",
     }
-    assert task2.original_task_resources._requested_resources == {
+    assert task1.original_task_resources.queue.queue_name == "null.q"
+    assert task2.original_task_resources.requested_resources == {
         "cores": 1,
         "max_runtime_seconds": 3,
-        "queue": "null.q",
     }
-    assert task3.original_task_resources._requested_resources == {
+    assert task2.original_task_resources.queue.queue_name == "null.q"
+    assert task3.original_task_resources.requested_resources == {
         "cores": 1,
         "max_runtime_seconds": 3,
-        "queue": "null.q",
     }
+    assert task3.original_task_resources.queue.queue_name == "null.q"
 
 
 def test_task_template_resources_yaml(client_env, db_cfg, tool):

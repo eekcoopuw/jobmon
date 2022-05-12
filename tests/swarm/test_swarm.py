@@ -64,7 +64,7 @@ def test_sync_statuses(client_env, tool, task_template):
     is testing to confirm that the status updates are propagated into the
     swarm objects"""
     from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+    from jobmon.builtins.sequential.seq_distributor import SequentialDistributor
     from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 
     # client calls
@@ -76,7 +76,7 @@ def test_sync_statuses(client_env, tool, task_template):
 
     # move workflow to launched state
     distributor_service = DistributorService(
-        SequentialDistributor(),
+        SequentialDistributor("sequential"),
         workflow.requester,
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
@@ -114,7 +114,7 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
     wedged_workflow_sync_interval set to -1 second to force a full sync of
     the workflow tasks which resolves the wedge"""
     from jobmon.constants import TaskInstanceStatus
-    from jobmon.cluster_type.dummy import DummyDistributor
+    from jobmon.builtins.dummy import DummyDistributor
     from jobmon.worker_node.cli import WorkerNodeCLI
     from jobmon.client.distributor.distributor_service import DistributorService
 
@@ -191,10 +191,10 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
     wfr = workflow._create_workflow_run()
 
     # create distributor with WedgedDistributor
-    distributor = WedgedDistributor()
+    distributor = WedgedDistributor("dummy")
     distributor.wedged_task_id = t2.task_id
     distributor_service = DistributorService(
-        cluster=distributor, requester=workflow.requester, raise_on_error=True
+        distributor, requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     wfr._update_status(WorkflowRunStatus.LAUNCHED)
