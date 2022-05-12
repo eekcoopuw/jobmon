@@ -33,7 +33,6 @@ class Array:
         op_args: Dict[str, Any],
         cluster_name: str,
         max_concurrently_running: int = 10_000,
-        max_attempts: int = 3,
         upstream_tasks: Optional[List[Task]] = None,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
@@ -78,8 +77,6 @@ class Array:
         self._instance_resource_scales = (
             resource_scales if resource_scales is not None else {}
         )
-        self.max_attempts = max_attempts
-        self._task_resources: Optional[TaskResources] = None  # Initialize to None
 
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
@@ -109,28 +106,6 @@ class Array:
     def name(self) -> str:
         """Return the array name."""
         return self._name
-
-    @property
-    def task_resources(self) -> TaskResources:
-        """Return the array's task resources."""
-        if self._task_resources is not None:
-            return self._task_resources
-        else:
-            raise AttributeError(
-                "Task resources cannot be accessed before it is assigned"
-            )
-
-    @task_resources.setter
-    def task_resources(self, task_resources: TaskResources) -> None:
-        """Set the task resources.
-
-        The task resources object must be bound to be set.
-        """
-        if not task_resources.is_bound:
-            raise AttributeError(
-                "Task resource must be bound and have an ID to be assigned to the array."
-            )
-        self._task_resources = task_resources
 
     @property
     def compute_resources(self) -> Dict[str, Any]:

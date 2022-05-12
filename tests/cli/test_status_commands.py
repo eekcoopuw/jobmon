@@ -840,15 +840,8 @@ def test_get_filepaths(db_cfg, tool, array_template, task_template, cli):
     def create_metadata(tasks=None, arrays=None):
 
         wf = tool.create_workflow()
-
-        if tasks:
-            wf.add_tasks(tasks)
-
-        if arrays:
-            wf.add_arrays(arrays)
-
+        wf.add_tasks(tasks)
         wf.bind()
-
         wfr = wf._create_workflow_run()
 
         task_instances = []
@@ -874,11 +867,11 @@ def test_get_filepaths(db_cfg, tool, array_template, task_template, cli):
 
         return wf
 
-    array = array_template.create_array(
+    tasks1 = array_template.create_tasks(
         name='foobar array',
         arg=['foo', 'bar', 'baz']
     )
-    wf = create_metadata(arrays=[array])
+    wf = create_metadata(tasks=tasks1)
 
     # Database is now populated with juicy task instances
     # Test CLI parsing
@@ -910,11 +903,11 @@ def test_get_filepaths(db_cfg, tool, array_template, task_template, cli):
     assert len(one_task_df) == 1
 
     # Check that the fetch results work with create_task as well.
-    tasks = [
+    tasks2 = [
         task_template.create_task(name=val, arg=f"echo {val}")
         for val in ('qux', 'quux', 'quuz')
     ]
-    wf2 = create_metadata(arrays=[array], tasks=tasks)
+    wf2 = create_metadata(tasks=tasks2 + tasks1)
 
     # Check that we get 6 tasks in the workflow
     command_str = f"get_filepaths -w {wf2.workflow_id} -l 6"
