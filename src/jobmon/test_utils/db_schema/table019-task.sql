@@ -34,3 +34,4 @@ ALTER TABLE `task` ADD INDEX `ix_task_resources_id` (`task_resources_id`);
 ALTER TABLE `task` ADD INDEX `ix_status` (`status`);
 ALTER TABLE `task` ADD INDEX `ix_status_date` (`status_date`);
 ALTER TABLE `task` ADD INDEX `ix_workflow_id_status_date` (`workflow_id`,`status_date`);
+ALTER TABLE `task` ADD INDEX `name` (`name`);

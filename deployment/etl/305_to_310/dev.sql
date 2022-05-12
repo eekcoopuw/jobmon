@@ -19,6 +19,7 @@ CREATE TABLE `array` (
 ALTER TABLE `task`
   ADD COLUMN `array_id` int(11) DEFAULT NULL AFTER `task_args_hash`,
   ADD KEY `ix_array_id` (`array_id`);
+  ADD INDEX `name` (`name`);
 
 ALTER TABLE `task_instance`
   MODIFY COLUMN `distributor_id` varchar(20) DEFAULT NULL,
@@ -26,9 +27,13 @@ ALTER TABLE `task_instance`
   ADD COLUMN `cluster_id` int(11) DEFAULT NULL AFTER `array_id`,
   ADD COLUMN `array_batch_num` int(11) DEFAULT NULL AFTER `task_resources_id`,
   ADD COLUMN `array_step_id` int(11) DEFAULT NULL AFTER `array_batch_num`,
+  ADD COLUMN `stdout` varchar(150) DEFAULT NULL AFTER `io`;
+  ADD COLUMN `stderr` varchar(150) DEFAULT NULL AFTER `stdout`;
   ADD KEY `ix_array_id` (`array_id`),
   ADD KEY `ix_cluster_id` (`cluster_id`);
 
 ALTER TABLE `task_resources`
   MODIFY COLUMN `task_id` int(11);
 
+ALTER TABLE `array`
+  ADD INDEX `name` (`name`);

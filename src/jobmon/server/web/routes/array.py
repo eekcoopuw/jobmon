@@ -289,3 +289,56 @@ def log_array_distributor_id(array_id):
     except Exception:
         DB.session.rollback()
         raise
+
+
+@finite_state_machine.route(
+    "/array/<workflow_id>/get_array_tasks")
+def get_array_task_instances(workflow_id: int):
+    """Return error/output filepaths for task instances filtered by array name.
+
+    The user can also optionally filter by job name as well.
+
+    To avoid overly-large returned results, the user must also pass in a workflow ID.
+    """
+
+    data = request.args
+    array_name = data.get("array_name")
+    job_name = data.get("job_name")
+    limit = data.get("limit", 5)
+    print(data)
+
+    query_filters = [
+        Task.workflow_id == workflow_id,
+        TaskInstance.task_id == Task.id,
+        Task.array_id == Array.id,
+    ]
+
+    if array_name:
+        query_filters.append(Array.name == array_name)
+
+    if job_name:
+        query_filters.append(Task.name == job_name)
+
+    select_stmt = (
+        select(
+            Task.id,
+            Task.name,
+            Array.name,
+            TaskInstance.id,
+            TaskInstance.stdout,
+            TaskInstance.stderr,
+        )
+        .where(
+            *query_filters
+        )
+        .limit(limit)
+    )
+    print(select_stmt)
+    result = DB.session.execute(select_stmt).fetchall()
+    column_names = ("TASK_ID", "TASK_NAME", "ARRAY_NAME",
+                    "TASK_INSTANCE_ID", "OUTPUT_PATH", "ERROR_PATH")
+    resp = jsonify(
+        array_tasks=[dict(zip(column_names, ti)) for ti in result]
+    )
+    resp.status_code = StatusCodes.OK
+    return resp

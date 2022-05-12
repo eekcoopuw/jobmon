@@ -61,6 +61,7 @@ class ClientCLI(CLI):
         self._add_task_dependencies_subparser()
         self._add_workflow_reset_subparser()
         self._add_create_resource_yaml_subparser()
+        self._add_get_filepaths_subparser()
 
     @staticmethod
     def limit_checker(limit: Any) -> int:
@@ -228,6 +229,24 @@ class ClientCLI(CLI):
                 f.close()
         else:
             print("Please provide a value for either -w or -t but not both.")
+
+    @staticmethod
+    def get_filepaths(args: configargparse.Namespace) -> None:
+        from tabulate import tabulate
+        from jobmon.client.status_commands import get_filepaths
+
+        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
+        df = get_filepaths(
+            workflow_id=args.workflow_id,
+            array_name=args.array_name,
+            job_name=args.job_name,
+            limit=args.limit,
+            requester_url=cc.url
+        )
+        if args.json:
+            print(df)
+        else:
+            print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
     def _add_version_subparser(self) -> None:
         version_parser = self._subparsers.add_parser("version", **PARSER_KWARGS)
@@ -531,6 +550,46 @@ class ClientCLI(CLI):
         )
         ParserDefaults.web_service_fqdn(create_resource_yaml_parser)
         ParserDefaults.web_service_port(create_resource_yaml_parser)
+
+    def _add_get_filepaths_subparser(self) -> None:
+        get_filepaths_parser = self._subparsers.add_parser(
+            "get_filepaths", **PARSER_KWARGS
+        )
+        get_filepaths_parser.set_defaults(func=self.get_filepaths)
+        get_filepaths_parser.add_argument(
+            "-w", "--workflow_id",
+            help="workflow_id to filter by",
+            required=True,
+            type=int
+        )
+        get_filepaths_parser.add_argument(
+            "-a", "--array_name",
+            help="array name to filter by",
+            required=False,
+            default="",
+            type=str
+        )
+        get_filepaths_parser.add_argument(
+            '-j', '--job_name',
+            help="job name to filter by",
+            required=False,
+            default='',
+            type=str
+        )
+        get_filepaths_parser.add_argument(
+            '-l', '--limit',
+            default=5,
+            help="Limit the number of returning records; default is 5",
+            required=False,
+            type=self.limit_checker,
+        )
+        get_filepaths_parser.add_argument(
+            '-n', '--json',
+            dest='json',
+            action="store_true"
+        )
+        ParserDefaults.web_service_fqdn(get_filepaths_parser)
+        ParserDefaults.web_service_port(get_filepaths_parser)
 
 
 def main(argstr: Optional[str] = None) -> None:
