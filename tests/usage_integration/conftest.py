@@ -28,8 +28,7 @@ def usage_integrator_config(ephemera):
             "DB_PASS_SLURM_SDB": os.getenv("DB_PASS_SLURM_SDB", "not_a_pass"),
             "DB_USER_SLURM_SDB": os.getenv("DB_USER_SLURM_SDB", "not_a_user"),
             "DB_NAME_SLURM_SDB": os.getenv("DB_NAME_SLURM_SDB", "not_a_name"),
-            "DB_PORT_SLURM_SDB": os.getenv("DB_PORT_SLURM_SDB", "3306"),
-            "INTEGRATOR_NEVER_RETIRE": os.getenv("INTEGRATOR_NEVER_RETIRE")
+            "DB_PORT_SLURM_SDB": os.getenv("DB_PORT_SLURM_SDB", "3306")
         }
 
     # Combine with ephemera to create the usage integrator config
@@ -47,7 +46,6 @@ def usage_integrator_config(ephemera):
         slurm_polling_interval=10,
         slurm_max_update_per_second=100,
         slurm_cluster='slurm',
-        never_retire=integrator_config_dict["INTEGRATOR_NEVER_RETIRE"]
     )
     return integrator_config
 
