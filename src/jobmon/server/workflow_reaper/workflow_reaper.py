@@ -86,8 +86,13 @@ class WorkflowReaper(object):
                 self._halted_state()
                 self._aborted_state()
                 self._error_state()
-                self._inconsistent_status(500)
-                sleep(self._poll_interval_seconds * 60 * 60)
+                # The chunk size for the _inconsistent_status query is small so that each query takes 100-400 mS
+                # Therefore run several, a few seconds apart. We want to be able to
+                # clean the whole database every 12 hours, but also not lock the database.
+                for i in range(5):
+                    self._inconsistent_status(300)
+                    sleep(5)
+                sleep(self._poll_interval_seconds)
         except RuntimeError as e:
             logger.debug(f"Error in monitor_forever() in workflow reaper: {e}")
 
@@ -208,7 +213,7 @@ class WorkflowReaper(object):
 
     def _inconsistent_status(self, step_size: int) -> None:
         """Find wf in F with all tasks in D and fix them."""
-        logger.info("Find wf in F with all tasks in D and fix them.")
+        logger.debug("Find wf in state F but all tasks in D and fix them.")
 
         app_route = (
             f"/workflow/{WorkflowReaper._current_starting_row}/fix_status_inconsistency"

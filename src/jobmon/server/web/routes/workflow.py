@@ -828,19 +828,23 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
         low_wfid=workflow_id, high_wfid=int(workflow_id) + increase_step
     )
 
-    result = DB.session.execute(query_sql)
+    result_list = DB.session.execute(query_sql).all()
     DB.session.commit()
-    if result is None:
+    if result_list is None or len(result_list) == 0:
         logger.debug(f"No inconsistent F-D workflows to fix.")
     else:
-        for row in result:
-            logger.info(f"Fixing inconsistent F-D workflow: {row['id']}")
-            update_sql = f"""UPDATE workflow
-                            SET status = "D"
-                            WHERE id IN ({row['id']})
-                            """
-            DB.session.execute(update_sql)
-            DB.session.commit()
+        ids = ""
+        for row in result_list:
+            ids += f"{row['id']},"
+        # strip last comma
+        ids = ids[:-1]
+        logger.info(f"Fixing inconsistent F-D workflow: {ids}")
+        update_sql = f"""UPDATE workflow
+                        SET status = "D"
+                        WHERE id IN ({ids})
+                        """
+        DB.session.execute(update_sql)
+        DB.session.commit()
         logger.debug(f"Done fixing F-D inconsistent workflows.")
 
     resp = jsonify({"wfid": current_max_wf_id})
