@@ -325,18 +325,7 @@ class Array:
 
     def validate(self):
         # check
-        dependent_tasks = set()
-        for task in self.tasks.values():
-            dependent_tasks.union(task.upstream_tasks)
-            dependent_tasks.union(task.downstream_tasks)
-        cyclical_tasks = dependent_tasks.intersection(set(self.tasks.values()))
-        if cyclical_tasks:
-            raise ValueError(
-                f"A task cannot depend on other tasks in the same TaskTemplate or Array. "
-                f"Task={task} has dependencies already added to {self}. Check for upstream and"
-                f" downstream tasks in array.tasks or workflow.tasks that have the following "
-                f"hashes. {[hash(task) for task in cyclical_tasks]}"
-            )
+        pass
 
     def bind(self) -> None:
         """Add an array to the database."""
