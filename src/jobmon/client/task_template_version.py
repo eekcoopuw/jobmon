@@ -47,6 +47,7 @@ class TaskTemplateVersion:
         self._task_template: TaskTemplate
 
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
+        self.default_resource_scales_set: Dict[str, Dict[str, float]] = {}
         self.default_cluster_name: str = ""
 
         if requester is None:
@@ -295,9 +296,10 @@ class TaskTemplateVersion:
     @property
     def arg_mapping_hash(self) -> int:
         """Hash args to identify unique task_template."""
-        hashable = "".join(
-            sorted(self.node_args) + sorted(self.task_args) + sorted(self.op_args)
-        )
+        node_args = "".join(sorted(self.node_args))
+        task_args = "".join(sorted(self.task_args))
+        op_args = "".join(sorted(self.op_args))
+        hashable = ",".join([node_args, task_args, op_args])
         return int(hashlib.sha1(hashable.encode("utf-8")).hexdigest(), 16)
 
     def filter_kwargs(self, arg_type: str, **kwargs) -> Dict[str, Any]:
@@ -338,6 +340,21 @@ class TaskTemplateVersion:
         compute_resources = {cluster_name: kwargs}
         self.default_compute_resources_set.update(compute_resources)
 
+    def update_default_resource_scales(
+        self, cluster_name: str, **kwargs: Any
+    ) -> None:
+        """Update resource scales in place only overridding specified keys.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to modify default values for.
+            **kwargs: any key/value pair you want to update specified as an argument.
+        """
+        resource_scales = {cluster_name: kwargs}
+        self.default_resource_scales_set.update(resource_scales)
+
     def set_default_compute_resources_from_dict(
         self, cluster_name: str, compute_resources: Dict[str, Any]
     ) -> None:
@@ -353,6 +370,22 @@ class TaskTemplateVersion:
                 dict of {resource_name: resource_value}
         """
         self.default_compute_resources_set[cluster_name] = compute_resources
+
+    def set_default_resource_scales_from_dict(
+        self, cluster_name: str, resource_scales: Dict[str, float]
+    ) -> None:
+        """Set compute resources and scales for a given cluster_name.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            resource_scales: dictionary of default resource scales to adjust task
+                resources with. Can be overridden at task level.
+                dict of {resource_name: scale_value}
+        """
+        self.default_resource_scales_set[cluster_name] = resource_scales
 
     def __hash__(self) -> int:
         """Unique identifier for this object."""

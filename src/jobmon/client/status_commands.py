@@ -232,7 +232,7 @@ def concurrency_limit(
     requester = Requester(requester_url)
 
     _, resp = requester.send_request(
-        app_route=f"/workflow/{workflow_id}/update_max_running",
+        app_route=f"/workflow/{workflow_id}/update_max_concurrently_running",
         message=msg,
         request_type="put",
     )
