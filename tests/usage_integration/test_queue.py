@@ -88,14 +88,30 @@ def test_worker_with_mock_200(usage_integrator_config):
 
 
 @pytest.mark.usage_integrator
-def test_slurm_update(usage_integrator):
+def test_age_and_retire():
     """This is to test the SLURM updates behave accordingly.
 
     Test 1: job will be put back to the Q with age increased if resources are
     not found.
+    Test 2: job will retire when over age
 
-    Test 2: the update statement can be performed as expected.
     """
+    from jobmon.server.usage_integration.usage_integrator import UsageIntegrator as UI
+    class _ui(UI):
+        def __init__(self, config=None) -> None:
+            self.config = config
+            self.session_slurm_sdb = "whatever"
+            self.tres_types = "whatever"
+
+        @property
+        def integrator_retire_age(self):
+            return 2
+
+        @property
+        def queue_cluster_map(self):
+            return {1: "all.q"}
+
+    usage_integrator = _ui()
 
     UsageQ.empty_q()
     assert UsageQ.get_size() == 0
@@ -106,7 +122,7 @@ def test_slurm_update(usage_integrator):
         This path I believe is almost guaranteed to never happen, since submitted tasks
         are added to the accounting database almost instantly. However, might as well test.
         """
-        return {ti: None for ti in task_instances}
+        return {}
 
     with mock.patch(
         "jobmon.server.usage_integration.usage_integrator._get_slurm_resource_via_slurm_sdb",
@@ -116,42 +132,15 @@ def test_slurm_update(usage_integrator):
         item = QueuedTI(
             task_instance_id=1_000_000, distributor_id='1', cluster_type_name="slurm", cluster_id=5
         )
+        UsageQ.put(item)
         # Call the update tasks method. Check that age is incremented and the task is added to
         # the queue.
-        usage_integrator.update_slurm_resources([item])
+        t = UsageQ.get()
+        usage_integrator.update_slurm_resources([t])
         assert item.age == 1
         assert UsageQ.get_size() == 1
-
-    # Check that task instance can be updated accordingly
-    UsageQ.empty_q()
-
-    def mock_resources(task_instances: List[QueuedTI], *args, **kwargs):
-        """Return a hardcoded dict to mock SQUID return values"""
-        return {ti: {'maxrss': 100, 'wallclock': 100} for ti in task_instances}
-
-    with mock.patch(
-        "jobmon.server.usage_integration.usage_integrator._get_slurm_resource_via_slurm_sdb",
-        new=mock_resources
-    ):
-        try:
-            # Call the update tasks method. Check that resources are updated accordingly.
-            usage_integrator.update_slurm_resources([item])
-
-            # Query maxrss and wallclock values
-            resource_query = (
-                "SELECT ti.maxrss, ti.wallclock "
-                "FROM task_instance ti "
-                "WHERE id = :tid"
-            )
-
-            res = usage_integrator.session.execute(text(resource_query), {'tid': item.task_instance_id}).one()
-            assert res.maxrss == '100'
-            assert res.wallclock == '100'
-        finally:
-            # Ensure that fictitious task instance is deleted to avoid cluttering the database
-            delete_query = (
-                "DELETE FROM task_instance "
-                "WHERE id = :tid"
-            )
-            usage_integrator.session.execute(text(delete_query), {'tid': item.task_instance_id})
-            usage_integrator.session.commit()
+        # retire
+        t = UsageQ.get()
+        usage_integrator.update_slurm_resources([t])
+        assert item.age == 2
+        assert UsageQ.get_size() == 0
