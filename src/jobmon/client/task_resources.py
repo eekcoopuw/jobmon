@@ -213,11 +213,13 @@ class TaskResources:
         # this assumption should be safe.
 
         # Uniqueness is determined by queue name and the resources parameter.
-        hashval = hashlib.sha1()
-        hashval.update(bytes(str(hash(self.queue.queue_name)).encode("utf-8")))
-        resources_str = str(hash(json.dumps(self.requested_resources, sort_keys=True)))
-        hashval.update(bytes(resources_str.encode("utf-8")))
-        return int(hashval.hexdigest(), 16)
+        if not hasattr(self, "_hash_val"):
+            hashval = hashlib.sha1()
+            hashval.update(bytes(str(hash(self.queue.queue_name)).encode("utf-8")))
+            resources_str = str(hash(json.dumps(self.requested_resources, sort_keys=True)))
+            hashval.update(bytes(resources_str.encode("utf-8")))
+            self._hash_val = int(hashval.hexdigest(), 16)
+        return self._hash_val
 
     def __eq__(self, other: object) -> bool:
         """Check equality of task resources objects."""
