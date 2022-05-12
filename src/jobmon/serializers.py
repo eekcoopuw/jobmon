@@ -461,14 +461,14 @@ class SerializeTaskResources:
     @staticmethod
     def to_wire(
         task_resources_id: int,
-        queue_id: int,
+        queue_name: str,
         task_resources_type_id: str,
         requested_resources: str,
     ) -> tuple:
         """"""
         return (
             task_resources_id,
-            queue_id,
+            queue_name,
             task_resources_type_id,
             requested_resources,
         )
@@ -478,7 +478,7 @@ class SerializeTaskResources:
         """"""
         return {
             "task_resources_id": wire_tuple[0],
-            "queue_id": wire_tuple[1],
+            "queue_name": wire_tuple[1],
             "task_resources_type_id": wire_tuple[2],
             "requested_resources": wire_tuple[3],
         }
