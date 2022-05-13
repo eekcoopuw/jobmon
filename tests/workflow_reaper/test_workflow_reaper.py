@@ -83,7 +83,7 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
 
     # Instantiate reaper, have it check for workflow runs in error state
     reaper = WorkflowReaper(
-        poll_interval_minutes=1,
+        poll_interval_seconds=60,
         requester=requester_no_retry,
         wf_notification_sink=mock_slack_notifier,
     )
@@ -170,7 +170,7 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
 
     # Call workflow reaper suspended state
     reaper = WorkflowReaper(
-        5, requester=requester_no_retry, wf_notification_sink=mock_slack_notifier
+        5*60, requester=requester_no_retry, wf_notification_sink=mock_slack_notifier
     )
     msg = reaper._halted_state()
     assert (
@@ -232,7 +232,7 @@ def test_aborted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templa
         pass
 
     reaper = WorkflowReaper(
-        5, requester=requester_no_retry, wf_notification_sink=mock_slack_notifier
+        5*60, requester=requester_no_retry, wf_notification_sink=mock_slack_notifier
     )
     msg = reaper._aborted_state()
     assert (
@@ -293,6 +293,7 @@ def test_reaper_version(db_cfg, requester_no_retry, base_tool, sleepy_task_templ
 
 
 def test_inconsistent_status(db_cfg, client_env):
+    """ Tests that workflows with inconsistent F versus D status get repaired."""
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
     from jobmon.client.tool import Tool
 
@@ -301,50 +302,68 @@ def test_inconsistent_status(db_cfg, client_env):
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
     )
-    task_template = tool.get_task_template(
-        template_name="test_inconsistent_status",
-        command_template="echo {arg}",
-        node_args=["arg"],
-        task_args=[],
-        op_args=[],
-    )
-    workflow1 = tool.create_workflow(name="test_inconsistent_status")
-    task_a = task_template.create_task(arg="1")
-    workflow1.add_task(task_a)
-    task_b = task_template.create_task(arg="2")
-    workflow1.add_task(task_b)
 
-    # add workflow to database
-    workflow1.run()
+    workflows = []
+    for i in range(4):
+        workflows.append(_create_workflow_inconsistency_check(tool, i))
+        workflows[i].run()
 
+    # Force the first two to be inconsistent
     app = db_cfg["app"]
     DB = db_cfg["DB"]
     with app.app_context():
         # fake workflow run
         DB.session.execute(
-            """
+            f"""
             UPDATE workflow
             SET status ='F'
-            WHERE id={}""".format(
-                workflow1.workflow_id
-            )
+            WHERE id in ({workflows[0].workflow_id}, {workflows[1].workflow_id})"""
         )
         DB.session.commit()
 
     # make sure it starts with 0
+    # Force it to check
+    # Check a large window because pervious tests will leave workflows in the database
     WorkflowReaper._current_starting_row = 0
-    WorkflowReaper(1, workflow1.requester)._inconsistent_status()
+    WorkflowReaper(poll_interval_seconds=5*60, requester=workflows[0].requester)._inconsistent_status(200)
     assert WorkflowReaper._current_starting_row == 0
 
-    # check workflow status changed
+    # check workflow status changed on both
     with app.app_context():
         # fake workflow run
         s = DB.session.execute(
-            """
+            f"""
             select status
             FROM workflow
-            WHERE id={}""".format(
-                workflow1.workflow_id
-            )
+            WHERE id={workflows[0].workflow_id}"""
         ).fetchone()["status"]
         assert s == "D"
+        s = DB.session.execute(
+            f"""
+            select status
+            FROM workflow
+            WHERE id={workflows[1].workflow_id}"""
+        ).fetchone()["status"]
+        assert s == "D"
+
+    # Now check that the workflow_id wraps
+    WorkflowReaper(poll_interval_seconds=5*60, requester=workflows[0].requester)._inconsistent_status(1)
+    assert WorkflowReaper._current_starting_row == 1
+    WorkflowReaper(poll_interval_seconds=5*60, requester=workflows[0].requester)._inconsistent_status(1000)
+    assert WorkflowReaper._current_starting_row == 0
+
+
+def _create_workflow_inconsistency_check(tool, wf_id: int):
+    task_template = tool.get_task_template(
+        template_name=f"test_inconsistent_status",
+        command_template="sleep 10 && echo {arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    workflow = tool.create_workflow(name=f"test_inconsistent_status_{wf_id}")
+    task_a = task_template.create_task(arg="1")
+    workflow.add_task(task_a)
+    task_b = task_template.create_task(arg="2")
+    workflow.add_task(task_b)
+    return workflow

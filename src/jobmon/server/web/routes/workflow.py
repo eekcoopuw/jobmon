@@ -783,44 +783,67 @@ def reset_workflow(workflow_id: int) -> Any:
     "workflow/<workflow_id>/fix_status_inconsistency", methods=["PUT"]
 )
 def fix_wf_inconsistency(workflow_id: int) -> Any:
-    """Find wf in F with all tasks in D and fix them."""
+    """
+    Find wf in F with all tasks in D and fix them.
+    For flexibility, pass in the step size. It is easier to redeploy the reaper than the service.
+    """
+    data = request.get_json()
+    increase_step = data["increase_step"]
+
+    bind_to_logger(workflow_id=workflow_id)
+    logger.debug(f"Fix inconsistencies starting from workflow {workflow_id} by {increase_step}")
     sql = "SELECT COUNT(*) as total FROM workflow"
     # the id to return to reaper as next start point
     total_wf = int(DB.session.execute(sql).fetchone()["total"])
 
-    # move the starting row forward by 3000
-    # if the starting row > max row, restart from 0s
-    # this way, we can get to the unfinished the wf later
-    # without querying the whole db every time
-    increase_step = 3000
+    # move the starting row forward by increase_step
+    # It takes about 1 second per thousand; increase_step is passed in from the reaper.
+    # Sf the starting row > max row, restart from workflow-id 0.
+    # This way, we can get to the unfinished the wf later
+    # without querying the whole db every time.
+
     current_max_wf_id = int(workflow_id) + int(increase_step)
     if current_max_wf_id > total_wf:
+        logger.info("Fix inconsistencies starting from workflow_id zero again")
         current_max_wf_id = 0
 
     # Update wf in F with all task in D to D
-    # limit the query lines to 1k, which should finish <1s
-    # and won't shock the db when reaper restarts
-    sql = """UPDATE workflow
-            SET status = "D"
-            WHERE id IN (
-                SELECT id FROM (
-                    SELECT id, count(s), sum(s)
+    # count(s) will have the total number of tasks, sum(s) is those in D.
+    # If the two are equal, then the workflow Tasks are all D and therefore the workflow should be D.
+
+    query_sql = """
+            SELECT id
                     FROM
                         (SELECT workflow.id, (case when task.status="D" then 1 else 0 end) as s
                         FROM workflow, task
-                        WHERE workflow.id > {wfid1}
-                        AND workflow.id <= {wfid2}
+                        WHERE workflow.id > {low_wfid}
+                        AND workflow.id <= {high_wfid}
                         AND workflow.status='F'
                         AND workflow.id=task.workflow_id) t
                         GROUP BY id
-                        HAVING count(s) = sum(s) ) tt
-            )
+                        HAVING count(s) = sum(s)
             """.format(
-        wfid1=workflow_id, wfid2=int(workflow_id) + increase_step
+        low_wfid=workflow_id, high_wfid=int(workflow_id) + increase_step
     )
 
-    DB.session.execute(sql)
+    result_list = DB.session.execute(query_sql).fetchall()
     DB.session.commit()
+    if result_list is None or len(result_list) == 0:
+        logger.debug(f"No inconsistent F-D workflows to fix.")
+    else:
+        ids = ""
+        for row in result_list:
+            ids += f"{row['id']},"
+        # strip last comma
+        ids = ids[:-1]
+        logger.info(f"Fixing inconsistent F-D workflow: {ids}")
+        update_sql = f"""UPDATE workflow
+                        SET status = "D"
+                        WHERE id IN ({ids})
+                        """
+        DB.session.execute(update_sql)
+        DB.session.commit()
+        logger.debug(f"Done fixing F-D inconsistent workflows.")
 
     resp = jsonify({"wfid": current_max_wf_id})
     resp.status_code = StatusCodes.OK
