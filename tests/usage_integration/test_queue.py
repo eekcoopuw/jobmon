@@ -6,6 +6,7 @@ from unittest import mock
 from jobmon.server.usage_integration.usage_integrator import q_forever
 from jobmon.server.usage_integration.usage_queue import UsageQ
 from jobmon.server.usage_integration.usage_utils import QueuedTI
+from jobmon.server.usage_integration.usage_integrator import UsageIntegrator as UI
 
 import pytest
 from sqlalchemy.sql import text
@@ -60,7 +61,6 @@ def test_age_and_retire():
     Test 2: job will retire when over age
 
     """
-    from jobmon.server.usage_integration.usage_integrator import UsageIntegrator as UI
     class _ui(UI):
         def __init__(self, config=None) -> None:
             self.config = config

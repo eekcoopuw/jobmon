@@ -43,12 +43,10 @@ class UsageIntegrator:
 
         # Initialize empty queue-cluster mapping, to be populated and cached on startup
         self._queue_cluster_map: Optional[Dict] = None
-        self._integrator_retire_age: int = int(os.getenv("INTEGRATOR_RETIRE_AGE")) \
-            if os.getenv("INTEGRATOR_RETIRE_AGE") else 0
 
     @property
     def integrator_retire_age(self):
-        return self._integrator_retire_age
+        return self.config.integrator_retire_age
 
     @property
     def queue_cluster_map(self):
@@ -304,8 +302,12 @@ def _get_config(config: UsageConfig = None) -> dict:
         "conn_slurm_sdb_str": config.conn_slurm_sdb_str,
         "polling_interval": config.slurm_polling_interval,
         "max_update_per_sec": config.slurm_max_update_per_second,
+        "integrator_retire_age": config.integrator_retire_age
     }
 
+def _keep_running() -> bool:
+    """Make it a function for easy mock in testing."""
+    return UsageQ.keep_running
 
 def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
               integrator_config: UsageConfig = None, never_retire: bool = True) -> None:
@@ -332,7 +334,7 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
     # only query each ti once in one polling_interval
     initial_q_size = UsageQ.get_size()
     processed_size = 0
-    while UsageQ.keep_running:
+    while _keep_running():
         # Since there isn't a good way to specify the thread priority in Python,
         # put a sleep in each attempt to not overload the CPU.
         # The avg daily job instance is about 20k; thus, sleep(1) should be ok.

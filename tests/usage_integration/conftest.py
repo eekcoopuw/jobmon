@@ -46,6 +46,7 @@ def usage_integrator_config(ephemera):
         slurm_polling_interval=10,
         slurm_max_update_per_second=100,
         slurm_cluster='slurm',
+        integrator_retire_age=0,
     )
     return integrator_config
 

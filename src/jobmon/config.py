@@ -220,6 +220,18 @@ class ParserDefaults:
         return parser
 
     @staticmethod
+    def integrator_retire_age(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Retirement age for usage integrator."""
+        parser.add_argument(
+            "--integrator_retire_age",
+            type=int,
+            help="default retirement age",
+            default=0,
+            env_var="INTEGRATOR_RETIRE_AGE",
+        )
+        return parser
+
+    @staticmethod
     def web_service_fqdn(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
