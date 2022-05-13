@@ -417,7 +417,6 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
     params = {
         "running_status": TaskInstanceStatus.RUNNING,
         "triaging_status": TaskInstanceStatus.TRIAGING,
-        "kill_self_status": TaskInstanceStatus.KILL_SELF,
         "launched_status": TaskInstanceStatus.LAUNCHED,
         "workflow_run_id": workflow_run_id,
     }
@@ -435,8 +434,9 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
     DB.session.commit()
 
     # Find all the TaskIntances that should be moved to KILL_SELF state and then loop through
-    # them and update the status. Do this instead of a bulk update to avoid a deadlock. See
-    # GBDSCI-4582 for more details
+    # them and update the status. Do this instead of a bulk update to avoid a deadlock. The
+    # deadlock is non-local, it happens when run simultaneously with the
+    # "/task_instance/log_report_by/batch" route. See GBDSCI-4582 for more details.
     sql = """
         SELECT id
         FROM task_instance
@@ -452,13 +452,14 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
         logger.info(f"No TaskInstances that need to be moved to KILL_SELF state.")
     else:
         ids = ",".join([str(row['id']) for row in ti_results])
-        params = {"ti_ids": ids, "kill_self_status": TaskInstanceStatus.KILL_SELF}
-        update_sql = f"""UPDATE task_instance
-                        SET status = :kill_self_status
-                        WHERE id IN (:ti_ids)
-                        """
-        DB.session.execute(update_sql, params)
-        DB.session.commit()
+        for ti in ids:
+            update_sql = f"""UPDATE task_instance
+                            SET status = :kill_self_status
+                            WHERE id = :ti_id
+                            """
+            DB.session.execute(update_sql, {"kill_self_status": TaskInstanceStatus.KILL_SELF,
+                                            "ti_id": ti})
+            DB.session.commit()
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
