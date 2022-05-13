@@ -421,7 +421,7 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
         "launched_status": TaskInstanceStatus.LAUNCHED,
         "workflow_run_id": workflow_run_id,
     }
-    # Update all running tasks to triaging
+    # Update all running tasks that have a report by date less than now to triaging
     sql = """
         UPDATE task_instance
         SET status = :triaging_status,
@@ -434,6 +434,9 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
     DB.session.execute(sql, params)
     DB.session.commit()
 
+    # Find all the TaskIntances that should be moved to KILL_SELF state and then loop through
+    # them and update the status. Do this instead of a bulk update to avoid a deadlock. See
+    # GBDSCI-4582 for more details
     sql = """
         SELECT id
         FROM task_instance
