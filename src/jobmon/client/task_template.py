@@ -594,7 +594,7 @@ class TaskTemplate:
         )
         return task
 
-    def create_array(
+    def create_tasks(
         self,
         max_attempts: int = 3,
         upstream_tasks: Optional[List[Task]] = None,
@@ -605,8 +605,8 @@ class TaskTemplate:
         cluster_name: str = "",
         name: Optional[str] = None,
         **kwargs: Any,
-    ) -> Array:
-        """Creates a client side array expectation.
+    ) -> List[Task]:
+        """Creates a set of tasks equal to the cross product of all node args.
 
         Args:
             max_attempts: the max number of attempts a task in the array can be retried
@@ -641,12 +641,8 @@ class TaskTemplate:
             )
 
         # Split node, task, and op_args
-        node_args = self.active_task_template_version.filter_kwargs(
-            "node_args", **kwargs
-        )
-        task_args = self.active_task_template_version.filter_kwargs(
-            "task_args", **kwargs
-        )
+        node_args = self.active_task_template_version.filter_kwargs("node_args", **kwargs)
+        task_args = self.active_task_template_version.filter_kwargs("task_args", **kwargs)
         op_args = self.active_task_template_version.filter_kwargs("op_args", **kwargs)
 
         array = Array(
@@ -655,7 +651,6 @@ class TaskTemplate:
             op_args=op_args,
             cluster_name=cluster_name,
             max_concurrently_running=max_concurrently_running,
-            max_attempts=max_attempts,
             upstream_tasks=upstream_tasks,
             compute_resources=compute_resources,
             compute_resources_callable=compute_resources_callable,
@@ -664,20 +659,17 @@ class TaskTemplate:
         )
 
         # Create tasks on the array
-        if node_args:
-            array.create_tasks(
-                upstream_tasks=upstream_tasks,
-                max_attempts=max_attempts,
-                resource_scales=resource_scales,
-                **node_args,
-            )
-        return array
+        tasks = array.create_tasks(
+            upstream_tasks=upstream_tasks,
+            max_attempts=max_attempts,
+            resource_scales=resource_scales,
+            **node_args,
+        )
+        return tasks
 
     def __hash__(self) -> int:
         """A hash of the TaskTemplate name and tool version concatenated together."""
-        hash_value = int(
-            hashlib.sha1(self.template_name.encode("utf-8")).hexdigest(), 16
-        )
+        hash_value = int(hashlib.sha1(self.template_name.encode("utf-8")).hexdigest(), 16)
         return hash_value
 
     def resource_usage(
@@ -747,7 +739,7 @@ class TaskTemplate:
         )
 
         try:
-            repr_string += f", tool_version_id={self.tool_version_id}"
+            repr_string += f", tool_version_id={self.tool_version.id}"
             repr_string += f", id={self.id})"
         except AttributeError:
             # Bind somehow not called, so terminate the repr string

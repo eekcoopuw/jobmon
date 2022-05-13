@@ -94,12 +94,13 @@ def test_task_instance(db_cfg, tool):
 def test_array_task_instance(tool, db_cfg, client_env, array_template, monkeypatch):
     """Tests that the worker node is compatible with array task instances."""
 
-    array1 = array_template.create_array(
+    tasks = array_template.create_tasks(
         arg=[1, 2, 3], cluster_name="sequential", compute_resources={"queue": "null.q"}
     )
     workflow = tool.create_workflow(name="test_array_ti_selection")
-    workflow.add_array(array1)
+    workflow.add_tasks(tasks)
     workflow.bind()
+    array1 = workflow.arrays["array_template"]
     wfr = workflow._create_workflow_run()
 
     # create task instances

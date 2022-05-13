@@ -375,7 +375,7 @@ def test_array_concurrency(
     """Use Case 1: Array concurrency limit is set, workflow is not. Array should be limited by
     the array's max_concurrently running value"""
     # Use Case 1: Array concurrency limit is set, workflow concurrency limit not set
-    array1 = array_template.create_array(
+    tasks1 = array_template.create_tasks(
         arg=[1, 2, 3],
         cluster_name="multiprocess",
         compute_resources={"queue": "null.q"},
@@ -385,7 +385,7 @@ def test_array_concurrency(
     workflow = tool.create_workflow(
         name="test_array_concurrency_1", max_concurrently_running=wf_limit
     )
-    workflow.add_array(array1)
+    workflow.add_tasks(tasks1)
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
