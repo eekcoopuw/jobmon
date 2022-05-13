@@ -4,9 +4,12 @@ Advanced Usage
 
 Arrays
 ######
-As of the 3.1.0 release, users are able to use job arrays in Jobmon. The effect is that Jobmon
-uses one sbatch command to launch all the jobs in one TaskTemplate, rather than one sbatch
-command to launch a single job. This allows Jobmon to launch jobs faster.
+As of the 3.1.0 release, all jobs launched on the Slurm cluster will be launched as arrays.
+The effect is that Jobmon uses one sbatch command to launch all the jobs in one TaskTemplate,
+rather than one sbatch command to launch a single job. This allows Jobmon to launch jobs
+faster. In a comparison load test, 3.0.5 took 1045.10 seconds (17.418 minutes) to submit
+10,000 tasks to the cluster, while 3.1.0 took 32.10 seconds to submit the same 10,000 tasks
+to the cluster.
 
 Usage
 *****
@@ -23,12 +26,12 @@ Usage
             default_compute_resources={"queue": "all.q"},
         )
 
-        example_array = example_task_template.create_array(
+        example_array = example_task_template.create_tasks(
             location_id=[1, 2, 3],
         )
 
         workflow = tool.create_workflow()
-        workflow.add_array(example_array)
+        workflow.add_tasks(example_array)
         workflow.run()
 
     .. code-tab:: R
@@ -46,17 +49,18 @@ Usage
 
         workflow <- jobmonr::workflow(example_tool)
 
-        example_array <- jobmonr::array(example_task_template, location_id=1:3)
+        example_array <- jobmonr::tasks(example_task_template, location_id=1:3)
 
-        jobmonr::add_arrays(workflow, c(example_array))
+        jobmonr::add_tasks(workflow, c(example_array))
 
         status <- jobmonr::run(workflow)
 
 Array Inference
 ***************
-As of Jobmon 3.1.0 all tasks are also considered arrays (even tasks that were created using
+As of Jobmon 3.1.0 all tasks are launched using Slurm arrays (even tasks that were created using
 create_task() instead of create_array()). Tasks that share the same task_template and
-compute_resources will be grouped into arrays during workflow.run().
+compute_resources will be grouped into arrays during workflow.run(). Therefore, will launch
+more quickly without users needing to make any code changes.
 
 This means that if a user has tasks that execute in different phases within a workflow the
 tasks should belong to different task_templates.
