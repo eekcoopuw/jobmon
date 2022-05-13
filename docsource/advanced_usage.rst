@@ -26,12 +26,12 @@ Usage
             default_compute_resources={"queue": "all.q"},
         )
 
-        example_array = example_task_template.create_tasks(
+        example_tasks = example_task_template.create_tasks(
             location_id=[1, 2, 3],
         )
 
         workflow = tool.create_workflow()
-        workflow.add_tasks(example_array)
+        workflow.add_tasks(example_tasks)
         workflow.run()
 
     .. code-tab:: R
@@ -49,9 +49,9 @@ Usage
 
         workflow <- jobmonr::workflow(example_tool)
 
-        example_array <- jobmonr::tasks(example_task_template, location_id=1:3)
+        example_tasks <- jobmonr::array_tasks(task_template=example_task_template, location_id=1:3)
 
-        jobmonr::add_tasks(workflow, c(example_array))
+        jobmonr::add_tasks(workflow, example_tasks)
 
         status <- jobmonr::run(workflow)
 
