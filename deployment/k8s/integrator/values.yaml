@@ -6,3 +6,4 @@ global:
   rancher_db_secret: ""
   rancher_project: ""
   rancher_db_slurm_sdb_secret: ""
+  rancher_retire_age: ""

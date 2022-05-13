@@ -45,7 +45,7 @@ def usage_integrator_config(ephemera):
         db_port_slurm_sdb=integrator_config_dict["DB_PORT_SLURM_SDB"],
         slurm_polling_interval=10,
         slurm_max_update_per_second=100,
-        slurm_cluster='slurm'
+        slurm_cluster='slurm',
     )
     return integrator_config
 

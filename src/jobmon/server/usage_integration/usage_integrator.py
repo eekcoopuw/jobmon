@@ -43,6 +43,12 @@ class UsageIntegrator:
 
         # Initialize empty queue-cluster mapping, to be populated and cached on startup
         self._queue_cluster_map: Optional[Dict] = None
+        self._integrator_retire_age: int = int(os.getenv("INTEGRATOR_RETIRE_AGE")) \
+            if os.getenv("INTEGRATOR_RETIRE_AGE") else 0
+
+    @property
+    def integrator_retire_age(self):
+        return self._integrator_retire_age
 
     @property
     def queue_cluster_map(self):
@@ -127,17 +133,25 @@ class UsageIntegrator:
             tres_types=self.tres_types,
             task_instances=tasks,
         )
-
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:
             try:
                 resources = usage_stats[task]
             except KeyError:
-                continue
+                resources = None
             if resources is None:
-                usage_stats.pop(task)
-                task.age += 1
-                UsageQ.put(task, task.age)
+                try:
+                    task.age += 1
+                    # discard older than 10 tasks when never_retire is False
+                    if self.integrator_retire_age <= 0 \
+                            or task.age < self.integrator_retire_age:
+                        logger.info(f"Put {task.task_instance_id} back to the queue with age {task.age}")
+                        UsageQ.put(task, task.age)
+                    else:
+                        logger.info(f"Retire {task.task_instance_id} at age {task.age}")
+                except Exception as e:
+                    # keeps integrator running with failures
+                    logger.warning(e.message)
 
         if len(usage_stats) == 0:
             return  # No values to update
@@ -294,7 +308,7 @@ def _get_config(config: UsageConfig = None) -> dict:
 
 
 def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
-              integrator_config: UsageConfig = None) -> None:
+              integrator_config: UsageConfig = None, never_retire: bool = True) -> None:
     """A never stop method running in a thread that queries the SLURM and Jobmon databases.
 
     It constantly queries the maxrss value from the SLURM accounting database
@@ -315,19 +329,25 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
     last_heartbeat = init_time
     integrator = UsageIntegrator(integrator_config)
 
+    # only query each ti once in one polling_interval
+    initial_q_size = UsageQ.get_size()
+    processed_size = 0
     while UsageQ.keep_running:
         # Since there isn't a good way to specify the thread priority in Python,
         # put a sleep in each attempt to not overload the CPU.
         # The avg daily job instance is about 20k; thus, sleep(1) should be ok.
         time.sleep(1)
-        # Update slurm_max_update_per_second of jobs as defined in jobmon.cfg
-        task_instances = [
-            UsageQ.get() for _ in range(integrator.config["max_update_per_sec"])
-        ]
-        # If the queue is empty, drop the None entries
-        task_instances = [t for t in task_instances if t is not None]
-
-        integrator.update_resources_in_db(task_instances)
+        # if all this in Q has already been integrated in this polling_interval, skip
+        if processed_size < initial_q_size:
+            logger.info(f"Processed size in this polling interval: {processed_size}")
+            # Update slurm_max_update_per_second of jobs as defined in jobmon.cfg
+            task_instances = [
+                UsageQ.get() for _ in range(integrator.config["max_update_per_sec"])
+            ]
+            # If the queue is empty, drop the None entries
+            task_instances = [t for t in task_instances if t is not None]
+            processed_size += len(task_instances)
+            integrator.update_resources_in_db(task_instances)
 
         # Query DB to add newly completed jobs to q and log q length
         current_time = datetime.datetime.now()
@@ -338,6 +358,9 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
             ))
             try:
                 integrator.populate_queue(last_heartbeat)
+                # restart counter
+                initial_q_size = UsageQ.get_size()
+                processed_size = 0
                 logger.debug(f"Q length: {UsageQ.get_size()}")
             except Exception as e:
                 logger.error(str(e))

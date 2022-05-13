@@ -17,6 +17,9 @@ pipeline {
     string(defaultValue: 'jobmon-slurm-sdb-dev',
      description: 'name of rancher secret to use for db variables',
      name: 'RANCHER_DB_SLURM_SDB_SECRET')
+    string(defaultValue: "0",
+     description: 'How many pooling intervals should the integrator try to get the resource usage value before giving up. Put 0 to try forever.',
+     name: 'INTEGRATOR_RETIRE_AGE')
     string(defaultValue: 'c-99499:p-4h54h',
      description: 'Rancher project must be created in the rancher web ui before running this job. Get this from the URL after you select the project in the rancher UI. Shouldnt change often',
      name: 'RANCHER_PROJECT_ID')
@@ -77,7 +80,17 @@ pipeline {
           // Scicomp kubernetes cluster container
           withCredentials([file(credentialsId: 'k8s-scicomp-cluster-kubeconf',
                                 variable: 'KUBECONFIG')]) {
-
+            sh '''echo \
+                  deploy_integrator_to_k8s \
+                      ${WORKSPACE} \
+                      ${JOBMON_CONTAINER_URI} \
+                      ${K8S_NAMESPACE} \
+                      ${RANCHER_PROJECT_ID} \
+                      ${RANCHER_DB_SECRET} \
+                      ${RANCHER_DB_SLURM_SDB_SECRET} \
+                      ${KUBECONFIG} \
+                      ${INTEGRATOR_RETIRE_AGE}
+               '''
             sh '''#!/bin/bash
                   . ${WORKSPACE}/ci/deploy_utils.sh
                   deploy_integrator_to_k8s \
@@ -87,7 +100,8 @@ pipeline {
                       ${RANCHER_PROJECT_ID} \
                       ${RANCHER_DB_SECRET} \
                       ${RANCHER_DB_SLURM_SDB_SECRET} \
-                      ${KUBECONFIG}
+                      ${KUBECONFIG} \
+                      ${INTEGRATOR_RETIRE_AGE}
 
                '''
           } // end credentials
@@ -98,10 +112,6 @@ pipeline {
   post {
     always {
       node('docker') {
-        // Delete the workspace directory.
-        deleteDir()
-      } // end node
-      node('slurm') {
         // Delete the workspace directory.
         deleteDir()
       } // end node
