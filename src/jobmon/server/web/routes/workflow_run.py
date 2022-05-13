@@ -418,27 +418,44 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
         "running_status": TaskInstanceStatus.RUNNING,
         "triaging_status": TaskInstanceStatus.TRIAGING,
         "kill_self_status": TaskInstanceStatus.KILL_SELF,
+        "launched_status": TaskInstanceStatus.LAUNCHED,
         "workflow_run_id": workflow_run_id,
-        "active_tasks": [
-            TaskInstanceStatus.LAUNCHED,
-            TaskInstanceStatus.RUNNING,
-        ],
     }
+    # Update all running tasks to triaging
     sql = """
         UPDATE task_instance
-        SET status =
-            CASE
-                WHEN status = :running_status THEN :triaging_status
-                ELSE :kill_self_status
-            END,
+        SET status = :triaging_status,
             status_date = CURRENT_TIMESTAMP()
         WHERE
             workflow_run_id = :workflow_run_id
-            AND status in :active_tasks
+            AND status = :running_status
             AND report_by_date <= CURRENT_TIMESTAMP()
     """
     DB.session.execute(sql, params)
     DB.session.commit()
+
+    sql = """
+        SELECT id
+        FROM task_instance
+        WHERE
+            workflow_run_id = :workflow_run_id
+            AND status = :launched_status
+            AND report_by_date <= CURRENT_TIMESTAMP()
+    """
+    ti_results = DB.session.execute(sql, params).fetchall()
+    DB.session.commit()
+
+    if ti_results is None or len(ti_results) == 0:
+        logger.info(f"No TaskInstances that need to be moved to KILL_SELF state.")
+    else:
+        ids = ",".join([str(row['id']) for row in ti_results])
+        params = {"ti_ids": ids, "kill_self_status": TaskInstanceStatus.KILL_SELF}
+        update_sql = f"""UPDATE task_instance
+                        SET status = :kill_self_status
+                        WHERE id IN (:ti_ids)
+                        """
+        DB.session.execute(update_sql, params)
+        DB.session.commit()
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
