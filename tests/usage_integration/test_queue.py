@@ -10,7 +10,6 @@ from jobmon.server.usage_integration.usage_utils import QueuedTI
 import pytest
 from sqlalchemy.sql import text
 
-@pytest.mark.usage_integrator
 def test_MaxrssQ():
     """This is to test the Q stops increasing when the max size is reached.
 
@@ -52,6 +51,63 @@ def test_MaxrssQ():
     assert e2.task_instance_id == 2
     assert e2.age == 1
 
+
+def test_age_and_retire():
+    """This is to test the SLURM updates behave accordingly.
+
+    Test 1: job will be put back to the Q with age increased if resources are
+    not found.
+    Test 2: job will retire when over age
+
+    """
+    from jobmon.server.usage_integration.usage_integrator import UsageIntegrator as UI
+    class _ui(UI):
+        def __init__(self, config=None) -> None:
+            self.config = config
+            self.session_slurm_sdb = "whatever"
+            self.tres_types = "whatever"
+
+        @property
+        def integrator_retire_age(self):
+            return 2
+
+        @property
+        def queue_cluster_map(self):
+            return {1: "all.q"}
+
+    usage_integrator = _ui()
+
+    UsageQ.empty_q()
+    assert UsageQ.get_size() == 0
+
+    def mock_no_resources(task_instances: List[QueuedTI], *args, **kwargs):
+        """Return a dict of Nones to mock a "task instance not found" issue.
+
+        This path I believe is almost guaranteed to never happen, since submitted tasks
+        are added to the accounting database almost instantly. However, might as well test.
+        """
+        return {}
+
+    with mock.patch(
+        "jobmon.server.usage_integration.usage_integrator._get_slurm_resource_via_slurm_sdb",
+        new=mock_no_resources
+    ):
+        # code logic to test
+        item = QueuedTI(
+            task_instance_id=1_000_000, distributor_id='1', cluster_type_name="slurm", cluster_id=5
+        )
+        UsageQ.put(item)
+        # Call the update tasks method. Check that age is incremented and the task is added to
+        # the queue.
+        t = UsageQ.get()
+        usage_integrator.update_slurm_resources([t])
+        assert item.age == 1
+        assert UsageQ.get_size() == 1
+        # retire
+        t = UsageQ.get()
+        usage_integrator.update_slurm_resources([t])
+        assert item.age == 2
+        assert UsageQ.get_size() == 0
 
 @pytest.mark.usage_integrator
 def test_worker_with_mock_200(usage_integrator_config):
