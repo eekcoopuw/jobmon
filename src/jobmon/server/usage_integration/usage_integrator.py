@@ -46,7 +46,7 @@ class UsageIntegrator:
 
     @property
     def integrator_retire_age(self):
-        return self.config.integrator_retire_age
+        return self.config["integrator_retire_age"]
 
     @property
     def queue_cluster_map(self):
