@@ -220,18 +220,6 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def integrator_retire_age(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
-        """Retirement age for usage integrator."""
-        parser.add_argument(
-            "--integrator_retire_age",
-            type=int,
-            help="default retirement age",
-            default=0,
-            env_var="INTEGRATOR_RETIRE_AGE",
-        )
-        return parser
-
-    @staticmethod
     def web_service_fqdn(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
@@ -424,6 +412,20 @@ class ParserDefaults:
             help="default database to use",
             default="slurm_acct_db",
             env_var="DB_NAME_SLURM_SDB",
+        )
+        return parser
+
+    @staticmethod
+    def integrator_retire_age(
+            parser: configargparse.ArgumentParser
+    ) -> configargparse.ArgumentParser:
+        """Retirement age for usage integrator."""
+        parser.add_argument(
+            "--integrator_retire_age",
+            type=int,
+            help="default ti retirement age",
+            default=0,
+            env_var="INTEGRATOR_RETIRE_AGE",
         )
         return parser
 

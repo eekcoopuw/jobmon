@@ -149,7 +149,7 @@ class UsageIntegrator:
                         logger.info(f"Retire {task.task_instance_id} at age {task.age}")
                 except Exception as e:
                     # keeps integrator running with failures
-                    logger.warning(e.message)
+                    logger.warning(str(e))
 
         if len(usage_stats) == 0:
             return  # No values to update

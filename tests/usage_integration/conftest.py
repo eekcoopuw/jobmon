@@ -28,7 +28,8 @@ def usage_integrator_config(ephemera):
             "DB_PASS_SLURM_SDB": os.getenv("DB_PASS_SLURM_SDB", "not_a_pass"),
             "DB_USER_SLURM_SDB": os.getenv("DB_USER_SLURM_SDB", "not_a_user"),
             "DB_NAME_SLURM_SDB": os.getenv("DB_NAME_SLURM_SDB", "not_a_name"),
-            "DB_PORT_SLURM_SDB": os.getenv("DB_PORT_SLURM_SDB", "3306")
+            "DB_PORT_SLURM_SDB": os.getenv("DB_PORT_SLURM_SDB", "3306"),
+            "INTEGRATOR_RETIRE_AGE": os.getenv("INTEGRATOR_RETIRE_AGE", 0)
         }
 
     # Combine with ephemera to create the usage integrator config
