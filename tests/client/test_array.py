@@ -51,7 +51,8 @@ def test_create_array(db_cfg, client_env, task_template):
     # test assigned name
     assert "simple_template" in array.name
     # test given name
-    array = task_template.create_array(name="test_array", arg="echo 2")
+    tasks = task_template.create_tasks(name="test_array", arg="echo 2")
+    array = tasks[0].array
     assert "test_array" in array.name
 
 
