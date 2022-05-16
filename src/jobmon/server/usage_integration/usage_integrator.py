@@ -236,7 +236,7 @@ def _get_slurm_resource_via_slurm_sdb(session: Session,
             # Don't repopulate the queue since we can't do anything with this task instance
 
         # Add the task instance to the distributor ID -> task instance ID map
-        dict_dist_ti[ti.distributor_id] = ti
+        dict_dist_ti[str(ti.distributor_id)] = ti
 
     # get job_step data
     # Case is needed since we want to return a concatenation of parent array job and subtask
