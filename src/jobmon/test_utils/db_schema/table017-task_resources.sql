@@ -17,3 +17,4 @@ CREATE TABLE `task_resources` (
 ALTER TABLE `task_resources` ADD INDEX `ix_task_id` (`task_id`);
 ALTER TABLE `task_resources` ADD INDEX `ix_queue_id` (`queue_id`);
 ALTER TABLE `task_resources` ADD INDEX `ix_task_resources_type_id` (`task_resources_type_id`);
+ALTER TABLE `task_resources` ADD INDEX `ix_id_queue_id` (`id`,`queue_id`);
