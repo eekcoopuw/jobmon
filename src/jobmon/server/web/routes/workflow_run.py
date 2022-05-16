@@ -451,14 +451,14 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
     if ti_results is None or len(ti_results) == 0:
         logger.info(f"No TaskInstances that need to be moved to KILL_SELF state.")
     else:
-        ids = ",".join([str(row['id']) for row in ti_results])
-        for ti in ids:
+        ids = [ti_id for id_tuple in ti_results for ti_id in id_tuple]
+        for ti_id in ids:
             update_sql = f"""UPDATE task_instance
                             SET status = :kill_self_status
                             WHERE id = :ti_id
                             """
             DB.session.execute(update_sql, {"kill_self_status": TaskInstanceStatus.KILL_SELF,
-                                            "ti_id": ti})
+                                            "ti_id": ti_id})
             DB.session.commit()
 
     resp = jsonify()
