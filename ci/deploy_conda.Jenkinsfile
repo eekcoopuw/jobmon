@@ -190,6 +190,10 @@ pipeline {
           // requires clever quoting. Only pass single words as arguments.
 
           // Download jobmon
+          // TODO: Testing to be uncommented out. Current issue is that the Jenkins workspace is cloned to a directory
+          // local to the Jenkins host, i.e. /opt/jenkins/workspace
+          // This path is not mounted on the main NFS file system, so the scripts are unavailable.
+          /*
           checkout scm
           script {
             ssh_cmd= """. ${WORKSPACE}/ci/deploy_utils.sh
@@ -205,6 +209,7 @@ pipeline {
             sshagent(['jenkins']) {
                sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.cluster.ihme.washington.edu '${ssh_cmd}'"
             } // end ssh
+           */
           } // end script
         } // end slurm
       } // end steps
