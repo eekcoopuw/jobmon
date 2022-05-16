@@ -110,11 +110,11 @@ def test_age_and_retire():
         assert UsageQ.get_size() == 0
 
 @pytest.mark.usage_integrator
-def test_worker_with_mock_200(usage_integrator_config):
+def test_worker_with_succeed_slurm_db_response(usage_integrator_config):
     """This is to test the job with maxpss leaves the Q.
 
     Note: Do not run usage_integrator tests with multiprocessing."""
-    
+
     def _fake_keep_running():
         global xx
         try:
