@@ -192,7 +192,7 @@ pipeline {
           // Download jobmon
           checkout scm
           script {
-            sh """. ${WORKSPACE}/ci/deploy_utils.sh
+            ssh_cmd= """. ${WORKSPACE}/ci/deploy_utils.sh
                  test_conda_client_slurm \
                      ${WORKSPACE} \
                      ${MINICONDA_PATH} \
@@ -201,6 +201,10 @@ pipeline {
                      ${JOBMON_VERSION} \
                      ${env.JOBMON_SERVICE_FQDN} \
             """
+            echo ssh_cmd
+            sshagent(['jenkins']) {
+               sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.cluster.ihme.washington.edu '${ssh_cmd}'"
+            } // end ssh
           } // end script
         } // end slurm
       } // end steps
