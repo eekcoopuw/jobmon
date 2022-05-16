@@ -141,7 +141,7 @@ def log_ti_report_by_batch() -> Any:
             SET report_by_date = ADDTIME(
                 CURRENT_TIMESTAMP(), SEC_TO_TIME({next_report_increment}))
             WHERE task_instance.id in {str(tis).replace("[", "(").replace("]", ")")}
-            AND task_instance.status = {TaskInstanceStatus.LAUNCHED}"""
+            AND task_instance.status = '{TaskInstanceStatus.LAUNCHED}'"""
 
         DB.session.execute(query)
         DB.session.commit()
