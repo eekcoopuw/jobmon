@@ -3,7 +3,8 @@
 #this parameter comes from Jenkins
 env_base=$1
 jobmon_version=$2
-conda_root=$3
+conda_client_version=$3
+conda_root=$4
 
 if [[ ${jobmon_version} == *"dev"* ]];then
     echo "This is a dev version. Do nothing."
@@ -34,7 +35,8 @@ else
         exit 1
     fi
     echo "Installing jobmon for environment $env_name" &&
-    conda install ihme_jobmon -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge
+    conda install ihme_jobmon==${conda_client_version} \
+      -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge
     chmod -R +rx $env_name &&
     echo "linking jobmon $env_name to  jobmon_$minor_version"
     eval "$(rm -rf $env_base/jobmon_$minor_version 2>/dev/null ||true)" && # silent
