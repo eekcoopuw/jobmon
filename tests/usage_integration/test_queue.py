@@ -114,17 +114,33 @@ def test_worker_with_mock_200(usage_integrator_config):
     """This is to test the job with maxpss leaves the Q.
 
     Note: Do not run usage_integrator tests with multiprocessing."""
+    
+    def _fake_keep_running():
+        global xx
+        try:
+            xx += 1
+        except:
+            xx = 0
+        finally:
+            xx += 1
+        return True if xx < 5 else False
 
     UsageQ.empty_q()
     assert UsageQ.get_size() == 0
+
     with mock.patch(
         "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.update_resources_in_db"
     ) as m_db, mock.patch(
         "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.populate_queue"
-    ) as m_restful:
+    ) as m_restful, mock.patch(
+        "jobmon.server.usage_integration.usage_integrator._keep_running", new=_fake_keep_running
+    ), mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator._get_tres_types"
+    )as m_tres_type:
         # mock
         m_db.return_value = None
         m_restful.return_value = None
+        m_tres_type.return_value = None
 
         # code logic to test
         item = QueuedTI(
@@ -132,10 +148,8 @@ def test_worker_with_mock_200(usage_integrator_config):
         )
         UsageQ.put(item)
         assert UsageQ.get_size() == 1
-        t = Thread(target=q_forever, kwargs={'integrator_config': usage_integrator_config})
-        t.start()
-        t.join(10)
-        UsageQ.keep_running = False
+
+        q_forever(integrator_config=usage_integrator_config)
         for i in range(5):
             sleep(2)
             if UsageQ.get_size() == 0:
