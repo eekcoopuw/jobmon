@@ -23,7 +23,7 @@ def tests(session: Session) -> None:
     session.install("-e", ".[test,server]")
 
     # pytest skips. performance tests are a separate nox target, so are integrator tests
-    extra_args = ['-m', "not performance_tests and not usage_integrator"]
+    extra_args = ['-m', "not performance_tests"]
 
     # pytest mproc
     session.run("pytest", *args, *extra_args)

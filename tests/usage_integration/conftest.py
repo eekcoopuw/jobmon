@@ -50,17 +50,3 @@ def usage_integrator_config(ephemera):
         integrator_retire_age=0,
     )
     return integrator_config
-
-
-@pytest.fixture
-def usage_integrator(ephemera, usage_integrator_config):
-    """Creates a configured instance of the usage integrator."""
-
-    from jobmon.server.usage_integration.usage_integrator import UsageIntegrator
-
-    # Create the usage integrator, and yield. On teardown close the connections
-    integrator = UsageIntegrator(usage_integrator_config)
-    yield integrator
-
-    integrator.session.close()
-    integrator.session_slurm_sdb.close()
