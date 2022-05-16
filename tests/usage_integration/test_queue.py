@@ -158,7 +158,7 @@ def test_worker_with_succeed_slurm_db_response(usage_integrator_config):
 
 
 @pytest.mark.usage_integrator
-def test_slurm_update(usage_integrator):
+def test_slurm_update_put_back_to_q(usage_integrator_config):
     """This is to test the SLURM updates behave accordingly.
 
     Test 1: job will be put back to the Q with age increased if resources are
@@ -170,28 +170,39 @@ def test_slurm_update(usage_integrator):
     UsageQ.empty_q()
     assert UsageQ.get_size() == 0
 
-    def mock_no_resources(task_instances: List[QueuedTI], *args, **kwargs):
-        """Return a dict of Nones to mock a "task instance not found" issue.
-
-        This path I believe is almost guaranteed to never happen, since submitted tasks
-        are added to the accounting database almost instantly. However, might as well test.
-        """
-        return {ti: None for ti in task_instances}
-
     with mock.patch(
         "jobmon.server.usage_integration.usage_integrator._get_slurm_resource_via_slurm_sdb",
-        new=mock_no_resources
-    ):
+    ) as m_get_resc, mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator._get_tres_types"
+    )as m_tres_type, mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.update_resources_in_db"
+    ) as m_db, mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.populate_queue"
+    ) as m_restful:
+        # mock
+        m_get_resc.return_value = {}
+        m_db.return_value = None
+        m_restful.return_value = None
+        m_tres_type.return_value = None
+
         # code logic to test
         item = QueuedTI(
             task_instance_id=1_000_000, distributor_id='1', cluster_type_name="slurm", cluster_id=5
         )
         # Call the update tasks method. Check that age is incremented and the task is added to
         # the queue.
+        usage_integrator = UI(usage_integrator_config)
         usage_integrator.update_slurm_resources([item])
         assert item.age == 1
         assert UsageQ.get_size() == 1
 
+
+
+@pytest.mark.usage_integrator
+def test_slurm_update_update(usage_integrator_config):
+    """This is to test the SLURM updates behave accordingly.
+    Test: the update statement can be performed as expected.
+    """
     # Check that task instance can be updated accordingly
     UsageQ.empty_q()
 
@@ -200,10 +211,30 @@ def test_slurm_update(usage_integrator):
         return {ti: {'maxrss': 100, 'wallclock': 100} for ti in task_instances}
 
     with mock.patch(
-        "jobmon.server.usage_integration.usage_integrator._get_slurm_resource_via_slurm_sdb",
-        new=mock_resources
-    ):
+            "jobmon.server.usage_integration.usage_integrator._get_slurm_resource_via_slurm_sdb",
+            new=mock_resources
+    ), mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator._get_tres_types"
+    )as m_tres_type, mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.update_resources_in_db"
+    ) as m_db, mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.populate_queue"
+    ) as m_restful:
+        m_db.return_value = None
+        m_restful.return_value = None
+        m_tres_type.return_value = None
+
+        # code logic to test
+        item = QueuedTI(
+            task_instance_id=1_000_000, distributor_id='1', cluster_type_name="slurm", cluster_id=5
+        )
+        # Call the update tasks method. Check that age is incremented and the task is added to
+        # the queue.
+        usage_integrator = UI(usage_integrator_config)
         try:
+            item = QueuedTI(
+                task_instance_id=1_000_000, distributor_id='1', cluster_type_name="slurm", cluster_id=5
+            )
             # Call the update tasks method. Check that resources are updated accordingly.
             usage_integrator.update_slurm_resources([item])
 
