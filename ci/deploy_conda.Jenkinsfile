@@ -193,9 +193,11 @@ pipeline {
           // TODO: Testing to be uncommented out. Current issue is that the Jenkins workspace is cloned to a directory
           // local to the Jenkins host, i.e. /opt/jenkins/workspace
           // This path is not mounted on the main NFS file system, so the scripts are unavailable.
-          /*
+
           checkout scm
           script {
+            echo "Skipping slurm test"
+            /*
             ssh_cmd= """. ${WORKSPACE}/ci/deploy_utils.sh
                  test_conda_client_slurm \
                      ${WORKSPACE} \
