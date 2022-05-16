@@ -2,14 +2,17 @@ import datetime
 import time
 
 import pytest
+from unittest import mock
 
 from jobmon.client.tool import Tool
 from jobmon.server.usage_integration.usage_integrator import _get_slurm_resource_via_slurm_sdb
 from jobmon.server.usage_integration.usage_queue import UsageQ
 from jobmon.server.usage_integration.usage_utils import QueuedTI
+from jobmon.server.usage_integration.usage_integrator import UsageIntegrator as UI
 
 
 @pytest.mark.usage_integrator
+@pytest.mark.skip("This test no longer apply after switching to slurm db")
 def test_get_slurm_resource_usages_on_slurm(usage_integrator):
     """This is to verify _get_squid_resource works.
 
@@ -52,17 +55,32 @@ def test_get_slurm_resource_usages_on_slurm(usage_integrator):
 
 
 @pytest.mark.usage_integrator
-def test_queue_map_cache(usage_integrator):
+def test_queue_map_cache(usage_integrator_config):
+    with mock.patch(
+        "jobmon.server.usage_integration.usage_integrator._get_slurm_resource_via_slurm_sdb",
+    ) as m_get_resc, mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator._get_tres_types"
+    )as m_tres_type, mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.update_resources_in_db"
+    ) as m_db, mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.populate_queue"
+    ) as m_restful:
+        # mock
+        m_get_resc.return_value = {}
+        m_db.return_value = None
+        m_restful.return_value = None
+        m_tres_type.return_value = None
 
-    queue_cache = usage_integrator.queue_cluster_map
-    assert usage_integrator._queue_cluster_map is not None
-    assert id(queue_cache) == id(usage_integrator.queue_cluster_map)  # Check cache was hit
-    assert len(queue_cache) == 8  # 8 queues defined in the Jobmon test_utils schema
+        usage_integrator = UI(usage_integrator_config)
+        queue_cache = usage_integrator.queue_cluster_map
+        assert usage_integrator._queue_cluster_map is not None
+        assert id(queue_cache) == id(usage_integrator.queue_cluster_map)  # Check cache was hit
+        assert len(queue_cache) == 8  # 8 queues defined in the Jobmon test_utils schema
 
-    # Cherrypick a few test values
-    assert queue_cache[1] == (2, 'sequential')  # null.q sequential cluster
-    assert queue_cache[3] == (1, 'dummy')  # null.q dummy cluster
-    assert queue_cache[8] == (3, 'multiprocess')  # null.q multiprocess cluster
+        # Cherrypick a few test values
+        assert queue_cache[1] == (2, 'sequential')  # null.q sequential cluster
+        assert queue_cache[3] == (1, 'dummy')  # null.q dummy cluster
+        assert queue_cache[8] == (3, 'multiprocess')  # null.q multiprocess cluster
 
 
 @pytest.mark.usage_integrator
