@@ -209,6 +209,17 @@ pipeline {
         } // end slurm
       } // end steps
     } // end test deployment stage
+    stage ("Create shared conda package") {
+      steps {
+        node('slurm') {
+          sh '''. ${WORKSPACE}/ci/share_conda_install.sh \
+                /mnt/team/scicomp/pub/shared_jobmon_conda \
+                ${JOBMON_VERSION} \
+                /homes/svcscicompci/miniconda3/bin
+          '''
+        } // end node
+      }  // end steps
+    }  // end create shared conda package stage
   } // end stages
   post {
     always {
