@@ -30,6 +30,7 @@ class DistributorTaskInstance:
         Args:
             task_instance_id (int): a task_instance_id
             workflow_run_id (int): a workflow_run_id
+            status(str): status of the distributor task instance
             requester (Requester, optional): a requester to communicate with
                 the JSM. default is shared requester
         """
@@ -44,18 +45,21 @@ class DistributorTaskInstance:
 
     @property
     def batch(self) -> TaskInstanceBatch:
+        """Returns the batch the DistributorTaskInstance is in."""
         return self._batch
 
     @batch.setter
-    def batch(self, val: TaskInstanceBatch):
+    def batch(self, val: TaskInstanceBatch) -> None:
+        """Sets the batch of the DistributorTaskInstance."""
         self._batch = val
 
     @property
     def array_step_id(self) -> int:
+        """Returns the array step of the TI."""
         return self._array_step_id
 
     @array_step_id.setter
-    def array_step_id(self, val: int):
+    def array_step_id(self, val: int) -> None:
         self._array_step_id = val
 
     def transition_to_launched(
@@ -65,8 +69,8 @@ class DistributorTaskInstance:
         """Register the submission of a new task instance to a cluster.
 
         This method is never called by the happy path - only if array submission is not
-        implemented on a particular cluster type."""
-
+        implemented on a particular cluster type.
+        """
         self.distributor_id = distributor_id
         app_route = f"/task_instance/{self.task_instance_id}/log_distributor_id"
         return_code, response = self.requester.send_request(
@@ -111,7 +115,8 @@ class DistributorTaskInstance:
                 f"code 200. Response content: {response}"
             )
 
-    def _transition_to_error(self, error_message: str, error_state: str):
+    def _transition_to_error(self, error_message: str, error_state: str) -> None:
+        """Transitions the TaskInstance to the specified error state."""
         if self.distributor_id is None:
             raise ValueError("distributor_id cannot be None during log_error")
         distributor_id = self.distributor_id
@@ -163,7 +168,8 @@ class DistributorTaskInstance:
         self._transition_to_error(error_message, error_state)
         return {self}, []
 
-    def __hash__(self):
+    def __hash__(self) -> int:
+        """Returns the id of the TaskInstance."""
         return self.task_instance_id
 
     def __eq__(self, other: object) -> bool:
@@ -177,7 +183,7 @@ class DistributorTaskInstance:
         """Check if one hash is less than the has of another Task."""
         return hash(self) < hash(other)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         """Return a short representation string."""
         return (
             f"DistributorTaskInstance(task_instance_id={self.task_instance_id},"

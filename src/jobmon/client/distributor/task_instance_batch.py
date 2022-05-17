@@ -27,14 +27,13 @@ class TaskInstanceBatch:
         task_resources_id: int,
         requester: Requester,
         array_name: str,
-    ):
+    ) -> None:
+        """Initialization of the TaskInstanceBatch object."""
         self.array_id = array_id
         self.batch_number = array_batch_num
         self.task_resources_id = task_resources_id
         self.task_instances: Set[DistributorTaskInstance] = set()
-
         self.requester = requester
-
         self.array_name = array_name
         self.name = f"{array_name}-{array_batch_num}"
 
@@ -82,7 +81,6 @@ class TaskInstanceBatch:
 
     def transition_to_launched(self, next_report_by: float) -> None:
         """Transition all associated task instances to LAUNCHED state."""
-
         # Assertion that all bound task instances are indeed instantiated
         for ti in self.task_instances:
             if ti.status != TaskInstanceStatus.INSTANTIATED:
@@ -107,14 +105,14 @@ class TaskInstanceBatch:
                 f"code 200. Response content: {resp}"
             )
 
-    def log_distributor_ids(self, distributor_id_map: Dict, chunk_size: int = 1000):
+    def log_distributor_ids(self, distributor_id_map: Dict, chunk_size: int = 1000) -> None:
         """Log the distributor ID and the output/error path in the database.
 
         Done for all task instances in the batch.
 
         Send data to the server in chunks, so that we don't hold a lock for more than a few
-        milliseconds."""
-
+        milliseconds.
+        """
         app_route = f"/array/{self.array_id}/log_distributor_id"
 
         task_instance_list = list(self.task_instances)

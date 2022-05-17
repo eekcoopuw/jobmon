@@ -3,8 +3,8 @@ from typing import Any, Optional
 
 from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask, jsonify, request
-from werkzeug.local import LocalProxy
 from werkzeug.exceptions import BadRequest
+from werkzeug.local import LocalProxy
 
 
 from jobmon.server.web.log_config import get_logger, set_logger

@@ -9,16 +9,16 @@ from sqlalchemy import select, update
 from sqlalchemy.sql import func, text
 from werkzeug.local import LocalProxy
 
+from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeTaskInstanceBatch
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
-from jobmon.exceptions import InvalidStateTransition
 from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.task import Task
-from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance import TaskInstanceStatus
 from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
+from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.routes import finite_state_machine
 from jobmon.server.web.server_side_exception import ServerError
 
@@ -385,12 +385,12 @@ def log_distributor_report_by(workflow_run_id: int) -> Any:
 @finite_state_machine.route(
     "/get_array_task_instance_id/<array_id>/<batch_num>/<step_id>", methods=["GET"]
 )
-def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int):
+def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> Any:
     """Given an array ID and an index, select a single task instance ID.
 
     Task instance IDs that are associated with the array are ordered, and selected by index.
-    This route will be called once per array task instance worker node, so must be scalable."""
-
+    This route will be called once per array task instance worker node, so must be scalable.
+    """
     bind_to_logger(array_id=array_id)
 
     query = """
@@ -554,7 +554,7 @@ def log_unknown_error(task_instance_id: int) -> Any:
 
 @finite_state_machine.route("/task_instance/transition/<new_status>", methods=["POST"])
 def transition_task_instances(new_status: str) -> Any:
-    """Attempt to transition a task instance to the new status"""
+    """Attempt to transition a task instance to the new status."""
     data = request.get_json()
     task_instance_ids = data["task_instance_ids"]
     array_id = data.get("array_id", None)

@@ -57,7 +57,7 @@ class MultiprocessQueue(ClusterQueue):
                 is_valid = False
         return is_valid, msg
 
-    def coerce_resources(self, **kwargs) -> Dict:
+    def coerce_resources(self, **kwargs: Dict) -> Dict:
         return kwargs
 
     @property

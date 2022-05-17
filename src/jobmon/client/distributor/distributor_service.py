@@ -5,15 +5,15 @@ import logging
 import signal
 import sys
 import time
-from typing import Callable, Dict, Iterator, Generator, List, Optional, Set, Union
+from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Set, Union
 
 from jobmon.client.distributor.distributor_command import DistributorCommand
-from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.client.distributor.distributor_task_instance import DistributorTaskInstance
+from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.client.distributor.task_instance_batch import TaskInstanceBatch
 from jobmon.cluster_type import ClusterDistributor
 from jobmon.constants import TaskInstanceStatus
-from jobmon.exceptions import InvalidResponse, DistributorInterruptedError
+from jobmon.exceptions import DistributorInterruptedError, InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskInstanceBatch
 
@@ -33,7 +33,7 @@ class DistributorService:
         worker_node_entry_point: Optional[str] = None,
         raise_on_error: bool = False,
     ) -> None:
-
+        """Initialization of DistributorService."""
         # operational args
         self._worker_node_entry_point = worker_node_entry_point
         self._workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
@@ -48,7 +48,7 @@ class DistributorService:
         # work queue
         self._distributor_commands: Iterator[DistributorCommand] = it.chain([])
 
-        # indexing of task instanes by status
+        # indexing of task instances by status
         self._task_instance_status_map: Dict[str, Set[DistributorTaskInstance]] = {
             TaskInstanceStatus.QUEUED: set(),
             TaskInstanceStatus.INSTANTIATED: set(),
@@ -79,12 +79,12 @@ class DistributorService:
     def _next_report_increment(self) -> float:
         return self._heartbeat_report_by_buffer * self._task_instance_heartbeat_interval
 
-    def set_workflow_run(self, workflow_run_id: int):
+    def set_workflow_run(self, workflow_run_id: int) -> None:
         workflow_run = DistributorWorkflowRun(workflow_run_id, self.requester)
         self.workflow_run = workflow_run
         self.workflow_run.transition_to_instantiated()
 
-    def run(self):
+    def run(self) -> None:
         # start the cluster
         try:
             self._initialize_signal_handlers()
@@ -161,7 +161,7 @@ class DistributorService:
             sys.stderr.write("SHUTDOWN")
             sys.stderr.flush()
 
-    def process_status(self, status: str, timeout: Union[int, float] = -1):
+    def process_status(self, status: str, timeout: Union[int, float] = -1) -> None:
         """Processes commands until all work is done or timeout is reached.
 
         Args:
@@ -302,9 +302,9 @@ class DistributorService:
     def launch_task_instance(
         self, task_instance: DistributorTaskInstance, name: str
     ) -> None:
-        """
-        submits a task instance on a given distributor.
-        adds the new task instance to self.submitted_or_running_task_instances
+        """Submits a task instance on a given distributor.
+
+        Adds the new task instance to self.submitted_or_running_task_instances.
         """
         # load resources
         try:
@@ -381,21 +381,21 @@ class DistributorService:
             )
         self._last_heartbeat_time = time.time()
 
-    def _initialize_signal_handlers(self):
-        def handle_sighup(signal, frame):
+    def _initialize_signal_handlers(self) -> None:
+        def handle_sighup(signal: int, frame: Any) -> None:
             raise DistributorInterruptedError("Got signal SIGHUP.")
 
-        def handle_sigterm(signal, frame):
+        def handle_sigterm(signal: int, frame: Any) -> None:
             raise DistributorInterruptedError("Got signal SIGTERM.")
 
-        def handle_sigint(signal, frame):
+        def handle_sigint(signal: int, frame: Any) -> None:
             pass
 
         signal.signal(signal.SIGTERM, handle_sigterm)
         signal.signal(signal.SIGHUP, handle_sighup)
         signal.signal(signal.SIGINT, handle_sigint)
 
-    def refresh_status_from_db(self, status: str):
+    def refresh_status_from_db(self, status: str) -> None:
         """Got to DB to check the list tis status."""
         message = {
             "task_instance_ids": [
@@ -468,8 +468,11 @@ class DistributorService:
             yield DistributorCommand(self.launch_task_instance_batch, batch)
 
     def _check_triaging_for_work(self) -> Generator[DistributorCommand, None, None]:
-        """For TaskInstances with TRIAGING status, check the nature of no heartbeat,
-        and change the statuses accordingly."""
+        """Handle TIs in TRIAGING state.
+
+        For TaskInstances with TRIAGING status, check the nature of no heartbeat,
+        and change the statuses accordingly.
+        """
         triaging_task_instances = self._task_instance_status_map[
             TaskInstanceStatus.TRIAGING
         ]
@@ -477,9 +480,11 @@ class DistributorService:
             yield DistributorCommand(self.triage_error, task_instance)
 
     def _check_kill_self_for_work(self) -> Generator[DistributorCommand, None, None]:
-        """For TaskInstances with KILL_SELF status, terminate it and
-        transition it to error accordingly"""
+        """Handle TIs in KILL_SELF state.
 
+        For TaskInstances with KILL_SELF status, terminate it and
+        transition it to error accordingly.
+        """
         kill_self_task_instances = self._task_instance_status_map[
             TaskInstanceStatus.KILL_SELF
         ]

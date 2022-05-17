@@ -1,29 +1,33 @@
 """The overarching framework to create tasks and dependencies within."""
+from __future__ import annotations
+
 import hashlib
 import logging
 import logging.config
-import psutil
-from subprocess import Popen, PIPE, TimeoutExpired
+from subprocess import PIPE, Popen, TimeoutExpired
 import sys
 import time
+from types import TracebackType
 from typing import Any, Dict, List, Optional, Sequence, Union
 import uuid
 
+import psutil
+
 from jobmon.client.array import Array
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.logging import JobmonLoggerConfig
 from jobmon.client.dag import Dag
+from jobmon.client.logging import JobmonLoggerConfig
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
 from jobmon.client.tool_version import ToolVersion
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
+from jobmon.cluster import Cluster
 from jobmon.constants import (
     TaskStatus,
     WorkflowRunStatus,
     WorkflowStatus,
 )
-from jobmon.cluster import Cluster
 from jobmon.exceptions import (
     DistributorStartupTimeout,
     DuplicateNodeArgsError,
@@ -39,12 +43,14 @@ logger = logging.getLogger(__name__)
 
 
 class DistributorContext:
-    def __init__(self, cluster_name: str, workflow_run_id: int, timeout: int):
+    def __init__(self, cluster_name: str, workflow_run_id: int, timeout: int) -> None:
+        """Initialization of the DistributorContext."""
         self._cluster_name = cluster_name
         self._workflow_run_id = workflow_run_id
         self._timeout = timeout
 
-    def __enter__(self):
+    def __enter__(self) -> DistributorContext:
+        """Starts the Distributor Process."""
         logger.info("Starting Distributor Process")
 
         # Start the distributor. Write stderr to a file.
@@ -70,7 +76,10 @@ class DistributorContext:
             )
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_traceback):
+    def __exit__(self, exc_type: Optional[BaseException],
+                 exc_value: Optional[BaseException],
+                 exc_traceback: Optional[TracebackType]) -> None:
+        """Stops the Distributor Process."""
         logger.info("Stopping Distributor Process")
         err = self._shutdown()
         logger.info(f"Got {err} from Distributor Process")

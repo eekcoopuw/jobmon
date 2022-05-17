@@ -33,15 +33,15 @@ class SwarmTask(object):
             task_id: id of task object from db auto increment.
             array_id: id of associated array object.
             status: status of task object.
-            cluster: The name of the cluster that the user wants to run their tasks on.
+            max_attempts: maximum number of task_instances before failure.
             task_resources: callable to be executed when Task is ready to be run and
                 resources can be assigned.
+            cluster: The name of the cluster that the user wants to run their tasks on.
             resource_scales: The rate at which a user wants to scale their requested resources
                 after failure.
-            max_attempts: maximum number of task_instances before failure.
             fallback_queues: A list of queues that users want to try if their original queue
                 isn't able to handle their adjusted resources.
-            requester: Requester object to communicate with the flask services.
+            compute_resources_callable: callable compute resources.
         """
         self.task_id = task_id
         self.array_id = array_id
@@ -82,7 +82,8 @@ class SwarmTask(object):
         """Return a list of upstream tasks."""
         return list(self.upstream_swarm_tasks)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
+        """Returns the ID of the task."""
         return self.task_id
 
     def __eq__(self, other: object) -> bool:

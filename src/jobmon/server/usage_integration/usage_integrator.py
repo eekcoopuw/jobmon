@@ -5,7 +5,7 @@ import os
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
-import slurm_rest  # type: ignore
+import slurm_rest  # type: ignore # noqa
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import Session
@@ -51,9 +51,8 @@ class UsageIntegrator:
         return self._integrator_retire_age
 
     @property
-    def queue_cluster_map(self):
-        """Keep an in-memory cache of the mapping of queue id to cluster and cluster type id"""
-
+    def queue_cluster_map(self) -> Dict:
+        """An in-memory cache of the mapping of queue id to cluster and cluster type id."""
         if self._queue_cluster_map is None:
             self._queue_cluster_map = {}
             get_map_query = (
@@ -203,7 +202,6 @@ def _get_slurm_resource_via_slurm_sdb(session: Session,
     Return 5 values: cpu, mem, node, billing and elapsed that are available from
     slurm_sdb.
     """
-
     all_usage_stats: Dict[QueuedTI, Dict[str, Optional[Any]]] = {}
 
     # mapping of distributor_id and task instance
@@ -318,7 +316,6 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
     replicating the production accounting databases. We cannot query data from before that
     date.
     """
-
     # We enforce Pacific time since that's what the database uses.
     # Careful, this will set a global environment variable on initializing the q_forever loop.
     os.environ['TZ'] = 'America/Los_Angeles'

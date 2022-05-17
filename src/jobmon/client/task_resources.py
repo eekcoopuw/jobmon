@@ -156,7 +156,6 @@ class TaskResources:
     @staticmethod
     def convert_runtime_to_s(time_str: Union[str, float, int]) -> int:
         """Given a runtime request, coerce to seconds for recording in the DB."""
-
         try:
             # If a numeric is provided, assumed to be in seconds
             return int(time_str)

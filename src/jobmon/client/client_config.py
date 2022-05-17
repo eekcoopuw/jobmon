@@ -13,7 +13,7 @@ class ClientConfig(object):
 
     @classmethod
     def from_defaults(cls: Any) -> ClientConfig:
-        """If no special config, set to defaults."""
+        """If no special config, set to default values."""
         cli = CLI()
         ParserDefaults.web_service_fqdn(cli.parser)
         ParserDefaults.web_service_port(cli.parser)

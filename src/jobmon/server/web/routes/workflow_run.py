@@ -406,7 +406,7 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
     "/workflow_run/<workflow_run_id>/set_status_for_triaging", methods=["POST"]
 )
 def set_status_for_triaging(workflow_run_id: int) -> Any:
-    """2 triaging related status sets
+    """Two triaging related status sets.
 
     Query all task instances that are submitted to distributor or running which haven't
     reported as alive in the allocated time, and set them for Triaging(from Running)

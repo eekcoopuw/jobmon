@@ -12,8 +12,8 @@ from threading import Thread
 from time import sleep, time
 from typing import Dict, Optional, Union
 
-from jobmon.constants import TaskInstanceStatus
 from jobmon.cluster_type import ClusterWorkerNode
+from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse, ReturnCodes, TransitionError
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskInstance
@@ -41,12 +41,14 @@ class WorkerNodeTaskInstance:
          Logs its status, errors, usage details, etc.
 
         Args:
+            cluster_interface: interface that gathers executor info in the execution_wrapper.
             task_instance_id: the id of the task_instance that is reporting back.
-            cluster_name: the name of the cluster.
             array_id: If this is an array job, the corresponding array ID
             batch_number: If this is an array job, what is the batch?
             heartbeat_interval: how ofter to log a report by with the db
             report_by_buffer: multiplier for report by date in case we miss a few.
+            command_interrupt_timeout: the amount of time to wait for the child process to
+                terminate.
             requester: communicate with the flask services.
         """
         # identity attributes
@@ -144,7 +146,7 @@ class WorkerNodeTaskInstance:
 
     @property
     def command_return_code(self) -> int:
-        """Returns the exit code of the command that was run"""
+        """Returns the exit code of the command that was run."""
         if not hasattr(self, "_proc"):
             raise AttributeError(
                 "Cannot access command_return_code until command has run."
@@ -392,14 +394,13 @@ class WorkerNodeTaskInstance:
                 self.log_error(error_state, msg)
 
     def _poll_subprocess(self, timeout: Union[int, float] = -1) -> bool:
-        """poll subprocess until it is finished or timeout is reached.
+        """Poll subprocess until it is finished or timeout is reached.
 
         Args:
             timeout: time until we stop processing. -1 means process till no more work
 
         Returns: true if the  subprocess has exited
         """
-
         # this way we always process at least 1 command
         loop_start = time()
 
@@ -417,7 +418,7 @@ class WorkerNodeTaskInstance:
 
         return ret_code is not None
 
-    def _collect_stderr(self):
+    def _collect_stderr(self) -> None:
 
         # pull stderr off queue and clip at 10k to avoid mysql has gone away errors
         # when posting long messages and keep memory low
