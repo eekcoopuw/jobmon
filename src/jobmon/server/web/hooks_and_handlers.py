@@ -5,6 +5,7 @@ from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask, jsonify, request
 from werkzeug.local import LocalProxy
 from werkzeug.exceptions import BadRequest
+from MySQLdb import OperationalError
 
 
 from jobmon.server.web.log_config import get_logger, set_logger
@@ -38,7 +39,7 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         response.status_code = status_code
         return response
 
-    @app.errorhandler(MySQLdb._exceptions.OperationalError)
+    @app.errorhandler(OperationalError)
     def handle_anything(error: Any) -> Any:
         if apm is not None:
             apm.capture_exception(exc_info=(type(error), error, error.__traceback__))
