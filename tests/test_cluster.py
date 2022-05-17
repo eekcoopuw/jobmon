@@ -1,15 +1,15 @@
 def test_plugin_loading(client_env):
     from jobmon.cluster import Cluster
-    from jobmon.cluster_type import sequential
+    from jobmon.builtins import sequential
 
     cluster = Cluster(cluster_name="sequential")
     cluster.bind()
-    assert cluster.plugin == sequential
+    assert cluster._cluster_type.plugin == sequential
 
 
 def test_get_queue(client_env):
     from jobmon.cluster import Cluster
-    from jobmon.cluster_type.sequential.seq_queue import SequentialQueue
+    from jobmon.builtins.sequential.seq_queue import SequentialQueue
 
     cluster = Cluster(cluster_name="sequential")
     cluster.bind()

@@ -17,7 +17,7 @@ class WorkflowReaper(object):
 
     _version = __version__
 
-    # starting point of inconsistency query
+    # starting point of F-D inconsistency query
     _current_starting_row = 0
 
     _reaper_message = {
@@ -49,24 +49,25 @@ class WorkflowReaper(object):
 
     def __init__(
         self,
-        poll_interval_minutes: int,
+        poll_interval_seconds: int,
         requester: Requester,
         wf_notification_sink: Callable[..., None] = None,
     ) -> None:
         """Initializes WorkflowReaper class with specified poll interval and slack info.
 
         Args:
-            poll_interval_minutes(int): how often the WorkflowReaper should check the
-                database and reap workflows.
+            poll_interval_seconds(int): how often the WorkflowReaper should check the
+                database and reap workflows. Using seconds, rather than minutes, makes
+                the tests run faster.
             requester (Requester): requester to communicate with Flask.
             wf_notification_sink (Callable): Slack notifier send().
         """
         logger.info(
-            f"WorkflowReaper initializing with: poll_interval_minutes={poll_interval_minutes},"
+            f"WorkflowReaper initializing with: poll_interval_minutes={poll_interval_seconds},"
             f"requester_url={requester.url}"
         )
 
-        self._poll_interval_minutes = poll_interval_minutes
+        self._poll_interval_seconds = poll_interval_seconds
         self._requester = requester
         self._wf_notification_sink = wf_notification_sink
 
@@ -85,8 +86,13 @@ class WorkflowReaper(object):
                 self._halted_state()
                 self._aborted_state()
                 self._error_state()
-                self._inconsistent_status()
-                sleep(self._poll_interval_minutes * 60)
+                # The chunk size for the _inconsistent_status query is small so that each query takes 100-400 mS
+                # Therefore run several, a few seconds apart. We want to be able to
+                # clean the whole database every 12 hours, but also not lock the database.
+                for i in range(5):
+                    self._inconsistent_status(300)
+                    sleep(5)
+                sleep(self._poll_interval_seconds)
         except RuntimeError as e:
             logger.debug(f"Error in monitor_forever() in workflow reaper: {e}")
 
@@ -205,16 +211,16 @@ class WorkflowReaper(object):
                 messages += message
         return messages
 
-    def _inconsistent_status(self) -> None:
+    def _inconsistent_status(self, step_size: int) -> None:
         """Find wf in F with all tasks in D and fix them."""
-        logger.info("Find wf in F with all tasks in D and fix them.")
+        logger.debug("Find wf in state F but all tasks in D and fix them.")
 
         app_route = (
             f"/workflow/{WorkflowReaper._current_starting_row}/fix_status_inconsistency"
         )
         return_code, result = self._requester.send_request(
             app_route=app_route,
-            message={},
+            message={"increase_step": step_size},
             request_type="put",
         )
         if http_request_ok(return_code) is False:

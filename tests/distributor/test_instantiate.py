@@ -7,8 +7,10 @@ from sqlalchemy.sql import text
 from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.client.status_commands import concurrency_limit
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-from jobmon.cluster_type.multiprocess.multiproc_distributor import MultiprocessDistributor
-from jobmon.cluster_type.sequential.seq_distributor import SequentialDistributor
+from jobmon.builtins.multiprocess.multiproc_distributor import (
+    MultiprocessDistributor,
+)
+from jobmon.builtins.sequential.seq_distributor import SequentialDistributor
 from jobmon.constants import TaskInstanceStatus
 
 
@@ -34,7 +36,7 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        SequentialDistributor(), requester=workflow.requester, raise_on_error=True
+        SequentialDistributor("sequential"), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -130,7 +132,8 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        MultiprocessDistributor(), requester=workflow.requester, raise_on_error=True
+        MultiprocessDistributor("multiprocess"), requester=workflow.requester,
+        raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -202,8 +205,8 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
     assert res[1].distributor_id is not None
 
     # Check that distributor id is logged correctly
-    submitted_job_id = distributor_service.cluster._next_job_id - 1
-    expected_dist_id = distributor_service.cluster._get_subtask_id
+    submitted_job_id = distributor_service.cluster_interface._next_job_id - 1
+    expected_dist_id = distributor_service.cluster_interface._get_subtask_id
     assert res[0].distributor_id == expected_dist_id(
         submitted_job_id, res[0].array_step_id
     )
@@ -238,7 +241,7 @@ def test_job_submit_raises_error(db_cfg, tool):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        ErrorDistributor(), requester=workflow.requester, raise_on_error=True
+        ErrorDistributor("sequential"), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -291,7 +294,7 @@ def test_array_submit_raises_error(db_cfg, tool):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        ErrorDistributor(), requester=workflow.requester, raise_on_error=True
+        ErrorDistributor("sequential"), requester=workflow.requester, raise_on_error=True
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -344,7 +347,7 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        MultiprocessDistributor(parallelism=3),
+        MultiprocessDistributor("multiprocess", parallelism=3),
         requester=workflow.requester,
         raise_on_error=True,
     )
@@ -359,7 +362,7 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
         == 2
     )
 
-    distributor_service.cluster.stop()
+    distributor_service.cluster_interface.stop()
 
 
 @pytest.mark.parametrize(
@@ -372,7 +375,7 @@ def test_array_concurrency(
     """Use Case 1: Array concurrency limit is set, workflow is not. Array should be limited by
     the array's max_concurrently running value"""
     # Use Case 1: Array concurrency limit is set, workflow concurrency limit not set
-    array1 = array_template.create_array(
+    tasks1 = array_template.create_tasks(
         arg=[1, 2, 3],
         cluster_name="multiprocess",
         compute_resources={"queue": "null.q"},
@@ -382,7 +385,7 @@ def test_array_concurrency(
     workflow = tool.create_workflow(
         name="test_array_concurrency_1", max_concurrently_running=wf_limit
     )
-    workflow.add_array(array1)
+    workflow.add_tasks(tasks1)
     workflow.bind()
     wfr = workflow._create_workflow_run()
 
@@ -394,7 +397,7 @@ def test_array_concurrency(
     swarm.process_commands()
 
     distributor_service = DistributorService(
-        MultiprocessDistributor(parallelism=3),
+        MultiprocessDistributor("multiprocess", parallelism=3),
         requester=workflow.requester,
         raise_on_error=True,
     )
@@ -409,7 +412,7 @@ def test_array_concurrency(
         == expected_len
     )
 
-    distributor_service.cluster.stop()
+    distributor_service.cluster_interface.stop()
 
 
 def test_dynamic_concurrency_limiting(tool, db_cfg, task_template):
@@ -428,7 +431,6 @@ def test_dynamic_concurrency_limiting(tool, db_cfg, task_template):
 
     workflow.add_tasks(tasks)
     workflow.bind()
-    print(workflow)
 
     # Start with limit of 2. Adjust up to 5 and try again
 
@@ -442,7 +444,7 @@ def test_dynamic_concurrency_limiting(tool, db_cfg, task_template):
     swarm.set_initial_fringe()
     swarm.process_commands()
     distributor_service = DistributorService(
-        MultiprocessDistributor(parallelism=2),
+        MultiprocessDistributor("multiprocess", parallelism=2),
         requester=workflow.requester,
         raise_on_error=True,
     )
@@ -451,10 +453,9 @@ def test_dynamic_concurrency_limiting(tool, db_cfg, task_template):
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
-    from time import sleep
-    sleep(5)
+
     assert (
-            len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 2
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 2
     )
 
     concurrency_limit(workflow.workflow_id, 5)
@@ -466,7 +467,7 @@ def test_dynamic_concurrency_limiting(tool, db_cfg, task_template):
     distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
     assert (
-            len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 5
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED]) == 5
     )
 
 

@@ -133,12 +133,11 @@ class UsageIntegrator:
         )
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:
-            try:
-                resources = usage_stats[task]
-            except KeyError:
-                resources = None
+            resources = usage_stats.get(task)
+
             if resources is None:
                 try:
+                    usage_stats.pop(task)
                     task.age += 1
                     # discard older than 10 tasks when never_retire is False
                     if self.integrator_retire_age <= 0 \
@@ -149,7 +148,7 @@ class UsageIntegrator:
                         logger.info(f"Retire {task.task_instance_id} at age {task.age}")
                 except Exception as e:
                     # keeps integrator running with failures
-                    logger.warning(str(e))
+                    logger.warning(e)
 
         if len(usage_stats) == 0:
             return  # No values to update
@@ -215,7 +214,7 @@ def _get_slurm_resource_via_slurm_sdb(session: Session,
 
     for ti in task_instances:
         # Need to generate the id_job variable if the task is an array task
-        distributor_id_split = ti.distributor_id.split("_")
+        distributor_id_split = str(ti.distributor_id).split("_")
         if len(distributor_id_split) == 2:
             # Array tasks (slurm) have a distributor_id value like "xyz_abc"
             # non array tasks have a distributor_id value like "xyz"
@@ -235,7 +234,7 @@ def _get_slurm_resource_via_slurm_sdb(session: Session,
             # Don't repopulate the queue since we can't do anything with this task instance
 
         # Add the task instance to the distributor ID -> task instance ID map
-        dict_dist_ti[ti.distributor_id] = ti
+        dict_dist_ti[str(ti.distributor_id)] = ti
 
     # get job_step data
     # Case is needed since we want to return a concatenation of parent array job and subtask

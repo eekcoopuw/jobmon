@@ -12,8 +12,8 @@ from threading import Thread
 from time import sleep, time
 from typing import Dict, Optional, Union
 
-from jobmon.cluster import Cluster
 from jobmon.constants import TaskInstanceStatus
+from jobmon.cluster_type import ClusterWorkerNode
 from jobmon.exceptions import InvalidResponse, ReturnCodes, TransitionError
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskInstance
@@ -27,7 +27,7 @@ class WorkerNodeTaskInstance:
 
     def __init__(
         self,
-        cluster_name: str,
+        cluster_interface: ClusterWorkerNode,
         task_instance_id: Optional[int] = None,
         array_id: Optional[int] = None,
         batch_number: Optional[int] = None,
@@ -60,11 +60,10 @@ class WorkerNodeTaskInstance:
         self.requester = requester
 
         # cluster API
-        cluster = Cluster.get_cluster(cluster_name)
-        self.cluster_worker_node = cluster.cluster_worker_node_class()
+        self.cluster_interface = cluster_interface
 
         # get distributor id from executor
-        self._distributor_id = self.cluster_worker_node.distributor_id
+        self._distributor_id = self.cluster_interface.distributor_id
 
         # get task_instance_id for array task
         if self._task_instance_id is None:
@@ -72,7 +71,7 @@ class WorkerNodeTaskInstance:
                 raise ValueError("Neither task_instance_id nor array_id were provided.")
 
                 # Always assumed to be a value in the range [1, len(array)]
-            array_step_id = self.cluster_worker_node.array_step_id
+            array_step_id = self.cluster_interface.array_step_id
 
             # Fetch from the database
             app_route = (
@@ -387,7 +386,7 @@ class WorkerNodeTaskInstance:
                 logger.info(
                     f"Command: {self.command}\n Failed with stderr:\n {self.stderr}"
                 )
-                error_state, msg = self.cluster_worker_node.get_exit_info(
+                error_state, msg = self.cluster_interface.get_exit_info(
                     self.command_return_code, self.stderr
                 )
                 self.log_error(error_state, msg)

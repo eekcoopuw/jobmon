@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 import hashlib
 import logging
-from typing import Dict, Set, TYPE_CHECKING
+from typing import Any, Dict, Set, TYPE_CHECKING
 
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
@@ -33,8 +33,6 @@ class TaskInstanceBatch:
         self.task_resources_id = task_resources_id
         self.task_instances: Set[DistributorTaskInstance] = set()
 
-        self._requested_resources: Dict = {}
-
         self.requester = requester
 
         self.array_name = array_name
@@ -42,7 +40,7 @@ class TaskInstanceBatch:
 
     @property
     def requested_resources(self) -> Dict:
-        if not self._requested_resources:
+        if not hasattr(self, "_requested_resources"):
             raise AttributeError(
                 "Requested Resources cannot be accessed before the array batch is prepared for"
                 " launch."
@@ -68,9 +66,10 @@ class TaskInstanceBatch:
         task_resources = SerializeTaskResources.kwargs_from_wire(
             response["task_resources"]
         )
-        self._requested_resources = ast.literal_eval(
+        self._requested_resources: Dict[str, Any] = ast.literal_eval(
             task_resources["requested_resources"]
         )
+        self._requested_resources["queue"] = task_resources["queue_name"]
 
     def prepare_task_instance_batch_for_launch(self) -> None:
         """Add the current batch number to the current set of registered task instance ids."""

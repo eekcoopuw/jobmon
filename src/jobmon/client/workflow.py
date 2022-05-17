@@ -12,10 +12,10 @@ import uuid
 from jobmon.client.array import Array
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.logging import JobmonLoggerConfig
-from jobmon.cluster import Cluster
 from jobmon.client.dag import Dag
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
+from jobmon.client.task_resources import TaskResources
 from jobmon.client.tool_version import ToolVersion
 from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
 from jobmon.constants import (
@@ -23,6 +23,7 @@ from jobmon.constants import (
     WorkflowRunStatus,
     WorkflowStatus,
 )
+from jobmon.cluster import Cluster
 from jobmon.exceptions import (
     DistributorStartupTimeout,
     DuplicateNodeArgsError,
@@ -281,10 +282,11 @@ class Workflow(object):
                 f"commands. Your command was: {task.command}"
             )
 
-        # infer array if not already assigned
         try:
-            task.array
+            # link array
+            self._link_array_and_workflow(task.array)
         except AttributeError:
+            # or infer if not already created
             template_name = task.node.task_template_version.task_template.template_name
             try:
                 array = self.arrays[template_name]
@@ -300,6 +302,11 @@ class Workflow(object):
 
             # add task to inferred array
             array.add_task(task)
+        except ValueError:
+            # check if current task array is the same as the one attached to the workflow
+            template_name = task.node.task_template_version.task_template.template_name
+            if self.arrays[template_name] != task.array:
+                raise
 
         # add node to task
         try:
@@ -319,23 +326,22 @@ class Workflow(object):
 
         return task
 
+    def _link_array_and_workflow(self, array: Array) -> None:
+        template_name = array.task_template_version.task_template.template_name
+        if template_name in self.arrays.keys():
+            raise ValueError(
+                f"An array for template_name={template_name} already exists on this workflow."
+                f" You can only call TaskTemplate.create_tasks once per task template."
+            )
+        # add the references
+        self.arrays[template_name] = array
+        array.workflow = self
+
     def add_tasks(self, tasks: Sequence[Task]) -> None:
         """Add a list of task to the workflow to be executed."""
         for task in tasks:
             # add the task
             self.add_task(task)
-
-    def add_array(self, array: Array) -> None:
-        """Add an array and its tasks to the workflow."""
-        if len(array.tasks) == 0:
-            raise ValueError("Cannot bind an array with no tasks.")
-        self._link_array_and_workflow(array)
-        self.add_tasks(list(array.tasks.values()))
-
-    def add_arrays(self, arrays: List[Array]) -> None:
-        """Add multiple arrays to the workflow."""
-        for array in arrays:
-            self.add_array(array)
 
     def set_default_compute_resources_from_yaml(
         self, cluster_name: str, yaml_file: str
@@ -487,7 +493,7 @@ class Workflow(object):
 
         return swarm.status
 
-    def validate(self, fail: bool = True) -> None:
+    def validate(self, strict: bool = True, raise_on_error: bool = False) -> None:
         """Confirm that the tasks in this workflow are valid.
 
         This method will access the database to confirm the requested resources are valid for
@@ -501,35 +507,33 @@ class Workflow(object):
 
             # not dynamic resource request. Construct TaskResources
             if task.compute_resources_callable is None:
-                resource_params = task.compute_resources
                 try:
-                    queue_name: str = resource_params["queue"]
-                except KeyError:
-                    queue_msg = (
-                        "A queue name must be provided in the specified compute resources. Got"
-                        f" compute_resources={resource_params}"
-                    )
-                    if fail:
-                        raise ValueError(queue_msg)
+                    queue = cluster.get_queue(task.queue_name)
+                except ValueError as e:
+                    if raise_on_error:
+                        raise e
                     else:
-                        logger.info(queue_msg)
+                        logger.info(e)
                         continue
 
                 # validate the constructed resources
-                queue = cluster.get_queue(queue_name)
-                is_valid, msg, valid_resources = queue.validate_resources(
-                    fail, **resource_params
+                task_resources = TaskResources(
+                    requested_resources=task.compute_resources,
+                    queue=queue
                 )
+
+                is_valid, msg = task_resources.validate_resources(strict)
                 if not is_valid:
-                    raise ValueError(f"Failed validation, reasons: {msg}")
-                elif len(msg) > 0:
-                    logger.warning(f"Failed validation, reasons: {msg}")
+                    if raise_on_error:
+                        raise ValueError(f"Failed validation, reasons: {msg}")
+                    else:
+                        logger.info(f"Failed validation, reasons: {msg}")
 
         for array in self.arrays.values():
             try:
                 array.validate()
             except ValueError as e:
-                if fail:
+                if raise_on_error:
                     raise
                 else:
                     logger.info(e)
@@ -543,7 +547,7 @@ class Workflow(object):
             self._dag.validate()
             self._matching_wf_args_diff_hash()
         except Exception as e:
-            if fail:
+            if raise_on_error:
                 raise
             else:
                 logger.info(e)
@@ -553,11 +557,8 @@ class Workflow(object):
         if self.is_bound:
             return
 
-        self.validate(fail=False)
-        for array in self.arrays.values():
-            array.validate()
-        self._dag.validate()
-        self._matching_wf_args_diff_hash()
+        # strict = False means we can coerce. obviously we need to raise at this point
+        self.validate(strict=False, raise_on_error=True)
 
         # bind dag
         self._dag.bind(self._chunk_size)
@@ -625,16 +626,6 @@ class Workflow(object):
             cluster.bind()
             self._clusters[cluster_name] = cluster
         return cluster
-
-    def _link_array_and_workflow(self, array: Array) -> None:
-        template_name = array.task_template_version.task_template.template_name
-        if template_name in self.arrays.keys():
-            raise ValueError(
-                f"An array for template_name={template_name} already exists on this workflow."
-            )
-        # add the references
-        self.arrays[template_name] = array
-        array.workflow = self
 
     def _create_workflow_run(
         self,

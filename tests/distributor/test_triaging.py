@@ -31,7 +31,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
     """tests that a task can be triaged and log as unknown error"""
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.cluster_type.multiprocess.multiproc_distributor import (
+    from jobmon.builtins.multiprocess.multiproc_distributor import (
         MultiprocessDistributor,
     )
     from jobmon.server.web.models.task_instance import TaskInstance
@@ -40,7 +40,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
         cluster_name="multiprocess", compute_resources={"queue": "null.q"}
     )
 
-    tis = [task_template.create_task(arg="sleep 10" + str(x)) for x in range(2)]
+    tis = [task_template.create_task(arg="sleep 10" + str(x)) for x in range(3)]
     workflow = tool.create_workflow(name="test_set_status_for_no_heartbeat")
 
     workflow.add_tasks(tis)
@@ -59,7 +59,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
     app = db_cfg["app"]
     DB = db_cfg["DB"]
 
-    distributor = MultiprocessDistributor(5)
+    distributor = MultiprocessDistributor("multiprocess", 5)
     distributor.start()
 
     # test that we can launch via the normal job pathway
@@ -76,6 +76,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
             "running_status": TaskInstanceStatus.RUNNING,
             "task_id_1": tis[0].task_id,
             "task_id_2": tis[1].task_id,
+            "task_id_3": tis[2].task_id,
             "task_ids": [tis[x].task_id for x in range(len(tis))],
         }
         sql = """
@@ -85,6 +86,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
                 CASE
                     WHEN task_id = :task_id_1 THEN :launched_status
                     WHEN task_id = :task_id_2 THEN :running_status
+                    WHEN task_id = :task_id_3 THEN :launched_status
                 END
         WHERE task_id in :task_ids"""
         DB.session.execute(sql, params)
@@ -110,6 +112,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
     assert len(res) == len(tis)
     assert res[0].status == TaskInstanceStatus.KILL_SELF
     assert res[1].status == TaskInstanceStatus.TRIAGING
+    assert res[2].status == TaskInstanceStatus.KILL_SELF
 
     distributor.stop()
 
@@ -135,7 +138,7 @@ def test_triaging_to_specific_error(
     from unittest import mock
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.cluster_type.multiprocess.multiproc_distributor import (
+    from jobmon.builtins.multiprocess.multiproc_distributor import (
         MultiprocessDistributor,
     )
     from jobmon.server.web.models.task_instance import TaskInstance
@@ -163,7 +166,7 @@ def test_triaging_to_specific_error(
     swarm.set_initial_fringe()
     swarm.process_commands()
 
-    distributor = MultiprocessDistributor(5)
+    distributor = MultiprocessDistributor("multiprocess", 5)
     distributor.start()
 
     # test that we can launch via the normal job pathway
@@ -194,7 +197,7 @@ def test_triaging_to_specific_error(
     # distributor_service._check_for_work(TaskInstanceStatus.TRIAGING)
 
     with mock.patch(
-        "jobmon.cluster_type.multiprocess.multiproc_distributor."
+        "jobmon.builtins.multiprocess.multiproc_distributor."
         "MultiprocessDistributor.get_remote_exit_info",
         return_value=(error_state, error_message),
     ):

@@ -23,3 +23,4 @@ ALTER TABLE `array` ADD CONSTRAINT `uc_task_template_version_id_workflow_id` UNI
 
 -- add name colum; see GBDSCI-4184
 ALTER TABLE `array` ADD COLUMN `name` varchar(255) NOT NULL;
+ALTER TABLE `array` ADD INDEX `ix_name` (`name`);

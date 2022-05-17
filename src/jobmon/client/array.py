@@ -33,7 +33,6 @@ class Array:
         op_args: Dict[str, Any],
         cluster_name: str,
         max_concurrently_running: int = 10_000,
-        max_attempts: int = 3,
         upstream_tasks: Optional[List[Task]] = None,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
@@ -78,8 +77,6 @@ class Array:
         self._instance_resource_scales = (
             resource_scales if resource_scales is not None else {}
         )
-        self.max_attempts = max_attempts
-        self._task_resources: Optional[TaskResources] = None  # Initialize to None
 
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
@@ -109,28 +106,6 @@ class Array:
     def name(self) -> str:
         """Return the array name."""
         return self._name
-
-    @property
-    def task_resources(self) -> TaskResources:
-        """Return the array's task resources."""
-        if self._task_resources is not None:
-            return self._task_resources
-        else:
-            raise AttributeError(
-                "Task resources cannot be accessed before it is assigned"
-            )
-
-    @task_resources.setter
-    def task_resources(self, task_resources: TaskResources) -> None:
-        """Set the task resources.
-
-        The task resources object must be bound to be set.
-        """
-        if not task_resources.is_bound:
-            raise AttributeError(
-                "Task resource must be bound and have an ID to be assigned to the array."
-            )
-        self._task_resources = task_resources
 
     @property
     def compute_resources(self) -> Dict[str, Any]:
@@ -325,18 +300,7 @@ class Array:
 
     def validate(self):
         # check
-        dependent_tasks = set()
-        for task in self.tasks.values():
-            dependent_tasks.union(task.upstream_tasks)
-            dependent_tasks.union(task.downstream_tasks)
-        cyclical_tasks = dependent_tasks.intersection(set(self.tasks.values()))
-        if cyclical_tasks:
-            raise ValueError(
-                f"A task cannot depend on other tasks in the same TaskTemplate or Array. "
-                f"Task={task} has dependencies already added to {self}. Check for upstream and"
-                f" downstream tasks in array.tasks or workflow.tasks that have the following "
-                f"hashes. {[hash(task) for task in cyclical_tasks]}"
-            )
+        pass
 
     def bind(self) -> None:
         """Add an array to the database."""

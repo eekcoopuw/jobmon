@@ -2,13 +2,12 @@
 from __future__ import annotations
 
 import logging
-from typing import Any, Dict, Optional, Type
+from typing import Any, Dict, Optional
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.cluster_type.api import import_cluster, register_cluster_plugin
-from jobmon.cluster_type.base import (
+from jobmon.cluster_type import ClusterType
+from jobmon.cluster_type import (
     ClusterQueue,
-    ConcreteResource,
     ClusterDistributor,
     ClusterWorkerNode,
 )
@@ -65,14 +64,13 @@ class Cluster:
         cluster_kwargs = SerializeCluster.kwargs_from_wire(response["cluster"])
 
         self._cluster_id = cluster_kwargs["id"]
-        self._cluster_type_name = cluster_kwargs["cluster_type_name"]
-        register_cluster_plugin(
-            self._cluster_type_name, cluster_kwargs["package_location"]
-        )
+        cluster_type = ClusterType(cluster_kwargs["cluster_type_name"])
+        cluster_type.package_location = cluster_kwargs["package_location"]
+        self._cluster_type = cluster_type
         self._connection_parameters = cluster_kwargs["connection_parameters"]
 
     @property
-    def connection_parameters(self) -> str:
+    def connection_parameters(self) -> Dict:
         """The connection parameters."""
         return self._connection_parameters
 
@@ -88,31 +86,13 @@ class Cluster:
             raise AttributeError("Cannot access id until Cluster is bound to database")
         return self._cluster_id
 
-    @property
-    def plugin(self) -> Any:
-        """If the cluster is bound, return the cluster interface for the type of cluster."""
-        if not self.is_bound:
-            raise AttributeError(
-                "Cannot access plugin until Cluster is bound to database"
-            )
-        return import_cluster(self._cluster_type_name)
+    def get_worker_node(self) -> ClusterWorkerNode:
+        cluster_worker_node_class = self._cluster_type.cluster_worker_node_class
+        return cluster_worker_node_class()
 
-    @property
-    def concrete_resource_class(self) -> Type[ConcreteResource]:
-        """If the cluster is bound, access the concrete resource class."""
-        return self.plugin.get_concrete_resource_class()
-
-    @property
-    def cluster_queue_class(self) -> Type[ClusterQueue]:
-        return self.plugin.get_cluster_queue_class()
-
-    @property
-    def cluster_distributor_class(self) -> Type[ClusterDistributor]:
-        return self.plugin.get_cluster_distributor_class()
-
-    @property
-    def cluster_worker_node_class(self) -> Type[ClusterWorkerNode]:
-        return self.plugin.get_cluster_worker_node_class()
+    def get_distributor(self) -> ClusterDistributor:
+        distributor_class = self._cluster_type.cluster_distributor_class
+        return distributor_class(self.cluster_name, **self._connection_parameters)
 
     def get_queue(self, queue_name: str) -> ClusterQueue:
         """Get the ClusterQueue object associated with a given queue_name.
@@ -127,7 +107,7 @@ class Cluster:
         try:
             queue = self.queues[queue_name]
         except KeyError:
-            queue_class = self.plugin.get_cluster_queue_class()
+            queue_class = self._cluster_type.cluster_queue_class
             app_route = f"/cluster/{self.id}/queue/{queue_name}"
             return_code, response = self.requester.send_request(
                 app_route=app_route, message={}, request_type="get"

@@ -595,6 +595,8 @@ def get_task_status() -> Any:
             distributor_id AS DISTRIBUTOR_ID,
             task_instance_status.label AS STATUS,
             usage_str AS RESOURCE_USAGE,
+            task_instance.stdout AS STDOUT,
+            task_instance.stderr AS STDERR,
             description AS ERROR_TRACE
         FROM task
         JOIN task_instance
@@ -608,33 +610,27 @@ def get_task_status() -> Any:
         where_clause=where_clause
     )
     res = DB.session.execute(q, params).fetchall()
-
+    columns = [
+        "TASK_INSTANCE_ID",
+        "DISTRIBUTOR_ID",
+        "STATUS",
+        "RESOURCE_USAGE",
+        "STDOUT",
+        "STDERR",
+        "ERROR_TRACE",
+    ]
     if res:
         # assign to dataframe for serialization
         df = pd.DataFrame(res, columns=res[0].keys())
 
         # remap to jobmon_cli statuses
         df.STATUS.replace(to_replace=_task_instance_label_mapping, inplace=True)
-        df = df[
-            [
-                "TASK_INSTANCE_ID",
-                "DISTRIBUTOR_ID",
-                "STATUS",
-                "RESOURCE_USAGE",
-                "ERROR_TRACE",
-            ]
-        ]
+        df = df[columns]
         resp = jsonify(task_instance_status=df.to_json())
     else:
         df = pd.DataFrame(
             {},
-            columns=[
-                "TASK_INSTANCE_ID",
-                "DISTRIBUTOR_ID",
-                "STATUS",
-                "RESOURCE_USAGE",
-                "ERROR_TRACE",
-            ],
+            columns=columns
         )
         resp = jsonify(task_instance_status=df.to_json())
 

@@ -7,7 +7,8 @@ import pandas as pd
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.constants import ExecludeTTVs, TaskStatus, WorkflowStatus
-from jobmon.requester import Requester
+from jobmon.exceptions import InvalidResponse
+from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
 
 
@@ -181,7 +182,7 @@ def task_status(
     status: Optional[List[str]] = None,
     json: bool = False,
     requester_url: Optional[str] = None,
-) -> Tuple[str, pd.DataFrame]:
+) -> Union[dict, pd.DataFrame]:
     """Get metadata about a task and its task instances.
 
     Args:
@@ -578,3 +579,36 @@ def create_resource_yaml(
     ttvis_dic = _get_yaml_data(wfid, tid, v_mem, v_core, v_runtime, requester)
     yaml = _create_yaml(ttvis_dic, clusters)
     return yaml
+
+
+def get_filepaths(
+    workflow_id: int,
+    array_name: str = '',
+    job_name: str = '',
+    limit: int = 5,
+    requester_url: str = ''
+) -> dict:
+
+    if not requester_url:
+        requester_url = ClientConfig.from_defaults().url
+    requester = Requester(requester_url)
+
+    app_route = f"/array/{workflow_id}/get_array_tasks"
+    rc, resp = requester.send_request(
+        app_route=app_route,
+        message={
+            'array_name': array_name,
+            'job_name': job_name,
+            'limit': limit
+        },
+        request_type='get'
+    )
+
+    if http_request_ok(rc) is False:
+        raise InvalidResponse(
+            f"Unexpected status code {rc} from POST "
+            f"request through route {app_route}. Expected "
+            f"code 200. Response content: {resp}"
+        )
+
+    return resp['array_tasks']

@@ -42,7 +42,8 @@ def task_template_dummy(tool):
 
 
 def test_create_array(db_cfg, client_env, task_template):
-    array = task_template.create_array(arg="echo 1")
+    tasks = task_template.create_tasks(arg="echo 1")
+    array = tasks[0].array
     assert (
         array.compute_resources
         == task_template.default_compute_resources_set["sequential"]
@@ -50,23 +51,23 @@ def test_create_array(db_cfg, client_env, task_template):
     # test assigned name
     assert "simple_template" in array.name
     # test given name
-    array = task_template.create_array(name="test_array", arg="echo 2")
+    tasks = task_template.create_tasks(name="test_array", arg="echo 2")
+    array = tasks[0].array
     assert "test_array" in array.name
 
 
 def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
     task_template = task_template_dummy
 
-    array = task_template.create_array(
+    tasks = task_template.create_tasks(
         arg="echo 10", compute_resources={"queue": "null.q"}
     )
     wf = tool.create_workflow()
-
-    wf.add_array(array)
+    wf.add_tasks(tasks)
     wf.bind()
     wf._create_workflow_run()
 
-    assert hasattr(array, "_array_id")
+    assert hasattr(wf.arrays["dummy_template"], "_array_id")
 
     app = db_cfg["app"]
     DB = db_cfg["DB"]
@@ -76,7 +77,7 @@ def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
         FROM array
         WHERE id = {}
         """.format(
-            array.array_id
+            wf.arrays["dummy_template"].array_id
         )
         array_db = DB.session.execute(array_stmt).fetchone()
         DB.session.commit()
@@ -94,12 +95,12 @@ def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
         FROM task
         WHERE id = {}
         """.format(
-            list(array.tasks.values())[0].task_id
+            list(wf.arrays["dummy_template"].tasks.values())[0].task_id
         )
         task = DB.session.execute(task_query).fetchone()
         DB.session.commit()
 
-        assert task.array_id == array.array_id
+        assert task.array_id == wf.arrays["dummy_template"].array_id
 
 
 def test_node_args_expansion():
@@ -137,7 +138,7 @@ def test_create_tasks(db_cfg, client_env, tool):
         default_compute_resources={"queue": "null.q"},
     )
 
-    array = rich_task_template.create_array(
+    tasks = rich_task_template.create_tasks(
         command="foo",
         task_arg="bar",
         narg1=[1, 2, 3],
@@ -146,14 +147,14 @@ def test_create_tasks(db_cfg, client_env, tool):
         compute_resources={"queue": "null.q"},
     )
 
-    assert len(array.tasks) == 9  # Created on init
+    assert len(tasks) == 9  # Created on init
     wf = tool.create_workflow()
-    wf.add_array(array)
+    wf.add_tasks(tasks)
 
     assert len(wf.tasks) == 9  # Tasks bound to workflow
 
     # Assert tasks templated correctly
-    commands = [t.command for t in array.tasks.values()]
+    commands = [t.command for t in tasks]
     assert "foo bar 1 c baz" in commands
     assert "foo bar 3 a baz" in commands
 
@@ -193,27 +194,27 @@ def test_create_tasks(db_cfg, client_env, tool):
 
     # Define individual node_args, and expect to get a list of one task
     three_c_node_args = {"narg1": 3, "narg2": "c"}
-    three_c_tasks = array.get_tasks_by_node_args(**three_c_node_args)
+    three_c_tasks = wf.get_tasks_by_node_args("simple_template", **three_c_node_args)
     assert len(three_c_tasks) == 1
 
     # Define out of scope node_args, and expect to get a empty list
     x_node_args = {"narg1": 3, "narg2": "x"}
-    x_tasks = array.get_tasks_by_node_args(**x_node_args)
+    x_tasks = wf.get_tasks_by_node_args("simple_template", **x_node_args)
     assert len(x_tasks) == 0
 
     # Define narg1 only, expect to see a list of 3 tasks
     three_node_args = {"narg1": 3}
-    three_tasks = array.get_tasks_by_node_args(**three_node_args)
+    three_tasks = wf.get_tasks_by_node_args("simple_template", **three_node_args)
     assert len(three_tasks) == 3
 
     # Define an empty dict, expect to see a list of 9 tasks
     empty_node_args = {}
-    all_tasks = array.get_tasks_by_node_args(**empty_node_args)
+    all_tasks = wf.get_tasks_by_node_args("simple_template", **empty_node_args)
     assert len(all_tasks) == 9
 
     # Define a list(3,2 items)-valued case for narg1 and narg2, expect to see 6
     empty_node_args = {"narg1": [1, 2, 3], "narg2": ["a", "b"]}
-    all_tasks = array.get_tasks_by_node_args(**empty_node_args)
+    all_tasks = wf.get_tasks_by_node_args("simple_template", **empty_node_args)
     assert len(all_tasks) == 6
 
     # Define a task_template_name in-scope valid node_args, expect to see a list of 3 tasks
@@ -244,7 +245,5 @@ def test_empty_array(db_cfg, client_env, tool):
         default_compute_resources={"queue": "null.q"},
     )
 
-    array = tt.create_array()
-    wf = tool.create_workflow()
-    with pytest.raises(ValueError):
-        wf.add_array(array)
+    tasks = tt.create_tasks()
+    assert not tasks

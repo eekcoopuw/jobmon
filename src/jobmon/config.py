@@ -533,7 +533,13 @@ class CLI:
             # 1. --web_service_fqdn, --web_service_port are not configured,
             #      so try the config file
             # 2. An actual bad command line, so give up
-            error_msg = stderr_as_string.getvalue()
+
+            # Need to split the error string by newline, since the first few
+            # lines of the trace are just the usage help page.
+            # Last index is just the end of line newline character, so need to select
+            # the second last element.
+            error_msg = stderr_as_string.getvalue().split("\n")[-2]
+
             if "--web_service_fqdn" in error_msg:
                 # Case 1, and possibly case 2 as well
                 # This second call to the parser will detect bad arguments
