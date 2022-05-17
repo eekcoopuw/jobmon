@@ -38,6 +38,29 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         response.status_code = status_code
         return response
 
+    @app.errorhandler(MySQLdb._exceptions.OperationalError)
+    def handle_anything(error: Any) -> Any:
+        if apm is not None:
+            apm.capture_exception(exc_info=(type(error), error, error.__traceback__))
+        try:
+            status_code = error.status_code
+        except AttributeError:
+            status_code = 500
+
+        if "deadlock found" in str(error).lower():
+            status_code = 423
+
+        response_dict = {
+            "type": str(type(error)),
+            "exception_message": str(error),
+            "status_code": str(status_code),
+        }
+        logger.exception(status_code=status_code)
+        response = jsonify(error=response_dict)
+        response.content_type = "application/json"
+        response.status_code = status_code
+        return response
+
     # handle 404 at the application level not the blueprint level
     @app.errorhandler(404)
     def page_not_found(e: ServerError) -> tuple:

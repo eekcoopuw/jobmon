@@ -96,10 +96,23 @@ class Requester(object):
         def is_5XX(result: Tuple[int, dict]) -> bool:
             """Return True if get_content result has 5XX status."""
             status = result[0]
-            is_bad = status > 499 and status < 600
+            is_bad = 499 < status < 600
             if is_bad:
                 logger.warning(
                     f"Got HTTP status_code={status} from server. app_route: {app_route}."
+                    f" message: {message}"
+                )
+            return is_bad
+
+        def is_423(result: Tuple[int, dict]) -> bool:
+            """
+            Return True if get_content result has 423 status, which indicates a retryable transaction on the server.
+            """
+            status = result[0]
+            is_bad = status == 423
+            if is_bad:
+                logger.info(
+                    f"Got HTTP status_code=423 from server. app_route: {app_route}. Retrying as per design."
                     f" message: {message}"
                 )
             return is_bad
@@ -119,6 +132,7 @@ class Requester(object):
             wait=tenacity.wait_exponential(self.max_retries),
             retry=(
                 tenacity.retry_if_result(is_5XX)
+                | tenacity.retry_if_result(is_423)
                 | tenacity.retry_if_exception_type(requests.ConnectionError)
             ),
             retry_error_callback=raise_if_exceed_retry,
