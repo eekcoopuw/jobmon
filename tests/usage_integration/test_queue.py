@@ -52,8 +52,6 @@ def test_MaxrssQ():
     assert e2.age == 1
 
 
-# didn't pass, skip for now
-@pytest.mark.skip()
 def test_age_and_retire():
     """This is to test the SLURM updates behave accordingly.
 
