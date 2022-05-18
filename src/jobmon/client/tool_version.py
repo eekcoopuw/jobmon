@@ -72,7 +72,7 @@ class ToolVersion:
 
         Args:
             wire_tuple: Wire format for ToolVersion defined in jobmon.serializers.
-            requester: communicate with the flask services.
+            tool: The Tool object to verify the right tool_version based on tool_id.
         """
         tool_version_kwargs = SerializeClientToolVersion.kwargs_from_wire(wire_tuple)
 

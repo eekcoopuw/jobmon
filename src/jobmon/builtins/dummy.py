@@ -7,8 +7,8 @@ import random
 from typing import Any, Dict, List, Optional, Set, Tuple, Type
 
 from jobmon.cluster_type import (
-    ClusterQueue,
     ClusterDistributor,
+    ClusterQueue,
     ClusterWorkerNode,
 )
 from jobmon.constants import TaskInstanceStatus
@@ -39,7 +39,7 @@ class DummyQueue(ClusterQueue):
         """No resources defined for sequential execution. All resources valid."""
         return True, ""
 
-    def coerce_resources(self, **kwargs) -> Dict:
+    def coerce_resources(self, **kwargs: Dict) -> Dict:
         return kwargs
 
     @property
@@ -174,6 +174,7 @@ class DummyWorkerNode(ClusterWorkerNode):
     def get_usage_stats() -> Dict:
         """Usage information specific to the exector."""
         return {}
+
 
 def get_cluster_queue_class() -> Type[ClusterQueue]:
     """Return the queue class for the dummy executor."""

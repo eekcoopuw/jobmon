@@ -5,7 +5,7 @@ from sqlalchemy.sql import func
 from werkzeug.local import LocalProxy
 
 from jobmon.exceptions import InvalidStateTransition
-from jobmon.serializers import SerializeSwarmTask, SerializeDistributorTask
+from jobmon.serializers import SerializeDistributorTask, SerializeSwarmTask
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus

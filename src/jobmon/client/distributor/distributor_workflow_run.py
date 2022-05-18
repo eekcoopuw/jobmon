@@ -10,19 +10,16 @@ logger = logging.getLogger(__name__)
 
 
 class DistributorWorkflowRun:
-    """
-    This class is responsible for implementing workflow level bulk routes and tracking in
-    memory state on the distributor.
+    """Implements workflow level bulk routes and tracks the in memory state on the distributor.
 
     when polling from the database we should work in task space and translate into array
     space in memory where appropriate.
 
     when pushing to the database we should work in CommandType (Workflow/Array/Task) space
     """
-
-    def __init__(self, workflow_run_id: int, requester: Requester):
+    def __init__(self, workflow_run_id: int, requester: Requester) -> None:
+        """Initialization of DistributorWorkflowRun object."""
         self.workflow_run_id = workflow_run_id
-
         self.status = ""
         self.requester = requester
 
@@ -48,7 +45,8 @@ class DistributorWorkflowRun:
     def transition_to_launched(self) -> None:
         self._update_status(WorkflowRunStatus.LAUNCHED)
 
-    def __hash__(self):
+    def __hash__(self) -> int:
+        """Returns the ID of the workflow run."""
         return self.workflow_run_id
 
     def __eq__(self, other: object) -> bool:

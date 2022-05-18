@@ -123,6 +123,7 @@ class MultiprocessDistributor(ClusterDistributor):
         """Initialization of the multiprocess distributor.
 
         Args:
+            cluster_name: the name of the cluster.
             parallelism (int, optional): how many parallel jobs to distribute at a
                 time
         """

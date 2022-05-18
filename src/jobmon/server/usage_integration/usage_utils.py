@@ -43,5 +43,5 @@ class QueuedTI:
         return self.age < other.age
 
     def __hash__(self) -> int:
-        """Use task instance id as a hash."""
+        """Use task instance id as hash."""
         return self.task_instance_id
