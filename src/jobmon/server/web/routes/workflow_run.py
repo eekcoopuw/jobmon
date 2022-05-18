@@ -417,49 +417,28 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
     params = {
         "running_status": TaskInstanceStatus.RUNNING,
         "triaging_status": TaskInstanceStatus.TRIAGING,
-        "launched_status": TaskInstanceStatus.LAUNCHED,
+        "kill_self_status": TaskInstanceStatus.KILL_SELF,
         "workflow_run_id": workflow_run_id,
+        "active_tasks": [
+            TaskInstanceStatus.LAUNCHED,
+            TaskInstanceStatus.RUNNING,
+        ],
     }
-    # Update all running tasks that have a report by date less than now to triaging
     sql = """
         UPDATE task_instance
-        SET status = :triaging_status,
+        SET status =
+            CASE
+                WHEN status = :running_status THEN :triaging_status
+                ELSE :kill_self_status
+            END,
             status_date = CURRENT_TIMESTAMP()
         WHERE
             workflow_run_id = :workflow_run_id
-            AND status = :running_status
+            AND status in :active_tasks
             AND report_by_date <= CURRENT_TIMESTAMP()
     """
     DB.session.execute(sql, params)
     DB.session.commit()
-
-    # Find all the TaskIntances that should be moved to KILL_SELF state and then loop through
-    # them and update the status. Do this instead of a bulk update to avoid a deadlock. The
-    # deadlock is non-local, it happens when run simultaneously with the
-    # "/task_instance/log_report_by/batch" route. See GBDSCI-4582 for more details.
-    sql = """
-        SELECT id
-        FROM task_instance
-        WHERE
-            workflow_run_id = :workflow_run_id
-            AND status = :launched_status
-            AND report_by_date <= CURRENT_TIMESTAMP()
-    """
-    ti_results = DB.session.execute(sql, params).fetchall()
-    DB.session.commit()
-
-    if ti_results is None or len(ti_results) == 0:
-        logger.info("No TaskInstances that need to be moved to KILL_SELF state.")
-    else:
-        ids = [ti_id for id_tuple in ti_results for ti_id in id_tuple]
-        for ti_id in ids:
-            update_sql = """UPDATE task_instance
-                            SET status = :kill_self_status
-                            WHERE id = :ti_id
-                            """
-            DB.session.execute(update_sql, {"kill_self_status": TaskInstanceStatus.KILL_SELF,
-                                            "ti_id": ti_id})
-            DB.session.commit()
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
