@@ -9,7 +9,6 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, TYPE_CHECKING,
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task import Task
-from jobmon.client.task_resources import TaskResources
 from jobmon.client.task_template_version import TaskTemplateVersion
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
