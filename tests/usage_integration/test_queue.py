@@ -11,6 +11,7 @@ from jobmon.server.usage_integration.usage_integrator import UsageIntegrator as 
 import pytest
 from sqlalchemy.sql import text
 
+@pytest.mark.usage_integrator
 def test_MaxrssQ():
     """This is to test the Q stops increasing when the max size is reached.
 
@@ -53,6 +54,7 @@ def test_MaxrssQ():
     assert e2.age == 1
 
 
+@pytest.mark.usage_integrator
 def test_age_and_retire():
     """This is to test the SLURM updates behave accordingly.
 
@@ -108,6 +110,7 @@ def test_age_and_retire():
         usage_integrator.update_slurm_resources([t])
         assert item.age == 2
         assert UsageQ.get_size() == 0
+
 
 @pytest.mark.usage_integrator
 def test_worker_with_succeed_slurm_db_response(usage_integrator_config):
@@ -195,7 +198,6 @@ def test_slurm_update_put_back_to_q(usage_integrator_config):
         usage_integrator.update_slurm_resources([item])
         assert item.age == 1
         assert UsageQ.get_size() == 1
-
 
 
 @pytest.mark.usage_integrator

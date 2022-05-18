@@ -12,7 +12,7 @@ from jobmon.server.usage_integration.usage_integrator import UsageIntegrator as 
 
 
 @pytest.mark.usage_integrator
-@pytest.mark.skip("This test no longer apply after switching to slurm db")
+
 def test_get_slurm_resource_usages_on_slurm(usage_integrator):
     """This is to verify _get_squid_resource works.
 
