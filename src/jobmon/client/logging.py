@@ -1,8 +1,10 @@
 """Configuration setting for client-side only."""
+from __future__ import annotations
+
 import logging
 import logging.config
 import sys
-from typing import Dict, Optional
+from typing import Dict, Optional, Type
 
 
 _DEFAULT_LOG_FORMAT = "%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s: %(message)s"
@@ -33,8 +35,9 @@ class JobmonLoggerConfig:
     dict_config = default_config
 
     @classmethod
-    def set_default_config(cls, dict_config: Optional[Dict] = None) -> None:
-        """Set the default logging configuration for this factory
+    def set_default_config(cls: Type[JobmonLoggerConfig], dict_config: Optional[Dict] = None) \
+            -> None:
+        """Set the default logging configuration for this factory.
 
         Args:
             dict_config: A logging dict config to utilize when adding new loggers. each logger
@@ -53,7 +56,7 @@ class JobmonLoggerConfig:
 
     @classmethod
     def attach_default_handler(
-        cls,
+        cls: Type[JobmonLoggerConfig],
         logger_name: str,
         log_level: int = logging.INFO
     ) -> None:
@@ -61,6 +64,7 @@ class JobmonLoggerConfig:
 
         Args:
             logger_name: The logger to setup
+            log_level: the log severity of the handler.
 
         Returns: None
         """

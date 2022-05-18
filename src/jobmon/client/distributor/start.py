@@ -1,9 +1,9 @@
 """Start up distributing process."""
 from typing import Optional
 
-from jobmon.cluster import Cluster
 from jobmon.client.distributor.distributor_config import DistributorConfig
 from jobmon.client.distributor.distributor_service import DistributorService
+from jobmon.cluster import Cluster
 from jobmon.requester import Requester
 
 

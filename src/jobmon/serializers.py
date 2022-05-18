@@ -1,7 +1,7 @@
 """Serializing data when going to and from the database."""
 import ast
-import json
 from datetime import datetime
+import json
 from typing import Dict, List, Optional, Tuple, Union
 
 
@@ -421,7 +421,7 @@ class SerializeTaskTemplateResourceUsage:
 
 
 class SerializeDistributorArray:
-    """"""
+    """Serialize the data to and from the database for DistributorArray."""
 
     @staticmethod
     def to_wire(array_id: int, max_concurrently_running: int, name: str) -> tuple:
@@ -439,7 +439,7 @@ class SerializeDistributorArray:
 
 
 class SerializeDistributorWorkflow:
-    """"""
+    """Serialize the data to and from the database for DistributorWorkflow."""
 
     @staticmethod
     def to_wire(workflow_id: int, max_concurrently_running: int) -> tuple:
@@ -456,7 +456,7 @@ class SerializeDistributorWorkflow:
 
 
 class SerializeTaskResources:
-    """"""
+    """Serialize the data to and from the database for Task resources."""
 
     @staticmethod
     def to_wire(
@@ -485,7 +485,7 @@ class SerializeTaskResources:
 
 
 class SerializeTaskInstanceBatch:
-    """"""
+    """Serialize the data to and from the database for TaskInstance batch."""
 
     @staticmethod
     def to_wire(

@@ -5,10 +5,10 @@ import logging
 from typing import Any, Dict, Optional
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.cluster_type import ClusterType
 from jobmon.cluster_type import (
-    ClusterQueue,
     ClusterDistributor,
+    ClusterQueue,
+    ClusterType,
     ClusterWorkerNode,
 )
 from jobmon.exceptions import InvalidResponse

@@ -96,7 +96,7 @@ class WorkerNodeCLI(CLI):
         ParserDefaults.web_service_port(worker_node_parser)
 
 
-def run(argstr: Optional[str] = None):
+def run(argstr: Optional[str] = None) -> None:
     """Entrypoint to create WorkerNode CLI."""
     cli = WorkerNodeCLI()
     cli.main(argstr)

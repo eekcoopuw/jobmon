@@ -406,7 +406,7 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
     "/workflow_run/<workflow_run_id>/set_status_for_triaging", methods=["POST"]
 )
 def set_status_for_triaging(workflow_run_id: int) -> Any:
-    """2 triaging related status sets
+    """Two triaging related status sets.
 
     Query all task instances that are submitted to distributor or running which haven't
     reported as alive in the allocated time, and set them for Triaging(from Running)
@@ -449,11 +449,11 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
     DB.session.commit()
 
     if ti_results is None or len(ti_results) == 0:
-        logger.info(f"No TaskInstances that need to be moved to KILL_SELF state.")
+        logger.info("No TaskInstances that need to be moved to KILL_SELF state.")
     else:
         ids = [ti_id for id_tuple in ti_results for ti_id in id_tuple]
         for ti_id in ids:
-            update_sql = f"""UPDATE task_instance
+            update_sql = """UPDATE task_instance
                             SET status = :kill_self_status
                             WHERE id = :ti_id
                             """

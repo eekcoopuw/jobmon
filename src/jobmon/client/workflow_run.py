@@ -64,7 +64,7 @@ class WorkflowRun(object):
         self._task_resources: Dict[int, TaskResources] = {}
 
     @property
-    def workflow_id(self):
+    def workflow_id(self) -> int:
         return self._workflow.workflow_id
 
     def bind(
