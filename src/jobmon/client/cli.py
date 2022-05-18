@@ -241,7 +241,7 @@ class ClientCLI(CLI):
             array_name=args.array_name,
             job_name=args.job_name,
             limit=args.limit,
-            requester_url=cc.url
+            requester_url=cc.url,
         )
         if args.json:
             print(df)
@@ -557,36 +557,38 @@ class ClientCLI(CLI):
         )
         get_filepaths_parser.set_defaults(func=self.get_filepaths)
         get_filepaths_parser.add_argument(
-            "-w", "--workflow_id",
+            "-w",
+            "--workflow_id",
             help="workflow_id to filter by",
             required=True,
-            type=int
+            type=int,
         )
         get_filepaths_parser.add_argument(
-            "-a", "--array_name",
+            "-a",
+            "--array_name",
             help="array name to filter by",
             required=False,
             default="",
-            type=str
+            type=str,
         )
         get_filepaths_parser.add_argument(
-            '-j', '--job_name',
+            "-j",
+            "--job_name",
             help="job name to filter by",
             required=False,
-            default='',
-            type=str
+            default="",
+            type=str,
         )
         get_filepaths_parser.add_argument(
-            '-l', '--limit',
+            "-l",
+            "--limit",
             default=5,
             help="Limit the number of returning records; default is 5",
             required=False,
             type=self.limit_checker,
         )
         get_filepaths_parser.add_argument(
-            '-n', '--json',
-            dest='json',
-            action="store_true"
+            "-n", "--json", dest="json", action="store_true"
         )
         ParserDefaults.web_service_fqdn(get_filepaths_parser)
         ParserDefaults.web_service_port(get_filepaths_parser)

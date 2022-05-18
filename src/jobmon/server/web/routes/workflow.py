@@ -324,8 +324,9 @@ def workflow_is_resumable(workflow_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/workflow/<workflow_id>/get_max_concurrently_running",
-                            methods=["GET"])
+@finite_state_machine.route(
+    "/workflow/<workflow_id>/get_max_concurrently_running", methods=["GET"]
+)
 def get_max_concurrently_running(workflow_id: int) -> Any:
     """Return the maximum concurrency of this workflow."""
     bind_to_logger(workflow_id=workflow_id)
@@ -381,7 +382,9 @@ def update_max_running(workflow_id: int) -> Any:
             f"{new_limit}"
         )
     else:
-        message = f"Workflow ID {workflow_id} max concurrently running updated to {new_limit}"
+        message = (
+            f"Workflow ID {workflow_id} max concurrently running updated to {new_limit}"
+        )
 
     resp = jsonify(message=message)
     resp.status_code = StatusCodes.OK
@@ -404,10 +407,10 @@ def task_status_updates(workflow_id: int) -> Any:
     try:
         filter_criteria = (
             (Task.workflow_id == workflow_id),
-            (Task.status_date >= data["last_sync"])
+            (Task.status_date >= data["last_sync"]),
         )
     except KeyError:
-        filter_criteria = (Task.workflow_id == workflow_id),
+        filter_criteria = ((Task.workflow_id == workflow_id),)
 
     # get time from db
     db_time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()["t"]
@@ -793,7 +796,9 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
     increase_step = data["increase_step"]
 
     bind_to_logger(workflow_id=workflow_id)
-    logger.debug(f"Fix inconsistencies starting at workflow {workflow_id} by {increase_step}")
+    logger.debug(
+        f"Fix inconsistencies starting at workflow {workflow_id} by {increase_step}"
+    )
     sql = "SELECT COUNT(*) as total FROM workflow"
     # the id to return to reaper as next start point
     total_wf = int(DB.session.execute(sql).fetchone()["total"])

@@ -76,9 +76,12 @@ class DistributorContext:
             )
         return self
 
-    def __exit__(self, exc_type: Optional[BaseException],
-                 exc_value: Optional[BaseException],
-                 exc_traceback: Optional[TracebackType]) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[BaseException],
+        exc_value: Optional[BaseException],
+        exc_traceback: Optional[TracebackType],
+    ) -> None:
         """Stops the Distributor Process."""
         logger.info("Stopping Distributor Process")
         err = self._shutdown()
@@ -527,8 +530,7 @@ class Workflow(object):
 
                 # validate the constructed resources
                 task_resources = TaskResources(
-                    requested_resources=task.compute_resources,
-                    queue=queue
+                    requested_resources=task.compute_resources, queue=queue
                 )
 
                 is_valid, msg = task_resources.validate_resources(strict)

@@ -221,9 +221,7 @@ class TaskTemplate:
             cluster_name, **kwargs
         )
 
-    def update_default_resource_scales(
-        self, cluster_name: str, **kwargs: Any
-    ) -> None:
+    def update_default_resource_scales(self, cluster_name: str, **kwargs: Any) -> None:
         """Update default resource scales in place only overridding specified keys.
 
         If no default cluster is specified when this method is called, cluster_name will
@@ -641,8 +639,12 @@ class TaskTemplate:
             )
 
         # Split node, task, and op_args
-        node_args = self.active_task_template_version.filter_kwargs("node_args", **kwargs)
-        task_args = self.active_task_template_version.filter_kwargs("task_args", **kwargs)
+        node_args = self.active_task_template_version.filter_kwargs(
+            "node_args", **kwargs
+        )
+        task_args = self.active_task_template_version.filter_kwargs(
+            "task_args", **kwargs
+        )
         op_args = self.active_task_template_version.filter_kwargs("op_args", **kwargs)
 
         array = Array(
@@ -669,7 +671,9 @@ class TaskTemplate:
 
     def __hash__(self) -> int:
         """A hash of the TaskTemplate name and tool version concatenated together."""
-        hash_value = int(hashlib.sha1(self.template_name.encode("utf-8")).hexdigest(), 16)
+        hash_value = int(
+            hashlib.sha1(self.template_name.encode("utf-8")).hexdigest(), 16
+        )
         return hash_value
 
     def resource_usage(

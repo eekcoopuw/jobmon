@@ -583,10 +583,10 @@ def create_resource_yaml(
 
 def get_filepaths(
     workflow_id: int,
-    array_name: str = '',
-    job_name: str = '',
+    array_name: str = "",
+    job_name: str = "",
     limit: int = 5,
-    requester_url: str = ''
+    requester_url: str = "",
 ) -> dict:
     """Allows users to get the stdout/stderr paths of their tasks."""
     if not requester_url:
@@ -596,12 +596,8 @@ def get_filepaths(
     app_route = f"/array/{workflow_id}/get_array_tasks"
     rc, resp = requester.send_request(
         app_route=app_route,
-        message={
-            'array_name': array_name,
-            'job_name': job_name,
-            'limit': limit
-        },
-        request_type='get'
+        message={"array_name": array_name, "job_name": job_name, "limit": limit},
+        request_type="get",
     )
 
     if http_request_ok(rc) is False:
@@ -611,4 +607,4 @@ def get_filepaths(
             f"code 200. Response content: {resp}"
         )
 
-    return resp['array_tasks']
+    return resp["array_tasks"]

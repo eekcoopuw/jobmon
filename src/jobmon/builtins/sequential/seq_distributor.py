@@ -42,7 +42,7 @@ class SequentialDistributor(ClusterDistributor):
         cluster_name: str,
         exit_info_queue_size: int = 1000,
         *args: tuple,
-        **kwargs: dict
+        **kwargs: dict,
     ) -> None:
         """Initialization of the sequential distributor.
 

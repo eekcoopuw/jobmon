@@ -2,11 +2,15 @@ import datetime
 import time
 
 import pytest
+from unittest import mock
 
 from jobmon.client.tool import Tool
-from jobmon.server.usage_integration.usage_integrator import _get_slurm_resource_via_slurm_sdb
+from jobmon.server.usage_integration.usage_integrator import (
+    _get_slurm_resource_via_slurm_sdb,
+)
 from jobmon.server.usage_integration.usage_queue import UsageQ
 from jobmon.server.usage_integration.usage_utils import QueuedTI
+from jobmon.server.usage_integration.usage_integrator import UsageIntegrator as UI
 
 
 @pytest.mark.usage_integrator
@@ -17,7 +21,7 @@ def test_get_slurm_resource_usages_on_slurm(usage_integrator):
     """
 
     # Random non array distributor id
-    distributor_id = '7931516'
+    distributor_id = "7931516"
     qti = QueuedTI(
         task_instance_id=1,
         distributor_id=distributor_id,
@@ -27,7 +31,7 @@ def test_get_slurm_resource_usages_on_slurm(usage_integrator):
     d = _get_slurm_resource_via_slurm_sdb(
         session=usage_integrator.session_slurm_sdb,
         tres_types=usage_integrator.tres_types,
-        task_instances=[qti]
+        task_instances=[qti],
     )
     # Known values
     assert d[qti]["maxrss"] == 3721453568
@@ -36,15 +40,15 @@ def test_get_slurm_resource_usages_on_slurm(usage_integrator):
     # Query with a non array task as well
     qti_array = QueuedTI(
         task_instance_id=2,
-        distributor_id='7869919_4',
-        cluster_type_name='slurm',
+        distributor_id="7869919_4",
+        cluster_type_name="slurm",
         cluster_id=1,
     )
 
     array_nonarray_values = _get_slurm_resource_via_slurm_sdb(
         session=usage_integrator.session_slurm_sdb,
         tres_types=usage_integrator.tres_types,
-        task_instances=[qti, qti_array]
+        task_instances=[qti, qti_array],
     )
     assert array_nonarray_values[qti] == d[qti]
     assert array_nonarray_values[qti_array]["maxrss"] == 0
@@ -52,21 +56,38 @@ def test_get_slurm_resource_usages_on_slurm(usage_integrator):
 
 
 @pytest.mark.usage_integrator
-def test_queue_map_cache(usage_integrator):
+def test_queue_map_cache(usage_integrator_config):
+    with mock.patch(
+        "jobmon.server.usage_integration.usage_integrator._get_slurm_resource_via_slurm_sdb",
+    ) as m_get_resc, mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator._get_tres_types"
+    ) as m_tres_type, mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.update_resources_in_db"
+    ) as m_db, mock.patch(
+        "jobmon.server.usage_integration.usage_integrator.UsageIntegrator.populate_queue"
+    ) as m_restful:
+        # mock
+        m_get_resc.return_value = {}
+        m_db.return_value = None
+        m_restful.return_value = None
+        m_tres_type.return_value = None
 
-    queue_cache = usage_integrator.queue_cluster_map
-    assert usage_integrator._queue_cluster_map is not None
-    assert id(queue_cache) == id(usage_integrator.queue_cluster_map)  # Check cache was hit
-    assert len(queue_cache) == 8  # 8 queues defined in the Jobmon test_utils schema
+        usage_integrator = UI(usage_integrator_config)
+        queue_cache = usage_integrator.queue_cluster_map
+        assert usage_integrator._queue_cluster_map is not None
+        assert id(queue_cache) == id(
+            usage_integrator.queue_cluster_map
+        )  # Check cache was hit
+        assert len(queue_cache) == 8  # 8 queues defined in the Jobmon test_utils schema
 
-    # Cherrypick a few test values
-    assert queue_cache[1] == (2, 'sequential')  # null.q sequential cluster
-    assert queue_cache[3] == (1, 'dummy')  # null.q dummy cluster
-    assert queue_cache[8] == (3, 'multiprocess')  # null.q multiprocess cluster
+        # Cherrypick a few test values
+        assert queue_cache[1] == (2, "sequential")  # null.q sequential cluster
+        assert queue_cache[3] == (1, "dummy")  # null.q dummy cluster
+        assert queue_cache[8] == (3, "multiprocess")  # null.q multiprocess cluster
 
 
 @pytest.mark.usage_integrator
-def test_maxrss_forever(db_cfg, client_env, ephemera, usage_integrator):
+def test_maxrss_forever(db_cfg, client_env, ephemera, usage_integrator_config):
     """Note: Do not run usage_integrator tests with multiprocessing."""
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
@@ -124,46 +145,53 @@ def test_maxrss_forever(db_cfg, client_env, ephemera, usage_integrator):
         DB.session.execute(sql_update)
         DB.session.commit()
 
-        assert UsageQ.get_size() == 0
+        with mock.patch(
+            "jobmon.server.usage_integration.usage_integrator.UsageIntegrator._get_tres_types"
+        ) as m_tres_type:
+            # mock
+            m_tres_type.return_value = None
 
-        # add completed tasks to Q
-        usage_integrator.populate_queue(datetime.datetime.fromtimestamp(0))
-        assert UsageQ.get_size() == 5
+            usage_integrator = UI(usage_integrator_config)
+            assert UsageQ.get_size() == 0
 
-        # update maxrss
-        task_instances = [UsageQ.get() for _ in range(5)]
-        assert UsageQ.get_size() == 0
-        usage_integrator.update_resources_in_db(task_instances)
-        rows = DB.session.execute(sql).fetchall()
-        assert rows is not None
-        for r in rows:
-            assert r["maxrss"] == "1314"
+            # add completed tasks to Q
+            usage_integrator.populate_queue(datetime.datetime.fromtimestamp(0))
+            assert UsageQ.get_size() == 5
 
-        # Check that populate queue can filter on time as expected
-        insert_sql = (
-            "INSERT INTO task_instance(task_id, status, distributor_id, task_resources_id, status_date) "
-            f"VALUES ({t.task_id}, 'D', 123456, {t._original_task_resources.id}, NOW())"
-        )
-        usage_integrator.session.execute(insert_sql)
-        usage_integrator.session.commit()
+            # update maxrss
+            task_instances = [UsageQ.get() for _ in range(5)]
+            assert UsageQ.get_size() == 0
+            usage_integrator.update_resources_in_db(task_instances)
+            rows = DB.session.execute(sql).fetchall()
+            assert rows is not None
+            for r in rows:
+                assert r["maxrss"] == "1314"
 
-        # Sleep 1 seconds, record the current time, sleep another second.
-        # Done since timestamps are most granular by second, so each distinct row needs at
-        # least a 1 second offset in order to be meaningful.
+            # Check that populate queue can filter on time as expected
+            insert_sql = (
+                "INSERT INTO task_instance(task_id, status, distributor_id, task_resources_id, status_date) "
+                f"VALUES ({t.task_id}, 'D', 123456, {t._original_task_resources.id}, NOW())"
+            )
+            usage_integrator.session.execute(insert_sql)
+            usage_integrator.session.commit()
 
-        # Ex. without sleeps, we will likely generate 2 rows in the DB and the current time
-        # within 1 second. Current_time = ti1.status_date = ti2.status_date
-        # We want to enforce that ti1.status_date < current_time < ti2.status_date
-        time.sleep(1)
-        current_time = datetime.datetime.today()
-        time.sleep(1)
+            # Sleep 1 seconds, record the current time, sleep another second.
+            # Done since timestamps are most granular by second, so each distinct row needs at
+            # least a 1 second offset in order to be meaningful.
 
-        # Do it again to generate a second task instance
-        usage_integrator.session.execute(insert_sql)
-        usage_integrator.session.commit()
+            # Ex. without sleeps, we will likely generate 2 rows in the DB and the current time
+            # within 1 second. Current_time = ti1.status_date = ti2.status_date
+            # We want to enforce that ti1.status_date < current_time < ti2.status_date
+            time.sleep(1)
+            current_time = datetime.datetime.today()
+            time.sleep(1)
 
-        # We should have 2 eligible task instances in the database, one before current_time
-        # and one after. Call populate queue to check that one and only one is picked up
-        UsageQ.empty_q()
-        usage_integrator.populate_queue(current_time)
-        assert UsageQ.get_size() == 1
+            # Do it again to generate a second task instance
+            usage_integrator.session.execute(insert_sql)
+            usage_integrator.session.commit()
+
+            # We should have 2 eligible task instances in the database, one before current_time
+            # and one after. Call populate queue to check that one and only one is picked up
+            UsageQ.empty_q()
+            usage_integrator.populate_queue(current_time)
+            assert UsageQ.get_size() == 1

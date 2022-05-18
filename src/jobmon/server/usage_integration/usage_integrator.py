@@ -33,8 +33,9 @@ class UsageIntegrator:
         self.session = session()
 
         # Initialize sqlalchemy session for slurm_sdb
-        eng_slurm_sdb = create_engine(self.config["conn_slurm_sdb_str"],
-                                      pool_recycle=200, pool_pre_ping=True)
+        eng_slurm_sdb = create_engine(
+            self.config["conn_slurm_sdb_str"], pool_recycle=200, pool_pre_ping=True
+        )
         session_slurm_sdb = sessionmaker(bind=eng_slurm_sdb)
         self.session_slurm_sdb = session_slurm_sdb()
 
@@ -43,12 +44,10 @@ class UsageIntegrator:
 
         # Initialize empty queue-cluster mapping, to be populated and cached on startup
         self._queue_cluster_map: Optional[Dict] = None
-        self._integrator_retire_age: int = int(os.getenv("INTEGRATOR_RETIRE_AGE")) \
-            if os.getenv("INTEGRATOR_RETIRE_AGE") else 0
 
     @property
     def integrator_retire_age(self) -> int:
-        return self._integrator_retire_age
+        return self.config["integrator_retire_age"]
 
     @property
     def queue_cluster_map(self) -> Dict:
@@ -98,9 +97,12 @@ class UsageIntegrator:
         self.session.commit()
         for ti in task_instances:
             cluster_id, cluster_name = self.queue_cluster_map[ti.queue_id]
-            if (
-                cluster_name in ("slurm", "dummy")
-                and ti.maxrss in (None, 0, -1, "0", "-1")
+            if cluster_name in ("slurm", "dummy") and ti.maxrss in (
+                None,
+                0,
+                -1,
+                "0",
+                "-1",
             ):
                 queued_ti = QueuedTI(
                     task_instance_id=ti.id,
@@ -134,17 +136,21 @@ class UsageIntegrator:
         )
         # If no resources were returned, add the failed TIs back to the queue
         for task in tasks:
-            resources = usage_stats.get(task)
-
+            try:
+                resources = usage_stats[task]
+            except KeyError:
+                resources = None
             if resources is None:
                 try:
-                    usage_stats.pop(task)
                     task.age += 1
                     # discard older than 10 tasks when never_retire is False
-                    if self.integrator_retire_age <= 0 \
-                            or task.age < self.integrator_retire_age:
-                        logger.info(f"Put {task.task_instance_id} back to the queue with "
-                                    f"age {task.age}")
+                    if (
+                        self.integrator_retire_age <= 0
+                        or task.age < self.integrator_retire_age
+                    ):
+                        logger.info(
+                            f"Put {task.task_instance_id} back to the q with age {task.age}"
+                        )
                         UsageQ.put(task, task.age)
                     else:
                         logger.info(f"Retire {task.task_instance_id} at age {task.age}")
@@ -193,10 +199,9 @@ class UsageIntegrator:
         self.session.commit()
 
 
-def _get_slurm_resource_via_slurm_sdb(session: Session,
-                                      tres_types: Dict[str, int],
-                                      task_instances: List[QueuedTI]
-                                      ) -> Dict[QueuedTI, Dict[str, Optional[Any]]]:
+def _get_slurm_resource_via_slurm_sdb(
+    session: Session, tres_types: Dict[str, int], task_instances: List[QueuedTI]
+) -> Dict[QueuedTI, Dict[str, Optional[Any]]]:
     """Collect the Slurm reported resource usage for a given list of task instances.
 
     Using slurm_sdb.
@@ -240,16 +245,18 @@ def _get_slurm_resource_via_slurm_sdb(session: Session,
     # get job_step data
     # Case is needed since we want to return a concatenation of parent array job and subtask
     # id as the job_id for array jobs.
-    sql_step = "SELECT " \
-               "CASE " \
-               "    WHEN job.id_array_job = 0 THEN job.id_job " \
-               "    ELSE CONCAT(job.id_array_job, '_', job.id_array_task) " \
-               "END AS job_id, " \
-               "job.time_end - job.time_start AS elapsed, " \
-               "job.tres_alloc, step.tres_usage_in_max " \
-               "FROM general_step_table step " \
-               "INNER JOIN general_job_table job ON step.job_db_inx = job.job_db_inx " \
-               "WHERE step.deleted = 0 "
+    sql_step = (
+        "SELECT "
+        "CASE "
+        "    WHEN job.id_array_job = 0 THEN job.id_job "
+        "    ELSE CONCAT(job.id_array_job, '_', job.id_array_task) "
+        "END AS job_id, "
+        "job.time_end - job.time_start AS elapsed, "
+        "job.tres_alloc, step.tres_usage_in_max "
+        "FROM general_step_table step "
+        "INNER JOIN general_job_table job ON step.job_db_inx = job.job_db_inx "
+        "WHERE step.deleted = 0 "
+    )
 
     # Issue two separate queries for array and non-array jobs. The where clauses are
     # constructed differently, and figured this is simpler than a complex CASE statement.
@@ -302,11 +309,20 @@ def _get_config(config: UsageConfig = None) -> dict:
         "conn_slurm_sdb_str": config.conn_slurm_sdb_str,
         "polling_interval": config.slurm_polling_interval,
         "max_update_per_sec": config.slurm_max_update_per_second,
+        "integrator_retire_age": config.integrator_retire_age,
     }
 
 
-def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
-              integrator_config: UsageConfig = None, never_retire: bool = True) -> None:
+def _keep_running() -> bool:
+    """Make it a function for easy mock in testing."""
+    return UsageQ.keep_running
+
+
+def q_forever(
+    init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
+    integrator_config: UsageConfig = None,
+    never_retire: bool = True,
+) -> None:
     """A never stop method running in a thread that queries the SLURM and Jobmon databases.
 
     It constantly queries the maxrss value from the SLURM accounting database
@@ -319,7 +335,7 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
     """
     # We enforce Pacific time since that's what the database uses.
     # Careful, this will set a global environment variable on initializing the q_forever loop.
-    os.environ['TZ'] = 'America/Los_Angeles'
+    os.environ["TZ"] = "America/Los_Angeles"
     time.tzset()
 
     # allow the service to decide the time to go back to fill maxrss/maxpss
@@ -329,7 +345,7 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
     # only query each ti once in one polling_interval
     initial_q_size = UsageQ.get_size()
     processed_size = 0
-    while UsageQ.keep_running:
+    while _keep_running():
         # Since there isn't a good way to specify the thread priority in Python,
         # put a sleep in each attempt to not overload the CPU.
         # The avg daily job instance is about 20k; thus, sleep(1) should be ok.
@@ -348,11 +364,14 @@ def q_forever(init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
 
         # Query DB to add newly completed jobs to q and log q length
         current_time = datetime.datetime.now()
-        if current_time - last_heartbeat > \
-                datetime.timedelta(seconds=integrator.config["polling_interval"]):
-            logger.info("UsageQ length: {}, last heartbeat time: {}".format(
-                UsageQ.get_size(), str(last_heartbeat)
-            ))
+        if current_time - last_heartbeat > datetime.timedelta(
+            seconds=integrator.config["polling_interval"]
+        ):
+            logger.info(
+                "UsageQ length: {}, last heartbeat time: {}".format(
+                    UsageQ.get_size(), str(last_heartbeat)
+                )
+            )
             try:
                 integrator.populate_queue(last_heartbeat)
                 # restart counter

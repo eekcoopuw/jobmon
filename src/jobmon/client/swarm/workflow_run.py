@@ -4,7 +4,17 @@ from __future__ import annotations
 from datetime import datetime
 import logging
 import time
-from typing import Any, Callable, Dict, Generator, List, Optional, Set, TYPE_CHECKING, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Set,
+    TYPE_CHECKING,
+    Union,
+)
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_array import SwarmArray
@@ -29,8 +39,9 @@ logger = logging.getLogger(__name__)
 
 
 class SwarmCommand:
-    def __init__(self, func: Callable[..., None], *args: List[SwarmTask], **kwargs: Any) \
-            -> None:
+    def __init__(
+        self, func: Callable[..., None], *args: List[SwarmTask], **kwargs: Any
+    ) -> None:
         """A command to be run by the distributor service.
 
         Args:
@@ -211,7 +222,7 @@ class WorkflowRun:
         self,
         distributor_alive_callable: Callable[..., bool],
         seconds_until_timeout: int = 36000,
-        initialize: bool = True
+        initialize: bool = True,
     ) -> None:
         """Take a concrete DAG and queue al the Tasks that are not DONE.
 
@@ -327,7 +338,9 @@ class WorkflowRun:
             else:
                 logger.info("Continuing jobmon...")
                 seconds_until_timeout = int(seconds_until_timeout - loop_elapsed)
-                self.run(distributor_alive_callable, seconds_until_timeout, initialize=False)
+                self.run(
+                    distributor_alive_callable, seconds_until_timeout, initialize=False
+                )
 
         # unexpected errors. raise
         except Exception as e:
@@ -372,7 +385,8 @@ class WorkflowRun:
             active_tasks = active_tasks.union(self._task_status_map[task_status])
         workflow_capacity = self.max_concurrently_running - len(active_tasks)
         array_capacity_lookup: Dict[int, int] = {
-            aid: array.max_concurrently_running - len(active_tasks.intersection(array.tasks))
+            aid: array.max_concurrently_running
+            - len(active_tasks.intersection(array.tasks))
             for aid, array in self.arrays.items()
         }
 

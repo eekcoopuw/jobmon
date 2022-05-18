@@ -628,10 +628,7 @@ def get_task_status() -> Any:
         df = df[columns]
         resp = jsonify(task_instance_status=df.to_json())
     else:
-        df = pd.DataFrame(
-            {},
-            columns=columns
-        )
+        df = pd.DataFrame({}, columns=columns)
         resp = jsonify(task_instance_status=df.to_json())
 
     resp.status_code = StatusCodes.OK
