@@ -3,8 +3,8 @@ from typing import Any, Optional
 
 from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask, jsonify, request
-from werkzeug.local import LocalProxy
 from werkzeug.exceptions import BadRequest
+from werkzeug.local import LocalProxy
 
 
 from jobmon.server.web.log_config import get_logger, set_logger
@@ -26,6 +26,9 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
             status_code = error.status_code
         except AttributeError:
             status_code = 500
+
+        if "deadlock found" in str(error).lower():
+            status_code = 423
 
         response_dict = {
             "type": str(type(error)),

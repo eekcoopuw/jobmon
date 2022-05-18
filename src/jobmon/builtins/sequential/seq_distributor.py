@@ -47,7 +47,8 @@ class SequentialDistributor(ClusterDistributor):
         """Initialization of the sequential distributor.
 
         Args:
-            exit_info_queue_size: how many exit codes to retain
+            cluster_name (str): name of the cluster
+            exit_info_queue_size (int): how many exit codes to retain
         """
         self.started = False
 

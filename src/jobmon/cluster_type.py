@@ -28,7 +28,9 @@ def get_plugin(plugin_module_path: str) -> Any:
     """Get a cluster interface for a given type of cluster.
 
     Args:
-        cluster_type_name: the name of the cluster technology.
+        plugin_module_path: path to the plugin module e.g. {"slurm_rest_host":
+        "https://api.cluster.ihme.washington.edu", "slurmtool_token_host":
+        "https://slurmtool.ihme.washington.edu/api/v1/token/"}
     """
     module = _plugins.get(plugin_module_path)
     if module is None:
@@ -51,7 +53,7 @@ class ClusterType:
 
     _cache: Dict[str, ClusterType] = {}
 
-    def __new__(cls, *args, **kwds):
+    def __new__(cls, *args: str, **kwds: str) -> ClusterType:
         key = args[0] if args else kwds["cluster_type_name"]
         inst = cls._cache.get(key, None)
         if inst is None:
@@ -60,7 +62,8 @@ class ClusterType:
             cls._cache[key] = inst
         return inst
 
-    def __init__(self, cluster_type_name: str):
+    def __init__(self, cluster_type_name: str) -> None:
+        """Initialization of ClusterType object."""
         self.cluster_type_name = cluster_type_name
         self._package_location = ""
 
@@ -71,7 +74,8 @@ class ClusterType:
         return self._package_location
 
     @package_location.setter
-    def package_location(self, val: str):
+    def package_location(self, val: str) -> None:
+        """Set the cluster package location."""
         self._package_location = val
 
     @property
@@ -139,7 +143,7 @@ class ClusterDistributor(Protocol):
     """The protocol class for cluster distributors."""
 
     @abstractmethod
-    def __init__(self, cluster_name: str, *args, **kwargs) -> None:
+    def __init__(self, cluster_name: str, *args: str, **kwargs: str) -> None:
         """Initialization of ClusterQueue."""
         raise NotImplementedError
 

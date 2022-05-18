@@ -12,8 +12,8 @@ from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
 from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.task import Task
-from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.task_instance import TaskInstance
+from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.routes import finite_state_machine
 
 
@@ -185,8 +185,8 @@ def record_array_batch_num(array_id: int) -> Any:
 @finite_state_machine.route(
     "/array/<array_id>/transition_to_launched", methods=["POST"]
 )
-def transition_array_to_launched(array_id: int):
-
+def transition_array_to_launched(array_id: int) -> None:
+    """Transition TIs associated with an array_id and batch_num to launched."""
     bind_to_logger(array_id=array_id)
 
     data = request.get_json()
@@ -239,8 +239,8 @@ def transition_array_to_launched(array_id: int):
 
 
 @finite_state_machine.route("/array/<array_id>/log_distributor_id", methods=["POST"])
-def log_array_distributor_id(array_id):
-
+def log_array_distributor_id(array_id: int) -> None:
+    """Add distributor_id, stderr/stdout paths to the DB for all TIs in an array."""
     data = request.get_json()
     batch_num = data["array_batch_num"]
     distributor_id_map = data["distributor_id_map"]
@@ -293,14 +293,13 @@ def log_array_distributor_id(array_id):
 
 @finite_state_machine.route(
     "/array/<workflow_id>/get_array_tasks")
-def get_array_task_instances(workflow_id: int):
+def get_array_task_instances(workflow_id: int) -> Any:
     """Return error/output filepaths for task instances filtered by array name.
 
     The user can also optionally filter by job name as well.
 
     To avoid overly-large returned results, the user must also pass in a workflow ID.
     """
-
     data = request.args
     array_name = data.get("array_name")
     job_name = data.get("job_name")

@@ -86,9 +86,10 @@ class WorkflowReaper(object):
                 self._halted_state()
                 self._aborted_state()
                 self._error_state()
-                # The chunk size for the _inconsistent_status query is small so that each query takes 100-400 mS
-                # Therefore run several, a few seconds apart. We want to be able to
-                # clean the whole database every 12 hours, but also not lock the database.
+                # The chunk size for the _inconsistent_status query is small so that each
+                # query takes 100-400 mS. Therefore run several, a few seconds apart. We want
+                # to be able to clean the whole database every 12 hours, but also not lock
+                # the database.
                 for i in range(5):
                     self._inconsistent_status(300)
                     sleep(5)

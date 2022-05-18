@@ -31,7 +31,7 @@ class Task:
     """
 
     @staticmethod
-    def is_valid_job_name(name: str):
+    def is_valid_job_name(name: str) -> bool:
         """If the name is invalid it will raises an exception.
 
         Primarily based on the restrictions SGE places on job names. The list of illegal
@@ -90,6 +90,7 @@ class Task:
                 usually pertaining to data flowing through the task.
             op_args: Task arguments that can change across runs of the same workflow.
                 usually pertaining to trivial things like log level or code location.
+            array: the array that the task is associated with.
             cluster_name: the name of the cluster the user wants to run their task on.
             compute_resources: A dictionary that includes the users requested resources
                 for the current run. E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
@@ -193,7 +194,8 @@ class Task:
     def compute_resources(self) -> Dict[str, Any]:
         """A dictionary that includes the users requested resources for the current run.
 
-        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}"""
+        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
+        """
         resources = self._raw_resources
         try:
             resources.pop("queue")
@@ -205,7 +207,8 @@ class Task:
     def resource_scales(self) -> Dict[str, float]:
         """A dictionary that includes the users requested resource scales for the current run.
 
-        E.g. {memory: 0.1, runtime: 0.7}"""
+        E.g. {memory: 0.1, runtime: 0.7}.
+        """
         try:
             scales = self.array.resource_scales
         except AttributeError:

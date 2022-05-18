@@ -1,6 +1,6 @@
 """Parse configuration options and set them to be used throughout the Jobmon Architecture."""
 from argparse import Namespace
-from contextlib import redirect_stdout, redirect_stderr
+from contextlib import redirect_stderr, redirect_stdout
 import io
 import os
 import shlex
