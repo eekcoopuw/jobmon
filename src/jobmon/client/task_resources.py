@@ -85,8 +85,12 @@ class TaskResources:
             )
         self._id = response
 
-    def validate_resources(self: TaskResources, strict: bool = False) -> Tuple[bool, str]:
-        is_valid, msg = self.queue.validate_resources(strict, **self.requested_resources)
+    def validate_resources(
+        self: TaskResources, strict: bool = False
+    ) -> Tuple[bool, str]:
+        is_valid, msg = self.queue.validate_resources(
+            strict, **self.requested_resources
+        )
         return is_valid, msg
 
     def coerce_resources(self: TaskResources) -> TaskResources:
@@ -215,7 +219,9 @@ class TaskResources:
         if not hasattr(self, "_hash_val"):
             hashval = hashlib.sha1()
             hashval.update(bytes(str(hash(self.queue.queue_name)).encode("utf-8")))
-            resources_str = str(hash(json.dumps(self.requested_resources, sort_keys=True)))
+            resources_str = str(
+                hash(json.dumps(self.requested_resources, sort_keys=True))
+            )
             hashval.update(bytes(resources_str.encode("utf-8")))
             self._hash_val = int(hashval.hexdigest(), 16)
         return self._hash_val

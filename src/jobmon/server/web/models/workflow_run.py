@@ -187,8 +187,12 @@ class WorkflowRun(DB.Model):
         """Check if the transition is invalid due to a race condition."""
         bind_to_logger(workflow_run_id=self.id, workflow_id=self.workflow_id)
         if (self.status, new_state) in self.untimely_transitions:
-            logger.info(f"Ignoring transition of workflow_run from {self.status} to {new_state}")
+            logger.info(
+                f"Ignoring transition of workflow_run from {self.status} to {new_state}"
+            )
             return False
         else:
-            logger.debug(f"No race condition when transitioning workflow_run from {self.status} to {new_state}")
+            logger.debug(
+                f"No race condition when transitioning workflow_run from {self.status} to {new_state}"
+            )
             return True

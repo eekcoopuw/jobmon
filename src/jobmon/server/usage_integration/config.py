@@ -47,7 +47,7 @@ class UsageConfig:
             slurm_max_update_per_second=args.slurm_max_update_per_second,
             slurm_cluster=args.slurm_cluster,
             # retire age
-            integrator_retire_age=args.integrator_retire_age
+            integrator_retire_age=args.integrator_retire_age,
         )
 
     def __init__(

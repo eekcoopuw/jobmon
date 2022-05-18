@@ -453,7 +453,9 @@ def test_workflow_validation(tool, task_template, caplog):
     wf1.add_task(t1)
 
     with pytest.raises(ValueError):
-        wf1.validate(raise_on_error=True)  # Max cores on multiprocess null.q is 20. Should fail
+        wf1.validate(
+            raise_on_error=True
+        )  # Max cores on multiprocess null.q is 20. Should fail
 
     # Without fail set, validate and check coercion
     caplog.clear()

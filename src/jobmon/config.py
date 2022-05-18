@@ -417,7 +417,7 @@ class ParserDefaults:
 
     @staticmethod
     def integrator_retire_age(
-            parser: configargparse.ArgumentParser
+        parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
         """Retirement age for usage integrator."""
         parser.add_argument(

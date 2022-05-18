@@ -4,7 +4,7 @@ import os
 import pytest
 
 
-@pytest.fixture(scope='module')
+@pytest.fixture(scope="module")
 def usage_integrator_config(ephemera):
     """This creates a usage integrator config.
 
@@ -13,12 +13,11 @@ def usage_integrator_config(ephemera):
 
     from jobmon.server.usage_integration.config import UsageConfig
 
-    json_path = os.path.join(os.path.dirname(__file__),
-                             'integrator_secrets.json')
+    json_path = os.path.join(os.path.dirname(__file__), "integrator_secrets.json")
 
     # Read in the local integrator_secrets.json file, or create it if it doesn't exist
     try:
-        with open(json_path, 'r') as f:
+        with open(json_path, "r") as f:
             integrator_config_dict = json.loads(f.read())
     except (json.decoder.JSONDecodeError, FileNotFoundError):
         # Missing or improperly formatted json. Pull from environment variables. If not found
@@ -29,7 +28,7 @@ def usage_integrator_config(ephemera):
             "DB_USER_SLURM_SDB": os.getenv("DB_USER_SLURM_SDB", "not_a_user"),
             "DB_NAME_SLURM_SDB": os.getenv("DB_NAME_SLURM_SDB", "not_a_name"),
             "DB_PORT_SLURM_SDB": os.getenv("DB_PORT_SLURM_SDB", "3306"),
-            "INTEGRATOR_RETIRE_AGE": os.getenv("INTEGRATOR_RETIRE_AGE", 0)
+            "INTEGRATOR_RETIRE_AGE": os.getenv("INTEGRATOR_RETIRE_AGE", 0),
         }
 
     # Combine with ephemera to create the usage integrator config
@@ -46,7 +45,7 @@ def usage_integrator_config(ephemera):
         db_port_slurm_sdb=integrator_config_dict["DB_PORT_SLURM_SDB"],
         slurm_polling_interval=10,
         slurm_max_update_per_second=100,
-        slurm_cluster='slurm',
+        slurm_cluster="slurm",
         integrator_retire_age=0,
     )
     return integrator_config

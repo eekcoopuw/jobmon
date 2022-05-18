@@ -263,9 +263,11 @@ def log_array_distributor_id(array_id: int) -> None:
                 TaskInstance.array_id == array_id,
                 TaskInstance.array_step_id == bindparam("step_id"),
             )
-            .values(distributor_id=bindparam("distributor_id"),
-                    stdout=bindparam("stdout"),
-                    stderr=bindparam("stderr"))
+            .values(
+                distributor_id=bindparam("distributor_id"),
+                stdout=bindparam("stdout"),
+                stderr=bindparam("stderr"),
+            )
             .execution_options(synchronize_session=False)
         )
         DB.session.execute(update_stmt, params)
@@ -291,8 +293,7 @@ def log_array_distributor_id(array_id: int) -> None:
         raise
 
 
-@finite_state_machine.route(
-    "/array/<workflow_id>/get_array_tasks")
+@finite_state_machine.route("/array/<workflow_id>/get_array_tasks")
 def get_array_task_instances(workflow_id: int) -> Any:
     """Return error/output filepaths for task instances filtered by array name.
 
@@ -327,17 +328,19 @@ def get_array_task_instances(workflow_id: int) -> Any:
             TaskInstance.stdout,
             TaskInstance.stderr,
         )
-        .where(
-            *query_filters
-        )
+        .where(*query_filters)
         .limit(limit)
     )
     print(select_stmt)
     result = DB.session.execute(select_stmt).fetchall()
-    column_names = ("TASK_ID", "TASK_NAME", "ARRAY_NAME",
-                    "TASK_INSTANCE_ID", "OUTPUT_PATH", "ERROR_PATH")
-    resp = jsonify(
-        array_tasks=[dict(zip(column_names, ti)) for ti in result]
+    column_names = (
+        "TASK_ID",
+        "TASK_NAME",
+        "ARRAY_NAME",
+        "TASK_INSTANCE_ID",
+        "OUTPUT_PATH",
+        "ERROR_PATH",
     )
+    resp = jsonify(array_tasks=[dict(zip(column_names, ti)) for ti in result])
     resp.status_code = StatusCodes.OK
     return resp

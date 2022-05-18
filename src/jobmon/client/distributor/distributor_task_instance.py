@@ -63,8 +63,11 @@ class DistributorTaskInstance:
         self._array_step_id = val
 
     def transition_to_launched(
-        self, distributor_id: str, next_report_increment: float, stdout_path: str,
-            stderr_path: str
+        self,
+        distributor_id: str,
+        next_report_increment: float,
+        stdout_path: str,
+        stderr_path: str,
     ) -> None:
         """Register the submission of a new task instance to a cluster.
 
@@ -79,7 +82,7 @@ class DistributorTaskInstance:
                 "distributor_id": str(distributor_id),
                 "next_report_increment": next_report_increment,
                 "stdout_path": stdout_path,
-                "stderr_path": stderr_path
+                "stderr_path": stderr_path,
             },
             request_type="post",
         )

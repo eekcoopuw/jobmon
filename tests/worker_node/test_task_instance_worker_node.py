@@ -83,8 +83,7 @@ def test_task_instance(db_cfg, tool):
         DB.session.commit()
 
     worker_node_task_instance = get_worker_node_task_instance(
-        task_instance_id=task_instance_id,
-        cluster_name="dummy"
+        task_instance_id=task_instance_id, cluster_name="dummy"
     )
     worker_node_task_instance.run()
     assert worker_node_task_instance.status == TaskInstanceStatus.DONE
@@ -113,8 +112,9 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template, monkeypat
 
     # test that we can launch via the normal job pathway
     distributor_service = DistributorService(
-        DoNothingArrayDistributor("multiprocess"), requester=workflow.requester,
-        raise_on_error=True
+        DoNothingArrayDistributor("multiprocess"),
+        requester=workflow.requester,
+        raise_on_error=True,
     )
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
@@ -126,16 +126,18 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template, monkeypat
     DB = db_cfg["DB"]
     with app.app_context():
         task_instance_id_query = select(
-            TaskInstance.distributor_id, TaskInstance.array_batch_num,
-            TaskInstance.stdout, TaskInstance.stderr
+            TaskInstance.distributor_id,
+            TaskInstance.array_batch_num,
+            TaskInstance.stdout,
+            TaskInstance.stderr,
         ).where(TaskInstance.array_id == array1.array_id)
         distributor_ids = DB.session.execute(task_instance_id_query).all()
         DB.session.commit()
 
     # Check the filepaths are logged correctly
     for *_, stdout, stderr in distributor_ids:
-        assert stdout == '/foo'
-        assert stderr == '/bar'
+        assert stdout == "/foo"
+        assert stderr == "/bar"
 
     for distributor_id, array_batch_num, *_ in distributor_ids:
 

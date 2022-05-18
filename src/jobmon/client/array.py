@@ -47,9 +47,7 @@ class Array:
         if name:
             self._name = name
         else:
-            self._name = (
-                task_template_version.task_template.template_name
-            )
+            self._name = task_template_version.task_template.template_name
             self._name = self._name if len(self._name) < 255 else self._name[0:254]
 
         # array attributes

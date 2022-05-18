@@ -278,8 +278,7 @@ def test_workflow_tasks(db_cfg, client_env, cli):
     workflow.bind()
     client_wfr = workflow._create_workflow_run()
     wfr = SwarmWorkflowRun(
-        workflow_run_id=client_wfr.workflow_run_id,
-        requester=workflow.requester
+        workflow_run_id=client_wfr.workflow_run_id, requester=workflow.requester
     )
 
     # we should get 2 tasks back in pending state
@@ -291,9 +290,7 @@ def test_workflow_tasks(db_cfg, client_env, cli):
     assert len(df.STATUS.unique()) == 1
 
     # execute the tasks
-    with DistributorContext(
-        'sequential', wfr.workflow_run_id, 180
-    ) as distributor:
+    with DistributorContext("sequential", wfr.workflow_run_id, 180) as distributor:
         # swarm calls
         swarm = SwarmWorkflowRun(
             workflow_run_id=wfr.workflow_run_id,
@@ -402,14 +399,14 @@ def test_task_status(db_cfg, client_env, tool, cli):
     assert len(df_all) == 3
 
     # Check that the filepaths are returned correctly
-    app, db = db_cfg['app'], db_cfg['DB']
+    app, db = db_cfg["app"], db_cfg["DB"]
     with app.app_context():
         sql = """
         UPDATE task_instance
         SET stdout="/stdout/dir/file.o123", stderr="/stderr/dir/file.e123"
         WHERE task_id IN :task_ids
         """
-        db.session.execute(sql, {'task_ids': (t1.task_id, t2.task_id)})
+        db.session.execute(sql, {"task_ids": (t1.task_id, t2.task_id)})
         db.session.commit()
 
     args = cli.parse_args(command_str)
@@ -636,13 +633,10 @@ def test_update_task_status(db_cfg, client_env, tool, cli):
     client_wfr3 = wf3._create_workflow_run(resume=True)
 
     wfr3 = SwarmWorkflowRun(
-        workflow_run_id=client_wfr3.workflow_run_id,
-        requester=wf3.requester
+        workflow_run_id=client_wfr3.workflow_run_id, requester=wf3.requester
     )
     # run the distributor
-    with DistributorContext(
-        'sequential', wfr3.workflow_run_id, 180
-    ) as distributor:
+    with DistributorContext("sequential", wfr3.workflow_run_id, 180) as distributor:
         # swarm calls
         swarm = SwarmWorkflowRun(
             workflow_run_id=wfr3.workflow_run_id,
@@ -855,11 +849,11 @@ def test_get_filepaths(db_cfg, tool, array_template, task_template, cli):
                 array_batch_num=1,
                 array_step_id=idx,
                 stdout=f"/cool/filepath.o123_{idx}",
-                stderr=f"/cool/filepath.e123_{idx}"
+                stderr=f"/cool/filepath.e123_{idx}",
             )
             task_instances.append(ti)
 
-        app, db = db_cfg['app'], db_cfg['DB']
+        app, db = db_cfg["app"], db_cfg["DB"]
 
         with app.app_context():
             db.session.bulk_save_objects(task_instances)
@@ -867,10 +861,7 @@ def test_get_filepaths(db_cfg, tool, array_template, task_template, cli):
 
         return wf
 
-    tasks1 = array_template.create_tasks(
-        name='foobar array',
-        arg=['foo', 'bar', 'baz']
-    )
+    tasks1 = array_template.create_tasks(name="foobar array", arg=["foo", "bar", "baz"])
     wf = create_metadata(tasks=tasks1)
 
     # Database is now populated with juicy task instances
@@ -881,23 +872,26 @@ def test_get_filepaths(db_cfg, tool, array_template, task_template, cli):
     assert args.workflow_id == wf.workflow_id
     assert args.array_name == "foobar array"
 
-    df_cli = get_filepaths(
-        workflow_id=args.workflow_id,
-        array_name=args.array_name
-    )
+    df_cli = get_filepaths(workflow_id=args.workflow_id, array_name=args.array_name)
 
     assert len(df_cli) == 3
     df_cli = pd.DataFrame(df_cli)
-    assert set(df_cli.OUTPUT_PATH) == \
-        {'/cool/filepath.o123_0', '/cool/filepath.o123_1', '/cool/filepath.o123_2'}
-    assert set(df_cli.ERROR_PATH) == \
-        {'/cool/filepath.e123_0', '/cool/filepath.e123_1', '/cool/filepath.e123_2'}
+    assert set(df_cli.OUTPUT_PATH) == {
+        "/cool/filepath.o123_0",
+        "/cool/filepath.o123_1",
+        "/cool/filepath.o123_2",
+    }
+    assert set(df_cli.ERROR_PATH) == {
+        "/cool/filepath.e123_0",
+        "/cool/filepath.e123_1",
+        "/cool/filepath.e123_2",
+    }
     assert set(df_cli.ARRAY_NAME == "foobar array")
 
     one_task_df = get_filepaths(
         workflow_id=wf.workflow_id,
-        array_name='foobar array',
-        job_name='array_template_arg-foo'
+        array_name="foobar array",
+        job_name="array_template_arg-foo",
     )
 
     assert len(one_task_df) == 1
@@ -905,7 +899,7 @@ def test_get_filepaths(db_cfg, tool, array_template, task_template, cli):
     # Check that the fetch results work with create_task as well.
     tasks2 = [
         task_template.create_task(name=val, arg=f"echo {val}")
-        for val in ('qux', 'quux', 'quuz')
+        for val in ("qux", "quux", "quuz")
     ]
     wf2 = create_metadata(tasks=tasks2 + tasks1)
 
@@ -913,25 +907,20 @@ def test_get_filepaths(db_cfg, tool, array_template, task_template, cli):
     command_str = f"get_filepaths -w {wf2.workflow_id} -l 6"
     args = cli.parse_args(command_str)
 
-    df_full = get_filepaths(
-        workflow_id=args.workflow_id,
-        limit=args.limit
-    )
+    df_full = get_filepaths(workflow_id=args.workflow_id, limit=args.limit)
     assert len(df_full) == 6
 
     # Filter by array name - the simple array
     df_array1 = get_filepaths(
-        workflow_id=args.workflow_id,
-        array_name='simple_template'
+        workflow_id=args.workflow_id, array_name="simple_template"
     )
     assert len(df_array1) == 3
     df_array1 = pd.DataFrame(df_array1)
-    assert set(df_array1.TASK_NAME) == {'qux', 'quux', 'quuz'}
+    assert set(df_array1.TASK_NAME) == {"qux", "quux", "quuz"}
     assert len(set(df_array1.OUTPUT_PATH)) == 3
 
-    qux_task = get_filepaths(
-        workflow_id=args.workflow_id,
-        job_name='qux'
-    )
+    qux_task = get_filepaths(workflow_id=args.workflow_id, job_name="qux")
     assert len(qux_task) == 1
-    assert qux_task[0]['TASK_ID'] == df_array1.set_index('TASK_NAME').loc['qux', 'TASK_ID']
+    assert (
+        qux_task[0]["TASK_ID"] == df_array1.set_index("TASK_NAME").loc["qux", "TASK_ID"]
+    )

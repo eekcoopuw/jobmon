@@ -6,7 +6,9 @@ from jobmon.constants import TaskInstanceStatus
 def test_heartbeat_on_launched(tool, db_cfg, client_env, task_template):
     from jobmon.client.distributor.distributor_service import DistributorService
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.builtins.multiprocess.multiproc_distributor import MultiprocessDistributor
+    from jobmon.builtins.multiprocess.multiproc_distributor import (
+        MultiprocessDistributor,
+    )
     from jobmon.server.web.models.task_instance import TaskInstance
 
     # create the workflow and bind to database

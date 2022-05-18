@@ -85,7 +85,7 @@ def test_yaml_compute_resources_and_scales(db_cfg, client_env):
     }
     assert tool.default_resource_scales_set["sequential"] == {
         "memory": 0.1,
-        "runtime": 0.1
+        "runtime": 0.1,
     }
     assert tt_1.default_compute_resources_set["sequential"] == {
         "num_cores": 1,
@@ -101,9 +101,9 @@ def test_yaml_compute_resources_and_scales(db_cfg, client_env):
     }
     assert tt_1.default_resource_scales_set["sequential"] == {
         "memory": 0.2,
-        "runtime": 0.3
+        "runtime": 0.3,
     }
     assert tt_2.default_resource_scales_set["sequential"] == {
         "memory": 0.4,
-        "runtime": 0.6
+        "runtime": 0.6,
     }
