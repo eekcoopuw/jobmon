@@ -1,9 +1,11 @@
 """Task Resources Type Database Table."""
+from sqlalchemy import Column, String
+
 from jobmon.constants import TaskResourcesType as Types
-from jobmon.server.web.models import DB
+from jobmon.server.web.models import Base
 
 
-class TaskResourcesType(DB.Model):
+class TaskResourcesType(Base):
     """The table in the database that holds the possible statuses for the TaskResources."""
 
     __tablename__ = "task_resources_type"
@@ -11,5 +13,5 @@ class TaskResourcesType(DB.Model):
     VALIDATED = Types.VALIDATED
     ADJUSTED = Types.ADJUSTED
 
-    id = DB.Column(DB.String(1), primary_key=True)
-    label = DB.Column(DB.String(150), nullable=False)
+    id = Column(String(1), primary_key=True)
+    label = Column(String(150), nullable=False)

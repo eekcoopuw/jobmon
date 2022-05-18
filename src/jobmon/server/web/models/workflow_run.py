@@ -1,21 +1,22 @@
 """Workflow run database table."""
-from functools import partial
 
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from werkzeug.local import LocalProxy
+import structlog
 
 from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeWorkflowRun
-from jobmon.server.web.log_config import bind_to_logger, get_logger
-from jobmon.server.web.models import DB
+# from jobmon.server.web.log_config import bind_to_logger, get_logger
+from jobmon.server.web.models import Base
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.models.workflow_status import WorkflowStatus
 
-# new structlog logger per flask request context. internally stored as flask.g.logger
-logger = LocalProxy(partial(get_logger, __name__))
+
+logger = structlog.get_logger(__name__)
 
 
-class WorkflowRun(DB.Model):
+class WorkflowRun(Base):
     """Database table for recording Workflow Runs."""
 
     __tablename__ = "workflow_run"
@@ -27,21 +28,21 @@ class WorkflowRun(DB.Model):
         )
         return serialized
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    workflow_id = DB.Column(DB.Integer, DB.ForeignKey("workflow.id"))
-    user = DB.Column(DB.String(150))
-    jobmon_version = DB.Column(DB.String(150), default="UNKNOWN")
-    status = DB.Column(
-        DB.String(1),
-        DB.ForeignKey("workflow_run_status.id"),
+    id = Column(Integer, primary_key=True)
+    workflow_id = Column(Integer, ForeignKey("workflow.id"))
+    user = Column(String(150))
+    jobmon_version = Column(String(150), default="UNKNOWN")
+    status = Column(
+        String(1),
+        ForeignKey("workflow_run_status.id"),
         default=WorkflowRunStatus.RUNNING,
     )
 
-    created_date = DB.Column(DB.DateTime, default=func.now())
-    status_date = DB.Column(DB.DateTime, default=func.now())
-    heartbeat_date = DB.Column(DB.DateTime, default=func.now())
+    created_date = Column(DateTime, default=func.now())
+    status_date = Column(DateTime, default=func.now())
+    heartbeat_date = Column(DateTime, default=func.now())
 
-    workflow = DB.relationship("Workflow", back_populates="workflow_runs", lazy=True)
+    workflow = relationship("Workflow", back_populates="workflow_runs", lazy=True)
 
     valid_transitions = [
         # a workflow run is created normally. claimed control of workflow

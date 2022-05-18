@@ -1,68 +1,82 @@
 """Start up the flask services."""
-from typing import Dict, Optional
+from typing import Any, Dict, Optional
 
 from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask
+import sqlalchemy
 
 from jobmon.server.web import log_config
+from jobmon.server.web import routes
+from jobmon.server.web.database import session_factory
 from jobmon.server.web.hooks_and_handlers import add_hooks_and_handlers
 from jobmon.server.web.web_config import WebConfig
 
 
-def create_app(web_config: Optional[WebConfig] = None) -> Flask:
-    """Create a Flask app."""
-    app = Flask(__name__)
+class JobmonAppFactory:
 
-    if web_config is None:
-        web_config = WebConfig.from_defaults()
+    def __init__(self, web_config: Optional[WebConfig] = None):
+        if web_config is None:
+            web_config = WebConfig.from_defaults()
+        self._web_config = web_config
 
-    if web_config.use_apm:
-        app.config["ELASTIC_APM"] = {
-            # Set the required service name. Allowed characters:
-            # a-z, A-Z, 0-9, -, _, and space
-            "SERVICE_NAME": web_config.apm_server_name,
-            # Set the custom APM Server URL (default: http://0.0.0.0:8200)
-            "SERVER_URL": f"http://{web_config.apm_server_url}:{web_config.apm_port}",
-            # Set the service environment
-            "ENVIRONMENT": "development",
-            "DEBUG": True,
-        }
-        apm = ElasticAPM(app)
-    else:
-        apm = None
+        # TODO: should pool recycle be a config option?
+        self._engine = sqlalchemy.create_engine(self._web_config.conn_str, pool_recycle=200,
+                                                future=True)
 
-    if web_config.use_logstash:
-        logstash_handler_config: Optional[
-            Dict
-        ] = log_config.get_logstash_handler_config(
-            logstash_host=web_config.logstash_host,
-            logstash_port=web_config.logstash_port,
-            logstash_protocol=web_config.logstash_protocol,
-            logstash_log_level=web_config.log_level,
-        )
-    else:
-        logstash_handler_config = None
+    @property
+    def flask_config(self) -> Dict[str, Any]:
+        flask_config = {}
+        if self._web_config.use_apm:
+            url = f"http://{self._web_config.apm_server_url}:{self._web_config.apm_port}"
+            flask_config["ELASTIC_APM"] = {
+                # Set the required service name. Allowed characters:
+                # a-z, A-Z, 0-9, -, _, and space
+                "SERVICE_NAME": self._web_config.apm_server_name,
+                # Set the custom APM Server URL (default: http://0.0.0.0:8200)
+                "SERVER_URL": url,
+                # Set the service environment
+                "ENVIRONMENT": "development",
+                "DEBUG": True,
+            }
+        return flask_config
 
-    app.config["SQLALCHEMY_DATABASE_URI"] = web_config.conn_str
-    app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
-    app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {"pool_recycle": 200}
+    @property
+    def logstash_handler_config(self) -> Optional[Dict[str, Any]]:
+        if self._web_config.use_logstash:
+            logstash_handler_config: Optional[Dict] = log_config.get_logstash_handler_config(
+                logstash_host=self._web_config.logstash_host,
+                logstash_port=self._web_config.logstash_port,
+                logstash_protocol=self._web_config.logstash_protocol,
+                logstash_log_level=self._web_config.log_level,
+            )
+        else:
+            logstash_handler_config = None
+        return logstash_handler_config
 
-    with app.app_context():
+    def create_app(self, blueprints=["finite_state_machine"]) -> Flask:
+        """Create a Flask app."""
+        app = Flask(__name__)
+        app.config.from_mapping(self.flask_config)
 
-        # register blueprints
-        from jobmon.server.web.routes import finite_state_machine
+        if self._web_config.use_apm:
+            apm = ElasticAPM(app)
+        else:
+            apm = None
 
-        app.register_blueprint(finite_state_machine, url_prefix="/")
+        with app.app_context():
 
-        # register app with flask-sqlalchemy DB
-        from jobmon.server.web.models import DB
+            # bind the engine to the session factory before importing the blueprint
+            session_factory.bind(self._engine)
 
-        DB.init_app(app)
+            # register the blueprints we want. they make use of a scoped session attached
+            # to the global session factory
+            for blueprint in blueprints:
+                app.register_blueprint(getattr(routes, 'blueprint'), url_prefix="/")
 
-        # add logger to app global context
-        log_config.configure_logger("jobmon.server.web", logstash_handler_config)
+            # add logger to app global context
+            log_config.configure_logger("jobmon.server.web", self.logstash_handler_config)
 
-        # add request logging hooks
-        add_hooks_and_handlers(app, apm)
+            # add request logging hooks
+            add_hooks_and_handlers(app, apm)
 
-        return app
+            return app

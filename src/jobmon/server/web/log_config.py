@@ -3,7 +3,6 @@ import logging.config
 import socket
 from typing import Any, Dict, MutableMapping, Optional
 
-from flask import g
 from pythonjsonlogger import jsonlogger
 import structlog
 
@@ -113,6 +112,8 @@ def configure_logger(
     logging.config.dictConfig(dict_config)
     structlog.configure(
         processors=[
+            # bring in threadlocal context
+            structlog.threadlocal.merge_threadlocal,
             # This performs the initial filtering, so we don't
             # evaluate e.g. DEBUG when unnecessary
             structlog.stdlib.filter_by_level,
@@ -147,35 +148,3 @@ def configure_logger(
         # Caching of our logger
         cache_logger_on_first_use=True,
     )
-
-
-def get_logger(name: str = "") -> structlog.stdlib.BoundLogger:
-    """Return a new structlog logger propagating context from prior loggers.
-
-    Args:
-        name: the name of the new logger. If no name is provided and a logger exists in this
-            request, use the name of the existing logger. If no name is provided and no logger
-            exists, set name to jobmon.server.web
-    """
-    if not name and "logger" in g:
-        name = g.logger.name
-    if not name:
-        name = ".".join(
-            __name__.split(".")[:-1]
-        )  # strip off module name. keep dir name
-
-    logger = structlog.get_logger(name)
-    if "logger" in g:
-        logger = logger.bind(**structlog.get_context(g.logger))
-
-    return logger
-
-
-def set_logger(logger: structlog.stdlib.BoundLogger) -> None:
-    """Save current logger in flask request global namespace 'g'."""
-    g.logger = logger
-
-
-def bind_to_logger(**kwargs: Any) -> None:
-    """Bind key Value pairs to current logger in flask request global namespace 'g'."""
-    g.logger = g.logger.bind(**kwargs)

@@ -1,10 +1,13 @@
 """Task Resources Database Table."""
+from sqlalchemy import Column, ForeignKey, Integer, String, Text
+from sqlalchemy.orm import relationship
+
 from jobmon.serializers import SerializeTaskResources
-from jobmon.server.web.models import DB
-from jobmon.server.web.models import task_resources_type  # noqa F401
+from jobmon.server.web.models import Base
+from jobmon.server.web.models.task_resources_type import TaskResourcesType  # noqa F401
 
 
-class TaskResources(DB.Model):
+class TaskResources(Base):
     """The table in the database that holds all task specific resources.
 
     Task specific resources:
@@ -24,16 +27,16 @@ class TaskResources(DB.Model):
         )
         return serialized
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    queue_id = DB.Column(DB.Integer, DB.ForeignKey("queue.id"))
-    task_resources_type_id = DB.Column(
-        DB.String(1), DB.ForeignKey("task_resources_type.id")
+    id = Column(Integer, primary_key=True)
+    queue_id = Column(Integer, ForeignKey("queue.id"))
+    task_resources_type_id = Column(
+        String(1), ForeignKey("task_resources_type.id")
     )
 
-    requested_resources = DB.Column(DB.Text, default=None)
+    requested_resources = Column(Text, default=None)
 
     # ORM relationships
-    queue = DB.relationship("Queue", foreign_keys=[queue_id])
-    task_resources_type = DB.relationship(
+    queue = relationship("Queue", foreign_keys=[queue_id])
+    task_resources_type = relationship(
         "TaskResourcesType", foreign_keys=[task_resources_type_id]
     )

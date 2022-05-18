@@ -1,14 +1,17 @@
 """DAG Database Table."""
-from jobmon.server.web.models import DB
+from sqlalchemy import Column, DateTime, Integer, VARCHAR
+from sqlalchemy.orm import relationship
+
+from jobmon.server.web.models import Base
 
 
-class Dag(DB.Model):
+class Dag(Base):
     """DAG Database Table."""
 
     __tablename__ = "dag"
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    hash = DB.Column(DB.VARCHAR(150))
-    created_date = DB.Column(DB.DateTime, default=None)
+    id = Column(Integer, primary_key=True)
+    hash = Column(VARCHAR(150))
+    created_date = Column(DateTime, default=None)
 
-    workflow = DB.relationship("Workflow", back_populates="dag", lazy=True)
+    workflow = relationship("Workflow", back_populates="dag", lazy=True)

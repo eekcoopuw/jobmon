@@ -1,22 +1,18 @@
 """Routes used by task instances on worker nodes."""
-from functools import partial
 from http import HTTPStatus as StatusCodes
 import os
 from typing import Any
 
 from flask import jsonify
 from flask import Blueprint
-from werkzeug.local import LocalProxy
+from structlog import get_logger
 
-from jobmon.server.web.log_config import get_logger
-from jobmon.server.web.models import DB
-
+from jobmon.server.web.database import SessionLocal
 
 finite_state_machine = Blueprint("finite_state_machine", __name__)
 
-
 # new structlog logger per flask request context. internally stored as flask.g.logger
-logger = LocalProxy(partial(get_logger, __name__))
+logger = get_logger(__name__)
 
 
 # ############################ LANDING ROUTES ################################################
@@ -32,10 +28,11 @@ def is_alive() -> Any:
 
 
 def _get_time() -> str:
-    time = DB.session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
+    with SessionLocal.begin() as session:
+        time = session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
+        session.commit()
     time = time["time"]
     time = time.strftime("%Y-%m-%d %H:%M:%S")
-    DB.session.commit()
     return time
 
 
@@ -55,9 +52,7 @@ def health() -> Any:
     Return 200 if everything is OK. Defined in each module with a different route, so it can
     be checked individually.
     """
-    logger.info(DB.session.bind.pool.status())
     _get_time()
-    # Assume that if we got this far without throwing an exception, we should be online
     resp = jsonify(status="OK")
     resp.status_code = StatusCodes.OK
     return resp
@@ -67,23 +62,25 @@ def health() -> Any:
 @finite_state_machine.route("/test_bad", methods=["GET"])
 def test_bad_route():
     """Test route to force a 500 error."""
-    DB.session.execute("SELECT * FROM blip_bloop_table").all()
+    with SessionLocal.begin() as session:
+        session.execute("SELECT * FROM blip_bloop_table").all()
+        session.commit()
 
 
 # ############################ APPLICATION ROUTES #############################################
-from jobmon.server.web.routes import (
-    array,
-    dag,
-    node,
-    task,
-    task_instance,
-    task_resources,
-    task_template,
-    tool,
-    tool_version,
-    workflow,
-    workflow_run,
-    cluster_type,
-    cluster,
-    queue,
-)
+# from jobmon.server.web.routes import (
+#     array,
+#     dag,
+#     node,
+#     task,
+#     task_instance,
+#     task_resources,
+#     task_template,
+#     tool,
+#     tool_version,
+#     workflow,
+#     workflow_run,
+#     cluster_type,
+#     cluster,
+#     queue,
+# )

@@ -1,12 +1,14 @@
 """Task Arg table."""
-from jobmon.server.web.models import DB
+from sqlalchemy import Column, Integer, String
+
+from jobmon.server.web.models import Base
 
 
-class TaskArg(DB.Model):
+class TaskArg(Base):
     """Task arg table."""
 
     __tablename__ = "task_arg"
 
-    task_id = DB.Column(DB.Integer, primary_key=True)
-    arg_id = DB.Column(DB.Integer, primary_key=True)
-    val = DB.Column(DB.String(255))
+    task_id = Column(Integer, primary_key=True)
+    arg_id = Column(Integer, primary_key=True)
+    val = Column(String(255))

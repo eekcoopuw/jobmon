@@ -1,11 +1,14 @@
 """Cluster Table in the Database."""
 from typing import Tuple
 
+from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy.orm import relationship
+
 from jobmon.serializers import SerializeCluster
-from jobmon.server.web.models import DB
+from jobmon.server.web.models import Base
 
 
-class Cluster(DB.Model):
+class Cluster(Base):
     """Cluster Table in the Database."""
 
     __tablename__ = "cluster"
@@ -20,11 +23,11 @@ class Cluster(DB.Model):
             self.connection_parameters,
         )
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    name = DB.Column(DB.String(255))
-    cluster_type_id = DB.Column(DB.Integer, DB.ForeignKey("cluster_type.id"))
-    connection_parameters = DB.Column(DB.String(2500))
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255))
+    cluster_type_id = Column(Integer, ForeignKey("cluster_type.id"))
+    connection_parameters = Column(String(2500))
 
     # ORM relationships
-    cluster_type = DB.relationship("ClusterType", back_populates="clusters")
-    queues = DB.relationship("Queue", back_populates="cluster")
+    cluster_type = relationship("ClusterType", back_populates="clusters")
+    queues = relationship("Queue", back_populates="cluster")

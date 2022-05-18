@@ -1,9 +1,11 @@
 """Workflow status database table."""
+from sqlalchemy import Column, String
+
 from jobmon.constants import WorkflowStatus as Statuses
-from jobmon.server.web.models import DB
+from jobmon.server.web.models import Base
 
 
-class WorkflowStatus(DB.Model):
+class WorkflowStatus(Base):
     """Workflow Status database table."""
 
     __tablename__ = "workflow_status"
@@ -18,5 +20,5 @@ class WorkflowStatus(DB.Model):
     INSTANTIATING = Statuses.INSTANTIATING
     LAUNCHED = Statuses.LAUNCHED
 
-    id = DB.Column(DB.String(1), primary_key=True)
-    label = DB.Column(DB.String(150), nullable=False)
+    id = Column(String(1), primary_key=True)
+    label = Column(String(150), nullable=False)

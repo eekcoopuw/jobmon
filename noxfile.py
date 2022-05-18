@@ -1,7 +1,6 @@
 """Nox Configuration for Jobmon."""
 import json
 import os
-from subprocess import Popen, PIPE
 import shutil
 
 import nox
@@ -26,6 +25,7 @@ def tests(session: Session) -> None:
     extra_args = ['-m', "not performance_tests and not usage_integrator"]
 
     # pytest mproc
+    os.environ["SQLALCHEMY_WARN_20"] = "1"
     session.run("pytest", *args, *extra_args)
 
 

@@ -1,13 +1,15 @@
 """Database Table for Task Template Versions."""
-
 from typing import Dict, List
 
+from sqlalchemy import Column, ForeignKey, Integer, Text
+from sqlalchemy.orm import relationship
+
 from jobmon.serializers import SerializeClientTaskTemplateVersion
-from jobmon.server.web.models import DB
+from jobmon.server.web.models import Base
 from jobmon.server.web.models.arg_type import ArgType
 
 
-class TaskTemplateVersion(DB.Model):
+class TaskTemplateVersion(Base):
     """Database Table for Task Template Versions."""
 
     __tablename__ = "task_template_version"
@@ -42,15 +44,15 @@ class TaskTemplateVersion(DB.Model):
             task_template_id=self.task_template.id,
         )
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    task_template_id = DB.Column(DB.Integer, DB.ForeignKey("task_template.id"))
-    command_template = DB.Column(DB.Text(collation="utf8mb4_unicode_ci"))
-    arg_mapping_hash = DB.Column(DB.Integer)
+    id = Column(Integer, primary_key=True)
+    task_template_id = Column(Integer, ForeignKey("task_template.id"))
+    command_template = Column(Text)
+    arg_mapping_hash = Column(Integer)
 
     # orm relationship
-    task_template = DB.relationship(
+    task_template = relationship(
         "TaskTemplate", back_populates="task_template_versions"
     )
-    template_arg_map = DB.relationship(
+    template_arg_map = relationship(
         "TemplateArgMap", back_populates="task_template_version"
     )

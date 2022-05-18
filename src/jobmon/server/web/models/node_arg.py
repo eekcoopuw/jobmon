@@ -1,12 +1,14 @@
 """Node arg db table."""
-from jobmon.server.web.models import DB
+from sqlalchemy import Column, Integer, String
+
+from jobmon.server.web.models import Base
 
 
-class NodeArg(DB.Model):
+class NodeArg(Base):
     """Node arg db table."""
 
     __tablename__ = "node_arg"
 
-    node_id = DB.Column(DB.Integer, primary_key=True)
-    arg_id = DB.Column(DB.Integer, primary_key=True)
-    val = DB.Column(DB.String(255))
+    node_id = Column(Integer, primary_key=True)
+    arg_id = Column(Integer, primary_key=True)
+    val = Column(String(255))

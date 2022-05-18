@@ -1,9 +1,12 @@
 """Task Template database table."""
+from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy.orm import relationship
+
 from jobmon.serializers import SerializeClientTaskTemplate
-from jobmon.server.web.models import DB
+from jobmon.server.web.models import Base
 
 
-class TaskTemplate(DB.Model):
+class TaskTemplate(Base):
     """Task Template database table."""
 
     __tablename__ = "task_template"
@@ -16,12 +19,12 @@ class TaskTemplate(DB.Model):
             self.id, self.tool_version_id, self.name
         )
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    tool_version_id = DB.Column(DB.Integer, DB.ForeignKey("tool_version.id"))
-    name = DB.Column(DB.String(255))
+    id = Column(Integer, primary_key=True)
+    tool_version_id = Column(Integer, ForeignKey("tool_version.id"))
+    name = Column(String(255))
 
     # orm relationship
-    tool_versions = DB.relationship("ToolVersion", back_populates="task_templates")
-    task_template_versions = DB.relationship(
+    tool_versions = relationship("ToolVersion", back_populates="task_templates")
+    task_template_versions = relationship(
         "TaskTemplateVersion", back_populates="task_template"
     )

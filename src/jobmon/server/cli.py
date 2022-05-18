@@ -26,7 +26,8 @@ class ServerCLI(CLI):
 
     def web_service(self, args: configargparse.Namespace) -> None:
         """Web service entrypoint logic."""
-        from jobmon.server.web.api import create_app, WebConfig
+        from jobmon.server.web.api import WebConfig
+        from jobmon.server.web.start import JobmonServer
 
         web_config = WebConfig(
             db_host=args.db_host,
@@ -44,11 +45,12 @@ class ServerCLI(CLI):
             apm_port=args.apm_port,
         )
 
-        app = create_app(web_config)
+        server = JobmonServer(web_config)
 
         if args.command == "start":
             raise ValueError("Web service cannot be started via command line.")
         elif args.command == "test":
+            app = server.create_app()
             app.run(host="0.0.0.0", port=args.web_service_port)
         elif args.command == "start_uwsgi":
             import subprocess

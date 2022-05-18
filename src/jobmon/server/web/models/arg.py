@@ -1,13 +1,16 @@
 """Arg table in the database."""
-from jobmon.server.web.models import DB
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship
+
+from jobmon.server.web.models import Base
 
 
-class Arg(DB.Model):
+class Arg(Base):
     """Arg table in the database."""
 
     __tablename__ = "arg"
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    name = DB.Column(DB.String(255))
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255))
 
-    template_arg_map = DB.relationship("TemplateArgMap", back_populates="argument")
+    template_arg_map = relationship("TemplateArgMap", back_populates="argument")

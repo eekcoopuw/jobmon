@@ -11,7 +11,6 @@ from werkzeug.local import LocalProxy
 
 from jobmon.serializers import SerializeTaskInstanceBatch
 from jobmon.server.web.log_config import bind_to_logger, get_logger
-from jobmon.server.web.models import DB
 from jobmon.exceptions import InvalidStateTransition
 from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.task import Task
