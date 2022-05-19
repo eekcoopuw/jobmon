@@ -57,7 +57,8 @@ class ClusterType:
         key = args[0] if args else kwds["cluster_type_name"]
         inst = cls._cache.get(key, None)
         if inst is None:
-            inst = super(ClusterType, cls).__new__(cls).__init__(key)  # type: ignore
+            inst = super(ClusterType, cls).__new__(cls)
+            inst.__init__(key)  # type: ignore
             cls._cache[key] = inst
         return inst
 
