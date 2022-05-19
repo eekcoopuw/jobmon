@@ -193,6 +193,7 @@ class WorkflowRun(DB.Model):
             return False
         else:
             logger.debug(
-                f"No race condition when transitioning workflow_run from {self.status} to {new_state}"
+                f"No race condition when transitioning workflow_run from "
+                f"{self.status} to {new_state}"
             )
             return True

@@ -24,6 +24,7 @@ class Array:
 
     Supports functionality to create tasks from the cross product of provided node_args.
     """
+
     compute_resources_callable: Callable[..., Any] | None
 
     def __init__(

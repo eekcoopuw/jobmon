@@ -290,7 +290,7 @@ class Tool:
         if default_resource_scales_set:
             wf.set_default_resource_scales_from_dict(
                 cluster_name=default_cluster_name,
-                dictionary=default_resource_scales_set
+                dictionary=default_resource_scales_set,
             )
         else:
             if self.active_tool_version.default_resource_scales_set:

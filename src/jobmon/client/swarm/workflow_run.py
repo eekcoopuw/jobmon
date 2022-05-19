@@ -33,7 +33,7 @@ from jobmon.requester import http_request_ok, Requester
 
 # avoid circular imports on backrefs
 if TYPE_CHECKING:
-    from jobmon.client.array import Array
+    from jobmon.client.array import Array  # noqa
     from jobmon.client.workflow import Workflow
 
 

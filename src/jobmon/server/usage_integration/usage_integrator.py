@@ -3,7 +3,7 @@ import datetime
 import logging
 import os
 import time
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import slurm_rest  # type: ignore # noqa
 from sqlalchemy import create_engine
