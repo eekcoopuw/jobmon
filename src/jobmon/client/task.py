@@ -7,12 +7,12 @@ from __future__ import annotations
 import hashlib
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING, Union
+from typing import Any, Callable, Dict, List, Optional, Set, TYPE_CHECKING, Union
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
-from jobmon.constants import SpecialChars, TaskStatus
+from jobmon.constants import SpecialChars
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeTaskInstanceErrorLog, SerializeTaskResourceUsage
@@ -31,7 +31,7 @@ class Task:
     """
 
     @staticmethod
-    def is_valid_job_name(name: str):
+    def is_valid_job_name(name: str) -> bool:
         """If the name is invalid it will raises an exception.
 
         Primarily based on the restrictions SGE places on job names. The list of illegal
@@ -90,6 +90,7 @@ class Task:
                 usually pertaining to data flowing through the task.
             op_args: Task arguments that can change across runs of the same workflow.
                 usually pertaining to trivial things like log level or code location.
+            array: the array that the task is associated with.
             cluster_name: the name of the cluster the user wants to run their task on.
             compute_resources: A dictionary that includes the users requested resources
                 for the current run. E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
@@ -193,7 +194,8 @@ class Task:
     def compute_resources(self) -> Dict[str, Any]:
         """A dictionary that includes the users requested resources for the current run.
 
-        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}"""
+        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
+        """
         resources = self._raw_resources
         try:
             resources.pop("queue")
@@ -205,7 +207,8 @@ class Task:
     def resource_scales(self) -> Dict[str, float]:
         """A dictionary that includes the users requested resource scales for the current run.
 
-        E.g. {memory: 0.1, runtime: 0.7}"""
+        E.g. {memory: 0.1, runtime: 0.7}.
+        """
         try:
             scales = self.array.resource_scales
         except AttributeError:
@@ -327,21 +330,6 @@ class Task:
     def workflow(self, val: Workflow) -> None:
         self._workflow = val
 
-    def bind(self, reset_if_running: bool = True) -> int:
-        """Bind tasks to the db if they have not been bound already.
-
-        Otherwise make sure their ExecutorParameters are up to date.
-        """
-        task_id, status = self._get_task_id_and_status()
-        if task_id is None:
-            task_id = self._add_task()
-            status = TaskStatus.REGISTERING
-        else:
-            status = self._update_task_parameters(task_id, reset_if_running)
-        self._task_id = task_id
-        self._initial_status = status
-        return task_id
-
     def add_upstream(self, ancestor: Task) -> None:
         """Add an upstream (ancestor) Task.
 
@@ -364,31 +352,9 @@ class Task:
 
         self.node.add_downstream_node(descendent.node)
 
-    def add_attributes(self, task_attributes: dict) -> None:
-        """Update or add attributes.
-
-        Function that users can call either to update values of existing attributes or add
-        new attributes.
-        """
-        app_route = f"/task/{self.task_id}/task_attributes"
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={"task_attributes": task_attributes},
-            request_type="put",
-        )
-        if return_code != StatusCodes.OK:
-            raise ValueError(
-                f"Unexpected status code {return_code} from PUT request through "
-                f"route {app_route}. Expected code 200. Response content: "
-                f"{response}"
-            )
-
     def add_attribute(self, attribute: str, value: str) -> None:
         """Function that users can call to add a single attribute for a task."""
         self.task_attributes[str(attribute)] = str(value)
-        # if the task has already been bound, bind the attributes
-        if self._task_id:
-            self.add_attributes({str(attribute): str(value)})
 
     def get_errors(
         self,
@@ -458,75 +424,6 @@ class Task:
             16,
         )
         return hash_value
-
-    def _get_task_id_and_status(self) -> Tuple[Optional[int], Optional[str]]:
-        """Get the id and status for a task from the db."""
-        app_route = "/task"
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={
-                "workflow_id": self.workflow.workflow_id,
-                "node_id": self.node.node_id,
-                "task_args_hash": self.task_args_hash,
-            },
-            request_type="get",
-        )
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from GET "
-                f"request through route {app_route}. Expected code "
-                f"200. Response content: {response}"
-            )
-        return response["task_id"], response["task_status"]
-
-    def _update_task_parameters(self, task_id: int, reset_if_running: bool) -> str:
-        """Update the executor parameters in the db for a task."""
-        app_route = f"/task/{task_id}/update_parameters"
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={
-                "name": self.name,
-                "command": self.command,
-                "max_attempts": self.max_attempts,
-                "reset_if_running": reset_if_running,
-                "task_attributes": self.task_attributes,
-            },
-            request_type="put",
-        )
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from PUT request through route "
-                f"{app_route}. Expected code 200. Response content: {response}"
-            )
-        return response["task_status"]
-
-    def _add_task(self) -> int:
-        """Bind a task to the db with the node, and workflow ids that have been established."""
-        tasks = [
-            {
-                "workflow_id": self.workflow.workflow_id,
-                "node_id": self.node.node_id,
-                "array_id": self.array.array_id,
-                "task_args_hash": self.task_args_hash,
-                "name": self.name,
-                "command": self.command,
-                "max_attempts": self.max_attempts,
-                "task_args": self.mapped_task_args,
-                "task_attributes": self.task_attributes,
-            }
-        ]
-        app_route = "/task"
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={"tasks": tasks},
-            request_type="post",
-        )
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from POST request through route "
-                f"{app_route}. Expected code 200. Response content: {response}"
-            )
-        return list(response["tasks"].values())[0]
 
     def __eq__(self, other: object) -> bool:
         """Check if the hashes of two tasks are equivalent."""

@@ -9,7 +9,6 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, TYPE_CHECKING,
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task import Task
-from jobmon.client.task_resources import TaskResources
 from jobmon.client.task_template_version import TaskTemplateVersion
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
@@ -111,7 +110,8 @@ class Array:
     def compute_resources(self) -> Dict[str, Any]:
         """A dictionary that includes the users requested resources for the current run.
 
-        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}"""
+        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
+        """
         try:
             resources = self.workflow.default_compute_resources_set.get(
                 self.cluster_name, {}
@@ -130,7 +130,8 @@ class Array:
     def resource_scales(self) -> Dict[str, float]:
         """A dictionary that includes the users requested resource scales for the current run.
 
-        E.g. {memory: 0.6, runtime: 0.3}"""
+        E.g. {memory: 0.6, runtime: 0.3}.
+        """
         try:
             scales = self.workflow.default_resource_scales_set.get(
                 self.cluster_name, {}
@@ -172,7 +173,7 @@ class Array:
         """Set the workflow id."""
         self._workflow = val
 
-    def add_task(self, task: Task):
+    def add_task(self, task: Task) -> None:
         """Add a task to an array.
 
         Set semantics - add tasks once only, based on hash name.
@@ -206,7 +207,7 @@ class Array:
         resource_scales: Optional[Dict[str, Any]] = None,
         **node_kwargs: Any,
     ) -> List[Task]:
-        """Create an task associated with the array.
+        """Create a task associated with the array.
 
         Args:
             upstream_tasks: Task objects that must be run prior to this one
@@ -298,7 +299,7 @@ class Array:
 
         return tasks
 
-    def validate(self):
+    def validate(self) -> None:
         # check
         pass
 

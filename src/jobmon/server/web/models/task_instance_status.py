@@ -9,6 +9,7 @@ class TaskInstanceStatus(Base):
     """The table in the database that holds on the possible statuses for TaskInstance."""
 
     __tablename__ = "task_instance_status"
+
     QUEUED = Statuses.QUEUED
     INSTANTIATED = Statuses.INSTANTIATED
     NO_DISTRIBUTOR_ID = Statuses.NO_DISTRIBUTOR_ID

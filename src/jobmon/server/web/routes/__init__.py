@@ -3,11 +3,14 @@ from http import HTTPStatus as StatusCodes
 import os
 from typing import Any
 
-from flask import jsonify
-from flask import Blueprint
+from flask import Blueprint, jsonify
+from sqlalchemy import orm
 from structlog import get_logger
 
-from jobmon.server.web.database import SessionLocal
+from jobmon.server.web.database import session_factory
+
+# scoped session associated with the current thread
+SessionLocal = orm.scoped_session(session_factory)
 
 finite_state_machine = Blueprint("finite_state_machine", __name__)
 
@@ -68,19 +71,19 @@ def test_bad_route():
 
 
 # ############################ APPLICATION ROUTES #############################################
-# from jobmon.server.web.routes import (
-#     array,
-#     dag,
-#     node,
-#     task,
-#     task_instance,
-#     task_resources,
-#     task_template,
-#     tool,
-#     tool_version,
-#     workflow,
-#     workflow_run,
-#     cluster_type,
-#     cluster,
-#     queue,
-# )
+from jobmon.server.web.routes import (
+    array,
+    dag,
+    node,
+    task,
+    task_instance,
+    task_resources,
+    task_template,
+    tool,
+    tool_version,
+    workflow,
+    workflow_run,
+    cluster_type,
+    cluster,
+    queue,
+)

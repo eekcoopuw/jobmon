@@ -4,21 +4,20 @@ from __future__ import annotations
 from datetime import datetime
 import logging
 import time
-from typing import Callable, Dict, Generator, List, Optional, Set, TYPE_CHECKING, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Set, TYPE_CHECKING, Union
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.swarm.swarm_array import SwarmArray
+from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.task_resources import TaskResources
-from jobmon.constants import TaskStatus, WorkflowRunStatus, TaskResourcesType
+from jobmon.constants import TaskStatus, WorkflowRunStatus
 from jobmon.exceptions import (
     CallableReturnedInvalidObject,
     DistributorNotAlive,
     InvalidResponse,
-    WorkflowTestError,
     TransitionError,
+    WorkflowTestError,
 )
-
 from jobmon.requester import http_request_ok, Requester
 
 # avoid circular imports on backrefs
@@ -30,7 +29,8 @@ logger = logging.getLogger(__name__)
 
 
 class SwarmCommand:
-    def __init__(self, func: Callable[..., None], *args, **kwargs):
+    def __init__(self, func: Callable[..., None], *args: List[SwarmTask], **kwargs: Any) \
+            -> None:
         """A command to be run by the distributor service.
 
         Args:
@@ -42,7 +42,7 @@ class SwarmCommand:
         self._args = args
         self._kwargs = kwargs
 
-    def __call__(self):
+    def __call__(self) -> None:
         self._func(*self._args, **self._kwargs)
 
 
@@ -135,10 +135,9 @@ class WorkflowRun:
     def active_tasks(self) -> bool:
         """Based on the task status map, does the workflow run have more work or not.
 
-        If there are no tasks in active states, the fringe is empty and
-        therefore we should error out.
+        If there are no tasks in active states, the fringe is empty, and therefore we should
+        error out.
         """
-
         # To prevent additional compute, return False immediately if set to an error state.
         # Likely done by fail fast or the max execution loops
         if self.status in (WorkflowRunStatus.ERROR, WorkflowRunStatus.TERMINATED):
@@ -213,7 +212,7 @@ class WorkflowRun:
         distributor_alive_callable: Callable[..., bool],
         seconds_until_timeout: int = 36000,
         initialize: bool = True
-    ):
+    ) -> None:
         """Take a concrete DAG and queue al the Tasks that are not DONE.
 
         Uses forward chaining from initial fringe, hence out-of-date is not
@@ -231,14 +230,14 @@ class WorkflowRun:
             rinse and repeat
 
         Args:
-            swarm: the workflow run associated with the swarm.
-            fail_fast: raise error on the first failed task.
+            distributor_alive_callable: callable that checks whether or not the distributor
+                service is still alive.
             seconds_until_timeout: how long to block while waiting for the next task to finish
                 before raising an error.
-            wedged_workflow_sync_interval: the time interval to sync a workflow that is wedged.
+            initialize: whether to initialize (update WorkflowRun to RUNNING and set fringe)
 
         Return:
-            workflow_run status
+            None
         """
         try:
             if initialize:
@@ -351,8 +350,8 @@ class WorkflowRun:
                 else:
                     self._update_status(WorkflowRunStatus.ERROR)
 
-    def set_initial_fringe(self):
-        """set initial fringe"""
+    def set_initial_fringe(self) -> None:
+        """Set initial fringe."""
         for t in [t for t in self._task_status_map[TaskStatus.ADJUSTING_RESOURCES]]:
             self._set_adjusted_task_resources(t)
             self.ready_to_run.append(t)
@@ -366,8 +365,7 @@ class WorkflowRun:
             self.ready_to_run.append(t)
 
     def get_swarm_commands(self) -> Generator[SwarmCommand, None, None]:
-        """Generator to get next chunk of work to be done. Must be idempotent"""
-
+        """Generator to get next chunk of work to be done. Must be idempotent."""
         # compute capacities. max - active
         active_tasks: Set[SwarmTask] = set()
         for task_status in self._active_states:
@@ -428,13 +426,12 @@ class WorkflowRun:
         finally:
             self.ready_to_run = unscheduled_tasks + self.ready_to_run
 
-    def process_commands(self, timeout: Union[int, float] = -1):
+    def process_commands(self, timeout: Union[int, float] = -1) -> None:
         """Processes swarm commands until all work is done or timeout is reached.
 
         Args:
             timeout: time until we stop processing. -1 means process till no more work
         """
-
         swarm_commands = self.get_swarm_commands()
 
         # this way we always process at least 1 command
@@ -444,7 +441,6 @@ class WorkflowRun:
 
             # run commands
             try:
-
                 # use an iterator so we don't waste compute
                 swarm_command = next(swarm_commands)
                 swarm_command()
@@ -520,7 +516,7 @@ class WorkflowRun:
         if num_newly_failed > 0:
             logger.warning(f"{num_newly_failed} newly failed tasks.")
 
-    def _set_status_for_triaging(self):
+    def _set_status_for_triaging(self) -> None:
         app_route = f"/workflow_run/{self.workflow_run_id}/set_status_for_triaging"
         return_code, response = self._requester.send_request(
             app_route=app_route, message={}, request_type="post"
@@ -532,7 +528,7 @@ class WorkflowRun:
                 f"code 200. Response content: {response}"
             )
 
-    def _log_heartbeat(self):
+    def _log_heartbeat(self) -> None:
         next_report_increment = (
             self._workflow_run_heartbeat_interval * self._heartbeat_report_by_buffer
         )
@@ -556,7 +552,6 @@ class WorkflowRun:
 
     def _update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""
-
         app_route = f"/workflow_run/{self.workflow_run_id}/update_status"
         return_code, response = self._requester.send_request(
             app_route=app_route,

@@ -1,9 +1,9 @@
 """Routes for Task Resources."""
 from functools import partial
 from http import HTTPStatus as StatusCodes
-from typing import Any, Dict, List, Set, Union
+from typing import Any
 
-from flask import jsonify, request
+from flask import jsonify
 from sqlalchemy.sql import text
 from werkzeug.local import LocalProxy
 

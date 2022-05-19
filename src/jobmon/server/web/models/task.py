@@ -6,7 +6,7 @@ from sqlalchemy.sql import func
 import structlog
 
 from jobmon.exceptions import InvalidStateTransition
-from jobmon.serializers import SerializeSwarmTask, SerializeDistributorTask
+from jobmon.serializers import SerializeDistributorTask, SerializeSwarmTask
 from jobmon.server.web.models import Base
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus

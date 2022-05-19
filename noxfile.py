@@ -70,8 +70,8 @@ def lint(session: Session) -> None:
     session.install("flake8",
                     "flake8-annotations",
                     "flake8-import-order",
-                    "flake8-docstrings",
-                    "flake8-black")
+                    "flake8-docstrings")
+                    # "flake8-black")
     session.run("flake8", *args)
 
 

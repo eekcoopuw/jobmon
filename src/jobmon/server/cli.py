@@ -88,7 +88,7 @@ class ServerCLI(CLI):
             )
 
     def integration(self, args: configargparse.Namespace) -> None:
-        """integration service entrypoint logic."""
+        """Integration service entrypoint logic."""
         # TODO: need dependency injection into squid integration
         from jobmon.server.usage_integration.api import start_usage_integration
 

@@ -12,10 +12,13 @@ select = ANN,B,B9,BLK,I,C,D,DAR,E,F,W
 max-complexity = 10
 ignore =
     ANN101, # Missing type annotation for self
+    ANN401, # Dynamically typed expressions (typing.Any) are disallowed
     C901,   # Function is too complex, this will eventually go away
     D100,   # Missing docstring in public module
     D104,   # Missing docstring in public package
     W503    # Line break before binary operator, ignore 503 and use 504
+    D101,
+    D102
 extend-ignore =
     # See https://github.com/PyCQA/pycodestyle/issues/373
     E203

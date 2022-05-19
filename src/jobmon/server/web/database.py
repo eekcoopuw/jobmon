@@ -4,14 +4,14 @@ from importlib import import_module
 
 from sqlalchemy import orm
 
-# sqlalchemy session factory
+from jobmon.server.web.models import Base
+
+# configurable session factory. add an engine using session_factory.configure(bind=eng)
 session_factory = orm.sessionmaker(autocommit=False, autoflush=False, future=True)
-# scoped session associated with the current thread
-SessionLocal = orm.scoped_session(session_factory)
 
 
 def init_db(engine):
-    from jobmon.server.web.models import Base
+    """emit DDL for all modules in 'models'"""
 
     # iterate through the modules in the current package
     package_dir = Path(__file__).resolve().parent / "models"

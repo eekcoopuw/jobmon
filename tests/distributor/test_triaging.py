@@ -40,7 +40,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
         cluster_name="multiprocess", compute_resources={"queue": "null.q"}
     )
 
-    tis = [task_template.create_task(arg="sleep 10" + str(x)) for x in range(2)]
+    tis = [task_template.create_task(arg="sleep 10" + str(x)) for x in range(3)]
     workflow = tool.create_workflow(name="test_set_status_for_no_heartbeat")
 
     workflow.add_tasks(tis)
@@ -76,6 +76,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
             "running_status": TaskInstanceStatus.RUNNING,
             "task_id_1": tis[0].task_id,
             "task_id_2": tis[1].task_id,
+            "task_id_3": tis[2].task_id,
             "task_ids": [tis[x].task_id for x in range(len(tis))],
         }
         sql = """
@@ -85,6 +86,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
                 CASE
                     WHEN task_id = :task_id_1 THEN :launched_status
                     WHEN task_id = :task_id_2 THEN :running_status
+                    WHEN task_id = :task_id_3 THEN :launched_status
                 END
         WHERE task_id in :task_ids"""
         DB.session.execute(sql, params)
@@ -110,6 +112,7 @@ def test_set_status_for_triaging(tool, db_cfg, client_env, task_template):
     assert len(res) == len(tis)
     assert res[0].status == TaskInstanceStatus.KILL_SELF
     assert res[1].status == TaskInstanceStatus.TRIAGING
+    assert res[2].status == TaskInstanceStatus.KILL_SELF
 
     distributor.stop()
 

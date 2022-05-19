@@ -22,7 +22,7 @@ class SequentialQueue(ClusterQueue):
         """No resources defined for sequential execution. All resources valid."""
         return True, ""
 
-    def coerce_resources(self, **kwargs) -> Dict:
+    def coerce_resources(self, **kwargs: Dict) -> Dict:
         return kwargs
 
     @property

@@ -1,7 +1,7 @@
 """Commands to check for workflow and task status (from CLI)."""
 import getpass
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
@@ -588,7 +588,7 @@ def get_filepaths(
     limit: int = 5,
     requester_url: str = ''
 ) -> dict:
-
+    """Allows users to get the stdout/stderr paths of their tasks."""
     if not requester_url:
         requester_url = ClientConfig.from_defaults().url
     requester = Requester(requester_url)

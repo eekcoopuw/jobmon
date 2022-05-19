@@ -101,15 +101,15 @@ class Dag(object):
                 if n not in nodes_in_dag:
                     raise NodeDependencyNotExistError(
                         f"Upstream node, {hash(n)}, for node, {hash(node)}, "
-                        "does not exist in the dag."
-                        "Check that every task has been added to the workflow and is in the correct order."
+                        "does not exist in the dag.Check that every task has been added to "
+                        "the workflow and is in the correct order."
                     )
             for n in node.downstream_nodes:
                 if n not in nodes_in_dag:
                     raise NodeDependencyNotExistError(
                         f"Downstream node, {hash(n)}, for node, {hash(node)}, "
-                        "does not exist in the dag."
-                        "Check that every task has been added to the workflow and is in the correct order."
+                        "does not exist in the dag.Check that every task has been added to "
+                        "the workflow and is in the correct order."
                     )
 
     def _bulk_bind_nodes(self, chunk_size: int) -> None:
@@ -157,7 +157,7 @@ class Dag(object):
         for node in nodes_in_dag:
             k = f"{node.task_template_version_id}:{node.node_args_hash}"
             if k in nodes_received.keys():
-                node._node_id = int(nodes_received[k])
+                node.node_id = int(nodes_received[k])
             else:
                 raise InvalidResponse(
                     f"Fail to find node_id in HTTP response for node_args_hash "

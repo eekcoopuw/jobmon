@@ -12,8 +12,8 @@ from typing import (
     Optional,
     Tuple,
     Type,
-    Union,
     TYPE_CHECKING,
+    Union,
 )
 
 import yaml
@@ -621,8 +621,8 @@ class TaskTemplate:
             cluster_name: The cluster the array will run on
             **kwargs: task, node, and op_args as defined in the command template. If you
                 provide node_args as an iterable, they will be expanded.
+            name: the name of the array.
         """
-
         if upstream_tasks is None:
             upstream_tasks = []
 

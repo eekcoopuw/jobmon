@@ -132,7 +132,7 @@ class TransitionError(Exception):
 
 
 class WorkflowTestError(Exception):
-    """Workflow Run encountered and error"""
+    """Workflow Run encountered and error."""
 
     pass
 

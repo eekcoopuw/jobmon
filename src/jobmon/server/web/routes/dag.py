@@ -1,24 +1,21 @@
 """Routes for DAGs."""
-from functools import partial
 from http import HTTPStatus as StatusCodes
-from typing import Any
+from typing import Any, cast, Dict
 
 from flask import jsonify, request
 import sqlalchemy
-from sqlalchemy.dialects.mysql import insert
-from sqlalchemy.sql import func, text
-from werkzeug.local import LocalProxy
+from sqlalchemy import select, insert, update
+from sqlalchemy.sql import func
+import structlog
 
-from jobmon.server.web.log_config import bind_to_logger, get_logger
-from jobmon.server.web.models import DB
 from jobmon.server.web.models.dag import Dag
 from jobmon.server.web.models.edge import Edge
-from jobmon.server.web.routes import finite_state_machine
+from jobmon.server.web.routes import finite_state_machine, SessionLocal
 from jobmon.server.web.server_side_exception import InvalidUsage
 
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
-logger = LocalProxy(partial(get_logger, __name__))
+logger = structlog.get_logger(__name__)
 
 
 @finite_state_machine.route("/dag", methods=["POST"])
@@ -28,57 +25,43 @@ def add_dag() -> Any:
     Args:
         dag_hash: unique identifier of the dag, included in route
     """
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
 
     # add dag
     dag_hash = data.pop("dag_hash")
-    bind_to_logger(dag_hash=str(dag_hash))
+    structlog.threadlocal.bind_threadlocal(dag_hash=str(dag_hash))
     logger.info(f"Add dag:{dag_hash}")
-    try:
-        dag = Dag(hash=dag_hash)
-        DB.session.add(dag)
-        DB.session.commit()
 
-        # return result
-        resp = jsonify(dag_id=dag.id, created_date=dag.created_date)
-        resp.status_code = StatusCodes.OK
+    with SessionLocal.begin() as session:
 
-        return resp
-    except sqlalchemy.exc.IntegrityError:
-        DB.session.rollback()
-        query = """
-            SELECT *
-            FROM dag
-            WHERE hash = :dag_hash
-        """
-        dag = (
-            DB.session.query(Dag)
-            .from_statement(text(query))
-            .params(dag_hash=dag_hash)
-            .one()
-        )
-        DB.session.commit()
+        try:
+            dag = Dag(hash=dag_hash)
+            session.add(dag)
+            session.commit()
 
-        # return result
-        resp = jsonify(dag_id=dag.id, created_date=dag.created_date)
-        resp.status_code = StatusCodes.OK
+        except sqlalchemy.exc.IntegrityError:
+            session.rollback()
+            select_stmt = select(Dag).filter(Dag.hash == dag_hash)
+            dag = session.execute(select_stmt).scalar_one()
+            session.commit()
 
-        return resp
+    # return result
+    resp = jsonify(dag_id=dag.id, created_date=dag.created_date)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @finite_state_machine.route("/dag/<dag_id>/edges", methods=["POST"])
 def add_edges(dag_id: int) -> Any:
     """Add edges to the edge table."""
-    bind_to_logger(dag_id=dag_id)
+    structlog.threadlocal.bind_threadlocal(dag_id=dag_id)
     logger.info(f"Add edges for dag {dag_id}")
     try:
-        data = request.get_json()
+        data = cast(Dict, request.get_json())
         edges_to_add = data.pop("edges_to_add")
         mark_created = bool(data.pop("mark_created"))
     except KeyError as e:
-        raise InvalidUsage(
-            f"{str(e)} in request to {request.path}", status_code=400
-        ) from e
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
     # add dag and cast types
     for edges in edges_to_add:
@@ -97,24 +80,25 @@ def add_edges(dag_id: int) -> Any:
 
     # Bulk insert the nodes and node args with raw SQL, for performance. Ignore duplicate
     # keys
-    edge_insert_stmt = insert(Edge).prefix_with("IGNORE")
-    DB.session.execute(edge_insert_stmt, edges_to_add)
-    DB.session.commit()
+    with SessionLocal.begin() as session:
+        insert_stmt = insert(Edge).values(edges_to_add)
+        if SessionLocal.bind.dialect.name == "mysql":
+            insert_stmt = insert_stmt.prefix_with("IGNORE")
+        if SessionLocal.bind.dialect.name == "sqlite":
+            insert_stmt = insert_stmt.prefix_with("OR IGNORE")
+        session.execute(insert_stmt)
+        session.commit()
 
-    if mark_created:
-        query = """
-            SELECT *
-            FROM dag
-            WHERE id = :dag_id
-        """
-        dag = (
-            DB.session.query(Dag)
-            .from_statement(text(query))
-            .params(dag_id=dag_id)
-            .one()
-        )
-        dag.created_date = func.now()
-        DB.session.commit()
+        if mark_created:
+            update_stmt = update(
+                Dag
+            ).where(
+                Dag.id == dag_id
+            ).values(
+                Dag.created_date == func.now()
+            )
+            session.execute(update_stmt)
+            session.commit()
 
     # return result
     resp = jsonify()
