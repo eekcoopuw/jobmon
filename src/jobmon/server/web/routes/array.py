@@ -185,7 +185,7 @@ def record_array_batch_num(array_id: int) -> Any:
 @finite_state_machine.route(
     "/array/<array_id>/transition_to_launched", methods=["POST"]
 )
-def transition_array_to_launched(array_id: int) -> None:
+def transition_array_to_launched(array_id: int) -> Any:
     """Transition TIs associated with an array_id and batch_num to launched."""
     bind_to_logger(array_id=array_id)
 
@@ -239,7 +239,7 @@ def transition_array_to_launched(array_id: int) -> None:
 
 
 @finite_state_machine.route("/array/<array_id>/log_distributor_id", methods=["POST"])
-def log_array_distributor_id(array_id: int) -> None:
+def log_array_distributor_id(array_id: int) -> Any:
     """Add distributor_id, stderr/stdout paths to the DB for all TIs in an array."""
     data = request.get_json()
     batch_num = data["array_batch_num"]

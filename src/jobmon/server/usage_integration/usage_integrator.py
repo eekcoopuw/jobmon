@@ -216,7 +216,7 @@ def _get_slurm_resource_via_slurm_sdb(
     raw_usage_stats: Dict[str, Dict[str, Optional[Any]]] = {}
 
     nonarray_distributor_ids: List[str] = []
-    array_distributor_ids: List[Tuple[str]] = []
+    array_distributor_ids = []
 
     for ti in task_instances:
         # Need to generate the id_job variable if the task is an array task
@@ -358,9 +358,9 @@ def q_forever(
                 UsageQ.get() for _ in range(integrator.config["max_update_per_sec"])
             ]
             # If the queue is empty, drop the None entries
-            task_instances = [t for t in task_instances if t is not None]
-            processed_size += len(task_instances)
-            integrator.update_resources_in_db(task_instances)
+            task_instances_trimmed = [t for t in task_instances if t is not None]
+            processed_size += len(task_instances_trimmed)
+            integrator.update_resources_in_db(task_instances_trimmed)
 
         # Query DB to add newly completed jobs to q and log q length
         current_time = datetime.datetime.now()

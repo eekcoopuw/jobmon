@@ -163,7 +163,7 @@ class Workflow(object):
         self._tool_version = tool_version
         self.name = name
         self.description = description
-        self.max_concurrently_running = max_concurrently_running
+        self.max_concurrently_running: int = max_concurrently_running
 
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
@@ -213,7 +213,7 @@ class Workflow(object):
         self.default_resource_scales_set: Dict[str, Dict[str, float]] = {}
 
         self._fail_after_n_executions = 1_000_000_000
-        self.last_workflow_run_id = None
+        self.last_workflow_run_id: Optional[int] = None
 
     @property
     def is_bound(self) -> bool:

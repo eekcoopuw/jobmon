@@ -1,7 +1,7 @@
 """Routes for Workflows."""
 from functools import partial
 from http import HTTPStatus as StatusCodes
-from typing import Any, Dict
+from typing import Any, Dict, Tuple
 
 from flask import jsonify, request
 import pandas as pd
@@ -403,6 +403,8 @@ def task_status_updates(workflow_id: int) -> Any:
     bind_to_logger(workflow_id=workflow_id)
     data = request.get_json()
     logger.info("Get task by status")
+
+    filter_criteria: Tuple[Any, ...]
 
     try:
         filter_criteria = (
