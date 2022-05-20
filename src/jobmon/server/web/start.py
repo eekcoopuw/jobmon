@@ -6,8 +6,7 @@ from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask
 import sqlalchemy
 
-from jobmon.server.web import log_config
-from jobmon.server.web.database import session_factory
+from jobmon.server.web import log_config, session_factory
 from jobmon.server.web.hooks_and_handlers import add_hooks_and_handlers
 from jobmon.server.web.web_config import WebConfig
 
@@ -53,7 +52,7 @@ class JobmonAppFactory:
             logstash_handler_config = None
         return logstash_handler_config
 
-    def create_app(self, blueprints=["fsm", "cli"]) -> Flask:
+    def create_app_context(self, blueprints=["fsm", "cli"]) -> Flask:
         """Create a Flask app."""
         app = Flask(__name__)
         app.config.from_mapping(self.flask_config)

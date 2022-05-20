@@ -37,7 +37,7 @@ def add_array() -> Any:
     with SessionLocal.begin() as session:
         select_stmt = select(
             Array
-        ).filter_by(
+        ).where(
             workflow_id=workflow_id,
             task_template_version_id=task_template_version_id
         )
