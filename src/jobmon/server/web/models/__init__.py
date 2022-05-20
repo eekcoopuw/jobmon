@@ -14,8 +14,8 @@ def init_db(engine):
     """emit DDL for all modules in 'models'"""
 
     # iterate through the modules in the current package
-    package_dir = Path(__file__).resolve().parent / "models"
+    package_dir = Path(__file__).resolve().parent
     for (_, module_name, _) in iter_modules([package_dir]):
-        import_module(f"jobmon.server.web.models.{module_name}")
+        import_module(f"{__name__}.{module_name}")
 
     Base.metadata.create_all(bind=engine)

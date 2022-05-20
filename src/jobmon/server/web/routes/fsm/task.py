@@ -3,7 +3,7 @@ from http import HTTPStatus as StatusCodes
 from typing import Any, cast, Dict, List, Set, Union
 
 from flask import jsonify, request
-from sqlalchemy import insert, select, tuple_
+from sqlalchemy import desc, insert, select, tuple_
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import DataError
 import structlog
@@ -13,6 +13,8 @@ from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_arg import TaskArg
 from jobmon.server.web.models.task_attribute import TaskAttribute
 from jobmon.server.web.models.task_attribute_type import TaskAttributeType
+from jobmon.server.web.models.task_instance import TaskInstance
+from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
 from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.fsm import blueprint
@@ -285,5 +287,44 @@ def bind_task_resources() -> Any:
         session.commit()
 
     resp = jsonify(new_resources.id)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@blueprint.route("/task/<task_id>/most_recent_ti_error", methods=["GET"])
+def get_most_recent_ti_error(task_id: int) -> Any:
+    """Route to determine the cause of the most recent task_instance's error.
+
+    Args:
+        task_id (int): the ID of the task.
+
+    Return:
+        error message
+    """
+    structlog.threadlocal.bind_threadlocal(task_id=task_id)
+    logger.info(f"Getting most recent ji error for ti {task_id}")
+    with SessionLocal.begin() as session:
+        select_stmt = select(
+            TaskInstanceErrorLog
+        ).join_from(
+            TaskInstance, TaskInstanceErrorLog,
+            TaskInstance.id == TaskInstanceErrorLog.task_instance_id
+        ).where(
+            TaskInstance.task_id == task_id
+        ).order_by(
+            desc(TaskInstance.id)
+        ).limit(1)
+        ti_error = session.execute(select_stmt).scalars().one_or_none()
+        session.commit()
+
+    if ti_error is not None:
+        resp = jsonify(
+            {
+                "error_description": ti_error.description,
+                "task_instance_id": ti_error.task_instance_id,
+            }
+        )
+    else:
+        resp = jsonify({"error_description": "", "task_instance_id": None})
     resp.status_code = StatusCodes.OK
     return resp
