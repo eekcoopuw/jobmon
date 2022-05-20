@@ -11,13 +11,14 @@ from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_status import TaskStatus
-from jobmon.server.web.routes import finite_state_machine, SessionLocal
+from jobmon.server.web.routes import SessionLocal
+from jobmon.server.web.routes.fsm import blueprint
 
 
 logger = structlog.get_logger(__name__)
 
 
-@finite_state_machine.route("/array", methods=["POST"])
+@blueprint.route("/array", methods=["POST"])
 def add_array() -> Any:
     """Return an array ID by workflow and task template version ID.
 
@@ -67,27 +68,7 @@ def add_array() -> Any:
     return resp
 
 
-# @finite_state_machine.route("/array/<array_id>", methods=["GET"])
-# def get_array(array_id: int) -> Any:
-#     """Return an array.
-
-#     If not found, bind the array.
-#     """
-#     structlog.threadlocal.bind_threadlocal(array_id=array_id)
-
-#     # Check if the array is already bound, if so return it
-
-#     with SessionLocal.begin() as session:
-#         query = select(Array).filter_by(id=array_id)
-#         array = session.execute(query).scalar_one()
-#         session.commit()
-
-#     resp = jsonify(array=array.to_wire_as_distributor_array())
-#     resp.status_code = StatusCodes.OK
-#     return resp
-
-
-@finite_state_machine.route("/array/<array_id>/queue_task_batch", methods=["POST"])
+@blueprint.route("/array/<array_id>/queue_task_batch", methods=["POST"])
 def record_array_batch_num(array_id: int) -> Any:
     """Record a batch number to associate sets of task instances with an array submission."""
     data = cast(Dict, request.get_json())
@@ -173,7 +154,7 @@ def record_array_batch_num(array_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/array/<array_id>/transition_to_launched", methods=["POST"])
+@blueprint.route("/array/<array_id>/transition_to_launched", methods=["POST"])
 def transition_array_to_launched(array_id: int) -> Any:
     """Transition TIs associated with an array_id and batch_num to launched."""
     structlog.threadlocal.bind_threadlocal(array_id=array_id)
@@ -228,7 +209,7 @@ def transition_array_to_launched(array_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/array/<array_id>/log_distributor_id", methods=["POST"])
+@blueprint.route("/array/<array_id>/log_distributor_id", methods=["POST"])
 def log_array_distributor_id(array_id: int) -> Any:
     """Add distributor_id, stderr/stdout paths to the DB for all TIs in an array."""
     data = cast(Dict, request.get_json())
@@ -280,56 +261,5 @@ def log_array_distributor_id(array_id: int) -> Any:
             raise
 
     resp = jsonify(task_instance_map={ti.id: ti.distributor_id for ti in res})
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@finite_state_machine.route("/array/<workflow_id>/get_array_tasks")
-def get_array_task_instances(workflow_id: int) -> Any:
-    """Return error/output filepaths for task instances filtered by array name.
-
-    The user can also optionally filter by job name as well.
-
-    To avoid overly-large returned results, the user must also pass in a workflow ID.
-    """
-    data = request.args
-    array_name = data.get("array_name")
-    job_name = data.get("job_name")
-    limit = data.get("limit", 5)
-
-    query_filters = [
-        Task.workflow_id == workflow_id,
-        TaskInstance.task_id == Task.id,
-        Task.array_id == Array.id,
-    ]
-
-    if array_name:
-        query_filters.append(Array.name == array_name)
-
-    if job_name:
-        query_filters.append(Task.name == job_name)
-
-    with SessionLocal.begin() as session:
-        select_stmt = (
-            select(
-                Task.id,
-                Task.name,
-                Array.name,
-                TaskInstance.id,
-                TaskInstance.stdout,
-                TaskInstance.stderr,
-            )
-            .where(
-                *query_filters
-            )
-            .limit(limit)
-        )
-        result = session.execute(select_stmt).fetchall()
-
-    column_names = ("TASK_ID", "TASK_NAME", "ARRAY_NAME",
-                    "TASK_INSTANCE_ID", "OUTPUT_PATH", "ERROR_PATH")
-    resp = jsonify(
-        array_tasks=[dict(zip(column_names, ti)) for ti in result]
-    )
     resp.status_code = StatusCodes.OK
     return resp

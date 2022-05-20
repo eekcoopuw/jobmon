@@ -1,5 +1,4 @@
 """Routes for TaskInstances."""
-from functools import partial
 from http import HTTPStatus as StatusCodes
 from typing import Any, Optional
 
@@ -7,27 +6,26 @@ from flask import jsonify, request
 import sqlalchemy
 from sqlalchemy import select, update
 from sqlalchemy.sql import func, text
-from werkzeug.local import LocalProxy
+import structlog
 
 from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeTaskInstanceBatch
 from jobmon.exceptions import InvalidStateTransition
-from jobmon.server.web.models import DB
 from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance import TaskInstanceStatus
 from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
 from jobmon.server.web.models.task_status import TaskStatus
-from jobmon.server.web.routes import finite_state_machine
+from jobmon.server.web.routes import SessionLocal
+from jobmon.server.web.routes.fsm import blueprint
 from jobmon.server.web.server_side_exception import ServerError
 
 
-# new structlog logger per flask request context. internally stored as flask.g.logger
-logger = LocalProxy(partial(get_logger, __name__))
+logger = structlog.get_logger(__name__)
 
 
-@finite_state_machine.route(
+@blueprint.route(
     "/task_instance/<task_instance_id>/log_running", methods=["POST"]
 )
 def log_running(task_instance_id: int) -> Any:
@@ -36,10 +34,12 @@ def log_running(task_instance_id: int) -> Any:
     Args:
         task_instance_id: id of the task_instance to log as running
     """
-    bind_to_logger(task_instance_id=task_instance_id)
+    structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
     data = request.get_json()
 
-    task_instance = DB.session.query(TaskInstance).filter_by(id=task_instance_id).one()
+    with SessionLocal.begin() as session:
+        select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
+        task_instance = session.execute(select_stmt).scalars().one()
 
     if data.get("distributor_id", None) is not None:
         task_instance.distributor_id = data["distributor_id"]
@@ -67,7 +67,7 @@ def log_running(task_instance_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route(
+@blueprint.route(
     "/task_instance/<task_instance_id>/log_report_by", methods=["POST"]
 )
 def log_ti_report_by(task_instance_id: int) -> Any:
@@ -117,7 +117,7 @@ def log_ti_report_by(task_instance_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/task_instance/log_report_by/batch", methods=["POST"])
+@blueprint.route("/task_instance/log_report_by/batch", methods=["POST"])
 def log_ti_report_by_batch() -> Any:
     """Log task_instances as being responsive with a new report_by_date.
 
@@ -150,7 +150,7 @@ def log_ti_report_by_batch() -> Any:
     return resp
 
 
-@finite_state_machine.route(
+@blueprint.route(
     "/task_instance/<task_instance_id>/log_usage", methods=["POST"]
 )
 def log_usage(task_instance_id: int) -> Any:
@@ -199,7 +199,7 @@ def log_usage(task_instance_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route(
+@blueprint.route(
     "/task_instance/<task_instance_id>/log_done", methods=["POST"]
 )
 def log_done(task_instance_id: int) -> Any:
@@ -231,7 +231,7 @@ def log_done(task_instance_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route(
+@blueprint.route(
     "/task_instance/<task_instance_id>/log_error_worker_node", methods=["POST"]
 )
 def log_error_worker_node(task_instance_id: int) -> Any:
@@ -275,7 +275,7 @@ def log_error_worker_node(task_instance_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/task/<task_id>/most_recent_ti_error", methods=["GET"])
+@blueprint.route("/task/<task_id>/most_recent_ti_error", methods=["GET"])
 def get_most_recent_ti_error(task_id: int) -> Any:
     """Route to determine the cause of the most recent task_instance's error.
 
@@ -320,7 +320,7 @@ def get_most_recent_ti_error(task_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route(
+@blueprint.route(
     "/task_instance/<task_instance_id>/task_instance_error_log", methods=["GET"]
 )
 def get_task_instance_error_log(task_instance_id: int) -> Any:
@@ -355,7 +355,7 @@ def get_task_instance_error_log(task_instance_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route(
+@blueprint.route(
     "/workflow_run/<workflow_run_id>/log_distributor_report_by", methods=["POST"]
 )
 def log_distributor_report_by(workflow_run_id: int) -> Any:
@@ -382,7 +382,7 @@ def log_distributor_report_by(workflow_run_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route(
+@blueprint.route(
     "/get_array_task_instance_id/<array_id>/<batch_num>/<step_id>", methods=["GET"]
 )
 def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> Any:
@@ -412,7 +412,7 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> A
     return resp
 
 
-@finite_state_machine.route(
+@blueprint.route(
     "/task_instance/<task_instance_id>/log_no_distributor_id", methods=["POST"]
 )
 def log_no_distributor_id(task_instance_id: int) -> Any:
@@ -435,7 +435,7 @@ def log_no_distributor_id(task_instance_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route(
+@blueprint.route(
     "/task_instance/<task_instance_id>/log_distributor_id", methods=["POST"]
 )
 def log_distributor_id(task_instance_id: int) -> Any:
@@ -460,7 +460,7 @@ def log_distributor_id(task_instance_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route(
+@blueprint.route(
     "/task_instance/<task_instance_id>/log_known_error", methods=["POST"]
 )
 def log_known_error(task_instance_id: int) -> Any:
@@ -504,7 +504,7 @@ def log_known_error(task_instance_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route(
+@blueprint.route(
     "/task_instance/<task_instance_id>/log_unknown_error", methods=["POST"]
 )
 def log_unknown_error(task_instance_id: int) -> Any:
@@ -552,7 +552,7 @@ def log_unknown_error(task_instance_id: int) -> Any:
     return resp
 
 
-@finite_state_machine.route("/task_instance/transition/<new_status>", methods=["POST"])
+@blueprint.route("/task_instance/transition/<new_status>", methods=["POST"])
 def transition_task_instances(new_status: str) -> Any:
     """Attempt to transition a task instance to the new status."""
     data = request.get_json()
@@ -596,7 +596,7 @@ def transition_task_instances(new_status: str) -> Any:
     return resp
 
 
-@finite_state_machine.route(
+@blueprint.route(
     "/task_instance/instantiate_task_instances", methods=["POST"]
 )
 def instantiate_task_instances() -> Any:

@@ -6,10 +6,11 @@ from flask import jsonify
 from sqlalchemy import select
 
 from jobmon.server.web.models.queue import Queue
-from jobmon.server.web.routes import finite_state_machine, SessionLocal
+from jobmon.server.web.routes import SessionLocal
+from jobmon.server.web.routes.fsm import blueprint
 
 
-@finite_state_machine.route("/cluster/<cluster_id>/queue/<queue_name>", methods=["GET"])
+@blueprint.route("/cluster/<cluster_id>/queue/<queue_name>", methods=["GET"])
 def get_queue_by_cluster_queue_names(cluster_id: int, queue_name: str) -> Any:
     """Get the id, name, cluster_name and parameters of a Queue.
 

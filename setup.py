@@ -9,26 +9,23 @@ INSTALL_REQUIRES = [
     'numpy',
     'pandas',
     'psutil',
-    'python_json_logger',
     'pyyaml',
     'requests',
     'scipy',
-    'structlog',
     'tabulate',
     'tenacity',
-    'tblib',
-    'typing_extensions'
+    'typing_extensions'  # TODO: remove when we no longer support 3.7
 ]
 
 SERVER_REQUIRES = [
     'flask',
-    'flask_cors',
-    'Flask-SQLAlchemy',
     'elastic-apm[flask]',
     'pymysql',  # install MySQLdb/mysqlclient for more performance
     'python-logstash-async',
     'slurm_rest',  # TODO: when the integrator is split out, remove this dependency
     'sqlalchemy',
+    'python_json_logger',
+    'structlog',
 ]
 
 # pip install -e .[test]

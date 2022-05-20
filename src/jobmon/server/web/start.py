@@ -1,4 +1,5 @@
 """Start up the flask services."""
+from importlib import import_module
 from typing import Any, Dict, Optional
 
 from elasticapm.contrib.flask import ElasticAPM
@@ -6,7 +7,6 @@ from flask import Flask
 import sqlalchemy
 
 from jobmon.server.web import log_config
-from jobmon.server.web import routes
 from jobmon.server.web.database import session_factory
 from jobmon.server.web.hooks_and_handlers import add_hooks_and_handlers
 from jobmon.server.web.web_config import WebConfig
@@ -53,7 +53,7 @@ class JobmonAppFactory:
             logstash_handler_config = None
         return logstash_handler_config
 
-    def create_app(self, blueprints=["finite_state_machine"]) -> Flask:
+    def create_app(self, blueprints=["fsm", "cli"]) -> Flask:
         """Create a Flask app."""
         app = Flask(__name__)
         app.config.from_mapping(self.flask_config)
@@ -71,7 +71,8 @@ class JobmonAppFactory:
             # register the blueprints we want. they make use of a scoped session attached
             # to the global session factory
             for blueprint in blueprints:
-                app.register_blueprint(getattr(routes, 'blueprint'), url_prefix="/")
+                mod = import_module(f"jobmon.server.web.routes.{blueprint}")
+                app.register_blueprint(getattr(mod, 'blueprint'), url_prefix="/")
 
             # add logger to app global context
             log_config.configure_logger("jobmon.server.web", self.logstash_handler_config)
