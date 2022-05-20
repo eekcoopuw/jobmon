@@ -23,7 +23,7 @@ class LimitedSizeDict(OrderedDict):
         OrderedDict.__init__(self, *args, **kwds)
         self._check_size_limit()
 
-    def __setitem__(self, key: str, value: Any) -> None:
+    def __setitem__(self, key: Any, value: Any) -> None:
         """Set item in dict."""
         OrderedDict.__setitem__(self, key, value)
         self._check_size_limit()

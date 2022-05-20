@@ -105,14 +105,16 @@ class Requester(object):
             return is_bad
 
         def is_423(result: Tuple[int, dict]) -> bool:
-            """
-            Return True if get_content result has 423 status, which indicates a retryable transaction on the server.
+            """Return True if get_content result has 423 status.
+
+            Indicates a retryable transaction on the server.
             """
             status = result[0]
             is_bad = status == 423
             if is_bad:
                 logger.info(
-                    f"Got HTTP status_code=423 from server. app_route: {app_route}. Retrying as per design."
+                    f"Got HTTP status_code=423 from server. app_route: {app_route}. "
+                    f"Retrying as per design."
                     f" message: {message}"
                 )
             return is_bad

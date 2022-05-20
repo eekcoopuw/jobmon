@@ -58,7 +58,7 @@ class ClusterType:
         inst = cls._cache.get(key, None)
         if inst is None:
             inst = super(ClusterType, cls).__new__(cls)
-            inst.__init__(key)
+            inst.__init__(key)  # type: ignore
             cls._cache[key] = inst
         return inst
 

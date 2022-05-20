@@ -16,6 +16,7 @@ from typing import (
     Union,
 )
 
+from jobmon.client.array import Array
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_array import SwarmArray
 from jobmon.client.swarm.swarm_task import SwarmTask
@@ -164,6 +165,7 @@ class WorkflowRun:
         self.max_concurrently_running: int = workflow.max_concurrently_running
 
         # construct arrays
+        array: Array
         for array in workflow.arrays.values():
             swarm_array = SwarmArray(array.array_id, array.max_concurrently_running)
             self.arrays[array.array_id] = swarm_array

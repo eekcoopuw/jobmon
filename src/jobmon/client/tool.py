@@ -102,7 +102,7 @@ class Tool:
         return self.active_tool_version.default_compute_resources_set
 
     @property
-    def default_resource_scales_set(self) -> Dict[Dict[str, float]]:
+    def default_resource_scales_set(self) -> Dict[str, Dict[str, float]]:
         """Default resource scales associated with active tool version."""
         return self.active_tool_version.default_resource_scales_set
 
@@ -224,12 +224,14 @@ class Tool:
             op_args,
         )
         tt.default_cluster_name = default_cluster_name
-        tt.set_default_compute_resources_from_dict(
-            default_cluster_name, default_compute_resources
-        )
-        tt.set_default_resource_scales_from_dict(
-            default_cluster_name, default_resource_scales
-        )
+        if default_compute_resources:
+            tt.set_default_compute_resources_from_dict(
+                default_cluster_name, default_compute_resources
+            )
+        if default_resource_scales:
+            tt.set_default_resource_scales_from_dict(
+                default_cluster_name, default_resource_scales
+            )
         return tt
 
     def create_workflow(
@@ -286,7 +288,10 @@ class Tool:
             if self.active_tool_version.default_compute_resources_set:
                 wf.default_compute_resources_set = self.default_compute_resources_set
         if default_resource_scales_set:
-            wf.default_resource_scales_set = default_resource_scales_set
+            wf.set_default_resource_scales_from_dict(
+                cluster_name=default_cluster_name,
+                dictionary=default_resource_scales_set,
+            )
         else:
             if self.active_tool_version.default_resource_scales_set:
                 wf.default_resource_scales_set = self.default_resource_scales_set
