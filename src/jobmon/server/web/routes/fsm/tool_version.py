@@ -1,6 +1,6 @@
 """Routes for Tool Versions."""
 from http import HTTPStatus as StatusCodes
-from typing import Any
+from typing import Any, cast, Dict
 
 from flask import jsonify, request
 import sqlalchemy
@@ -21,7 +21,7 @@ logger = structlog.get_logger(__name__)
 def add_tool_version() -> Any:
     """Add a new version for a Tool."""
     # check input variable
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
 
     try:
         tool_id = data["tool_id"]

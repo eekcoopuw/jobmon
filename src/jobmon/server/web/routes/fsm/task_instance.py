@@ -1,6 +1,6 @@
 """Routes for TaskInstances."""
 from http import HTTPStatus as StatusCodes
-from typing import Any, Optional
+from typing import Any, cast, Dict, Optional
 
 from flask import jsonify, request
 import sqlalchemy
@@ -32,7 +32,7 @@ def log_running(task_instance_id: int) -> Any:
         task_instance_id: id of the task_instance to log as running
     """
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
 
     with SessionLocal.begin() as session:
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
@@ -77,7 +77,7 @@ def log_ti_report_by(task_instance_id: int) -> Any:
         task_instance_id: id of the task_instance to log
     """
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
 
     with SessionLocal.begin() as session:
         next_report_increment = data["next_report_increment"]
@@ -118,7 +118,7 @@ def log_ti_report_by_batch() -> Any:
     Args:
         task_instance_id: id of the task_instance to log
     """
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
     tis = data.get("task_instance_ids", None)
 
     next_report_increment = data.get("next_report_increment")
@@ -151,7 +151,7 @@ def log_done(task_instance_id: int) -> Any:
         task_instance_id: id of the task_instance to log done
     """
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
 
     with SessionLocal.begin() as session:
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
@@ -185,7 +185,7 @@ def log_error_worker_node(task_instance_id: int) -> Any:
         error_message (str): message to log as error
     """
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
     error_state = data["error_state"]
     error_msg = data["error_message"].encode("latin1", "replace").decode("utf-8")
     distributor_id = data.get("distributor_id", None)
@@ -279,7 +279,7 @@ def log_no_distributor_id(task_instance_id: int) -> Any:
     """Log a task_instance_id that did not get an distributor_id upon submission."""
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
     logger.info(f"Logging ti {task_instance_id} did not get distributor id upon submission")
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
     logger.debug(f"Log NO DISTRIBUTOR ID. Data {data['no_id_err_msg']}")
     err_msg = data["no_id_err_msg"]
 
@@ -306,7 +306,7 @@ def log_distributor_id(task_instance_id: int) -> Any:
         task_instance_id: id of the task_instance to log
     """
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
     with SessionLocal.begin() as session:
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
@@ -330,7 +330,7 @@ def log_known_error(task_instance_id: int) -> Any:
         task_instance_id (int): id for task instance.
     """
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
     error_state = data["error_state"]
     error_message = data["error_message"]
     distributor_id = data.get("distributor_id", None)
@@ -365,7 +365,7 @@ def log_unknown_error(task_instance_id: int) -> Any:
         task_instance_id (int): id for task instance
     """
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
     error_state = data["error_state"]
     error_message = data["error_message"]
     distributor_id = data.get("distributor_id", None)
@@ -403,7 +403,7 @@ def log_unknown_error(task_instance_id: int) -> Any:
 @blueprint.route("/task_instance/instantiate_task_instances", methods=["POST"])
 def instantiate_task_instances() -> Any:
     """Sync status of given task intance IDs."""
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
     task_instance_ids_list = tuple([int(tid) for tid in data["task_instance_ids"]])
 
     with SessionLocal.begin() as session:

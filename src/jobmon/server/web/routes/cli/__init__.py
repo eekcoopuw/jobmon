@@ -5,5 +5,7 @@ blueprint = Blueprint('cli', __name__)
 
 from jobmon.server.web.routes.cli import (
     array,
-    task
+    task,
+    task_template,
+    workflow
 )

@@ -1,6 +1,6 @@
 """Routes for Tools."""
 from http import HTTPStatus as StatusCodes
-from typing import Any
+from typing import Any, cast, Dict
 
 from flask import jsonify, request
 import sqlalchemy
@@ -20,7 +20,7 @@ logger = structlog.get_logger(__name__)
 @blueprint.route("/tool", methods=["POST"])
 def add_tool() -> Any:
     """Add a tool to the database."""
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
     try:
         tool_name = data["name"]
     except Exception as e:

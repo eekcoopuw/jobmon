@@ -1,17 +1,13 @@
 """Routes for Tasks."""
 from http import HTTPStatus as StatusCodes
-import json
-from typing import Any, Dict, List
+from typing import Any, cast, Dict
 
 from flask import jsonify, request
-import numpy as np
-import scipy.stats as st  # type:ignore
 import sqlalchemy
 from sqlalchemy.orm import Session
 from sqlalchemy import select
 import structlog
 
-from jobmon.serializers import SerializeTaskTemplateResourceUsage
 from jobmon.server.web.models.arg import Arg
 from jobmon.server.web.models.arg_type import ArgType
 from jobmon.server.web.models.task_template import TaskTemplate
@@ -29,7 +25,7 @@ logger = structlog.get_logger(__name__)
 def get_task_template() -> Any:
     """Add a task template for a given tool to the database."""
     # check input variable
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
     try:
         tool_version_id = int(data["tool_version_id"])
         name = data["task_template_name"]
@@ -102,7 +98,7 @@ def add_task_template_version(task_template_id: int) -> Any:
     """Add a tool to the database."""
     # check input variables
     structlog.threadlocal.bind_threadlocal(task_template_id=task_template_id)
-    data = request.get_json()
+    data = cast(Dict, request.get_json())
     try:
         task_template_id = int(task_template_id)
         node_args = data["node_args"]

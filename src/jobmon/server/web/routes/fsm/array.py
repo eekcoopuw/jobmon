@@ -85,9 +85,7 @@ def record_array_batch_num(array_id: int) -> Any:
                 update(Task)
                 .where(
                     Task.id.in_(task_ids),
-                    Task.status.in_(
-                        [TaskStatus.REGISTERING, TaskStatus.ADJUSTING_RESOURCES]
-                    ),
+                    Task.status.in_([TaskStatus.REGISTERING, TaskStatus.ADJUSTING_RESOURCES]),
                 )
                 .values(
                     status=TaskStatus.QUEUED,
@@ -121,15 +119,18 @@ def record_array_batch_num(array_id: int) -> Any:
                     # batch info
                     select(func.coalesce(func.max(TaskInstance.array_batch_num) + 1, 1))
                     .where(
-                        (TaskInstance.workflow_run_id == workflow_run_id)
-                        & (TaskInstance.array_id == array_id)
+                        (TaskInstance.workflow_run_id == workflow_run_id),
+                        (TaskInstance.array_id == array_id)
                     )
                     .label("array_batch_num"),
                     (func.row_number().over(order_by=Task.id) - 1).label("array_step_id"),
                     # status columns
                     literal_column(f"'{TaskInstanceStatus.QUEUED}'").label("status"),
                     func.now().label("status_date"),
-                ).where(Task.id.in_(task_ids) & (Task.status == TaskStatus.QUEUED)),
+                ).where(
+                    Task.id.in_(task_ids),
+                    Task.status == TaskStatus.QUEUED
+                ),
                 # no python side defaults. Server defaults only
                 include_defaults=False,
             )
