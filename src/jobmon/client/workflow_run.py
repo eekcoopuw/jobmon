@@ -241,7 +241,7 @@ class WorkflowRun(object):
         cluster = self._workflow.get_cluster_by_name(task.cluster_name)
         queue = cluster.get_queue(task.queue_name)
         task_resources = TaskResources(
-            requested_resources=task.compute_resources, queue=queue
+            requested_resources=task.requested_resources, queue=queue
         )
 
         try:

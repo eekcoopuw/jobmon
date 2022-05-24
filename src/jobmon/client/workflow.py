@@ -530,7 +530,7 @@ class Workflow(object):
 
                 # validate the constructed resources
                 task_resources = TaskResources(
-                    requested_resources=task.compute_resources, queue=queue
+                    requested_resources=task.requested_resources, queue=queue
                 )
 
                 is_valid, msg = task_resources.validate_resources(strict)
