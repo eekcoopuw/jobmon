@@ -1,6 +1,6 @@
 """Exceptions only used on the Server Side."""
 
-from typing import Dict
+from typing import Dict, Optional
 
 
 # Use as base class for server side error
@@ -21,7 +21,7 @@ class InvalidUsage(ServerSideException):
 
     # TODO: make status_code a parameter for future extension. So far we only use 400
     def __init__(
-        self, msg: str, status_code: int = None, payload: tuple = None
+        self, msg: str, status_code: Optional[int] = None, payload: Optional[tuple] = None
     ) -> None:
         """Initialize ServerSide exception and default to 400 if not status_code available."""
         super().__init__(msg)
@@ -43,7 +43,7 @@ class ServerError(ServerSideException):
 
     # TODO: make status_code a parameter for future extension. So far we only use 500
     def __init__(
-        self, msg: str, status_code: int = None, payload: tuple = None
+        self, msg: str, status_code: Optional[int] = None, payload: Optional[tuple] = None
     ) -> None:
         """Initialize and assign 500 status code if none provided."""
         super().__init__(msg)

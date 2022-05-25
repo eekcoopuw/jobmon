@@ -4,23 +4,16 @@ from typing import Any, Dict, Optional
 
 from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask
-import sqlalchemy
 
 from jobmon.server.web import log_config, session_factory
 from jobmon.server.web.hooks_and_handlers import add_hooks_and_handlers
 from jobmon.server.web.web_config import WebConfig
 
 
-class JobmonAppFactory:
+class AppFactory:
 
-    def __init__(self, web_config: Optional[WebConfig] = None):
-        if web_config is None:
-            web_config = WebConfig.from_defaults()
+    def __init__(self, web_config: WebConfig):
         self._web_config = web_config
-
-        # TODO: should pool recycle be a config option?
-        self._engine = sqlalchemy.create_engine(self._web_config.conn_str, pool_recycle=200,
-                                                future=True)
 
     @property
     def flask_config(self) -> Dict[str, Any]:
@@ -52,7 +45,7 @@ class JobmonAppFactory:
             logstash_handler_config = None
         return logstash_handler_config
 
-    def create_app_context(self, blueprints=["fsm", "cli"]) -> Flask:
+    def create_app_context(self, blueprints=["fsm"]) -> Flask:
         """Create a Flask app."""
         app = Flask(__name__)
         app.config.from_mapping(self.flask_config)
@@ -65,7 +58,7 @@ class JobmonAppFactory:
         with app.app_context():
 
             # bind the engine to the session factory before importing the blueprint
-            session_factory.bind(self._engine)
+            session_factory.configure(bind=self._web_config.engine)
 
             # register the blueprints we want. they make use of a scoped session attached
             # to the global session factory

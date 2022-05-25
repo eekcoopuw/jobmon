@@ -6,7 +6,7 @@ from jobmon.constants import WorkflowRunStatus
 
 
 @pytest.fixture
-def tool(db_cfg, client_env):
+def tool(client_env):
     from jobmon.client.api import Tool
 
     tool = Tool()
@@ -34,7 +34,7 @@ def test_script():
         (np.int_(1), "1"),  # numpy int
     ],
 )
-def test_node_args(db_cfg, tool, test_script, input, expect):
+def test_node_args(tool, test_script, input, expect):
     tt = tool.get_task_template(
         template_name="arg_template",
         command_template="python {script} {arg1} {arg2}",
@@ -61,7 +61,7 @@ def test_node_args(db_cfg, tool, test_script, input, expect):
         (np.int_(1), "1"),  # numpy int
     ],
 )
-def test_task_args(db_cfg, tool, test_script, input, expect):
+def test_task_args(tool, test_script, input, expect):
     tt = tool.get_task_template(
         template_name="arg_template",
         command_template="python {script} {arg1} {arg2}",
@@ -88,7 +88,7 @@ def test_task_args(db_cfg, tool, test_script, input, expect):
         (np.int_(1), "1"),  # numpy int
     ],
 )
-def test_op_args(db_cfg, tool, test_script, input, expect):
+def test_op_args(tool, test_script, input, expect):
     tt = tool.get_task_template(
         template_name="arg_template",
         command_template="python {script} {arg1} {arg2}",

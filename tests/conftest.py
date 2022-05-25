@@ -3,7 +3,7 @@ import platform
 
 import pytest
 
-from jobmon.test_utils import test_server_config, WebServerProcess, ephemera_db_instance
+# from jobmon.test_utils import test_server_config, ephemera_db_instance
 
 logger = logging.getLogger(__name__)
 
@@ -18,27 +18,117 @@ def set_mac_to_fork():
         multiprocessing.set_start_method("fork")
 
 
+# @pytest.fixture(scope="session")
+# def ephemera(tmp_path_factory, worker_id) -> dict:
+#     """
+#     Boots exactly one instance of the test ephemera database
+
+#     Returns:
+#       a dictionary with connection parameters
+#     """
+#     return ephemera_db_instance(tmp_path_factory, worker_id)
+
+
+"""A context manager to handle the creation/teardown of the web service for testing."""
+import multiprocessing as mp
+import os
+import signal
+import socket
+import sys
+from time import sleep
+from types import TracebackType
+from typing import Any, Optional
+
+import requests
+
+
+class WebServerProcess:
+    """Context manager creates the Jobmon web server in a process and tears it down on exit."""
+
+    def __init__(self) -> None:
+        """Initializes the web server process.
+
+        Args:
+            ephemera: a dictionary containing the connection information for the database,
+            specifically the database host, port, service account user, service account
+            password, and database name
+        """
+        if sys.platform == "darwin":
+            self.web_host = "127.0.0.1"
+        else:
+            self.web_host = socket.getfqdn()
+        self.web_port = str(10_000 + os.getpid() % 30_000)
+
+    def __enter__(self) -> Any:
+        """Starts the web service process."""
+        # jobmon_cli string
+        argstr = (
+            f"web_service --sql_dialect sqlite --web_service_port {self.web_port}"
+        )
+
+        def run_server_with_handler(argstr: str) -> None:
+            def sigterm_handler(_signo: int, _stack_frame: Any) -> None:
+                # catch SIGTERM and shut down with 0 so pycov finalizers are run
+                # Raises SystemExit(0):
+                sys.exit(0)
+
+            from jobmon.server.cli import main
+
+            signal.signal(signal.SIGTERM, sigterm_handler)
+            main(argstr)
+
+        ctx = mp.get_context("fork")
+        self.p1 = ctx.Process(target=run_server_with_handler, args=(argstr,))
+        self.p1.start()
+
+        # Wait for it to be up
+        status = 404
+        count = 0
+        # We try a total of 10 times with 3 seconds between tries. If the web service is not up
+        # in 30 seconds something is likely wrong.
+        max_tries = 10
+        while not status == 200 and count < max_tries:
+            try:
+                count += 1
+                r = requests.get(f"http://{self.web_host}:{self.web_port}/health")
+                status = r.status_code
+            except Exception:
+                # Connection failures land here
+                # Safe to catch all because there is a max retry
+                pass
+            # sleep outside of try block!
+            sleep(3)
+
+        if count >= max_tries:
+            raise TimeoutError(
+                f"Out-of-process jobmon services did not answer after "
+                f"{count} attempts, probably failed to start."
+            )
+
+        return self
+
+    def __exit__(
+        self,
+        exc_type: Optional[BaseException],
+        exc_value: Optional[BaseException],
+        exc_traceback: Optional[TracebackType],
+    ) -> None:
+        """Terminate the web service process."""
+        # interrupt and join for coverage
+        self.p1.terminate()
+        self.p1.join()
+
+
 @pytest.fixture(scope="session")
-def ephemera(tmp_path_factory, worker_id) -> dict:
-    """
-    Boots exactly one instance of the test ephemera database
-
-    Returns:
-      a dictionary with connection parameters
-    """
-    return ephemera_db_instance(tmp_path_factory, worker_id)
-
-
-@pytest.fixture(scope="session")
-def web_server_process(ephemera):
+def web_server_process():
     """This starts the flask dev server in separate processes"""
-    with WebServerProcess(ephemera) as web:
+    with WebServerProcess() as web:
         yield {"JOBMON_HOST": web.web_host, "JOBMON_PORT": web.web_port}
 
 
-@pytest.fixture(scope="session")
-def db_cfg(ephemera) -> dict:
-    return test_server_config(ephemera)
+# @pytest.fixture(scope="session")
+# def db_cfg(ephemera) -> dict:
+#     return test_server_config(ephemera)
 
 
 @pytest.fixture(scope="function")
@@ -139,7 +229,7 @@ def get_task_template(tool, template_name):
 
 
 @pytest.fixture
-def tool(db_cfg, client_env):
+def tool(client_env):
     from jobmon.client.api import Tool
 
     tool = Tool()

@@ -1,5 +1,5 @@
 """Add handlers to deal with server-side exceptions and logging."""
-from typing import Any, Optional
+from typing import Any, cast, Dict, Optional, Tuple
 
 from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask, jsonify, request
@@ -8,7 +8,6 @@ from werkzeug.exceptions import BadRequest
 
 
 from jobmon.server.web.server_side_exception import InvalidUsage, ServerError
-from jobmon.server.web.database import SessionLocal
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
 logger = structlog.get_logger(__name__)
@@ -37,22 +36,22 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         response.status_code = status_code
         return response
 
-    # # handle 404 at the application level not the blueprint level
-    # @app.errorhandler(404)
-    # def page_not_found(e: ServerError) -> tuple:
-    #     return f"This route does not exist: {request.url}", 404
+    # handle 404 at the application level not the blueprint level
+    @app.errorhandler(404)
+    def page_not_found(e: Any):
+        return f"This route does not exist: {request.url}", 404
 
-    # # error handling
-    # @app.errorhandler(InvalidUsage)
-    # def handle_4xx(error: InvalidUsage) -> Any:
-    #     logger.exception(status_code=error.status_code)
-    #     if apm is not None:
-    #         apm.capture_exception(exc_info=(type(error), error, error.__traceback__))
-    #     response_dict = {"type": str(type(error)), "exception_message": str(error)}
-    #     response = jsonify(error=response_dict)
-    #     response.content_type = "application/json"
-    #     response.status_code = error.status_code
-    #     return response
+    # error handling
+    @app.errorhandler(InvalidUsage)
+    def handle_4xx(error: InvalidUsage) -> Any:
+        logger.exception(status_code=error.status_code)
+        if apm is not None:
+            apm.capture_exception(exc_info=(type(error), error, error.__traceback__))
+        response_dict = {"type": str(type(error)), "exception_message": str(error)}
+        response = jsonify(error=response_dict)
+        response.content_type = "application/json"
+        response.status_code = error.status_code
+        return response
 
     # # error handling
     # @app.errorhandler(ServerError)
@@ -72,7 +71,7 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         structlog.threadlocal.clear_threadlocal()
 
         try:
-            data = request.get_json()
+            data = cast(Dict, request.get_json())
         except BadRequest:
             # Some get requests come without any json data.
             # All requests issued by Jobmon's requester automatically come with an empty dict;
@@ -88,8 +87,3 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
             )
 
     return app
-
-    @app.after_request
-    def teardown() -> None:
-        # remove threadlocal session from registry
-        SessionLocal.remove()

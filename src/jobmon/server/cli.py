@@ -3,6 +3,7 @@ import logging
 from typing import Optional
 
 import configargparse
+import sqlalchemy
 
 from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 
@@ -27,14 +28,37 @@ class ServerCLI(CLI):
     def web_service(self, args: configargparse.Namespace) -> None:
         """Web service entrypoint logic."""
         from jobmon.server.web.api import WebConfig
-        from jobmon.server.web.start import JobmonServer
+        from jobmon.server.web.app_factory import AppFactory
+
+        if args.sql_dialect == "mysql":
+            try:
+                # default to mysqldb if installed. ~10x faster than pymysql
+                import MySQLdb  # noqa F401
+                driver = "mysqldb"
+            except (ImportError, ModuleNotFoundError):
+                # otherwise use pymysql since it is pip installable
+                import pymysql  # noqa F401
+                driver = "pymysql"
+
+            conn_str = "mysql+{driver}://{user}:{pw}@{host}:{port}/{db}".format(
+                driver=driver,
+                user=args.db_user,
+                pw=args.db_pass,
+                host=args.db_host,
+                port=args.db_port,
+                db=args.db_name,
+            )
+            engine = sqlalchemy.create_engine(conn_str, pool_recycle=200, future=True)
+        else:
+            conn_str = f"sqlite://{args.sqlite_file}"
+            engine = sqlalchemy.create_engine(
+                conn_str,
+                connect_args={'check_same_thread': False},
+                poolclass=sqlalchemy.pool.StaticPool, future=True
+            )
 
         web_config = WebConfig(
-            db_host=args.db_host,
-            db_port=args.db_port,
-            db_user=args.db_user,
-            db_pass=args.db_pass,
-            db_name=args.db_name,
+            engine=engine,
             logstash_host=args.logstash_host,
             logstash_port=args.logstash_port,
             logstash_protocol=args.logstash_protocol,
@@ -44,23 +68,21 @@ class ServerCLI(CLI):
             apm_server_name=args.apm_server_name,
             apm_port=args.apm_port,
         )
+        app_factory = AppFactory(web_config)
 
-        server = JobmonServer(web_config)
-
-        if args.command == "start":
-            raise ValueError("Web service cannot be started via command line.")
-        elif args.command == "test":
-            app = server.create_app()
+        if args.sql_dialect == "mysql":
+            app = app_factory.create_app_context()
             app.run(host="0.0.0.0", port=args.web_service_port)
-        elif args.command == "start_uwsgi":
-            import subprocess
 
-            subprocess.run("/entrypoint.sh")
-            subprocess.run("/start.sh")
+        elif args.sql_dialect == "sqlite":
+            from jobmon.server.web.models import init_db
+            init_db(web_config.engine)
+            app = app_factory.create_app_context()
+            app.run(host="0.0.0.0", port=args.web_service_port)
+
         else:
             raise ValueError(
-                "Invalid command choice. Options are (test, start and "
-                f"start_uwsgi), got ({args.command})"
+                f"Invalid command choice. Options are (mysql, sqlite), got ({args.command})"
             )
 
     def workflow_reaper(self, args: configargparse.Namespace) -> None:
@@ -102,21 +124,15 @@ class ServerCLI(CLI):
     def _add_web_service_subparser(self) -> None:
         web_service_parser = self._subparsers.add_parser("web_service", **PARSER_KWARGS)
         web_service_parser.set_defaults(func=self.web_service)
-        web_service_parser.add_argument(
-            "command",
-            type=str,
-            choices=["start", "test", "start_uwsgi"],
-            help=(
-                "The web_server sub-command to run: (start, test, start_uwsgi). Start is not"
-                " currently supported. Test creates a test instance of the jobmon Flask app "
-                "using the Flask dev server and should not be used for production"
-            ),
-        )
-        ParserDefaults.db_host(web_service_parser)
-        ParserDefaults.db_port(web_service_parser)
-        ParserDefaults.db_user(web_service_parser)
-        ParserDefaults.db_pass(web_service_parser)
-        ParserDefaults.db_name(web_service_parser)
+        ParserDefaults.sql_dialect(web_service_parser)
+        if web_service_parser.parse_known_args()[0].sql_dialect == "mysql":
+            ParserDefaults.db_host(web_service_parser)
+            ParserDefaults.db_port(web_service_parser)
+            ParserDefaults.db_user(web_service_parser)
+            ParserDefaults.db_pass(web_service_parser)
+            ParserDefaults.db_name(web_service_parser)
+        else:
+            ParserDefaults.sqlite_file(web_service_parser)
         ParserDefaults.web_service_port(web_service_parser)
         ParserDefaults.logstash_host(web_service_parser)
         ParserDefaults.logstash_port(web_service_parser)

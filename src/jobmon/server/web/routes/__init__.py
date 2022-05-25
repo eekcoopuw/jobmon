@@ -28,12 +28,9 @@ def is_alive() -> Any:
 
 
 def _get_time() -> str:
-    with SessionLocal.begin() as session:
-        time = session.execute("SELECT CURRENT_TIMESTAMP AS time").fetchone()
-        session.commit()
-    time = time["time"]
-    time = time.strftime("%Y-%m-%d %H:%M:%S")
-    return time
+    with SessionLocal() as session:
+        res = session.execute("SELECT CURRENT_TIMESTAMP").scalars().one()
+    return res
 
 
 def get_pst_now() -> Any:
