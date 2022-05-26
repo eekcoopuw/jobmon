@@ -1,5 +1,5 @@
 """Parse configuration options and set them to be used throughout the Jobmon Architecture."""
-from argparse import Namespace
+from argparse import ArgumentParser
 from contextlib import redirect_stderr, redirect_stdout
 import io
 import os
@@ -546,7 +546,8 @@ class CLI:
                 # if we have the "double case" of jobmon not being configured AND
                 # a bad argument.
                 with redirect_stdout(io.StringIO()):
-                    args = install_default_config_from_plugin(self)
+                    install_default_config_from_plugin(self.parser)
+                args = self.parser.parse_args(arglist)
             else:
                 # Case 2 – a bad argument
                 # Need to print the error_msg so they know what they did wrong
@@ -556,7 +557,7 @@ class CLI:
         return args
 
 
-def install_default_config_from_plugin(cli: CLI) -> Namespace:
+def install_default_config_from_plugin(parser: ArgumentParser):
     """Install a config from jobmon_installer plugin.
 
     Args:
@@ -589,8 +590,8 @@ def install_default_config_from_plugin(cli: CLI) -> Namespace:
         # The following lines added for GBDSCI-4452
         # If jobmon as not been configured yet, do it.
         try:
-            # Call the parser directly to avoid infinite recursion
-            args = cli.parser.parse_args()
+            # Call the parser with no values so that we use defaults
+            parser.parse_args("")
             print("Successfully configured jobmon.")
             configured = True
         except SystemExit:
@@ -601,5 +602,3 @@ def install_default_config_from_plugin(cli: CLI) -> Namespace:
             "Client not configured to access server. Please use jobmon_config "
             "command to specify which jobmon server you want to use."
         )
-
-    return args
