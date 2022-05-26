@@ -9,4 +9,4 @@ class TaskArg(DB.Model):
 
     task_id = DB.Column(DB.Integer, primary_key=True)
     arg_id = DB.Column(DB.Integer, primary_key=True)
-    val = DB.Column(DB.String(255))
+    val = DB.Column(DB.String(2048))
