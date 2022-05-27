@@ -97,7 +97,7 @@ pipeline {
         stage("Build Docs") {
           steps {
             script {
-              if (params.SKIP_DOCKS) {
+              if (params.SKIP_DOCS) {
                 echo "Skipping Docs"
               }
               else {
