@@ -1,15 +1,15 @@
 import pytest
-from unittest.mock import patch, PropertyMock
 from sqlalchemy.sql import text
+from sqlalchemy.orm import Session
 
 from jobmon.constants import WorkflowRunStatus, TaskStatus, TaskInstanceStatus
+from jobmon.client.task import Task
 from jobmon.server.web.models.task_attribute import TaskAttribute
 from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 
 
 def test_good_names():
     """tests that a few legal names return as valid"""
-    from jobmon.client.task import Task
 
     assert Task.is_valid_job_name("fred")
     assert Task.is_valid_job_name("fred123")
@@ -18,7 +18,6 @@ def test_good_names():
 
 def test_bad_names():
     """tests that invalid names return a ValueError"""
-    from jobmon.client.task import Task
 
     with pytest.raises(ValueError) as exc:
         Task.is_valid_job_name("")
@@ -61,7 +60,7 @@ def test_default_task_name(task_template):
     assert a.name == "simple_template_arg-echo_10"
 
 
-def test_task_attribute(db_cfg, tool):
+def test_task_attribute(db_engine, tool):
     """Test that you can add task attributes to Bash and Python tasks"""
     from jobmon.client.workflow_run import WorkflowRun
 
@@ -91,9 +90,7 @@ def test_task_attribute(db_cfg, tool):
     client_wfr = WorkflowRun(workflow1)
     client_wfr.bind()
 
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         query = """
         SELECT task_attribute_type.name, task_attribute.value, task_attribute_type.id
         FROM task_attribute
@@ -103,7 +100,7 @@ def test_task_attribute(db_cfg, tool):
         ORDER BY task_attribute_type.name, task_id
         """
         resp = (
-            DB.session.query(
+            session.query(
                 TaskAttribute.value, TaskAttributeType.name, TaskAttributeType.id
             )
             .from_statement(text(query))
@@ -158,9 +155,10 @@ def test_executor_parameter_copy(tool, task_template):
     assert id(task1.compute_resources) != id(task2.compute_resources)
 
 
-def test_get_errors(db_cfg, tool):
+def test_get_errors(db_engine, tool):
     """test that num attempts gets reset on a resume"""
-    from jobmon.server.web.models.task import Task
+    from jobmon.server.web.models import load_model
+    load_model()
 
     # setup workflow 1
     workflow1 = tool.create_workflow(name="test_task_instance_error_fatal")
@@ -177,11 +175,10 @@ def test_get_errors(db_cfg, tool):
     assert task_a.get_errors() is None
 
     # now set everything to error fail
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
+
+    with Session(bind=db_engine) as session:
         # fake workflow run
-        DB.session.execute(
+        session.execute(
             """
             UPDATE workflow_run
             SET status ='{s}'
@@ -189,7 +186,7 @@ def test_get_errors(db_cfg, tool):
                 s=WorkflowRunStatus.RUNNING, wfr_id=wfr_1.workflow_run_id
             )
         )
-        DB.session.execute(
+        session.execute(
             """
             INSERT INTO task_instance (workflow_run_id, task_id, status)
             VALUES ({wfr_id}, {t_id}, '{s}')
@@ -199,11 +196,11 @@ def test_get_errors(db_cfg, tool):
                 s=TaskInstanceStatus.LAUNCHED,
             )
         )
-        ti = DB.session.execute(
+        ti = session.execute(
             "SELECT id from task_instance where task_id={}".format(task_a.task_id)
         ).fetchone()
         ti_id = ti[0]
-        DB.session.execute(
+        session.execute(
             """
             UPDATE task
             SET status ='{s}'
@@ -211,7 +208,7 @@ def test_get_errors(db_cfg, tool):
                 s=TaskStatus.INSTANTIATING, t_id=task_a.task_id
             )
         )
-        DB.session.commit()
+        session.commit()
 
     # log task_instance fatal error
     app_route = f"/task_instance/{ti_id}/log_error_worker_node"
@@ -223,10 +220,10 @@ def test_get_errors(db_cfg, tool):
     assert return_code == 200
 
     # Validate that the database indicates the Dag and its Jobs are complete
-    with app.app_context():
-        t = DB.session.query(Task).filter_by(id=task_a.task_id).one()
+    with Session(bind=db_engine) as session:
+
+        t = session.query(Task).filter_by(id=task_a.task_id).one()
         assert t.status == TaskStatus.ERROR_FATAL
-        DB.session.commit()
 
     # make sure we see the 2 task_instance_error_log when checking
     # on the existing task_a, which should return a dict
@@ -241,7 +238,7 @@ def test_get_errors(db_cfg, tool):
     assert err_1st["description"] == "bla bla bla"
 
 
-def test_reset_attempts_on_resume(db_cfg, tool):
+def test_reset_attempts_on_resume(db_engine, tool):
     """test that num attempts gets reset on a resume"""
     from jobmon.server.web.models.task import Task
 
@@ -259,10 +256,8 @@ def test_reset_attempts_on_resume(db_cfg, tool):
     wfr_1._update_status(WorkflowRunStatus.ERROR)
 
     # now set everything to error fail
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        DB.session.execute(
+    with Session(bind=db_engine) as session:
+        session.execute(
             """
             UPDATE task
             SET status='{s}', num_attempts=3, max_attempts=3
@@ -270,7 +265,6 @@ def test_reset_attempts_on_resume(db_cfg, tool):
                 s=TaskStatus.ERROR_FATAL, task_id=task_a.task_id
             )
         )
-        DB.session.commit()
 
     # create a second workflow and actually run it
     workflow2 = tool.create_workflow(
@@ -282,15 +276,14 @@ def test_reset_attempts_on_resume(db_cfg, tool):
     workflow2._create_workflow_run(resume=True)
 
     # Validate that the database indicates the Dag and its Jobs are complete
-    with app.app_context():
-        t = DB.session.query(Task).filter_by(id=task_a.task_id).one()
+    with Session(bind=db_engine) as session:
+        t = session.query(Task).filter_by(id=task_a.task_id).one()
         assert t.max_attempts == 3
         assert t.num_attempts == 0
         assert t.status == TaskStatus.REGISTERING
-        DB.session.commit()
 
 
-def test_binding_length(db_cfg, client_env, tool):
+def test_binding_length(client_env, tool):
     """Test that mysql exceptions return the appropriate error code."""
 
     from jobmon.exceptions import InvalidResponse

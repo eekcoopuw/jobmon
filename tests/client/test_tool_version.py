@@ -1,5 +1,7 @@
-def test_load_task_templates(db_cfg, client_env):
-    from jobmon.client.tool import Tool
+from jobmon.client.tool import Tool
+
+
+def test_load_task_templates(client_env):
 
     # from jobmon.client.tool_version import ToolVersion
     # from jobmon.client.task_template import TaskTemplate

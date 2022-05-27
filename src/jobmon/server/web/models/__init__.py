@@ -11,13 +11,16 @@ from sqlalchemy.orm.decl_api import DeclarativeMeta
 Base: DeclarativeMeta = declarative_base()
 
 
-def init_db(engine):
-    """emit DDL for all modules in 'models'"""
-
+def load_model():
     # iterate through the modules in the current package
     package_dir = Path(__file__).resolve().parent
     for (_, module_name, _) in iter_modules([package_dir]):
         import_module(f"{__name__}.{module_name}")
+
+
+def init_db(engine):
+    """emit DDL for all modules in 'models'"""
+    load_model()
 
     Base.metadata.create_all(bind=engine)
 

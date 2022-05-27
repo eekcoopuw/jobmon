@@ -14,6 +14,7 @@ from typing import Any, Optional
 
 import pytest
 import sqlalchemy
+from sqlalchemy.engine import Engine
 
 
 logger = logging.getLogger(__name__)
@@ -35,11 +36,15 @@ class WebServerProcess:
         else:
             self.web_host = socket.getfqdn()
         self.web_port = str(10_000 + os.getpid() % 30_000)
+        self.filepath = filepath
 
     def __enter__(self) -> Any:
         """Starts the web service process."""
         # jobmon_cli string
-        argstr = f"web_service_sqlite --web_service_port {self.web_port} --sqlite_file"
+        argstr = (
+            f"web_service_sqlite --web_service_port {self.web_port} "
+            f"--sqlite_file /{self.filepath}"
+        )
 
         def run_server_with_handler(argstr: str) -> None:
             def sigterm_handler(_signo: int, _stack_frame: Any) -> None:
@@ -104,9 +109,10 @@ def set_mac_to_fork():
         multiprocessing.set_start_method("fork")
 
 
-@pytest.fixture(scope="session")
-def sqlite_file(tmpdir) -> path.local:
-    return tmpdir.join("tests.sqlite")
+@pytest.fixture(scope='session')
+def sqlite_file(tmpdir_factory) -> str:
+    file = str(tmpdir_factory.mktemp('db').join("tests.sqlite"))
+    return file
 
 
 @pytest.fixture(scope="session")
@@ -117,8 +123,8 @@ def web_server_process(sqlite_file):
 
 
 @pytest.fixture(scope="session")
-def db_engine(sqlite_file) -> sqlalchemy.Engine:
-    return test_server_config(ephemera)
+def db_engine(sqlite_file) -> Engine:
+    return sqlalchemy.create_engine(f"sqlite:///{sqlite_file}")
 
 
 @pytest.fixture(scope="function")
