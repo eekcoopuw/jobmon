@@ -103,23 +103,23 @@ pipeline {
               else {
                 // sh "${ACTIVATE} && nox --session docs"
                 sh "echo ABCD"
-                post {
-                  always {
-                    // Publish the documentation.
-                    publishHTML([
-                      allowMissing: true,
-                      alwaysLinkToLastBuild: false,
-                      keepAll: true,
-                      reportDir: 'out/_html',
-                      reportFiles: 'index.html',
-                      reportName: 'Documentation',
-                      reportTitles: ''
-                    ])
-                  } // End Always
-                } // End post
               } // End If-Else
             } // End script
           } // End step
+          post {
+            always {
+              // Publish the documentation.
+              publishHTML([
+                allowMissing: true,
+                alwaysLinkToLastBuild: false,
+                keepAll: true,
+                reportDir: 'out/_html',
+                reportFiles: 'index.html',
+                reportName: 'Documentation',
+                reportTitles: ''
+              ])
+            } // End Always
+          } // End post
         } // End build docs stage
       } // End parallel
     } // End parallel stage
