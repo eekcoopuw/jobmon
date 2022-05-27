@@ -106,20 +106,18 @@ pipeline {
             } End script
           } // End step
           post {
-            script {
-              if (params.SKIP_DOCKS == false) {
-                // Publish the documentation.
-                publishHTML([
-                  allowMissing: true,
-                  alwaysLinkToLastBuild: false,
-                  keepAll: true,
-                  reportDir: 'out/_html',
-                  reportFiles: 'index.html',
-                  reportName: 'Documentation',
-                  reportTitles: ''
-                ])
-              } // End Params check
-            } // End script
+            success {
+              // Publish the documentation.
+              publishHTML([
+                allowMissing: true,
+                alwaysLinkToLastBuild: false,
+                keepAll: true,
+                reportDir: 'out/_html',
+                reportFiles: 'index.html',
+                reportName: 'Documentation',
+                reportTitles: ''
+              ])
+            } // End success
           } // End post
         } // End build docs stage
       } // End parallel
