@@ -74,7 +74,6 @@ pipeline {
           steps {
             script {
               if (params.SKIP_LINT) {
-              }
                 echo "Skipping Lint"
               }
               else {
