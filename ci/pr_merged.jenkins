@@ -101,8 +101,7 @@ pipeline {
                 echo "Skipping Docs"
               }
               else {
-                // sh "${ACTIVATE} && nox --session docs"
-                sh "echo ABCD"
+                sh "${ACTIVATE} && nox --session docs"
               } // End If-Else
             } // End script
           } // End step
@@ -128,8 +127,7 @@ pipeline {
                 echo "Skipping Tests"
               }
               else {
-                // sh "${ACTIVATE} && nox --session tests -- tests/ -n 3"
-                sh "echo EDFG"
+                sh "${ACTIVATE} && nox --session tests -- tests/ -n 3"
               } // End If-Else
             } // End script
           } // End step
