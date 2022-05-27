@@ -100,7 +100,7 @@ pipeline {
             } // End If-Else
           } // End step
           post {
-            if (params.SKIP_DOCKS = false) {
+            if (params.SKIP_DOCKS == false) {
               // Publish the documentation.
               publishHTML([
                 allowMissing: true,
@@ -125,7 +125,7 @@ pipeline {
             } // End If-Else
           } // End step
           post {
-            if (params.SKIP_TESTS) {
+            if (params.SKIP_TESTS == false) {
               // Publish the coverage reports.
               publishHTML([
                 allowMissing: true,
