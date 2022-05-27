@@ -94,6 +94,34 @@ pipeline {
             } // End script
           } // End step
         } // End typecheck stage
+        stage("Build Docs") {
+          steps {
+            script {
+              if (params.SKIP_DOCKS) {
+                echo "Skipping Docs"
+              }
+              else {
+                sh "${ACTIVATE} && nox --session docs"
+              } // End If-Else
+            } End script
+          } // End step
+          post {
+            script {
+              if (params.SKIP_DOCKS == false) {
+                // Publish the documentation.
+                publishHTML([
+                  allowMissing: true,
+                  alwaysLinkToLastBuild: false,
+                  keepAll: true,
+                  reportDir: 'out/_html',
+                  reportFiles: 'index.html',
+                  reportName: 'Documentation',
+                  reportTitles: ''
+                ])
+              } // End Params check
+            } // End script
+          } // End post
+        } // End build docs stage
       } // End parallel
     } // End parallel stage
 //    stage ('Build Python Distribution') {
