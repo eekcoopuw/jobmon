@@ -14,7 +14,8 @@ from jobmon.server.web.routes.fsm import blueprint
 @blueprint.route("/cluster/<cluster_name>", methods=["GET"])
 def get_cluster_by_name(cluster_name: str) -> Any:
     """Get the id, cluster_type_name and connection_parameters of a Cluster."""
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(
             Cluster
         ).join(
@@ -22,7 +23,7 @@ def get_cluster_by_name(cluster_name: str) -> Any:
         ).filter(
             Cluster.name == cluster_name
         )
-        cluster = session.execute(select_stmt).one_or_none()
+        cluster = session.execute(select_stmt).scalars().one_or_none()
 
     # send back json
     if cluster is None:

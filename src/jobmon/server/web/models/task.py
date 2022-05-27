@@ -1,6 +1,6 @@
 """Task Table for the Database."""
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text, VARCHAR
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import structlog
@@ -40,9 +40,9 @@ class Task(Base):
     id = Column(Integer, primary_key=True)
     workflow_id = Column(Integer, ForeignKey("workflow.id"))
     node_id = Column(Integer, ForeignKey("node.id"))
-    task_args_hash = Column(Integer)
+    task_args_hash = Column(VARCHAR(50), index=True)
     array_id = Column(Integer, ForeignKey("array.id"), default=None)
-    name = Column(String(255))
+    name = Column(String(255), index=True)
     command = Column(Text)
     task_resources_id = Column(
         Integer, ForeignKey("task_resources.id"), default=None
@@ -53,12 +53,16 @@ class Task(Base):
     fallback_queues = Column(String(1000), default=None)
     status = Column(String(1), ForeignKey("task_status.id"))
     submitted_date = Column(DateTime)
-    status_date = Column(DateTime, default=func.now())
+    status_date = Column(DateTime, default=func.now(), index=True)
 
     # ORM relationships
     task_instances = relationship("TaskInstance", back_populates="task")
     task_resources = relationship("TaskResources", foreign_keys=[task_resources_id])
     array = relationship("Array", foreign_keys=[array_id])
+
+    __table_args__ = (
+        Index('ix_workflow_id_status_date', 'workflow_id', 'status_date'),
+    )
 
     # Finite state machine
     valid_transitions = [

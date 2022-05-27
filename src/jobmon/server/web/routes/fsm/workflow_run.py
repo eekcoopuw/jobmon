@@ -26,16 +26,17 @@ def add_workflow_run() -> Any:
     try:
         data = cast(Dict, request.get_json())
         workflow_id = int(data["workflow_id"])
-        user = data["user"],
-        jobmon_version = data["jobmon_version"],
+        user = data["user"]
+        jobmon_version = data["jobmon_version"]
+
         structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
     logger.info(f"Add wfr for workflow_id:{workflow_id}.")
 
-    with SessionLocal.begin() as session:
-
+    session = SessionLocal()
+    with session.begin():
         workflow_run = WorkflowRun(
             workflow_id=workflow_id,
             user=user,
@@ -43,7 +44,6 @@ def add_workflow_run() -> Any:
             status=constants.WorkflowRunStatus.REGISTERED,
         )
         session.add(workflow_run)
-        session.commit()
 
     logger.info(f"Add workflow_run:{workflow_run.id} for workflow.")
     resp = jsonify(workflow_run_id=workflow_run.id)
@@ -64,7 +64,8 @@ def link_workflow_run(workflow_run_id: int) -> Any:
     structlog.threadlocal.bind_threadlocal(workflow_run_id=workflow_run_id)
     logger.info(f"Linking workflow_run with {workflow_run_id}")
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(
             WorkflowRun
         ).where(
@@ -80,7 +81,6 @@ def link_workflow_run(workflow_run_id: int) -> Any:
         # check if any workflow run is in linked state.
         # if not any linked, proceed.
         current_wfr = workflow.link_workflow_run(workflow_run, next_report_increment)
-        session.commit()  # release lock
 
     resp = jsonify(current_wfr=current_wfr)
     resp.status_code = StatusCodes.OK
@@ -97,7 +97,8 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(
             WorkflowRun
         ).where(
@@ -144,7 +145,6 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
         )
 
         session.execute(update_task_instance_stmt)
-        session.commit()
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -165,7 +165,8 @@ def log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
 
     logger.debug(f"WFR {workflow_run_id} heartbeat data")
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(
             WorkflowRun
         ).where(
@@ -175,7 +176,6 @@ def log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
 
         try:
             workflow_run.heartbeat(next_report_increment, status)
-            session.commit()
             logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
         except InvalidStateTransition as e:
             session.rollback()
@@ -199,7 +199,8 @@ def log_workflow_run_status_update(workflow_run_id: int) -> Any:
 
     logger.info(f"Log status update for workflow_run_id:{workflow_run_id}.")
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(
             WorkflowRun
         ).where(
@@ -209,7 +210,6 @@ def log_workflow_run_status_update(workflow_run_id: int) -> Any:
 
         try:
             workflow_run.transition(status)
-            session.commit()
         except InvalidStateTransition:
             session.rollback()
 
@@ -233,12 +233,12 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
 
         # get time from db
         db_time = session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()["t"]
         str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
-        session.commit()
 
         where_clause = [TaskInstance.workflow_run_id == workflow_run_id]
         if len(task_instance_ids) > 0:
@@ -284,7 +284,8 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
     logger.info(f"Set to triaging those overdue tis for wfr {workflow_run_id}")
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         update_stmt = update(
             TaskInstance
         ).where(
@@ -301,7 +302,6 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
             )
         )
         session.execute(update_stmt)
-        session.commit()
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK

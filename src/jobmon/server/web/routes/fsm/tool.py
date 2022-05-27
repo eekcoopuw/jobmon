@@ -27,17 +27,17 @@ def add_tool() -> Any:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
     # add tool to db
-    with SessionLocal.begin() as session:
-        try:
+    session = SessionLocal()
+    try:
+        with session.begin():
             logger.info(f"Adding tool {tool_name}")
             tool = Tool(name=tool_name)
             session.add(tool)
-            session.commit()
-        except sqlalchemy.exc.IntegrityError:
-            session.rollback()
+    except sqlalchemy.exc.IntegrityError:
+        with session.begin():
             select_stmt = select(Tool).where(Tool.name == tool_name)
             tool = session.execute(select_stmt).scalars().one()
-        wire_format = tool.to_wire_as_client_tool()
+    wire_format = tool.to_wire_as_client_tool()
 
     resp = jsonify(tool=wire_format)
     resp.status_code = StatusCodes.OK
@@ -58,10 +58,11 @@ def get_tool_versions(tool_id: int) -> Any:
         ) from e
 
     # get data from db
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(ToolVersion).where(ToolVersion.tool_id == tool_id)
         tool_versions = session.execute(select_stmt).scalars().all()
-        wire_format = [t.to_wire_as_client_tool_version() for t in tool_versions]
+    wire_format = [t.to_wire_as_client_tool_version() for t in tool_versions]
 
     logger.info(f"Tool version for {tool_id} is {wire_format}")
     resp = jsonify(tool_versions=wire_format)

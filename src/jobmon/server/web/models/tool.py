@@ -17,6 +17,6 @@ class Tool(Base):
         return serialized
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(255), nullable=False)
+    name = Column(String(255), nullable=False, unique=True)
 
     tool_versions = relationship("ToolVersion", back_populates="tool")

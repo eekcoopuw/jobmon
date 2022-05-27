@@ -8,8 +8,8 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select
 import structlog
 
+from jobmon import constants
 from jobmon.server.web.models.arg import Arg
-from jobmon.server.web.models.arg_type import ArgType
 from jobmon.server.web.models.task_template import TaskTemplate
 from jobmon.server.web.models.task_template_version import TaskTemplateVersion
 from jobmon.server.web.models.template_arg_map import TemplateArgMap
@@ -38,13 +38,13 @@ def get_task_template() -> Any:
     logger.info(f"Add task tamplate for tool_version_id {tool_version_id} ")
 
     # add to DB
-    with SessionLocal.begin() as session:
-        try:
+    session = SessionLocal()
+    try:
+        with session.begin():
             task_template = TaskTemplate(tool_version_id=tool_version_id, name=name)
             session.add(task_template)
-            session.commit()
-        except sqlalchemy.exc.IntegrityError:
-            session.rollback()
+    except sqlalchemy.exc.IntegrityError:
+        with session.begin():
             select_stmt = select(
                 TaskTemplate
             ).where(
@@ -52,7 +52,6 @@ def get_task_template() -> Any:
                 TaskTemplate.name == name
             )
             task_template = session.execute(select_stmt).scalars().one()
-            session.commit()
 
     resp = jsonify(task_template_id=task_template.id)
     resp.status_code = StatusCodes.OK
@@ -66,7 +65,8 @@ def get_task_template_versions(task_template_id: int) -> Any:
     structlog.threadlocal.bind_threadlocal(task_template_id=task_template_id)
     logger.info(f"Getting task template version for task template: {task_template_id}")
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(
             TaskTemplateVersion
         ).where(
@@ -82,14 +82,13 @@ def get_task_template_versions(task_template_id: int) -> Any:
 
 def _add_or_get_arg(name: str, session: Session) -> Arg:
     try:
-        arg = Arg(name=name)
-        session.add(arg)
-        session.flush()
+        with session.begin_nested():
+            arg = Arg(name=name)
+            session.add(arg)
     except sqlalchemy.exc.IntegrityError:
-        session.rollback()
-        select_stmt = select(Arg).where(Arg.name == name)
-        arg = session.execute(select_stmt).scalars().one()
-        session.flush()
+        with session.begin_nested():
+            select_stmt = select(Arg).where(Arg.name == name)
+            arg = session.execute(select_stmt).scalars().one()
     return arg
 
 
@@ -105,35 +104,43 @@ def add_task_template_version(task_template_id: int) -> Any:
         task_args = data["task_args"]
         op_args = data["op_args"]
         command_template = data["command_template"]
-        arg_mapping_hash = data["arg_mapping_hash"]
+        arg_mapping_hash = str(data["arg_mapping_hash"])
     except Exception as e:
         raise InvalidUsage(
             f"{str(e)} in request to {request.path}", status_code=400
         ) from e
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         # populate the argument table
         arg_mapping_dct: dict = {
-            ArgType.NODE_ARG: [],
-            ArgType.TASK_ARG: [],
-            ArgType.OP_ARG: [],
+            constants.ArgType.NODE_ARG: [],
+            constants.ArgType.TASK_ARG: [],
+            constants.ArgType.OP_ARG: [],
         }
         for arg_name in node_args:
-            arg_mapping_dct[ArgType.NODE_ARG].append(_add_or_get_arg(arg_name, session))
+            arg_mapping_dct[constants.ArgType.NODE_ARG].append(
+                _add_or_get_arg(arg_name, session)
+            )
         for arg_name in task_args:
-            arg_mapping_dct[ArgType.TASK_ARG].append(_add_or_get_arg(arg_name, session))
+            arg_mapping_dct[constants.ArgType.TASK_ARG].append(
+                _add_or_get_arg(arg_name, session)
+            )
         for arg_name in op_args:
-            arg_mapping_dct[ArgType.OP_ARG].append(_add_or_get_arg(arg_name, session))
-        session.commit()
+            arg_mapping_dct[constants.ArgType.OP_ARG].append(
+                _add_or_get_arg(arg_name, session)
+            )
 
-        try:
+    try:
+        with session.begin():
+
             ttv = TaskTemplateVersion(
                 task_template_id=task_template_id,
                 command_template=command_template,
                 arg_mapping_hash=arg_mapping_hash,
             )
             session.add(ttv)
-            session.commit()
+            session.flush()
 
             # get a lock
             session.refresh(ttv, with_for_update=True)
@@ -145,12 +152,12 @@ def add_task_template_version(task_template_id: int) -> Any:
                         arg_type_id=arg_type_id,
                     )
                     session.add(ctatm)
-            session.commit()
+            session.flush()
 
             task_template_version = ttv.to_wire_as_client_task_template_version()
 
-        except sqlalchemy.exc.IntegrityError:
-            session.rollback()
+    except sqlalchemy.exc.IntegrityError:
+        with session.begin():
             # if another process is adding this task_template_version then this query should
             # block until the template_arg_map has been populated and committed
             select_stmt = select(
@@ -161,7 +168,6 @@ def add_task_template_version(task_template_id: int) -> Any:
                 TaskTemplateVersion.arg_mapping_hash == arg_mapping_hash,
             )
             ttv = session.execute(select_stmt).scalars().one()
-            session.commit()
 
             task_template_version = ttv.to_wire_as_client_task_template_version()
 

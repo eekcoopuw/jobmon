@@ -33,18 +33,17 @@ def add_dag() -> Any:
     structlog.threadlocal.bind_threadlocal(dag_hash=str(dag_hash))
     logger.info(f"Add dag:{dag_hash}")
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
 
-        try:
+    try:
+        with session.begin():
             dag = Dag(hash=dag_hash)
             session.add(dag)
-            session.commit()
 
-        except sqlalchemy.exc.IntegrityError:
-            session.rollback()
+    except sqlalchemy.exc.IntegrityError:
+        with session.begin():
             select_stmt = select(Dag).filter(Dag.hash == dag_hash)
             dag = session.execute(select_stmt).scalar_one()
-            session.commit()
 
     # return result
     resp = jsonify(dag_id=dag.id, created_date=dag.created_date)
@@ -81,14 +80,15 @@ def add_edges(dag_id: int) -> Any:
 
     # Bulk insert the nodes and node args with raw SQL, for performance. Ignore duplicate
     # keys
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         insert_stmt = insert(Edge).values(edges_to_add)
         if SessionLocal.bind.dialect.name == "mysql":
             insert_stmt = insert_stmt.prefix_with("IGNORE")
         if SessionLocal.bind.dialect.name == "sqlite":
             insert_stmt = insert_stmt.prefix_with("OR IGNORE")
         session.execute(insert_stmt)
-        session.commit()
+        session.flush()
 
         if mark_created:
             update_stmt = update(
@@ -96,10 +96,9 @@ def add_edges(dag_id: int) -> Any:
             ).where(
                 Dag.id == dag_id
             ).values(
-                Dag.created_date == func.now()
+                created_date=func.now()
             )
             session.execute(update_stmt)
-            session.commit()
 
     # return result
     resp = jsonify()

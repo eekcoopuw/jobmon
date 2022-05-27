@@ -19,7 +19,8 @@ def get_task_resources(task_resources_id: int) -> Any:
     """Return an task_resources."""
     structlog.threadlocal.bind_threadlocal(task_resources_id=task_resources_id)
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(TaskResources).where(TaskResources.id == task_resources_id)
         task_resources = session.execute(select_stmt).scalars().one()
 

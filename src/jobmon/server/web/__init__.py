@@ -2,4 +2,4 @@
 from sqlalchemy import orm
 
 # configurable session factory. add an engine using session_factory.configure(bind=eng)
-session_factory = orm.sessionmaker(autocommit=False, autoflush=False, future=True)
+session_factory = orm.sessionmaker(future=True)

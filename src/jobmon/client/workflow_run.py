@@ -123,7 +123,7 @@ class WorkflowRun(object):
             message={
                 "workflow_id": self.workflow_id,
                 "user": self.user,
-                "jobmon_version": __version__,
+                "jobmon_version": __version__
             },
             request_type="post",
         )
@@ -200,7 +200,7 @@ class WorkflowRun(object):
 
                 task_metadata[task_hash] = [
                     task.node.node_id,
-                    task.task_args_hash,
+                    str(task.task_args_hash),
                     task.array.array_id,
                     task.original_task_resources.id,
                     task.name,

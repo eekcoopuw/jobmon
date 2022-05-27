@@ -11,6 +11,6 @@ class Arg(Base):
     __tablename__ = "arg"
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(255))
+    name = Column(String(255), unique=True)
 
     template_arg_map = relationship("TemplateArgMap", back_populates="argument")

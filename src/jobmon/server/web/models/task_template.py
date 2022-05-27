@@ -1,5 +1,5 @@
 """Task Template database table."""
-from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy import Column, ForeignKey, Integer, UniqueConstraint, VARCHAR
 from sqlalchemy.orm import relationship
 
 from jobmon.serializers import SerializeClientTaskTemplate
@@ -21,10 +21,14 @@ class TaskTemplate(Base):
 
     id = Column(Integer, primary_key=True)
     tool_version_id = Column(Integer, ForeignKey("tool_version.id"))
-    name = Column(String(255))
+    name = Column(VARCHAR(255))
 
     # orm relationship
     tool_versions = relationship("ToolVersion", back_populates="task_templates")
     task_template_versions = relationship(
         "TaskTemplateVersion", back_populates="task_template"
+    )
+
+    __table_args__ = (
+        UniqueConstraint('tool_version_id', 'name', name='uc_tool_version_id_name'),
     )

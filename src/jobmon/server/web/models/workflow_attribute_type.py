@@ -12,7 +12,7 @@ class WorkflowAttributeType(Base):
     __tablename__ = "workflow_attribute_type"
 
     id = Column(Integer, primary_key=True)
-    name = Column(String(255))
+    name = Column(String(255), unique=True)
 
     @classmethod
     def from_wire(cls: Any, dct: Dict) -> Any:

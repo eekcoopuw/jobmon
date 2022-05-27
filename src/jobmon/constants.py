@@ -1,6 +1,13 @@
 """Constants declared for different statuses, types and codes throughout Jobmon."""
 
 
+class ArgType:
+
+    NODE_ARG = 1
+    TASK_ARG = 2
+    OP_ARG = 3
+
+
 class TaskResourcesType:
     """Constant Types for Task Resources."""
 

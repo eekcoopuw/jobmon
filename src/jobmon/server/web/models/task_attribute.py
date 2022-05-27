@@ -15,7 +15,7 @@ class TaskAttribute(Base):
     task_attribute_type_id = Column(
         Integer, ForeignKey("task_attribute_type.id"), primary_key=True
     )
-    value = Column(String(2000))
+    value = Column(String(255))
 
     @classmethod
     def from_wire(cls: Any, dct: Dict) -> Any:

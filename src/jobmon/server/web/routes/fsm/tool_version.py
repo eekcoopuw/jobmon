@@ -30,17 +30,17 @@ def add_tool_version() -> Any:
             f"{str(e)} in request to {request.path}", status_code=400
         ) from e
 
-    with SessionLocal.begin() as session:
-        try:
+    session = SessionLocal()
+    try:
+        with session.begin():
             tool_version = ToolVersion(tool_id=tool_id)
             session.add(tool_version)
-            session.commit()
-        except sqlalchemy.exc.IntegrityError:
-            session.rollback()
+    except sqlalchemy.exc.IntegrityError:
+        with session.begin():
             select_stmt = select(ToolVersion).where(ToolVersion.tool_id == tool_id)
             tool_version = session.execute(select_stmt).scalars().one()
 
-        wire_format = tool_version.to_wire_as_client_tool_version()
+    wire_format = tool_version.to_wire_as_client_tool_version()
 
     resp = jsonify(tool_version=wire_format)
     resp.status_code = StatusCodes.OK
@@ -56,7 +56,8 @@ def get_task_templates(tool_version_id: int) -> Any:
     structlog.threadlocal.bind_threadlocal(tool_version_id=tool_version_id)
     logger.info("Getting available task_templates")
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(
             TaskTemplate
         ).where(

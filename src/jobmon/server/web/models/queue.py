@@ -1,9 +1,10 @@
 """Queue Table in the Database."""
-from sqlalchemy import Column, Integer, String, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, select, String, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import relationship, Session
 
 from jobmon.serializers import SerializeQueue
 from jobmon.server.web.models import Base
+from jobmon.server.web.models.cluster import Cluster
 
 
 class Queue(Base):
@@ -22,3 +23,15 @@ class Queue(Base):
 
     # ORM relationships
     cluster = relationship("Cluster", back_populates="queues")
+
+    __table_args__ = (
+        UniqueConstraint('name', 'cluster_id', name='uc_name_cluster_id'),
+    )
+
+
+def add_queues(session: Session):
+    for cluster_name in ["dummy", "sequential", "multiprocess"]:
+        cluster = session.execute(
+            select(Cluster).where(Cluster.name == cluster_name)
+        ).scalars().one()
+        session.add(Queue(name="null.q", cluster_id=cluster.id, parameters='{}'))

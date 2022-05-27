@@ -1,5 +1,6 @@
 """Routes for Tasks."""
 from http import HTTPStatus as StatusCodes
+import json
 from typing import Any, cast, Dict, List, Set, Union
 
 from flask import jsonify, request
@@ -9,6 +10,7 @@ from sqlalchemy.exc import DataError
 import structlog
 
 from jobmon import constants
+from jobmon.server.web._compat import add_ignore
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_arg import TaskArg
 from jobmon.server.web.models.task_attribute import TaskAttribute
@@ -18,7 +20,6 @@ from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLo
 from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.fsm import blueprint
-from jobmon.server.web.routes._compat import add_ignore
 from jobmon.server.web.server_side_exception import InvalidUsage, ServerError
 
 
@@ -38,7 +39,8 @@ def bind_tasks() -> Any:
     # command(6), max_attempts(7), reset_if_running(8),
     # task_args(9),task_attributes(10),resource_scales(11)]}
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         # Retrieve existing task_ids
         task_select_stmt = select(
             Task
@@ -55,7 +57,7 @@ def bind_tasks() -> Any:
         # Bind tasks not present in DB
         tasks_to_add: List[Dict] = []  # Container for tasks not yet bound to the database
         present_tasks = {
-            (task.node_id, int(task.task_args_hash)): task for task in prebound_tasks
+            (task.node_id, task.task_args_hash): task for task in prebound_tasks
         }  # Dictionary mapping existing Tasks to the supplied arguments
         arg_attr_mapping = {}  # Dict mapping input tasks to the corresponding args/attributes
         task_hash_lookup = {}  # Reverse dictionary of inputs, maps hash back to values
@@ -76,7 +78,7 @@ def bind_tasks() -> Any:
                 fallback_queues,
             ) = items
 
-            id_tuple = (node_id, int(arg_hash))
+            id_tuple = (node_id, arg_hash)
 
             # Conditional logic: Has task already been bound to the DB? If yes, reset the
             # task status and update the args/attributes
@@ -141,7 +143,7 @@ def bind_tasks() -> Any:
         return_tasks = {}
 
         for task in prebound_tasks + new_tasks:
-            id_tuple = (task.node_id, int(task.task_args_hash))
+            id_tuple = (task.node_id, task.task_args_hash)
             hashval = task_hash_lookup[id_tuple]
             return_tasks[hashval] = [task.id, task.status]
 
@@ -202,7 +204,6 @@ def bind_tasks() -> Any:
                 session.execute(arg_insert_stmt)
             except DataError as e:
                 # Args likely too long, message back
-                session.rollback()
                 raise InvalidUsage(
                     "Task Args are constrained to 1000 characters, you may have values "
                     f"that are too long. Message: {str(e)}",
@@ -230,13 +231,11 @@ def bind_tasks() -> Any:
 
             except DataError as e:
                 # Attributes too long, message back
-                session.rollback()
                 raise InvalidUsage(
                     "Task attributes are constrained to 255 characters, you may have values "
                     f"that are too long. Message: {str(e)}",
                     status_code=400,
                 ) from e
-        session.commit()
 
     resp = jsonify(tasks=return_tasks)
     resp.status_code = StatusCodes.OK
@@ -249,12 +248,10 @@ def _add_or_get_attribute_type(
 ) -> List[TaskAttributeType]:
     attribute_types = [{"name": name} for name in names]
     try:
-        insert_stmt = add_ignore(insert(TaskAttributeType))
-        session.execute(insert_stmt, attribute_types)
-        session.flush()
+        with session.begin_nested():
+            insert_stmt = add_ignore(insert(TaskAttributeType))
+            session.execute(insert_stmt, attribute_types)
     except DataError as e:
-        # Attributes likely too long, message back
-        session.rollback()
         raise InvalidUsage(
             "Attribute types are constrained to 255 characters, your "
             f"attributes might be too long. Message: {str(e)}",
@@ -276,15 +273,15 @@ def bind_task_resources() -> Any:
     """Add the task resources for a given task."""
     data = cast(Dict, request.get_json())
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
 
         new_resources = TaskResources(
             queue_id=data["queue_id"],
             task_resources_type_id=data.get("task_resources_type_id", None),
-            requested_resources=data.get("requested_resources", None),
+            requested_resources=json.dumps(data.get("requested_resources", None)),
         )
         session.add(new_resources)
-        session.commit()
 
     resp = jsonify(new_resources.id)
     resp.status_code = StatusCodes.OK
@@ -303,7 +300,10 @@ def get_most_recent_ti_error(task_id: int) -> Any:
     """
     structlog.threadlocal.bind_threadlocal(task_id=task_id)
     logger.info(f"Getting most recent ji error for ti {task_id}")
-    with SessionLocal.begin() as session:
+
+    session = SessionLocal()
+    with session.begin():
+
         select_stmt = select(
             TaskInstanceErrorLog
         ).join_from(
@@ -315,7 +315,6 @@ def get_most_recent_ti_error(task_id: int) -> Any:
             desc(TaskInstance.id)
         ).limit(1)
         ti_error = session.execute(select_stmt).scalars().one_or_none()
-        session.commit()
 
     if ti_error is not None:
         resp = jsonify(

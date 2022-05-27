@@ -31,7 +31,8 @@ def add_nodes() -> Any:
 
     # Bulk insert the nodes and node args with raw SQL, for performance. Ignore duplicate
     # keys
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         node_keys = [
             (n["task_template_version_id"], n["node_args_hash"]) for n in data["nodes"]
         ]
@@ -47,7 +48,7 @@ def add_nodes() -> Any:
             node_insert_stmt = node_insert_stmt.prefix_with("OR IGNORE")
 
         session.execute(node_insert_stmt)
-        session.commit()
+        session.flush()
 
         # Retrieve the node IDs
         ttvids, node_arg_hashes = zip(*node_keys)
@@ -60,12 +61,12 @@ def add_nodes() -> Any:
         nodes = session.execute(select_stmt).scalars().all()
 
         node_id_dict = {
-            (n.task_template_version_id, str(n.node_args_hash)): n.id for n in nodes
+            (n.task_template_version_id, n.node_args_hash): n.id for n in nodes
         }
 
         # Add node args. Cast hash to string to match DB schema
         node_args = {
-            (n["task_template_version_id"], str(n["node_args_hash"])): n["node_args"]
+            (n["task_template_version_id"], n["node_args_hash"]): n["node_args"]
             for n in data["nodes"]
         }
 
@@ -85,12 +86,12 @@ def add_nodes() -> Any:
         if node_args_list:
             node_arg_insert_stmt = insert(NodeArg).values(node_args_list)
             if SessionLocal.bind.dialect.name == "mysql":
-                node_insert_stmt = node_insert_stmt.prefix_with("IGNORE")
+                node_arg_insert_stmt = node_arg_insert_stmt.prefix_with("IGNORE")
             if SessionLocal.bind.dialect.name == "sqlite":
-                node_insert_stmt = node_insert_stmt.prefix_with("OR IGNORE")
+                node_arg_insert_stmt = node_arg_insert_stmt.prefix_with("OR IGNORE")
 
             session.execute(node_arg_insert_stmt)
-            session.commit()
+            session.flush()
 
     # return result
     return_nodes = {":".join(str(i) for i in key): val for key, val in node_id_dict.items()}

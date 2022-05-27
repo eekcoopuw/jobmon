@@ -2,6 +2,7 @@
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship, Session
 
+from jobmon import constants
 from jobmon.server.web.models import Base
 
 
@@ -10,8 +11,12 @@ class ArgType(Base):
 
     __tablename__ = "arg_type"
 
+    NODE_ARG = constants.ArgType.NODE_ARG
+    TASK_ARG = constants.ArgType.TASK_ARG
+    OP_ARG = constants.ArgType.OP_ARG
+
     id = Column(Integer, primary_key=True)
-    name = Column(String(255))
+    name = Column(String(255), unique=True)
 
     template_arg_map = relationship("TemplateArgMap", back_populates="argument_type")
 

@@ -1,7 +1,7 @@
 """Task Instance Database Table."""
 from typing import Tuple
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import structlog
@@ -46,14 +46,14 @@ class TaskInstance(Base):
         )
 
     id = Column(Integer, primary_key=True)
-    workflow_run_id = Column(Integer)
+    workflow_run_id = Column(Integer, ForeignKey("workflow_run.id"))
     array_id = Column(Integer, ForeignKey("array.id"), default=None)
-    cluster_id = Column(Integer, ForeignKey("cluster.id"))
-    distributor_id = Column(Integer, index=True)
     task_id = Column(Integer, ForeignKey("task.id"))
-    task_resources_id = Column(Integer, ForeignKey("task_resources.id"))
-    array_batch_num = Column(Integer)
-    array_step_id = Column(Integer)
+    task_resources_id = Column(Integer, ForeignKey("task_resources.id"), index=True)
+    array_batch_num = Column(Integer, index=True)
+    array_step_id = Column(Integer, index=True)
+
+    distributor_id = Column(Integer, index=True)
 
     # usage
     nodename = Column(String(150))
@@ -64,8 +64,8 @@ class TaskInstance(Base):
     maxpss = Column(String(50))
     cpu = Column(String(50))
     io = Column(String(50))
-    stdout = Column(String(150))
-    stderr = Column(String(150))
+    stdout = Column(String(250))
+    stderr = Column(String(250))
 
     # status/state
     status = Column(
@@ -81,6 +81,11 @@ class TaskInstance(Base):
     task = relationship("Task", back_populates="task_instances")
     errors = relationship("TaskInstanceErrorLog", back_populates="task_instance")
     task_resources = relationship("TaskResources")
+
+    __table_args__ = (
+        Index('ix_array_batch_index', 'array_id', 'array_batch_num', 'array_step_id',),
+        Index('ix_status_status_date', 'status', 'status_date'),
+    )
 
     # finite state machine transition information
     valid_transitions = [

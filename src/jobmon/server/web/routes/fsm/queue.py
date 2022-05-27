@@ -16,7 +16,8 @@ def get_queue_by_cluster_queue_names(cluster_id: int, queue_name: str) -> Any:
 
     Based on cluster_name and queue_name.
     """
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(
             Queue
         ).where(

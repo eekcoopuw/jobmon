@@ -12,6 +12,7 @@ import structlog
 from jobmon import constants
 from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeTaskInstanceBatch
+from jobmon.server.web._compat import add_time
 from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
@@ -34,7 +35,8 @@ def log_running(task_instance_id: int) -> Any:
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
     data = cast(Dict, request.get_json())
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
 
@@ -45,9 +47,7 @@ def log_running(task_instance_id: int) -> Any:
         task_instance.process_group_id = data["process_group_id"]
         try:
             task_instance.transition(constants.TaskInstanceStatus.RUNNING)
-            task_instance.report_by_date = func.ADDTIME(
-                func.now(), func.SEC_TO_TIME(data["next_report_increment"])
-            )
+            task_instance.report_by_date = add_time(data["next_report_increment"])
         except InvalidStateTransition as e:
             if task_instance.status == constants.TaskInstanceStatus.RUNNING:
                 logger.warning(e)
@@ -56,8 +56,6 @@ def log_running(task_instance_id: int) -> Any:
             else:
                 # Tried to move to an illegal state
                 logger.error(e)
-
-        session.commit()
 
     resp = jsonify(task_instance=task_instance.to_wire_as_worker_node_task_instance())
     resp.status_code = StatusCodes.OK
@@ -79,7 +77,8 @@ def log_ti_report_by(task_instance_id: int) -> Any:
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
     data = cast(Dict, request.get_json())
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         next_report_increment = data["next_report_increment"]
         update_stmt = update(
             TaskInstance
@@ -87,19 +86,18 @@ def log_ti_report_by(task_instance_id: int) -> Any:
             TaskInstance.id == task_instance_id
         )
         vals = {
-            "report_by_date": func.ADDTIME(func.CURRENT_TIMESTAMP(), next_report_increment)
+            "report_by_date": add_time(next_report_increment)
         }
         distributor_id = data.get("distributor_id", None)
         if distributor_id is not None:
             vals["distributor_id"] = distributor_id
         session.execute(update_stmt.values(**vals))
-        session.commit()
+        session.flush()
 
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
         if task_instance.status == constants.TaskInstanceStatus.TRIAGING:
             task_instance.transition(constants.TaskInstanceStatus.RUNNING)
-        session.commit()
 
     resp = jsonify(status=task_instance.status)
     resp.status_code = StatusCodes.OK
@@ -121,22 +119,22 @@ def log_ti_report_by_batch() -> Any:
     data = cast(Dict, request.get_json())
     tis = data.get("task_instance_ids", None)
 
-    next_report_increment = data.get("next_report_increment")
+    next_report_increment = float(data.get("next_report_increment"))
 
     logger.debug(f"Log report_by for TI {tis}.")
     if tis:
-        with SessionLocal.begin() as session:
+        session = SessionLocal()
+        with session.begin():
             update_stmt = update(
                 TaskInstance
             ).where(
                 TaskInstance.id.in_(tis),
                 TaskInstance.status == constants.TaskInstanceStatus.LAUNCHED
             ).values(
-                func.ADDTIME(func.CURRENT_TIMESTAMP(), next_report_increment)
+                report_by_date=add_time(next_report_increment)
             )
 
             session.execute(update_stmt)
-            session.commit()
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -153,7 +151,9 @@ def log_done(task_instance_id: int) -> Any:
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
     data = cast(Dict, request.get_json())
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
+
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
 
@@ -169,7 +169,6 @@ def log_done(task_instance_id: int) -> Any:
             else:
                 # Tried to move to an illegal state
                 logger.error(e)
-        session.commit()
 
     resp = jsonify(status=task_instance.status)
     resp.status_code = StatusCodes.OK
@@ -192,7 +191,9 @@ def log_error_worker_node(task_instance_id: int) -> Any:
     nodename = data.get("nodename", None)
     logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
+
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
 
@@ -212,7 +213,6 @@ def log_error_worker_node(task_instance_id: int) -> Any:
             else:
                 # Tried to move to an illegal state
                 logger.error(e)
-        session.commit()
 
     resp = jsonify(status=task_instance.status)
     resp.status_code = StatusCodes.OK
@@ -232,7 +232,9 @@ def get_task_instance_error_log(task_instance_id: int) -> Any:
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
     logger.info(f"Getting task instance error log for ti {task_instance_id}")
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
+
         select_stmt = select(
             TaskInstanceErrorLog
         ).where(
@@ -241,7 +243,6 @@ def get_task_instance_error_log(task_instance_id: int) -> Any:
             TaskInstanceErrorLog.task_instance_id
         )
         res = session.execute(select_stmt).scalars().all()
-        session.commit()
 
     resp = jsonify(task_instance_error_log=[tiel.to_wire() for tiel in res])
     resp.status_code = StatusCodes.OK
@@ -259,7 +260,9 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> A
     """
     structlog.threadlocal.bind_threadlocal(array_id=array_id)
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
+
         select_stmt = select(
             TaskInstance
         ).where(
@@ -283,7 +286,8 @@ def log_no_distributor_id(task_instance_id: int) -> Any:
     logger.debug(f"Log NO DISTRIBUTOR ID. Data {data['no_id_err_msg']}")
     err_msg = data["no_id_err_msg"]
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
         msg = _update_task_instance_state(
@@ -291,7 +295,6 @@ def log_no_distributor_id(task_instance_id: int) -> Any:
         )
         error = TaskInstanceErrorLog(task_instance_id=task_instance.id, description=err_msg)
         session.add(error)
-        session.commit()
 
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
@@ -307,15 +310,14 @@ def log_distributor_id(task_instance_id: int) -> Any:
     """
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
     data = cast(Dict, request.get_json())
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
+
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
         msg = _update_task_instance_state(task_instance, constants.TaskInstanceStatus.LAUNCHED)
         task_instance.distributor_id = data["distributor_id"]
-        task_instance.report_by_date = func.ADDTIME(
-            func.now(), func.SEC_TO_TIME(data["next_report_increment"])
-        )
-        session.commit()
+        task_instance.report_by_date = add_time(data["next_report_increment"])
 
     resp = jsonify(message=msg)
     resp.status_code = StatusCodes.OK
@@ -337,7 +339,8 @@ def log_known_error(task_instance_id: int) -> Any:
     nodename = data.get("nodename", None)
     logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
 
@@ -372,7 +375,8 @@ def log_unknown_error(task_instance_id: int) -> Any:
     nodename = data.get("nodename", None)
     logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         # make sure the task hasn't logged a new heartbeat since we began
         # reconciliation
         select_stmt = select(
@@ -382,18 +386,20 @@ def log_unknown_error(task_instance_id: int) -> Any:
             TaskInstance.report_by_date <= func.CURRENT_TIMESTAMP()
         )
         task_instance = session.execute(select_stmt).scalars().one_or_none()
+        session.flush()
 
-    if task_instance is not None:
-        try:
-            resp = _log_error(
-                session, task_instance, error_state, error_message, distributor_id, nodename
-            )
-        except sqlalchemy.exc.OperationalError:
-            # modify the error message and retry
-            new_msg = error_message.encode("latin1", "replace").decode("utf-8")
-            resp = _log_error(
-                session, task_instance, error_state, new_msg, distributor_id, nodename
-            )
+        if task_instance is not None:
+            try:
+                resp = _log_error(
+                    session, task_instance, error_state, error_message, distributor_id,
+                    nodename
+                )
+            except sqlalchemy.exc.OperationalError:
+                # modify the error message and retry
+                new_msg = error_message.encode("latin1", "replace").decode("utf-8")
+                resp = _log_error(
+                    session, task_instance, error_state, new_msg, distributor_id, nodename
+                )
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -406,91 +412,86 @@ def instantiate_task_instances() -> Any:
     data = cast(Dict, request.get_json())
     task_instance_ids_list = tuple([int(tid) for tid in data["task_instance_ids"]])
 
-    with SessionLocal.begin() as session:
-        try:
+    session = SessionLocal()
+    with session.begin():
 
-            # update the task table where FSM allows it
-            task_update = (
-                update(Task)
-                .where(
-                    Task.id.in_(
-                        select(Task.id)
-                        .join(TaskInstance, TaskInstance.task_id == Task.id)
-                        .where(
-                            TaskInstance.id.in_(task_instance_ids_list),
-                            (Task.status == constants.TaskStatus.QUEUED),
-                        )
+        # update the task table where FSM allows it
+        task_update = (
+            update(Task)
+            .where(
+                Task.id.in_(
+                    select(Task.id)
+                    .join(TaskInstance, TaskInstance.task_id == Task.id)
+                    .where(
+                        TaskInstance.id.in_(task_instance_ids_list),
+                        (Task.status == constants.TaskStatus.QUEUED),
                     )
                 )
-                .values(status=constants.TaskStatus.INSTANTIATING, status_date=func.now())
-                .execution_options(synchronize_session=False)
             )
-            session.execute(task_update)
+            .values(status=constants.TaskStatus.INSTANTIATING, status_date=func.now())
+            .execution_options(synchronize_session=False)
+        )
+        session.execute(task_update)
 
-            # then propagate back into task instance where a change was made
-            task_instance_update = (
-                update(TaskInstance)
-                .where(
-                    TaskInstance.id.in_(
-                        select(TaskInstance.id)
-                        .join(Task, TaskInstance.task_id == Task.id)
-                        .where(
-                            # a successful transition
-                            (Task.status == constants.TaskStatus.INSTANTIATING),
-                            # and part of the current set
-                            TaskInstance.id.in_(task_instance_ids_list),
-                        )
+        # then propagate back into task instance where a change was made
+        task_instance_update = (
+            update(TaskInstance)
+            .where(
+                TaskInstance.id.in_(
+                    select(TaskInstance.id)
+                    .join(Task, TaskInstance.task_id == Task.id)
+                    .where(
+                        # a successful transition
+                        (Task.status == constants.TaskStatus.INSTANTIATING),
+                        # and part of the current set
+                        TaskInstance.id.in_(task_instance_ids_list),
                     )
                 )
-                .values(
-                    status=constants.TaskInstanceStatus.INSTANTIATED,
-                    status_date=func.now())
-                .execution_options(synchronize_session=False)
             )
-            session.execute(task_instance_update)
+            .values(
+                status=constants.TaskInstanceStatus.INSTANTIATED,
+                status_date=func.now())
+            .execution_options(synchronize_session=False)
+        )
+        session.execute(task_instance_update)
 
-        except Exception:
-            session.rollback()
-            raise
-        else:
-            session.commit()
-
-            instantiated_batches_query = (
-                select(
-                    TaskInstance.array_id,
-                    TaskInstance.array_batch_num,
-                    TaskInstance.task_resources_id,
-                    func.group_concat(TaskInstance.id),
-                )
-                .where(
-                    TaskInstance.id.in_(task_instance_ids_list)
-                    & (TaskInstance.status == constants.TaskInstanceStatus.INSTANTIATED)
-                )
-                .group_by(
-                    TaskInstance.array_id,
-                    TaskInstance.array_batch_num,
-                    TaskInstance.task_resources_id,
+    with session.begin():
+        instantiated_batches_query = (
+            select(
+                TaskInstance.array_id,
+                TaskInstance.array_batch_num,
+                TaskInstance.task_resources_id,
+                func.group_concat(TaskInstance.id),
+            )
+            .where(
+                TaskInstance.id.in_(task_instance_ids_list)
+                & (TaskInstance.status == constants.TaskInstanceStatus.INSTANTIATED)
+            )
+            .group_by(
+                TaskInstance.array_id,
+                TaskInstance.array_batch_num,
+                TaskInstance.task_resources_id,
+            )
+        )
+        result = session.execute(instantiated_batches_query)
+        serialized_batches = []
+        for array_id, array_batch_num, task_resources_id, task_instance_ids in result:
+            task_instance_ids = [
+                int(task_instance_id)
+                for task_instance_id in task_instance_ids.split(",")
+            ]
+            array_name_query = select(Array.name).where(Array.id == array_id)
+            result = session.execute(array_name_query).fetchone()
+            array_name = result["name"]
+            serialized_batches.append(
+                SerializeTaskInstanceBatch.to_wire(
+                    array_id=array_id,
+                    array_name=array_name,
+                    array_batch_num=array_batch_num,
+                    task_resources_id=task_resources_id,
+                    task_instance_ids=task_instance_ids,
                 )
             )
-            result = session.execute(instantiated_batches_query)
-            serialized_batches = []
-            for array_id, array_batch_num, task_resources_id, task_instance_ids in result:
-                task_instance_ids = [
-                    int(task_instance_id)
-                    for task_instance_id in task_instance_ids.split(",")
-                ]
-                array_name_query = select(Array.name).where(Array.id == array_id)
-                result = session.execute(array_name_query).fetchone()
-                array_name = result["name"]
-                serialized_batches.append(
-                    SerializeTaskInstanceBatch.to_wire(
-                        array_id=array_id,
-                        array_name=array_name,
-                        array_batch_num=array_batch_num,
-                        task_resources_id=task_resources_id,
-                        task_instance_ids=task_instance_ids,
-                    )
-                )
 
     resp = jsonify(task_instance_batches=serialized_batches)
     resp.status_code = StatusCodes.OK

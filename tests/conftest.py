@@ -1,37 +1,9 @@
 import logging
-import platform
-
-import pytest
-
-# from jobmon.test_utils import test_server_config, ephemera_db_instance
-
-logger = logging.getLogger(__name__)
-
-
-@pytest.fixture(scope="session", autouse=True)
-def set_mac_to_fork():
-    """necessary for running tests on a mac with python 3.8 see:
-    https://github.com/pytest-dev/pytest-flask/issues/104"""
-    if platform.system() == "Darwin":
-        import multiprocessing
-
-        multiprocessing.set_start_method("fork")
-
-
-# @pytest.fixture(scope="session")
-# def ephemera(tmp_path_factory, worker_id) -> dict:
-#     """
-#     Boots exactly one instance of the test ephemera database
-
-#     Returns:
-#       a dictionary with connection parameters
-#     """
-#     return ephemera_db_instance(tmp_path_factory, worker_id)
-
-
-"""A context manager to handle the creation/teardown of the web service for testing."""
 import multiprocessing as mp
 import os
+import platform
+from py import path
+import requests
 import signal
 import socket
 import sys
@@ -39,13 +11,18 @@ from time import sleep
 from types import TracebackType
 from typing import Any, Optional
 
-import requests
+
+import pytest
+import sqlalchemy
+
+
+logger = logging.getLogger(__name__)
 
 
 class WebServerProcess:
     """Context manager creates the Jobmon web server in a process and tears it down on exit."""
 
-    def __init__(self) -> None:
+    def __init__(self, filepath: path.local) -> None:
         """Initializes the web server process.
 
         Args:
@@ -62,9 +39,7 @@ class WebServerProcess:
     def __enter__(self) -> Any:
         """Starts the web service process."""
         # jobmon_cli string
-        argstr = (
-            f"web_service --sql_dialect sqlite --web_service_port {self.web_port}"
-        )
+        argstr = f"web_service_sqlite --web_service_port {self.web_port} --sqlite_file"
 
         def run_server_with_handler(argstr: str) -> None:
             def sigterm_handler(_signo: int, _stack_frame: Any) -> None:
@@ -119,16 +94,31 @@ class WebServerProcess:
         self.p1.join()
 
 
+@pytest.fixture(scope="session", autouse=True)
+def set_mac_to_fork():
+    """necessary for running tests on a mac with python 3.8 see:
+    https://github.com/pytest-dev/pytest-flask/issues/104"""
+    if platform.system() == "Darwin":
+        import multiprocessing
+
+        multiprocessing.set_start_method("fork")
+
+
 @pytest.fixture(scope="session")
-def web_server_process():
+def sqlite_file(tmpdir) -> path.local:
+    return tmpdir.join("tests.sqlite")
+
+
+@pytest.fixture(scope="session")
+def web_server_process(sqlite_file):
     """This starts the flask dev server in separate processes"""
-    with WebServerProcess() as web:
+    with WebServerProcess(sqlite_file) as web:
         yield {"JOBMON_HOST": web.web_host, "JOBMON_PORT": web.web_port}
 
 
-# @pytest.fixture(scope="session")
-# def db_cfg(ephemera) -> dict:
-#     return test_server_config(ephemera)
+@pytest.fixture(scope="session")
+def db_engine(sqlite_file) -> sqlalchemy.Engine:
+    return test_server_config(ephemera)
 
 
 @pytest.fixture(scope="function")

@@ -1,7 +1,7 @@
 """Workflow Database Table."""
 from typing import Tuple
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, VARCHAR
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import structlog
@@ -34,8 +34,8 @@ class Workflow(Base):
     id = Column(Integer, primary_key=True)
     tool_version_id = Column(Integer, ForeignKey("tool_version.id"))
     dag_id = Column(Integer, ForeignKey("dag.id"))
-    workflow_args_hash = Column(Integer)
-    task_hash = Column(Integer)
+    workflow_args_hash = Column(VARCHAR(50), index=True)
+    task_hash = Column(VARCHAR(50), index=True)
     description = Column(Text)
     name = Column(String(150))
     workflow_args = Column(Text)

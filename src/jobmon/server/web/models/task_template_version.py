@@ -1,7 +1,7 @@
 """Database Table for Task Template Versions."""
 from typing import Dict, List
 
-from sqlalchemy import Column, ForeignKey, Integer, Text
+from sqlalchemy import Column, ForeignKey, Integer, Text, UniqueConstraint, VARCHAR
 from sqlalchemy.orm import relationship
 
 from jobmon.serializers import SerializeClientTaskTemplateVersion
@@ -47,7 +47,7 @@ class TaskTemplateVersion(Base):
     id = Column(Integer, primary_key=True)
     task_template_id = Column(Integer, ForeignKey("task_template.id"))
     command_template = Column(Text)
-    arg_mapping_hash = Column(Integer)
+    arg_mapping_hash = Column(VARCHAR(50))
 
     # orm relationship
     task_template = relationship(
@@ -55,4 +55,9 @@ class TaskTemplateVersion(Base):
     )
     template_arg_map = relationship(
         "TemplateArgMap", back_populates="task_template_version"
+    )
+
+    __table_args__ = (
+        UniqueConstraint('task_template_id', 'command_template', 'arg_mapping_hash',
+                         name='uc_composite_pk'),
     )
