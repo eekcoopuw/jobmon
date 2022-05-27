@@ -91,7 +91,7 @@ pipeline {
               else {
                 sh "${ACTIVATE} && nox --session typecheck"
               } // End If-Else
-            // End script
+            } // End script
           } // End step
         } // End typecheck stage
         stage("Build Docs") {
