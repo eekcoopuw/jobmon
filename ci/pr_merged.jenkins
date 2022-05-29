@@ -1,6 +1,6 @@
 pipeline {
   agent {
-    label "slurm"
+    label "singularity"
   }
   triggers {
     bitBucketTrigger(
@@ -123,8 +123,6 @@ pipeline {
         stage('Tests') {
           steps {
             script {
-              echo "HAHA hostnamectl"
-              // hostnamectl
               if (params.SKIP_TESTS) {
                 echo "Skipping Tests"
               }
