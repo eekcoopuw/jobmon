@@ -123,8 +123,8 @@ pipeline {
         stage('Tests') {
           steps {
             script {
-              echo "hostnamectl"
-              hostnamectl
+              echo "HAHA hostnamectl"
+              // hostnamectl
               if (params.SKIP_TESTS) {
                 echo "Skipping Tests"
               }
