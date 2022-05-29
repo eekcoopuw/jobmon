@@ -129,7 +129,7 @@ pipeline {
                 echo "Skipping Tests"
               }
               else {
-                sh "${ACTIVATE} && nox --session tests -- tests/ -n 3"
+                sh "${ACTIVATE} && hostnamectl && nox --session tests -- tests/ -n 3"
               } // End If-Else
             } // End script
           } // End step
