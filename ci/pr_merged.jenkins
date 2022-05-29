@@ -122,7 +122,7 @@ pipeline {
         } // End build docs stage
         stage('Tests') {
           agent {
-            label "docker"  // for ephemera
+            label "singularity"  // for ephemera
           }
           steps {
             script {
