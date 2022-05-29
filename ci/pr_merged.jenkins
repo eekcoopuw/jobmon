@@ -129,7 +129,7 @@ pipeline {
                 echo "Skipping Tests"
               }
               else {
-                sh "${ACTIVATE} && hostnamectl && which docker && which singularity && which conda && pip freeze && nox --session tests -- tests/ -n 3"
+                sh "${ACTIVATE} && hostnamectl && ls -al /opt/singularity/bin/singularity && which docker && which singularity && which conda && pip freeze && nox --session tests -- tests/ -n 3"
               } // End If-Else
             } // End script
           } // End step
