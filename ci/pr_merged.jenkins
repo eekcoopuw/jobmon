@@ -129,7 +129,7 @@ pipeline {
                 echo "Skipping Tests"
               }
               else {
-                sh "${ACTIVATE} && hostnamectl && export PATH=/opt/singularity/bin/singularity:$PATH && which docker && which singularity && which conda && pip freeze && nox --session tests -- tests/ -n 3"
+                sh "${ACTIVATE} && hostnamectl && export PATH=/opt/singularity/bin:$PATH && which docker && which singularity && which conda && pip freeze && nox --session tests -- tests/ -n 3"
               } // End If-Else
             } // End script
           } // End step
