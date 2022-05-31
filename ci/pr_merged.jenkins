@@ -36,16 +36,16 @@ pipeline {
       type: 'PT_BRANCH'
     )
     booleanParam(defaultValue: 'false',
-      description: 'Whether or not you want to lint Jobmon core',
+      description: 'If true, Lint step will be skipped',
       name: 'SKIP_LINT')
     booleanParam(defaultValue: 'false',
-      description: 'Whether or not you want to type-check Jobmon core',
+      description: 'If true, Type-Check step will be skipped',
       name: 'SKIP_TYPE_CHECK')
     booleanParam(defaultValue: 'false',
-      description: 'Whether or not you want to produce docs for Jobmon core',
+      description: 'If true, Docs step will be skipped',
       name: 'SKIP_DOCS')
     booleanParam(defaultValue: 'false',
-      description: 'Whether or not you want to test Jobmon core',
+      description: 'If true, Tests step will be skipped',
       name: 'SKIP_TESTS')
     booleanParam(defaultValue: 'true',
       description: 'Whether or not you want to deploy Jobmon to Pypi',
