@@ -10,11 +10,13 @@ class ClusterType(DB.Model):
 
     id = DB.Column(DB.Integer, primary_key=True)
     name = DB.Column(DB.String(255))
-    package_location = DB.Column(DB.String(2500))
+    package_location_306 = DB.Column(DB.String(2500))
 
     # ORM relationships
     clusters = DB.relationship("Cluster", back_populates="cluster_type")
 
     def to_wire_as_requested_by_client(self) -> tuple:
         """Serialize cluster object."""
-        return SerializeClusterType.to_wire(self.id, self.name, self.package_location)
+        return SerializeClusterType.to_wire(
+            self.id, self.name, self.package_location_306
+        )

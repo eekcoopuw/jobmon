@@ -257,6 +257,7 @@ def _get_slurm_resource_via_slurm_sdb(
         "INNER JOIN general_job_table job ON step.job_db_inx = job.job_db_inx "
         "WHERE step.deleted = 0 "
     )
+    # TODO 3.0.6 also had job.deleted = 0
 
     # Issue two separate queries for array and non-array jobs. The where clauses are
     # constructed differently, and figured this is simpler than a complex CASE statement.
