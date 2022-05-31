@@ -5,6 +5,7 @@ from typing import Any, cast, Dict, List, Set, Union
 
 from flask import jsonify, request
 from sqlalchemy import desc, insert, select, tuple_
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import DataError
 import structlog
@@ -186,21 +187,7 @@ def bind_tasks() -> Any:
 
         if args_to_add:
             try:
-                arg_insert_stmt = (
-                    insert(TaskArg)
-                    .values(args_to_add)
-                )
-                if SessionLocal.bind.dialect.name == "mysql":
-                    arg_insert_stmt = arg_insert_stmt.on_duplicate_key_update(
-                        val=arg_insert_stmt.inserted.val
-                    )
-                elif SessionLocal.bind.dialect.name == "sqlite":
-                    pass
-                else:
-                    raise ServerError(
-                        "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
-                        + SessionLocal.bind.dialect.name
-                    )
+                arg_insert_stmt = insert(TaskArg).values(args_to_add)
                 session.execute(arg_insert_stmt)
             except DataError as e:
                 # Args likely too long, message back
@@ -212,22 +199,28 @@ def bind_tasks() -> Any:
 
         if attrs_to_add:
             try:
-                attr_insert_stmt = (
-                    insert(TaskAttribute)
-                    .values(attrs_to_add)
-                )
                 if SessionLocal.bind.dialect.name == "mysql":
+                    attr_insert_stmt = insert(TaskAttribute).values(attrs_to_add)
                     attr_insert_stmt = attr_insert_stmt.on_duplicate_key_update(
                         val=attr_insert_stmt.inserted.val
                     )
+                    session.execute(attr_insert_stmt)
                 elif SessionLocal.bind.dialect.name == "sqlite":
-                    pass
+                    for attr_to_add in attrs_to_add:
+                        attr_insert_stmt = sqlite_insert(
+                            TaskAttribute
+                        ).values(
+                            attr_to_add
+                        ).on_conflict_do_update(
+                            index_elements=['task_id', 'task_attribute_type_id'],
+                            set_=dict(value=attr_to_add['value'])
+                        )
+                        session.execute(attr_insert_stmt)
                 else:
                     raise ServerError(
                         "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
                         + SessionLocal.bind.dialect.name
                     )
-                session.execute(attr_insert_stmt)
 
             except DataError as e:
                 # Attributes too long, message back

@@ -2,10 +2,14 @@
 from pkgutil import iter_modules
 from pathlib import Path
 from importlib import import_module
+import structlog
 
+from sqlalchemy import CheckConstraint, func, String, event
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm.decl_api import DeclarativeMeta
 
+
+logger = structlog.get_logger(__name__)
 
 # declarative registry for model elements
 Base: DeclarativeMeta = declarative_base()
@@ -20,6 +24,25 @@ def load_model():
 
 def init_db(engine):
     """emit DDL for all modules in 'models'"""
+
+    @event.listens_for(Base, "instrument_class", propagate=True)
+    def add_string_length_constraint(Base, cls):
+        if engine.dialect.name == "sqlite":
+            table = cls.__table__
+
+            for column in table.columns:
+                if isinstance(column.type, String):
+                    length = column.type.length
+
+                    if length is not None:
+                        logger.info(
+                            f"adding check constraint to {table}.{column} of len={length}"
+                        )
+                        CheckConstraint(
+                            func.length(column) <= length,
+                            table=column,
+                        )
+
     load_model()
 
     Base.metadata.create_all(bind=engine)
