@@ -140,6 +140,7 @@ deploy_jobmon_to_k8s () {
     K8S_REAPER_NAMESPACE=${13}
     DEPLOY_JOBMON=${14}
     DEPLOY_ELK=${15}
+    DEPLOY_REAPER=${16}
 
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
     docker pull $KUBECTL_CONTAINER
@@ -211,7 +212,10 @@ deploy_jobmon_to_k8s () {
             --set global.rancher_db_slurm_sdb_secret="$RANCHER_DB_SLURM_SDB_SECRET" \
             --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
             --set global.use_logstash="$USE_LOGSTASH"
+    fi
 
+    if [[ "$DEPLOY_REAPER" = true ]]
+    then
         echo "Adding new reaper to reapers namespace"
         docker run -t \
         --rm \
