@@ -15,6 +15,26 @@ logger = structlog.get_logger(__name__)
 Base: DeclarativeMeta = declarative_base()
 
 
+# add check constraint to enforce column size limits on sqlite
+@event.listens_for(Base, "instrument_class", propagate=True)
+def add_string_length_constraint(Base, cls_):
+
+    table = cls_.__table__
+
+    for column in table.columns:
+        if isinstance(column.type, String):
+            length = column.type.length
+
+            if length is not None:
+                logger.debug(
+                    f"adding check constraint to {table}.{column} of len={length}"
+                )
+                CheckConstraint(
+                    func.length(column) <= length,
+                    table=column,
+                )
+
+
 def load_model():
     # iterate through the modules in the current package
     package_dir = Path(__file__).resolve().parent
@@ -24,24 +44,6 @@ def load_model():
 
 def init_db(engine):
     """emit DDL for all modules in 'models'"""
-
-    @event.listens_for(Base, "instrument_class", propagate=True)
-    def add_string_length_constraint(Base, cls):
-        if engine.dialect.name == "sqlite":
-            table = cls.__table__
-
-            for column in table.columns:
-                if isinstance(column.type, String):
-                    length = column.type.length
-
-                    if length is not None:
-                        logger.info(
-                            f"adding check constraint to {table}.{column} of len={length}"
-                        )
-                        CheckConstraint(
-                            func.length(column) <= length,
-                            table=column,
-                        )
 
     load_model()
 

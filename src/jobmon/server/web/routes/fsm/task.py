@@ -7,7 +7,7 @@ from flask import jsonify, request
 from sqlalchemy import desc, insert, select, tuple_
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import DataError
+from sqlalchemy.exc import DataError, IntegrityError
 import structlog
 
 from jobmon import constants
@@ -189,7 +189,7 @@ def bind_tasks() -> Any:
             try:
                 arg_insert_stmt = insert(TaskArg).values(args_to_add)
                 session.execute(arg_insert_stmt)
-            except DataError as e:
+            except (DataError, IntegrityError) as e:
                 # Args likely too long, message back
                 raise InvalidUsage(
                     "Task Args are constrained to 1000 characters, you may have values "
@@ -222,7 +222,7 @@ def bind_tasks() -> Any:
                         + SessionLocal.bind.dialect.name
                     )
 
-            except DataError as e:
+            except (DataError, IntegrityError) as e:
                 # Attributes too long, message back
                 raise InvalidUsage(
                     "Task attributes are constrained to 255 characters, you may have values "
