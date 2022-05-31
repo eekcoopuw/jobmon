@@ -41,6 +41,9 @@ pipeline {
     booleanParam(defaultValue: 'false',
      description: 'Whether or not you want to deploy the ELK stack',
      name: 'DEPLOY_ELK')
+    booleanParam(defaultValue: 'true',
+     description: 'Whether or not you want to deploy a new reaper to the reapers namespace',
+     name: 'DEPLOY_REAPER')
     booleanParam(defaultValue: 'false',
      description: 'Whether or not you want to config log rotation for elasticsearch',
      name: 'LOG_ROTATION')
@@ -119,7 +122,8 @@ pipeline {
                       ${JOBMON_VERSION} \
                       ${K8S_REAPER_NAMESPACE} \
                       ${DEPLOY_JOBMON} \
-                      ${DEPLOY_ELK}
+                      ${DEPLOY_ELK} \
+                      ${DEPLOY_REAPER}
                '''
           } // end credentials
         } // end node
