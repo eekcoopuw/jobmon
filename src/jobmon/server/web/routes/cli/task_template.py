@@ -1,6 +1,7 @@
 """Routes for TaskTemplate."""
 from http import HTTPStatus as StatusCodes
 import json
+import numpy as np
 from typing import Any, cast, Dict, List, Set
 
 from flask import jsonify, request
@@ -10,6 +11,7 @@ import structlog
 
 from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.models.task_template import TaskTemplate
 from jobmon.server.web.models.task_template_version import TaskTemplateVersion
 from jobmon.server.web.routes import SessionLocal
@@ -65,17 +67,25 @@ def get_requested_cores() -> Any:
     """Get the min, max, and arg of requested cores."""
     # parse args
     ttvis = request.args.get("task_template_version_ids")
+    ttvis = [int(i) for i in ttvis[1:-1].split(",")]
     # null core should be treated as 1 instead of 0
-    sql = f"""
-           SELECT t3.id as id, t4.requested_resources as rr
-           FROM task t1, node t2, task_template_version t3,  task_resources t4
-           WHERE t3.id in {ttvis}
-           AND t2.task_template_version_id=t3.id
-           AND t1.node_id=t2.id
-           AND t1.task_resources_id=t4.id;
-    """
-    rows = DB.session.execute(sql).fetchall()
-    # return a "standard" json format for cli routes so that it can be reused by future GUI
+    session = SessionLocal()
+    with session.begin():
+        query_filter = [TaskTemplateVersion.id.in_(ttvis),
+            TaskTemplateVersion.id == Node.task_template_version_id,
+            Task.node_id == Node.id,
+            Task.task_resources_id == TaskResources.id]
+
+        sql = (
+            select(
+                TaskTemplateVersion.id,
+                TaskResources.requested_resources
+            ).where(*query_filter)
+        )
+    rows = session.execute(sql).all()
+    column_names = ("id", "rr")
+    rows = [dict(zip(column_names, ti)) for ti in rows]
+
     core_info = []
     if rows:
         result_dir: Dict = dict()
