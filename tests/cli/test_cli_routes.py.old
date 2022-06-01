@@ -52,7 +52,7 @@ def test_get_tasks_dependencynotexist(db_cfg, client_env):
     assert msg == {"down": [], "up": [{"id": t2.task_id, "status": "D"}]}
 
 
-def test_get_task_template_version(db_cfg, client_env):
+def test_get_task_template_version(db_engine, client_env):
     from jobmon.client.tool import Tool
 
     t = Tool()

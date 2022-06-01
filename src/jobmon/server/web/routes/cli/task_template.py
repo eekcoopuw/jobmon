@@ -1,3 +1,22 @@
+"""Routes for TaskTemplate."""
+from http import HTTPStatus as StatusCodes
+import json
+from typing import Any, cast, Dict, List, Set
+
+from flask import jsonify, request
+from sqlalchemy import func, select, update
+from sqlalchemy.orm import Session
+import structlog
+
+from jobmon.server.web.models.node import Node
+from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_template import TaskTemplate
+from jobmon.server.web.models.task_template_version import TaskTemplateVersion
+from jobmon.server.web.routes import SessionLocal
+from jobmon.server.web.routes.cli import blueprint
+
+# new structlog logger per flask request context. internally stored as flask.g.logger
+logger = structlog.get_logger(__name__)
 
 @blueprint.route("/get_task_template_version", methods=["GET"])
 def get_task_template_version_for_tasks() -> Any:
@@ -7,28 +26,35 @@ def get_task_template_version_for_tasks() -> Any:
     wf_id = request.args.get("workflow_id")
     # This route only accept one task id or one wf id;
     # If provided both, ignor wf id
-    if t_id:
-        sql = f"""
-               SELECT task_template_version_id as id, t4.name as name
-               FROM task t1, node t2, task_template_version t3, task_template t4
-               WHERE t1.id = {t_id}
-               AND t1.node_id=t2.id
-               AND t2.task_template_version_id=t3.id
-               AND t3.task_template_id=t4.id
-        """
-    else:
-        sql = f"""
-               SELECT distinct task_template_version_id as id, t4.name as name
-               FROM task t1, node t2, task_template_version t3, task_template t4
-               WHERE t1.workflow_id = {wf_id}
-               AND t1.node_id=t2.id
-               AND t2.task_template_version_id=t3.id
-               AND t3.task_template_id=t4.id
-        """
+    session = SessionLocal()
+    with session.begin():
+        if t_id:
+            query_filter = [Task.id == t_id,
+                      Task.node_id == Node.id,
+                      Node.task_template_version_id == TaskTemplateVersion.id,
+                      TaskTemplateVersion.task_template_id == TaskTemplate.id]
+            sql = (
+                select(TaskTemplateVersion.id,
+                       TaskTemplate.name,
+                      )
+                .where(*query_filter)
+            )
 
-    rows = DB.session.execute(sql).fetchall()
-    # return a "standard" json format for cli routes so that it can be reused by future GUI
-    ttvis = [] if rows is None else [{"id": r["id"], "name": r["name"]} for r in rows]
+        else:
+            query_filter = [Task.workflow_id == wf_id,
+                            Task.node_id == Node.id,
+                            Node.task_template_version_id == TaskTemplateVersion.id,
+                            TaskTemplateVersion.task_template_id == TaskTemplate.id]
+            sql = (
+                select(TaskTemplateVersion.id,
+                       TaskTemplate.name,
+                       )
+                .where(*query_filter)
+            ).distinct()
+        rows = session.execute(sql).all()
+    column_names = ("id", "name")
+    ttvis = [dict(zip(column_names, ti)) for ti in rows]
+
     resp = jsonify({"task_template_version_ids": ttvis})
     resp.status_code = StatusCodes.OK
     return resp
