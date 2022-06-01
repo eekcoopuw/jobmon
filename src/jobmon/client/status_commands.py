@@ -289,7 +289,7 @@ def update_task_status(
     user = getpass.getuser()
 
     validate_username(workflow_id, user, requester)
-    workflow_status = validate_workflow(task_ids, requester, force)
+    workflow_status = validate_workflow(task_ids, requester)
 
     # Validate the allowed statuses. For now, only "D" and "G" allowed.
     allowed_statuses = [TaskStatus.REGISTERING, TaskStatus.DONE]
@@ -349,9 +349,7 @@ def validate_username(workflow_id: int, username: str, requester: Requester) -> 
     return
 
 
-def validate_workflow(
-    task_ids: List[int], requester: Requester, force: bool = False
-) -> WorkflowStatus:
+def validate_workflow(task_ids: List[int], requester: Requester) -> WorkflowStatus:
     """Validate workflow.
 
     The task_ids provided belong to the expected workflow,
@@ -360,7 +358,7 @@ def validate_workflow(
     """
     rc, res = requester.send_request(
         app_route="/workflow_validation",
-        message={"task_ids": task_ids, "force": "true" if force else "false"},
+        message={"task_ids": task_ids},
         request_type="post",
     )
 

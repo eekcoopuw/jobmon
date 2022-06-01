@@ -418,6 +418,21 @@ class ClientCLI(CLI):
             choices=["D", "G"],
             type=str,
         )
+        update_task_parser.add_argument(
+            "-f",
+            "--force",
+            help="If set, allow all source statuses and all workflow statuses.",
+            default=False,
+            action="store_true",
+        )
+        update_task_parser.add_argument(
+            "-r",
+            "--recursive",
+            help="If used with --force, Jobmon will apply recursive update_status downstream "
+            "or upstream depending on new_status ",
+            default=False,
+            action="store_true",
+        )
         ParserDefaults.web_service_fqdn(update_task_parser)
         ParserDefaults.web_service_port(update_task_parser)
 

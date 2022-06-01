@@ -245,6 +245,7 @@ def _get_slurm_resource_via_slurm_sdb(
     # get job_step data
     # Case is needed since we want to return a concatenation of parent array job and subtask
     # id as the job_id for array jobs.
+    # Ignore jobs and steps that were deleted.
     sql_step = (
         "SELECT "
         "CASE "
@@ -255,7 +256,7 @@ def _get_slurm_resource_via_slurm_sdb(
         "job.tres_alloc, step.tres_usage_in_max "
         "FROM general_step_table step "
         "INNER JOIN general_job_table job ON step.job_db_inx = job.job_db_inx "
-        "WHERE step.deleted = 0 "
+        "WHERE step.deleted = 0 and job.deleted = 0"
     )
 
     # Issue two separate queries for array and non-array jobs. The where clauses are
