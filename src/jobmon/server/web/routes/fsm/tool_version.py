@@ -24,11 +24,9 @@ def add_tool_version() -> Any:
     data = cast(Dict, request.get_json())
 
     try:
-        tool_id = data["tool_id"]
+        tool_id = int(data["tool_id"])
     except Exception as e:
-        raise InvalidUsage(
-            f"{str(e)} in request to {request.path}", status_code=400
-        ) from e
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
     session = SessionLocal()
     try:

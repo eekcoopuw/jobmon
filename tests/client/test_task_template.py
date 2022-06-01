@@ -2,17 +2,18 @@ import os
 import pytest
 import uuid
 
+from jobmon.client.tool import Tool
+from jobmon.client.task_template import TaskTemplate
+from jobmon.client.task_template_version import TaskTemplateVersion
+
 
 @pytest.fixture(scope="function")
 def tool(client_env):
-    from jobmon.client.tool import Tool
 
     return Tool(name=str(uuid.uuid4()))
 
 
-def test_task_template(db_cfg, client_env, tool):
-    from jobmon.client.task_template import TaskTemplate
-    from jobmon.client.task_template_version import TaskTemplateVersion
+def test_task_template(tool):
 
     tool.get_new_tool_version()
 
@@ -41,7 +42,7 @@ def test_task_template(db_cfg, client_env, tool):
     assert tt.active_task_template_version.id == ttv.id
 
 
-def test_create_and_get_task_template(db_cfg, client_env, tool):
+def test_create_and_get_task_template(tool):
     """test that a task template gets added to the db appropriately. test that
     if a new one gets created with the same params it has the same id"""
     tt1 = tool.get_task_template(
@@ -64,7 +65,7 @@ def test_create_and_get_task_template(db_cfg, client_env, tool):
     assert tt1.active_task_template_version.id == tt2.active_task_template_version.id
 
 
-def test_create_new_task_template_version(db_cfg, client_env, tool):
+def test_create_new_task_template_version(tool):
     """test that a new task template version gets created when the arguments
     that define it change. confirm that reused arguments have the same id"""
     tt1 = tool.get_task_template(
@@ -93,7 +94,7 @@ def test_create_new_task_template_version(db_cfg, client_env, tool):
     assert arg_id1 == arg_id2
 
 
-def test_invalid_args(db_cfg, client_env, tool):
+def test_invalid_args(tool):
     """test that arguments that don't appear in the command template raise a
     ValueError"""
 
@@ -107,7 +108,7 @@ def test_invalid_args(db_cfg, client_env, tool):
         )
 
 
-def test_task_template_resources(db_cfg, client_env, tool):
+def test_task_template_resources(tool):
     """Test task/task template compute resources hierarchy."""
 
     workflow1 = tool.create_workflow(name="test_template_resources")
@@ -148,7 +149,7 @@ def test_task_template_resources(db_cfg, client_env, tool):
     assert task3.original_task_resources.queue.queue_name == "null.q"
 
 
-def test_task_template_resources_yaml(client_env, db_cfg, tool):
+def test_task_template_resources_yaml(tool):
     """Test users ability to set task template compute resources via YAML."""
     thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
     yaml_file = os.path.join(thisdir, "cluster_resources.yaml")
@@ -209,7 +210,7 @@ def test_task_template_resources_yaml(client_env, db_cfg, tool):
     }
 
 
-def test_task_template_hash_unique(db_cfg, client_env, tool):
+def test_task_template_hash_unique(tool):
     """Test task_template arg_mapping hash logic. Part of GBDSCI-4593"""
     task_template = tool.get_task_template(
         template_name="task_template_unique_hash",

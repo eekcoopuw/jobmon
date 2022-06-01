@@ -53,7 +53,7 @@ class TaskInstance(Base):
     array_batch_num = Column(Integer, index=True)
     array_step_id = Column(Integer, index=True)
 
-    distributor_id = Column(Integer, index=True)
+    distributor_id = Column(String(20), index=True)
 
     # usage
     nodename = Column(String(150))

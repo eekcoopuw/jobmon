@@ -238,7 +238,6 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
 
         # get time from db
         db_time = session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()["t"]
-        str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
 
         where_clause = [TaskInstance.workflow_run_id == workflow_run_id]
         if len(task_instance_ids) > 0:
@@ -264,7 +263,7 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
         for row in session.execute(select_stmt):
             return_dict[row[0]] = [int(tid) for tid in row[1].split(",")]
 
-    resp = jsonify(status_updates=return_dict, time=str_time)
+    resp = jsonify(status_updates=return_dict, time=db_time)
     resp.status_code = StatusCodes.OK
     return resp
 

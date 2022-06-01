@@ -106,9 +106,7 @@ def add_task_template_version(task_template_id: int) -> Any:
         command_template = data["command_template"]
         arg_mapping_hash = str(data["arg_mapping_hash"])
     except Exception as e:
-        raise InvalidUsage(
-            f"{str(e)} in request to {request.path}", status_code=400
-        ) from e
+        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
     session = SessionLocal()
     with session.begin():
