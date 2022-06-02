@@ -168,19 +168,19 @@ def get_workflow_run_for_workflow_reset(workflow_id: int, username: str) -> Any:
         2. This last workflow_run must have been started by the input username.
         3. This last workflow_run is in status 'E'
     """
-    query = """
-        SELECT id AS workflow_run_id, user AS username
-        FROM workflow_run
-        WHERE workflow_run.workflow_id = {workflow_id} and workflow_run.status = 'E'
-        ORDER BY created_date DESC
-        LIMIT 1
-    """.format(
-        workflow_id=workflow_id
-    )
-
-    result = DB.session.execute(query).one_or_none()
-    if result is not None and result.username == username:
-        resp = jsonify({"workflow_run_id": result.workflow_run_id})
+    session = SessionLocal()
+    with session.begin():
+        query_filter = [WorkflowRun.workflow_id == workflow_id,
+                        WorkflowRun.status == "E"]
+        sql = (
+            select(WorkflowRun.id,
+                   WorkflowRun.user
+                   ).where(*query_filter)
+        ).order_by(WorkflowRun.created_date.desc())
+        rows = session.execute(sql).all()
+    result = None if len(rows) <=0 else rows[0]
+    if result is not None and result[1] == username:
+        resp = jsonify({"workflow_run_id": result[0]})
     else:
         resp = jsonify({"workflow_run_id": None})
 
