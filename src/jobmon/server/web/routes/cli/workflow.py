@@ -191,27 +191,20 @@ def get_workflow_run_for_workflow_reset(workflow_id: int, username: str) -> Any:
 @blueprint.route("workflow/<workflow_id>/reset", methods=["PUT"])
 def reset_workflow(workflow_id: int) -> Any:
     """Update the workflow's status, all its tasks' statuses to 'G'."""
-    q_workflow = """
-        UPDATE workflow
-        SET status = 'G', status_date = CURRENT_TIMESTAMP
-        WHERE id = {workflow_id}
-    """.format(
-        workflow_id=workflow_id
-    )
-
-    DB.session.execute(q_workflow)
-
-    q_task = """
-        UPDATE task
-        SET status = 'G', status_date = CURRENT_TIMESTAMP, num_attempts = 0
-        WHERE workflow_id = {workflow_id}
-    """.format(
-        workflow_id=workflow_id
-    )
-
-    DB.session.execute(q_task)
-
-    DB.session.commit()
+    session = SessionLocal()
+    with session.begin():
+        update_stmt = update(
+            Workflow
+        ).where(
+            Workflow.id == workflow_id
+        ).values(status="G", status_date=func.now())
+        session.execute(update_stmt)
+        update_stmt = update(
+            Task
+        ).where(
+            Task.workflow_id == workflow_id
+        ).values(status="G", status_date=func.now(), num_attempts = 0)
+        session.execute(update_stmt)
 
     resp = jsonify({})
     resp.status_code = StatusCodes.OK

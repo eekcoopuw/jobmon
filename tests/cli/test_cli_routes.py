@@ -281,3 +281,30 @@ def test_get_workflow_run_for_workflow_reset(db_engine, tool):
     )
     assert return_code == 200
     assert msg["workflow_run_id"] is None
+
+
+def test_reset_workflow(db_engine, tool):
+    t = tool
+    wf = t.create_workflow(name="i_am_a_fake_wf")
+    tt1 = t.get_task_template(
+        template_name="tt_core", command_template="echo {arg}", node_args=["arg"]
+    )
+    t1 = tt1.create_task(
+        arg=1,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 2},
+    )
+    t2 = tt1.create_task(
+        arg=2,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 4},
+    )
+    wf.add_tasks([t1, t2])
+    wf.bind()
+    wf._create_workflow_run()
+
+    app_route = f"/workflow/{wf.workflow_id}/reset"
+    return_code, msg = wf.requester.send_request(
+        app_route=app_route, message={}, request_type="put"
+    )
+    assert return_code == 200
