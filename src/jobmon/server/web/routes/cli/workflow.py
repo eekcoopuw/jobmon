@@ -94,7 +94,6 @@ def get_workflow_status() -> Any:
     if user_request == "all":  # specifying all is equivalent to None
         user_request = []
     workflow_request = request.args.getlist("workflow_id")
-    bind_to_logger(user=user_request)
     logger.debug(f"Query for wf {workflow_request} status.")
     if workflow_request == "all":  # specifying all is equivalent to None
         workflow_request = []

@@ -9,14 +9,21 @@ from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 import structlog
 
+from jobmon.serializers import SerializeTaskTemplateResourceUsage
+from jobmon.server.web.models.arg import Arg
 from jobmon.server.web.models.node import Node
+from jobmon.server.web.models.node_arg import NodeArg
+from jobmon.server.web.models.queue import Queue
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.models.task_template import TaskTemplate
 from jobmon.server.web.models.task_template_version import TaskTemplateVersion
+from jobmon.server.web.models.workflow import Workflow
+from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.cli import blueprint
+from jobmon.server.web.server_side_exception import InvalidUsage
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
 logger = structlog.get_logger(__name__)
@@ -160,8 +167,14 @@ def get_most_popular_queue() -> Any:
                     popular_q = q
                     max_usage = result_dir[ttvi][q]
             # get queue name; and return queue id with it
-            sql = f"SELECT name FROM queue WHERE id={popular_q}"
-            popular_q_name = DB.session.execute(sql).fetchone()["name"]
+            with session.begin():
+                query_filter = [Queue.id == popular_q
+                                ]
+                sql = (
+                    select(Queue.name
+                    ).where(*query_filter)
+                )
+            popular_q_name = session.execute(sql).one()[0]
             queue_info.append(
                 {"id": ttvi, "queue": popular_q_name, "queue_id": popular_q}
             )
@@ -182,63 +195,45 @@ def get_task_template_resource_usage() -> Any:
             f"{str(e)} in request to /task_template_resource_usage", status_code=400
         ) from e
 
-    params = {"task_template_version_id": task_template_version_id}
-    where_clause = ""
-    from_clause = ""
     workflows = data.pop("workflows", None)
     node_args = data.pop("node_args", None)
     ci = data.pop("ci", None)
-    if workflows:
-        from_clause += ", workflow_run AS wfr, workflow AS wf"
-        where_clause += (
-            " AND ti.workflow_run_id = wfr.id AND wfr.workflow_id = wf.id AND "
-            "wf.id IN :workflows"
-        )
-        params["workflows"] = workflows
 
-    if node_args:
-        from_clause += ", arg AS a, node_arg AS na"
-        where_clause += " AND t.node_id = na.node_id AND a.id = na.arg_id AND ("
+    session = SessionLocal()
+    with session.begin():
+        query_filter = [TaskTemplateVersion.id == task_template_version_id,
+                        Task.status == "D",
+                        TaskInstance.status == "D",
+                        TaskTemplateVersion.id == Node.task_template_version_id,
+                        Node.id == Task.node_id,
+                        Task.id == TaskInstance.task_id
+                       ]
+        if workflows:
+            query_filter += [TaskInstance.workflow_run_id == WorkflowRun.id,
+                             WorkflowRun.workflow_id == Workflow.id,
+                             Workflow.id.in_(workflows)]
+        if node_args:
+            query_filter += [Task.node_id == NodeArg.node_id,
+                             Arg.id == NodeArg.arg_id]
 
-        def construct_arg_list_clause(k: str, v: list) -> str:
-            quoted_arg_vals = ",".join(f"'{x}'" for x in v)
-            return f"(a.name = '{k}' AND na.val IN ({quoted_arg_vals}))"
+        sql = (select(TaskInstance.wallclock,
+                     TaskInstance.maxrss,
+                     Arg.name,
+                     NodeArg.val
+                     ).where(*query_filter)
+               )
+    rows = session.execute(sql).all()
+    column_names = ("r", "m", "arg_name", "arg_v")
+    rows = [dict(zip(column_names, ti)) for ti in rows]
+    result = []
+    if rows:
+        for r in rows:
+            if r["r"] is None:
+                r["r"] = 0
+            if r["arg_name"] in node_args.keys() and r["arg_v"] in node_args[r["arg_name"]]:
+                result.append(r)
 
-        where_clause += " OR ".join(
-            construct_arg_list_clause(key, value) for key, value in node_args.items()
-        )
-        where_clause += ")"
-
-    query = """
-              SELECT
-                    CASE
-                        WHEN ti.wallclock is Null THEN 0
-                        ELSE ti.wallclock
-                    END AS r,
-                    CASE
-                        WHEN ti.maxpss is Null AND ti.maxrss is Null THEN 0
-                        WHEN ti.maxpss is Null AND ti.maxrss is not Null THEN ti.maxrss
-                        WHEN ti.maxpss is NOT Null AND ti.maxrss is Null THEN ti.maxpss
-                        WHEN ti.maxpss > ti.maxrss THEN ti.maxpss
-                        ELSE ti.maxrss
-                     END AS m
-                FROM
-                    task_template_version AS ttv,
-                    node AS n,
-                    task AS t,
-                    task_instance AS ti {from_clause}
-                WHERE
-                    ttv.id = :task_template_version_id
-                    AND t.status = 'D'
-                    AND ti.status = 'D'
-                    AND ttv.id = n.task_template_version_id
-                    AND n.id = t.node_id
-                    AND t.id = ti.task_id {where_clause}
-    """.format(
-        from_clause=from_clause, where_clause=where_clause
-    )
-    result = DB.session.execute(query, params).fetchall()
-    if result is None or len(result) == 0:
+    if len(result) == 0:
         resource_usage = SerializeTaskTemplateResourceUsage.to_wire(
             None, None, None, None, None, None, None, None, None, None, None
         )
