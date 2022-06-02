@@ -14,7 +14,7 @@ from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
 from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
-from jobmon.server.web.routes import SessionLocal
+from jobmon.server.web.routes import SessionLocal, get_time
 from jobmon.server.web.routes.fsm import blueprint
 from jobmon.server.web.server_side_exception import InvalidUsage
 
@@ -354,7 +354,7 @@ def task_status_updates(workflow_id: int) -> Any:
     session = SessionLocal()
     with session.begin():
 
-        db_time = session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()["t"]
+        db_time = session.execute(select(func.now())).scalar()
         str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
 
         tasks_by_status_query = (

@@ -31,9 +31,7 @@ class ServerCLI(CLI):
 
         conn_str = f"sqlite://{args.sqlite_file}"
         engine = sqlalchemy.create_engine(
-            conn_str,
-            connect_args={'check_same_thread': False},
-            poolclass=sqlalchemy.pool.StaticPool, future=True
+            conn_str, future=True
         )
         from jobmon.server.web.models import init_db
         init_db(engine)

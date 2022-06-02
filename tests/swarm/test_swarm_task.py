@@ -1,7 +1,11 @@
-def test_swarmtask_resources_integration(tool, task_template, db_cfg):
+from sqlalchemy.orm import Session
+
+from jobmon.constants import WorkflowRunStatus
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+
+
+def test_swarmtask_resources_integration(tool, task_template, db_engine):
     """Check that taskresources defined in task are passed to swarmtask appropriately"""
-    from jobmon.constants import TaskResourcesType, WorkflowRunStatus
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     workflow = tool.create_workflow(default_cluster_name="multiprocess")
 
@@ -41,16 +45,14 @@ def test_swarmtask_resources_integration(tool, task_template, db_cfg):
     assert id(swarmtask.current_task_resources) == id(initial_resources)
 
     # Move task to adjusting
-    app, DB = db_cfg["app"], db_cfg["DB"]
-
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         sql = """
             UPDATE task
             SET status = :status
             WHERE id = :id
         """
-        DB.session.execute(sql, {"status": "A", "id": swarmtask.task_id})
-        DB.session.commit()
+        session.execute(sql, {"status": "A", "id": swarmtask.task_id})
+        session.commit()
 
     # Call adjust.
     swarm._set_adjusted_task_resources(swarmtask)

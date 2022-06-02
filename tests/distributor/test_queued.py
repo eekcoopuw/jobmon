@@ -1,12 +1,12 @@
 from jobmon.constants import TaskInstanceStatus
+from jobmon.client.distributor.distributor_service import DistributorService
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+from jobmon.builtins.dummy import DummyDistributor
 
 
-def test_queued(tool, db_cfg, client_env, task_template):
+def test_queued(tool, task_template):
     """tests that we only return a subset of queued jobs based on the n_queued
     parameter"""
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.builtins.dummy import DummyDistributor
 
     tasks = []
     for i in range(20):

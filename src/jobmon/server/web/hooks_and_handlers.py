@@ -1,5 +1,5 @@
 """Add handlers to deal with server-side exceptions and logging."""
-from typing import Any, cast, Dict, Optional, Tuple
+from typing import Any, cast, Dict, Optional
 
 from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask, jsonify, request
@@ -30,7 +30,7 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
             "exception_message": str(error),
             "status_code": str(status_code),
         }
-        logger.exception(status_code=status_code)
+        logger.exception(status_code=status_code, route=request.path)
         response = jsonify(error=response_dict)
         response.content_type = "application/json"
         response.status_code = status_code
@@ -44,7 +44,7 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
     # error handling
     @app.errorhandler(InvalidUsage)
     def handle_4xx(error: InvalidUsage) -> Any:
-        logger.exception(status_code=error.status_code)
+        logger.exception(status_code=error.status_code, route=request.path)
         if apm is not None:
             apm.capture_exception(exc_info=(type(error), error, error.__traceback__))
         response_dict = {"type": str(type(error)), "exception_message": str(error)}
@@ -53,17 +53,17 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         response.status_code = error.status_code
         return response
 
-    # # error handling
-    # @app.errorhandler(ServerError)
-    # def handle_5xx(error: ServerError) -> Any:
-    #     logger.exception(status_code=error.status_code)
-    #     if apm is not None:
-    #         apm.capture_exception(exc_info=(type(error), error, error.__traceback__))
-    #     response_dict = {"type": str(type(error)), "exception_message": str(error)}
-    #     response = jsonify(error=response_dict)
-    #     response.content_type = "application/json"
-    #     response.status_code = error.status_code
-    #     return response
+    # error handling
+    @app.errorhandler(ServerError)
+    def handle_5xx(error: ServerError) -> Any:
+        logger.exception(status_code=error.status_code, route=request.path)
+        if apm is not None:
+            apm.capture_exception(exc_info=(type(error), error, error.__traceback__))
+        response_dict = {"type": str(type(error)), "exception_message": str(error)}
+        response = jsonify(error=response_dict)
+        response.content_type = "application/json"
+        response.status_code = error.status_code
+        return response
 
     @app.before_request
     def add_requester_context() -> None:

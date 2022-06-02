@@ -4,6 +4,7 @@ import os
 from typing import Any
 
 from flask import jsonify, current_app
+from sqlalchemy import func, select
 from sqlalchemy import orm
 from structlog import get_logger
 
@@ -27,15 +28,16 @@ def is_alive() -> Any:
     return resp
 
 
-def _get_time() -> str:
+def get_time() -> str:
     with SessionLocal() as session:
-        res = session.execute("SELECT CURRENT_TIMESTAMP").scalars().one()
-    return res
+        db_time = session.execute(select(func.now())).scalar()
+        str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
+    return str_time
 
 
 def get_pst_now() -> Any:
     """Get the time from the database."""
-    time = _get_time()
+    time = get_time()
     resp = jsonify(time=time)
     resp.status_code = StatusCodes.OK
     return resp
@@ -47,7 +49,7 @@ def health() -> Any:
     Return 200 if everything is OK. Defined in each module with a different route, so it can
     be checked individually.
     """
-    _get_time()
+    get_time()
     resp = jsonify(status="OK")
     resp.status_code = StatusCodes.OK
     return resp

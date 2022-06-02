@@ -1,5 +1,7 @@
+from sqlalchemy import column, type_coerce, Integer, cast
 from sqlalchemy.sql import func
 from sqlalchemy.sql.dml import Insert
+from sqlalchemy.sql.elements import Grouping
 
 from jobmon.server.web import session_factory
 from jobmon.server.web.server_side_exception import ServerError
@@ -32,3 +34,32 @@ def add_time(next_report_increment: float) -> func:
             + session_factory.bind.dialect.name
         )
     return add_time_func
+
+
+def subtract_time(next_report_increment: float) -> func:
+    if session_factory().bind.dialect.name == "mysql":
+        add_time_func = func.SUBTIME(
+            func.now(), func.SEC_TO_TIME(next_report_increment)
+        )
+    elif session_factory().bind.dialect.name == "sqlite":
+        add_time_func = func.datetime(func.now(), f"-{next_report_increment} seconds")
+
+    else:
+        raise ServerError(
+            "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
+            + session_factory.bind.dialect.name
+        )
+    return add_time_func
+
+
+def concat_column(words, col):
+    if session_factory().bind.dialect.name == "mysql":
+        concat_func = func.concat(words, column)
+    elif session_factory().bind.dialect.name == "sqlite":
+        concat_func = column(words) + col
+    else:
+        raise ServerError(
+            "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
+            + session_factory.bind.dialect.name
+        )
+    return concat_func
