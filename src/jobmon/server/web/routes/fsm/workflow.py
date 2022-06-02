@@ -14,7 +14,7 @@ from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
 from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
-from jobmon.server.web.routes import SessionLocal, get_time
+from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.fsm import blueprint
 from jobmon.server.web.server_side_exception import InvalidUsage
 

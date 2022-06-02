@@ -28,7 +28,7 @@ def is_alive() -> Any:
     return resp
 
 
-def get_time() -> str:
+def _get_time() -> str:
     with SessionLocal() as session:
         db_time = session.execute(select(func.now())).scalar()
         str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
@@ -37,7 +37,7 @@ def get_time() -> str:
 
 def get_pst_now() -> Any:
     """Get the time from the database."""
-    time = get_time()
+    time = _get_time()
     resp = jsonify(time=time)
     resp.status_code = StatusCodes.OK
     return resp
@@ -49,7 +49,7 @@ def health() -> Any:
     Return 200 if everything is OK. Defined in each module with a different route, so it can
     be checked individually.
     """
-    get_time()
+    _get_time()
     resp = jsonify(status="OK")
     resp.status_code = StatusCodes.OK
     return resp
@@ -58,6 +58,7 @@ def health() -> Any:
 # ############################ TESTING ROUTES ################################################
 def test_route():
     """Test route to force a 500 error."""
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         session.execute("SELECT * FROM blip_bloop_table").all()
         session.commit()

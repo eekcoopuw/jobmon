@@ -169,7 +169,7 @@ def bind_tasks() -> Any:
             args, attrs = arg_attr_mapping[hashval]
 
             for key, val in args.items():
-                task_arg = {"task_id": task_id, "arg_id": key, "val": val}
+                task_arg = {"task_id": task_id, "arg_id": int(key), "val": val}
                 args_to_add.append(task_arg)
 
             for name, val in attrs.items():
@@ -187,7 +187,7 @@ def bind_tasks() -> Any:
 
         if args_to_add:
             try:
-                arg_insert_stmt = insert(TaskArg).values(args_to_add)
+                arg_insert_stmt = add_ignore(insert(TaskArg).values(args_to_add))
                 session.execute(arg_insert_stmt)
             except (DataError, IntegrityError) as e:
                 # Args likely too long, message back

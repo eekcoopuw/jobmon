@@ -1,13 +1,17 @@
 import json
 
+import pytest
+
 from jobmon.server.web.log_config import configure_logger
 from jobmon.requester import Requester
-import pytest
+from jobmon.server.web import routes
+
 
 
 @pytest.fixture(scope="function")
 def log_config(web_server_in_memory, tmp_path):
-    web_server_in_memory.get("/")  # trigger logging setup
+    app, engine = web_server_in_memory
+    app.get("/")  # trigger logging setup
     filepath = str(tmp_path) + ".log"
 
     # override base config
@@ -41,7 +45,6 @@ def test_add_structlog_context(requester_in_memory, log_config):
 
 
 def test_error_handling(requester_in_memory, log_config, monkeypatch):
-    from jobmon.server.web import routes
 
     msg = "bad luck buddy"
 
@@ -70,4 +73,4 @@ def test_server_500(requester_in_memory):
         app_route="/test_bad", message={}, request_type="get"
     )
     assert rc == 500
-    assert "MySQLdb._exceptions.ProgrammingError" in resp["error"]["exception_message"]
+    assert "no such table" in resp["error"]["exception_message"]
