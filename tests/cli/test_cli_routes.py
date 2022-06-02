@@ -2,6 +2,7 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 from sqlalchemy import update
+import pandas as pd
 
 from jobmon.constants import WorkflowRunStatus, TaskStatus, TaskInstanceStatus
 from jobmon.client.task import Task
@@ -187,4 +188,34 @@ def test_get_workflow_validation_status(db_engine, tool):
     )
     assert return_code == 200
     assert msg["validation"] is False
+
+
+def test_get_workflow_tasks(db_engine, tool):
+    t = tool
+    wf = t.create_workflow(name="i_am_a_fake_wf")
+    tt1 = t.get_task_template(
+        template_name="tt_core", command_template="echo {arg}", node_args=["arg"]
+    )
+    t1 = tt1.create_task(
+        arg=1,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 2},
+    )
+    t2 = tt1.create_task(
+        arg=2,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 4},
+    )
+    wf.add_tasks([t1, t2])
+    wf.bind()
+    wf._create_workflow_run()
+
+    # Get task template for workflow
+    app_route = f"/workflow/{wf.workflow_id}/workflow_tasks"
+    return_code, msg = wf.requester.send_request(
+        app_route=app_route, message={"limit": 5, "status": "PENDING"}, request_type="get"
+    )
+    assert return_code == 200
+    result = pd.read_json(msg["workflow_tasks"])
+    assert len(result) == 2
 

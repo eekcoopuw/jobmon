@@ -2,6 +2,7 @@
 from http import HTTPStatus as StatusCodes
 import json
 import numpy as np
+import pandas as pd
 from typing import Any, cast, Dict, List, Set
 
 from flask import jsonify, request
@@ -81,6 +82,143 @@ def get_workflow_validation_status() -> Any:
         validation = False
 
     resp = jsonify(validation=validation, workflow_status=res[0])
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@blueprint.route("/workflow/<workflow_id>/workflow_tasks", methods=["GET"])
+def get_workflow_tasks(workflow_id: int) -> Any:
+    """Get the tasks for a given workflow."""
+    params: Dict = {"workflow_id": workflow_id}
+    limit = request.args.get("limit")
+    where_clause = "WHERE workflow.id = :workflow_id"
+    status_request = request.args.getlist("status", None)
+    logger.debug(f"Get tasks for workflow in status {status_request}")
+
+    session = SessionLocal()
+    with session.begin():
+        query_filter = [Workflow.id == Task.workflow_id,
+                        Task.status.in_([i for arg in status_request for i in _reversed_cli_label_mapping[arg]])]
+        sql = (
+            select(Task.id,
+                   Task.name,
+                   Task.status,
+                   Task.num_attempts
+                   ).where(*query_filter)
+        ).order_by(Task.id.desc())
+        rows = session.execute(sql).all()
+    column_names = ("TASK_ID", "TASK_NAME", "STATUS", "RETRIES")
+    res = [dict(zip(column_names, ti)) for ti in rows]
+    for r in res:
+        r["RETRIES"] = 0 if r["RETRIES"] <= 1 else r["RETRIES"] - 1
+
+    if limit:
+        res = res[:int(limit)]
+
+    logger.debug(
+        f"The following tasks of workflow are in status {status_request}:\n{res}"
+    )
+    if res:
+        # assign to dataframe for serialization
+        df = pd.DataFrame(res, columns=res[0].keys())
+
+        # remap to jobmon_cli statuses
+        df.STATUS.replace(to_replace=_cli_label_mapping, inplace=True)
+        df = df.to_json()
+        resp = jsonify(workflow_tasks=df)
+    else:
+        df = pd.DataFrame({}, columns=["TASK_ID", "TASK_NAME", "STATUS", "RETRIES"])
+        resp = jsonify(workflow_tasks=df.to_json())
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@blueprint.route(
+    "/workflow/<workflow_id>/validate_username/<username>", methods=["GET"]
+)
+def get_workflow_user_validation(workflow_id: int, username: str) -> Any:
+    """Return all usernames associated with a given workflow_id's workflow runs.
+
+    Used to validate permissions for a self-service request.
+    """
+    bind_to_logger(workflow_id=workflow_id)
+    logger.debug(f"Validate user name {username} for workflow")
+    query = """
+        SELECT DISTINCT user
+        FROM workflow_run
+        WHERE workflow_run.workflow_id = {workflow_id}
+    """.format(
+        workflow_id=workflow_id
+    )
+
+    result = DB.session.execute(query)
+
+    usernames = [row.user for row in result]
+
+    resp = jsonify(validation=username in usernames)
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@blueprint.route(
+    "/workflow/<workflow_id>/validate_for_workflow_reset/<username>", methods=["GET"]
+)
+def get_workflow_run_for_workflow_reset(workflow_id: int, username: str) -> Any:
+    """Last workflow_run_id associated with a given workflow_id started by the username.
+
+    Used to validate for workflow_reset:
+        1. The last workflow_run of the current workflow must be in error state.
+        2. This last workflow_run must have been started by the input username.
+        3. This last workflow_run is in status 'E'
+    """
+    query = """
+        SELECT id AS workflow_run_id, user AS username
+        FROM workflow_run
+        WHERE workflow_run.workflow_id = {workflow_id} and workflow_run.status = 'E'
+        ORDER BY created_date DESC
+        LIMIT 1
+    """.format(
+        workflow_id=workflow_id
+    )
+
+    result = DB.session.execute(query).one_or_none()
+    if result is not None and result.username == username:
+        resp = jsonify({"workflow_run_id": result.workflow_run_id})
+    else:
+        resp = jsonify({"workflow_run_id": None})
+
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@blueprint.route("workflow/<workflow_id>/reset", methods=["PUT"])
+def reset_workflow(workflow_id: int) -> Any:
+    """Update the workflow's status, all its tasks' statuses to 'G'."""
+    q_workflow = """
+        UPDATE workflow
+        SET status = 'G', status_date = CURRENT_TIMESTAMP
+        WHERE id = {workflow_id}
+    """.format(
+        workflow_id=workflow_id
+    )
+
+    DB.session.execute(q_workflow)
+
+    q_task = """
+        UPDATE task
+        SET status = 'G', status_date = CURRENT_TIMESTAMP, num_attempts = 0
+        WHERE workflow_id = {workflow_id}
+    """.format(
+        workflow_id=workflow_id
+    )
+
+    DB.session.execute(q_task)
+
+    DB.session.commit()
+
+    resp = jsonify({})
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -219,146 +357,5 @@ def get_workflow_status() -> Any:
         ).to_json()
         resp = jsonify(workflows=df)
 
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@blueprint.route("/workflow/<workflow_id>/workflow_tasks", methods=["GET"])
-def get_workflow_tasks(workflow_id: int) -> Any:
-    """Get the tasks for a given workflow."""
-    params: Dict = {"workflow_id": workflow_id}
-    bind_to_logger(workflow_id=workflow_id)
-    limit = request.args.get("limit")
-    where_clause = "WHERE workflow.id = :workflow_id"
-    status_request = request.args.getlist("status", None)
-    logger.debug(f"Get tasks for workflow in status {status_request}")
-
-    if status_request:
-        params["status"] = [
-            i for arg in status_request for i in _reversed_cli_label_mapping[arg]
-        ]
-        where_clause += " AND task.status in :status"
-    q = """
-        SELECT
-            task.id AS TASK_ID,
-            task.name AS TASK_NAME,
-            task.status AS STATUS,
-            CASE
-                WHEN num_attempts <= 1 THEN 0
-                ELSE num_attempts - 1
-            END AS RETRIES
-        FROM workflow
-        JOIN task
-            ON workflow.id = task.workflow_id
-        {where_clause}""".format(
-        where_clause=where_clause
-    )
-    if limit:
-        q = f"{q}\nLIMIT {limit}"
-    res = DB.session.execute(q, params).fetchall()
-    logger.debug(
-        f"The following tasks of workflow are in status {status_request}:\n{res}"
-    )
-    if res:
-        # assign to dataframe for serialization
-        df = pd.DataFrame(res, columns=res[0].keys())
-
-        # remap to jobmon_cli statuses
-        df.STATUS.replace(to_replace=_cli_label_mapping, inplace=True)
-        df = df.to_json()
-        resp = jsonify(workflow_tasks=df)
-    else:
-        df = pd.DataFrame({}, columns=["TASK_ID", "TASK_NAME", "STATUS", "RETRIES"])
-        resp = jsonify(workflow_tasks=df.to_json())
-
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@blueprint.route(
-    "/workflow/<workflow_id>/validate_username/<username>", methods=["GET"]
-)
-def get_workflow_user_validation(workflow_id: int, username: str) -> Any:
-    """Return all usernames associated with a given workflow_id's workflow runs.
-
-    Used to validate permissions for a self-service request.
-    """
-    bind_to_logger(workflow_id=workflow_id)
-    logger.debug(f"Validate user name {username} for workflow")
-    query = """
-        SELECT DISTINCT user
-        FROM workflow_run
-        WHERE workflow_run.workflow_id = {workflow_id}
-    """.format(
-        workflow_id=workflow_id
-    )
-
-    result = DB.session.execute(query)
-
-    usernames = [row.user for row in result]
-
-    resp = jsonify(validation=username in usernames)
-
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@blueprint.route(
-    "/workflow/<workflow_id>/validate_for_workflow_reset/<username>", methods=["GET"]
-)
-def get_workflow_run_for_workflow_reset(workflow_id: int, username: str) -> Any:
-    """Last workflow_run_id associated with a given workflow_id started by the username.
-
-    Used to validate for workflow_reset:
-        1. The last workflow_run of the current workflow must be in error state.
-        2. This last workflow_run must have been started by the input username.
-        3. This last workflow_run is in status 'E'
-    """
-    query = """
-        SELECT id AS workflow_run_id, user AS username
-        FROM workflow_run
-        WHERE workflow_run.workflow_id = {workflow_id} and workflow_run.status = 'E'
-        ORDER BY created_date DESC
-        LIMIT 1
-    """.format(
-        workflow_id=workflow_id
-    )
-
-    result = DB.session.execute(query).one_or_none()
-    if result is not None and result.username == username:
-        resp = jsonify({"workflow_run_id": result.workflow_run_id})
-    else:
-        resp = jsonify({"workflow_run_id": None})
-
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@blueprint.route("workflow/<workflow_id>/reset", methods=["PUT"])
-def reset_workflow(workflow_id: int) -> Any:
-    """Update the workflow's status, all its tasks' statuses to 'G'."""
-    q_workflow = """
-        UPDATE workflow
-        SET status = 'G', status_date = CURRENT_TIMESTAMP
-        WHERE id = {workflow_id}
-    """.format(
-        workflow_id=workflow_id
-    )
-
-    DB.session.execute(q_workflow)
-
-    q_task = """
-        UPDATE task
-        SET status = 'G', status_date = CURRENT_TIMESTAMP, num_attempts = 0
-        WHERE workflow_id = {workflow_id}
-    """.format(
-        workflow_id=workflow_id
-    )
-
-    DB.session.execute(q_task)
-
-    DB.session.commit()
-
-    resp = jsonify({})
     resp.status_code = StatusCodes.OK
     return resp
