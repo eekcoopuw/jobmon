@@ -2,6 +2,7 @@
 from http import HTTPStatus as StatusCodes
 import json
 import numpy as np
+import scipy.stats as st  # type:ignore
 from typing import Any, cast, Dict, List, Set
 
 from flask import jsonify, request
