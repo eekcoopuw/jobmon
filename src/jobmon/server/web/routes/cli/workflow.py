@@ -1,3 +1,27 @@
+"""Routes for TaskTemplate."""
+from http import HTTPStatus as StatusCodes
+import json
+import numpy as np
+from typing import Any, cast, Dict, List, Set
+
+from flask import jsonify, request
+from sqlalchemy import func, select, update
+from sqlalchemy.orm import Session
+import structlog
+
+from jobmon.constants import WorkflowStatus as Statuses
+from jobmon.server.web.models.node import Node
+from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_instance import TaskInstance
+from jobmon.server.web.models.task_resources import TaskResources
+from jobmon.server.web.models.task_template import TaskTemplate
+from jobmon.server.web.models.task_template_version import TaskTemplateVersion
+from jobmon.server.web.models.workflow import Workflow
+from jobmon.server.web.routes import SessionLocal
+from jobmon.server.web.routes.cli import blueprint
+
+# new structlog logger per flask request context. internally stored as flask.g.logger
+logger = structlog.get_logger(__name__)
 
 _cli_label_mapping = {
     "A": "PENDING",
@@ -32,23 +56,21 @@ def get_workflow_validation_status() -> Any:
         resp.status_code = StatusCodes.OK
         return resp
 
-    task_list = ""
-    for id in task_ids:
-        task_list = task_list + str(id) + ","
-    task_list = task_list[:-1]
-
-    # execute query
-    q = f"""
-        SELECT
-            distinct t.workflow_id, wf.status
-        FROM task t
-        INNER JOIN workflow wf ON t.workflow_id = wf.id
-        WHERE t.id IN ({task_list})
-    """
-    res = DB.session.execute(q).fetchall()
-
+    session = SessionLocal()
+    with session.begin():
+        # execute query
+        query_filter = [Task.workflow_id == Workflow.id,
+                        Task.id.in_(task_ids)]
+        sql = (
+            select(
+                Task.workflow_id,
+                Workflow.status
+            ).where(*query_filter)
+        ).distinct()
+        rows = session.execute(sql).all()
+    res = [ti[1] for ti in rows]
     # Validate if all tasks are in the same workflow and the workflow status is dead
-    if len(res) == 1 and res[0][1] in (
+    if len(res) == 1 and res[0] in (
         Statuses.FAILED,
         Statuses.DONE,
         Statuses.ABORTED,
@@ -58,7 +80,7 @@ def get_workflow_validation_status() -> Any:
     else:
         validation = False
 
-    resp = jsonify(validation=validation, workflow_status=res[0][1])
+    resp = jsonify(validation=validation, workflow_status=res[0])
     resp.status_code = StatusCodes.OK
     return resp
 

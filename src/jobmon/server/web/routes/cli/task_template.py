@@ -11,6 +11,7 @@ import structlog
 
 from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.models.task_template import TaskTemplate
 from jobmon.server.web.models.task_template_version import TaskTemplateVersion
@@ -116,17 +117,26 @@ def get_most_popular_queue() -> Any:
     """Get the most popular queue of the task template."""
     # parse args
     ttvis = request.args.get("task_template_version_ids")
-    sql = f"""
-            SELECT task_template_version.id as id, task_resources.queue_id as queue_id
-            FROM task, node, task_template_version, task_resources, task_instance
-            WHERE task_template_version.id in {ttvis}
-            AND node.task_template_version_id=task_template_version.id
-            AND task.node_id=node.id
-            AND task_instance.task_id=task.id
-            AND task_instance.task_resources_id = task_resources.id
-            AND task_resources.queue_id is not null
-    """
-    rows = DB.session.execute(sql).fetchall()
+    ttvis = [int(i) for i in ttvis[1:-1].split(",")]
+    session = SessionLocal()
+    with session.begin():
+        query_filter = [TaskTemplateVersion.id.in_(ttvis),
+                        TaskTemplateVersion.id == Node.task_template_version_id,
+                        Task.node_id == Node.id,
+                        TaskInstance.task_id == Task.id,
+                        TaskInstance.task_resources_id == TaskResources.id,
+                        TaskResources.queue_id.isnot(None)
+                        ]
+        sql = (
+            select(
+                TaskTemplateVersion.id,
+                TaskResources.queue_id
+            ).where(*query_filter)
+        )
+
+    rows = session.execute(sql).all()
+    column_names = ("id", "queue_id")
+    rows = [dict(zip(column_names, ti)) for ti in rows]
     # return a "standard" json format for cli routes
     queue_info = []
     if rows:
