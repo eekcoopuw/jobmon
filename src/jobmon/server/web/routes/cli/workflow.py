@@ -18,6 +18,7 @@ from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.models.task_template import TaskTemplate
 from jobmon.server.web.models.task_template_version import TaskTemplateVersion
 from jobmon.server.web.models.workflow import Workflow
+from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.cli import blueprint
 
@@ -89,9 +90,7 @@ def get_workflow_validation_status() -> Any:
 @blueprint.route("/workflow/<workflow_id>/workflow_tasks", methods=["GET"])
 def get_workflow_tasks(workflow_id: int) -> Any:
     """Get the tasks for a given workflow."""
-    params: Dict = {"workflow_id": workflow_id}
     limit = request.args.get("limit")
-    where_clause = "WHERE workflow.id = :workflow_id"
     status_request = request.args.getlist("status", None)
     logger.debug(f"Get tasks for workflow in status {status_request}")
 
@@ -142,19 +141,15 @@ def get_workflow_user_validation(workflow_id: int, username: str) -> Any:
 
     Used to validate permissions for a self-service request.
     """
-    bind_to_logger(workflow_id=workflow_id)
     logger.debug(f"Validate user name {username} for workflow")
-    query = """
-        SELECT DISTINCT user
-        FROM workflow_run
-        WHERE workflow_run.workflow_id = {workflow_id}
-    """.format(
-        workflow_id=workflow_id
-    )
-
-    result = DB.session.execute(query)
-
-    usernames = [row.user for row in result]
+    session = SessionLocal()
+    with session.begin():
+        query_filter = [WorkflowRun.workflow_id == workflow_id]
+        sql = (
+            select(WorkflowRun.user).where(*query_filter)
+        ).distinct()
+        rows = session.execute(sql).all()
+    usernames = [row[0] for row in rows]
 
     resp = jsonify(validation=username in usernames)
 
