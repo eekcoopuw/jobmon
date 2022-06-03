@@ -226,7 +226,6 @@ def get_workflow_status() -> Any:
     if workflow_request == "all":  # specifying all is equivalent to None
         workflow_request = []
     limit = request.args.get("limit")
-    where_clause = ""
     # convert workflow request into sql filter
     if workflow_request:
         workflow_request = [int(w) for w in workflow_request]
@@ -281,6 +280,8 @@ def get_workflow_status() -> Any:
         res.append(r)
 
     if res is not None and len(res) > 0:
+        if limit:
+            res = res[:int(limit)]
 
         # assign to dataframe for aggregation
         df = pd.DataFrame(res, columns=res[0].keys())

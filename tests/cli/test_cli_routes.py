@@ -216,6 +216,14 @@ def test_get_workflow_tasks(db_engine, tool):
     result = pd.read_json(msg["workflow_tasks"])
     assert len(result) == 2
 
+    app_route = f"/workflow/{wf.workflow_id}/workflow_tasks"
+    return_code, msg = wf.requester.send_request(
+        app_route=app_route, message={"limit": 1, "status": "PENDING"}, request_type="get"
+    )
+    assert return_code == 200
+    result = pd.read_json(msg["workflow_tasks"])
+    assert len(result) == 1
+
 
 def test_get_workflow_user_validation(db_engine, tool):
     t = tool

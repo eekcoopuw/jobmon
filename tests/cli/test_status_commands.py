@@ -95,7 +95,7 @@ def df_from_stdout(function, arguments):
     return data
 
 
-def test_workflow_status(db_cfg, client_env, monkeypatch, cli):
+def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
     from jobmon.client.tool import Tool
     from jobmon.client.status_commands import workflow_status
     import datetime
@@ -103,7 +103,6 @@ def test_workflow_status(db_cfg, client_env, monkeypatch, cli):
     monkeypatch.setattr(getpass, "getuser", mock_getuser)
     user = getpass.getuser()
 
-    tool = Tool()
     workflow = tool.create_workflow(
         default_cluster_name="sequential",
         default_compute_resources_set={"sequential": {"queue": "null.q"}},
