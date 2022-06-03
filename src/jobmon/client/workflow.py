@@ -416,6 +416,9 @@ class Workflow(object):
         tasks = array.get_tasks_by_node_args(**kwargs)
         return tasks
 
+    def set_max_concurrently_running(self, task_template_name, max_concurrently_running):
+        pass
+
     def run(
         self,
         fail_fast: bool = False,

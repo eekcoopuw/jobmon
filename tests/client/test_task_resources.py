@@ -1,3 +1,5 @@
+from sqlalchemy.orm import Session
+
 from jobmon.client.task_resources import TaskResources
 
 
@@ -36,7 +38,7 @@ def test_task_resources_hash(client_env):
     assert not resource_1 == FakeResource()
 
 
-def test_task_resource_bind(db_cfg, client_env, tool, task_template):
+def test_task_resource_bind(db_engine, tool, task_template):
 
     resources = {"queue": "null.q"}
     task_template.set_default_compute_resources_from_dict(
@@ -53,18 +55,15 @@ def test_task_resource_bind(db_cfg, client_env, tool, task_template):
     wf.bind()
     wf._create_workflow_run()
 
-    app, db = db_cfg["app"], db_cfg["DB"]
-
-    with app.app_context():
-
+    with Session(bind=db_engine) as session:
         q = f"""
         SELECT DISTINCT tr.id
         FROM task t
         JOIN task_resources tr ON tr.id = t.task_resources_id
         WHERE t.id IN {tuple(set([t.task_id for t in [t1, t2, t3]]))}
         """
-        res = db.session.execute(q).fetchall()
-        db.session.commit()
+        res = session.execute(q).fetchall()
+        session.commit()
         assert len(res) == 1
 
     tr1, tr2, tr3 = [t.original_task_resources for t in wf.tasks.values()]
@@ -73,7 +72,7 @@ def test_task_resource_bind(db_cfg, client_env, tool, task_template):
     assert tr1.id == res[0].id
 
 
-def test_defaults_pass_down_and_overrides(db_cfg, client_env, tool, task_template):
+def test_defaults_pass_down_and_overrides(tool, task_template):
     # test resource_scales == {runtime: 0.5, memory: 0.5} for unspecified
     resources = {"queue": "null.q"}
     task_template.set_default_compute_resources_from_dict(

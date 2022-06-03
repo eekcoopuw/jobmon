@@ -1,4 +1,4 @@
 """Initialize Web services."""
-from jobmon.server.web.api import create_app
+from jobmon.server.web.app_factory import AppFactory
 
-app = create_app()
+app = AppFactory().create_app_context()

@@ -1,17 +1,30 @@
 """ArgType table in the database."""
-from jobmon.server.web.models import DB
+from sqlalchemy import Column, Integer, String
+from sqlalchemy.orm import relationship, Session
+
+from jobmon import constants
+from jobmon.server.web.models import Base
 
 
-class ArgType(DB.Model):
+class ArgType(Base):
     """ArgType table in the database."""
 
     __tablename__ = "arg_type"
 
-    NODE_ARG = 1
-    TASK_ARG = 2
-    OP_ARG = 3
+    NODE_ARG = constants.ArgType.NODE_ARG
+    TASK_ARG = constants.ArgType.TASK_ARG
+    OP_ARG = constants.ArgType.OP_ARG
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    name = DB.Column(DB.String(255))
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), unique=True)
 
-    template_arg_map = DB.relationship("TemplateArgMap", back_populates="argument_type")
+    template_arg_map = relationship("TemplateArgMap", back_populates="argument_type")
+
+
+def add_arg_types(session: Session):
+    types = [
+        ArgType(id=1, name="NODE_ARG"),
+        ArgType(id=2, name="TASK_ARG"),
+        ArgType(id=3, name="OP_ARG")
+    ]
+    session.add_all(types)

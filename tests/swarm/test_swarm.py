@@ -3,14 +3,27 @@ import logging
 import os
 import time
 
+import pytest
+from sqlalchemy import update
+from sqlalchemy.orm import Session
+
+from jobmon.builtins.dummy import DummyDistributor
+from jobmon.builtins.sequential.seq_distributor import SequentialDistributor
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.workflow import DistributorContext
-from jobmon.constants import WorkflowRunStatus
+from jobmon.client.distributor.distributor_service import DistributorService
+from jobmon.constants import WorkflowRunStatus, TaskInstanceStatus
 from jobmon.exceptions import CallableReturnedInvalidObject
+from jobmon.server.web import session_factory
+from jobmon.server.web._compat import subtract_time
+from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_status import TaskStatus
+from jobmon.server.web.models import load_model
+from jobmon.worker_node.cli import WorkerNodeCLI
 
-import pytest
+
+load_model()
 
 
 logger = logging.getLogger(__name__)
@@ -63,9 +76,6 @@ def test_sync_statuses(client_env, tool, task_template):
     """this test executes a single task workflow where the task fails. It
     is testing to confirm that the status updates are propagated into the
     swarm objects"""
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.builtins.sequential.seq_distributor import SequentialDistributor
-    from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 
     # client calls
     task = task_template.create_task(arg="fizzbuzz", name="bar", max_attempts=1)
@@ -107,22 +117,16 @@ def test_sync_statuses(client_env, tool, task_template):
     assert len(swarm.done_tasks) == 0
 
 
-def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
+def test_wedged_dag(db_engine, tool, task_template, requester_no_retry):
     """This test runs a 3 task dag where one of the tasks updates it status
     without updating its status date. This would cause the normal pathway of
     status collection in the workflow run to fail. Instead the test uses the
     wedged_workflow_sync_interval set to -1 second to force a full sync of
     the workflow tasks which resolves the wedge"""
-    from jobmon.constants import TaskInstanceStatus
-    from jobmon.builtins.dummy import DummyDistributor
-    from jobmon.worker_node.cli import WorkerNodeCLI
-    from jobmon.client.distributor.distributor_service import DistributorService
 
     class WedgedDistributor(DummyDistributor):
 
         wedged_task_id = None
-        app = db_cfg["app"]
-        DB = db_cfg["DB"]
 
         def submit_to_batch_distributor(
             self, command: str, name: str, requested_resources
@@ -131,45 +135,47 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
 
             cli = WorkerNodeCLI()
             args = cli.parse_args(command)
-
             # need to get task id from task instance here to compare to wedged
             # task id that will be set later in the code
-            with self.app.app_context():
+            with Session(bind=db_engine) as session:
                 task_instance = (
-                    self.DB.session.query(TaskInstance)
+                    session.query(TaskInstance)
                     .filter_by(id=args.task_instance_id)
                     .one()
                 )
                 task_id = int(task_instance.task.id)
 
             if task_id == self.wedged_task_id:
-                logger.info(
-                    f"task instance is {self.wedged_task_id}, entering"
-                    " first if statement"
-                )
-                task_inst_query = """
-                    UPDATE task_instance
-                    SET status = 'D'
-                    WHERE task_instance.id = {task_instance_id}
-                """.format(
-                    task_instance_id=args.task_instance_id
-                )
-                task_query = """
-                    UPDATE task
-                    SET task.status = 'D',
-                        task.status_date = SUBTIME(CURRENT_TIMESTAMP(),
-                                                   SEC_TO_TIME(600))
-                    WHERE task.id = {task_id}
-                """.format(
-                    task_id=task_id
-                )
 
-                with self.app.app_context():
-                    self.DB.session.execute(task_inst_query)
-                    self.DB.session.execute(task_query)
-                    self.DB.session.commit()
+                session_factory.configure(bind=db_engine)
 
-                exec_id = str(123456789)
+                with Session(bind=db_engine) as session:
+
+                    logger.info(
+                        f"task instance is {self.wedged_task_id}, entering"
+                        " first if statement"
+                    )
+                    task_inst_stmt = update(
+                        TaskInstance
+                    ).where(
+                        TaskInstance.id == args.task_instance_id
+                    ).values(
+                        status='D'
+                    )
+                    task_stmt = update(
+                        Task
+                    ).where(
+                        Task.id == task_id
+                    ).values(
+                        status='D',
+                        status_date=subtract_time(600)
+                    )
+
+                    session.execute(task_inst_stmt)
+                    session.execute(task_stmt)
+                    session.commit()
+
+                    exec_id = str(123456789)
             else:
                 exec_id = super().submit_to_batch_distributor(
                     command, name, requested_resources
@@ -225,22 +231,21 @@ def test_wedged_dag(db_cfg, tool, task_template, requester_no_retry):
 
     # Force the workflow run back to instantiating state, since the distributor service
     # transitions the workflow_run to launched
-    DB, app = WedgedDistributor.DB, WedgedDistributor.app
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         sql = """
             UPDATE workflow_run
             SET status = 'O'
             WHERE id = :workflow_run_id
         """
-        DB.session.execute(sql, {"workflow_run_id": wfr.workflow_run_id})
+        session.execute(sql, {"workflow_run_id": wfr.workflow_run_id})
 
         sql = """
             UPDATE workflow
             SET status = 'O'
             WHERE id = :workflow_id
         """
-        DB.session.execute(sql, {"workflow_id": workflow.workflow_id})
-        DB.session.commit()
+        session.execute(sql, {"workflow_id": workflow.workflow_id})
+        session.commit()
     # now run wedged dag route. make sure task 2 is now in done state
     with pytest.raises(RuntimeError):
         swarm.wedged_workflow_sync_interval = -1

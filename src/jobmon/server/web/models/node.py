@@ -1,12 +1,19 @@
 """Node Table in the Database."""
-from jobmon.server.web.models import DB
+from sqlalchemy import Column, Integer, UniqueConstraint, VARCHAR
+
+from jobmon.server.web.models import Base
 
 
-class Node(DB.Model):
+class Node(Base):
     """Node Table in the Database."""
 
     __tablename__ = "node"
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    task_template_version_id = DB.Column(DB.Integer)
-    node_args_hash = DB.Column(DB.Integer)
+    id = Column(Integer, primary_key=True)
+    task_template_version_id = Column(Integer, index=True)
+    node_args_hash = Column(VARCHAR(50))
+
+    __table_args__ = (
+        UniqueConstraint('task_template_version_id', 'node_args_hash',
+                         name='uc_task_template_version_id_node_args_hash'),
+    )

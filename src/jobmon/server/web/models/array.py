@@ -1,19 +1,13 @@
 """Array Table for the Database."""
-from functools import partial
 
+from sqlalchemy import Column, DateTime, Integer, String, UniqueConstraint
 from sqlalchemy.sql import func
-from werkzeug.local import LocalProxy
 
 from jobmon.serializers import SerializeDistributorArray
-from jobmon.server.web.log_config import get_logger
-from jobmon.server.web.models import DB
+from jobmon.server.web.models import Base
 
 
-# new structlog logger per flask request context. internally stored as flask.g.logger
-logger = LocalProxy(partial(get_logger, __name__))
-
-
-class Array(DB.Model):
+class Array(Base):
     """Array Database object."""
 
     __tablename__ = "array"
@@ -27,9 +21,14 @@ class Array(DB.Model):
         )
         return serialized
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    name = DB.Column(DB.String(255))
-    task_template_version_id = DB.Column(DB.Integer)
-    workflow_id = DB.Column(DB.Integer)
-    max_concurrently_running = DB.Column(DB.Integer)
-    created_date = DB.Column(DB.DateTime, default=func.now())
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), index=True)
+    task_template_version_id = Column(Integer, index=True)
+    workflow_id = Column(Integer, index=True)
+    max_concurrently_running = Column(Integer)
+    created_date = Column(DateTime, default=func.now())
+
+    __table_args__ = (
+        UniqueConstraint('task_template_version_id', 'workflow_id',
+                         name='uc_task_template_version_id_workflow_id'),
+    )

@@ -1,35 +1,29 @@
 """Config specific to web services."""
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Optional, Type
 
-try:
-    # default to mysqldb if installed. ~10x faster than pymysql
-    import MySQLdb  # noqa F401
-
-    driver = "mysqldb"
-except (ImportError, ModuleNotFoundError):
-    # otherwise use pymysql since it is pip installable
-    import pymysql  # noqa F401
-
-    driver = "pymysql"
-
+import sqlalchemy
 
 from jobmon.config import CLI, ParserDefaults
 
 
-class WebConfig(object):
-    """This is intended to be a singleton. If using in another way, proceed with CAUTION."""
+class WebConfig:
+    """web config class"""
 
     @classmethod
-    def from_defaults(cls: Any) -> WebConfig:
+    def from_defaults(cls: Type[WebConfig]) -> WebConfig:
         """Defaults hierarchy is available from configargparse jobmon_cli."""
         cli = CLI()
-        ParserDefaults.db_host(cli.parser)
-        ParserDefaults.db_port(cli.parser)
-        ParserDefaults.db_user(cli.parser)
-        ParserDefaults.db_pass(cli.parser)
-        ParserDefaults.db_name(cli.parser)
+        ParserDefaults.sql_dialect(cli.parser)
+        if cli.parser.parse_known_args()[0].dialect == "mysql":
+            ParserDefaults.db_host(cli.parser)
+            ParserDefaults.db_port(cli.parser)
+            ParserDefaults.db_user(cli.parser)
+            ParserDefaults.db_pass(cli.parser)
+            ParserDefaults.db_name(cli.parser)
+        else:
+            ParserDefaults.sqlite_file(cli.parser)
         ParserDefaults.use_logstash(cli.parser)
         ParserDefaults.logstash_host(cli.parser)
         ParserDefaults.logstash_port(cli.parser)
@@ -42,12 +36,36 @@ class WebConfig(object):
 
         # passing an empty string forces this method to ignore sys.argv
         args = cli.parse_args("")
+
+        if args.sql_dialect == "mysql":
+            try:
+                # default to mysqldb if installed. ~10x faster than pymysql
+                import MySQLdb  # noqa F401
+                driver = "mysqldb"
+            except (ImportError, ModuleNotFoundError):
+                # otherwise use pymysql since it is pip installable
+                import pymysql  # noqa F401
+                driver = "pymysql"
+
+            conn_str = "mysql+{driver}://{user}:{pw}@{host}:{port}/{db}".format(
+                driver=driver,
+                user=args.db_user,
+                pw=args.db_pass,
+                host=args.db_host,
+                port=args.db_port,
+                db=args.db_name,
+            )
+            engine = sqlalchemy.create_engine(conn_str, pool_recycle=200, future=True)
+        else:
+            conn_str = f"sqlite://{args.sqlite_file}"
+            engine = sqlalchemy.create_engine(
+                conn_str,
+                connect_args={'check_same_thread': False},
+                poolclass=sqlalchemy.pool.StaticPool, future=True
+            )
+
         return cls(
-            db_host=args.db_host,
-            db_port=args.db_port,
-            db_user=args.db_user,
-            db_pass=args.db_pass,
-            db_name=args.db_name,
+            engine=engine,
             use_logstash=args.use_logstash,
             logstash_host=args.logstash_host,
             logstash_port=args.logstash_port,
@@ -61,11 +79,7 @@ class WebConfig(object):
 
     def __init__(
         self,
-        db_host: str,
-        db_port: str,
-        db_user: str,
-        db_pass: str,
-        db_name: str,
+        engine: sqlalchemy.Engine,
         use_logstash: bool = False,
         logstash_host: str = "",
         logstash_port: Optional[int] = None,
@@ -77,11 +91,7 @@ class WebConfig(object):
         log_level: str = "INFO",
     ) -> None:
         """Initialize config for server."""
-        self.db_host = db_host
-        self.db_port = db_port
-        self.db_user = db_user
-        self.db_pass = db_pass
-        self.db_name = db_name
+        self.engine = engine
         self.use_logstash = use_logstash
         self.logstash_host = logstash_host
         self.logstash_port = logstash_port
@@ -91,16 +101,3 @@ class WebConfig(object):
         self.apm_server_name = apm_server_name
         self.apm_port = apm_port
         self.log_level = log_level
-
-    @property
-    def conn_str(self) -> str:
-        """Database connection string."""
-        conn_str = "mysql+{driver}://{user}:{pw}@{host}:{port}/{db}".format(
-            driver=driver,
-            user=self.db_user,
-            pw=self.db_pass,
-            host=self.db_host,
-            port=self.db_port,
-            db=self.db_name,
-        )
-        return conn_str

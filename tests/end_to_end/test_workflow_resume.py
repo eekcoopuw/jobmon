@@ -5,6 +5,7 @@ import time
 from jobmon.constants import WorkflowRunStatus, TaskInstanceStatus
 from jobmon.exceptions import WorkflowAlreadyExists, WorkflowNotResumable
 from jobmon.builtins.multiprocess.multiproc_distributor import MultiprocessDistributor
+from jobmon.client.tool import Tool
 
 from mock import patch
 
@@ -12,8 +13,7 @@ import pytest
 
 
 @pytest.fixture
-def tool(db_cfg, client_env):
-    from jobmon.client.tool import Tool
+def tool(client_env):
 
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
@@ -71,7 +71,7 @@ remote_sleep_and_write = os.path.abspath(
 )
 
 
-def test_fail_one_task_resume(db_cfg, tool, task_template_fail_one, tmpdir):
+def test_fail_one_task_resume(tool, task_template_fail_one, tmpdir):
     """test that a workflow with a task that fails. The workflow is resumed and
     the task then finishes successfully and the workflow runs to completion"""
 

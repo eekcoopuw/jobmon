@@ -2,7 +2,10 @@ from datetime import datetime, timedelta
 from typing import Dict
 
 import pytest
+from sqlalchemy import select
 from sqlalchemy.sql import text
+from sqlalchemy.orm import Session
+
 
 from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.client.status_commands import concurrency_limit
@@ -12,9 +15,12 @@ from jobmon.builtins.multiprocess.multiproc_distributor import (
 )
 from jobmon.builtins.sequential.seq_distributor import SequentialDistributor
 from jobmon.constants import TaskInstanceStatus
+from jobmon.server.web.models import load_model
+
+load_model()
 
 
-def test_instantiate_job(tool, db_cfg, client_env, task_template):
+def test_instantiate_job(tool, db_engine, task_template):
     """tests that a task can be instantiated and run and log done"""
     from jobmon.server.web.models.task_instance import TaskInstance
 
@@ -45,25 +51,18 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
 
     # check the job turned into I
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        SELECT id, task_instance.status
-        FROM task_instance
-        WHERE task_id in :task_ids
-        ORDER BY id"""
-        res = (
-            DB.session.query(TaskInstance)
-            .from_statement(text(sql))
-            .params(task_ids=[t1.task_id, t2.task_id])
-            .all()
-        )
-        DB.session.commit()
+    with Session(bind=db_engine) as session:
+        select_stmt = select(
+            TaskInstance
+        ).where(
+            TaskInstance.task_id.in_([t1.task_id, t2.task_id])
+        ).order_by(TaskInstance.id)
+        task_instances = session.execute(select_stmt).scalars().all()
+        session.commit()
 
-    assert len(res) == 2
-    assert res[0].status == "I"
-    assert res[1].status == "I"
+        assert len(task_instances) == 2
+        assert task_instances[0].status == "I"
+        assert task_instances[1].status == "I"
 
     # Queued status should have turned into Instantiated status as well.
     assert (
@@ -88,28 +87,21 @@ def test_instantiate_job(tool, db_cfg, client_env, task_template):
 
     # Once processed from INSTANTIATED, the sequential (being a single process), would
     # carry it all the way through to D
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        SELECT id, task_instance.status
-        FROM task_instance
-        WHERE task_id in :task_ids
-        ORDER BY id"""
-        res = (
-            DB.session.query(TaskInstance)
-            .from_statement(text(sql))
-            .params(task_ids=[t1.task_id, t2.task_id])
-            .all()
-        )
-        DB.session.commit()
+    with Session(bind=db_engine) as session:
+        select_stmt = select(
+            TaskInstance
+        ).where(
+            TaskInstance.task_id.in_([t1.task_id, t2.task_id])
+        ).order_by(TaskInstance.id)
+        task_instances = session.execute(select_stmt).scalars().all()
+        session.commit()
 
-    assert len(res) == 2
-    assert res[0].status == "D"
-    assert res[1].status == "D"
+        assert len(task_instances) == 2
+        assert task_instances[0].status == "D"
+        assert task_instances[1].status == "D"
 
 
-def test_instantiate_array(tool, db_cfg, client_env, task_template):
+def test_instantiate_array(tool, db_engine, task_template):
     """tests that a task can be instantiated and run and log error"""
     from jobmon.server.web.models.task_instance import TaskInstance
 
@@ -143,25 +135,18 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
 
     # check the job turned into I
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        SELECT id, task_instance.status
-        FROM task_instance
-        WHERE task_id in :task_ids
-        ORDER BY id"""
-        res = (
-            DB.session.query(TaskInstance)
-            .from_statement(text(sql))
-            .params(task_ids=[t1.task_id, t2.task_id])
-            .all()
-        )
-        DB.session.commit()
+    with Session(bind=db_engine) as session:
+        select_stmt = select(
+            TaskInstance
+        ).where(
+            TaskInstance.task_id.in_([t1.task_id, t2.task_id])
+        ).order_by(TaskInstance.id)
+        task_instances = session.execute(select_stmt).scalars().all()
+        session.commit()
 
-    assert len(res) == 2
-    assert res[0].status == "I"
-    assert res[1].status == "I"
+        assert len(task_instances) == 2
+        assert task_instances[0].status == "I"
+        assert task_instances[1].status == "I"
 
     # Queued status should have turned into Instantiated status as well.
     assert (
@@ -185,40 +170,33 @@ def test_instantiate_array(tool, db_cfg, client_env, task_template):
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # check the job to be Launched
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        SELECT id, status, distributor_id, array_step_id
-        FROM task_instance
-        WHERE task_id in :task_ids
-        ORDER BY id"""
-        res = (
-            DB.session.query(TaskInstance)
-            .from_statement(text(sql))
-            .params(task_ids=[t1.task_id, t2.task_id])
-            .all()
+    with Session(bind=db_engine) as session:
+        select_stmt = select(
+            TaskInstance
+        ).where(
+            TaskInstance.task_id.in_([t1.task_id, t2.task_id])
+        ).order_by(TaskInstance.id)
+        task_instances = session.execute(select_stmt).scalars().all()
+        session.commit()
+
+        assert len(task_instances) == 2
+        assert task_instances[0].status == "O"
+        assert task_instances[1].status == "O"
+        assert task_instances[0].distributor_id is not None
+        assert task_instances[1].distributor_id is not None
+
+        # Check that distributor id is logged correctly
+        submitted_job_id = distributor_service.cluster_interface._next_job_id - 1
+        expected_dist_id = distributor_service.cluster_interface._get_subtask_id
+        assert task_instances[0].distributor_id == expected_dist_id(
+            submitted_job_id, task_instances[0].array_step_id
         )
-        DB.session.commit()
-
-    assert len(res) == 2
-    assert res[0].status == "O"
-    assert res[1].status == "O"
-    assert res[0].distributor_id is not None
-    assert res[1].distributor_id is not None
-
-    # Check that distributor id is logged correctly
-    submitted_job_id = distributor_service.cluster_interface._next_job_id - 1
-    expected_dist_id = distributor_service.cluster_interface._get_subtask_id
-    assert res[0].distributor_id == expected_dist_id(
-        submitted_job_id, res[0].array_step_id
-    )
-    assert res[1].distributor_id == expected_dist_id(
-        submitted_job_id, res[1].array_step_id
-    )
+        assert task_instances[1].distributor_id == expected_dist_id(
+            submitted_job_id, task_instances[1].array_step_id
+        )
 
 
-def test_job_submit_raises_error(db_cfg, tool):
+def test_job_submit_raises_error(db_engine, tool):
     """test that things move successfully into 'W' state if the executor
     returns the correct id"""
 
@@ -255,19 +233,17 @@ def test_job_submit_raises_error(db_cfg, tool):
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # check the job finished
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         sql = """
         SELECT task_instance.status
         FROM task_instance
         WHERE task_id = :task_id"""
-        res = DB.session.execute(sql, {"task_id": task1.task_id}).fetchone()
-        DB.session.commit()
+        res = session.execute(sql, {"task_id": task1.task_id}).fetchone()
+        session.commit()
     assert res[0] == "W"
 
 
-def test_array_submit_raises_error(db_cfg, tool):
+def test_array_submit_raises_error(db_engine, tool):
     """test that things move successfully into 'W' state if the executor
     returns the correct id"""
     from jobmon.server.web.models.task_instance import TaskInstance
@@ -310,27 +286,20 @@ def test_array_submit_raises_error(db_cfg, tool):
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # check the job finished
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        SELECT id, task_instance.status
-        FROM task_instance
-        WHERE task_id in :task_ids
-        ORDER BY id"""
-        res = (
-            DB.session.query(TaskInstance)
-            .from_statement(text(sql))
-            .params(task_ids=[t1.task_id, t2.task_id])
-            .all()
-        )
-        DB.session.commit()
+    with Session(bind=db_engine) as session:
+        select_stmt = select(
+            TaskInstance
+        ).where(
+            TaskInstance.task_id.in_([t1.task_id, t2.task_id])
+        ).order_by(TaskInstance.id)
+        task_instances = session.execute(select_stmt).scalars().all()
+        session.commit()
 
-    for task in res:
-        assert task.status == "W"
+        for task_instance in task_instances:
+            assert task_instance.status == "W"
 
 
-def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
+def test_workflow_concurrency_limiting(tool, task_template):
     """tests that we only return a subset of queued jobs based on the n_queued
     parameter"""
 
@@ -377,7 +346,7 @@ def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
     [(10_000, 2, 2), (2, 10_000, 2), (2, 3, 2), (3, 2, 2)],
 )
 def test_array_concurrency(
-    tool, db_cfg, client_env, array_template, wf_limit, array_limit, expected_len
+    tool, array_template, wf_limit, array_limit, expected_len
 ):
     """Use Case 1: Array concurrency limit is set, workflow is not. Array should be limited by
     the array's max_concurrently running value"""
@@ -422,7 +391,7 @@ def test_array_concurrency(
     distributor_service.cluster_interface.stop()
 
 
-def test_dynamic_concurrency_limiting(tool, db_cfg, task_template):
+def test_dynamic_concurrency_limiting(tool, task_template):
     """tests that the CLI functionality to update concurrent jobs behaves as expected"""
 
     tasks = []
@@ -479,14 +448,14 @@ def test_dynamic_concurrency_limiting(tool, db_cfg, task_template):
     )
 
 
-def test_array_launch_transition(db_cfg, web_server_in_memory):
+def test_array_launch_transition(web_server_in_memory):
 
     from jobmon.server.web.models.task import Task
     from jobmon.server.web.models.task_instance import TaskInstance
     from jobmon.constants import TaskStatus, TaskInstanceStatus
 
     # Make up some tasks and task instances in I state
-    app, db = db_cfg["app"], db_cfg["DB"]
+    app, db_engine = web_server_in_memory
     t = Task(
         array_id=1,
         task_args_hash=123,
@@ -495,12 +464,13 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
     )
 
     # Add the task
-    with app.app_context():
-        db.session.add(t)
-        db.session.commit()
+    with Session(bind=db_engine) as session:
+        session.add(t)
+        session.commit()
+        tid = t.id
 
     ti_params = {
-        "task_id": t.id,
+        "task_id": tid,
         "status": TaskInstanceStatus.INSTANTIATED,
         "array_id": 1,
         "array_batch_num": 1,
@@ -512,12 +482,15 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
     ti3 = TaskInstance(**dict(ti_params, array_step_id=2))
 
     # add tis to db
-    with app.app_context():
-        db.session.add_all([ti1, ti2, ti3])
-        db.session.commit()
+    with Session(bind=db_engine) as session:
+        session.add_all([ti1, ti2, ti3])
+        session.commit()
+        ti1_id = ti1.id
+        ti2_id = ti2.id
+        ti3_id = ti3.id
 
     # Post the transition route, check what comes back
-    resp = web_server_in_memory.post(
+    resp = app.post(
         "/array/1/transition_to_launched",
         json={
             "batch_number": 1,
@@ -527,11 +500,12 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
     assert resp.status_code == 200
 
     # Check the statuses are updated
-    with app.app_context():
-        tnew = db.session.query(Task).where(Task.id == t.id).one()
+    with Session(bind=db_engine) as session:
+        tnew = session.query(Task).where(Task.id == t.id).one()
+        session.commit()
         ti1_r, ti2_r, ti3_r = (
-            db.session.query(TaskInstance)
-            .where(TaskInstance.id.in_([ti1.id, ti2.id, ti3.id]))
+            session.query(TaskInstance)
+            .where(TaskInstance.id.in_([ti1_id, ti2_id, ti3_id]))
             .all()
         )
 
@@ -543,12 +517,12 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
         # Check a single datetime
         submitted_date = ti1_r.submitted_date
         next_update_date = ti1_r.report_by_date
-        assert next_update_date > datetime.now()
-        assert next_update_date <= timedelta(minutes=5) + datetime.now()
-        assert datetime.now() - timedelta(minutes=5) < submitted_date < datetime.now()
+        assert next_update_date > datetime.utcnow()
+        assert next_update_date <= timedelta(minutes=5) + datetime.utcnow()
+        assert datetime.utcnow() - timedelta(minutes=5) < submitted_date < datetime.utcnow()
 
     # Post a request to log the distributor ids
-    resp = web_server_in_memory.post(
+    resp = app.post(
         "/array/1/log_distributor_id",
         json={
             "array_batch_num": 1,
@@ -561,10 +535,10 @@ def test_array_launch_transition(db_cfg, web_server_in_memory):
     )
     assert resp.status_code == 200
 
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         ti1_r, ti2_r, ti3_r = (
-            db.session.query(TaskInstance)
-            .where(TaskInstance.id.in_([ti1.id, ti2.id, ti3.id]))
+            session.query(TaskInstance)
+            .where(TaskInstance.id.in_([ti1_id, ti2_id, ti3_id]))
             .all()
         )
 

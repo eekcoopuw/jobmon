@@ -3,6 +3,7 @@ import logging
 from typing import Optional
 
 import configargparse
+import sqlalchemy
 
 from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 
@@ -20,20 +21,25 @@ class ServerCLI(CLI):
         )
 
         # now add specific sub parsers
-        self._add_web_service_subparser()
+        self._add_web_service_sqlite_subparser()
+        self._add_web_service_mysql_subparser()
         self._add_workflow_reaper_subparser()
         self._add_integrator_subparser()
 
-    def web_service(self, args: configargparse.Namespace) -> None:
+    def web_service_sqlite(self, args: configargparse.Namespace) -> None:
         """Web service entrypoint logic."""
-        from jobmon.server.web.api import create_app, WebConfig
 
+        conn_str = f"sqlite://{args.sqlite_file}"
+        engine = sqlalchemy.create_engine(
+            conn_str, future=True
+        )
+        from jobmon.server.web.models import init_db
+        init_db(engine)
+
+        from jobmon.server.web.api import WebConfig
+        from jobmon.server.web.app_factory import AppFactory
         web_config = WebConfig(
-            db_host=args.db_host,
-            db_port=args.db_port,
-            db_user=args.db_user,
-            db_pass=args.db_pass,
-            db_name=args.db_name,
+            engine=engine,
             logstash_host=args.logstash_host,
             logstash_port=args.logstash_port,
             logstash_protocol=args.logstash_protocol,
@@ -43,23 +49,48 @@ class ServerCLI(CLI):
             apm_server_name=args.apm_server_name,
             apm_port=args.apm_port,
         )
+        app_factory = AppFactory(web_config)
+        app = app_factory.create_app_context()
+        app.run(host="0.0.0.0", port=args.web_service_port)
 
-        app = create_app(web_config)
+    def web_service_mysql(self, args: configargparse.Namespace) -> None:
+        """Web service entrypoint logic."""
+        from jobmon.server.web.api import WebConfig
+        from jobmon.server.web.app_factory import AppFactory
 
-        if args.command == "start":
-            raise ValueError("Web service cannot be started via command line.")
-        elif args.command == "test":
-            app.run(host="0.0.0.0", port=args.web_service_port)
-        elif args.command == "start_uwsgi":
-            import subprocess
+        try:
+            # default to mysqldb if installed. ~10x faster than pymysql
+            import MySQLdb  # noqa F401
+            driver = "mysqldb"
+        except (ImportError, ModuleNotFoundError):
+            # otherwise use pymysql since it is pip installable
+            import pymysql  # noqa F401
+            driver = "pymysql"
 
-            subprocess.run("/entrypoint.sh")
-            subprocess.run("/start.sh")
-        else:
-            raise ValueError(
-                "Invalid command choice. Options are (test, start and "
-                f"start_uwsgi), got ({args.command})"
-            )
+        conn_str = "mysql+{driver}://{user}:{pw}@{host}:{port}/{db}".format(
+            driver=driver,
+            user=args.db_user,
+            pw=args.db_pass,
+            host=args.db_host,
+            port=args.db_port,
+            db=args.db_name,
+        )
+        engine = sqlalchemy.create_engine(conn_str, pool_recycle=200, future=True)
+
+        web_config = WebConfig(
+            engine=engine,
+            logstash_host=args.logstash_host,
+            logstash_port=args.logstash_port,
+            logstash_protocol=args.logstash_protocol,
+            use_logstash=args.use_logstash,
+            use_apm=args.use_apm,
+            apm_server_url=args.apm_server_url,
+            apm_server_name=args.apm_server_name,
+            apm_port=args.apm_port,
+        )
+        app_factory = AppFactory(web_config)
+        app = app_factory.create_app_context()
+        app.run(host="0.0.0.0", port=args.web_service_port)
 
     def workflow_reaper(self, args: configargparse.Namespace) -> None:
         """Workflow reaper entrypoint logic."""
@@ -97,33 +128,40 @@ class ServerCLI(CLI):
                 "Invalid command choice. Options are (start), got " f"({args.command})"
             )
 
-    def _add_web_service_subparser(self) -> None:
-        web_service_parser = self._subparsers.add_parser("web_service", **PARSER_KWARGS)
-        web_service_parser.set_defaults(func=self.web_service)
-        web_service_parser.add_argument(
-            "command",
-            type=str,
-            choices=["start", "test", "start_uwsgi"],
-            help=(
-                "The web_server sub-command to run: (start, test, start_uwsgi). Start is not"
-                " currently supported. Test creates a test instance of the jobmon Flask app "
-                "using the Flask dev server and should not be used for production"
-            ),
-        )
-        ParserDefaults.db_host(web_service_parser)
-        ParserDefaults.db_port(web_service_parser)
-        ParserDefaults.db_user(web_service_parser)
-        ParserDefaults.db_pass(web_service_parser)
-        ParserDefaults.db_name(web_service_parser)
-        ParserDefaults.web_service_port(web_service_parser)
-        ParserDefaults.logstash_host(web_service_parser)
-        ParserDefaults.logstash_port(web_service_parser)
-        ParserDefaults.logstash_protocol(web_service_parser)
-        ParserDefaults.use_logstash(web_service_parser)
-        ParserDefaults.use_apm(web_service_parser)
-        ParserDefaults.apm_server_url(web_service_parser)
-        ParserDefaults.apm_server_name(web_service_parser)
-        ParserDefaults.apm_port(web_service_parser)
+    def _add_web_service_sqlite_subparser(self) -> None:
+        web_service_sqlite_parser = self._subparsers.add_parser("web_service_sqlite",
+                                                                **PARSER_KWARGS)
+        web_service_sqlite_parser.set_defaults(func=self.web_service_sqlite)
+        ParserDefaults.sqlite_file(web_service_sqlite_parser)
+        ParserDefaults.web_service_port(web_service_sqlite_parser)
+        ParserDefaults.logstash_host(web_service_sqlite_parser)
+        ParserDefaults.logstash_port(web_service_sqlite_parser)
+        ParserDefaults.logstash_protocol(web_service_sqlite_parser)
+        ParserDefaults.use_logstash(web_service_sqlite_parser)
+        ParserDefaults.use_apm(web_service_sqlite_parser)
+        ParserDefaults.apm_server_url(web_service_sqlite_parser)
+        ParserDefaults.apm_server_name(web_service_sqlite_parser)
+        ParserDefaults.apm_port(web_service_sqlite_parser)
+
+    def _add_web_service_mysql_subparser(self) -> None:
+        web_service_mysql_parser = self._subparsers.add_parser("web_service_mysql",
+                                                               **PARSER_KWARGS)
+        web_service_mysql_parser.set_defaults(func=self.web_service_mysql)
+        ParserDefaults.db_host(web_service_mysql_parser)
+        ParserDefaults.db_port(web_service_mysql_parser)
+        ParserDefaults.db_user(web_service_mysql_parser)
+        ParserDefaults.db_pass(web_service_mysql_parser)
+        ParserDefaults.db_name(web_service_mysql_parser)
+        ParserDefaults.sqlite_file(web_service_mysql_parser)
+        ParserDefaults.web_service_port(web_service_mysql_parser)
+        ParserDefaults.logstash_host(web_service_mysql_parser)
+        ParserDefaults.logstash_port(web_service_mysql_parser)
+        ParserDefaults.logstash_protocol(web_service_mysql_parser)
+        ParserDefaults.use_logstash(web_service_mysql_parser)
+        ParserDefaults.use_apm(web_service_mysql_parser)
+        ParserDefaults.apm_server_url(web_service_mysql_parser)
+        ParserDefaults.apm_server_name(web_service_mysql_parser)
+        ParserDefaults.apm_port(web_service_mysql_parser)
 
     def _add_workflow_reaper_subparser(self) -> None:
         reaper_parser = self._subparsers.add_parser("workflow_reaper", **PARSER_KWARGS)

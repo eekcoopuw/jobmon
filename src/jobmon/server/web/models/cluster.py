@@ -1,11 +1,15 @@
 """Cluster Table in the Database."""
 from typing import Tuple
 
+from sqlalchemy import Column, Integer, select, String, ForeignKey
+from sqlalchemy.orm import relationship, Session
+
 from jobmon.serializers import SerializeCluster
-from jobmon.server.web.models import DB
+from jobmon.server.web.models import Base
+from jobmon.server.web.models.cluster_type import ClusterType
 
 
-class Cluster(DB.Model):
+class Cluster(Base):
     """Cluster Table in the Database."""
 
     __tablename__ = "cluster"
@@ -16,15 +20,28 @@ class Cluster(DB.Model):
             self.id,
             self.name,
             self.cluster_type.name,
-            self.cluster_type.package_location_306,
+            self.cluster_type.package_location,
             self.connection_parameters,
         )
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    name = DB.Column(DB.String(255))
-    cluster_type_id = DB.Column(DB.Integer, DB.ForeignKey("cluster_type.id"))
-    connection_parameters = DB.Column(DB.String(2500))
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255), unique=True)
+    cluster_type_id = Column(Integer, ForeignKey("cluster_type.id"))
+    connection_parameters = Column(String(2500))
 
     # ORM relationships
-    cluster_type = DB.relationship("ClusterType", back_populates="clusters")
-    queues = DB.relationship("Queue", back_populates="cluster")
+    cluster_type = relationship("ClusterType", back_populates="clusters")
+    queues = relationship("Queue", back_populates="cluster")
+
+
+def add_clusters(session: Session):
+    for cluster_type_name in ["dummy", "sequential", "multiprocess"]:
+        cluster_type = session.execute(
+            select(ClusterType).where(ClusterType.name == cluster_type_name)
+        ).scalars().one()
+        cluster = Cluster(
+            name=cluster_type_name,
+            cluster_type_id=cluster_type.id,
+            connection_parameters=None
+        )
+        session.add(cluster)

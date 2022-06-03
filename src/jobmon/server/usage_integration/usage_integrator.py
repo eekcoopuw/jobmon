@@ -144,6 +144,7 @@ class UsageIntegrator:
                 try:
                     task.age += 1
                     # discard older than 10 tasks when never_retire is False
+
                     if (
                         self.integrator_retire_age <= 0
                         or task.age < self.integrator_retire_age

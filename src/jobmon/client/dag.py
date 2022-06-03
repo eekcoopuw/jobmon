@@ -157,7 +157,7 @@ class Dag(object):
         for node in nodes_in_dag:
             k = f"{node.task_template_version_id}:{node.node_args_hash}"
             if k in nodes_received.keys():
-                node._node_id = int(nodes_received[k])
+                node.node_id = int(nodes_received[k])
             else:
                 raise InvalidResponse(
                     f"Fail to find node_id in HTTP response for node_args_hash "

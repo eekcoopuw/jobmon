@@ -1,9 +1,13 @@
 """Queue Table in the Database."""
+from sqlalchemy import Column, Integer, select, String, ForeignKey, UniqueConstraint
+from sqlalchemy.orm import relationship, Session
+
 from jobmon.serializers import SerializeQueue
-from jobmon.server.web.models import DB
+from jobmon.server.web.models import Base
+from jobmon.server.web.models.cluster import Cluster
 
 
-class Queue(DB.Model):
+class Queue(Base):
     """Queue Table in the Database."""
 
     __tablename__ = "queue"
@@ -12,10 +16,26 @@ class Queue(DB.Model):
         """Serialize cluster object."""
         return SerializeQueue.to_wire(self.id, self.name, self.parameters)
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    name = DB.Column(DB.String(255))
-    cluster_id = DB.Column(DB.Integer, DB.ForeignKey("cluster.id"))
-    parameters = DB.Column(DB.String(2500))
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255))
+    cluster_id = Column(Integer, ForeignKey("cluster.id"))
+    parameters = Column(String(2500))
 
     # ORM relationships
-    cluster = DB.relationship("Cluster", back_populates="queues")
+    cluster = relationship("Cluster", back_populates="queues")
+
+    __table_args__ = (
+        UniqueConstraint('name', 'cluster_id', name='uc_name_cluster_id'),
+    )
+
+
+def add_queues(session: Session):
+    for cluster_name in ["dummy", "sequential", "multiprocess"]:
+        cluster = session.execute(
+            select(Cluster).where(Cluster.name == cluster_name)
+        ).scalars().one()
+        if cluster_name == "multiprocess":
+            parameters = '{"cores": (1,20)}'
+        else:
+            parameters = '{}'
+        session.add(Queue(name="null.q", cluster_id=cluster.id, parameters=parameters))

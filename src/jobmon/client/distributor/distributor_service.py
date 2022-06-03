@@ -416,38 +416,38 @@ class DistributorService:
             )
 
         # mutate the statuses and update the status map
-        status_updates: Dict[str, str] = result["status_updates"]
-        for task_instance_id_str, status in status_updates.items():
-            task_instance_id = int(task_instance_id_str)
-            try:
-                task_instance = self._task_instances[task_instance_id]
-
-            except KeyError:
-                task_instance = DistributorTaskInstance(
-                    task_instance_id,
-                    self.workflow_run.workflow_run_id,
-                    status,
-                    self.requester,
-                )
-                self._task_instance_status_map[task_instance.status].add(task_instance)
-                self._task_instances[task_instance.task_instance_id] = task_instance
-
-            else:
-                # remove from old status set
-                previous_status = task_instance.status
-                self._task_instance_status_map[previous_status].remove(task_instance)
-
-                # change to new status and move to new set
-                task_instance.status = status
-
+        status_updates: Dict[str, List[int]] = result["status_updates"]
+        for new_status, task_instance_ids in status_updates.items():
+            for task_instance_id in task_instance_ids:
                 try:
-                    self._task_instance_status_map[task_instance.status].add(
-                        task_instance
-                    )
+                    task_instance = self._task_instances[task_instance_id]
+
                 except KeyError:
-                    # If the task instance is in a terminal state, e.g. D, E, etc.,
-                    # expire it from the distributor
-                    continue
+                    task_instance = DistributorTaskInstance(
+                        task_instance_id,
+                        self.workflow_run.workflow_run_id,
+                        new_status,
+                        self.requester,
+                    )
+                    self._task_instance_status_map[task_instance.status].add(task_instance)
+                    self._task_instances[task_instance.task_instance_id] = task_instance
+
+                else:
+                    # remove from old status set
+                    previous_status = task_instance.status
+                    self._task_instance_status_map[previous_status].remove(task_instance)
+
+                    # change to new status and move to new set
+                    task_instance.status = new_status
+
+                    try:
+                        self._task_instance_status_map[task_instance.status].add(
+                            task_instance
+                        )
+                    except KeyError:
+                        # If the task instance is in a terminal state, e.g. D, E, etc.,
+                        # expire it from the distributor
+                        continue
 
     def _check_queued_for_work(self) -> Generator[DistributorCommand, None, None]:
         queued_task_instances = self._task_instance_status_map[

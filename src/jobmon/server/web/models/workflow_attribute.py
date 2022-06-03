@@ -1,19 +1,21 @@
 """Workflow Attribute Database Table."""
 from typing import Any, Dict
 
-from jobmon.server.web.models import DB
+from sqlalchemy import Column, ForeignKey, Integer, String
+
+from jobmon.server.web.models import Base
 
 
-class WorkflowAttribute(DB.Model):
+class WorkflowAttribute(Base):
     """Workflow Attribute Database Table."""
 
     __tablename__ = "workflow_attribute"
 
-    workflow_id = DB.Column(DB.Integer, DB.ForeignKey("workflow.id"), primary_key=True)
-    workflow_attribute_type_id = DB.Column(
-        DB.Integer, DB.ForeignKey("workflow_attribute_type.id"), primary_key=True
+    workflow_id = Column(Integer, ForeignKey("workflow.id"), primary_key=True)
+    workflow_attribute_type_id = Column(
+        Integer, ForeignKey("workflow_attribute_type.id"), primary_key=True
     )
-    value = DB.Column(DB.String(255))
+    value = Column(String(255))
 
     @classmethod
     def from_wire(cls: Any, dct: Dict) -> Any:

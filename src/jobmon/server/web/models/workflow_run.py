@@ -1,21 +1,22 @@
 """Workflow run database table."""
-from functools import partial
 
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from werkzeug.local import LocalProxy
+import structlog
 
 from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeWorkflowRun
-from jobmon.server.web.log_config import bind_to_logger, get_logger
-from jobmon.server.web.models import DB
+from jobmon.server.web._compat import add_time
+from jobmon.server.web.models import Base
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.models.workflow_status import WorkflowStatus
 
-# new structlog logger per flask request context. internally stored as flask.g.logger
-logger = LocalProxy(partial(get_logger, __name__))
+
+logger = structlog.get_logger(__name__)
 
 
-class WorkflowRun(DB.Model):
+class WorkflowRun(Base):
     """Database table for recording Workflow Runs."""
 
     __tablename__ = "workflow_run"
@@ -27,21 +28,25 @@ class WorkflowRun(DB.Model):
         )
         return serialized
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    workflow_id = DB.Column(DB.Integer, DB.ForeignKey("workflow.id"))
-    user = DB.Column(DB.String(150))
-    jobmon_version = DB.Column(DB.String(150), default="UNKNOWN")
-    status = DB.Column(
-        DB.String(1),
-        DB.ForeignKey("workflow_run_status.id"),
-        default=WorkflowRunStatus.RUNNING,
+    id = Column(Integer, primary_key=True)
+    workflow_id = Column(Integer, ForeignKey("workflow.id"))
+    user = Column(String(150))
+    jobmon_version = Column(String(150), default="UNKNOWN")
+    status = Column(
+        String(1),
+        ForeignKey("workflow_run_status.id"),
+        default=WorkflowRunStatus.REGISTERED,
     )
 
-    created_date = DB.Column(DB.DateTime, default=func.now())
-    status_date = DB.Column(DB.DateTime, default=func.now())
-    heartbeat_date = DB.Column(DB.DateTime, default=func.now())
+    created_date = Column(DateTime, default=func.now())
+    status_date = Column(DateTime, default=func.now())
+    heartbeat_date = Column(DateTime, default=func.now())
 
-    workflow = DB.relationship("Workflow", back_populates="workflow_runs", lazy=True)
+    workflow = relationship("Workflow", back_populates="workflow_runs", lazy=True)
+
+    __table_args__ = (
+        Index('ix_status_version', 'status', 'jobmon_version'),
+    )
 
     valid_transitions = [
         # a workflow run is created normally. claimed control of workflow
@@ -120,13 +125,12 @@ class WorkflowRun(DB.Model):
     ) -> None:
         """Register a heartbeat for the Workflow Run to show it is still alive."""
         self.transition(transition_status)
-        self.heartbeat_date = func.ADDTIME(
-            func.now(), func.SEC_TO_TIME(next_report_increment)
-        )
+        self.heartbeat_date = add_time(next_report_increment)
 
     def reap(self) -> None:
         """Transition dead workflow runs to a terminal state."""
-        bind_to_logger(workflow_run_id=self.id, workflow_id=self.workflow_id)
+        structlog.threadlocal.bind_threadlocal(workflow_run_id=self.id,
+                                               workflow_id=self.workflow_id)
         logger.info("Dead workflow_run will be reaped.")
         if self.status == WorkflowRunStatus.LINKING:
             logger.debug(f"Transitioning wfr {self.id} to ABORTED")
@@ -141,7 +145,8 @@ class WorkflowRun(DB.Model):
 
     def transition(self, new_state: str) -> None:
         """Transition the Workflow Run's state."""
-        bind_to_logger(workflow_run_id=self.id, workflow_id=self.workflow_id)
+        structlog.threadlocal.bind_threadlocal(workflow_run_id=self.id,
+                                               workflow_id=self.workflow_id)
         logger.info(f"Transitioning workflow_run from {self.status} to {new_state}")
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
@@ -168,13 +173,15 @@ class WorkflowRun(DB.Model):
 
     def hot_reset(self) -> None:
         """Set Workflow Run to Hot Resume."""
-        bind_to_logger(workflow_run_id=self.id, workflow_id=self.workflow_id)
+        structlog.threadlocal.bind_threadlocal(workflow_run_id=self.id,
+                                               workflow_id=self.workflow_id)
         logger.info("Transitioning workflow_run to HOT_RESUME.")
         self.transition(WorkflowRunStatus.HOT_RESUME)
 
     def cold_reset(self) -> None:
         """Set Workflow Run to Cold Resume."""
-        bind_to_logger(workflow_run_id=self.id, workflow_id=self.workflow_id)
+        structlog.threadlocal.bind_threadlocal(workflow_run_id=self.id,
+                                               workflow_id=self.workflow_id)
         logger.info("Transitioning workflow_run to COLD_RESUME.")
         self.transition(WorkflowRunStatus.COLD_RESUME)
 
@@ -185,7 +192,8 @@ class WorkflowRun(DB.Model):
 
     def _is_timely_transition(self, new_state: str) -> bool:
         """Check if the transition is invalid due to a race condition."""
-        bind_to_logger(workflow_run_id=self.id, workflow_id=self.workflow_id)
+        structlog.threadlocal.bind_threadlocal(workflow_run_id=self.id,
+                                               workflow_id=self.workflow_id)
         if (self.status, new_state) in self.untimely_transitions:
             logger.info(
                 f"Ignoring transition of workflow_run from {self.status} to {new_state}"

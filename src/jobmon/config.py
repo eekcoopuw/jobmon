@@ -160,6 +160,19 @@ class ParserDefaults:
         return parser
 
     @staticmethod
+    def sql_dialect(
+        parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
+        parser.add_argument(
+            "--sql_dialect",
+            type=str,
+            choices=["mysql", "sqlite"],
+            default="mysql",
+            help="The dialect of sql to use when running the server.",
+            env_var="SQL_DIALECT",
+        )
+
+    @staticmethod
     def db_host(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
         """Host running the Jobmon DB."""
         parser.add_argument(
@@ -216,6 +229,18 @@ class ParserDefaults:
             help="default database to use",
             default="docker",
             env_var="DB_NAME",
+        )
+        return parser
+
+    @staticmethod
+    def sqlite_file(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
+        """Name of the Jobmon DB you want to connect to."""
+        parser.add_argument(
+            "--sqlite_file",
+            type=str,
+            help="where to store the sqlite file",
+            default="",
+            env_var="SQLITE_FILE",
         )
         return parser
 

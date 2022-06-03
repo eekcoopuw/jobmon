@@ -3,7 +3,7 @@ from jobmon.builtins.multiprocess.multiproc_distributor import MultiprocessDistr
 
 
 def test_multiprocess_distributor(
-    tool, db_cfg, client_env, task_template, array_template
+    tool, client_env, task_template, array_template
 ):
 
     # set up a MultiprocessDistributor with 5 consumers.

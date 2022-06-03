@@ -2,8 +2,6 @@
 from __future__ import annotations
 
 import hashlib
-from http import HTTPStatus as StatusCodes
-import json
 import logging
 from typing import Any, Dict, List, Optional, Set
 
@@ -38,6 +36,7 @@ class Node:
             node_args: key-value pairs of arg_name and a value.
             requester: Requester object to communicate with the flask services.
         """
+        self._node_id: Optional[int] = None
         self.task_template_version = task_template_version
         self.node_args = node_args
         self.mapped_node_args = self.task_template_version.convert_arg_names_to_ids(
@@ -55,9 +54,14 @@ class Node:
     @property
     def node_id(self) -> int:
         """Unique id for each node."""
-        if not hasattr(self, "_node_id"):
+        if self._node_id is None:
             raise AttributeError("node_id cannot be accessed before node is bound")
         return self._node_id
+
+    @node_id.setter
+    def node_id(self, val: int):
+        """Unique id for each node."""
+        self._node_id = val
 
     @property
     def task_template_version_id(self) -> int:
@@ -86,23 +90,6 @@ class Node:
         name = name if len(name) < 250 else name[0:249]
         return name
 
-    def bind(self) -> int:
-        """Retrieve an id for a matching node from the server.
-
-        If it doesn't exist, first create one.
-        """
-        node_id = self._get_node_id()
-        if node_id is None:
-            logger.debug(
-                f"node_id for node: {self} not found, creating a new"
-                f"entry and binding node."
-            )
-            node_id = self._insert_node_and_node_args()
-        else:
-            logger.debug(f"Found node_id: {node_id} for node: {self}, binding node.")
-        self._node_id = node_id
-        return self.node_id
-
     def _hash_node_args(self) -> int:
         """A hash of the node.
 
@@ -119,46 +106,6 @@ class Node:
             16,
         )
         return hash_value
-
-    def _get_node_id(self) -> int:
-        logger.debug(f"Querying for node {self}")
-        return_code, response = self.requester.send_request(
-            app_route="/node",
-            message={
-                "task_template_version_id": self.task_template_version_id,
-                "node_args_hash": self.node_args_hash,
-            },
-            request_type="get",
-        )
-        if return_code == StatusCodes.OK:
-            return response["node_id"]
-        else:
-            raise ValueError(
-                f"Unexpected status code {return_code} from GET "
-                f"request through route /node. Expected code 200."
-                f" Response content:"
-                f" {response}"
-            )
-
-    def _insert_node_and_node_args(self) -> int:
-        logger.debug(f"Insert node: {self}")
-        return_code, response = self.requester.send_request(
-            app_route="/node",
-            message={
-                "task_template_version_id": self.task_template_version_id,
-                "node_args_hash": self.node_args_hash,
-                "node_args": json.dumps(self.mapped_node_args),
-            },
-            request_type="post",
-        )
-        if return_code == StatusCodes.OK:
-            return response["node_id"]
-        else:
-            raise ValueError(
-                f"Unexpected status code {return_code} from POST "
-                f"request through route /node. Expected code 200."
-                f" Response content: {response}"
-            )
 
     def add_upstream_node(self, upstream_node: Node) -> None:
         """Add a single node to this one's upstream Nodes.

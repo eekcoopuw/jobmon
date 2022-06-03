@@ -4,6 +4,7 @@ from typing import Dict, Tuple
 
 from unittest.mock import patch
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 
 from jobmon.constants import TaskInstanceStatus
 from jobmon.client.distributor.distributor_service import DistributorService
@@ -12,9 +13,13 @@ from jobmon.cluster import Cluster
 from jobmon.builtins.dummy import DummyDistributor
 from jobmon.builtins.multiprocess.multiproc_distributor import MultiprocessDistributor
 from jobmon.builtins.sequential.seq_distributor import SequentialDistributor
+from jobmon.server.web.models import load_model
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
 from jobmon.worker_node.start import get_worker_node_task_instance
+
+
+load_model()
 
 
 class DoNothingDistributor(DummyDistributor):
@@ -42,7 +47,7 @@ class DoNothingArrayDistributor(MultiprocessDistributor):
         return mapping
 
 
-def test_task_instance(db_cfg, tool):
+def test_task_instance(db_engine, tool):
     """should try to log a report by date after being set to the U or K state
     and fail"""
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
@@ -72,15 +77,12 @@ def test_task_instance(db_cfg, tool):
     distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         task_instance_id_query = select(TaskInstance.id).where(
             TaskInstance.task_id == task_a.task_id
         )
 
-        task_instance_id = DB.session.execute(task_instance_id_query).scalar()
-        DB.session.commit()
+        task_instance_id = session.execute(task_instance_id_query).scalar()
 
     worker_node_task_instance = get_worker_node_task_instance(
         task_instance_id=task_instance_id, cluster_name="dummy"
@@ -90,7 +92,7 @@ def test_task_instance(db_cfg, tool):
     assert worker_node_task_instance.command_return_code == 0
 
 
-def test_array_task_instance(tool, db_cfg, client_env, array_template, monkeypatch):
+def test_array_task_instance(tool, db_engine, client_env, array_template, monkeypatch):
     """Tests that the worker node is compatible with array task instances."""
 
     tasks = array_template.create_tasks(
@@ -122,17 +124,14 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template, monkeypat
     distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         task_instance_id_query = select(
             TaskInstance.distributor_id,
             TaskInstance.array_batch_num,
             TaskInstance.stdout,
             TaskInstance.stderr,
         ).where(TaskInstance.array_id == array1.array_id)
-        distributor_ids = DB.session.execute(task_instance_id_query).all()
-        DB.session.commit()
+        distributor_ids = session.execute(task_instance_id_query).all()
 
     # Check the filepaths are logged correctly
     for *_, stdout, stderr in distributor_ids:
@@ -156,7 +155,7 @@ def test_array_task_instance(tool, db_cfg, client_env, array_template, monkeypat
         assert wnti.command_return_code == 0
 
 
-def test_ti_kill_self_state(db_cfg, tool):
+def test_ti_kill_self_state(db_engine, tool):
     """should try to log a report by date after being set to the U or K state
     and fail"""
 
@@ -186,15 +185,12 @@ def test_ti_kill_self_state(db_cfg, tool):
 
     # Bring in the worker node here since dummy executor is never run
 
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         task_instance_id_query = select(TaskInstance.id).where(
             TaskInstance.task_id == task_a.task_id
         )
 
-        task_instance_id = DB.session.execute(task_instance_id_query).scalar()
-        DB.session.commit()
+        task_instance_id = session.execute(task_instance_id_query).scalar()
 
     cluster = Cluster.get_cluster("dummy")
     worker_node_task_instance = WorkerNodeTaskInstance(
@@ -214,10 +210,8 @@ def test_ti_kill_self_state(db_cfg, tool):
         m_run.return_value = None
 
         # set task to kill self state. next heartbeat will fail and cause death
-        app = db_cfg["app"]
-        DB = db_cfg["DB"]
-        with app.app_context():
-            DB.session.execute(
+        with Session(bind=db_engine) as session:
+            session.execute(
                 """
                 UPDATE task_instance
                 SET status = '{}'
@@ -226,14 +220,14 @@ def test_ti_kill_self_state(db_cfg, tool):
                     TaskInstanceStatus.KILL_SELF, task_a.task_id
                 )
             )
-            DB.session.commit()
+            session.commit()
 
         worker_node_task_instance.run()
 
     assert worker_node_task_instance.status == TaskInstanceStatus.ERROR_FATAL
 
 
-def test_limited_error_log(tool, db_cfg):
+def test_limited_error_log(tool, db_engine):
 
     thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
@@ -279,9 +273,7 @@ def test_limited_error_log(tool, db_cfg):
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
 
     # check db
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         query = (
             "SELECT description "
             "FROM task_instance_error_log t1, task_instance t2, workflow_run t3 "
@@ -289,8 +281,7 @@ def test_limited_error_log(tool, db_cfg):
             "AND t2.workflow_run_id=t3.id "
             "AND t3.workflow_id={}".format(wf.workflow_id)
         )
-        res = DB.session.execute(query).fetchone()
-        DB.session.commit()
+        res = session.execute(query).fetchone()
 
     error = res[0]
     assert error == (("a" * 2**10 + "\n") * (2**8))[-10000:]
