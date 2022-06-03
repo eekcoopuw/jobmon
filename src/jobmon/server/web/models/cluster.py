@@ -20,7 +20,7 @@ class Cluster(Base):
             self.id,
             self.name,
             self.cluster_type.name,
-            self.cluster_type.package_location,
+            self.cluster_type.package_location_306,
             self.connection_parameters,
         )
 

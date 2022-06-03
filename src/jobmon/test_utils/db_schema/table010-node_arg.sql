@@ -8,6 +8,6 @@ DROP TABLE IF EXISTS `node_arg`;
 CREATE TABLE `node_arg` (
   `node_id` INTEGER NOT NULL,
   `arg_id` INTEGER NOT NULL,
-  `val` VARCHAR(1000) NOT NULL,
+  `val` VARCHAR(2048) NOT NULL,
   PRIMARY KEY (`node_id`, `arg_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

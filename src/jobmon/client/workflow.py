@@ -76,9 +76,12 @@ class DistributorContext:
             )
         return self
 
-    def __exit__(self, exc_type: Optional[BaseException],
-                 exc_value: Optional[BaseException],
-                 exc_traceback: Optional[TracebackType]) -> None:
+    def __exit__(
+        self,
+        exc_type: Optional[BaseException],
+        exc_value: Optional[BaseException],
+        exc_traceback: Optional[TracebackType],
+    ) -> None:
         """Stops the Distributor Process."""
         logger.info("Stopping Distributor Process")
         err = self._shutdown()
@@ -160,7 +163,7 @@ class Workflow(object):
         self._tool_version = tool_version
         self.name = name
         self.description = description
-        self.max_concurrently_running = max_concurrently_running
+        self.max_concurrently_running: int = max_concurrently_running
 
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
@@ -210,7 +213,7 @@ class Workflow(object):
         self.default_resource_scales_set: Dict[str, Dict[str, float]] = {}
 
         self._fail_after_n_executions = 1_000_000_000
-        self.last_workflow_run_id = None
+        self.last_workflow_run_id: Optional[int] = None
 
     @property
     def is_bound(self) -> bool:
@@ -530,8 +533,7 @@ class Workflow(object):
 
                 # validate the constructed resources
                 task_resources = TaskResources(
-                    requested_resources=task.compute_resources,
-                    queue=queue
+                    requested_resources=task.requested_resources, queue=queue
                 )
 
                 is_valid, msg = task_resources.validate_resources(strict)

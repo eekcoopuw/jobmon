@@ -25,6 +25,9 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         except AttributeError:
             status_code = 500
 
+        if "deadlock found" in str(error).lower():
+            status_code = 423
+
         response_dict = {
             "type": str(type(error)),
             "exception_message": str(error),

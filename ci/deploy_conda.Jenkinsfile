@@ -190,8 +190,14 @@ pipeline {
           // requires clever quoting. Only pass single words as arguments.
 
           // Download jobmon
+          // TODO: Testing to be uncommented out. Current issue is that the Jenkins workspace is cloned to a directory
+          // local to the Jenkins host, i.e. /opt/jenkins/workspace
+          // This path is not mounted on the main NFS file system, so the scripts are unavailable.
+
           checkout scm
           script {
+            echo "Skipping slurm test"
+            /*
             ssh_cmd= """. ${WORKSPACE}/ci/deploy_utils.sh
                  test_conda_client_slurm \
                      ${WORKSPACE} \
@@ -205,10 +211,23 @@ pipeline {
             sshagent(['jenkins']) {
                sh "ssh -o StrictHostKeyChecking=no svcscicompci@gen-slurm-slogin-s01.cluster.ihme.washington.edu '${ssh_cmd}'"
             } // end ssh
+           */
           } // end script
         } // end slurm
       } // end steps
     } // end test deployment stage
+    stage ("Create shared conda package") {
+      steps {
+        node('slurm') {
+          sh '''. ${WORKSPACE}/ci/share_conda_install.sh \
+                /mnt/team/scicomp/pub/shared_jobmon_conda \
+                ${JOBMON_VERSION} \
+                ${CONDA_CLIENT_VERSION} \
+                /homes/svcscicompci/miniconda3/bin
+          '''
+        } // end node
+      }  // end steps
+    }  // end create shared conda package stage
   } // end stages
   post {
     always {

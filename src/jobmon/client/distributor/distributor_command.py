@@ -1,13 +1,13 @@
 from __future__ import annotations
 
 import logging
-from typing import Callable
+from typing import Any, Callable
 
 logger = logging.getLogger(__name__)
 
 
 class DistributorCommand:
-    def __init__(self, func: Callable[..., None], *args: str, **kwargs: str) -> None:
+    def __init__(self, func: Callable[..., None], *args: Any, **kwargs: Any) -> None:
         """A command to be run by the distributor service.
 
         Args:

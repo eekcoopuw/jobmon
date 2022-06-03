@@ -105,7 +105,9 @@ class TaskInstanceBatch:
                 f"code 200. Response content: {resp}"
             )
 
-    def log_distributor_ids(self, distributor_id_map: Dict, chunk_size: int = 1000) -> None:
+    def log_distributor_ids(
+        self, distributor_id_map: Dict, chunk_size: int = 1000
+    ) -> None:
         """Log the distributor ID and the output/error path in the database.
 
         Done for all task instances in the batch.

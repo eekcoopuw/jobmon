@@ -447,7 +447,9 @@ def test_workflow_validation(tool, task_template, caplog):
     wf1.add_task(t1)
 
     with pytest.raises(ValueError):
-        wf1.validate(raise_on_error=True)  # Max cores on multiprocess null.q is 20. Should fail
+        wf1.validate(
+            raise_on_error=True
+        )  # Max cores on multiprocess null.q is 20. Should fail
 
     # Without fail set, validate and check coercion
     caplog.clear()
@@ -474,6 +476,17 @@ def test_workflow_validation(tool, task_template, caplog):
     wf2 = tool.create_workflow()
     wf2.add_task(t2)
     wf2.validate()
+
+    # Test that a validate call fails if a different DAG is bound.
+    # Bind wf1, and create a new workflow with the same args but a different DAG.
+    wf1.bind()
+    wf3 = tool.create_workflow(workflow_args=wf1.workflow_args)
+    t3 = task_template.create_task(arg='echo 3')
+    wf3.add_task(t3)
+    with pytest.raises(WorkflowAlreadyExists):
+        wf3._matching_wf_args_diff_hash()
+    with pytest.raises(WorkflowAlreadyExists):
+        wf3.bind()
 
 
 def test_workflow_get_errors(tool, task_template, db_engine):

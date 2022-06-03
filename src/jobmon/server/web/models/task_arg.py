@@ -1,5 +1,5 @@
 """Task Arg table."""
-from sqlalchemy import Column, Integer, VARCHAR
+from sqlalchemy import Column, Integer, String
 
 
 from jobmon.server.web.models import Base
@@ -12,4 +12,4 @@ class TaskArg(Base):
 
     task_id = Column(Integer, primary_key=True)
     arg_id = Column(Integer, primary_key=True)
-    val = Column(VARCHAR(1000))
+    val = Column(String(2048))

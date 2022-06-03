@@ -64,8 +64,8 @@ class TaskInstance(Base):
     maxpss = Column(String(50))
     cpu = Column(String(50))
     io = Column(String(50))
-    stdout = Column(String(250))
-    stderr = Column(String(250))
+    stdout = Column(String(2048))
+    stderr = Column(String(2048))
 
     # status/state
     status = Column(

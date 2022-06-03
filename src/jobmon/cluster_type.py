@@ -58,7 +58,7 @@ class ClusterType:
         inst = cls._cache.get(key, None)
         if inst is None:
             inst = super(ClusterType, cls).__new__(cls)
-            inst.__init__(key)
+            inst.__init__(key)  # type: ignore
             cls._cache[key] = inst
         return inst
 
@@ -105,7 +105,9 @@ class ClusterQueue(Protocol):
         raise NotImplementedError
 
     @abstractmethod
-    def validate_resources(self, strict: bool = False, **kwargs: Dict) -> Tuple[bool, str]:
+    def validate_resources(
+        self, strict: bool = False, **kwargs: Dict
+    ) -> Tuple[bool, str]:
         """Ensures that requested resources aren't greater than what's available."""
         raise NotImplementedError
 

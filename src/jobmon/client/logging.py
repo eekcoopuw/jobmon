@@ -7,23 +7,22 @@ import sys
 from typing import Dict, Optional, Type
 
 
-_DEFAULT_LOG_FORMAT = "%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s: %(message)s"
+_DEFAULT_LOG_FORMAT = (
+    "%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s: %(message)s"
+)
 
 default_config: Dict = {
     "version": 1,
     "disable_existing_loggers": False,
     "formatters": {
-        "default": {
-            "format": _DEFAULT_LOG_FORMAT,
-            "datefmt": '%Y-%m-%d %H:%M:%S'
-        }
+        "default": {"format": _DEFAULT_LOG_FORMAT, "datefmt": "%Y-%m-%d %H:%M:%S"}
     },
     "handlers": {
         "default": {
             "level": "INFO",
             "class": "logging.StreamHandler",
             "formatter": "default",
-            "stream": sys.stdout
+            "stream": sys.stdout,
         }
     },
 }
@@ -35,8 +34,9 @@ class JobmonLoggerConfig:
     dict_config = default_config
 
     @classmethod
-    def set_default_config(cls: Type[JobmonLoggerConfig], dict_config: Optional[Dict] = None) \
-            -> None:
+    def set_default_config(
+        cls: Type[JobmonLoggerConfig], dict_config: Optional[Dict] = None
+    ) -> None:
         """Set the default logging configuration for this factory.
 
         Args:
@@ -56,9 +56,7 @@ class JobmonLoggerConfig:
 
     @classmethod
     def attach_default_handler(
-        cls: Type[JobmonLoggerConfig],
-        logger_name: str,
-        log_level: int = logging.INFO
+        cls: Type[JobmonLoggerConfig], logger_name: str, log_level: int = logging.INFO
     ) -> None:
         """A method to setup the default logging config for a specific logger_name.
 

@@ -17,6 +17,7 @@ class DistributorWorkflowRun:
 
     when pushing to the database we should work in CommandType (Workflow/Array/Task) space
     """
+
     def __init__(self, workflow_run_id: int, requester: Requester) -> None:
         """Initialization of DistributorWorkflowRun object."""
         self.workflow_run_id = workflow_run_id
