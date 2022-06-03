@@ -2,7 +2,7 @@ import os
 import pytest
 
 
-def test_create_tool(db_cfg, client_env):
+def test_create_tool(client_env):
     """test that we can create a tool and recreate it with identical params and
     get the same ID"""
     from jobmon.client.tool import Tool
@@ -20,7 +20,7 @@ def test_create_tool(db_cfg, client_env):
     assert t2.active_tool_version.id == t1.active_tool_version.id
 
 
-def test_create_tool_version(db_cfg, client_env):
+def test_create_tool_version(client_env):
     """test that we create a new tool version"""
     from jobmon.client.tool import Tool
 
@@ -47,7 +47,7 @@ def test_create_tool_version(db_cfg, client_env):
     assert t1.active_tool_version.id == new_tool_version_id
 
 
-def test_yaml_compute_resources_and_scales(db_cfg, client_env):
+def test_yaml_compute_resources_and_scales(client_env):
     """Test that we can set Tool ComputeResources via YAML file."""
     from jobmon.client.tool import Tool
 
@@ -85,7 +85,7 @@ def test_yaml_compute_resources_and_scales(db_cfg, client_env):
     }
     assert tool.default_resource_scales_set["sequential"] == {
         "memory": 0.1,
-        "runtime": 0.1
+        "runtime": 0.1,
     }
     assert tt_1.default_compute_resources_set["sequential"] == {
         "num_cores": 1,
@@ -101,9 +101,9 @@ def test_yaml_compute_resources_and_scales(db_cfg, client_env):
     }
     assert tt_1.default_resource_scales_set["sequential"] == {
         "memory": 0.2,
-        "runtime": 0.3
+        "runtime": 0.3,
     }
     assert tt_2.default_resource_scales_set["sequential"] == {
         "memory": 0.4,
-        "runtime": 0.6
+        "runtime": 0.6,
     }

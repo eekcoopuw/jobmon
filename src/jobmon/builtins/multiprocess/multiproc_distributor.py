@@ -114,11 +114,7 @@ class MultiprocessDistributor(ClusterDistributor):
     """
 
     def __init__(
-        self,
-        cluster_name: str,
-        parallelism: int = 3,
-        *args: tuple,
-        **kwargs: dict
+        self, cluster_name: str, parallelism: int = 3, *args: tuple, **kwargs: dict
     ) -> None:
         """Initialization of the multiprocess distributor.
 

@@ -57,7 +57,9 @@ def log_running(task_instance_id: int) -> Any:
                 # Tried to move to an illegal state
                 logger.error(e)
 
-    resp = jsonify(task_instance=task_instance.to_wire_as_worker_node_task_instance())
+        wire_format = task_instance.to_wire_as_worker_node_task_instance()
+
+    resp = jsonify(task_instance=wire_format)
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -383,7 +385,7 @@ def log_unknown_error(task_instance_id: int) -> Any:
             TaskInstance
         ).where(
             TaskInstance.id == task_instance_id,
-            TaskInstance.report_by_date <= func.CURRENT_TIMESTAMP()
+            TaskInstance.report_by_date <= func.now()
         )
         task_instance = session.execute(select_stmt).scalars().one_or_none()
         session.flush()

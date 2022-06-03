@@ -182,7 +182,7 @@ class Task:
         ] = None
 
     @property
-    def _raw_resources(self) -> Dict[str, Any]:
+    def compute_resources(self) -> Dict[str, Any]:
         try:
             resources = self.array.compute_resources
         except AttributeError:
@@ -191,12 +191,12 @@ class Task:
         return resources
 
     @property
-    def compute_resources(self) -> Dict[str, Any]:
+    def requested_resources(self) -> Dict[str, Any]:
         """A dictionary that includes the users requested resources for the current run.
 
         E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
         """
-        resources = self._raw_resources
+        resources = self.compute_resources
         try:
             resources.pop("queue")
         except KeyError:
@@ -238,7 +238,7 @@ class Task:
 
     @property
     def queue_name(self) -> str:
-        resources = self._raw_resources
+        resources = self.compute_resources
         try:
             queue_name = resources.pop("queue")
         except KeyError:

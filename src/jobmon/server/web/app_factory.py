@@ -60,14 +60,14 @@ class AppFactory:
             # bind the engine to the session factory before importing the blueprint
             session_factory.configure(bind=self._web_config.engine)
 
+            # add logger to app global context
+            log_config.configure_logger("jobmon.server.web", self.logstash_handler_config)
+
             # register the blueprints we want. they make use of a scoped session attached
             # to the global session factory
             for blueprint in blueprints:
                 mod = import_module(f"jobmon.server.web.routes.{blueprint}")
                 app.register_blueprint(getattr(mod, 'blueprint'), url_prefix="/")
-
-            # add logger to app global context
-            log_config.configure_logger("jobmon.server.web", self.logstash_handler_config)
 
             # add request logging hooks
             add_hooks_and_handlers(app, apm)

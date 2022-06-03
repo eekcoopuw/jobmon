@@ -28,17 +28,16 @@ class ServerCLI(CLI):
 
     def web_service_sqlite(self, args: configargparse.Namespace) -> None:
         """Web service entrypoint logic."""
-        from jobmon.server.web.api import WebConfig
-        from jobmon.server.web.app_factory import AppFactory
-        from jobmon.server.web.models import init_db
 
         conn_str = f"sqlite://{args.sqlite_file}"
         engine = sqlalchemy.create_engine(
-            conn_str,
-            connect_args={'check_same_thread': False},
-            poolclass=sqlalchemy.pool.StaticPool, future=True
+            conn_str, future=True
         )
+        from jobmon.server.web.models import init_db
+        init_db(engine)
 
+        from jobmon.server.web.api import WebConfig
+        from jobmon.server.web.app_factory import AppFactory
         web_config = WebConfig(
             engine=engine,
             logstash_host=args.logstash_host,
@@ -51,8 +50,6 @@ class ServerCLI(CLI):
             apm_port=args.apm_port,
         )
         app_factory = AppFactory(web_config)
-
-        init_db(web_config.engine)
         app = app_factory.create_app_context()
         app.run(host="0.0.0.0", port=args.web_service_port)
 

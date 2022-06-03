@@ -11,4 +11,4 @@ class NodeArg(Base):
 
     node_id = Column(Integer, primary_key=True)
     arg_id = Column(Integer, primary_key=True)
-    val = Column(String(255))
+    val = Column(String(2048))

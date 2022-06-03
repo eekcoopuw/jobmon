@@ -34,4 +34,8 @@ def add_queues(session: Session):
         cluster = session.execute(
             select(Cluster).where(Cluster.name == cluster_name)
         ).scalars().one()
-        session.add(Queue(name="null.q", cluster_id=cluster.id, parameters='{}'))
+        if cluster_name == "multiprocess":
+            parameters = '{"cores": (1,20)}'
+        else:
+            parameters = '{}'
+        session.add(Queue(name="null.q", cluster_id=cluster.id, parameters=parameters))

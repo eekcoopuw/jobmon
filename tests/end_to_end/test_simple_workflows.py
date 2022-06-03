@@ -2,13 +2,13 @@ import os
 import sys
 
 from jobmon.constants import TaskStatus, WorkflowRunStatus
+from jobmon.client.tool import Tool
 
 import pytest
 
 
 @pytest.fixture
-def tool(db_cfg, client_env):
-    from jobmon.client.tool import Tool
+def tool(client_env):
 
     tool = Tool()
     tool.set_default_compute_resources_from_dict(

@@ -1,11 +1,13 @@
 import pytest
 
+from sqlalchemy.orm import Session
+
 from jobmon.client.array import Array
 from jobmon.client.tool import Tool
 
 
 @pytest.fixture
-def tool(db_cfg, client_env):
+def tool(client_env):
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
@@ -41,7 +43,7 @@ def task_template_dummy(tool):
     return tt
 
 
-def test_create_array(db_cfg, client_env, task_template):
+def test_create_array(client_env, task_template):
     tasks = task_template.create_tasks(arg="echo 1")
     array = tasks[0].array
     assert (
@@ -56,7 +58,7 @@ def test_create_array(db_cfg, client_env, task_template):
     assert "test_array" in array.name
 
 
-def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
+def test_array_bind(db_engine, client_env, task_template_dummy, tool):
     task_template = task_template_dummy
 
     tasks = task_template.create_tasks(
@@ -69,9 +71,7 @@ def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
 
     assert hasattr(wf.arrays["dummy_template"], "_array_id")
 
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         array_stmt = """
         SELECT workflow_id, task_template_version_id 
         FROM array
@@ -79,8 +79,9 @@ def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
         """.format(
             wf.arrays["dummy_template"].array_id
         )
-        array_db = DB.session.execute(array_stmt).fetchone()
-        DB.session.commit()
+
+        array_db = session.execute(array_stmt).fetchone()
+        session.commit()
 
         assert array_db.workflow_id == wf.workflow_id
         assert (
@@ -89,7 +90,7 @@ def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
         )
 
     # Assert the bound task has the correct array ID
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         task_query = """
         SELECT array_id
         FROM task
@@ -97,8 +98,7 @@ def test_array_bind(db_cfg, client_env, task_template_dummy, tool):
         """.format(
             list(wf.arrays["dummy_template"].tasks.values())[0].task_id
         )
-        task = DB.session.execute(task_query).fetchone()
-        DB.session.commit()
+        task = session.execute(task_query).fetchone()
 
         assert task.array_id == wf.arrays["dummy_template"].array_id
 
@@ -126,7 +126,7 @@ def test_node_args_expansion():
     assert len(combos) == len(expected_expansion)
 
 
-def test_create_tasks(db_cfg, client_env, tool):
+def test_create_tasks(db_engine, client_env, tool):
 
     rich_task_template = tool.get_task_template(
         template_name="simple_template",
@@ -162,8 +162,7 @@ def test_create_tasks(db_cfg, client_env, tool):
     wf.bind()
     wf._create_workflow_run()
 
-    app, DB = db_cfg["app"], db_cfg["DB"]
-    with app.app_context():
+    with Session(bind=db_engine) as session:
 
         # Check narg1 and narg2 are represented in node_arg
         q = """
@@ -172,8 +171,8 @@ def test_create_tasks(db_cfg, client_env, tool):
         JOIN node_arg na ON na.arg_id = arg.id
         WHERE arg.name IN ('narg1', 'narg2')
         """
-        res = DB.session.execute(q).fetchall()
-        DB.session.commit()
+        res = session.execute(q).fetchall()
+        session.commit()
 
         assert len(res) == 18  # 2 args per node * 9 nodes
         names = [r.name for r in res]
@@ -185,8 +184,8 @@ def test_create_tasks(db_cfg, client_env, tool):
         FROM arg
         JOIN task_arg ta ON ta.arg_id = arg.id
         WHERE arg.name IN ('task_arg')"""
-        task_args = DB.session.execute(task_q).fetchall()
-        DB.session.commit()
+        task_args = session.execute(task_q).fetchall()
+        session.commit()
 
         assert len(task_args) == 9  # 9 unique tasks, 1 task_arg each
         task_arg_names = [r.name for r in task_args]
@@ -232,7 +231,7 @@ def test_create_tasks(db_cfg, client_env, tool):
         )
 
 
-def test_empty_array(db_cfg, client_env, tool):
+def test_empty_array(client_env, tool):
     """Check that an empty array raises the appropriate error."""
 
     tt = tool.get_task_template(

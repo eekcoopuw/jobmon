@@ -140,6 +140,7 @@ deploy_jobmon_to_k8s () {
     K8S_REAPER_NAMESPACE=${13}
     DEPLOY_JOBMON=${14}
     DEPLOY_ELK=${15}
+    DEPLOY_REAPER=${16}
 
     docker pull $HELM_CONTAINER  # Pull prebuilt helm container
     docker pull $KUBECTL_CONTAINER
@@ -211,7 +212,10 @@ deploy_jobmon_to_k8s () {
             --set global.rancher_db_slurm_sdb_secret="$RANCHER_DB_SLURM_SDB_SECRET" \
             --set global.rancher_slack_secret="$RANCHER_SLACK_SECRET" \
             --set global.use_logstash="$USE_LOGSTASH"
+    fi
 
+    if [[ "$DEPLOY_REAPER" = true ]]
+    then
         echo "Adding new reaper to reapers namespace"
         docker run -t \
         --rm \
@@ -235,7 +239,6 @@ test_conda_client_slurm () {
     CONDA_ENV_NAME=$3
     CONDA_CLIENT_VERSION=$4
     JOBMON_VERSION=$5
-    TARGET_IP=$6
 
 # Although "Source" and "." are synonyms in many contexts, Dash does not have "Source",
 # so we are using "." here.
@@ -248,7 +251,7 @@ test_conda_client_slurm () {
       conda info --envs && \
       PATH=$PATH:/opt/slurm/bin && \
       pip freeze && \
-      srun -n 1 -p all.q -A general -c 1 --mem=10000 --time=100 python $WORKSPACE/deployment/tests/six_job_test.py 'slurm'
+      srun -n 1 -p all.q -A proj_scicomp -c 1 --mem=10000 --time=100 python $WORKSPACE/deployment/tests/six_job_test.py 'slurm'
 }
 
 test_server () {

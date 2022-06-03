@@ -5,6 +5,7 @@ from typing import Any, cast, Dict, Tuple
 from flask import jsonify, request
 import sqlalchemy
 from sqlalchemy import insert, func, select, update
+from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 import structlog
 
@@ -115,7 +116,7 @@ def bind_workflow() -> Any:
 def get_matching_workflows_by_workflow_args(workflow_args_hash: str) -> Any:
     """Return any dag hashes that are assigned to workflows with identical workflow args."""
     try:
-        workflow_args_hash = str(workflow_args_hash)
+        workflow_args_hash = str(int(workflow_args_hash))
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
@@ -164,10 +165,19 @@ def _add_or_get_wf_attribute_type(name: str, session: Session) -> int:
 def _upsert_wf_attribute(workflow_id: int, name: str, value: str, session: Session) -> None:
     with session.begin_nested():
         wf_attrib_id = _add_or_get_wf_attribute_type(name, session)
-        insert_vals = insert(WorkflowAttribute).values(
-            workflow_id=workflow_id, workflow_attribute_type_id=wf_attrib_id, value=value
-        )
-        upsert_stmt = insert_vals.on_duplicate_key_update(value=insert_vals.inserted.value)
+        if SessionLocal.bind.dialect.name == "mysql":
+            insert_vals = insert(WorkflowAttribute).values(
+                workflow_id=workflow_id, workflow_attribute_type_id=wf_attrib_id, value=value
+            )
+            upsert_stmt = insert_vals.on_duplicate_key_update(value=insert_vals.inserted.value)
+        elif SessionLocal.bind.dialect.name == "sqlite":
+            insert_vals = sqlite_insert(WorkflowAttribute).values(
+                workflow_id=workflow_id, workflow_attribute_type_id=wf_attrib_id, value=value
+            )
+            upsert_stmt = insert_vals.on_conflict_do_update(
+                index_elements=['workflow_id', 'workflow_attribute_type_id'],
+                set_=dict(value=value)
+            )
         session.execute(upsert_stmt)
 
 
@@ -300,7 +310,7 @@ def update_max_running(workflow_id: int) -> Any:
         update_stmt = update(
             Workflow
         ).where(
-            Workflow.workflow_id == workflow_id
+            Workflow.id == workflow_id
         ).values(
             max_concurrently_running=new_limit
         )
@@ -344,7 +354,7 @@ def task_status_updates(workflow_id: int) -> Any:
     session = SessionLocal()
     with session.begin():
 
-        db_time = session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()["t"]
+        db_time = session.execute(select(func.now())).scalar()
         str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
 
         tasks_by_status_query = (

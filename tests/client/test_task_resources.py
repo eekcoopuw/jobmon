@@ -1,8 +1,9 @@
+from sqlalchemy.orm import Session
+
 from jobmon.client.task_resources import TaskResources
 
 
 def test_task_resources_hash(client_env):
-
     class MockQueue:
         queue_name: str = "mock-queue"
 
@@ -37,7 +38,7 @@ def test_task_resources_hash(client_env):
     assert not resource_1 == FakeResource()
 
 
-def test_task_resource_bind(db_cfg, client_env, tool, task_template):
+def test_task_resource_bind(db_engine, tool, task_template):
 
     resources = {"queue": "null.q"}
     task_template.set_default_compute_resources_from_dict(
@@ -54,18 +55,15 @@ def test_task_resource_bind(db_cfg, client_env, tool, task_template):
     wf.bind()
     wf._create_workflow_run()
 
-    app, db = db_cfg["app"], db_cfg["DB"]
-
-    with app.app_context():
-
+    with Session(bind=db_engine) as session:
         q = f"""
         SELECT DISTINCT tr.id
         FROM task t
         JOIN task_resources tr ON tr.id = t.task_resources_id
         WHERE t.id IN {tuple(set([t.task_id for t in [t1, t2, t3]]))}
         """
-        res = db.session.execute(q).fetchall()
-        db.session.commit()
+        res = session.execute(q).fetchall()
+        session.commit()
         assert len(res) == 1
 
     tr1, tr2, tr3 = [t.original_task_resources for t in wf.tasks.values()]
@@ -74,11 +72,12 @@ def test_task_resource_bind(db_cfg, client_env, tool, task_template):
     assert tr1.id == res[0].id
 
 
-def test_defaults_pass_down_and_overrides(db_cfg, client_env, tool, task_template):
+def test_defaults_pass_down_and_overrides(tool, task_template):
     # test resource_scales == {runtime: 0.5, memory: 0.5} for unspecified
     resources = {"queue": "null.q"}
-    task_template.set_default_compute_resources_from_dict(cluster_name="dummy",
-                                                          compute_resources=resources)
+    task_template.set_default_compute_resources_from_dict(
+        cluster_name="dummy", compute_resources=resources
+    )
     t = task_template.create_task(cluster_name="dummy", arg="echo 1")
     wf = tool.create_workflow()
     wf.add_tasks([t])
@@ -89,30 +88,34 @@ def test_defaults_pass_down_and_overrides(db_cfg, client_env, tool, task_templat
     resources = {"queue": "null.q", "memory": 34, "runtime": 56}
     scales = {"runtime": 0.7, "cores": 0.6, "memory": 0.8}
     task_template.set_default_compute_resources_from_dict(
-        cluster_name="sequential", compute_resources=resources,
+        cluster_name="sequential",
+        compute_resources=resources,
     )
     task_template.set_default_resource_scales_from_dict(
-        cluster_name="sequential", resource_scales=scales,
+        cluster_name="sequential",
+        resource_scales=scales,
     )
 
     resources_m = {"queue": "null.q", "memory": 9999, "runtime": 9999}
     scales_m = {"runtime": 0.9999, "cores": 0.9999, "memory": 0.9999}
-    task_template.set_default_compute_resources_from_dict(cluster_name="multiprocess",
-                                                          compute_resources=resources_m)
-    task_template.set_default_resource_scales_from_dict(cluster_name="multiprocess",
-                                                        resource_scales=scales_m)
+    task_template.set_default_compute_resources_from_dict(
+        cluster_name="multiprocess", compute_resources=resources_m
+    )
+    task_template.set_default_resource_scales_from_dict(
+        cluster_name="multiprocess", resource_scales=scales_m
+    )
 
     # later default setting will take precedence.
     assert task_template.default_cluster_name == "multiprocess"
 
     # pointing only to the sequential set
     t1 = task_template.create_task(cluster_name="sequential", arg="echo 1")
-    t2 = task_template.create_task(cluster_name="sequential", arg="echo 2",
-                                   compute_resources={"queue": "null.q",
-                                                      "memory": 22, "runtime": 222},
-                                   resource_scales={"runtime": 0.2, "cores": 0.22,
-                                                    "memory": 0.222}
-                                   )
+    t2 = task_template.create_task(
+        cluster_name="sequential",
+        arg="echo 2",
+        compute_resources={"queue": "null.q", "memory": 22, "runtime": 222},
+        resource_scales={"runtime": 0.2, "cores": 0.22, "memory": 0.222},
+    )
     wf = tool.create_workflow()
     wf.add_tasks([t1, t2])
 

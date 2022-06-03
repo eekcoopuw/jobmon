@@ -256,11 +256,13 @@ class DistributorService:
 
         try:
             # submit array to distributor
-            distributor_id_map = self.cluster_interface.submit_array_to_batch_distributor(
-                command=command,
-                name=task_instance_batch.name,
-                requested_resources=task_instance_batch.requested_resources,
-                array_length=len(task_instance_batch.task_instances),
+            distributor_id_map = (
+                self.cluster_interface.submit_array_to_batch_distributor(
+                    command=command,
+                    name=task_instance_batch.name,
+                    requested_resources=task_instance_batch.requested_resources,
+                    array_length=len(task_instance_batch.task_instances),
+                )
             )
 
         except NotImplementedError:

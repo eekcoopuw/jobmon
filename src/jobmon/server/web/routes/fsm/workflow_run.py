@@ -115,11 +115,9 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
             ["task_instance_id", "description", "error_time"],
             select(
                 TaskInstance.id,
-                func.CONCAT(
-                    'Workflow resume requested. Setting to K from status of: ',
-                    TaskInstance.status
-                ),
-                func.CURRENT_TIMESTAMP
+                ('Workflow resume requested. Setting to K from status of: '
+                 + TaskInstance.status),
+                func.now()
             ).where(
                 TaskInstance.workflow_run_id == workflow_run_id,
                 TaskInstance.status == constants.TaskInstanceStatus.KILL_SELF
@@ -127,22 +125,29 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
         )
         session.execute(insert_error_log_stmt)
 
+        workflow_id = workflow_run.workflow_id
         update_task_instance_stmt = update(
             TaskInstance
         ).where(
-            TaskInstance.workflow_run_id == WorkflowRun.id,
-            TaskInstance.task_id.in_(
+            TaskInstance.id.in_(
                 select(
-                    Task.id
+                    TaskInstance.id
                 ).where(
-                    Task.workflow_id == workflow_run.workflow_id,
-                    Task.status.in_(task_states)
+                    TaskInstance.workflow_run_id == WorkflowRun.id,
+                    TaskInstance.task_id.in_(
+                        select(
+                            Task.id
+                        ).where(
+                            Task.workflow_id == workflow_id,
+                            Task.status.in_(task_states)
+                        )
+                    )
                 )
             )
         ).values(
             status=constants.TaskInstanceStatus.KILL_SELF,
-            status_date=func.CURRENT_TIMESTAMP
-        )
+            status_date=func.now()
+        ).execution_options(synchronize_session=False)
 
         session.execute(update_task_instance_stmt)
 
@@ -178,7 +183,6 @@ def log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
             workflow_run.heartbeat(next_report_increment, status)
             logger.debug(f"wfr {workflow_run_id} heartbeat confirmed")
         except InvalidStateTransition as e:
-            session.rollback()
             logger.debug(f"wfr {workflow_run_id} heartbeat rolled back, reason: {e}")
 
     resp = jsonify(status=str(workflow_run.status))
@@ -210,8 +214,8 @@ def log_workflow_run_status_update(workflow_run_id: int) -> Any:
 
         try:
             workflow_run.transition(status)
-        except InvalidStateTransition:
-            session.rollback()
+        except InvalidStateTransition as e:
+            logger.warning(e)
 
         # Return the status
         status = workflow_run.status
@@ -237,7 +241,7 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
     with session.begin():
 
         # get time from db
-        db_time = session.execute("SELECT CURRENT_TIMESTAMP AS t").fetchone()["t"]
+        db_time = session.execute(select(func.now())).scalar()
         str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
 
         where_clause = [TaskInstance.workflow_run_id == workflow_run_id]
@@ -293,16 +297,15 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
             TaskInstance.status.in_(
                 [constants.TaskInstanceStatus.LAUNCHED, constants.TaskInstanceStatus.RUNNING]
             ),
-            TaskInstance.report_by_date <= func.CURRENT_TIMESTAMP
+            TaskInstance.report_by_date <= func.now()
         ).values(
             status=case(
                 [(TaskInstance.status == constants.TaskInstanceStatus.RUNNING,
                   constants.TaskInstanceStatus.TRIAGING)],
                 else_=constants.TaskInstanceStatus.KILL_SELF
             )
-        )
+        ).execution_options(synchronize_session=False)
         session.execute(update_stmt)
-
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp

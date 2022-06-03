@@ -4,6 +4,7 @@ import os
 from typing import Any
 
 from flask import jsonify, current_app
+from sqlalchemy import func, select
 from sqlalchemy import orm
 from structlog import get_logger
 
@@ -29,8 +30,9 @@ def is_alive() -> Any:
 
 def _get_time() -> str:
     with SessionLocal() as session:
-        res = session.execute("SELECT CURRENT_TIMESTAMP").scalars().one()
-    return res
+        db_time = session.execute(select(func.now())).scalar()
+        str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
+    return str_time
 
 
 def get_pst_now() -> Any:
@@ -56,6 +58,7 @@ def health() -> Any:
 # ############################ TESTING ROUTES ################################################
 def test_route():
     """Test route to force a 500 error."""
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         session.execute("SELECT * FROM blip_bloop_table").all()
         session.commit()

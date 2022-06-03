@@ -316,7 +316,9 @@ class SerializeCluster:
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Get the Cluster information from the database."""
-        connection_parameters = json.loads(wire_tuple[4]) if wire_tuple[4] is not None else {}
+        connection_parameters = (
+            json.loads(wire_tuple[4]) if wire_tuple[4] is not None else {}
+        )
         return {
             "id": int(wire_tuple[0]),
             "name": str(wire_tuple[1]),

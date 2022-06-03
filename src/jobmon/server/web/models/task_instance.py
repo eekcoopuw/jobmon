@@ -53,7 +53,7 @@ class TaskInstance(Base):
     array_batch_num = Column(Integer, index=True)
     array_step_id = Column(Integer, index=True)
 
-    distributor_id = Column(Integer, index=True)
+    distributor_id = Column(String(20), index=True)
 
     # usage
     nodename = Column(String(150))
@@ -64,8 +64,8 @@ class TaskInstance(Base):
     maxpss = Column(String(50))
     cpu = Column(String(50))
     io = Column(String(50))
-    stdout = Column(String(250))
-    stderr = Column(String(250))
+    stdout = Column(String(2048))
+    stderr = Column(String(2048))
 
     # status/state
     status = Column(

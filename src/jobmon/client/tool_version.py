@@ -136,9 +136,7 @@ class ToolVersion:
         compute_resources = {cluster_name: kwargs}
         self.default_compute_resources_set.update(compute_resources)
 
-    def update_default_resource_scales(
-        self, cluster_name: str, **kwargs: Any
-    ) -> None:
+    def update_default_resource_scales(self, cluster_name: str, **kwargs: Any) -> None:
         """Update default resource scales in place only overridding specified keys.
 
         If no default cluster is specified when this method is called, cluster_name will

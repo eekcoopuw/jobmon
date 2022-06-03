@@ -25,6 +25,8 @@ class Array:
     Supports functionality to create tasks from the cross product of provided node_args.
     """
 
+    compute_resources_callable: Callable[..., Any] | None
+
     def __init__(
         self,
         task_template_version: TaskTemplateVersion,
@@ -47,9 +49,7 @@ class Array:
         if name:
             self._name = name
         else:
-            self._name = (
-                task_template_version.task_template.template_name
-            )
+            self._name = task_template_version.task_template.template_name
             self._name = self._name if len(self._name) < 255 else self._name[0:254]
 
         # array attributes

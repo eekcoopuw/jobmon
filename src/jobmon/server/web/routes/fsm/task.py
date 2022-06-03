@@ -7,11 +7,10 @@ from flask import jsonify, request
 from sqlalchemy import desc, insert, select, tuple_
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
-from sqlalchemy.exc import DataError
+from sqlalchemy.exc import DataError, IntegrityError
 import structlog
 
 from jobmon import constants
-from jobmon.server.web._compat import add_ignore
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_arg import TaskArg
 from jobmon.server.web.models.task_attribute import TaskAttribute
@@ -169,7 +168,7 @@ def bind_tasks() -> Any:
             args, attrs = arg_attr_mapping[hashval]
 
             for key, val in args.items():
-                task_arg = {"task_id": task_id, "arg_id": key, "val": val}
+                task_arg = {"task_id": task_id, "arg_id": int(key), "val": val}
                 args_to_add.append(task_arg)
 
             for name, val in attrs.items():
@@ -187,9 +186,14 @@ def bind_tasks() -> Any:
 
         if args_to_add:
             try:
-                arg_insert_stmt = insert(TaskArg).values(args_to_add)
+                if SessionLocal.bind.dialect.name == "mysql":
+                    arg_insert_stmt = insert(TaskArg).values(args_to_add).prefix_with("IGNORE")
+                elif SessionLocal.bind.dialect.name == "sqlite":
+                    arg_insert_stmt = sqlite_insert(
+                        TaskArg
+                    ).values(args_to_add).on_conflict_do_nothing()
                 session.execute(arg_insert_stmt)
-            except DataError as e:
+            except (DataError, IntegrityError) as e:
                 # Args likely too long, message back
                 raise InvalidUsage(
                     "Task Args are constrained to 1000 characters, you may have values "
@@ -222,7 +226,7 @@ def bind_tasks() -> Any:
                         + SessionLocal.bind.dialect.name
                     )
 
-            except DataError as e:
+            except (DataError, IntegrityError) as e:
                 # Attributes too long, message back
                 raise InvalidUsage(
                     "Task attributes are constrained to 255 characters, you may have values "
@@ -242,7 +246,15 @@ def _add_or_get_attribute_type(
     attribute_types = [{"name": name} for name in names]
     try:
         with session.begin_nested():
-            insert_stmt = add_ignore(insert(TaskAttributeType))
+
+            if SessionLocal.bind.dialect.name == "mysql":
+                insert_stmt = insert(
+                    TaskAttributeType
+                ).values(attribute_types).prefix_with("IGNORE")
+            elif SessionLocal.bind.dialect.name == "sqlite":
+                insert_stmt = sqlite_insert(
+                    TaskAttributeType
+                ).values(attribute_types).on_conflict_do_nothing()
             session.execute(insert_stmt, attribute_types)
     except DataError as e:
         raise InvalidUsage(

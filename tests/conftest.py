@@ -2,7 +2,6 @@ import logging
 import multiprocessing as mp
 import os
 import platform
-from py import path
 import requests
 import signal
 import socket
@@ -23,7 +22,7 @@ logger = logging.getLogger(__name__)
 class WebServerProcess:
     """Context manager creates the Jobmon web server in a process and tears it down on exit."""
 
-    def __init__(self, filepath: path.local) -> None:
+    def __init__(self, filepath: str) -> None:
         """Initializes the web server process.
 
         Args:
@@ -148,26 +147,24 @@ def requester_no_retry(client_env):
     return Requester(client_env, max_retries=0)
 
 
-@pytest.fixture(scope="session")
-def web_server_in_memory(ephemera):
+@pytest.fixture(scope="function")
+def web_server_in_memory():
     """This sets up the JSM/JQS using the test_client which is a
     fake server
     """
-    from jobmon.server.web.start import create_app
+    from jobmon.server.web.app_factory import AppFactory
+    from jobmon.server.web.models import init_db
     from jobmon.server.web.web_config import WebConfig
 
     # The create_app call sets up database connections
-    server_config = WebConfig(
-        db_host=ephemera["DB_HOST"],
-        db_port=ephemera["DB_PORT"],
-        db_user=ephemera["DB_USER"],
-        db_pass=ephemera["DB_PASS"],
-        db_name=ephemera["DB_NAME"],
-    )
-    app = create_app(server_config)
+    engine = sqlalchemy.create_engine("sqlite://")
+    init_db(engine)
+    config = WebConfig(engine=engine)
+    app_factory = AppFactory(config)
+    app = app_factory.create_app_context()
     app.config["TESTING"] = True
     client = app.test_client()
-    yield client
+    yield client, engine
 
 
 def get_test_content(response):
@@ -194,19 +191,21 @@ def requester_in_memory(monkeypatch, web_server_in_memory):
     monkeypatch.setenv("WEB_SERVICE_FQDN", "1")
     monkeypatch.setenv("WEB_SERVICE_PORT", "2")
 
+    app, engine = web_server_in_memory
+
     def get_in_mem(url, params, data, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return web_server_in_memory.get(
+        return app.get(
             path=url, query_string=params, data=data, headers=headers
         )
 
     def post_in_mem(url, json, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return web_server_in_memory.post(url, json=json, headers=headers)
+        return app.post(url, json=json, headers=headers)
 
     def put_in_mem(url, json, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return web_server_in_memory.put(url, json=json, headers=headers)
+        return app.put(url, json=json, headers=headers)
 
     monkeypatch.setattr(requests, "get", get_in_mem)
     monkeypatch.setattr(requests, "post", post_in_mem)

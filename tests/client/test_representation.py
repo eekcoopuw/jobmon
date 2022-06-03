@@ -1,4 +1,4 @@
-def test_repr_strings(db_cfg, client_env, tool, task_template):
+def test_repr_strings(tool, task_template):
     """Smoke tests to check the various client object repr strings."""
 
     task = task_template.create_task(arg="echo 1")

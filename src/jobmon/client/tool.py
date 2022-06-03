@@ -102,7 +102,7 @@ class Tool:
         return self.active_tool_version.default_compute_resources_set
 
     @property
-    def default_resource_scales_set(self) -> Dict[Dict[str, float]]:
+    def default_resource_scales_set(self) -> Dict[str, Dict[str, float]]:
         """Default resource scales associated with active tool version."""
         return self.active_tool_version.default_resource_scales_set
 
@@ -187,8 +187,9 @@ class Tool:
         if op_args is None:
             op_args = []
 
-        if (default_compute_resources is not None or default_resource_scales is not None) \
-                and not default_cluster_name:
+        if (
+            default_compute_resources is not None or default_resource_scales is not None
+        ) and not default_cluster_name:
             raise ValueError(
                 "Must specify default_cluster_name when using "
                 "default_compute_resources or default_resource_scales option"
@@ -197,8 +198,9 @@ class Tool:
         tt = self.active_tool_version.get_task_template(template_name)
 
         # Read in compute resources and resources scales from YAML
-        if yaml_file and \
-                (default_compute_resources is None or default_resource_scales is None):
+        if yaml_file and (
+            default_compute_resources is None or default_resource_scales is None
+        ):
             with open(yaml_file, "r") as stream:
                 try:
                     yaml_stream = yaml.safe_load(stream)
@@ -208,13 +210,13 @@ class Tool:
                         f"Exception: {exc}"
                     )
             if default_compute_resources is None:
-                default_compute_resources = yaml_stream[
-                    "task_template_resources"
-                ][tt.template_name][default_cluster_name]
+                default_compute_resources = yaml_stream["task_template_resources"][
+                    tt.template_name
+                ][default_cluster_name]
             if default_resource_scales is None:
-                default_resource_scales = yaml_stream[
-                    "task_template_scales"
-                ][tt.template_name][default_cluster_name]
+                default_resource_scales = yaml_stream["task_template_scales"][
+                    tt.template_name
+                ][default_cluster_name]
         tt.get_task_template_version(
             command_template,
             node_args,
@@ -222,12 +224,14 @@ class Tool:
             op_args,
         )
         tt.default_cluster_name = default_cluster_name
-        tt.set_default_compute_resources_from_dict(
-            default_cluster_name, default_compute_resources
-        )
-        tt.set_default_resource_scales_from_dict(
-            default_cluster_name, default_resource_scales
-        )
+        if default_compute_resources:
+            tt.set_default_compute_resources_from_dict(
+                default_cluster_name, default_compute_resources
+            )
+        if default_resource_scales:
+            tt.set_default_resource_scales_from_dict(
+                default_cluster_name, default_resource_scales
+            )
         return tt
 
     def create_workflow(
@@ -284,7 +288,10 @@ class Tool:
             if self.active_tool_version.default_compute_resources_set:
                 wf.default_compute_resources_set = self.default_compute_resources_set
         if default_resource_scales_set:
-            wf.default_resource_scales_set = default_resource_scales_set
+            wf.set_default_resource_scales_from_dict(
+                cluster_name=default_cluster_name,
+                dictionary=default_resource_scales_set,
+            )
         else:
             if self.active_tool_version.default_resource_scales_set:
                 wf.default_resource_scales_set = self.default_resource_scales_set
@@ -309,9 +316,7 @@ class Tool:
             cluster_name, **kwargs
         )
 
-    def update_default_resource_scales(
-        self, cluster_name: str, **kwargs: Any
-    ) -> None:
+    def update_default_resource_scales(self, cluster_name: str, **kwargs: Any) -> None:
         """Update default resource scales in place only overridding specified keys.
 
         If no default cluster is specified when this method is called, cluster_name will
@@ -323,9 +328,7 @@ class Tool:
         """
         if not self.default_cluster_name:
             self.active_tool_version.default_cluster_name = cluster_name
-        self.active_tool_version.update_default_resource_scales(
-            cluster_name, **kwargs
-        )
+        self.active_tool_version.update_default_resource_scales(cluster_name, **kwargs)
 
     def set_default_compute_resources_from_yaml(
         self,

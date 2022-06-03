@@ -1,6 +1,8 @@
+from jobmon.cluster import Cluster
+from jobmon.builtins import sequential
+from jobmon.builtins.sequential.seq_queue import SequentialQueue
+
 def test_plugin_loading(client_env):
-    from jobmon.cluster import Cluster
-    from jobmon.builtins import sequential
 
     cluster = Cluster(cluster_name="sequential")
     cluster.bind()
@@ -8,8 +10,6 @@ def test_plugin_loading(client_env):
 
 
 def test_get_queue(client_env):
-    from jobmon.cluster import Cluster
-    from jobmon.builtins.sequential.seq_queue import SequentialQueue
 
     cluster = Cluster(cluster_name="sequential")
     cluster.bind()
