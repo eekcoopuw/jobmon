@@ -262,13 +262,11 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
         assert isinstance(e.__context__, argparse.ArgumentError)
 
 
-def test_workflow_tasks(db_cfg, client_env, cli):
-    from jobmon.client.tool import Tool
+def test_workflow_tasks(db_engine, tool, client_env, cli):
     from jobmon.client.status_commands import workflow_tasks
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.constants import WorkflowRunStatus
 
-    tool = Tool()
     workflow = tool.create_workflow(
         default_cluster_name="sequential",
         default_compute_resources_set={"sequential": {"queue": "null.q"}},

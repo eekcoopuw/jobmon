@@ -97,9 +97,13 @@ def get_workflow_tasks(workflow_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-        query_filter = [Workflow.id == Task.workflow_id,
-                        Task.status.in_([i for arg in status_request for i in _reversed_cli_label_mapping[arg]]),
-                        Workflow.id == int(workflow_id)]
+        if status_request:
+            query_filter = [Workflow.id == Task.workflow_id,
+                            Task.status.in_([i for arg in status_request for i in _reversed_cli_label_mapping[arg]]),
+                            Workflow.id == int(workflow_id)]
+        else:
+            query_filter = [Workflow.id == Task.workflow_id,
+                            Workflow.id == int(workflow_id)]
         sql = (
             select(Task.id,
                    Task.name,
@@ -110,6 +114,7 @@ def get_workflow_tasks(workflow_id: int) -> Any:
         rows = session.execute(sql).all()
     column_names = ("TASK_ID", "TASK_NAME", "STATUS", "RETRIES")
     res = [dict(zip(column_names, ti)) for ti in rows]
+    logger.warn(f"******************************************{res}")
     for r in res:
         r["RETRIES"] = 0 if r["RETRIES"] <= 1 else r["RETRIES"] - 1
 
