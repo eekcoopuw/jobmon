@@ -7,6 +7,7 @@ import shlex
 import sys
 from typing import Any, List, Optional
 
+
 import configargparse
 
 CONFIG_FILE_NAME = ".jobmon.ini"
@@ -157,6 +158,19 @@ class ParserDefaults:
             env_var="APM_PORT",
         )
         return parser
+
+    @staticmethod
+    def sql_dialect(
+        parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
+        parser.add_argument(
+            "--sql_dialect",
+            type=str,
+            choices=["mysql", "sqlite"],
+            default="mysql",
+            help="The dialect of sql to use when running the server.",
+            env_var="SQL_DIALECT",
+        )
 
     @staticmethod
     def db_host(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
