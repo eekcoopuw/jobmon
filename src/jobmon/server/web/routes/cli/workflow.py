@@ -19,6 +19,7 @@ from jobmon.server.web.models.task_template import TaskTemplate
 from jobmon.server.web.models.task_template_version import TaskTemplateVersion
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_run import WorkflowRun
+from jobmon.server.web.models.workflow_status import WorkflowStatus
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.cli import blueprint
 
@@ -234,50 +235,51 @@ def get_workflow_status() -> Any:
         # convert user request into sql filter
         # directly producing workflow_ids, and thus where_clause
         if user_request:
-            params["user"] = user_request
-            where_clause_user = "WHERE workflow_run.user in :user "
-            q_user = """
-                SELECT DISTINCT workflow_id
-                FROM workflow_run
-                {where_clause}
-            """.format(
-                where_clause=where_clause_user
-            )
-            res_user = DB.session.execute(q_user, params).fetchall()
-            workflow_ids = [int(row.workflow_id) for row in res_user]
-            params["workflow_id"] = workflow_ids
-            where_clause = "WHERE workflow.id in :workflow_id "
-    # execute query
-    q = """
-        SELECT
-            workflow.id as WF_ID,
-            workflow.name as WF_NAME,
-            workflow_status.label as WF_STATUS,
-            count(task.status) as TASKS,
-            task.status AS STATUS,
-            workflow.created_date as CREATED_DATE,
-            sum(
-                CASE
-                    WHEN num_attempts <= 1 THEN 0
-                    ELSE num_attempts - 1
-                END
-            ) as RETRIES
-        FROM workflow
-        JOIN task
-            ON workflow.id = task.workflow_id
-        JOIN workflow_status
-            ON workflow_status.id = workflow.status
-        {where_clause}
-        GROUP BY workflow.id, task.status, workflow.name, workflow_status.label
-        ORDER BY workflow.id desc
-    """.format(
-        where_clause=where_clause
-    )
-    if limit:
-        q = f"{q}\nLIMIT {limit}"
-    res = DB.session.execute(q, params).fetchall()
+            session = SessionLocal()
+            with session.begin():
+                query_filter = [WorkflowRun.user.in_(user_request)]
+                sql = (
+                    select(WorkflowRun.workflow_id).where(*query_filter)
+                ).distinct()
+                rows = session.execute(sql).all()
+            workflow_request = [int(row[0]) for row in rows]
 
-    if res:
+    # execute query
+    session = SessionLocal()
+    with session.begin():
+        query_filter = [Workflow.id == Task.workflow_id,
+                        WorkflowStatus.id == Workflow.status,
+                        Workflow.id.in_(workflow_request)]
+        sql = (
+            select(
+                Workflow.id,
+                Workflow.name,
+                WorkflowStatus.label,
+                func.count(Task.status),
+                Task.status,
+                Workflow.created_date,
+            ).where(*query_filter)
+        ).group_by(Workflow.id, Task.status, Workflow.name, WorkflowStatus.label)
+        rows = session.execute(sql).all()
+    column_names = ("WF_ID", "WF_NAME", "WF_STATUS", "TASKS", "STATUS", "CREATED_DATE")
+    rows = [dict(zip(column_names, ti)) for ti in rows]
+    res = []
+    for r in rows:
+        session = SessionLocal()
+        with session.begin():
+            q_filter = [Task.workflow_id == r["WF_ID"],
+                        Task.status == r["STATUS"]]
+            q = (
+                select(Task.num_attempts).where(*q_filter)
+            )
+            query_result = session.execute(q).all()
+        retries = 0
+        for rr in query_result:
+            retries += 0 if int(rr[0]) <= 1 else int(rr[0]) - 1
+        r["RETRIES"] = retries
+        res.append(r)
+
+    if res is not None and len(res) > 0:
 
         # assign to dataframe for aggregation
         df = pd.DataFrame(res, columns=res[0].keys())
