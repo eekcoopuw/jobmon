@@ -119,7 +119,6 @@ def get_requested_cores() -> Any:
     resp.status_code = StatusCodes.OK
     return resp
 
-#**********not tested yet
 @blueprint.route("/get_most_popular_queue", methods=["GET"])
 def get_most_popular_queue() -> Any:
     """Get the most popular queue of the task template."""
@@ -168,7 +167,7 @@ def get_most_popular_queue() -> Any:
                     popular_q = q
                     max_usage = result_dir[ttvi][q]
             # get queue name; and return queue id with it
-            with session.begin():
+            with session:
                 query_filter = [Queue.id == popular_q
                                 ]
                 sql = (
@@ -184,7 +183,7 @@ def get_most_popular_queue() -> Any:
     resp.status_code = StatusCodes.OK
     return resp
 
-#************not tested yet
+
 @blueprint.route("/task_template_resource_usage", methods=["POST"])
 def get_task_template_resource_usage() -> Any:
     """Return the aggregate resource usage for a give TaskTemplate."""

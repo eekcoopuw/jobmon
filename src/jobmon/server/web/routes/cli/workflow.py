@@ -98,7 +98,8 @@ def get_workflow_tasks(workflow_id: int) -> Any:
     session = SessionLocal()
     with session.begin():
         query_filter = [Workflow.id == Task.workflow_id,
-                        Task.status.in_([i for arg in status_request for i in _reversed_cli_label_mapping[arg]])]
+                        Task.status.in_([i for arg in status_request for i in _reversed_cli_label_mapping[arg]]),
+                        Workflow.id == int(workflow_id)]
         sql = (
             select(Task.id,
                    Task.name,

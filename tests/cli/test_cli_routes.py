@@ -111,7 +111,6 @@ def test_get_requested_cores(db_engine, tool):
     assert msg["core_info"][0]["avg"] == 3
 
 
-@pytest.mark.skip(reason="wf.run seems not working; revisit later")
 def test_most_popular_queue(db_engine, tool):
     t = tool
     wf = t.create_workflow(name="i_am_a_fake_wf")
@@ -137,7 +136,6 @@ def test_most_popular_queue(db_engine, tool):
         arg=5, cluster_name="sequential", compute_resources={"queue": "null.q"}
     )
     wf.add_tasks([t1, t2, t3, t4, t5])
-    wf.bind()
     wf.run()
 
     app_route = "/get_most_popular_queue"
@@ -149,7 +147,6 @@ def test_most_popular_queue(db_engine, tool):
         },
         request_type="get",
     )
-    # msg = {'queue_info': [{'id': 1, 'queue': 'all.q'}, {'id': 2, 'queue': 'long.q'}]}
     assert len(msg["queue_info"]) == 2
     for i in msg["queue_info"]:
         assert i["queue"] == "null.q"
@@ -193,7 +190,7 @@ def test_get_workflow_validation_status(db_engine, tool):
 
 def test_get_workflow_tasks(db_engine, tool):
     t = tool
-    wf = t.create_workflow(name="i_am_a_fake_wf")
+    wf = t.create_workflow(name="yiyayiyayou")
     tt1 = t.get_task_template(
         template_name="tt_core", command_template="echo {arg}", node_args=["arg"]
     )
@@ -337,3 +334,29 @@ def test_get_workflow_status(db_engine, tool):
     assert return_code == 200
     result = pd.read_json(msg["workflows"])
     assert len(result) == 1
+
+
+def test_get_task_template_resource_usage(db_engine, tool):
+    t = tool
+    wf = t.create_workflow(name="i_am_a_fake_wf")
+    tt1 = t.get_task_template(
+        template_name="tt_core", command_template="echo {arg}", node_args=["arg"]
+    )
+    t1 = tt1.create_task(
+        arg=1,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 2},
+    )
+    t2 = tt1.create_task(
+        arg=2,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 4},
+    )
+    wf.add_tasks([t1, t2])
+    wf.run()
+
+    app_route = f"/task_template_resource_usage"
+    return_code, msg = wf.requester.send_request(
+        app_route=app_route, message={"task_template_version_id": 1}, request_type="post"
+    )
+    assert return_code == 200
