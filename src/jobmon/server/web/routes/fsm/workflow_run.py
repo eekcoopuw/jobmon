@@ -8,7 +8,6 @@ import structlog
 
 from jobmon import constants
 from jobmon.exceptions import InvalidStateTransition
-from jobmon.server.web._compat import concat_column
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog

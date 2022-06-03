@@ -1,23 +1,7 @@
-from sqlalchemy import column, type_coerce, Integer, cast
 from sqlalchemy.sql import func
-from sqlalchemy.sql.dml import Insert
-from sqlalchemy.sql.elements import Grouping
 
 from jobmon.server.web import session_factory
 from jobmon.server.web.server_side_exception import ServerError
-
-
-def add_ignore(insert_stmt: Insert) -> Insert:
-    if session_factory().bind.dialect.name == "mysql":
-        insert_stmt = insert_stmt.prefix_with("IGNORE")
-    elif session_factory().bind.dialect.name == "sqlite":
-        insert_stmt = insert_stmt.prefix_with("OR IGNORE")
-    else:
-        raise ServerError(
-            "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
-            + session_factory.bind.dialect.name
-        )
-    return insert_stmt
 
 
 def add_time(next_report_increment: float) -> func:
@@ -50,16 +34,3 @@ def subtract_time(next_report_increment: float) -> func:
             + session_factory.bind.dialect.name
         )
     return add_time_func
-
-
-def concat_column(words, col):
-    if session_factory().bind.dialect.name == "mysql":
-        concat_func = func.concat(words, column)
-    elif session_factory().bind.dialect.name == "sqlite":
-        concat_func = column(words) + col
-    else:
-        raise ServerError(
-            "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
-            + session_factory.bind.dialect.name
-        )
-    return concat_func
