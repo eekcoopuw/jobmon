@@ -148,11 +148,7 @@ def record_array_batch_num(array_id: int) -> Any:
                 literal_column(str(task_resources_id)).label("task_resources_id"),
                 # batch info
                 select(func.coalesce(func.max(TaskInstance.array_batch_num) + 1, 1))
-                .where(
-                    (TaskInstance.workflow_run_id == workflow_run_id)
-                    & (TaskInstance.array_id == array_id)
-                )
-                .label("array_batch_num"),
+                .where((TaskInstance.array_id == array_id)).label("array_batch_num"),
                 (func.row_number().over(order_by=Task.id) - 1).label("array_step_id"),
                 # status columns
                 literal_column(f"'{TaskInstanceStatus.QUEUED}'").label("status"),
