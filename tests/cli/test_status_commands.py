@@ -8,7 +8,11 @@ import pandas as pd
 
 import pytest
 from unittest.mock import patch, PropertyMock
+from sqlalchemy import func, select, update
+from sqlalchemy.orm import Session
+
 from jobmon.client.workflow import DistributorContext
+from jobmon.server.web.models.task_instance import TaskInstance
 
 
 def get_task_template(tool, template_name="my_template"):
@@ -369,7 +373,7 @@ def test_workflow_tasks(db_engine, tool, client_env, cli):
         assert isinstance(e.__context__, argparse.ArgumentError)
 
 
-def test_task_status(db_cfg, client_env, tool, cli):
+def test_task_status(db_engine, client_env, tool, cli):
     from jobmon.client.status_commands import task_status
 
     task_template = get_task_template(tool)
@@ -384,6 +388,7 @@ def test_task_status(db_cfg, client_env, tool, cli):
 
     args = cli.parse_args(command_str)
     df = task_status(args.task_ids)
+
     assert len(df) == 3
     assert len(df.query("STATUS=='ERROR'")) == 2
     assert len(df.query("STATUS=='DONE'")) == 1
@@ -400,15 +405,16 @@ def test_task_status(db_cfg, client_env, tool, cli):
     assert len(df_all) == 3
 
     # Check that the filepaths are returned correctly
-    app, db = db_cfg["app"], db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        UPDATE task_instance
-        SET stdout="/stdout/dir/file.o123", stderr="/stderr/dir/file.e123"
-        WHERE task_id IN :task_ids
-        """
-        db.session.execute(sql, {"task_ids": (t1.task_id, t2.task_id)})
-        db.session.commit()
+    with Session(bind=db_engine) as session:
+        # fake workflow run
+        update_stmt = update(
+                TaskInstance
+            ).where(
+                TaskInstance.task_id.in_([t1.task_id, t2.task_id])
+            )
+        val = {"stdout": "/stdout/dir/file.o123", "stderr": "/stderr/dir/file.e123"}
+        session.execute(update_stmt.values(**val))
+        session.commit()
 
     args = cli.parse_args(command_str)
     df = task_status(args.task_ids)
@@ -416,7 +422,7 @@ def test_task_status(db_cfg, client_env, tool, cli):
     assert set(df.STDERR) == {"/stderr/dir/file.e123"}
 
 
-def test_task_reset(db_cfg, client_env, tool, monkeypatch):
+def test_task_reset(db_engine, client_env, tool, monkeypatch):
     from jobmon.requester import Requester
     from jobmon.client.status_commands import validate_username
 
@@ -439,7 +445,7 @@ def test_task_reset(db_cfg, client_env, tool, monkeypatch):
         validate_username(workflow.workflow_id, "notarealuser", requester)
 
 
-def test_task_reset_wf_validation(db_cfg, client_env, tool, cli):
+def test_task_reset_wf_validation(db_engine, client_env, tool, cli):
     from jobmon.requester import Requester
     from jobmon.client.status_commands import update_task_status, validate_workflow
 
@@ -474,7 +480,7 @@ def test_task_reset_wf_validation(db_cfg, client_env, tool, cli):
         validate_workflow(task_ids, requester)
 
 
-def test_sub_dag(db_cfg, client_env, tool):
+def test_sub_dag(db_db_enginecfg, client_env, tool):
     from jobmon.client.status_commands import get_sub_task_tree
 
     """
@@ -555,7 +561,7 @@ def test_sub_dag(db_cfg, client_env, tool):
 
 
 @pytest.mark.skip()
-def test_dynamic_concurrency_limiting_cli(db_cfg, client_env, cli):
+def test_dynamic_concurrency_limiting_cli(db_engine, client_env, cli):
     """The server-side logic is checked in distributor/test_instantiate.
 
     This test checks the logic of the CLI only
@@ -579,7 +585,7 @@ def test_dynamic_concurrency_limiting_cli(db_cfg, client_env, cli):
         cli.parse_args(bad_command.format(-59))
 
 
-def test_update_task_status(db_cfg, client_env, tool, cli):
+def test_update_task_status(db_engine, client_env, tool, cli):
     from jobmon.client.status_commands import update_task_status
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
@@ -652,7 +658,7 @@ def test_update_task_status(db_cfg, client_env, tool, cli):
     assert len(swarm.done_tasks) == 5
 
 
-def test_400_cli_route(db_cfg, client_env):
+def test_400_cli_route(db_engine, client_env):
     from jobmon.requester import Requester
 
     requester = Requester(client_env)
@@ -662,7 +668,7 @@ def test_400_cli_route(db_cfg, client_env):
     assert rc == 400
 
 
-def test_bad_put_route(db_cfg, client_env):
+def test_bad_put_route(db_engine, client_env):
     from jobmon.requester import Requester
 
     requester = Requester(client_env, logger)
@@ -672,7 +678,7 @@ def test_bad_put_route(db_cfg, client_env):
     assert rc == 400
 
 
-def test_get_yaml_data(db_cfg, client_env):
+def test_get_yaml_data(db_engine, client_env):
     from jobmon.client.tool import Tool
 
     t = Tool()
@@ -828,7 +834,7 @@ def test_create_yaml():
     assert result == expected
 
 
-def test_get_filepaths(db_cfg, tool, array_template, task_template, cli):
+def test_get_filepaths(db_engine, tool, array_template, task_template, cli):
 
     from jobmon.server.web.models.task_instance import TaskInstance
     from jobmon.client.status_commands import get_filepaths

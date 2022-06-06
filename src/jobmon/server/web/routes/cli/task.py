@@ -1,6 +1,7 @@
 """Routes for Tasks."""
 from http import HTTPStatus as StatusCodes
 import json
+import pandas as pd
 from typing import Any, cast, Dict, List, Set
 
 from flask import jsonify, request
@@ -17,7 +18,7 @@ from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLo
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.routes import SessionLocal
-from jobmon.server.web.routes.fsm import blueprint
+from jobmon.server.web.routes.cli import blueprint
 from jobmon.server.web.server_side_exception import InvalidUsage
 
 
@@ -52,54 +53,58 @@ def get_task_status() -> Any:
     task_ids = request.args.getlist("task_ids")
     if len(task_ids) == 0:
         raise InvalidUsage(f"Missing {task_ids} in request", status_code=400)
+    params = {"task_ids": task_ids}
+    where_clause = "task.id IN :task_ids"
 
-    select_stmt = select(
-        TaskInstance.id.label("TASK_INSTANCE_ID"),
-        TaskInstance.distributor_id.label("DISTRIBUTOR_ID"),
-        TaskInstanceStatus.label.label("STATUS"),
-        TaskInstance.usage_str.label("RESOURCE_USAGE"),
-        TaskInstance.stdout.label("STDOUT"),
-        TaskInstance.stderr.label("STDERR"),
-        TaskInstanceErrorLog.description.label("ERROR_TRACE")
-    ).join_from(
-        TaskInstance,
-        TaskInstanceErrorLog,
-        TaskInstance.id == TaskInstanceErrorLog.task_instance_id
-    )
-    where_clause = [Task.id.in_(task_ids)]
     # status is an optional arg
-    status_request = request.args.getlist("status")
-    if status_request:
-        status_codes = [
-            i
-            for arg in status_request
-            for i in _reversed_task_instance_label_mapping[arg]
-        ]
-        where_clause.append(TaskInstance.status.in_(status_codes))
+    status_request = request.args.getlist("status", None)
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
+        query_filter = [Task.id == TaskInstance.task_id,
+                        TaskInstanceStatus.id == TaskInstance.status]
+        if status_request:
+            if len(status_request) > 0:
+                status_codes = [
+                    i
+                    for arg in status_request
+                    for i in _reversed_task_instance_label_mapping[arg]
+                ]
+            query_filter.append(TaskInstance.status.in_([i for arg in status_request for i in status_codes]))
 
-        # serialize data for pandas. format is:
-        #     {column -> {index -> value}}
-        json: Dict[str, Dict[int, Any]] = {
-            "TASK_INSTANCE_ID": {},
-            "DISTRIBUTOR_ID": {},
-            "STATUS": {},
-            "RESOURCE_USAGE": {},
-            "STDOUT": {},
-            "STDERR": {},
-            "ERROR_TRACE": {},
-        }
-        index = 0
-        for row in session.execute(select_stmt.where(*where_clause)):
-            for col in json.keys():
-                if col == "STATUS":
-                    json[col].update({index: _task_instance_label_mapping[row.col]})
-                else:
-                    json[col].update({index: row.col})
-            index += 1
+        if task_ids:
+            query_filter.append(Task.id.in_(task_ids))
+        sql = (
+            select(Task.id,
+                   Task.status,
+                   TaskInstance.id,
+                   TaskInstance.distributor_id,
+                   TaskInstanceStatus.label,
+                   TaskInstance.usage_str,
+                   TaskInstance.stdout,
+                   TaskInstance.stderr,
+                   TaskInstanceErrorLog.description
+                   ).join_from(TaskInstance,
+                               TaskInstanceErrorLog,
+                               TaskInstance.id == TaskInstanceErrorLog.task_instance_id,
+                               isouter=True
+                               ).where(*query_filter)
+        )
+        rows = session.execute(sql).all()
+        
+    column_names = ("TASK_ID", "task_status", "TASK_INSTANCE_ID", "DISTRIBUTOR_ID", "STATUS", "RESOURCE_USAGE",
+                    "STDOUT", "STDERR", "ERROR_TRACE")
+    if rows and len(rows) > 0:
+        # assign to dataframe for serialization
+        df = pd.DataFrame(rows, columns=column_names)
+        logger.warn(f"*******************************\n{df}\n")
+        # remap to jobmon_cli statuses
+        df.STATUS.replace(to_replace=_task_instance_label_mapping, inplace=True)
+        resp = jsonify(task_instance_status=df.to_json())
+    else:
+        df = pd.DataFrame({}, columns=column_names)
+        resp = jsonify(task_instance_status=df.to_json())
 
-    resp = jsonify(task_instance_status=json)
     resp.status_code = StatusCodes.OK
     return resp
 

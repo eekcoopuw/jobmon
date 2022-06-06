@@ -114,7 +114,6 @@ def get_workflow_tasks(workflow_id: int) -> Any:
         rows = session.execute(sql).all()
     column_names = ("TASK_ID", "TASK_NAME", "STATUS", "RETRIES")
     res = [dict(zip(column_names, ti)) for ti in rows]
-    logger.warn(f"******************************************{res}")
     for r in res:
         r["RETRIES"] = 0 if r["RETRIES"] <= 1 else r["RETRIES"] - 1
 
@@ -212,6 +211,7 @@ def reset_workflow(workflow_id: int) -> Any:
             Task.workflow_id == workflow_id
         ).values(status="G", status_date=func.now(), num_attempts = 0)
         session.execute(update_stmt)
+        session.commit()
 
     resp = jsonify({})
     resp.status_code = StatusCodes.OK
