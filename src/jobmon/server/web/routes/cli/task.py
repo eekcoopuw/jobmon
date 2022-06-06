@@ -124,8 +124,8 @@ def get_task_subdag() -> Any:
         raise InvalidUsage(f"Missing {task_ids} in request", status_code=400)
     if task_status is None:
         task_status = []
-
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with session.begin():
         select_stmt = select(
             Task.workflow_id.label("workflow_id"),
             Workflow.dag_id.label("dag_id"),
@@ -380,11 +380,11 @@ def _get_node_downstream(nodes: set, dag_id: int, session: Session) -> Set[int]:
         Edge.dag_id == dag_id,
         Edge.node_id.in_(list(nodes))
     )
-    result = session.execute(select_stmt).scalars().all()
+    result = session.execute(select_stmt).all()
     node_ids: Set[int] = set()
-    for node in result:
-        if node.downstream_node_ids is not None:
-            ids = json.loads(node.downstream_node_ids)
+    for r in result:
+        if r[0] is not None:
+            ids = json.loads(r[0])
             node_ids = node_ids.union(set(ids))
     return node_ids
 
@@ -451,14 +451,14 @@ def _get_tasks_from_nodes(
         Task.node_id.in_(list(nodes))
     )
 
-    result = session.execute(select_stmt).scalars().all()
+    result = session.execute(select_stmt).all()
     task_dict = {}
-
-    for task in result:
+    logger.warn(f"****************************{result}")
+    for r in result:
         # When task_status not specified, return the full subdag
         if not task_status:
-            task_dict[task.id] = task.status
+            task_dict[r[0]] = r[1]
         else:
-            if task.status in task_status:
-                task_dict[task.id] = task.status
+            if r[1] in task_status:
+                task_dict[r[0]] = r[1]
     return task_dict

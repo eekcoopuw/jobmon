@@ -480,7 +480,7 @@ def test_task_reset_wf_validation(db_engine, client_env, tool, cli):
         validate_workflow(task_ids, requester)
 
 
-def test_sub_dag(db_db_enginecfg, client_env, tool):
+def test_sub_dag(db_engine, client_env, tool):
     from jobmon.client.status_commands import get_sub_task_tree
 
     """
