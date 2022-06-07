@@ -398,3 +398,40 @@ def test_get_task_status(db_engine, tool):
     import pdb
     pdb.set_trace()
     result = pd.read_json(msg["task_instance_status"])
+
+
+def test_get_array_task_instances(db_engine, tool):
+    tt = tool.get_task_template(
+        template_name="dummy_template",
+        command_template="echo {arg1} {arg2}",
+        node_args=["arg1", "arg2"],
+        task_args=[],
+        op_args=[],
+        default_cluster_name="dummy",
+        default_compute_resources={"queue": "null.q"},
+    )
+    tasks = tt.create_tasks(
+        arg1=[1, 2],
+        arg2=[3, 4],
+        compute_resources={"queue": "null.q"}
+    )
+    array = tasks[0].array
+    wf = tool.create_workflow()
+    wf.add_tasks(tasks)
+    wf.run()
+
+    with Session(bind=db_engine) as session:
+        query = """UPDATE task_instance
+                    SET stdout="/cool/filepath.o",
+                    stderr="/cool/filepath.e"
+                """
+        session.execute(query)
+        session.commit()
+    app_route = f"/array/{wf.workflow_id}/get_array_tasks"
+    return_code, msg = wf.requester.send_request(
+        app_route=app_route, message={"array_name": array.name}, request_type="get"
+    )
+    assert return_code == 200
+    assert len(msg['array_tasks']) == 4
+    assert msg['array_tasks'][0]["ERROR_PATH"] == "/cool/filepath.e"
+    assert msg['array_tasks'][0]["OUTPUT_PATH"] == "/cool/filepath.o"

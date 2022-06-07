@@ -831,102 +831,88 @@ def test_create_yaml():
     assert result == expected
 
 
-def test_get_filepaths(db_engine, tool, array_template, task_template, cli):
+def test_get_filepaths(db_engine, tool):
 
     from jobmon.server.web.models.task_instance import TaskInstance
     from jobmon.client.status_commands import get_filepaths
 
-    # Create task, and task instance metadata in the database.
-    def create_metadata(tasks=None, arrays=None):
+    tt = tool.get_task_template(
+        template_name="dummy_template",
+        command_template="echo {arg1} {arg2}",
+        node_args=["arg1", "arg2"],
+        task_args=[],
+        op_args=[],
+        default_cluster_name="dummy",
+        default_compute_resources={"queue": "null.q"},
+    )
+    tasks = tt.create_tasks(
+        arg1=[1, 2],
+        arg2=["a", "b"],
+        compute_resources={"queue": "null.q"}
+    )
+    array = tasks[0].array
+    wf = tool.create_workflow()
+    wf.add_tasks(tasks)
+    wf.run()
 
-        wf = tool.create_workflow()
-        wf.add_tasks(tasks)
-        wf.bind()
-        wfr = wf._create_workflow_run()
+    with Session(bind=db_engine) as session:
+        query = """UPDATE task_instance
+                            SET stdout="/cool/filepath.o",
+                            stderr="/cool/filepath.e"
+                        """
+        session.execute(query)
+        session.commit()
 
-        task_instances = []
-        for idx, task in enumerate(wf.tasks.values()):
-            ti = TaskInstance(
-                workflow_run_id=wfr.workflow_run_id,
-                array_id=task.array.array_id,
-                cluster_id=1,
-                distributor_id=f"123_{idx}",
-                task_id=task.task_id,
-                array_batch_num=1,
-                array_step_id=idx,
-                stdout=f"/cool/filepath.o123_{idx}",
-                stderr=f"/cool/filepath.e123_{idx}",
-            )
-            task_instances.append(ti)
-
-        app, db = db_cfg["app"], db_cfg["DB"]
-
-        with app.app_context():
-            db.session.bulk_save_objects(task_instances)
-            db.session.commit()
-
-        return wf
-
-    tasks1 = array_template.create_tasks(name="foobar array", arg=["foo", "bar", "baz"])
-    wf = create_metadata(tasks=tasks1)
-
-    # Database is now populated with juicy task instances
-    # Test CLI parsing
-    command_str = f"get_filepaths -w {wf.workflow_id}"
-    args = cli.parse_args(command_str + " -a 'foobar array'")
-
-    assert args.workflow_id == wf.workflow_id
-    assert args.array_name == "foobar array"
-
-    df_cli = get_filepaths(workflow_id=args.workflow_id, array_name=args.array_name)
-
-    assert len(df_cli) == 3
+    df_cli = get_filepaths(workflow_id=wf.workflow_id, array_name=array.name)
+    assert len(df_cli) == 4
     df_cli = pd.DataFrame(df_cli)
     assert set(df_cli.OUTPUT_PATH) == {
-        "/cool/filepath.o123_0",
-        "/cool/filepath.o123_1",
-        "/cool/filepath.o123_2",
+        "/cool/filepath.o",
     }
     assert set(df_cli.ERROR_PATH) == {
-        "/cool/filepath.e123_0",
-        "/cool/filepath.e123_1",
-        "/cool/filepath.e123_2",
+        "/cool/filepath.e",
     }
-    assert set(df_cli.ARRAY_NAME == "foobar array")
+    assert set(df_cli.ARRAY_NAME == array.name)
 
     one_task_df = get_filepaths(
         workflow_id=wf.workflow_id,
-        array_name="foobar array",
-        job_name="array_template_arg-foo",
+        array_name=array.name,
+        job_name=tasks[0].name,
     )
 
     assert len(one_task_df) == 1
 
     # Check that the fetch results work with create_task as well.
-    tasks2 = [
-        task_template.create_task(name=val, arg=f"echo {val}")
-        for val in ("qux", "quux", "quuz")
-    ]
-    wf2 = create_metadata(tasks=tasks2 + tasks1)
+    tasks2 = tt.create_tasks(
+        arg1=[1, 2, 3, 4],
+        arg2=["a", "b", "c", "d"],
+        compute_resources={"queue": "null.q"}
+    )
+    tt2 = tool.get_task_template(
+        template_name="dummy_template2",
+        command_template="echo {arg1} {arg2}",
+        node_args=["arg1", "arg2"],
+        task_args=[],
+        op_args=[],
+        default_cluster_name="dummy",
+        default_compute_resources={"queue": "null.q"},
+    )
+    tasks3 = tt2.create_tasks(
+        arg1=[5],
+        arg2=["a", "b", "c"],
+        compute_resources={"queue": "null.q"},
+        name="yiyayiyayou"
+    )
+    wf2 = tool.create_workflow()
+    wf2.add_tasks(tasks2 + tasks3)
+    wf2.run()
 
-    # Check that we get 6 tasks in the workflow
-    command_str = f"get_filepaths -w {wf2.workflow_id} -l 6"
-    args = cli.parse_args(command_str)
-
-    df_full = get_filepaths(workflow_id=args.workflow_id, limit=args.limit)
+    df_full = get_filepaths(workflow_id=wf2.workflow_id, limit=6)
     assert len(df_full) == 6
 
     # Filter by array name - the simple array
     df_array1 = get_filepaths(
-        workflow_id=args.workflow_id, array_name="simple_template"
+        workflow_id=wf2.workflow_id, array_name=tasks3[0].array.name
     )
     assert len(df_array1) == 3
-    df_array1 = pd.DataFrame(df_array1)
-    assert set(df_array1.TASK_NAME) == {"qux", "quux", "quuz"}
-    assert len(set(df_array1.OUTPUT_PATH)) == 3
 
-    qux_task = get_filepaths(workflow_id=args.workflow_id, job_name="qux")
-    assert len(qux_task) == 1
-    assert (
-        qux_task[0]["TASK_ID"] == df_array1.set_index("TASK_NAME").loc["qux", "TASK_ID"]
-    )
