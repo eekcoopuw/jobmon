@@ -170,17 +170,17 @@ def update_task_statuses() -> Any:
             f"problem with {str(e)} in request to {request.path}", status_code=400
         ) from e
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with SessionLocal.begin():
 
         try:
-            task_update_stmt = update(
+            update_stmt = update(
                 Task
             ).where(
-                status=new_status
-            ).values(
                 Task.id.in_(task_ids)
             )
-            task_res = session.execute(task_update_stmt)
+            vals = {"status": new_status}
+            session.execute(update_stmt.values(**vals))
 
             # If job is supposed to be rerun, set task instances to "K"
             if new_status == constants.TaskStatus.REGISTERING:
@@ -188,7 +188,7 @@ def update_task_statuses() -> Any:
                     TaskInstance
                 ).where(
                     TaskInstance.task_id.in_(task_ids),
-                    TaskInstance.status.notin_(
+                    TaskInstance.status.notin_([
                         constants.TaskInstanceStatus.ERROR_FATAL,
                         constants.TaskInstanceStatus.DONE,
                         constants.TaskInstanceStatus.ERROR,
@@ -196,22 +196,21 @@ def update_task_statuses() -> Any:
                         constants.TaskInstanceStatus.RESOURCE_ERROR,
                         constants.TaskInstanceStatus.KILL_SELF,
                         constants.TaskInstanceStatus.NO_DISTRIBUTOR_ID,
+                        ]
                     )
-                ).values(
-                    status=constants.TaskInstanceStatus.KILL_SELF
                 )
-                session.execute(task_instance_update_stmt)
+                vals = {"status": constants.TaskInstanceStatus.KILL_SELF}
+                session.execute(task_instance_update_stmt.values(**vals))
 
                 # If workflow is done, need to set it to an error state before resume
-                if workflow_status == constants.Statuses.DONE:
+                if workflow_status == constants.WorkflowStatus.DONE:
                     workflow_update_stmt = update(
                         Workflow
                     ).where(
                         Workflow.id == workflow_id
-                    ).values(
-                        status=constants.WorkflowStatus.FAILED
                     )
-                    session.execute(workflow_update_stmt)
+                    vals = {"status": constants.WorkflowStatus.FAILED}
+                    session.execute(workflow_update_stmt.values(**vals))
 
             session.commit()
         except KeyError as e:
@@ -220,7 +219,7 @@ def update_task_statuses() -> Any:
                 f"{str(e)} in request to {request.path}", status_code=400
             ) from e
 
-    message = f"{task_res.rowcount} rows updated to status {new_status}"
+    message = f"updated to status {new_status}"
     resp = jsonify(message)
     resp.status_code = StatusCodes.OK
     return resp

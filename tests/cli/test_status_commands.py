@@ -607,7 +607,6 @@ def test_update_task_status(db_engine, client_env, tool, cli):
             tasks.append(task)
         wf.add_tasks(tasks)
         return wf, tasks
-
     wf1, wf1_tasks = generate_workflow_and_tasks(tool)
     wf1.run()
     wfr1_statuses = [t.final_status for t in wf1_tasks]
