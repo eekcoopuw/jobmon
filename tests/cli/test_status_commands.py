@@ -699,21 +699,19 @@ def test_get_yaml_data(db_engine, client_env):
     wf.run()
 
     # manipulate data
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        query_1 = """
+    with Session(bind=db_engine) as session:
+        query_1 = f"""
                     UPDATE task_instance
                     SET wallclock = 10, maxpss = 400
-                    WHERE task_id = :task_id"""
-        DB.session.execute(query_1, {"task_id": t1.task_id})
+                    WHERE task_id = {t1.task_id}"""
+        session.execute(query_1)
 
-        query_2 = """
+        query_2 = f"""
                     UPDATE task_instance
                     SET wallclock = 20, maxpss = 600
-                    WHERE task_id = :task_id"""
-        DB.session.execute(query_2, {"task_id": t2.task_id})
-        DB.session.commit()
+                    WHERE task_id = {t2.task_id}"""
+        session.execute(query_2)
+        session.commit()
 
     with patch(
         "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
