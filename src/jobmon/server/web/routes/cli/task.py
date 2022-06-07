@@ -282,7 +282,8 @@ def get_task_resource_usage() -> Any:
             f"{str(e)} in request to /task_resource_usage", status_code=400
         ) from e
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with SessionLocal.begin():
         select_stmt = select(
             Task.num_attempts,
             TaskInstance.nodename,
@@ -452,7 +453,6 @@ def _get_tasks_from_nodes(
 
     result = session.execute(select_stmt).all()
     task_dict = {}
-    logger.warn(f"****************************{result}")
     for r in result:
         # When task_status not specified, return the full subdag
         if not task_status:
