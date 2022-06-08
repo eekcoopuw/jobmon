@@ -12,8 +12,21 @@ from jobmon.server.web.web_config import WebConfig
 
 class AppFactory:
 
-    def __init__(self, web_config: WebConfig):
+    def __init__(self, web_config: Optional[WebConfig] = None):
+        if web_config is None:
+            web_config = WebConfig.from_defaults()
         self._web_config = web_config
+
+        # bind the engine to the session factory before importing the blueprint
+        session_factory.configure(bind=self._web_config.engine)
+
+        # add logger to app global context
+        log_config.configure_logger("jobmon.server.web", self.logstash_handler_config)
+
+        # in memory db must be created in same thread as app
+        if str(self._web_config.engine.url) == "sqlite://":
+            from jobmon.server.web.models import init_db
+            init_db(self._web_config.engine)
 
     @property
     def flask_config(self) -> Dict[str, Any]:
@@ -45,7 +58,7 @@ class AppFactory:
             logstash_handler_config = None
         return logstash_handler_config
 
-    def create_app_context(self, blueprints=["fsm"]) -> Flask:
+    def get_app(self, blueprints=["fsm"]) -> Flask:
         """Create a Flask app."""
         app = Flask(__name__)
         app.config.from_mapping(self.flask_config)
@@ -55,21 +68,13 @@ class AppFactory:
         else:
             apm = None
 
-        with app.app_context():
+        # register the blueprints we want. they make use of a scoped session attached
+        # to the global session factory
+        for blueprint in blueprints:
+            mod = import_module(f"jobmon.server.web.routes.{blueprint}")
+            app.register_blueprint(getattr(mod, 'blueprint'), url_prefix="/")
 
-            # bind the engine to the session factory before importing the blueprint
-            session_factory.configure(bind=self._web_config.engine)
+        # add request logging hooks
+        add_hooks_and_handlers(app, apm)
 
-            # add logger to app global context
-            log_config.configure_logger("jobmon.server.web", self.logstash_handler_config)
-
-            # register the blueprints we want. they make use of a scoped session attached
-            # to the global session factory
-            for blueprint in blueprints:
-                mod = import_module(f"jobmon.server.web.routes.{blueprint}")
-                app.register_blueprint(getattr(mod, 'blueprint'), url_prefix="/")
-
-            # add request logging hooks
-            add_hooks_and_handlers(app, apm)
-
-            return app
+        return app

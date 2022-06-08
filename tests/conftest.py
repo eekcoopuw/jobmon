@@ -40,9 +40,10 @@ class WebServerProcess:
     def __enter__(self) -> Any:
         """Starts the web service process."""
         # jobmon_cli string
+        database_uri = f"sqlite:///{self.filepath}"
         argstr = (
-            f"web_service_sqlite --web_service_port {self.web_port} "
-            f"--sqlite_file /{self.filepath}"
+            f"web_service --web_service_port {self.web_port} "
+            f"--sqlalchemy_database_uri {database_uri}"
         )
 
         def run_server_with_handler(argstr: str) -> None:
@@ -52,6 +53,9 @@ class WebServerProcess:
                 sys.exit(0)
 
             from jobmon.server.cli import main
+            from jobmon.server.web.models import init_db
+            from sqlalchemy import create_engine
+            init_db(create_engine(database_uri))
 
             signal.signal(signal.SIGTERM, sigterm_handler)
             main(argstr)
@@ -153,18 +157,16 @@ def web_server_in_memory():
     fake server
     """
     from jobmon.server.web.app_factory import AppFactory
-    from jobmon.server.web.models import init_db
     from jobmon.server.web.web_config import WebConfig
 
     # The create_app call sets up database connections
-    engine = sqlalchemy.create_engine("sqlite://")
-    init_db(engine)
-    config = WebConfig(engine=engine)
+    config = WebConfig.from_defaults()
     app_factory = AppFactory(config)
-    app = app_factory.create_app_context()
+    app = app_factory.get_app()
     app.config["TESTING"] = True
-    client = app.test_client()
-    yield client, engine
+    with app.app_context():
+        client = app.test_client()
+        yield client, config.engine
 
 
 def get_test_content(response):
