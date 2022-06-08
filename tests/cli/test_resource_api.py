@@ -50,7 +50,7 @@ def test_resource_usage(db_engine, client_env):
 def test_tt_resource_usage(db_engine, client_env):
     """Test TaskTemplate resource usage method."""
 
-    tool = Tool()
+    tool = Tool("i_am_a_new_tool")
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
     )
@@ -58,14 +58,14 @@ def test_tt_resource_usage(db_engine, client_env):
     workflow_1 = tool.create_workflow(name="task_template_resource_usage_test_wf_1")
     workflow_2 = tool.create_workflow(name="task_template_resource_usage_test_wf_2")
     template = tool.get_task_template(
-        template_name="task_template_resource_usage",
+        template_name="I_have_to_be_new",
         command_template="echo {arg} --foo {arg_2} --bar {task_arg_1} --baz {arg_3}",
         node_args=["arg", "arg_2", "arg_3"],
         task_args=["task_arg_1"],
         op_args=[],
     )
     template_2 = tool.get_task_template(
-        template_name="task_template_resource_usage_2",
+        template_name="I_have_to_be_new_2",
         command_template="{arg}",
         node_args=["arg"],
         task_args=[],
@@ -100,23 +100,23 @@ def test_tt_resource_usage(db_engine, client_env):
 
     # Add fake resource usage to the TaskInstances
     with Session(bind=db_engine) as session:
-        query_1 = """
+        query_1 = f"""
         UPDATE task_instance
-        SET wallclock = 10, maxpss = 300
-        WHERE task_id = :task_id"""
-        session.execute(query_1, {"task_id": task_1.task_id})
+        SET wallclock = 10, maxrss = 300
+        WHERE task_id = {task_1.task_id}"""
+        session.execute(query_1)
 
-        query_2 = """
+        query_2 = f"""
         UPDATE task_instance
-        SET wallclock = 20, maxpss = 600
-        WHERE task_id = :task_id"""
-        session.execute(query_2, {"task_id": task_2.task_id})
+        SET wallclock = 20, maxrss = 600
+        WHERE task_id = {task_2.task_id}"""
+        session.execute(query_2)
 
         query_3 = """
         UPDATE task_instance
-        SET wallclock = 30, maxpss = 900
-        WHERE task_id = :task_id"""
-        session.execute(query_3, {"task_id": task_3.task_id})
+        SET wallclock = 30, maxrss = 900
+        WHERE task_id = {task_3.task_id}"""
+        session.execute(query_3)
         session.commit()
 
     with patch(
@@ -151,6 +151,8 @@ def test_tt_resource_usage(db_engine, client_env):
             "ci_mem": [-145.24, 1345.24],
             "ci_runtime": [-4.84, 44.84],
         }
+        import pdb
+        pdb.set_trace()
         assert used_task_template_resources == resources
 
         command_str = (

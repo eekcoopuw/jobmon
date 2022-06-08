@@ -207,30 +207,46 @@ def get_task_template_resource_usage() -> Any:
                         TaskTemplateVersion.id == Node.task_template_version_id,
                         Node.id == Task.node_id,
                         Task.id == TaskInstance.task_id
-                       ]
+                        ]
         if workflows:
             query_filter += [TaskInstance.workflow_run_id == WorkflowRun.id,
                              WorkflowRun.workflow_id == Workflow.id,
                              Workflow.id.in_(workflows)]
-        if node_args:
-            query_filter += [Task.node_id == NodeArg.node_id,
-                             Arg.id == NodeArg.arg_id]
-
         sql = (select(TaskInstance.wallclock,
-                     TaskInstance.maxrss,
-                     Arg.name,
-                     NodeArg.val
+                      TaskInstance.maxrss,
+                      Node.id,
                      ).where(*query_filter)
                )
-    rows = session.execute(sql).all()
-    column_names = ("r", "m", "arg_name", "arg_v")
+        rows = session.execute(sql).all()
+        session.commit()
+    column_names = ("r", "m", "node_id")
     rows = [dict(zip(column_names, ti)) for ti in rows]
+    logger.warn(f"************************{rows}")
     result = []
     if rows:
         for r in rows:
             if r["r"] is None:
                 r["r"] = 0
-            if r["arg_name"] in node_args.keys() and r["arg_v"] in node_args[r["arg_name"]]:
+            if node_args:
+                session = SessionLocal()
+                with session.begin():
+                    node_f = [NodeArg.arg_id == Arg.id,
+                              NodeArg.node_id == r["node_id"]]
+                    node_s = (
+                        select(Arg.name,
+                               NodeArg.val
+                               ).where(*node_f)
+                    )
+                    node_rows = session.execute(node_s).all()
+                    session.commit()
+                _include = False
+                for n in node_rows:
+                    if not _include:
+                        if n[0] in node_args.keys() and n[1] in node_args[n[0]]:
+                            _include = True
+                if _include:
+                    result.append(r)
+            else:
                 result.append(r)
 
     if len(result) == 0:
@@ -242,7 +258,7 @@ def get_task_template_resource_usage() -> Any:
         mems = []
         for row in result:
             runtimes.append(int(row["r"]))
-            mems.append(max(0, int(row["m"])))
+            mems.append(max(0, 0 if row["m"] is None else int(row["m"])))
         num_tasks = len(runtimes)
         min_mem = int(np.min(mems))
         max_mem = int(np.max(mems))

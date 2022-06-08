@@ -435,3 +435,59 @@ def test_get_array_task_instances(db_engine, tool):
     assert len(msg['array_tasks']) == 4
     assert msg['array_tasks'][0]["ERROR_PATH"] == "/cool/filepath.e"
     assert msg['array_tasks'][0]["OUTPUT_PATH"] == "/cool/filepath.o"
+
+
+def test_get_task_template_resource_usage(db_engine, tool):
+    t = tool
+    wf = t.create_workflow(name="i_am_a_fake_wf")
+    tt1 = t.get_task_template(
+        template_name="tt_core", command_template="echo {arg}", node_args=["arg"]
+    )
+    t1 = tt1.create_task(
+        arg=1,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 2},
+    )
+    t2 = tt1.create_task(
+        arg=2,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 4},
+    )
+    wf.add_tasks([t1, t2])
+    wf.run()
+
+    # two rows
+    app_route = f"/task_template_resource_usage"
+    return_code, msg = wf.requester.send_request(
+        app_route=app_route, message={"task_template_version_id": tt1.active_task_template_version.id,
+                                      "workflows": [wf.workflow_id]}, request_type="post"
+    )
+    assert return_code == 200
+    assert msg[0] == 2
+
+    # two rows
+    app_route = f"/task_template_resource_usage"
+    return_code, msg = wf.requester.send_request(
+        app_route=app_route, message={"task_template_version_id": tt1.active_task_template_version.id,
+                                      "node_args": {"arg": ["1", "2"]}}, request_type="post"
+    )
+    assert return_code == 200
+    assert msg[0] == 2
+
+    # one row
+    app_route = f"/task_template_resource_usage"
+    return_code, msg = wf.requester.send_request(
+        app_route=app_route, message={"task_template_version_id": tt1.active_task_template_version.id,
+                                      "node_args": {"arg": ["1"]}}, request_type="post"
+    )
+    assert return_code == 200
+    assert msg[0] == 1
+
+    # 0 row
+    app_route = f"/task_template_resource_usage"
+    return_code, msg = wf.requester.send_request(
+        app_route=app_route, message={"task_template_version_id": tt1.active_task_template_version.id,
+                                      "node_args": {"arg": ["3"]}}, request_type="post"
+    )
+    assert return_code == 200
+    assert msg[0] is None
