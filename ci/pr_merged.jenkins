@@ -173,12 +173,15 @@ pipeline {
                         $REG_USERNAME \
                         $REG_PASSWORD \
                         "${ACTIVATE}"
+                    echo "ACTIVATE= ${ACTIVATE}"
+                    echo "JOBMON_VERSION_DEPLOYED= ${JOBMON_VERSION_DEPLOYED}"
+                    echo "JOBMON_VERSION= ${JOBMON_VERSION}"
                  '''
-            } // end credentials
+              } // end credentials
 
-            println "ACTIVATE= ${ACTIVATE}"
-            println "JOBMON_VERSION= ${JOBMON_VERSION}"
-            println "JOBMON_VERSION_DEPLOYED= ${JOBMON_VERSION_DEPLOYED}"
+            println "ACTIVATE1= ${ACTIVATE}"
+            println "JOBMON_VERSION_DEPLOYED1= ${JOBMON_VERSION_DEPLOYED}"
+            println "JOBMON_VERSION1= ${JOBMON_VERSION}"
 
           } // end if params
           else {
