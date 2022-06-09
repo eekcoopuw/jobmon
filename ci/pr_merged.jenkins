@@ -33,8 +33,11 @@ pipeline {
       selectedValue: 'DEFAULT',
       sortMode: 'NONE',
       tagFilter: '*',
-      type: 'PT_BRANCH'
+      type: 'PT_BRANCH_TAG'
     )
+    string(defaultValue: '${BITBUCKET_TARGET_BRANCH}',
+     description: 'The target release of the this build(e.g. 3.0.7, 3.2.0)',
+     name: 'TARGET_RELEASE')
     booleanParam(defaultValue: 'false',
       description: 'If true, Lint step will be skipped',
       name: 'SKIP_LINT')
@@ -173,16 +176,21 @@ pipeline {
                         $REG_USERNAME \
                         $REG_PASSWORD \
                         "${ACTIVATE}"
-                    echo "ACTIVATE= ${ACTIVATE}"
-                    echo ${JOBMON_VERSION}
-                    printenv
                  '''
-              } // end credentials
-
-            sh 'printenv'
-            println "ACTIVATE1= ${ACTIVATE}"
-            println "JOBMON_VERSION1= ${JOBMON_VERSION}"
-
+            } // end credentials
+            env.JOBMON_VERSION_DEPLOYED = sh (
+              script: '''#!/bin/bash
+                         cat ${WORKSPACE}/jobmon_version_deployed.txt
+                      ''',
+              returnStdout: true
+            ).trim()
+            echo "Starting jobmon_central_controller for: Jobmon ${JOBMON_VERSION_DEPLOYED}"
+            build job: "jobmon_central_test_core", parameters: [
+             listGitBranches(name: 'BRANCH_OF_TAD', value: "feature/GBDSCI-4648_kickoff_from_core_pr_merged"),
+             string(name: 'MODULE_OF_CHANGE', value: "jobmon_core"),
+             string(name: 'MODULE_TARGET_RELEASE', value: "${TARGET_RELEASE}"),
+             string(name: 'ARTIFACT'', value: "${JOBMON_VERSION_DEPLOYED}"),
+            ]
           } // end if params
           else {
             echo "Not deploying to Pypi"

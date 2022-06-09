@@ -85,6 +85,7 @@ upload_python_dist () {
 #        --password $REG_PASSWORD \
 #        ./dist/*
 #    fi
+    echo "$JOBMON_VERSION" > $WORKSPACE/jobmon_version_deployed.txt
     echo "Jobmon v$JOBMON_VERSION deployed to Pypi"
 
 }
