@@ -175,9 +175,11 @@ pipeline {
                         "${ACTIVATE}"
                     echo "ACTIVATE= ${ACTIVATE}"
                     echo ${JOBMON_VERSION}
+                    printenv
                  '''
               } // end credentials
 
+            sh 'printenv'
             println "ACTIVATE1= ${ACTIVATE}"
             println "JOBMON_VERSION1= ${JOBMON_VERSION}"
 
