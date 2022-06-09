@@ -70,21 +70,22 @@ upload_python_dist () {
     $ACTIVATE && nox --session build
     PYPI_URL="https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared"
     JOBMON_VERSION=$(basename $(find ./dist/jobmon-*.tar.gz) | sed "s/jobmon-\\(.*\\)\\.tar\\.gz/\\1/")
-    if [[ "$JOBMON_VERSION" =~ "dev" ]]
-    then
-      $ACTIVATE && twine upload \
-        --repository-url $PYPI_URL \
-        --username $REG_USERNAME \
-        --password $REG_PASSWORD \
-        --skip-existing \
-        ./dist/*
-    else
-      $ACTIVATE && twine upload \
-        --repository-url $PYPI_URL \
-        --username $REG_USERNAME \
-        --password $REG_PASSWORD \
-        ./dist/*
-    fi
+#    if [[ "$JOBMON_VERSION" =~ "dev" ]]
+#    then
+#      $ACTIVATE && twine upload \
+#        --repository-url $PYPI_URL \
+#        --username $REG_USERNAME \
+#        --password $REG_PASSWORD \
+#        --skip-existing \
+#        ./dist/*
+#    else
+#      $ACTIVATE && twine upload \
+#        --repository-url $PYPI_URL \
+#        --username $REG_USERNAME \
+#        --password $REG_PASSWORD \
+#        ./dist/*
+#    fi
+    export JOBMON_VERSION_DEPLOYED="$JOBMON_VERSION"
     echo "Jobmon v$JOBMON_VERSION deployed to Pypi"
 
 }

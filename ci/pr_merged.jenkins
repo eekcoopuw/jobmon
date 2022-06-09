@@ -175,6 +175,9 @@ pipeline {
                         "${ACTIVATE}"
                  '''
             } // end credentials
+
+            println "JOBMON_VERSION_DEPLOYED= ${JOBMON_VERSION_DEPLOYED}"
+
           } // end if params
           else {
             echo "Not deploying to Pypi"
