@@ -692,7 +692,7 @@ def test_get_yaml_data(db_engine, client_env):
         arg=1, cluster_name="sequential", compute_resources={"queue": "null.q"}
     )
     t2 = tt2.create_task(
-        arg=2, cluster_name="sequential", compute_resources={"queue": "null2.q"}
+        arg=2, cluster_name="sequential", compute_resources={"queue": "null.q"}
     )
 
     wf.add_tasks([t1, t2])
@@ -702,13 +702,13 @@ def test_get_yaml_data(db_engine, client_env):
     with Session(bind=db_engine) as session:
         query_1 = f"""
                     UPDATE task_instance
-                    SET wallclock = 10, maxpss = 400
+                    SET wallclock = 10, maxrss = 400
                     WHERE task_id = {t1.task_id}"""
         session.execute(query_1)
 
         query_2 = f"""
                     UPDATE task_instance
-                    SET wallclock = 20, maxpss = 600
+                    SET wallclock = 20, maxrss = 600
                     WHERE task_id = {t2.task_id}"""
         session.execute(query_2)
         session.commit()
@@ -736,7 +736,7 @@ def test_get_yaml_data(db_engine, client_env):
             1,
             600,
             20,
-            "null2.q",
+            "null.q",
         ]
 
     with patch(
@@ -764,7 +764,7 @@ def test_get_yaml_data(db_engine, client_env):
             1,
             600,
             20,
-            "null2.q",
+            "null.q",
         ]
 
     with patch(

@@ -112,7 +112,7 @@ def test_tt_resource_usage(db_engine, client_env):
         WHERE task_id = {task_2.task_id}"""
         session.execute(query_2)
 
-        query_3 = """
+        query_3 = f"""
         UPDATE task_instance
         SET wallclock = 30, maxrss = 900
         WHERE task_id = {task_3.task_id}"""
@@ -151,8 +151,6 @@ def test_tt_resource_usage(db_engine, client_env):
             "ci_mem": [-145.24, 1345.24],
             "ci_runtime": [-4.84, 44.84],
         }
-        import pdb
-        pdb.set_trace()
         assert used_task_template_resources == resources
 
         command_str = (
@@ -409,6 +407,10 @@ def test_max_mem(db_engine, client_env):
     )
 
     workflow_1 = tool.create_workflow(name="task_template_mem_test")
+    # ttv 1 query is forbidden, so create a place holder
+    tool.get_task_template(
+        template_name="tt_core", command_template="echo {arg}", node_args=["arg"]
+    )
     template = tool.get_task_template(
         template_name="task_template_resource_usage",
         command_template="echo {arg} --foolili {arg_2} --bar {task_arg_1} --baz {arg_3}",
@@ -429,64 +431,43 @@ def test_max_mem(db_engine, client_env):
 
     # return 0 when both null
     with Session(bind=db_engine) as session:
-        query_1 = """
+        query_1 = f"""
             UPDATE task_instance
             SET maxpss = null, maxrss=null
-            WHERE task_id = :task_id"""
-        session.execute(query_1, {"task_id": task_1.task_id})
+            WHERE task_id = {task_1.task_id}"""
+        session.execute(query_1)
         session.commit()
     resources = template.resource_usage()
     assert resources["max_mem"] == "0B"
 
     # return the other when 1 is null
     with Session(bind=db_engine) as session:
-        query_1 = """
+        query_1 = f"""
                 UPDATE task_instance
-                SET maxpss = 1, maxrss=null
-                WHERE task_id = :task_id"""
-        session.execute(query_1, {"task_id": task_1.task_id})
-        session.commit()
-    resources = template.resource_usage()
-    assert resources["max_mem"] == "1B"
-
-    with Session(bind=db_engine) as session:
-        query_1 = """
-                UPDATE task_instance
-                SET maxpss = null, maxrss=1
-                WHERE task_id = :task_id"""
-        session.execute(query_1, {"task_id": task_1.task_id})
-        session.commit()
-    resources = template.resource_usage()
-    assert resources["max_mem"] == "1B"
-
-    # return the bigger one when both has value
-    with Session(bind=db_engine) as session:
-        query_1 = """
-                UPDATE task_instance
-                SET maxpss = -1, maxrss=1
-                WHERE task_id = :task_id"""
-        session.execute(query_1, {"task_id": task_1.task_id})
-        session.commit()
-    resources = template.resource_usage()
-    assert resources["max_mem"] == "1B"
-
-    with Session(bind=db_engine) as session:
-        query_1 = """
-                UPDATE task_instance
-                SET maxpss = 1, maxrss= -1
-                WHERE task_id = :task_id"""
-        session.execute(query_1, {"task_id": task_1.task_id})
-        session.commit()
-    resources = template.resource_usage()
-    assert resources["max_mem"] == "1B"
-
-    # return 0 when both -1
-    with Session(bind=db_engine) as session:
-        query_1 = """
-                UPDATE task_instance
-                SET maxpss = -1, maxrss= -1
-                WHERE task_id = :task_id"""
-        session.execute(query_1, {"task_id": task_1.task_id})
+                SET maxrss=null
+                WHERE task_id = {task_1.task_id}"""
+        session.execute(query_1)
         session.commit()
     resources = template.resource_usage()
     assert resources["max_mem"] == "0B"
+
+    with Session(bind=db_engine) as session:
+        query_1 = f"""
+                UPDATE task_instance
+                SET maxrss=1
+                WHERE task_id = {task_1.task_id}"""
+        session.execute(query_1)
+        session.commit()
+    resources = template.resource_usage()
+    assert resources["max_mem"] == "1B"
+
+    with Session(bind=db_engine) as session:
+        query_1 = f"""
+                UPDATE task_instance
+                SET maxrss= -1
+                WHERE task_id = {task_1.task_id}"""
+        session.execute(query_1)
+        session.commit()
+    resources = template.resource_usage()
+    assert resources["max_mem"] == "0B"
+

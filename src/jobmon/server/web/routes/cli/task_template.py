@@ -221,7 +221,6 @@ def get_task_template_resource_usage() -> Any:
         session.commit()
     column_names = ("r", "m", "node_id")
     rows = [dict(zip(column_names, ti)) for ti in rows]
-    logger.warn(f"************************{rows}")
     result = []
     if rows:
         for r in rows:

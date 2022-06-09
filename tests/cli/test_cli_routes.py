@@ -387,17 +387,17 @@ def test_get_task_status(db_engine, tool):
         compute_resources={"queue": "null.q", "num_cores": 4},
     )
     wf.add_tasks([t1, t2])
-    wf.bind()
-    wf._create_workflow_run()
+    wf.run()
 
     app_route = f"/task_status"
     return_code, msg = wf.requester.send_request(
         app_route=app_route, message={"task_ids": [t1.task_id, t2.task_id]}, request_type="get"
     )
     assert return_code == 200
-    import pdb
-    pdb.set_trace()
     result = pd.read_json(msg["task_instance_status"])
+    assert len(result) == 2
+    assert result["task_status"][0] == result["task_status"][1] == 'D'
+    assert result["STATUS"][0] == result["STATUS"][1] == 'DONE'
 
 
 def test_get_array_task_instances(db_engine, tool):
@@ -455,6 +455,15 @@ def test_get_task_template_resource_usage(db_engine, tool):
     )
     wf.add_tasks([t1, t2])
     wf.run()
+
+    # two rows
+    app_route = f"/task_template_resource_usage"
+    return_code, msg = wf.requester.send_request(
+        app_route=app_route, message={"task_template_version_id": tt1.active_task_template_version.id},
+        request_type="post"
+    )
+    assert return_code == 200
+    assert msg[0] == 2
 
     # two rows
     app_route = f"/task_template_resource_usage"
