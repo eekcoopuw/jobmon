@@ -36,7 +36,8 @@ def get_array_task_instances(workflow_id: int) -> Any:
     if job_name:
         query_filters.append(Task.name == job_name)
 
-    with SessionLocal.begin() as session:
+    session = SessionLocal()
+    with SessionLocal.begin():
         select_stmt = (
             select(
                 Task.id,
@@ -51,7 +52,7 @@ def get_array_task_instances(workflow_id: int) -> Any:
             )
             .limit(limit)
         )
-        result = session.execute(select_stmt).fetchall()
+        result = session.execute(select_stmt).all()
 
     column_names = ("TASK_ID", "TASK_NAME", "ARRAY_NAME",
                     "TASK_INSTANCE_ID", "OUTPUT_PATH", "ERROR_PATH")

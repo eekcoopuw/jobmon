@@ -8,7 +8,11 @@ import pandas as pd
 
 import pytest
 from unittest.mock import patch, PropertyMock
+from sqlalchemy import func, select, update
+from sqlalchemy.orm import Session
+
 from jobmon.client.workflow import DistributorContext
+from jobmon.server.web.models.task_instance import TaskInstance
 
 
 def get_task_template(tool, template_name="my_template"):
@@ -95,7 +99,7 @@ def df_from_stdout(function, arguments):
     return data
 
 
-def test_workflow_status(db_cfg, client_env, monkeypatch, cli):
+def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
     from jobmon.client.tool import Tool
     from jobmon.client.status_commands import workflow_status
     import datetime
@@ -103,7 +107,6 @@ def test_workflow_status(db_cfg, client_env, monkeypatch, cli):
     monkeypatch.setattr(getpass, "getuser", mock_getuser)
     user = getpass.getuser()
 
-    tool = Tool()
     workflow = tool.create_workflow(
         default_cluster_name="sequential",
         default_compute_resources_set={"sequential": {"queue": "null.q"}},
@@ -263,13 +266,11 @@ def test_workflow_status(db_cfg, client_env, monkeypatch, cli):
         assert isinstance(e.__context__, argparse.ArgumentError)
 
 
-def test_workflow_tasks(db_cfg, client_env, cli):
-    from jobmon.client.tool import Tool
+def test_workflow_tasks(db_engine, tool, client_env, cli):
     from jobmon.client.status_commands import workflow_tasks
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
     from jobmon.constants import WorkflowRunStatus
 
-    tool = Tool()
     workflow = tool.create_workflow(
         default_cluster_name="sequential",
         default_compute_resources_set={"sequential": {"queue": "null.q"}},
@@ -372,7 +373,7 @@ def test_workflow_tasks(db_cfg, client_env, cli):
         assert isinstance(e.__context__, argparse.ArgumentError)
 
 
-def test_task_status(db_cfg, client_env, tool, cli):
+def test_task_status(db_engine, client_env, tool, cli):
     from jobmon.client.status_commands import task_status
 
     task_template = get_task_template(tool)
@@ -387,6 +388,7 @@ def test_task_status(db_cfg, client_env, tool, cli):
 
     args = cli.parse_args(command_str)
     df = task_status(args.task_ids)
+
     assert len(df) == 3
     assert len(df.query("STATUS=='ERROR'")) == 2
     assert len(df.query("STATUS=='DONE'")) == 1
@@ -403,15 +405,16 @@ def test_task_status(db_cfg, client_env, tool, cli):
     assert len(df_all) == 3
 
     # Check that the filepaths are returned correctly
-    app, db = db_cfg["app"], db_cfg["DB"]
-    with app.app_context():
-        sql = """
-        UPDATE task_instance
-        SET stdout="/stdout/dir/file.o123", stderr="/stderr/dir/file.e123"
-        WHERE task_id IN :task_ids
-        """
-        db.session.execute(sql, {"task_ids": (t1.task_id, t2.task_id)})
-        db.session.commit()
+    with Session(bind=db_engine) as session:
+        # fake workflow run
+        update_stmt = update(
+                TaskInstance
+            ).where(
+                TaskInstance.task_id.in_([t1.task_id, t2.task_id])
+            )
+        val = {"stdout": "/stdout/dir/file.o123", "stderr": "/stderr/dir/file.e123"}
+        session.execute(update_stmt.values(**val))
+        session.commit()
 
     args = cli.parse_args(command_str)
     df = task_status(args.task_ids)
@@ -419,7 +422,7 @@ def test_task_status(db_cfg, client_env, tool, cli):
     assert set(df.STDERR) == {"/stderr/dir/file.e123"}
 
 
-def test_task_reset(db_cfg, client_env, tool, monkeypatch):
+def test_task_reset(db_engine, client_env, tool, monkeypatch):
     from jobmon.requester import Requester
     from jobmon.client.status_commands import validate_username
 
@@ -442,7 +445,7 @@ def test_task_reset(db_cfg, client_env, tool, monkeypatch):
         validate_username(workflow.workflow_id, "notarealuser", requester)
 
 
-def test_task_reset_wf_validation(db_cfg, client_env, tool, cli):
+def test_task_reset_wf_validation(db_engine, client_env, tool, cli):
     from jobmon.requester import Requester
     from jobmon.client.status_commands import update_task_status, validate_workflow
 
@@ -477,7 +480,7 @@ def test_task_reset_wf_validation(db_cfg, client_env, tool, cli):
         validate_workflow(task_ids, requester)
 
 
-def test_sub_dag(db_cfg, client_env, tool):
+def test_sub_dag(db_engine, client_env, tool):
     from jobmon.client.status_commands import get_sub_task_tree
 
     """
@@ -558,7 +561,7 @@ def test_sub_dag(db_cfg, client_env, tool):
 
 
 @pytest.mark.skip()
-def test_dynamic_concurrency_limiting_cli(db_cfg, client_env, cli):
+def test_dynamic_concurrency_limiting_cli(db_engine, client_env, cli):
     """The server-side logic is checked in distributor/test_instantiate.
 
     This test checks the logic of the CLI only
@@ -582,7 +585,7 @@ def test_dynamic_concurrency_limiting_cli(db_cfg, client_env, cli):
         cli.parse_args(bad_command.format(-59))
 
 
-def test_update_task_status(db_cfg, client_env, tool, cli):
+def test_update_task_status(db_engine, client_env, tool, cli):
     from jobmon.client.status_commands import update_task_status
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
@@ -604,7 +607,6 @@ def test_update_task_status(db_cfg, client_env, tool, cli):
             tasks.append(task)
         wf.add_tasks(tasks)
         return wf, tasks
-
     wf1, wf1_tasks = generate_workflow_and_tasks(tool)
     wf1.run()
     wfr1_statuses = [t.final_status for t in wf1_tasks]
@@ -655,7 +657,7 @@ def test_update_task_status(db_cfg, client_env, tool, cli):
     assert len(swarm.done_tasks) == 5
 
 
-def test_400_cli_route(db_cfg, client_env):
+def test_400_cli_route(db_engine, client_env):
     from jobmon.requester import Requester
 
     requester = Requester(client_env)
@@ -665,7 +667,7 @@ def test_400_cli_route(db_cfg, client_env):
     assert rc == 400
 
 
-def test_bad_put_route(db_cfg, client_env):
+def test_bad_put_route(db_engine, client_env):
     from jobmon.requester import Requester
 
     requester = Requester(client_env, logger)
@@ -675,7 +677,7 @@ def test_bad_put_route(db_cfg, client_env):
     assert rc == 400
 
 
-def test_get_yaml_data(db_cfg, client_env):
+def test_get_yaml_data(db_engine, client_env):
     from jobmon.client.tool import Tool
 
     t = Tool()
@@ -690,28 +692,26 @@ def test_get_yaml_data(db_cfg, client_env):
         arg=1, cluster_name="sequential", compute_resources={"queue": "null.q"}
     )
     t2 = tt2.create_task(
-        arg=2, cluster_name="sequential", compute_resources={"queue": "null2.q"}
+        arg=2, cluster_name="sequential", compute_resources={"queue": "null.q"}
     )
 
     wf.add_tasks([t1, t2])
     wf.run()
 
     # manipulate data
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        query_1 = """
+    with Session(bind=db_engine) as session:
+        query_1 = f"""
                     UPDATE task_instance
-                    SET wallclock = 10, maxpss = 400
-                    WHERE task_id = :task_id"""
-        DB.session.execute(query_1, {"task_id": t1.task_id})
+                    SET wallclock = 10, maxrss = 400
+                    WHERE task_id = {t1.task_id}"""
+        session.execute(query_1)
 
-        query_2 = """
+        query_2 = f"""
                     UPDATE task_instance
-                    SET wallclock = 20, maxpss = 600
-                    WHERE task_id = :task_id"""
-        DB.session.execute(query_2, {"task_id": t2.task_id})
-        DB.session.commit()
+                    SET wallclock = 20, maxrss = 600
+                    WHERE task_id = {t2.task_id}"""
+        session.execute(query_2)
+        session.commit()
 
     with patch(
         "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
@@ -736,7 +736,7 @@ def test_get_yaml_data(db_cfg, client_env):
             1,
             600,
             20,
-            "null2.q",
+            "null.q",
         ]
 
     with patch(
@@ -764,7 +764,7 @@ def test_get_yaml_data(db_cfg, client_env):
             1,
             600,
             20,
-            "null2.q",
+            "null.q",
         ]
 
     with patch(
@@ -831,102 +831,88 @@ def test_create_yaml():
     assert result == expected
 
 
-def test_get_filepaths(db_cfg, tool, array_template, task_template, cli):
+def test_get_filepaths(db_engine, tool):
 
     from jobmon.server.web.models.task_instance import TaskInstance
     from jobmon.client.status_commands import get_filepaths
 
-    # Create task, and task instance metadata in the database.
-    def create_metadata(tasks=None, arrays=None):
+    tt = tool.get_task_template(
+        template_name="dummy_template",
+        command_template="echo {arg1} {arg2}",
+        node_args=["arg1", "arg2"],
+        task_args=[],
+        op_args=[],
+        default_cluster_name="dummy",
+        default_compute_resources={"queue": "null.q"},
+    )
+    tasks = tt.create_tasks(
+        arg1=[1, 2],
+        arg2=["a", "b"],
+        compute_resources={"queue": "null.q"}
+    )
+    array = tasks[0].array
+    wf = tool.create_workflow()
+    wf.add_tasks(tasks)
+    wf.run()
 
-        wf = tool.create_workflow()
-        wf.add_tasks(tasks)
-        wf.bind()
-        wfr = wf._create_workflow_run()
+    with Session(bind=db_engine) as session:
+        query = """UPDATE task_instance
+                            SET stdout="/cool/filepath.o",
+                            stderr="/cool/filepath.e"
+                        """
+        session.execute(query)
+        session.commit()
 
-        task_instances = []
-        for idx, task in enumerate(wf.tasks.values()):
-            ti = TaskInstance(
-                workflow_run_id=wfr.workflow_run_id,
-                array_id=task.array.array_id,
-                cluster_id=1,
-                distributor_id=f"123_{idx}",
-                task_id=task.task_id,
-                array_batch_num=1,
-                array_step_id=idx,
-                stdout=f"/cool/filepath.o123_{idx}",
-                stderr=f"/cool/filepath.e123_{idx}",
-            )
-            task_instances.append(ti)
-
-        app, db = db_cfg["app"], db_cfg["DB"]
-
-        with app.app_context():
-            db.session.bulk_save_objects(task_instances)
-            db.session.commit()
-
-        return wf
-
-    tasks1 = array_template.create_tasks(name="foobar array", arg=["foo", "bar", "baz"])
-    wf = create_metadata(tasks=tasks1)
-
-    # Database is now populated with juicy task instances
-    # Test CLI parsing
-    command_str = f"get_filepaths -w {wf.workflow_id}"
-    args = cli.parse_args(command_str + " -a 'foobar array'")
-
-    assert args.workflow_id == wf.workflow_id
-    assert args.array_name == "foobar array"
-
-    df_cli = get_filepaths(workflow_id=args.workflow_id, array_name=args.array_name)
-
-    assert len(df_cli) == 3
+    df_cli = get_filepaths(workflow_id=wf.workflow_id, array_name=array.name)
+    assert len(df_cli) == 4
     df_cli = pd.DataFrame(df_cli)
     assert set(df_cli.OUTPUT_PATH) == {
-        "/cool/filepath.o123_0",
-        "/cool/filepath.o123_1",
-        "/cool/filepath.o123_2",
+        "/cool/filepath.o",
     }
     assert set(df_cli.ERROR_PATH) == {
-        "/cool/filepath.e123_0",
-        "/cool/filepath.e123_1",
-        "/cool/filepath.e123_2",
+        "/cool/filepath.e",
     }
-    assert set(df_cli.ARRAY_NAME == "foobar array")
+    assert set(df_cli.ARRAY_NAME == array.name)
 
     one_task_df = get_filepaths(
         workflow_id=wf.workflow_id,
-        array_name="foobar array",
-        job_name="array_template_arg-foo",
+        array_name=array.name,
+        job_name=tasks[0].name,
     )
 
     assert len(one_task_df) == 1
 
     # Check that the fetch results work with create_task as well.
-    tasks2 = [
-        task_template.create_task(name=val, arg=f"echo {val}")
-        for val in ("qux", "quux", "quuz")
-    ]
-    wf2 = create_metadata(tasks=tasks2 + tasks1)
+    tasks2 = tt.create_tasks(
+        arg1=[1, 2, 3, 4],
+        arg2=["a", "b", "c", "d"],
+        compute_resources={"queue": "null.q"}
+    )
+    tt2 = tool.get_task_template(
+        template_name="dummy_template2",
+        command_template="echo {arg1} {arg2}",
+        node_args=["arg1", "arg2"],
+        task_args=[],
+        op_args=[],
+        default_cluster_name="dummy",
+        default_compute_resources={"queue": "null.q"},
+    )
+    tasks3 = tt2.create_tasks(
+        arg1=[5],
+        arg2=["a", "b", "c"],
+        compute_resources={"queue": "null.q"},
+        name="yiyayiyayou"
+    )
+    wf2 = tool.create_workflow()
+    wf2.add_tasks(tasks2 + tasks3)
+    wf2.run()
 
-    # Check that we get 6 tasks in the workflow
-    command_str = f"get_filepaths -w {wf2.workflow_id} -l 6"
-    args = cli.parse_args(command_str)
-
-    df_full = get_filepaths(workflow_id=args.workflow_id, limit=args.limit)
+    df_full = get_filepaths(workflow_id=wf2.workflow_id, limit=6)
     assert len(df_full) == 6
 
     # Filter by array name - the simple array
     df_array1 = get_filepaths(
-        workflow_id=args.workflow_id, array_name="simple_template"
+        workflow_id=wf2.workflow_id, array_name=tasks3[0].array.name
     )
     assert len(df_array1) == 3
-    df_array1 = pd.DataFrame(df_array1)
-    assert set(df_array1.TASK_NAME) == {"qux", "quux", "quuz"}
-    assert len(set(df_array1.OUTPUT_PATH)) == 3
 
-    qux_task = get_filepaths(workflow_id=args.workflow_id, job_name="qux")
-    assert len(qux_task) == 1
-    assert (
-        qux_task[0]["TASK_ID"] == df_array1.set_index("TASK_NAME").loc["qux", "TASK_ID"]
-    )
