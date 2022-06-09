@@ -18,7 +18,6 @@ def tests(session: Session) -> None:
     """Run the test suite."""
     args = session.posargs or test_locations
 
-    session.conda_install("mysqlclient", "openssl")
     session.install("-e", ".[test,server]")
 
     # pytest skips. performance tests are a separate nox target, so are integrator tests

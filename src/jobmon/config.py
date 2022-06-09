@@ -160,89 +160,16 @@ class ParserDefaults:
         return parser
 
     @staticmethod
-    def sql_dialect(
+    def sqlalchemy_database_uri(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
         parser.add_argument(
-            "--sql_dialect",
+            "--sqlalchemy_database_uri",
             type=str,
-            choices=["mysql", "sqlite"],
-            default="mysql",
+            default="sqlite://",
             help="The dialect of sql to use when running the server.",
-            env_var="SQL_DIALECT",
+            env_var="SQLALCHEMY_DATABASE_URI",
         )
-
-    @staticmethod
-    def db_host(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
-        """Host running the Jobmon DB."""
-        parser.add_argument(
-            "--db_host",
-            type=str,
-            help="database host to use",
-            required=True,
-            env_var="DB_HOST",
-        )
-        return parser
-
-    @staticmethod
-    def db_port(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
-        """Port to connect to the Jobmon DB on."""
-        parser.add_argument(
-            "--db_port",
-            type=str,
-            help="database port to use",
-            required=True,
-            env_var="DB_PORT",
-        )
-        return parser
-
-    @staticmethod
-    def db_user(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
-        """DB username to use to connect to the Jobmon DB."""
-        parser.add_argument(
-            "--db_user",
-            type=str,
-            help="database user to use",
-            required=True,
-            env_var="DB_USER",
-        )
-        return parser
-
-    @staticmethod
-    def db_pass(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
-        """Password to use to connect to the Jobmon DB."""
-        parser.add_argument(
-            "--db_pass",
-            type=str,
-            help="database password to use",
-            required=True,
-            env_var="DB_PASS",
-        )
-        return parser
-
-    @staticmethod
-    def db_name(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
-        """Name of the Jobmon DB you want to connect to."""
-        parser.add_argument(
-            "--db_name",
-            type=str,
-            help="default database to use",
-            default="docker",
-            env_var="DB_NAME",
-        )
-        return parser
-
-    @staticmethod
-    def sqlite_file(parser: configargparse.ArgumentParser) -> configargparse.ArgumentParser:
-        """Name of the Jobmon DB you want to connect to."""
-        parser.add_argument(
-            "--sqlite_file",
-            type=str,
-            help="where to store the sqlite file",
-            default="",
-            env_var="SQLITE_FILE",
-        )
-        return parser
 
     @staticmethod
     def web_service_fqdn(

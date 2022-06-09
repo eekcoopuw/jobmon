@@ -15,15 +15,7 @@ class WebConfig:
     def from_defaults(cls: Type[WebConfig]) -> WebConfig:
         """Defaults hierarchy is available from configargparse jobmon_cli."""
         cli = CLI()
-        ParserDefaults.sql_dialect(cli.parser)
-        if cli.parser.parse_known_args()[0].dialect == "mysql":
-            ParserDefaults.db_host(cli.parser)
-            ParserDefaults.db_port(cli.parser)
-            ParserDefaults.db_user(cli.parser)
-            ParserDefaults.db_pass(cli.parser)
-            ParserDefaults.db_name(cli.parser)
-        else:
-            ParserDefaults.sqlite_file(cli.parser)
+        ParserDefaults.sqlalchemy_database_uri(cli.parser)
         ParserDefaults.use_logstash(cli.parser)
         ParserDefaults.logstash_host(cli.parser)
         ParserDefaults.logstash_port(cli.parser)
@@ -37,35 +29,8 @@ class WebConfig:
         # passing an empty string forces this method to ignore sys.argv
         args = cli.parse_args("")
 
-        if args.sql_dialect == "mysql":
-            try:
-                # default to mysqldb if installed. ~10x faster than pymysql
-                import MySQLdb  # noqa F401
-                driver = "mysqldb"
-            except (ImportError, ModuleNotFoundError):
-                # otherwise use pymysql since it is pip installable
-                import pymysql  # noqa F401
-                driver = "pymysql"
-
-            conn_str = "mysql+{driver}://{user}:{pw}@{host}:{port}/{db}".format(
-                driver=driver,
-                user=args.db_user,
-                pw=args.db_pass,
-                host=args.db_host,
-                port=args.db_port,
-                db=args.db_name,
-            )
-            engine = sqlalchemy.create_engine(conn_str, pool_recycle=200, future=True)
-        else:
-            conn_str = f"sqlite://{args.sqlite_file}"
-            engine = sqlalchemy.create_engine(
-                conn_str,
-                connect_args={'check_same_thread': False},
-                poolclass=sqlalchemy.pool.StaticPool, future=True
-            )
-
         return cls(
-            engine=engine,
+            sqlalchemy_database_uri=args.sqlalchemy_database_uri,
             use_logstash=args.use_logstash,
             logstash_host=args.logstash_host,
             logstash_port=args.logstash_port,
@@ -79,7 +44,7 @@ class WebConfig:
 
     def __init__(
         self,
-        engine: sqlalchemy.Engine,
+        sqlalchemy_database_uri: str,
         use_logstash: bool = False,
         logstash_host: str = "",
         logstash_port: Optional[int] = None,
@@ -91,7 +56,9 @@ class WebConfig:
         log_level: str = "INFO",
     ) -> None:
         """Initialize config for server."""
-        self.engine = engine
+        self.engine = sqlalchemy.create_engine(
+            sqlalchemy_database_uri, pool_recycle=200, future=True
+        )
         self.use_logstash = use_logstash
         self.logstash_host = logstash_host
         self.logstash_port = logstash_port
