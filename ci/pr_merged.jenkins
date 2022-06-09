@@ -176,6 +176,8 @@ pipeline {
                  '''
             } // end credentials
 
+            println "ACTIVATE= ${ACTIVATE}"
+            println "JOBMON_VERSION= ${JOBMON_VERSION}"
             println "JOBMON_VERSION_DEPLOYED= ${JOBMON_VERSION_DEPLOYED}"
 
           } // end if params

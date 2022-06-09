@@ -85,7 +85,7 @@ upload_python_dist () {
 #        --password $REG_PASSWORD \
 #        ./dist/*
 #    fi
-    export JOBMON_VERSION_DEPLOYED="$JOBMON_VERSION"
+    export JOBMON_VERSION_DEPLOYED=$JOBMON_VERSION
     echo "Jobmon v$JOBMON_VERSION deployed to Pypi"
 
 }
