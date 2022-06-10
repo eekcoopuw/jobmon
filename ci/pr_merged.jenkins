@@ -26,6 +26,7 @@ pipeline {
             allowedBranches: 'feature/3.2'
           ]
         ]
+        
       ]
     )
   } // end triggers.
