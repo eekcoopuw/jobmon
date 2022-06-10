@@ -19,6 +19,13 @@ pipeline {
             allowedBranches: 'main'
           ]
         ]
+        [
+          $class: 'BitBucketPPRPullRequestServerTriggerFilter',
+          actionFilter: [
+            $class: 'BitBucketPPRPullRequestServerMergedActionFilter',
+            allowedBranches: 'feature/test'
+          ]
+        ]
       ]
     )
   } // end triggers.
@@ -182,7 +189,7 @@ pipeline {
               returnStdout: true
             ).trim()
 
-            def branch_sections = "release/3.2".split('/')
+            def branch_sections = params.BRANCH_TO_BUILD.split('/')
             env.TARGET_RELEASE = branch_sections[branch_sections.length-1]
 
             println "Starting jobmon_central_controller for: Jobmon ${JOBMON_VERSION_DEPLOYED} with MODULE_TARGET_RELEASE ${TARGET_RELEASE}"
