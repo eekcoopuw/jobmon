@@ -189,6 +189,7 @@ pipeline {
               returnStdout: true
             ).trim()
 
+            // Prepare params to kick off TAD
             def branch_sections = params.BRANCH_TO_BUILD.split('/')
             env.TARGET_RELEASE = branch_sections[branch_sections.length-1]
 
