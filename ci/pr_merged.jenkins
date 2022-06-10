@@ -23,7 +23,7 @@ pipeline {
           $class: 'BitBucketPPRPullRequestServerTriggerFilter',
           actionFilter: [
             $class: 'BitBucketPPRPullRequestServerMergedActionFilter',
-            allowedBranches: 'feature/test'
+            allowedBranches: 'feature/3.2'
           ]
         ]
       ]
