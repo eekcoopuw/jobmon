@@ -191,6 +191,7 @@ pipeline {
 
             // GIT_BRANCH, which is the merged-into branch, holds the TARGET_RELEASE at the last section
             // e.g. release/3.2.0    we get: 3.2.0 for TARGET_RELEASE
+            echo sh(returnStdout: true, script: 'env')
             def branch_sections = "${GIT_BRANCH}".split('/')
             env.TARGET_RELEASE = branch_sections[branch_sections.length-1]
 
