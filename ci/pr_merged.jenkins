@@ -33,11 +33,8 @@ pipeline {
       selectedValue: 'DEFAULT',
       sortMode: 'NONE',
       tagFilter: '*',
-      type: 'PT_BRANCH_TAG'
+      type: 'PT_BRANCH'
     )
-    string(defaultValue: '${BITBUCKET_TARGET_BRANCH}',
-     description: 'The target release of the this build(e.g. 3.0.7, 3.2.0)',
-     name: 'TARGET_RELEASE')
     booleanParam(defaultValue: 'false',
       description: 'If true, Lint step will be skipped',
       name: 'SKIP_LINT')
@@ -184,7 +181,13 @@ pipeline {
                       ''',
               returnStdout: true
             ).trim()
-            echo "Starting jobmon_central_controller for: Jobmon ${JOBMON_VERSION_DEPLOYED}"
+
+            def branch_sections = "${BITBUCKET_TARGET_BRANCH}".split('/')
+            env.TARGET_RELEASE = branch_sections[branch_sections.length-1]
+
+            println "Starting jobmon_central_controller for: Jobmon ${JOBMON_VERSION_DEPLOYED}"
+            println "   with MODULE_TARGET_RELEASE ${TARGET_RELEASE}"
+
             build job: "jobmon_central_test_core", parameters: [
              listGitBranches(name: 'BRANCH_OF_TAD', value: "feature/GBDSCI-4648_kickoff_from_core_pr_merged"),
              string(name: 'MODULE_OF_CHANGE', value: "jobmon_core"),
