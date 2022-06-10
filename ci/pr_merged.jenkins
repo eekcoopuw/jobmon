@@ -63,7 +63,7 @@ pipeline {
       steps {
         checkout([
           $class: 'GitSCM',
-          branches: [[name: "${BRANCH_TO_BUILD}"]],
+          branches: [[name: params.BRANCH_TO_BUILD]],
           userRemoteConfigs: scm.userRemoteConfigs
         ])
       } // End step
