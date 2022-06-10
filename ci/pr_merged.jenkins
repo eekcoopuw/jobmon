@@ -18,15 +18,7 @@ pipeline {
             $class: 'BitBucketPPRPullRequestServerMergedActionFilter',
             allowedBranches: 'main'
           ]
-        ],
-        [
-          $class: 'BitBucketPPRPullRequestServerTriggerFilter',
-          actionFilter: [
-            $class: 'BitBucketPPRPullRequestServerMergedActionFilter',
-            allowedBranches: 'feature/3.2'
-          ]
         ]
-        
       ]
     )
   } // end triggers.
@@ -43,16 +35,16 @@ pipeline {
       tagFilter: '*',
       type: 'PT_BRANCH'
     )
-    booleanParam(defaultValue: 'true',
+    booleanParam(defaultValue: 'false',
       description: 'If true, Lint step will be skipped',
       name: 'SKIP_LINT')
-    booleanParam(defaultValue: 'true',
+    booleanParam(defaultValue: 'false',
       description: 'If true, Type-Check step will be skipped',
       name: 'SKIP_TYPE_CHECK')
-    booleanParam(defaultValue: 'true',
+    booleanParam(defaultValue: 'false',
       description: 'If true, Docs step will be skipped',
       name: 'SKIP_DOCS')
-    booleanParam(defaultValue: 'true',
+    booleanParam(defaultValue: 'false',
       description: 'If true, Tests step will be skipped',
       name: 'SKIP_TESTS')
     booleanParam(defaultValue: 'true',
@@ -190,7 +182,6 @@ pipeline {
               returnStdout: true
             ).trim()
 
-            echo sh(returnStdout: true, script: 'env')
             def branch_sections = "${BRANCH_TO_BUILD}".split('/')
             env.TARGET_RELEASE = branch_sections[branch_sections.length-1]
 
