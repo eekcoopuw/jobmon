@@ -42,16 +42,16 @@ pipeline {
       tagFilter: '*',
       type: 'PT_BRANCH'
     )
-    booleanParam(defaultValue: 'false',
+    booleanParam(defaultValue: 'true',
       description: 'If true, Lint step will be skipped',
       name: 'SKIP_LINT')
-    booleanParam(defaultValue: 'false',
+    booleanParam(defaultValue: 'true',
       description: 'If true, Type-Check step will be skipped',
       name: 'SKIP_TYPE_CHECK')
-    booleanParam(defaultValue: 'false',
+    booleanParam(defaultValue: 'true',
       description: 'If true, Docs step will be skipped',
       name: 'SKIP_DOCS')
-    booleanParam(defaultValue: 'false',
+    booleanParam(defaultValue: 'true',
       description: 'If true, Tests step will be skipped',
       name: 'SKIP_TESTS')
     booleanParam(defaultValue: 'true',
