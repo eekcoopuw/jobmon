@@ -189,8 +189,9 @@ pipeline {
               returnStdout: true
             ).trim()
 
-            // Prepare params to kick off TAD
-            def branch_sections = params.BRANCH_TO_BUILD.split('/')
+            // GIT_BRANCH, which is the merged-into branch, holds the TARGET_RELEASE at the last section
+            // e.g. release/3.2.0    we get: 3.2.0 for TARGET_RELEASE
+            def branch_sections = "${GIT_BRANCH}".split('/')
             env.TARGET_RELEASE = branch_sections[branch_sections.length-1]
 
             println "Starting jobmon_central_controller for: Jobmon ${JOBMON_VERSION_DEPLOYED} with MODULE_TARGET_RELEASE ${TARGET_RELEASE}"
