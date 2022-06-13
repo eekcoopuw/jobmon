@@ -175,6 +175,24 @@ pipeline {
                         "${ACTIVATE}"
                  '''
             } // end credentials
+            env.JOBMON_VERSION_DEPLOYED = sh (
+              script: '''#!/bin/bash
+                         cat ${WORKSPACE}/jobmon_version_deployed.txt
+                      ''',
+              returnStdout: true
+            ).trim()
+
+            def branch_sections = "${BRANCH_TO_BUILD}".split('/')
+            env.TARGET_RELEASE = branch_sections[branch_sections.length-1]
+
+            println "Starting jobmon_central_controller for: Jobmon ${JOBMON_VERSION_DEPLOYED} with MODULE_TARGET_RELEASE ${TARGET_RELEASE}"
+
+            build job: "jobmon_central_controller", parameters: [
+             listGitBranches(name: 'BRANCH_OF_TAD', value: "main"),
+             string(name: 'MODULE_OF_CHANGE', value: "jobmon_core"),
+             string(name: 'MODULE_TARGET_RELEASE', value: "${TARGET_RELEASE}"),
+             string(name: 'ARTIFACT', value: "${JOBMON_VERSION_DEPLOYED}"),
+            ]
           } // end if params
           else {
             echo "Not deploying to Pypi"
