@@ -627,6 +627,36 @@ To statically set concurrency limit, simply set the ``max_concurrently_running``
 
 To dynamically set the concurrency limit, see :ref:`concurrency-limit-label`.
 
+Users are also able to set concurrency limit at the TaskTemplate level. By default, Jobmon sets
+this limit to 10,000 tasks.
+
+To set concurrency limit on a TaskTemplate, simply call the ``set_task_template_max_concurrency_limit``
+method.
+
+.. code-block:: python
+
+  tool = Tool(name="example_concurrency_tt_tool")
+
+  task_template = tool.get_task_template(
+        template_name="concurrency_limit_task_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+  )
+  workflow = tool.create_workflow(
+      name=f"template_workflow",
+  )
+  tasks = []
+  for i in range(20):
+        task = task_template.create_task(arg=f"sleep {i}")
+        tasks.append(task)
+  workflow.add_tasks(tasks)
+  # Setting the concurrency limit it of the "concurrency_limit_task_template" to 2
+  workflow.set_task_template_max_concurrency_limit(task_template_name=task_template.template_name,
+                                                   limit=2)
+
+
 Jobmon Self-Service Commands
 ############################
 Jobmon has a suite of commands to not only visualize task statuses from the database, but to

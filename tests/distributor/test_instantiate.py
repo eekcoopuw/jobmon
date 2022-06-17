@@ -330,6 +330,60 @@ def test_array_submit_raises_error(db_cfg, tool):
         assert task.status == "W"
 
 
+def test_task_template_concurrency_limiting(tool, db_cfg, client_env):
+    """Test that we are able to set concurrency limit on TaskTemplate level.
+
+    Create 20 sleep tasks associated with the tasktemplate, set the limit to 2 and make sure
+    that only 2 tasks launch.
+    """
+    task_template = tool.get_task_template(
+        template_name="concurrency_limit_task_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    tasks = []
+    for i in range(20):
+        task = task_template.create_task(arg=f"sleep {i}")
+        tasks.append(task)
+    workflow = tool.create_workflow(
+        name="test_task_template_concurrency_limiting"
+    )
+
+    workflow.add_tasks(tasks)
+    workflow.set_task_template_max_concurrency_limit(task_template_name=task_template.template_name,
+                                                     limit=2)
+    workflow.bind()
+    wfr = workflow._create_workflow_run()
+
+    swarm = SwarmWorkflowRun(
+        workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
+    )
+    swarm.from_workflow(workflow)
+    swarm.set_initial_fringe()
+    swarm.process_commands()
+
+    # test that we can launch via the normal job pathway
+    distributor_service = DistributorService(
+        MultiprocessDistributor("multiprocess", parallelism=3),
+        requester=workflow.requester,
+        raise_on_error=True,
+    )
+    distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+
+    assert (
+        len(distributor_service._task_instance_status_map[TaskInstanceStatus.LAUNCHED])
+        == 2
+    )
+
+    distributor_service.cluster_interface.stop()
+
+
 def test_workflow_concurrency_limiting(tool, db_cfg, client_env, task_template):
     """tests that we only return a subset of queued jobs based on the n_queued
     parameter"""
