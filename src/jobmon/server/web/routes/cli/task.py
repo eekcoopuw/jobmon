@@ -97,7 +97,6 @@ def get_task_status() -> Any:
     if rows and len(rows) > 0:
         # assign to dataframe for serialization
         df = pd.DataFrame(rows, columns=column_names)
-        logger.warn(f"*******************************\n{df}\n")
         # remap to jobmon_cli statuses
         df.STATUS.replace(to_replace=_task_instance_label_mapping, inplace=True)
         resp = jsonify(task_instance_status=df.to_json())
