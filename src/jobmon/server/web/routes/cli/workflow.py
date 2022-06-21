@@ -15,6 +15,7 @@ from jobmon.server.web.models.tool import Tool
 from jobmon.server.web.models.tool_version import ToolVersion
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_run import WorkflowRun
+from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.models.workflow_status import WorkflowStatus
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.cli import blueprint
@@ -369,22 +370,50 @@ def workflow_status_by_user(username: str) -> Any:
                 Tool.name,
                 Workflow.name,
                 Workflow.created_date,
-                Workflow.status,
+                WorkflowStatus.label,
                 WorkflowRun.id,
-                WorkflowRun.status
+                WorkflowRunStatus.label,
+                Task.status,
+                func.count(Task.status)
             ).where(
                 WorkflowRun.user == username,
                 WorkflowRun.workflow_id == Workflow.id,
                 Workflow.tool_version_id == ToolVersion.id,
                 ToolVersion.tool_id == Tool.id,
+                Task.workflow_id == Workflow.id,
+                Workflow.status == WorkflowStatus.id,
+                WorkflowRun.status == WorkflowRunStatus.id,
+            ).group_by(
+                Workflow.id, Tool.name, Workflow.name, Workflow.created_date,
+                Workflow.status, WorkflowRun.id, WorkflowRun.status, Task.status
             ).order_by(
                 Workflow.created_date.desc()
-            ).limit(30)  # TODO: make this configurable
+            )
         )
         rows = session.execute(sql).all()
+
     column_names = ("wf_id", "wf_tool", "wf_name", "wf_submitted_date",
-                    "wf_status", "wfr_id", "wfr_status")
-    rows_return = [dict(zip(column_names, wf)) for wf in rows]
-    resp = jsonify(workflows=rows_return)
-    resp.status_code = StatusCodes.OK
-    return resp
+                    "wf_status", "wfr_id", "wfr_status", "task_status", "task_count")
+
+    # Convert to a dataframe in order to pivot wide
+    df = pd.DataFrame([wf for wf in rows], columns=column_names)
+
+    # Group the statuses into pending, running, done, and fatal
+    df.replace({"task_status": _cli_label_mapping}, inplace=True)
+
+    # Pivot wide and limit to 30 records to avoid returning thousands of workflows
+    # TODO: make the limit configurable
+    df_wide = pd.pivot_table(
+        df, index=column_names[:-2], columns='task_status', values='task_count', fill_value=0
+    ).reset_index()[:30]
+
+    # Initialize the missing statuses if needed
+    for status_type in _reversed_cli_label_mapping:
+        if status_type not in df_wide:
+            df_wide[status_type] = 0
+
+    return_dict = df_wide.to_dict(orient='records')
+
+    res = jsonify(workflows=return_dict)
+    res.return_code = StatusCodes.OK
+    return res
