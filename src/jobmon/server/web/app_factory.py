@@ -58,7 +58,7 @@ class AppFactory:
             logstash_handler_config = None
         return logstash_handler_config
 
-    def get_app(self, blueprints=["fsm", "cli"]) -> Flask:
+    def get_app(self, blueprints=["fsm", "cli"], url_prefix="/") -> Flask:
         """Create a Flask app."""
         app = Flask(__name__)
         app.config.from_mapping(self.flask_config)
@@ -72,7 +72,7 @@ class AppFactory:
         # to the global session factory
         for blueprint in blueprints:
             mod = import_module(f"jobmon.server.web.routes.{blueprint}")
-            app.register_blueprint(getattr(mod, 'blueprint'), url_prefix="/")
+            app.register_blueprint(getattr(mod, 'blueprint'), url_prefix=url_prefix)
 
         # add request logging hooks
         add_hooks_and_handlers(app, apm)
