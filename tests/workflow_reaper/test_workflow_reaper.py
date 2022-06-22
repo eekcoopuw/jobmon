@@ -1,38 +1,52 @@
 import pytest
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+from sqlalchemy import update
+import getpass
+import pandas as pd
+
+from jobmon.constants import WorkflowRunStatus, TaskStatus, TaskInstanceStatus
+from jobmon.client.task import Task
+from jobmon.client.workflow_run import WorkflowRun
+from jobmon.exceptions import InvalidResponse
+from jobmon.server.web.models import load_model
+from jobmon.server.web.models import task
+from jobmon.server.web.models.task_attribute import TaskAttribute
+from jobmon.server.web.models.task_attribute_type import TaskAttributeType
+from jobmon.server.web.models.workflow import Workflow
 from mock import patch, PropertyMock
 
 from jobmon.constants import WorkflowRunStatus, WorkflowStatus
 from jobmon import __version__
 
-
-def get_workflow_status(db_cfg, workflow_id):
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        query = f"SELECT status FROM workflow WHERE id = {workflow_id}"
-        resp = DB.session.execute(query).fetchone()[0]
-    return resp
+load_model()
 
 
-def get_workflow_run_status(db_cfg, wfr_id):
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        query = f"SELECT status FROM workflow_run WHERE id = {wfr_id}"
-        resp = DB.session.execute(query).fetchone()[0]
-    return resp
+def get_workflow_status(db_engine, workflow_id):
+    with Session(bind=db_engine) as session:
+        query_filter = [Workflow.id == workflow_id]
+        sql = (select(
+            Workflow.status
+        ).where(*query_filter))
+        rows = session.execute(sql).all()
+        session.commit()
+    return rows[0][0]
+
+
+def get_workflow_run_status(db_engine, wfr_id):
+    with Session(bind=db_engine) as session:
+        query_filter = [WorkflowRun.id == wfr_id]
+        sql = (select(
+            WorkflowRun.status
+        ).where(*query_filter))
+        rows = session.execute(sql).all()
+        session.commit()
+    return rows[0][0]
 
 
 @pytest.fixture
-def base_tool(db_cfg, client_env):
-    from jobmon.client.tool import Tool
-
-    return Tool()
-
-
-@pytest.fixture
-def sleepy_task_template(db_cfg, client_env, base_tool):
-    tt = base_tool.get_task_template(
+def sleepy_task_template(db_engine, tool):
+    tt = tool.get_task_template(
         template_name="sleepy_template",
         command_template="sleep {sleep}",
         node_args=["sleep"],
@@ -42,7 +56,7 @@ def sleepy_task_template(db_cfg, client_env, base_tool):
     return tt
 
 
-def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
+def test_error_state(db_engine, requester_no_retry, tool, sleepy_task_template):
     """Tests that the workflow reaper successfully checks for error state.
 
     Error state occurs when a workflow run has not logged a heartbeat in a
@@ -55,7 +69,7 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     # Create a workflow with one task set the workflow run status to R. log a heartbeat so it
     # doesn't get reaped
     task1 = sleepy_task_template.create_task(sleep=10)
-    wf1 = base_tool.create_workflow()
+    wf1 = tool.create_workflow()
     wf1.add_tasks([task1])
     wf1.bind()
     wfr1 = WorkflowRun(workflow=wf1, requester=wf1.requester)
@@ -68,7 +82,7 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
 
     # Create a second workflow with one task. Don't log a heartbeat so that it can die
     task2 = sleepy_task_template.create_task(sleep=11)
-    wf2 = base_tool.create_workflow(name="reaper_error_test", workflow_args="error_v_1")
+    wf2 = tool.create_workflow(name="reaper_error_test", workflow_args="error_v_1")
     wf2.add_tasks([task2])
     wf2.bind()
     wfr2 = WorkflowRun(workflow=wf2, requester=wf2.requester)
@@ -98,14 +112,14 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     )
 
     # Check that one workflow is running and the other failed
-    workflow1_status = get_workflow_status(db_cfg, wf1.workflow_id)
-    workflow2_status = get_workflow_status(db_cfg, wf2.workflow_id)
+    workflow1_status = get_workflow_status(db_engine, wf1.workflow_id)
+    workflow2_status = get_workflow_status(db_engine, wf2.workflow_id)
 
     assert workflow1_status == WorkflowStatus.RUNNING
     assert workflow2_status == WorkflowStatus.FAILED
 
     # Check that the  workflow run was also moved to the E state
-    wfr_status = get_workflow_run_status(db_cfg, wfr2.workflow_run_id)
+    wfr_status = get_workflow_run_status(db_engine, wfr2.workflow_run_id)
     assert wfr_status == WorkflowRunStatus.ERROR
 
 

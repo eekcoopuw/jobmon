@@ -12,28 +12,20 @@ from sqlalchemy.sql import text
 import structlog
 
 from jobmon.exceptions import InvalidStateTransition
-from jobmon.serializers import SerializeTaskTemplateResourceUsage
-from jobmon.server.web.models.arg import Arg
-from jobmon.server.web.models.node import Node
-from jobmon.server.web.models.node_arg import NodeArg
-from jobmon.server.web.models.queue import Queue
 from jobmon.server.web.models.task import Task
-from jobmon.server.web.models.task_instance import TaskInstance
-from jobmon.server.web.models.task_resources import TaskResources
-from jobmon.server.web.models.task_template import TaskTemplate
-from jobmon.server.web.models.task_template_version import TaskTemplateVersion
 from jobmon.server.web.models.workflow import Workflow
+from jobmon.server.web.models.workflow_status import WorkflowStatus
 from jobmon.server.web.models.workflow_run import WorkflowRun
+from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.routes import SessionLocal
-from jobmon.server.web.routes.cli import blueprint
-from jobmon.server.web.server_side_exception import InvalidUsage
+from jobmon.server.web.routes.reaper import blueprint
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
 logger = structlog.get_logger(__name__)
 
 
 @blueprint.route(
-    "workflow/<workflow_id>/fix_status_inconsistency", methods=["PUT"]
+    "/workflow/<workflow_id>/fix_status_inconsistency", methods=["PUT"]
 )
 def fix_wf_inconsistency(workflow_id: int) -> Any:
     """Find wf in F with all tasks in D and fix them.
@@ -104,7 +96,7 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
 
 
 @blueprint.route(
-    "workflow/<workflow_id>/workflow_name_and_args", methods=["GET"]
+    "/workflow/<workflow_id>/workflow_name_and_args", methods=["GET"]
 )
 def get_wf_name_and_args(workflow_id: int) -> Any:
     """Return workflow name and args associated with specified workflow ID."""
@@ -162,32 +154,72 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
     """
     structlog.threadlocal.bind_threadlocal(workflow_run_id=workflow_run_id)
     logger.info(f"Reap wfr: {workflow_run_id}")
-    query = """
+    query = f"""
         SELECT
             workflow_run.*
         FROM workflow_run
         WHERE
-            workflow_run.id = :workflow_run_id
+            workflow_run.id = {workflow_run_id}
             and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
     """
     session = SessionLocal()
     with session.begin():
-        wfr = (
-            session.query(WorkflowRun)
-            .from_statement(text(query))
-            .params(workflow_run_id=workflow_run_id)
-            .one_or_none()
-        )
-        session.commit()
+        # get the wfr
+        query_filter = [WorkflowRun.id == workflow_run_id,
+                        WorkflowRun.heartbeat_date <= func.now()]
+        sql = (select(
+            WorkflowRun.id,
+            WorkflowRun.workflow_id,
+            WorkflowRun.status
+        ).where(*query_filter))
+        rows = session.execute(sql).all()
+    if len(rows) == 0:
+        resp = jsonify(status="")
+        resp.status_code = StatusCodes.OK
+        return resp
 
+    # reap wfr
+    wfr_id, wf_id, wfr_status = rows[0][0], rows[0][1], rows[0][2]
+    if wfr_status == WorkflowRunStatus.LINKING:
+        logger.debug(f"Transitioning wfr {wfr_id} to ABORTED")
+        target_wfr_status = WorkflowRunStatus.ABORTED
+        target_wf_status = WorkflowStatus.ABORTED
+    if wfr_status in [WorkflowRunStatus.COLD_RESUME, WorkflowRunStatus.HOT_RESUME]:
+        logger.debug(f"Transitioning wfr {wfr_id} to TERMINATED")
+        target_wfr_status = WorkflowRunStatus.TERMINATED
+        target_wf_status = WorkflowStatus.HALTED
+    if wfr_status == WorkflowRunStatus.RUNNING:
+        logger.debug(f"Transitioning wfr {wfr_id} to ERROR")
+        target_wfr_status = WorkflowRunStatus.ERROR
+        target_wf_status = WorkflowStatus.FAILED
+
+    # validate transition
+    if (wfr_status, target_wfr_status) not in WorkflowRun().valid_transitions:
         try:
-            wfr.reap()
-            session.commit()
-            status = wfr.status
+            raise InvalidStateTransition(model="WorkflowRun",
+                                         id=wfr_id,
+                                         old_state=wfr_status,
+                                         new_state=target_wfr_status)
         except (InvalidStateTransition, AttributeError) as e:
             # this branch handles race condition or case where no wfr was returned
             logger.debug(f"Unable to reap workflow_run {wfr.id}: {e}")
             status = ""
-    resp = jsonify(status=status)
+
+    # update status
+    session = SessionLocal()
+    with session.begin():
+        query1 = f"""UPDATE workflow_run
+                    SET status={target_wfr_status}",
+                    WHERE id={wfr_id}"
+                """
+        session.execute(query1)
+        query2 = f"""UPDATE workflow
+                            SET status={target_wf_status}",
+                            WHERE id={wf_id}"
+                        """
+        session.execute(query2)
+        session.commit()
+
+    resp = jsonify(status=target_wfr_status)
     resp.status_code = StatusCodes.OK
     return resp

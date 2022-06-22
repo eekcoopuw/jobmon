@@ -58,7 +58,7 @@ class AppFactory:
             logstash_handler_config = None
         return logstash_handler_config
 
-    def get_app(self, blueprints=["fsm", "cli"]) -> Flask:
+    def get_app(self, blueprints=["fsm", "cli", "reaper"]) -> Flask:
         """Create a Flask app."""
         app = Flask(__name__)
         app.config.from_mapping(self.flask_config)
