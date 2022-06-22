@@ -1,5 +1,9 @@
+************
 Architecture
-############
+************
+
+TODO: NOT CURRENTLY UP-TO-DATE
+******************************
 
 Jobmon's Vision
 ***************
