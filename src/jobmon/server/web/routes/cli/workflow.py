@@ -1,24 +1,21 @@
 """Routes for TaskTemplate."""
 from http import HTTPStatus as StatusCodes
 import json
-import numpy as np
 import pandas as pd
 from typing import Any, cast, Dict, List, Set
 
 from flask import jsonify, request
+from flask_cors import cross_origin
 from sqlalchemy import func, select, update
-from sqlalchemy.orm import Session
 import structlog
 
 from jobmon.constants import WorkflowStatus as Statuses
-from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.task import Task
-from jobmon.server.web.models.task_instance import TaskInstance
-from jobmon.server.web.models.task_resources import TaskResources
-from jobmon.server.web.models.task_template import TaskTemplate
-from jobmon.server.web.models.task_template_version import TaskTemplateVersion
+from jobmon.server.web.models.tool import Tool
+from jobmon.server.web.models.tool_version import ToolVersion
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_run import WorkflowRun
+from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.models.workflow_status import WorkflowStatus
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.cli import blueprint
@@ -47,6 +44,7 @@ _reversed_cli_label_mapping = {
 _cli_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
 
 @blueprint.route("/workflow_validation", methods=["POST"])
+@cross_origin()
 def get_workflow_validation_status() -> Any:
     """Check if workflow is valid."""
     # initial params
@@ -219,6 +217,7 @@ def reset_workflow(workflow_id: int) -> Any:
 
 
 @blueprint.route("/workflow_status", methods=["GET"])
+@cross_origin()
 def get_workflow_status() -> Any:
     """Get the status of the workflow."""
     # initial params
@@ -356,3 +355,65 @@ def get_workflow_status() -> Any:
 
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@blueprint.route("/workflow_status_viz/<username>", methods=["GET"])
+@cross_origin()
+def workflow_status_by_user(username: str) -> Any:
+    """Fetch associated workflows and workflow runs by user name."""
+
+    session = SessionLocal()
+    with session.begin():
+        sql = (
+            select(
+                Workflow.id,
+                Tool.name,
+                Workflow.name,
+                Workflow.created_date,
+                WorkflowStatus.label,
+                WorkflowRun.id,
+                WorkflowRunStatus.label,
+                Task.status,
+                func.count(Task.status)
+            ).where(
+                WorkflowRun.user == username,
+                WorkflowRun.workflow_id == Workflow.id,
+                Workflow.tool_version_id == ToolVersion.id,
+                ToolVersion.tool_id == Tool.id,
+                Task.workflow_id == Workflow.id,
+                Workflow.status == WorkflowStatus.id,
+                WorkflowRun.status == WorkflowRunStatus.id,
+            ).group_by(
+                Workflow.id, Tool.name, Workflow.name, Workflow.created_date,
+                Workflow.status, WorkflowRun.id, WorkflowRun.status, Task.status
+            ).order_by(
+                Workflow.created_date.desc()
+            )
+        )
+        rows = session.execute(sql).all()
+
+    column_names = ("wf_id", "wf_tool", "wf_name", "wf_submitted_date",
+                    "wf_status", "wfr_id", "wfr_status", "task_status", "task_count")
+
+    # Convert to a dataframe in order to pivot wide
+    df = pd.DataFrame([wf for wf in rows], columns=column_names)
+
+    # Group the statuses into pending, running, done, and fatal
+    df.replace({"task_status": _cli_label_mapping}, inplace=True)
+
+    # Pivot wide and limit to 30 records to avoid returning thousands of workflows
+    # TODO: make the limit configurable
+    df_wide = pd.pivot_table(
+        df, index=column_names[:-2], columns='task_status', values='task_count', fill_value=0
+    ).reset_index()[:30]
+
+    # Initialize the missing statuses if needed
+    for status_type in _reversed_cli_label_mapping:
+        if status_type not in df_wide:
+            df_wide[status_type] = 0
+
+    return_dict = df_wide.to_dict(orient='records')
+
+    res = jsonify(workflows=return_dict)
+    res.return_code = StatusCodes.OK
+    return res
