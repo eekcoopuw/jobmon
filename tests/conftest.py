@@ -129,14 +129,6 @@ def web_server_process(sqlite_file):
 def db_engine(sqlite_file) -> Engine:
     return sqlalchemy.create_engine(f"sqlite:///{sqlite_file}")
 
-@pytest.fixture(scope="session")
-def db_session(db_engine):
-    from sqlalchemy import orm
-    # configurable session factory. add an engine using session_factory.configure(bind=eng)
-    session_factory = orm.sessionmaker(future=True)
-    session_factory.configure(bind=db_engine)
-    return orm.scoped_session(session_factory)
-
 
 @pytest.fixture(scope="function")
 def client_env(web_server_process, monkeypatch):

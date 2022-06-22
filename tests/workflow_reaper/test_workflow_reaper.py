@@ -125,7 +125,7 @@ def test_error_state(db_engine, requester_no_retry, tool, sleepy_task_template):
     assert wfr_status == WorkflowRunStatus.ERROR
 
 
-def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
+def test_halted_state(db_engine, requester_no_retry, tool, sleepy_task_template):
     """Tests that the workflow reaper successfully checks for halted state.
 
     Halted state occurs when a workflow run is either in C (cold resume) or
@@ -138,7 +138,7 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
     # Create first WorkflowRun and leave it in running state. log a heartbeat so it doesn't
     # get reaped
     task1 = sleepy_task_template.create_task(sleep=10)
-    workflow1 = base_tool.create_workflow()
+    workflow1 = tool.create_workflow()
     workflow1.add_tasks([task1])
     workflow1.bind()
     wfr1 = WorkflowRun(workflow=workflow1, requester=workflow1.requester)
@@ -151,7 +151,7 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
 
     # Create second WorkflowRun and transition to C status
     task2 = sleepy_task_template.create_task(sleep=11)
-    workflow2 = base_tool.create_workflow(
+    workflow2 = tool.create_workflow(
         name="reaper_halted_test_2", workflow_args="halted_v_2"
     )
 
@@ -167,7 +167,7 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
 
     # Create third WorkflowRun and transition to H status
     task3 = sleepy_task_template.create_task(sleep=12)
-    workflow3 = base_tool.create_workflow(
+    workflow3 = tool.create_workflow(
         name="reaper_halted_test", workflow_args="halted_v_1"
     )
 
@@ -202,29 +202,29 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
 
     # Check that the workflow runs are in the same state (1 R, 2 T)
     # and that there are two workflows in S state and one still in R state
-    wfr1_status = get_workflow_run_status(db_cfg, wfr1.workflow_run_id)
-    wfr2_status = get_workflow_run_status(db_cfg, wfr2.workflow_run_id)
-    wfr3_status = get_workflow_run_status(db_cfg, wfr3.workflow_run_id)
+    wfr1_status = get_workflow_run_status(db_engine, wfr1.workflow_run_id)
+    wfr2_status = get_workflow_run_status(db_engine, wfr2.workflow_run_id)
+    wfr3_status = get_workflow_run_status(db_engine, wfr3.workflow_run_id)
     assert wfr1_status == WorkflowRunStatus.RUNNING
     assert wfr2_status == WorkflowRunStatus.TERMINATED
     assert wfr3_status == WorkflowRunStatus.TERMINATED
 
-    workflow1_status = get_workflow_status(db_cfg, workflow1.workflow_id)
-    workflow2_status = get_workflow_status(db_cfg, workflow2.workflow_id)
-    workflow3_status = get_workflow_status(db_cfg, workflow3.workflow_id)
+    workflow1_status = get_workflow_status(db_engine, workflow1.workflow_id)
+    workflow2_status = get_workflow_status(db_engine, workflow2.workflow_id)
+    workflow3_status = get_workflow_status(db_engine, workflow3.workflow_id)
     assert workflow1_status == WorkflowStatus.RUNNING
     assert workflow2_status == WorkflowStatus.HALTED
     assert workflow3_status == WorkflowStatus.HALTED
 
 
-def test_aborted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
+def test_aborted_state(db_engine, requester_no_retry, tool, sleepy_task_template):
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
     from jobmon.client.workflow_run import WorkflowRun
 
     # create a workflow without binding the tasks. log a heartbeat so it doesn't get reaped
     task = sleepy_task_template.create_task(sleep=10)
     task2 = sleepy_task_template.create_task(sleep=11)
-    workflow1 = base_tool.create_workflow()
+    workflow1 = tool.create_workflow()
     workflow1.add_tasks([task, task2])
     workflow1.bind()
     # Re-implement the logic of _create_workflow_run.
@@ -233,7 +233,7 @@ def test_aborted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templa
     wfr1._link_to_workflow(90)
 
     # create a workflow without binding the tasks
-    workflow2 = base_tool.create_workflow(
+    workflow2 = tool.create_workflow(
         name="reaper_aborted_test", workflow_args="aborted_v_1"
     )
     workflow2.add_tasks([task, task2])
@@ -260,25 +260,25 @@ def test_aborted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templa
 
     # Check that the workflow_run and workflow have both been moved to the
     # "A" state.
-    workflow_status = get_workflow_status(db_cfg, workflow1.workflow_id)
-    workflow_run_status = get_workflow_run_status(db_cfg, wfr1.workflow_run_id)
+    workflow_status = get_workflow_status(db_engine, workflow1.workflow_id)
+    workflow_run_status = get_workflow_run_status(db_engine, wfr1.workflow_run_id)
     assert workflow_run_status == WorkflowRunStatus.LINKING
     assert workflow_status == WorkflowStatus.REGISTERING
 
-    workflow_status = get_workflow_status(db_cfg, workflow2.workflow_id)
-    workflow_run_status = get_workflow_run_status(db_cfg, wfr2.workflow_run_id)
+    workflow_status = get_workflow_status(db_engine, workflow2.workflow_id)
+    workflow_run_status = get_workflow_run_status(db_engine, wfr2.workflow_run_id)
     assert workflow_run_status == WorkflowRunStatus.ABORTED
     assert workflow_status == WorkflowStatus.ABORTED
 
 
-def test_reaper_version(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
+def test_reaper_version(db_engine, requester_no_retry, tool, sleepy_task_template):
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
     from jobmon.client.workflow_run import WorkflowRun
 
     # create a workflow without binding the tasks. log a heartbeat so it doesn't get reaped
     task = sleepy_task_template.create_task(sleep=10)
     task2 = sleepy_task_template.create_task(sleep=11)
-    workflow = base_tool.create_workflow()
+    workflow = tool.create_workflow()
     workflow.add_tasks([task, task2])
     workflow.bind()
 
@@ -308,13 +308,11 @@ def test_reaper_version(db_cfg, requester_no_retry, base_tool, sleepy_task_templ
         assert len(no_wfrs) == 0
 
 
-def test_inconsistent_status(db_cfg, client_env):
+def test_inconsistent_status(db_engine, tool):
     """Tests that workflows with inconsistent F versus D status get repaired."""
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
-    from jobmon.client.tool import Tool
 
     # setup workflow
-    tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}
     )
@@ -325,17 +323,13 @@ def test_inconsistent_status(db_cfg, client_env):
         workflows[i].run()
 
     # Force the first two to be inconsistent
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        # fake workflow run
-        DB.session.execute(
-            f"""
-            UPDATE workflow
-            SET status ='F'
-            WHERE id in ({workflows[0].workflow_id}, {workflows[1].workflow_id})"""
-        )
-        DB.session.commit()
+    with Session(bind=db_engine) as session:
+        query1 = f"""UPDATE workflow
+                     SET status="F" 
+                     WHERE id in ({workflows[0].workflow_id}, {workflows[1].workflow_id})
+                """
+        session.execute(query1)
+        session.commit()
 
     # make sure it starts with 0
     # Force it to check
@@ -347,22 +341,12 @@ def test_inconsistent_status(db_cfg, client_env):
     assert WorkflowReaper._current_starting_row == 0
 
     # check workflow status changed on both
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         # fake workflow run
-        s = DB.session.execute(
-            f"""
-            select status
-            FROM workflow
-            WHERE id={workflows[0].workflow_id}"""
-        ).fetchone()["status"]
-        assert s == "D"
-        s = DB.session.execute(
-            f"""
-            select status
-            FROM workflow
-            WHERE id={workflows[1].workflow_id}"""
-        ).fetchone()["status"]
-        assert s == "D"
+        query_filter = [ Workflow.id == workflows[0].workflow_id ]
+        sql = (select(Workflow.status).where(*query_filter))
+        rows = session.execute(sql).all()
+        assert rows[0][0] == "D"
 
     # Now check that the workflow_id wraps
     WorkflowReaper(
