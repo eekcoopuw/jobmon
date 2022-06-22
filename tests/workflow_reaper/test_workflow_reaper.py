@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import update
 import getpass
 import pandas as pd
+from time import sleep
 
 from jobmon.constants import WorkflowRunStatus, TaskStatus, TaskInstanceStatus
 from jobmon.client.task import Task
@@ -14,6 +15,7 @@ from jobmon.server.web.models import task
 from jobmon.server.web.models.task_attribute import TaskAttribute
 from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 from jobmon.server.web.models.workflow import Workflow
+from jobmon.server.web.models.workflow_run import WorkflowRun as WFR
 from mock import patch, PropertyMock
 
 from jobmon.constants import WorkflowRunStatus, WorkflowStatus
@@ -35,9 +37,9 @@ def get_workflow_status(db_engine, workflow_id):
 
 def get_workflow_run_status(db_engine, wfr_id):
     with Session(bind=db_engine) as session:
-        query_filter = [WorkflowRun.id == wfr_id]
+        query_filter = [WFR.id == wfr_id]
         sql = (select(
-            WorkflowRun.status
+            WFR.status
         ).where(*query_filter))
         rows = session.execute(sql).all()
         session.commit()
@@ -74,7 +76,7 @@ def test_error_state(db_engine, requester_no_retry, tool, sleepy_task_template):
     wf1.bind()
     wfr1 = WorkflowRun(workflow=wf1, requester=wf1.requester)
     wfr1._link_to_workflow(0)
-    wfr1._log_heartbeat(300)
+    wfr1._log_heartbeat(3000)
     wfr1._update_status(WorkflowRunStatus.BOUND)
     wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr1._update_status(WorkflowRunStatus.LAUNCHED)

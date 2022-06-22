@@ -135,9 +135,7 @@ def get_lost_workflow_runs() -> Any:
         sql = (select(WorkflowRun.id,
                       WorkflowRun.workflow_id).where(*query_filter))
         rows = session.execute(sql).all()
-    column_names = ("id", "workflow_id")
-    workflow_runs = [dict(zip(column_names, r)) for r in rows]
-    workflow_runs = [wfr.to_wire_as_reaper_workflow_run() for wfr in workflow_runs]
+    workflow_runs = [(r[0], r[1]) for r in rows]
     resp = jsonify(workflow_runs=workflow_runs)
     resp.status_code = StatusCodes.OK
     return resp
@@ -154,14 +152,7 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
     """
     structlog.threadlocal.bind_threadlocal(workflow_run_id=workflow_run_id)
     logger.info(f"Reap wfr: {workflow_run_id}")
-    query = f"""
-        SELECT
-            workflow_run.*
-        FROM workflow_run
-        WHERE
-            workflow_run.id = {workflow_run_id}
-            and workflow_run.heartbeat_date <= CURRENT_TIMESTAMP()
-    """
+
     session = SessionLocal()
     with session.begin():
         # get the wfr
@@ -202,21 +193,21 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
                                          new_state=target_wfr_status)
         except (InvalidStateTransition, AttributeError) as e:
             # this branch handles race condition or case where no wfr was returned
-            logger.debug(f"Unable to reap workflow_run {wfr.id}: {e}")
+            logger.debug(f"Unable to reap workflow_run {wfr_id}: {e}")
             status = ""
 
     # update status
     session = SessionLocal()
     with session.begin():
         query1 = f"""UPDATE workflow_run
-                    SET status={target_wfr_status}",
-                    WHERE id={wfr_id}"
+                    SET status="{target_wfr_status}" 
+                    WHERE id={wfr_id}
                 """
         session.execute(query1)
         query2 = f"""UPDATE workflow
-                            SET status={target_wf_status}",
-                            WHERE id={wf_id}"
-                        """
+                     SET status="{target_wf_status}" 
+                     WHERE id={wf_id}
+                """
         session.execute(query2)
         session.commit()
 
