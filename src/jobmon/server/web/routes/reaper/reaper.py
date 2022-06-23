@@ -45,7 +45,7 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
 
     # move the starting row forward by increase_step
     # It takes about 1 second per thousand; increase_step is passed in from the reaper.
-    # Sf the starting row > max row, restart from workflow-id 0.
+    # Lf the starting row > max row, restart from workflow-id 0.
     # This way, we can get to the unfinished the wf later
     # without querying the whole db every time.
 
