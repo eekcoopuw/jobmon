@@ -119,7 +119,6 @@ class WorkflowReaper(object):
     def _get_lost_workflow_runs(self, status: List[str]) -> List[ReaperWorkflowRun]:
         """Return all workflows that are in a specific state."""
         logger.info(f"Checking the database for workflow runs of status: {status}")
-
         app_route = "/lost_workflow_run"
         return_code, result = self._requester.send_request(
             app_route=app_route,
