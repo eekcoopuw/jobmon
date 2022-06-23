@@ -406,7 +406,7 @@ def workflow_status_by_user(username: str) -> Any:
     df_wide = pd.pivot_table(
         df, index=column_names[:-2], columns='task_status', values='task_count', fill_value=0
     ).reset_index()[:30]
-
+    df_wide.sort_values(by=['wf_id'], ascending=False, inplace=True)
     # Initialize the missing statuses if needed
     for status_type in _reversed_cli_label_mapping:
         if status_type not in df_wide:
