@@ -356,6 +356,30 @@ def get_workflow_status() -> Any:
     resp.status_code = StatusCodes.OK
     return resp
 
+@blueprint.route("/workflow_status_viz", methods=["GET"])
+@cross_origin()
+def get_workflow_status_viz() -> Any:
+    """Get the status of the workflows for GUI."""
+    wf_ids = request.args.getlist("workflow_ids")
+    # return DS
+    return_dic = dict()
+    for wf_id in wf_ids:
+        return_dic[int(wf_id)] = {'id': int(wf_id), 'tasks': 0, 'PENDING': 0, 'RUNNING': 0, 'DONE': 0, 'FATAL': 0}
+    session = SessionLocal()
+    with session.begin():
+        query_filter = [Task.workflow_id.in_(wf_ids)]
+        sql = (select(
+            Task.workflow_id,
+            Task.status
+        ).where(*query_filter))
+        rows = session.execute(sql).all()
+    for row in rows:
+        return_dic[row[0]]['tasks'] += 1
+        return_dic[row[0]][_cli_label_mapping[row[1]]] += 1
+    resp = jsonify(return_dic)
+    resp.status_code = 200
+    return resp
+
 
 @blueprint.route("/workflow_status_viz/<username>", methods=["GET"])
 @cross_origin()
