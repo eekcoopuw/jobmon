@@ -524,7 +524,7 @@ def test_get_workflow_status_viz(db_engine, tool):
 
     app_route = f"/workflow_status_viz"
     return_code, msg = wf.requester.send_request(
-        app_route=app_route, message={"workflow_ids": [wf.workflow_id]}, request_type="get"
+        app_route=app_route, message={"workflow_ids": [wf.workflow_id]}, request_type="post"
     )
     assert return_code == 200
     assert str(wf.workflow_id) in msg.keys()

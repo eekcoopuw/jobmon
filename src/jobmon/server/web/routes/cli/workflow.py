@@ -356,11 +356,14 @@ def get_workflow_status() -> Any:
     resp.status_code = StatusCodes.OK
     return resp
 
-@blueprint.route("/workflow_status_viz", methods=["GET"])
+
+# have to use post because the stupid axios does not send json payload via GET
+@blueprint.route("/workflow_status_viz", methods=["POST"])
 @cross_origin()
 def get_workflow_status_viz() -> Any:
     """Get the status of the workflows for GUI."""
-    wf_ids = request.args.getlist("workflow_ids")
+    data = request.get_json()
+    wf_ids = data['workflow_ids']
     # return DS
     return_dic = dict()
     for wf_id in wf_ids:
@@ -373,6 +376,7 @@ def get_workflow_status_viz() -> Any:
             Task.status
         ).where(*query_filter))
         rows = session.execute(sql).all()
+
     for row in rows:
         return_dic[row[0]]['tasks'] += 1
         return_dic[row[0]][_cli_label_mapping[row[1]]] += 1
