@@ -49,8 +49,9 @@ def client_env(web_server_process, monkeypatch):
 
     from jobmon.client.client_config import ClientConfig
 
+    # Set tenacity max_retries to zero
     cc = ClientConfig(
-        web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"], 30, 3.1
+        web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"], 30, 3.1, 0
     )
     yield cc.url
 

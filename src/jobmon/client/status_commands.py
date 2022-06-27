@@ -50,9 +50,10 @@ def workflow_status(
         msg["user"] = getpass.getuser()
     msg["limit"] = limit
 
+    cc = ClientConfig.from_defaults()
     if requester_url is None:
         requester_url = ClientConfig.from_defaults().url
-    requester = Requester(requester_url)
+    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
 
     rc, res = requester.send_request(
         app_route="/workflow_status", message=msg, request_type="get"

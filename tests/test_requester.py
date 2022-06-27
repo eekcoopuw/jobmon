@@ -82,3 +82,26 @@ def test_connection_retry(client_env):
     assert rc == 200
     retrier = good_requester._retry
     assert retrier.statistics["attempt_number"] > 1
+
+
+def test_fail_fast(client_env):
+    """
+    Use the client-env requestor that has max-retries == 0.
+    """
+
+    with pytest.raises(ConnectionError):
+        # TODO How do we construct a requestor from the client config?
+        # How can we ensure that all constructed requestors use max_retries from ClientConfig?
+        # Creating one here is not a fair test
+        # Won't that require changing every instantiation point?
+        failed_requester = RequesterMock(client_env, max_retries=1, stop_after_delay=2)
+        failed_requester.send_request("/time", {}, "get")
+
+    # Use defaults of 10 second backoff, 2 min max wait
+    good_requester = RequesterMock(client_env)
+    rc, resp = good_requester.send_request(
+        "/time", {}, "get"
+    )  # No connectionerror raised
+    assert rc == 200
+    retrier = good_requester._retry
+    assert retrier.statistics["attempt_number"] > 1
