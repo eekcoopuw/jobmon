@@ -3,6 +3,7 @@ import platform
 
 import pytest
 
+from jobmon.client.client_config import ClientConfig
 from jobmon.test_utils import test_server_config, WebServerProcess, ephemera_db_instance
 
 logger = logging.getLogger(__name__)
@@ -41,15 +42,24 @@ def db_cfg(ephemera) -> dict:
     return test_server_config(ephemera)
 
 
+def no_retry_client_config() -> ClientConfig:
+    cc = ClientConfig.from_defaults()
+    """If no special config, set to default values."""
+    cc.tenacity_max_retries = 0
+    print("Monkey-patch ClientConfig")
+    return cc
+
+
 @pytest.fixture(scope="function")
 def client_env(web_server_process, monkeypatch):
 
-    monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
-    monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
-
     from jobmon.client.client_config import ClientConfig
 
-    # Set tenacity max_retries to zero
+    monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
+    monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
+    monkeypatch.setattr(ClientConfig, "from_defaults", no_retry_client_config)
+
+    # Hmm, this instance is thrown away.
     cc = ClientConfig(
         web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"], 30, 3.1, 0
     )

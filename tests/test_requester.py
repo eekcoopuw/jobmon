@@ -5,6 +5,7 @@ import pytest
 from tenacity import stop_after_attempt
 from requests import ConnectionError
 
+from jobmon.client.client_config import ClientConfig
 from jobmon.requester import Requester
 
 
@@ -90,18 +91,8 @@ def test_fail_fast(client_env):
     """
 
     with pytest.raises(ConnectionError):
-        # TODO How do we construct a requestor from the client config?
-        # How can we ensure that all constructed requestors use max_retries from ClientConfig?
-        # Creating one here is not a fair test
-        # Won't that require changing every instantiation point?
-        failed_requester = RequesterMock(client_env, max_retries=1, stop_after_delay=2)
-        failed_requester.send_request("/time", {}, "get")
+        cc = ClientConfig.from_defaults()
+        requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+        requester.send_request("/no-route-should-fail", {}, "get")
+        assert False
 
-    # Use defaults of 10 second backoff, 2 min max wait
-    good_requester = RequesterMock(client_env)
-    rc, resp = good_requester.send_request(
-        "/time", {}, "get"
-    )  # No connectionerror raised
-    assert rc == 200
-    retrier = good_requester._retry
-    assert retrier.statistics["attempt_number"] > 1
