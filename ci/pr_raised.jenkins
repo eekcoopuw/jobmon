@@ -9,14 +9,14 @@ pipeline {
           $class: 'BitBucketPPRPullRequestServerTriggerFilter',
           actionFilter: [
             $class: 'BitBucketPPRPullRequestServerCreatedActionFilter',
-            allowedBranches: ''
+            allowedBranches: 'feature/GBDSCI-4696_jobmon_core_pr_raised'
           ]
         ],
         [
           $class: 'BitBucketPPRPullRequestServerTriggerFilter',
           actionFilter: [
             $class: 'BitBucketPPRPullRequestServerSourceUpdatedActionFilter',
-            allowedBranches: ''
+            allowedBranches: 'feature/GBDSCI-4696_jobmon_core_pr_raised'
           ]
         ]
       ]
