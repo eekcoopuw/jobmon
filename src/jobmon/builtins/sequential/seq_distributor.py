@@ -1,8 +1,10 @@
 """Sequential distributor that runs one task at a time."""
 from collections import OrderedDict
+from contextlib import ExitStack, redirect_stdout, redirect_stderr
 import logging
 import os
 import shutil
+import sys
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from jobmon.cluster_type import ClusterDistributor, ClusterWorkerNode
@@ -132,9 +134,25 @@ class SequentialDistributor(ClusterDistributor):
 
         # run the job and log the exit code
         try:
-            cli = WorkerNodeCLI()
-            args = cli.parse_args(command)
-            exit_code = cli.run_task_instance(args)
+            redirect_io = {"stderr": redirect_stderr, "stdout": redirect_stdout}
+            with ExitStack() as stack:
+
+                # redirect error and output to files or null
+                for io_type, redirect_manager in redirect_io.items():
+                    try:
+                        fname = requested_resources[io_type]["job"].format(
+                            name=name, type=io_type, distributor_id=distributor_id
+                        )
+                        f = stack.enter_context(open(fname, "w"))
+                        stack.enter_context(redirect_manager(f))
+                    except KeyError:
+                        pass
+
+                # run command
+                cli = WorkerNodeCLI()
+                args = cli.parse_args(command)
+                exit_code = cli.run_task_instance_job(args)
+
         except SystemExit as e:
             if e.code == ReturnCodes.WORKER_NODE_CLI_FAILURE:
                 exit_code = e.code

@@ -2,7 +2,9 @@
 from functools import partial
 from io import TextIOBase
 import logging
+import logging.config
 import os
+from pathlib import Path
 from queue import Queue
 import signal
 import socket
@@ -28,9 +30,9 @@ class WorkerNodeTaskInstance:
     def __init__(
         self,
         cluster_interface: ClusterWorkerNode,
-        task_instance_id: Optional[int] = None,
-        array_id: Optional[int] = None,
-        batch_number: Optional[int] = None,
+        task_instance_id: int,
+        stdout: Optional[Path] = None,
+        stderr: Optional[Path] = None,
         heartbeat_interval: int = 90,
         report_by_buffer: float = 3.1,
         command_interrupt_timeout: int = 10,
@@ -53,8 +55,8 @@ class WorkerNodeTaskInstance:
         """
         # identity attributes
         self._task_instance_id = task_instance_id
-        self._array_id = array_id
-        self._batch_number = batch_number
+        self.stdout = stdout
+        self.stderr = stderr
 
         # service API
         if requester is None:
@@ -66,30 +68,6 @@ class WorkerNodeTaskInstance:
 
         # get distributor id from executor
         self._distributor_id = self.cluster_interface.distributor_id
-
-        # get task_instance_id for array task
-        if self._task_instance_id is None:
-            if self._array_id is None:
-                raise ValueError("Neither task_instance_id nor array_id were provided.")
-
-                # Always assumed to be a value in the range [1, len(array)]
-            array_step_id = self.cluster_interface.array_step_id
-
-            # Fetch from the database
-            app_route = (
-                f"/get_array_task_instance_id/"
-                f"{self._array_id}/{self._batch_number}/{array_step_id}"
-            )
-            rc, resp = self.requester.send_request(
-                app_route=app_route, message={}, request_type="get"
-            )
-            if http_request_ok(rc) is False:
-                raise InvalidResponse(
-                    f"Unexpected status code {rc} from POST "
-                    f"request through route {app_route}. Expected code "
-                    f"200. Response content: {rc}"
-                )
-            self._task_instance_id = resp["task_instance_id"]
 
         # config
         self.heartbeat_interval = heartbeat_interval
@@ -154,11 +132,41 @@ class WorkerNodeTaskInstance:
         return self._proc.returncode
 
     @property
-    def stderr(self) -> str:
+    def proc_stderr(self) -> str:
         """Returns the final 10k characters of the stderr from the command."""
         if not hasattr(self, "_proc"):
             raise AttributeError("Cannot access stderr until command has run.")
-        return self._stderr
+        return self._proc_stderr
+
+    def configure_logging(self) -> None:
+        """Setup logging for the worker node. INFO level goes to standard out."""
+        _DEFAULT_LOG_FORMAT = (
+            "%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s: %(message)s"
+        )
+        logging_config: Dict = {
+            "version": 1,
+            "disable_existing_loggers": True,
+            "formatters": {
+                "default": {"format": _DEFAULT_LOG_FORMAT, "datefmt": "%Y-%m-%d %H:%M:%S"}
+            },
+            "handlers": {
+                "default": {
+                    "level": "INFO",
+                    "class": "logging.StreamHandler",
+                    "formatter": "default",
+                    "stream": sys.stdout,
+                },
+
+            },
+            "loggers": {
+                "jobmon.worker_node": {
+                    "handlers": ["default"],
+                    "propagate": False,
+                    "level": "INFO",
+                },
+            }
+        }
+        logging.config.dictConfig(logging_config)
 
     def log_done(self) -> None:
         """Tell the JobStateManager that this task_instance is done."""
@@ -171,7 +179,7 @@ class WorkerNodeTaskInstance:
 
         app_route = f"/task_instance/{self.task_instance_id}/log_done"
         return_code, response = self.requester.send_request(
-            app_route=f"/task_instance/{self.task_instance_id}/log_done",
+            app_route=app_route,
             message=message,
             request_type="post",
         )
@@ -315,13 +323,14 @@ class WorkerNodeTaskInstance:
                 self.command,
                 env=os.environ.copy(),
                 stderr=subprocess.PIPE,
+                stdout=sys.stdout,
                 shell=True,
                 universal_newlines=True,
             )
 
             # open thread for reading stderr eagerly otherwise process will deadlock if the
             # pipe fills up
-            self._stderr = ""
+            self._proc_stderr = ""
             self._err_q: Queue = Queue()  # queues for returning stderr to main thread
             err_thread = Thread(
                 target=enqueue_stderr, args=(self._proc.stderr, self._err_q)
@@ -362,13 +371,13 @@ class WorkerNodeTaskInstance:
                     self._proc.wait(timeout=self.command_interrupt_timeout)
 
                 self._collect_stderr()
-                logger.info(f"Collected stderr after termination: {self.stderr}")
+                logger.info(f"Collected stderr after termination: {self.proc_stderr}")
 
             # log an error with db if we are in K state
             if self.status == TaskInstanceStatus.KILL_SELF:
                 msg = (
                     f"Command: {self.command} got KILL_SELF signal. Collected stderr after "
-                    f"interrupt.\n{self.stderr}"
+                    f"interrupt.\n{self.proc_stderr}"
                 )
                 error_state = TaskInstanceStatus.ERROR_FATAL
 
@@ -386,10 +395,10 @@ class WorkerNodeTaskInstance:
                 self.log_done()
             else:
                 logger.info(
-                    f"Command: {self.command}\n Failed with stderr:\n {self.stderr}"
+                    f"Command: {self.command}\n Failed with stderr:\n {self.proc_stderr}"
                 )
                 error_state, msg = self.cluster_interface.get_exit_info(
-                    self.command_return_code, self.stderr
+                    self.command_return_code, self.proc_stderr
                 )
                 self.log_error(error_state, msg)
 
@@ -423,9 +432,9 @@ class WorkerNodeTaskInstance:
         # pull stderr off queue and clip at 10k to avoid mysql has gone away errors
         # when posting long messages and keep memory low
         while not self._err_q.empty():
-            self._stderr += self._err_q.get()
-        if len(self._stderr) >= 10000:
-            self._stderr = self._stderr[-10000:]
+            self._proc_stderr += self._err_q.get()
+        if len(self._proc_stderr) >= 10000:
+            self._proc_stderr = self._proc_stderr[-10000:]
 
 
 def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:

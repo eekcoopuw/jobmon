@@ -20,7 +20,7 @@ class DistributorCommand:
         self._kwargs = kwargs
         self.error_raised = False
 
-    def __call__(self, raise_on_error: bool = False) -> None:
+    def __call__(self, raise_on_error: bool = True) -> None:
         try:
             self._func(*self._args, **self._kwargs)
         except Exception as e:

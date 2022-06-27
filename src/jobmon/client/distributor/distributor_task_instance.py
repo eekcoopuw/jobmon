@@ -44,6 +44,10 @@ class DistributorTaskInstance:
         self.requester = requester
 
     @property
+    def submission_name(self) -> str:
+        return str(self.task_instance_id)
+
+    @property
     def batch(self) -> TaskInstanceBatch:
         """Returns the batch the DistributorTaskInstance is in."""
         return self._batch
