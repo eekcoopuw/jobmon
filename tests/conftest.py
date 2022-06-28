@@ -42,14 +42,6 @@ def db_cfg(ephemera) -> dict:
     return test_server_config(ephemera)
 
 
-def no_retry_client_config() -> ClientConfig:
-    cc = ClientConfig.from_defaults()
-    """If no special config, set to default values."""
-    cc.tenacity_max_retries = 0
-    print("Monkey-patch ClientConfig")
-    return cc
-
-
 @pytest.fixture(scope="function")
 def client_env(web_server_process, monkeypatch):
 
@@ -57,9 +49,10 @@ def client_env(web_server_process, monkeypatch):
 
     monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
     monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
-    monkeypatch.setattr(ClientConfig, "from_defaults", no_retry_client_config)
+    monkeypatch.setenv("TENACITY_MAX_RETRIES", "0")
 
-    # Hmm, this instance is thrown away.
+    # This instance is thrown away, hence monkey-patching the defaults via the
+    # environment variables
     cc = ClientConfig(
         web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"], 30, 3.1, 0
     )

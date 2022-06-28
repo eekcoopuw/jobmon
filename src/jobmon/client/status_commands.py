@@ -52,7 +52,7 @@ def workflow_status(
 
     cc = ClientConfig.from_defaults()
     if requester_url is None:
-        requester_url = ClientConfig.from_defaults().url
+        requester_url = cc.url
     requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
 
     rc, res = requester.send_request(
@@ -92,9 +92,10 @@ def workflow_tasks(
         msg["status"] = [i.upper() for i in status]
     msg["limit"] = limit
 
+    cc = ClientConfig.from_defaults()
     if requester_url is None:
-        requester_url = ClientConfig.from_defaults().url
-    requester = Requester(requester_url)
+        requester_url = cc.url
+    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
 
     rc, res = requester.send_request(
         app_route=f"/workflow/{workflow_id}/workflow_tasks",
@@ -145,9 +146,10 @@ def task_template_resources(
     if ci:
         message["ci"] = ci
 
+    cc = ClientConfig.from_defaults()
     if requester_url is None:
-        requester_url = ClientConfig.from_defaults().url
-    requester = Requester(requester_url)
+        requester_url = cc.url
+    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
 
     app_route = "/task_template_resource_usage"
     return_code, response = requester.send_request(
@@ -200,9 +202,10 @@ def task_status(
     if status:
         msg["status"] = [i.upper() for i in status]
 
+    cc = ClientConfig.from_defaults()
     if requester_url is None:
-        requester_url = ClientConfig.from_defaults().url
-    requester = Requester(requester_url)
+        requester_url = cc.url
+    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
 
     rc, res = requester.send_request(
         app_route="/task_status", message=msg, request_type="get"
@@ -229,9 +232,10 @@ def concurrency_limit(
     """
     msg = {"max_tasks": max_tasks}
 
+    cc = ClientConfig.from_defaults()
     if requester_url is None:
-        requester_url = ClientConfig.from_defaults().url
-    requester = Requester(requester_url)
+        requester_url = cc.url
+    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
 
     _, resp = requester.send_request(
         app_route=f"/workflow/{workflow_id}/update_max_concurrently_running",
@@ -282,9 +286,10 @@ def update_task_status(
             (upstream if new_status == 'D'; downstream if new_status == 'G').
         requester_url: optional.
     """
+    cc = ClientConfig.from_defaults()
     if requester_url is None:
-        requester_url = ClientConfig.from_defaults().url
-    requester = Requester(requester_url)
+        requester_url = cc.url
+    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
 
     # Validate the username is appropriate
     user = getpass.getuser()
@@ -379,7 +384,8 @@ def get_sub_task_tree(
     """Get the sub_tree from tasks to ensure that they end up in the right states."""
     # This is to make the test case happy. Otherwise, requester should not be None.
     if requester is None:
-        requester = Requester(ClientConfig.from_defaults().url)
+        cc = ClientConfig.from_defaults()
+        requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
     # Valid input
     rc, res = requester.send_request(
         app_route="/task/subdag",
@@ -395,9 +401,10 @@ def get_sub_task_tree(
 def get_task_dependencies(task_id: int, requester_url: Optional[str] = None) -> dict:
     """Get the upstream and down stream of a task."""
     # This is to make the test case happy. Otherwise, requester should not be None.
+    cc = ClientConfig.from_defaults()
     if requester_url is None:
-        requester_url = ClientConfig.from_defaults().url
-    requester = Requester(requester_url)
+        requester_url = cc.url
+    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
     # Valid input
     rc, res = requester.send_request(
         app_route=f"/task_dependencies/{task_id}", message={}, request_type="get"
@@ -423,9 +430,10 @@ def workflow_reset(workflow_id: int, requester_url: Optional[str] = None) -> str
         workflow_id: the workflow id to be reset.
         requester_url: the url.
     """
+    cc = ClientConfig.from_defaults()
     if requester_url is None:
-        requester_url = ClientConfig.from_defaults().url
-    requester = Requester(requester_url)
+        requester_url = cc.url
+    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
 
     username = getpass.getuser()
 
@@ -571,9 +579,10 @@ def create_resource_yaml(
     requester_url: Optional[str] = None,
 ) -> str:
     """The method to create resource yaml."""
+    cc = ClientConfig.from_defaults()
     if requester_url is None:
-        requester_url = ClientConfig.from_defaults().url
-    requester = Requester(requester_url)
+        requester_url = cc.url
+    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
 
     ttvis_dic = _get_yaml_data(wfid, tid, v_mem, v_core, v_runtime, requester)
     yaml = _create_yaml(ttvis_dic, clusters)
@@ -588,9 +597,10 @@ def get_filepaths(
     requester_url: str = "",
 ) -> dict:
     """Allows users to get the stdout/stderr paths of their tasks."""
-    if not requester_url:
-        requester_url = ClientConfig.from_defaults().url
-    requester = Requester(requester_url)
+    cc = ClientConfig.from_defaults()
+    if requester_url is None:
+        requester_url = cc.url
+    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
 
     app_route = f"/array/{workflow_id}/get_array_tasks"
     rc, resp = requester.send_request(

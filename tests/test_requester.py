@@ -90,9 +90,10 @@ def test_fail_fast(client_env):
     Use the client-env requestor that has max-retries == 0.
     """
 
-    with pytest.raises(ConnectionError):
-        cc = ClientConfig.from_defaults()
-        requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
-        requester.send_request("/no-route-should-fail", {}, "get")
-        assert False
+    cc = ClientConfig.from_defaults()
+    requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+    rc, resp = requester.send_request("/no-route-should-fail", {}, "get")
+    assert rc == 404
+    tries = requester._retry.statistics['attempt_number']
+    assert tries == 1
 
