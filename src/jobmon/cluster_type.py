@@ -203,7 +203,7 @@ class ClusterDistributor(Protocol):
     @abstractmethod
     def submit_to_batch_distributor(
         self, command: str, name: str, requested_resources: Dict[str, Any]
-    ) -> Tuple[str, str, str]:
+    ) -> Tuple[str, Optional[str], Optional[str]]:
         """Submit the command on the cluster technology and return a distributor_id.
 
         The distributor_id can be used to identify the associated TaskInstance, terminate
@@ -228,7 +228,7 @@ class ClusterDistributor(Protocol):
         name: str,
         requested_resources: Dict[str, Any],
         array_length: int,
-    ) -> Dict[int, Tuple[str, str, str]]:
+    ) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
         """Submit an array task to the underlying distributor and return a distributor_id.
 
         The distributor ID represents the ID of the overall array job, sub-tasks will have

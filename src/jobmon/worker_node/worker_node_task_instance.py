@@ -240,6 +240,8 @@ class WorkerNodeTaskInstance:
             "nodename": self.nodename,
             "process_group_id": str(self.process_group_id),
             "next_report_increment": (self.heartbeat_interval * self.report_by_buffer),
+            "stdout": str(self.stdout) if self.stdout is not None else None,
+            "stderr": str(self.stderr) if self.stderr is not None else None
         }
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)

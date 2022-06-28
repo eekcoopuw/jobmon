@@ -291,7 +291,7 @@ class MultiprocessDistributor(ClusterDistributor):
         command: str,
         name: str,
         requested_resources: Dict[str, Any],
-    ):
+    ) -> Tuple[str, Optional[str], Optional[str]]:
         distributor_id = str(self._next_job_id)
         self._next_job_id += 1
 
@@ -314,7 +314,7 @@ class MultiprocessDistributor(ClusterDistributor):
         )
         self.task_queue.put(task)
         self._running_or_submitted.update({distributor_id: None})
-        return distributor_id, logfiles.get("stdout", ""), logfiles.get("stderr", "")
+        return distributor_id, logfiles.get("stdout", None), logfiles.get("stderr", None)
 
     def submit_array_to_batch_distributor(
         self,
@@ -322,7 +322,7 @@ class MultiprocessDistributor(ClusterDistributor):
         name: str,
         requested_resources: Dict[str, Any],
         array_length: int,
-    ) -> Dict[int, Tuple[str, str, str]]:
+    ) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
         """Submit an array task to the multiprocess cluster.
 
         Return: a mapping of array_step_id to distributor_id, output path, and error path
@@ -345,7 +345,7 @@ class MultiprocessDistributor(ClusterDistributor):
                 except KeyError:
                     pass
             mapping[array_step_id] = (
-                distributor_id, logfiles.get("stdout", ""), logfiles.get("stderr", "")
+                distributor_id, logfiles.get("stdout", None), logfiles.get("stderr", None)
             )
 
             task = PickableTask(

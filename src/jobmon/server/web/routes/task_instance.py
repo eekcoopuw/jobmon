@@ -1,9 +1,7 @@
 """Routes for TaskInstances."""
-import ast
 from functools import partial
 from http import HTTPStatus as StatusCodes
-import json
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from flask import jsonify, request
 import sqlalchemy
@@ -74,6 +72,8 @@ def log_running(task_instance_id: int) -> Any:
     if data.get("nodename", None) is not None:
         task_instance.nodename = data["nodename"]
     task_instance.process_group_id = data["process_group_id"]
+    task_instance.stdout = data["stdout"]
+    task_instance.stderr = data["stderr"]
     try:
         task_instance.transition(TaskInstanceStatus.RUNNING)
         task_instance.report_by_date = func.ADDTIME(

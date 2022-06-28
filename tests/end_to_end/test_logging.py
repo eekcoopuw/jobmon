@@ -79,13 +79,15 @@ def test_multiprocess_logging(tool, task_template, tmp_path):
         requester=workflow.requester,
         raise_on_error=True,
     )
-    distributor_service.cluster_interface.start()
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
 
     distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+    breakpoint()
+
+    distributor_service.cluster_interface.start()
 
     counter = 0
     while distributor_service.cluster_interface.get_submitted_or_running():

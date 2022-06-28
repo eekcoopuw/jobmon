@@ -125,7 +125,7 @@ class SequentialDistributor(ClusterDistributor):
         command: str,
         name: str,
         requested_resources: Dict[str, Any],
-    ) -> Tuple[str, str, str]:
+    ) -> Tuple[str, Optional[str], Optional[str]]:
         """Execute sequentially."""
         # add an executor id to the environment
         os.environ["JOB_ID"] = str(self._next_distributor_id)
@@ -134,6 +134,7 @@ class SequentialDistributor(ClusterDistributor):
 
         # run the job and log the exit code
         try:
+            logfiles: Dict[str, Optional[str]] = {}
             redirect_io = {"stderr": redirect_stderr, "stdout": redirect_stdout}
             with ExitStack() as stack:
 
@@ -143,10 +144,11 @@ class SequentialDistributor(ClusterDistributor):
                         fname = requested_resources[io_type]["job"].format(
                             name=name, type=io_type, distributor_id=distributor_id
                         )
+                        logfiles[io_type] = fname
                         f = stack.enter_context(open(fname, "w"))
                         stack.enter_context(redirect_manager(f))
                     except KeyError:
-                        pass
+                        logfiles[io_type] = None
 
                 # run command
                 cli = WorkerNodeCLI()
@@ -160,7 +162,7 @@ class SequentialDistributor(ClusterDistributor):
                 raise
 
         self._exit_info[distributor_id] = exit_code
-        return str(distributor_id), "", ""
+        return str(distributor_id), logfiles["stdout"], logfiles["stderr"]
 
 
 class SequentialWorkerNode(ClusterWorkerNode):

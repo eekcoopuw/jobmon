@@ -27,8 +27,8 @@ class WorkerNodeCLI(CLI):
         """Configuration for the jobmon worker node."""
         from jobmon import __version__
         from jobmon.exceptions import ReturnCodes
-        from jobmon.worker_node.start import WorkerNodeFactory
         from jobmon.worker_node.worker_node_config import WorkerNodeConfig
+        from jobmon.worker_node.worker_node_factory import WorkerNodeFactory
 
         if __version__ != args.expected_jobmon_version:
             msg = (
@@ -65,8 +65,8 @@ class WorkerNodeCLI(CLI):
         """Configuration for the jobmon worker node."""
         from jobmon import __version__
         from jobmon.exceptions import ReturnCodes
-        from jobmon.worker_node.start import WorkerNodeFactory
         from jobmon.worker_node.worker_node_config import WorkerNodeConfig
+        from jobmon.worker_node.worker_node_factory import WorkerNodeFactory
 
         if __version__ != args.expected_jobmon_version:
             msg = (
