@@ -31,6 +31,10 @@ pipeline {
   } // End environment
   stages {
     stage('Merge Branches') {
+        script {
+            echo "${BITBUCKET_SOURCE_BRANCH}"
+            echo "${BITBUCKET_TARGET_BRANCH}"
+        }
       steps {
         checkout scm: BbS(
           branches: [[name: '${BITBUCKET_SOURCE_BRANCH}']],
