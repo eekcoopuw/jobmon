@@ -16,7 +16,8 @@ def test_sequential_logging(tool, task_template, tmp_path):
     t1 = task_template.create_task(arg="echo 'hello world'", name="stdout_task",
                                    compute_resources={"stdout": f"{str(tmp_path)}"})
     t2 = task_template.create_task(arg="foobar", name="stderr_task",
-                                   compute_resources={"stderr": f"{str(tmp_path)}"})
+                                   compute_resources={"stderr": f"{str(tmp_path)}"},
+                                   upstream_tasks=[t1])
     workflow.add_tasks([t1, t2])
     workflow.bind()
     wfr = workflow._create_workflow_run()
@@ -45,6 +46,15 @@ def test_sequential_logging(tool, task_template, tmp_path):
     with open(tmp_path / "stdout_task.o1") as f:
         assert "hello world\n" in f.readlines()
 
+    swarm.synchronize_state()
+    swarm.process_commands()
+
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+
     with open(tmp_path / "stderr_task.e2") as f:
         assert f.readline().rstrip() == "/bin/sh: foobar: command not found"
 
@@ -60,7 +70,8 @@ def test_multiprocess_logging(tool, task_template, tmp_path):
     t1 = task_template.create_task(arg="echo 'hello world'", name="stdout_task",
                                    compute_resources={"stdout": f"{str(tmp_path)}"})
     t2 = task_template.create_task(arg="foobar", name="stderr_task",
-                                   compute_resources={"stderr": f"{str(tmp_path)}"})
+                                   compute_resources={"stderr": f"{str(tmp_path)}"},
+                                   upstream_tasks=[t1])
     workflow.add_tasks([t1, t2])
     workflow.bind()
     wfr = workflow._create_workflow_run()
@@ -79,15 +90,13 @@ def test_multiprocess_logging(tool, task_template, tmp_path):
         requester=workflow.requester,
         raise_on_error=True,
     )
+    distributor_service.cluster_interface.start()
     distributor_service.set_workflow_run(wfr.workflow_run_id)
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
 
     distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
     distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
-    breakpoint()
-
-    distributor_service.cluster_interface.start()
 
     counter = 0
     while distributor_service.cluster_interface.get_submitted_or_running():
@@ -96,10 +105,26 @@ def test_multiprocess_logging(tool, task_template, tmp_path):
         if counter > 10:
             break
 
-    distributor_service.cluster_interface.stop()
-
     with open(tmp_path / "stdout_task.o1_0") as f:
         assert "hello world\n" in f.readlines()
 
+    swarm.synchronize_state()
+    swarm.process_commands()
+
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+
+    counter = 0
+    while distributor_service.cluster_interface.get_submitted_or_running():
+        time.sleep(1)
+        counter += 1
+        if counter > 10:
+            break
+
     with open(tmp_path / "stderr_task.e2_0") as f:
         assert f.readline().rstrip() == "/bin/sh: foobar: command not found"
+
+    distributor_service.cluster_interface.stop()

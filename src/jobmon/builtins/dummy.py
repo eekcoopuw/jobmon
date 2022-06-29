@@ -14,7 +14,7 @@ from jobmon.cluster_type import (
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.worker_node.cli import WorkerNodeCLI
-from jobmon.worker_node.start import get_worker_node_task_instance
+from jobmon.worker_node.worker_node_factory import WorkerNodeFactory
 from jobmon.worker_node.worker_node_config import WorkerNodeConfig
 
 
@@ -108,7 +108,7 @@ class DummyDistributor(ClusterDistributor):
         command: str,
         name: str,
         requested_resources: Dict[str, Any],
-    ) -> Tuple[str, str, str]:
+    ) -> Tuple[str, Optional[str], Optional[str]]:
         """Run a fake execution of the task.
 
         In a real executor, this is where qsub would happen. Here, since it's a dummy executor,
@@ -130,19 +130,19 @@ class DummyDistributor(ClusterDistributor):
             web_service_port=args.web_service_port,
         )
 
-        worker_node_task_instance = get_worker_node_task_instance(
-            task_instance_id=args.task_instance_id,
-            array_id=args.array_id,
-            batch_number=args.batch_number,
+        worker_node_factory = WorkerNodeFactory(
             cluster_name=args.cluster_name,
             worker_node_config=worker_node_config,
         )
-
+        worker_node_task_instance = worker_node_factory.get_job_task_instance(
+            task_instance_id=args.task_instance_id
+        )
+        worker_node_task_instance.configure_logging()
         # Log running, log done, and exit
         worker_node_task_instance.log_running()
         worker_node_task_instance.log_done()
 
-        return str(distributor_id), "", ""
+        return str(distributor_id), None, None
 
     def get_remote_exit_info(self, distributor_id: str) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""

@@ -4,7 +4,6 @@ from contextlib import ExitStack, redirect_stdout, redirect_stderr
 import logging
 import os
 import shutil
-import sys
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 from jobmon.cluster_type import ClusterDistributor, ClusterWorkerNode
