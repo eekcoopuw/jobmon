@@ -41,11 +41,13 @@ pipeline {
                        mergeTarget: '${BITBUCKET_TARGET_BRANCH}']
             ]
           ],
-          id: '8370906b-d076-4301-803f-71015eb58456',
+          // derive this id and serverId from Snippet Generator/Pipeline Syntax, with "bbs_checkout: BitbucketSCMStep" Sample Step
+          // and they are specific to the jenkins instance
+          id: 'df088ae2-55d6-4cb6-9c4b-227f56610811',
           mirrorName: '',
           projectName: 'Scicomp',
           repositoryName: 'jobmon',
-          serverId: '54f3b3a3-5d12-4c80-b568-58b59186132d',
+          serverId: '385a5727-3afb-4ab4-8c38-b7999408e96e',
           sshCredentialsId: 'jenkins'
         )
       } // End step
