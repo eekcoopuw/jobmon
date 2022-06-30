@@ -384,33 +384,42 @@ def get_workflow_status_viz() -> Any:
 @blueprint.route("/workflow_status_viz/<username>", methods=["GET"])
 def workflow_status_by_user(username: str) -> Any:
     """Fetch associated workflows and workflow runs by user name."""
-
+    number_workflows = request.args.get("limit", 30)
     session = SessionLocal()
     with session.begin():
+
+        workflow_subquery = select(
+            Workflow, WorkflowRun
+        ).where(
+            WorkflowRun.user == username,
+            Workflow.id == WorkflowRun.workflow_id,
+        ).order_by(
+            WorkflowRun.id.desc()
+        ).limit(
+            number_workflows
+        ).subquery()
+
         sql = (
             select(
-                Workflow.id,
+                workflow_subquery.c.id,
                 Tool.name,
-                Workflow.name,
-                Workflow.created_date,
+                workflow_subquery.c.name,
+                workflow_subquery.c.created_date,
                 WorkflowStatus.label,
-                WorkflowRun.id,
+                workflow_subquery.c.id_1,
                 WorkflowRunStatus.label,
                 Task.status,
                 func.count(Task.status)
             ).where(
-                WorkflowRun.user == username,
-                WorkflowRun.workflow_id == Workflow.id,
-                Workflow.tool_version_id == ToolVersion.id,
+                workflow_subquery.c.tool_version_id == ToolVersion.id,
                 ToolVersion.tool_id == Tool.id,
-                Task.workflow_id == Workflow.id,
-                Workflow.status == WorkflowStatus.id,
-                WorkflowRun.status == WorkflowRunStatus.id,
+                workflow_subquery.c.status == WorkflowStatus.id,
+                workflow_subquery.c.status_1 == WorkflowRunStatus.id,
+                Task.workflow_id == workflow_subquery.c.id
             ).group_by(
-                Workflow.id, Tool.name, Workflow.name, Workflow.created_date,
-                Workflow.status, WorkflowRun.id, WorkflowRun.status, Task.status
-            ).order_by(
-                Workflow.created_date.desc()
+                workflow_subquery.c.id, Tool.name, workflow_subquery.c.name,
+                workflow_subquery.c.created_date, WorkflowStatus.label,
+                workflow_subquery.c.id_1, WorkflowRunStatus.label, Task.status
             )
         )
         rows = session.execute(sql).all()
@@ -430,7 +439,7 @@ def workflow_status_by_user(username: str) -> Any:
         df, index=column_names[:-2], columns='task_status', values='task_count', fill_value=0
     )
     df_wide.sort_values(by=['wf_id'], ascending=False, inplace=True)
-    df_wide = df_wide.reset_index()[:30]
+    df_wide = df_wide.reset_index()
     # Initialize the missing statuses if needed
     for status_type in _reversed_cli_label_mapping:
         if status_type not in df_wide:
