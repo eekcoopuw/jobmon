@@ -388,65 +388,38 @@ def workflow_status_by_user(username: str) -> Any:
     session = SessionLocal()
     with session.begin():
 
-        workflow_subquery = select(
-            Workflow, WorkflowRun
-        ).where(
-            WorkflowRun.user == username,
-            Workflow.id == WorkflowRun.workflow_id,
-        ).order_by(
-            WorkflowRun.id.desc()
-        ).limit(
-            number_workflows
-        ).subquery()
-
         sql = (
             select(
-                workflow_subquery.c.id,
+                Workflow.id,
                 Tool.name,
-                workflow_subquery.c.name,
-                workflow_subquery.c.created_date,
+                Workflow.name,
+                Workflow.created_date,
                 WorkflowStatus.label,
-                workflow_subquery.c.id_1,
+                WorkflowRun.id,
                 WorkflowRunStatus.label,
-                Task.status,
-                func.count(Task.status)
             ).where(
-                workflow_subquery.c.tool_version_id == ToolVersion.id,
+                WorkflowRun.user == username,
+                WorkflowRun.workflow_id == Workflow.id,
+                Workflow.tool_version_id == ToolVersion.id,
                 ToolVersion.tool_id == Tool.id,
-                workflow_subquery.c.status == WorkflowStatus.id,
-                workflow_subquery.c.status_1 == WorkflowRunStatus.id,
-                Task.workflow_id == workflow_subquery.c.id
-            ).group_by(
-                workflow_subquery.c.id, Tool.name, workflow_subquery.c.name,
-                workflow_subquery.c.created_date, WorkflowStatus.label,
-                workflow_subquery.c.id_1, WorkflowRunStatus.label, Task.status
-            )
+                Workflow.status == WorkflowStatus.id,
+                WorkflowRun.status == WorkflowRunStatus.id,
+            ).order_by(
+                WorkflowRun.id.desc()
+            ).limit(number_workflows)
         )
         rows = session.execute(sql).all()
 
     column_names = ("wf_id", "wf_tool", "wf_name", "wf_submitted_date",
-                    "wf_status", "wfr_id", "wfr_status", "task_status", "task_count")
+                    "wf_status", "wfr_id", "wfr_status")
+    # Initialize all possible states as 0. No need to return data since it will be refreshed
+    # on demand anyways.
+    initial_status_counts = {
+        label_mapping: 0
+        for label_mapping in set(_cli_label_mapping.values())
+    }
+    result = [dict(zip(column_names, row), **initial_status_counts) for row in rows]
 
-    # Convert to a dataframe in order to pivot wide
-    df = pd.DataFrame([wf for wf in rows], columns=column_names)
-
-    # Group the statuses into pending, running, done, and fatal
-    df.replace({"task_status": _cli_label_mapping}, inplace=True)
-
-    # Pivot wide and limit to 30 records to avoid returning thousands of workflows
-    # TODO: make the limit configurable
-    df_wide = pd.pivot_table(
-        df, index=column_names[:-2], columns='task_status', values='task_count', fill_value=0
-    )
-    df_wide.sort_values(by=['wf_id'], ascending=False, inplace=True)
-    df_wide = df_wide.reset_index()
-    # Initialize the missing statuses if needed
-    for status_type in _reversed_cli_label_mapping:
-        if status_type not in df_wide:
-            df_wide[status_type] = 0
-
-    return_dict = df_wide.to_dict(orient='records')
-
-    res = jsonify(workflows=return_dict)
+    res = jsonify(workflows=result)
     res.return_code = StatusCodes.OK
     return res
