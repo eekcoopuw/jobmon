@@ -384,9 +384,10 @@ def get_workflow_status_viz() -> Any:
 @blueprint.route("/workflow_status_viz/<username>", methods=["GET"])
 def workflow_status_by_user(username: str) -> Any:
     """Fetch associated workflows and workflow runs by user name."""
-
+    number_workflows = request.args.get("limit", 30)
     session = SessionLocal()
     with session.begin():
+
         sql = (
             select(
                 Workflow.id,
@@ -396,48 +397,29 @@ def workflow_status_by_user(username: str) -> Any:
                 WorkflowStatus.label,
                 WorkflowRun.id,
                 WorkflowRunStatus.label,
-                Task.status,
-                func.count(Task.status)
             ).where(
                 WorkflowRun.user == username,
                 WorkflowRun.workflow_id == Workflow.id,
                 Workflow.tool_version_id == ToolVersion.id,
                 ToolVersion.tool_id == Tool.id,
-                Task.workflow_id == Workflow.id,
                 Workflow.status == WorkflowStatus.id,
                 WorkflowRun.status == WorkflowRunStatus.id,
-            ).group_by(
-                Workflow.id, Tool.name, Workflow.name, Workflow.created_date,
-                Workflow.status, WorkflowRun.id, WorkflowRun.status, Task.status
             ).order_by(
-                Workflow.created_date.desc()
-            )
+                WorkflowRun.id.desc()
+            ).limit(number_workflows)
         )
         rows = session.execute(sql).all()
 
     column_names = ("wf_id", "wf_tool", "wf_name", "wf_submitted_date",
-                    "wf_status", "wfr_id", "wfr_status", "task_status", "task_count")
+                    "wf_status", "wfr_id", "wfr_status")
+    # Initialize all possible states as 0. No need to return data since it will be refreshed
+    # on demand anyways.
+    initial_status_counts = {
+        label_mapping: 0
+        for label_mapping in set(_cli_label_mapping.values())
+    }
+    result = [dict(zip(column_names, row), **initial_status_counts) for row in rows]
 
-    # Convert to a dataframe in order to pivot wide
-    df = pd.DataFrame([wf for wf in rows], columns=column_names)
-
-    # Group the statuses into pending, running, done, and fatal
-    df.replace({"task_status": _cli_label_mapping}, inplace=True)
-
-    # Pivot wide and limit to 30 records to avoid returning thousands of workflows
-    # TODO: make the limit configurable
-    df_wide = pd.pivot_table(
-        df, index=column_names[:-2], columns='task_status', values='task_count', fill_value=0
-    )
-    df_wide.sort_values(by=['wf_id'], ascending=False, inplace=True)
-    df_wide = df_wide.reset_index()[:30]
-    # Initialize the missing statuses if needed
-    for status_type in _reversed_cli_label_mapping:
-        if status_type not in df_wide:
-            df_wide[status_type] = 0
-
-    return_dict = df_wide.to_dict(orient='records')
-
-    res = jsonify(workflows=return_dict)
+    res = jsonify(workflows=result)
     res.return_code = StatusCodes.OK
     return res
