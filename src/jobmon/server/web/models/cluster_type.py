@@ -11,6 +11,7 @@ class ClusterType(DB.Model):
     id = DB.Column(DB.Integer, primary_key=True)
     name = DB.Column(DB.String(255))
     package_location = DB.Column(DB.String(2500))
+    logfile_templates = DB.Column(DB.String(500))
 
     # ORM relationships
     clusters = DB.relationship("Cluster", back_populates="cluster_type")

@@ -13,18 +13,44 @@ from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeTaskInstanceBatch
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
-from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance import TaskInstanceStatus
 from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
 from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.routes import finite_state_machine
+from jobmon.server.web.routes._common import _get_logfile_template
 from jobmon.server.web.server_side_exception import ServerError
 
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
 logger = LocalProxy(partial(get_logger, __name__))
+
+
+@finite_state_machine.route(
+    "/task_instance/<task_instance_id>/logfile_template/<template_type>", methods=["POST"]
+)
+def get_logfile_template(task_instance_id: int, template_type: str):
+
+    select_stmt = select(
+        TaskInstance.task_resources_id, Task.name
+    ).join_from(
+        TaskInstance, Task, TaskInstance.task_id == Task.id
+    ).where(
+        TaskInstance.id == task_instance_id
+    )
+    task_resources_id, task_name = DB.session.execute(select_stmt).fetchone()
+    requested_resources, _ = _get_logfile_template(task_resources_id, template_type)
+
+    log_types = ["stderr", "stdout"]
+    logpaths = {}
+    for log_type in log_types:
+        if log_type in requested_resources:
+            logpaths[log_type] = requested_resources[log_type][template_type]
+
+    resp = jsonify(logpaths=logpaths, task_name=task_name)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @finite_state_machine.route(
@@ -46,6 +72,8 @@ def log_running(task_instance_id: int) -> Any:
     if data.get("nodename", None) is not None:
         task_instance.nodename = data["nodename"]
     task_instance.process_group_id = data["process_group_id"]
+    task_instance.stdout = data["stdout"]
+    task_instance.stderr = data["stderr"]
     try:
         task_instance.transition(TaskInstanceStatus.RUNNING)
         task_instance.report_by_date = func.ADDTIME(
@@ -673,13 +701,9 @@ def instantiate_task_instances() -> Any:
                 int(task_instance_id)
                 for task_instance_id in task_instance_ids.split(",")
             ]
-            array_name_query = select(Array.name).where(Array.id == array_id)
-            result = DB.session.execute(array_name_query).fetchone()
-            array_name = result["name"]
             serialized_batches.append(
                 SerializeTaskInstanceBatch.to_wire(
                     array_id=array_id,
-                    array_name=array_name,
                     array_batch_num=array_batch_num,
                     task_resources_id=task_resources_id,
                     task_instance_ids=task_instance_ids,
