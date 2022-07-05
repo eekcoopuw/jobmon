@@ -392,4 +392,6 @@ Workflow
 
 Graphical User Interface (GUI)
 ##############################
-Coming soon - a read-only GUI that will allow users to see the status of their workflows.
+There is a Jobmon GUI that allows users to see the status of their workflows.
+
+Users can access the GUI at: jobmon-gui.ihme.washington.edu
