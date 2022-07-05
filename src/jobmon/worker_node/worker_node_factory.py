@@ -119,7 +119,7 @@ class WorkerNodeFactory:
             cluster_interface=self._worker_node_interface,
             task_instance_id=task_instance_id,
             stdout=logfiles.get("stdout", None),
-            stderr=logfiles.get("stdout", None),
+            stderr=logfiles.get("stderr", None),
             heartbeat_interval=self._worker_node_config.task_instance_heartbeat_interval,
             report_by_buffer=self._worker_node_config.heartbeat_report_by_buffer,
             requester=requester,
