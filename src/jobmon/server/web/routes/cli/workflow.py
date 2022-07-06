@@ -10,7 +10,10 @@ from sqlalchemy import func, select, update
 import structlog
 
 from jobmon.constants import WorkflowStatus as Statuses
+from jobmon.server.web.models.cluster import Cluster
+from jobmon.server.web.models.queue import Queue
 from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.models.tool import Tool
 from jobmon.server.web.models.tool_version import ToolVersion
 from jobmon.server.web.models.workflow import Workflow
@@ -423,3 +426,39 @@ def workflow_status_by_user(username: str) -> Any:
     res = jsonify(workflows=result)
     res.return_code = StatusCodes.OK
     return res
+
+
+@blueprint.route("/workflow/get_tasks/<workflow_id>", methods=["GET"])
+def get_tasks_from_workflow(workflow_id: int):
+
+    session = SessionLocal()
+
+    with session.begin():
+
+        # Query task table
+        query = select(
+            Task.id,
+            Workflow.dag_id,
+            Task.status,
+            Task.max_attempts,
+            Task.task_resources_id,
+            TaskResources.requested_resources,
+            TaskResources.task_resources_type_id,
+            Cluster.name
+        ).where(
+            Task.workflow_id == workflow_id,
+            Task.task_resources_id == TaskResources.id,
+            TaskResources.queue_id == Queue.id,
+            Queue.cluster_id == Cluster.id
+        )
+
+        res = session.execute(query)
+        resp_dict = {}
+        for row in res:
+            resp_dict[row.task_id] = row[1:]
+
+    resp = jsonify(tasks=resp_dict)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+

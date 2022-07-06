@@ -1,6 +1,7 @@
 """Workflow Run is an distributor instance of a declared workflow."""
 from __future__ import annotations
 
+from collections import defaultdict
 from datetime import datetime
 import logging
 import time
@@ -198,9 +199,7 @@ class WorkflowRun:
             swarm_task = self.tasks[task.task_id]
 
             # assign upstream and downstreams
-            swarm_task.upstream_swarm_tasks = set(
-                [self.tasks[t.task_id] for t in task.upstream_tasks]
-            )
+            swarm_task.num_upstreams = len(task.upstream_tasks)
             swarm_task.downstream_swarm_tasks = set(
                 [self.tasks[t.task_id] for t in task.downstream_tasks]
             )
@@ -219,6 +218,61 @@ class WorkflowRun:
 
         self.last_sync = self._get_current_time()
         self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
+
+    def get_tasks_from_db(self, workflow_id: int):
+        # Just task ids? Separate trip for edges?
+        # Napkin math, btw: completeness guaranteed if there are less than ~660k edges
+        # for any given node. Mariadb longtext is 2^32 - 1 maximum characters, and if each
+        # node_id is ~11 characters plus a whitespace and a comma separator, then we can fit
+        # a theoretical max of about 2^32 / 13 edges in a single field. Not sure what
+        rc, resp = self._requester.send_request(
+            f'/get_tasks/{workflow_id}'
+        )
+
+        # Resp:
+        # {task_id:
+        #      (array_id, status, max_attempts, requested_resources, cluster_name)}
+
+        # populate tasks dict
+        for task_id, resources in task_ids:
+            st = SwarmTask(task_id, task_resources=resources)
+            self.tasks[task_id] = st
+
+        # Get edges in a different route to prevent overload
+        # chunk it
+
+        chunk_size = 500  # TODO: make an arg
+
+        # Create two maps: one to map node -> task_id
+        task_node_id_map: Dict[int, int] = {}
+        # one to map task_id -> Set(downstream node_ids)
+        task_edge_map: Dict[int, Set] = {}
+
+        while task_ids:
+            task_id_chunk = task_ids[:chunk_size]
+            task_ids = task_ids[chunk_size:]
+
+            _, edge_resp = self._requester.send_request(
+                app_route=f'/task/get_downstream_tasks',
+                message={'task_ids': task_id_chunk},
+                request_type='get'
+            )
+
+            for task_id, values in edge_resp:
+                node_id, downstream_node_ids = values
+                task_node_id_map[node_id] = task_id
+                task_edge_map[task_id] = downstream_node_ids
+
+        # Create the dependency graph
+        for task_id, swarm_task in self.tasks.items():
+            downstream_edges = task_edge_map[task_id]
+            for downstream_node_id in downstream_edges:
+                # Select the appropriate task id
+                downstream_task_id = task_node_id_map[downstream_node_id]
+                # Select the swarm task and add it as a dependency
+                downstream_swarm_task = self.tasks[downstream_task_id]
+                swarm_task.downstream_swarm_tasks.add(downstream_swarm_task)
+                downstream_swarm_task.num_upstreams += 1
 
     def run(
         self,

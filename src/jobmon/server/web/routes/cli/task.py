@@ -460,3 +460,35 @@ def _get_tasks_from_nodes(
             if r[1] in task_status:
                 task_dict[r[0]] = r[1]
     return task_dict
+
+
+@blueprint.route("/task/get_downstream_tasks", methods=["GET"])
+def get_downstream_tasks():
+    """Get only the direct downstreams of a task."""
+
+    task_ids = request.args.getlist("task_ids")
+    session = SessionLocal()
+    with session.begin():
+
+        dag_id, *_ = _get_dag_and_wf_id(task_ids[0], session)
+
+        tasks_and_edges = session.execute(
+            select(
+                Task.id,
+                Task.node_id,
+                Edge.downstream_node_ids
+            ).where(
+                Task.id.in_(task_ids),
+                Task.node_id == Edge.node_id,
+                Edge.dag_id == dag_id
+            )
+        ).all()
+
+        result = {
+            row.task_id: [row.node_id, set(row.downstream_node_ids)]
+            for row in tasks_and_edges
+        }
+
+    resp = jsonify(downstream_tasks=result)
+    resp.status_code = StatusCodes.OK
+    return resp
