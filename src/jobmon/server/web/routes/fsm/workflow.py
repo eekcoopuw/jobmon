@@ -9,8 +9,12 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 import structlog
 
+from jobmon.server.web.models.cluster import Cluster
 from jobmon.server.web.models.dag import Dag
+from jobmon.server.web.models.queue import Queue
 from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_resources import TaskResources
+from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
 from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
@@ -367,5 +371,53 @@ def task_status_updates(workflow_id: int) -> Any:
             result_dict[row[0]] = [int(i) for i in row[1].split(",")]
 
     resp = jsonify(tasks_by_status=result_dict, time=str_time)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@blueprint.route("/workflow/<workflow_id>/fetch_workflow_metadata", request_type=["GET"])
+def fetch_workflow_metadata(workflow_id: int):
+    # Query for a workflow object
+    session = SessionLocal()
+    with session.begin():
+        wf = session.execute(
+            select(Workflow).where(Workflow.id == workflow_id)
+        ).scalar()
+
+    resp = jsonify(workflow=wf)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@blueprint.route("/workflow/get_tasks/<workflow_id>", methods=["GET"])
+def get_tasks_from_workflow(workflow_id: int):
+
+    session = SessionLocal()
+
+    with session.begin():
+
+        # Query task table
+        query = select(
+            Task.id,
+            Task.array_id,
+            Task.status,
+            Task.max_attempts,
+            Task.resource_scales,
+            Task.fallback_queues,
+            TaskResources.requested_resources,
+            Cluster.name
+        ).where(
+            Task.workflow_id == workflow_id,
+            Task.task_resources_id == TaskResources.id,
+            TaskResources.queue_id == Queue.id,
+            Queue.cluster_id == Cluster.id,
+            Task.status != TaskStatus.DONE
+        )
+
+        res = session.execute(query)
+        resp_dict = {row.task_id: row[1:]
+                     for row in res}
+
+    resp = jsonify(tasks=resp_dict)
     resp.status_code = StatusCodes.OK
     return resp

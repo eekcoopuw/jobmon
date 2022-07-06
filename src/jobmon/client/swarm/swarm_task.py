@@ -47,7 +47,6 @@ class SwarmTask(object):
         self.array_id = array_id
         self.status = status
 
-        self.upstream_swarm_tasks: Set[SwarmTask] = set()
         self.downstream_swarm_tasks: Set[SwarmTask] = set()
 
         self.current_task_resources = task_resources

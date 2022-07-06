@@ -6,6 +6,8 @@ from typing import Any, Dict, Tuple
 import requests
 import tenacity
 
+from jobmon.exceptions import InvalidResponse
+
 
 logger = logging.getLogger(__name__)
 
@@ -83,6 +85,14 @@ class Requester(object):
             res = self._tenacious_send_request(app_route, message, request_type)
         else:
             res = self._send_request(app_route, message, request_type)
+
+        if not http_request_ok(res[0]):
+            raise InvalidResponse(
+                f"Unexpected status code {res[0]} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {res[1]}"
+            )
+
         return res
 
     def _tenacious_send_request(

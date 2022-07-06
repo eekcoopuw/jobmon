@@ -467,10 +467,9 @@ def get_downstream_tasks():
     """Get only the direct downstreams of a task."""
 
     task_ids = request.args.getlist("task_ids")
+    dag_id = request.args.get("dag_id")
     session = SessionLocal()
     with session.begin():
-
-        dag_id, *_ = _get_dag_and_wf_id(task_ids[0], session)
 
         tasks_and_edges = session.execute(
             select(
