@@ -166,8 +166,8 @@ class Workflow(object):
         self.max_concurrently_running: int = max_concurrently_running
 
         if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
+            cc = ClientConfig.from_defaults()
+            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
         self.requester = requester
 
         self._dag = Dag(requester)

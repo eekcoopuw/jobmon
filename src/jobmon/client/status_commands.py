@@ -594,7 +594,7 @@ def get_filepaths(
     array_name: str = "",
     job_name: str = "",
     limit: int = 5,
-    requester_url: str = "",
+    requester_url: Optional[str] = None,
 ) -> dict:
     """Allows users to get the stdout/stderr paths of their tasks."""
     cc = ClientConfig.from_defaults()
