@@ -384,7 +384,7 @@ def get_workflow_status_viz() -> Any:
 @blueprint.route("/workflow_status_viz/<username>", methods=["GET"])
 def workflow_status_by_user(username: str) -> Any:
     """Fetch associated workflows and workflow runs by username."""
-    number_workflows = request.args.get("limit", 100)
+    number_workflows = request.args.get("limit", 30)
     session = SessionLocal()
     with session.begin():
 
