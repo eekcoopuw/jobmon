@@ -5,6 +5,7 @@ import pytest
 from tenacity import stop_after_attempt
 from requests import ConnectionError
 
+from jobmon.client.client_config import ClientConfig
 from jobmon.requester import Requester
 
 
@@ -82,3 +83,17 @@ def test_connection_retry(client_env):
     assert rc == 200
     retrier = good_requester._retry
     assert retrier.statistics["attempt_number"] > 1
+
+
+def test_fail_fast(client_env):
+    """
+    Use the client-env requestor that has max-retries == 0.
+    """
+
+    cc = ClientConfig.from_defaults()
+    requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+    rc, resp = requester.send_request("/no-route-should-fail", {}, "get")
+    assert rc == 404
+    tries = requester._retry.statistics['attempt_number']
+    assert tries == 1
+

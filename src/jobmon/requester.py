@@ -6,6 +6,7 @@ from typing import Any, Dict, Tuple
 import requests
 import tenacity
 
+from jobmon.client.client_config import ClientConfig
 
 logger = logging.getLogger(__name__)
 
