@@ -95,7 +95,7 @@ location in the deployment architecture. For example, domain objects such as Wor
 are implemented in the database schema, the sqlalchemy model objects, as a wire format,
 and as a stub in the Python client and the experimental R client.
 
-All domain objects are defined in the :doc:`glossary`
+All domain objects are defined in the :doc:`../glossary`
 
 Domain Objects that are mentioned in the Use Cases but are not part of Jobmon:
 
@@ -489,7 +489,7 @@ The containers are organized according to the load they carry, so that they can 
 
 .. The architecture diagrams are SVG, stored in separate files.
 .. SVG is renderable in browsers, and can be edited in inkscape or on draw.io
-.. image:: diagrams/deployment_and_message_flow.svg
+.. image:: ../diagrams/deployment_and_message_flow.svg
 
 
 
