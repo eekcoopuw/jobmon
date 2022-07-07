@@ -221,6 +221,7 @@ class WorkflowRun:
         self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
 
     def from_workflow_id(self, workflow_id: int):
+        # Don't forget to call the set_resume route
         dag_id = self.set_workflow_metadata(workflow_id)
         self.set_tasks_from_db(workflow_id)
         self.set_downstreams_from_db(task_ids=list(self.tasks.keys()), dag_id=dag_id)
@@ -259,8 +260,8 @@ class WorkflowRun:
 
         # populate tasks dict, and arrays registry
         for task_id, metadata in resp.task_ids.json().items():
-            array_id, status, max_attempts, resource_scales, fallback_queues, \
-                requested_resources, cluster_name = metadata
+            array_id, array_concurrency, status, max_attempts, resource_scales, \
+                fallback_queues, requested_resources, cluster_name = metadata
 
             # Construct a queue, a cluster, and a task resources object
             try:
@@ -290,7 +291,11 @@ class WorkflowRun:
 
             # Also create arrays
             if array_id not in self.arrays:
-                array = SwarmArray(array_id)
+                array = SwarmArray(
+                    array_id=array_id,
+                    max_concurrently_running=array_concurrency
+                )
+                self.arrays[array_id] = array
 
     def set_downstreams_from_db(self, task_ids: List[int], dag_id: int, chunk_size: int = 500):
         # Get edges in a different route to prevent overload

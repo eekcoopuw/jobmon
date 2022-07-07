@@ -486,3 +486,36 @@ def test_swarm_terminate(tool):
     assert len(swarm.done_tasks) == 0
     assert len(swarm.failed_tasks) == 1
     assert len(swarm.ready_to_run) == 0
+
+
+def test_resume_from_workflow(tool, task_template, sqlite_file, web_server_in_memory):
+    workflow = tool.create_workflow()
+
+    # Create a small example DAG.
+    #       t1
+    #     /    \
+    #    t2     t3
+    #      \   /
+    #        t4
+    t1 = task_template.create_task(arg='sleep 1')
+    t2 = task_template.create_task(arg='sleep 2', upstream_tasks=[t1])
+    t3 = task_template.create_task(arg='exit 1', upstream_tasks=[t1], max_attempts=1)
+    t4 = task_template.create_task(arg='sleep 4', upstream_tasks=[t2, t3])
+
+    workflow.add_tasks([t1, t2, t3, t4])
+    # Run the workflow. Task 3 should error, task 4 doesn't run.
+    workflow.run()
+    # Task states should be [D, D, F, D] at this point
+
+    # Get wf metdata
+    resp = web_server_in_memory.get(f"/workflow/{workflow.workflow_id}/fetch_workflow_metadata")
+    breakpoint()
+
+    # Test a resumed workflow
+    # workflow._set_workflow_resume()
+    # # Not representative, but just for testing
+    # client_wfr_2 = workflow._create_workflow_run(resume=True)
+    # swarm_resume = SwarmWorkflowRun(client_wfr_2.workflow_run_id)
+    # swarm_resume.from_workflow_id(workflow.workflow_id)
+    breakpoint()
+    assert False

@@ -9,6 +9,7 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 import structlog
 
+from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.cluster import Cluster
 from jobmon.server.web.models.dag import Dag
 from jobmon.server.web.models.queue import Queue
@@ -375,7 +376,7 @@ def task_status_updates(workflow_id: int) -> Any:
     return resp
 
 
-@blueprint.route("/workflow/<workflow_id>/fetch_workflow_metadata", request_type=["GET"])
+@blueprint.route("/workflow/<workflow_id>/fetch_workflow_metadata", methods=["GET"])
 def fetch_workflow_metadata(workflow_id: int):
     # Query for a workflow object
     session = SessionLocal()
@@ -400,6 +401,7 @@ def get_tasks_from_workflow(workflow_id: int):
         query = select(
             Task.id,
             Task.array_id,
+            Array.max_concurrently_running,
             Task.status,
             Task.max_attempts,
             Task.resource_scales,
@@ -411,7 +413,8 @@ def get_tasks_from_workflow(workflow_id: int):
             Task.task_resources_id == TaskResources.id,
             TaskResources.queue_id == Queue.id,
             Queue.cluster_id == Cluster.id,
-            Task.status != TaskStatus.DONE
+            Task.status != TaskStatus.DONE,
+            Task.array_id == Array.id
         )
 
         res = session.execute(query)
