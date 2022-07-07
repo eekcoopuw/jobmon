@@ -49,7 +49,7 @@ class Dag(object):
         """Add a node to this dag.
 
         Args:
-            node (Node): Node to add to the dag
+            node (jobmon.client.node.Node): Node to add to the dag
         """
         # validate node has unique node args within this task template version
         if node in self.nodes:
