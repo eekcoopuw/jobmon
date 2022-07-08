@@ -214,7 +214,7 @@ def requester_in_memory(monkeypatch, web_server_in_memory):
 
     monkeypatch.setattr(requests, "get", get_in_mem)
     monkeypatch.setattr(requests, "post", post_in_mem)
-    monkeypatch.setattr(requests, "put", post_in_mem)
+    monkeypatch.setattr(requests, "put", put_in_mem)
     monkeypatch.setattr(requester, "get_content", get_test_content)
 
 

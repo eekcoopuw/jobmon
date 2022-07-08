@@ -501,9 +501,10 @@ def test_get_task_template_resource_usage(db_engine, tool):
     assert return_code == 200
     assert msg[0] is None
 
+from jobmon.client.api import Tool
 
-def test_get_workflow_status_viz(db_engine, tool):
-    t = tool
+def test_get_workflow_status_viz(requester_in_memory):
+    t = Tool("foo", requester_in_memory)
     wf = t.create_workflow(name="i_am_a_fake_wf")
     tt1 = t.get_task_template(
         template_name="tt_core", command_template="echo {arg}", node_args=["arg"]
@@ -524,7 +525,7 @@ def test_get_workflow_status_viz(db_engine, tool):
 
     app_route = f"/workflow_status_viz"
     return_code, msg = wf.requester.send_request(
-        app_route=app_route, message={"workflow_ids": [wf.workflow_id]}, request_type="post"
+        app_route=app_route, message={"workflow_ids": [wf.workflow_id]}, request_type="get"
     )
     assert return_code == 200
     assert str(wf.workflow_id) in msg.keys()
