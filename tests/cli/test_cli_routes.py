@@ -527,7 +527,7 @@ def test_get_workflow_status_viz(tool):
 
     app_route = "/workflow_status_viz"
     return_code, msg = wf.requester.send_request(
-        app_route=app_route, message={"workflow_ids": wfids}, request_type="get"
+        app_route=app_route, message={"workflow_ids[]": wfids}, request_type="get"
     )
     assert return_code == 200
 

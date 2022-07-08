@@ -361,7 +361,7 @@ def get_workflow_status() -> Any:
 @blueprint.route("/workflow_status_viz", methods=["GET"])
 def get_workflow_status_viz() -> Any:
     """Get the status of the workflows for GUI."""
-    wf_ids = request.args.getlist('workflow_ids')
+    wf_ids = request.args.getlist('workflow_ids[]')
     # return DS
     return_dic = dict()
     for wf_id in wf_ids:
