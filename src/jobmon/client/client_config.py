@@ -19,6 +19,7 @@ class ClientConfig(object):
         ParserDefaults.web_service_port(cli.parser)
         ParserDefaults.workflow_run_heartbeat_interval(cli.parser)
         ParserDefaults.heartbeat_report_by_buffer(cli.parser)
+        ParserDefaults.tenacity_max_retries(cli.parser)
 
         # passing an empty string forces this method to ignore sys.argv
         try:
@@ -32,6 +33,7 @@ class ClientConfig(object):
             port=args.web_service_port,
             workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
             heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
+            tenacity_max_retries=args.tenacity_max_retries,
         )
 
     def __init__(
@@ -40,12 +42,14 @@ class ClientConfig(object):
         port: int,
         workflow_run_heartbeat_interval: Optional[int] = None,
         heartbeat_report_by_buffer: Optional[float] = None,
+        tenacity_max_retries: Optional[int] = 0,
     ) -> None:
         """Initialization of ClientConfig."""
         self.host = host
         self.port = port
         self.workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
         self.heartbeat_report_by_buffer = heartbeat_report_by_buffer
+        self.tenacity_max_retries = tenacity_max_retries
 
     @property
     def url(self) -> str:

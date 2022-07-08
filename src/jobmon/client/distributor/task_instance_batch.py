@@ -8,7 +8,6 @@ from typing import Any, Dict, Set, TYPE_CHECKING
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
-from jobmon.serializers import SerializeTaskResources
 
 if TYPE_CHECKING:
     from jobmon.client.distributor.distributor_task_instance import (
@@ -26,7 +25,6 @@ class TaskInstanceBatch:
         array_batch_num: int,
         task_resources_id: int,
         requester: Requester,
-        array_name: str,
     ) -> None:
         """Initialization of the TaskInstanceBatch object."""
         self.array_id = array_id
@@ -34,8 +32,10 @@ class TaskInstanceBatch:
         self.task_resources_id = task_resources_id
         self.task_instances: Set[DistributorTaskInstance] = set()
         self.requester = requester
-        self.array_name = array_name
-        self.name = f"{array_name}-{array_batch_num}"
+
+    @property
+    def submission_name(self) -> str:
+        return f"{self.array_id}-{self.batch_number}"
 
     @property
     def requested_resources(self) -> Dict:
@@ -53,7 +53,7 @@ class TaskInstanceBatch:
     def load_requested_resources(self) -> None:
         app_route = f"/task_resources/{self.task_resources_id}"
         return_code, response = self.requester.send_request(
-            app_route=app_route, message={}, request_type="get"
+            app_route=app_route, message={}, request_type="post"
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -62,13 +62,10 @@ class TaskInstanceBatch:
                 f"code 200. Response content: {response}"
             )
 
-        task_resources = SerializeTaskResources.kwargs_from_wire(
-            response["task_resources"]
-        )
         self._requested_resources: Dict[str, Any] = ast.literal_eval(
-            task_resources["requested_resources"]
+            str(response["requested_resources"])
         )
-        self._requested_resources["queue"] = task_resources["queue_name"]
+        self._requested_resources["queue"] = response["queue_name"]
 
     def prepare_task_instance_batch_for_launch(self) -> None:
         """Add the current batch number to the current set of registered task instance ids."""

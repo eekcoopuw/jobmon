@@ -43,6 +43,7 @@ _reversed_cli_label_mapping = {
 
 _cli_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
 
+
 @blueprint.route("/workflow_validation", methods=["POST"])
 @cross_origin()
 def get_workflow_validation_status() -> Any:
@@ -360,11 +361,12 @@ def get_workflow_status() -> Any:
 @blueprint.route("/workflow_status_viz", methods=["GET"])
 def get_workflow_status_viz() -> Any:
     """Get the status of the workflows for GUI."""
-    wf_ids = request.args.getlist('workflow_ids[]')  # I can't get rid of []
+    wf_ids = request.args.getlist('workflow_ids')
     # return DS
     return_dic = dict()
     for wf_id in wf_ids:
         return_dic[int(wf_id)] = {'id': int(wf_id), 'tasks': 0, 'PENDING': 0, 'RUNNING': 0, 'DONE': 0, 'FATAL': 0}
+
     session = SessionLocal()
     with session.begin():
         query_filter = [Task.workflow_id.in_(wf_ids)]

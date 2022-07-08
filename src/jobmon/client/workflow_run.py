@@ -49,7 +49,8 @@ class WorkflowRun(object):
         self.user = getpass.getuser()
 
         if requester is None:
-            requester = Requester(ClientConfig.from_defaults().url)
+            cc = ClientConfig.from_defaults()
+            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
         self.requester = requester
         self.heartbeat_interval = workflow_run_heartbeat_interval
         self.heartbeat_report_by_buffer = heartbeat_report_by_buffer

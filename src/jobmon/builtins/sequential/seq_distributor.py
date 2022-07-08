@@ -1,5 +1,6 @@
 """Sequential distributor that runs one task at a time."""
 from collections import OrderedDict
+from contextlib import ExitStack, redirect_stdout, redirect_stderr
 import logging
 import os
 import shutil
@@ -123,7 +124,7 @@ class SequentialDistributor(ClusterDistributor):
         command: str,
         name: str,
         requested_resources: Dict[str, Any],
-    ) -> Tuple[str, str, str]:
+    ) -> Tuple[str, Optional[str], Optional[str]]:
         """Execute sequentially."""
         # add an executor id to the environment
         os.environ["JOB_ID"] = str(self._next_distributor_id)
@@ -132,9 +133,27 @@ class SequentialDistributor(ClusterDistributor):
 
         # run the job and log the exit code
         try:
-            cli = WorkerNodeCLI()
-            args = cli.parse_args(command)
-            exit_code = cli.run_task_instance(args)
+            logfiles: Dict[str, Optional[str]] = {}
+            redirect_io = {"stderr": redirect_stderr, "stdout": redirect_stdout}
+            with ExitStack() as stack:
+
+                # redirect error and output to files or null
+                for io_type, redirect_manager in redirect_io.items():
+                    try:
+                        fname = requested_resources[io_type]["job"].format(
+                            name=name, type=io_type, distributor_id=distributor_id
+                        )
+                        logfiles[io_type] = fname
+                        f = stack.enter_context(open(fname, "w"))
+                        stack.enter_context(redirect_manager(f))
+                    except KeyError:
+                        logfiles[io_type] = None
+
+                # run command
+                cli = WorkerNodeCLI()
+                args = cli.parse_args(command)
+                exit_code = cli.run_task_instance_job(args)
+
         except SystemExit as e:
             if e.code == ReturnCodes.WORKER_NODE_CLI_FAILURE:
                 exit_code = e.code
@@ -142,7 +161,7 @@ class SequentialDistributor(ClusterDistributor):
                 raise
 
         self._exit_info[distributor_id] = exit_code
-        return str(distributor_id), "", ""
+        return str(distributor_id), logfiles["stdout"], logfiles["stderr"]
 
 
 class SequentialWorkerNode(ClusterWorkerNode):

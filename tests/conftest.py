@@ -133,13 +133,16 @@ def db_engine(sqlite_file) -> Engine:
 @pytest.fixture(scope="function")
 def client_env(web_server_process, monkeypatch):
 
-    monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
-    monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
-
     from jobmon.client.client_config import ClientConfig
 
+    monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
+    monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
+    monkeypatch.setenv("TENACITY_MAX_RETRIES", "0")
+
+    # This instance is thrown away, hence monkey-patching the defaults via the
+    # environment variables
     cc = ClientConfig(
-        web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"], 30, 3.1
+        web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"], 30, 3.1, 0
     )
     yield cc.url
 
@@ -211,7 +214,7 @@ def requester_in_memory(monkeypatch, web_server_in_memory):
 
     monkeypatch.setattr(requests, "get", get_in_mem)
     monkeypatch.setattr(requests, "post", post_in_mem)
-    monkeypatch.setattr(requests, "put", post_in_mem)
+    monkeypatch.setattr(requests, "put", put_in_mem)
     monkeypatch.setattr(requester, "get_content", get_test_content)
 
 
