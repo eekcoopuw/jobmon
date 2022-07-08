@@ -50,7 +50,8 @@ def get_logfile_template(task_instance_id: int, template_type: str):
             TaskInstance.id == task_instance_id
         )
         task_resources_id, task_name = session.execute(select_stmt).fetchone()
-        requested_resources, _ = _get_logfile_template(task_resources_id, template_type)
+        requested_resources, _ = _get_logfile_template(task_resources_id, template_type,
+                                                       session)
 
     log_types = ["stderr", "stdout"]
     logpaths = {}
@@ -161,7 +162,7 @@ def log_ti_report_by_batch() -> Any:
     data = cast(Dict, request.get_json())
     tis = data.get("task_instance_ids", None)
 
-    next_report_increment = float(data.get("next_report_increment"))
+    next_report_increment = float(data["next_report_increment"])
 
     logger.debug(f"Log report_by for TI {tis}.")
     if tis:
@@ -522,13 +523,9 @@ def instantiate_task_instances() -> Any:
                 int(task_instance_id)
                 for task_instance_id in task_instance_ids.split(",")
             ]
-            array_name_query = select(Array.name).where(Array.id == array_id)
-            result = session.execute(array_name_query).fetchone()
-            array_name = result["name"]
             serialized_batches.append(
                 SerializeTaskInstanceBatch.to_wire(
                     array_id=array_id,
-                    array_name=array_name,
                     array_batch_num=array_batch_num,
                     task_resources_id=task_resources_id,
                     task_instance_ids=task_instance_ids,
