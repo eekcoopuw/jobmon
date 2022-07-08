@@ -132,6 +132,8 @@ class WorkflowRun:
         # This signal is set if the workflow run receives a resume
         self._terminated = False
 
+        self.initialized = False  # Need to call from_workflow or from_workflow_id
+
     @property
     def status(self) -> str:
         """Status of the workflow run."""
@@ -163,6 +165,10 @@ class WorkflowRun:
         return any_active_tasks
 
     def from_workflow(self, workflow: Workflow) -> None:
+
+        if self.initialized:
+            raise ValueError("Swarm has already been initialized")
+
         self.workflow_id = workflow.workflow_id
         self.max_concurrently_running: int = workflow.max_concurrently_running
 
@@ -221,36 +227,36 @@ class WorkflowRun:
         self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
 
     def from_workflow_id(self, workflow_id: int):
-        # Don't forget to call the set_resume route
-        dag_id = self.set_workflow_metadata(workflow_id)
-        self.set_tasks_from_db(workflow_id)
+        if self.initialized:
+            raise ValueError("Swarm has already been initialized")
+        dag_id = self.set_workflow_metadata()
+        self.set_tasks_from_db()
         self.set_downstreams_from_db(task_ids=list(self.tasks.keys()), dag_id=dag_id)
 
-    def set_workflow_metadata(self, workflow_id: int) -> int:
+    def set_workflow_metadata(self) -> int:
         """Fetch the dag_id and max_concurrently_running parameters of this workflow."""
         _, resp = self._requester.send_request(
-            app_route=f"/workflow/<workflow_id>/fetch_workflow_metadata",
+            app_route=f"/workflow_run/{self.workflow_run_id}/fetch_workflow_metadata",
             message={},
             request_type='get'
         )
 
         database_wf = resp['workflow']
         if database_wf is None:
-            # Better error class?
-            raise ValueError(f"No workflow found for id {workflow_id}")
+            raise ValueError(f"No workflow found for WFR id {self.workflow_run_id}")
 
         self.last_sync = self._get_current_time()
         self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
-        self.workflow_id = workflow_id
+        self.workflow_id = database_wf['workflow_id']
         self.max_concurrently_running = database_wf['max_concurrently_running']
 
         return database_wf['dag_id']
 
-    def set_tasks_from_db(self, workflow_id: int):
+    def set_tasks_from_db(self):
 
         # Fetch metadata
         rc, resp = self._requester.send_request(
-            app_route=f'/workflow/get_tasks/{workflow_id}',
+            app_route=f'/workflow/get_tasks/{self.workflow_id}',
             message={},
             request_type='get'
         )
@@ -321,6 +327,9 @@ class WorkflowRun:
 
             for task_id, values in edge_resp:
                 node_id, downstream_node_ids = values
+                # Assumption: every single node in the downstream edge is not in "D" state
+                # Shouldn't be possible to have a downstream node of a task not in "D" state
+                # that is complete. If it is, we'll raise KeyErrors here
                 task_node_id_map[node_id] = task_id
                 task_edge_map[task_id] = downstream_node_ids
 

@@ -104,6 +104,18 @@ def bind_workflow() -> Any:
                 session.flush()
             newly_created = True
         else:
+            # set mutable attributes. Moved here from the set_resume method
+            workflow.description = description
+            workflow.name = name
+            workflow.max_concurrently_running = max_concurrently_running
+            session.flush()
+
+            # upsert attributes
+            if workflow_attributes:
+                logger.info("Upsert attributes for workflow")
+                if workflow_attributes:
+                    for name, val in workflow_attributes.items():
+                        _upsert_wf_attribute(workflow.id, name, val, session)
             newly_created = False
 
     resp = jsonify(
@@ -218,10 +230,6 @@ def set_resume(workflow_id: int) -> Any:
         data = cast(Dict, request.get_json())
         logger.info("Set resume for workflow")
         reset_running_jobs = bool(data["reset_running_jobs"])
-        description = str(data["description"])
-        name = str(data["name"])
-        max_concurrently_running = int(data["max_concurrently_running"])
-        workflow_attributes = data["workflow_attributes"]
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
@@ -234,23 +242,10 @@ def set_resume(workflow_id: int) -> Any:
         )
         workflow = session.execute(select_stmt).scalars().one()
 
-        # set mutable attribute
-        workflow.description = description
-        workflow.name = name
-        workflow.max_concurrently_running = max_concurrently_running
-        session.flush()
-
         # trigger resume on active workflow run
         workflow.resume(reset_running_jobs)
         session.flush()
         logger.info(f"Resume set for wf {workflow_id}")
-
-        # upsert attributes
-        if workflow_attributes:
-            logger.info("Upsert attributes for workflow")
-            if workflow_attributes:
-                for name, val in workflow_attributes.items():
-                    _upsert_wf_attribute(workflow_id, name, val, session)
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK

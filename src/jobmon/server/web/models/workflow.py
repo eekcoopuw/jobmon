@@ -89,6 +89,7 @@ class Workflow(Base):
         # bind_to_logger(workflow_id=self.id)
         logger.info(f"Transitioning workflow_id from {self.status} to {new_state}")
         if self._is_timely_transition(new_state):
+            # Do we want to log heartbeats when transitions are called?
             self._validate_transition(new_state)
             self.status = new_state
             self.status_date = func.now()
@@ -115,6 +116,13 @@ class Workflow(Base):
         linked_wfr = [
             wfr.status == WorkflowRunStatus.LINKING for wfr in self.workflow_runs
         ]
+        # Purpose of this is to prevent linking additional workflowruns when an existing workflowrun
+        # is already in the process of binding tasks, either a user is impatiently resuming or
+        # a workflowrun is lost.
+
+        # Question: If we remove a linking state, what challenges still exist? We should be able
+        # to allow two simultaneous active workflow runs,
+
         if not any(linked_wfr) and self.ready_to_link:
             workflow_run.heartbeat(next_report_increment, WorkflowRunStatus.LINKING)
             current_wfr = [(workflow_run.id, workflow_run.status)]

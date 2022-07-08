@@ -206,8 +206,9 @@ class Workflow(object):
                     "dictionary of attributes and their values"
                 )
 
-        # Cache for clusters
+        # Cache for clusters and task resources
         self._clusters: Dict[str, Cluster] = {}
+        self._task_resources: Dict[int, TaskResources] = {}
         self.default_cluster_name: str = ""
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
         self.default_resource_scales_set: Dict[str, Dict[str, float]] = {}
@@ -462,6 +463,10 @@ class Workflow(object):
         self.bind()
         logger.info(f"Workflow ID {self.workflow_id} assigned")
 
+        # Bind tasks
+        logger.info("Adding task metadata to database")
+        self._bind_tasks(reset_if_running=reset_running_jobs, chunk_size=self._chunk_size)
+
         # create workflow_run
         logger.info("Adding WorkflowRun metadata to database")
         wfr = self._create_workflow_run(resume, reset_running_jobs, resume_timeout)
@@ -594,15 +599,85 @@ class Workflow(object):
             },
             request_type="post",
         )
-        if http_request_ok(return_code) is False:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from POST request through route "
-                f"{app_route}. Expected code 200. Response content: {response}"
-            )
 
         self._workflow_id = response["workflow_id"]
         self._status = response["status"]
         self._newly_created = response["newly_created"]
+
+    def _bind_tasks(
+        self,
+        reset_if_running: bool = True,
+        chunk_size: int = 500,
+    ) -> None:
+        app_route = "/task/bind_tasks"
+        remaining_task_hashes = list(self.tasks.keys())
+
+        while remaining_task_hashes:
+
+            # No heartbeats needed since workflows don't have liveliness and workflow runs
+            # haven't been created yet
+            # if (time.time() - self._last_heartbeat) > self.heartbeat_interval:
+            #     self._log_heartbeat(
+            #         self.heartbeat_interval * self.heartbeat_report_by_buffer
+            #     )
+
+            # split off first chunk elements from queue.
+            task_hashes_chunk = remaining_task_hashes[:chunk_size]
+            remaining_task_hashes = remaining_task_hashes[chunk_size:]
+
+            # send to server in a format of:
+            # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), array_id(3),
+            # name(4), command(5), max_attempts(6)], reset_if_running(7), task_args(8),
+            # task_attributes(9)}
+            # flat the data structure so that the server won't depend on the client
+            task_metadata: Dict[int, List] = {}
+            for task_hash in task_hashes_chunk:
+                task = self.tasks[task_hash]
+
+                # get array id
+                array = task.array
+                if not array.is_bound:
+                    array.bind()
+
+                # get task resources id
+                self._set_original_task_resources(task)
+
+                task_metadata[task_hash] = [
+                    task.node.node_id,
+                    str(task.task_args_hash),
+                    task.array.array_id,
+                    task.original_task_resources.id,
+                    task.name,
+                    task.command,
+                    task.max_attempts,
+                    reset_if_running,
+                    task.mapped_task_args,
+                    task.task_attributes,
+                    task.resource_scales,
+                    task.fallback_queues,
+                ]
+            parameters = {
+                "workflow_id": self.workflow_id,
+                "tasks": task_metadata,
+            }
+            return_code, response = self.requester.send_request(
+                app_route=app_route,
+                message=parameters,
+                request_type="put",
+            )
+            if http_request_ok(return_code) is False:
+                raise InvalidResponse(
+                    f"Unexpected status code {return_code} from PUT "
+                    f"request through route {app_route}. Expected code "
+                    f"200. Response content: {response}"
+                )
+
+            # populate returned values onto task dict
+            return_tasks = response["tasks"]
+            for k in return_tasks.keys():
+                task = self.tasks[int(k)]
+                task.task_id = return_tasks[k][0]
+                task.initial_status = return_tasks[k][1]
 
     def get_errors(
         self, limit: int = 1000
@@ -641,6 +716,21 @@ class Workflow(object):
             self._clusters[cluster_name] = cluster
         return cluster
 
+    def _set_original_task_resources(self, task: Task) -> None:
+        cluster = self.get_cluster_by_name(task.cluster_name)
+        queue = cluster.get_queue(task.queue_name)
+        task_resources = TaskResources(
+            requested_resources=task.requested_resources, queue=queue
+        )
+
+        try:
+            task_resources = self._task_resources[hash(task_resources)]
+        except KeyError:
+            task_resources.bind()
+            self._task_resources[hash(task_resources)] = task_resources
+
+        task.original_task_resources = task_resources
+
     def _create_workflow_run(
         self,
         resume: bool = False,
@@ -664,8 +754,8 @@ class Workflow(object):
             self._workflow_is_resumable(resume_timeout)
 
         # create workflow run
-        client_wfr = ClientWorkflowRun(workflow=self, requester=self.requester)
-        client_wfr.bind(reset_running_jobs, self._chunk_size)
+        client_wfr = ClientWorkflowRun(workflow_id=self.workflow_id, requester=self.requester)
+        client_wfr.bind()
         self._status = WorkflowStatus.QUEUED
 
         return client_wfr

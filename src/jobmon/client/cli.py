@@ -231,6 +231,15 @@ class ClientCLI(CLI):
             print("Please provide a value for either -w or -t but not both.")
 
     @staticmethod
+    def resume_workflow(args: configargparse.Namespace) -> None:
+        """Resume a workflow from a workflow ID"""
+
+        from jobmon.client.status_commands import resume_workflow_from_id
+        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
+
+        resume_workflow_from_id(args.workflow_id)
+
+    @staticmethod
     def get_filepaths(args: configargparse.Namespace) -> None:
         from tabulate import tabulate
         from jobmon.client.status_commands import get_filepaths
