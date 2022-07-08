@@ -3,7 +3,7 @@ from http import HTTPStatus as StatusCodes
 from typing import Any, cast, Dict
 
 from flask import jsonify, request
-from sqlalchemy import bindparam, func, insert, literal_column, select, update
+from sqlalchemy import bindparam, case, func, insert, literal_column, select, update
 import structlog
 
 from jobmon.constants import TaskInstanceStatus
@@ -227,9 +227,17 @@ def log_array_distributor_id(array_id: int) -> Any:
                 TaskInstance.array_id == array_id,
                 TaskInstance.array_step_id == bindparam("step_id"),
             )
-            .values(distributor_id=bindparam("distributor_id"),
-                    stdout=bindparam("stdout"),
-                    stderr=bindparam("stderr"))
+            .values(
+                distributor_id=bindparam("distributor_id"),
+                stdout=case(
+                    [TaskInstance.stdout.is_(None), bindparam("stdout")],
+                    [TaskInstance.stdout.is_not(None), TaskInstance.stdout],
+                ),
+                stderr=case(
+                    [TaskInstance.stderr.is_(None), bindparam("stderr")],
+                    [TaskInstance.stderr.is_not(None), TaskInstance.stderr],
+                ),
+            )
             .execution_options(synchronize_session=False)
         )
         session.execute(update_stmt, params)

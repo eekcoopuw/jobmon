@@ -14,6 +14,7 @@ class ClusterType(Base):
     id = Column(Integer, primary_key=True)
     name = Column(String(255), unique=True)
     package_location = Column(String(2500))
+    logfile_templates = Column(String(500))
 
     # ORM relationships
     clusters = relationship("Cluster", back_populates="cluster_type")
@@ -24,10 +25,31 @@ class ClusterType(Base):
 
 
 def add_cluster_types(session: Session):
-    statuses = [
-        ClusterType(name='dummy', package_location='jobmon.builtins.dummy'),
-        ClusterType(name='sequential', package_location='jobmon.builtins.sequential'),
-        ClusterType(name='multiprocess', package_location='jobmon.builtins.multiprocess'),
-
+    cluster_types = [
+        ClusterType(
+            name='dummy',
+            package_location='jobmon.builtins.dummy',
+            logfile_templates={}
+        ),
+        ClusterType(
+            name='sequential',
+            package_location='jobmon.builtins.sequential',
+            logfile_templates={
+                "job": {
+                    "stdout": "{root}/{name}.o{distributor_id}",
+                    "stderr": "{root}/{name}.e{distributor_id}"
+                },
+            }
+        ),
+        ClusterType(
+            name='multiprocess',
+            package_location='jobmon.builtins.multiprocess',
+            logfile_templates={
+                "array": {
+                    "stdout": "{root}/{name}.o{distributor_id}",
+                    "stderr": "{root}/{name}.e{distributor_id}"
+                },
+            }
+        ),
     ]
-    session.add_all(statuses)
+    session.add_all(cluster_types)

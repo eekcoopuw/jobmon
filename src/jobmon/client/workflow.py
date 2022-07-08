@@ -166,8 +166,8 @@ class Workflow(object):
         self.max_concurrently_running: int = max_concurrently_running
 
         if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
+            cc = ClientConfig.from_defaults()
+            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
         self.requester = requester
 
         self._dag = Dag(requester)
@@ -507,6 +507,15 @@ class Workflow(object):
         self.last_workflow_run_id = wfr.workflow_run_id
 
         return swarm.status
+
+    def set_task_template_max_concurrency_limit(self, task_template_name: str, limit: int) \
+            -> None:
+        try:
+            array = self.arrays[task_template_name]
+        except Exception:
+            raise KeyError(f"There is no task_template named '{task_template_name}' "
+                           f"associated with this workflow. Workflow name: {self.name}")
+        array.max_concurrently_running = limit
 
     def validate(self, strict: bool = True, raise_on_error: bool = False) -> None:
         """Confirm that the tasks in this workflow are valid.

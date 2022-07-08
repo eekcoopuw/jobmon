@@ -495,7 +495,6 @@ class SerializeTaskInstanceBatch:
         array_batch_num: int,
         task_resources_id: int,
         task_instance_ids: List[int],
-        array_name: str,
     ) -> tuple:
         """"""
         return (
@@ -503,7 +502,6 @@ class SerializeTaskInstanceBatch:
             array_batch_num,
             task_resources_id,
             task_instance_ids,
-            array_name,
         )
 
     @staticmethod
@@ -514,5 +512,4 @@ class SerializeTaskInstanceBatch:
             "array_batch_num": wire_tuple[1],
             "task_resources_id": wire_tuple[2],
             "task_instance_ids": wire_tuple[3],
-            "array_name": wire_tuple[4],
         }

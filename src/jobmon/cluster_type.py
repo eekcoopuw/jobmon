@@ -203,7 +203,7 @@ class ClusterDistributor(Protocol):
     @abstractmethod
     def submit_to_batch_distributor(
         self, command: str, name: str, requested_resources: Dict[str, Any]
-    ) -> Tuple[str, str, str]:
+    ) -> Tuple[str, Optional[str], Optional[str]]:
         """Submit the command on the cluster technology and return a distributor_id.
 
         The distributor_id can be used to identify the associated TaskInstance, terminate
@@ -228,7 +228,7 @@ class ClusterDistributor(Protocol):
         name: str,
         requested_resources: Dict[str, Any],
         array_length: int,
-    ) -> Dict[int, Tuple[str, str, str]]:
+    ) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
         """Submit an array task to the underlying distributor and return a distributor_id.
 
         The distributor ID represents the ID of the overall array job, sub-tasks will have
@@ -260,13 +260,22 @@ class ClusterDistributor(Protocol):
         Returns:
             (str) unwrappable command
         """
-        wrapped_cmd = ["worker_node"]
+        wrapped_cmd = []
         if task_instance_id is not None:
-            wrapped_cmd.extend(["--task_instance_id", str(task_instance_id)])
-        if array_id is not None:
-            wrapped_cmd.extend(["--array_id", str(array_id)])
-        if batch_number is not None:
-            wrapped_cmd.extend(["--batch_number", str(batch_number)])
+            wrapped_cmd.extend(
+                ["worker_node_job", "--task_instance_id", str(task_instance_id)]
+            )
+        elif array_id is not None and batch_number is not None:
+            wrapped_cmd.extend(
+                ["worker_node_array", "--array_id", str(array_id), "--batch_number",
+                 str(batch_number)]
+            )
+        else:
+            raise ValueError(
+                "Must specify either task_instance_id or array_id and batch_number. Got "
+                f"task_instance_id={task_instance_id}, array_id={array_id}, "
+                f"batch_number={batch_number}"
+            )
         wrapped_cmd.extend(
             [
                 "--expected_jobmon_version",

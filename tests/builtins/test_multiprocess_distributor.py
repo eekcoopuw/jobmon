@@ -26,7 +26,7 @@ def test_multiprocess_distributor(
     assert len(dist._running_or_submitted) <= 2
     keys = dist._running_or_submitted.keys()
     for x in keys:
-        assert "." not in x
+        assert "_" not in x
 
     dist.stop()
 
@@ -49,6 +49,6 @@ def test_multiprocess_distributor(
     assert len(dist._running_or_submitted) <= 2 * 3
     keys = dist._running_or_submitted.keys()
     for x in keys:
-        assert "." in x
+        assert "_" in x
 
     dist.stop()

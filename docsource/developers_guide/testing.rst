@@ -2,6 +2,8 @@
 Testing
 *******
 
+TODO: UPDATE AFTER WE SUNSET EPHEMERA
+*************************************
 Nox
 ***
 Jobmon core and both of the plugins use Nox for testing. Nox is a command-line tool that
