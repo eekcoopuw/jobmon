@@ -23,6 +23,80 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+class WorkflowRunFactory:
+    """
+    A utility class responsible for instantiating workflow run objects.
+
+    This class sends the appropriate resume signals so that the parent workflow
+    object is in a state where the newly created workflowrun is ready to run, either on
+    resume or not.
+    """
+
+    def __init__(self, requester: Optional[Requester] = None):
+        if requester is None:
+            requester_url = ClientConfig.from_defaults().url
+            requester = Requester(requester_url)
+        self.requester = requester
+
+    def set_workflow_resume(
+        self, workflow_id: int, reset_running_jobs: bool = True,
+    ) -> None:
+        """Set statuses of the given workflow ID's workflow to a resumable state.
+
+        Move active workflow runs to hot/cold resume states, depending on reset_running_jobs.
+        """
+        app_route = f"/workflow/{workflow_id}/set_resume"
+        self.requester.send_request(
+            app_route=app_route,
+            message={
+                "reset_running_jobs": reset_running_jobs
+            },
+            request_type="post",
+        )
+
+    def workflow_is_resumable(self, workflow_id: int, resume_timeout: int = 300) -> None:
+        # previous workflow exists but is resumable. we will wait till it terminates
+        wait_start = time.time()
+        workflow_is_resumable = False
+        while not workflow_is_resumable:
+            logger.info(
+                f"Waiting for resume. "
+                f"Timeout in {round(resume_timeout - (time.time() - wait_start), 1)}"
+            )
+            app_route = f"/workflow/{workflow_id}/is_resumable"
+            return_code, response = self.requester.send_request(
+                app_route=app_route, message={}, request_type="get"
+            )
+
+            workflow_is_resumable = response.get("workflow_is_resumable")
+            if (time.time() - wait_start) > resume_timeout:
+                raise WorkflowNotResumable(
+                    "workflow_run timed out waiting for previous "
+                    "workflow_run to exit. Try again in a few minutes."
+                )
+            else:
+                sleep_time = round(float(resume_timeout) / 10.0, 1)
+                time.sleep(sleep_time)
+
+    def create_workflow_run(
+        self,
+        workflow_id: int,
+        resume: bool = False,
+        reset_running_jobs: bool = True,
+        resume_timeout: int = 300,
+    ) -> WorkflowRun:
+        # raise error if workflow exists and is done
+        if resume:
+            self.set_workflow_resume(workflow_id, reset_running_jobs)
+            self.workflow_is_resumable(resume_timeout)
+
+        # create workflow run
+        client_wfr = WorkflowRun(workflow_id)
+        client_wfr.bind()
+
+        return client_wfr
+
+
 class WorkflowRun(object):
     """WorkflowRun enables tracking for multiple runs of a single Workflow.
 

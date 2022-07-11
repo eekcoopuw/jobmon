@@ -245,6 +245,28 @@ def set_resume(workflow_id: int) -> Any:
         # trigger resume on active workflow run
         workflow.resume(reset_running_jobs)
         session.flush()
+
+        # Pull tasks and set to the appropriate states
+        workflow_tasks = session.execute(
+            select(
+                Task
+            ).where(
+                Task.workflow_id == workflow_id,
+                Task.status != TaskStatus.DONE
+            )
+        ).all()
+        for task in workflow_tasks:
+            # This reset call doesn't update any task metadata.
+            # Reason is that the metadata will be already set if tasks are created and bound
+            # on a resume attempt, and if not (i.e. CLI resume) then we will preserve
+            # existing task data.
+            task.reset(
+                name=task.name,
+                command=task.command,
+                max_attempts=task.max_attempts,
+                reset_if_running=reset_running_jobs
+            )
+        session.flush()
         logger.info(f"Resume set for wf {workflow_id}")
 
     resp = jsonify()

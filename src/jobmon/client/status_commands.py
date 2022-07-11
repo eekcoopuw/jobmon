@@ -621,6 +621,8 @@ def resume_workflow_from_id(workflow_id: int, reset_if_running: bool = True):
     )
 
     new_wfr = ClientWorkflowRun(workflow_id=workflow_id)
+    new_wfr.set_workflow_resume()
+    new_wfr.workflow_is_resumable()
     new_wfr.bind()
 
     # Create swarm

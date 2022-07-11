@@ -6,7 +6,6 @@ import logging
 import logging.config
 from subprocess import PIPE, Popen, TimeoutExpired
 import sys
-import time
 from types import TracebackType
 from typing import Any, Dict, List, Optional, Sequence, Union
 import uuid
@@ -21,7 +20,7 @@ from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
 from jobmon.client.tool_version import ToolVersion
-from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.cluster import Cluster
 from jobmon.constants import (
     TaskStatus,
@@ -463,6 +462,19 @@ class Workflow(object):
         self.bind()
         logger.info(f"Workflow ID {self.workflow_id} assigned")
 
+        # Check if this workflow is already complete and is runnable
+        if self._status == WorkflowStatus.DONE:
+            raise WorkflowAlreadyComplete(
+                f"Workflow ({self.workflow_id}) is already in done state and cannot be resumed"
+            )
+
+        if not self._newly_created and not resume:
+            raise WorkflowAlreadyExists(
+                "This workflow already exists. If you are trying to resume a workflow, "
+                "please set the resume flag. If you are not trying to resume a workflow, make "
+                "sure the workflow args are unique or the tasks are unique"
+            )
+
         # Bind tasks
         logger.info("Adding task metadata to database")
         self._bind_tasks(reset_if_running=reset_running_jobs, chunk_size=self._chunk_size)
@@ -614,13 +626,6 @@ class Workflow(object):
 
         while remaining_task_hashes:
 
-            # No heartbeats needed since workflows don't have liveliness and workflow runs
-            # haven't been created yet
-            # if (time.time() - self._last_heartbeat) > self.heartbeat_interval:
-            #     self._log_heartbeat(
-            #         self.heartbeat_interval * self.heartbeat_report_by_buffer
-            #     )
-
             # split off first chunk elements from queue.
             task_hashes_chunk = remaining_task_hashes[:chunk_size]
             remaining_task_hashes = remaining_task_hashes[chunk_size:]
@@ -665,12 +670,6 @@ class Workflow(object):
                 message=parameters,
                 request_type="put",
             )
-            if http_request_ok(return_code) is False:
-                raise InvalidResponse(
-                    f"Unexpected status code {return_code} from PUT "
-                    f"request through route {app_route}. Expected code "
-                    f"200. Response content: {response}"
-                )
 
             # populate returned values onto task dict
             return_tasks = response["tasks"]
@@ -731,34 +730,15 @@ class Workflow(object):
 
         task.original_task_resources = task_resources
 
-    def _create_workflow_run(
-        self,
-        resume: bool = False,
-        reset_running_jobs: bool = True,
-        resume_timeout: int = 300,
-    ) -> ClientWorkflowRun:
-        # raise error if workflow exists and is done
-        if self._status == WorkflowStatus.DONE:
-            raise WorkflowAlreadyComplete(
-                f"Workflow ({self.workflow_id}) is already in done state and cannot be resumed"
-            )
-
-        if not self._newly_created and not resume:
-            raise WorkflowAlreadyExists(
-                "This workflow already exists. If you are trying to resume a workflow, "
-                "please set the resume flag. If you are not trying to resume a workflow, make "
-                "sure the workflow args are unique or the tasks are unique"
-            )
-        elif not self._newly_created and resume:
-            self._set_workflow_resume(reset_running_jobs)
-            self._workflow_is_resumable(resume_timeout)
-
-        # create workflow run
-        client_wfr = ClientWorkflowRun(workflow_id=self.workflow_id, requester=self.requester)
-        client_wfr.bind()
-        self._status = WorkflowStatus.QUEUED
-
-        return client_wfr
+    def _create_workflow_run(self, resume: bool = False, reset_running_jobs: bool = True,
+                             resume_timeout: int = 300):
+        workflow_run_factory = WorkflowRunFactory(requester=self.requester)
+        return workflow_run_factory.create_workflow_run(
+            workflow_id=self.workflow_id,
+            resume=resume,
+            reset_running_jobs=reset_running_jobs,
+            resume_timeout=resume_timeout
+        )
 
     def _matching_wf_args_diff_hash(self) -> None:
         """Check that that an existing workflow does not contain different tasks.
@@ -785,55 +765,7 @@ class Workflow(object):
                     " match the workflow you are trying to resume"
                 )
 
-    def _set_workflow_resume(self, reset_running_jobs: bool = True) -> None:
-        app_route = f"/workflow/{self.workflow_id}/set_resume"
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={
-                "reset_running_jobs": reset_running_jobs,
-                "description": self.description,
-                "name": self.name,
-                "max_concurrently_running": self.max_concurrently_running,
-                "workflow_attributes": self.workflow_attributes,
-            },
-            request_type="post",
-        )
-        if http_request_ok(return_code) is False:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from POST "
-                f"request through route {app_route}. Expected "
-                f"code 200. Response content: {response}"
-            )
 
-    def _workflow_is_resumable(self, resume_timeout: int = 300) -> None:
-        # previous workflow exists but is resumable. we will wait till it terminates
-        wait_start = time.time()
-        workflow_is_resumable = False
-        while not workflow_is_resumable:
-            logger.info(
-                f"Waiting for resume. "
-                f"Timeout in {round(resume_timeout - (time.time() - wait_start), 1)}"
-            )
-            app_route = f"/workflow/{self.workflow_id}/is_resumable"
-            return_code, response = self.requester.send_request(
-                app_route=app_route, message={}, request_type="get"
-            )
-            if http_request_ok(return_code) is False:
-                raise InvalidResponse(
-                    f"Unexpected status code {return_code} from POST "
-                    f"request through route {app_route}. Expected "
-                    f"code 200. Response content: {response}"
-                )
-
-            workflow_is_resumable = response.get("workflow_is_resumable")
-            if (time.time() - wait_start) > resume_timeout:
-                raise WorkflowNotResumable(
-                    "workflow_run timed out waiting for previous "
-                    "workflow_run to exit. Try again in a few minutes."
-                )
-            else:
-                sleep_time = round(float(resume_timeout) / 10.0, 1)
-                time.sleep(sleep_time)
 
     def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""
