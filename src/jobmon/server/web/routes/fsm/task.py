@@ -4,7 +4,8 @@ import json
 from typing import Any, cast, Dict, List, Set, Union
 
 from flask import jsonify, request
-from sqlalchemy import desc, insert, select, tuple_
+from sqlalchemy import desc, insert, select, tuple_, update
+from sqlalchemy.sql import func
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import DataError, IntegrityError
@@ -18,6 +19,7 @@ from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
 from jobmon.server.web.models.task_resources import TaskResources
+from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.fsm import blueprint
 from jobmon.server.web.server_side_exception import InvalidUsage, ServerError
@@ -32,6 +34,7 @@ def bind_tasks() -> Any:
     all_data = cast(Dict, request.get_json())
     tasks = all_data["tasks"]
     workflow_id = int(all_data["workflow_id"])
+    mark_created = bool(all_data["mark_created"])
     structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
     logger.info("Binding tasks")
     # receive from client the tasks in a format of:
@@ -234,6 +237,19 @@ def bind_tasks() -> Any:
                     status_code=400,
                 ) from e
 
+        # Set the workflow's created date if this is the last chunk of tasks.
+        # Mark that a workflow has completed binding
+        if mark_created:
+            session.execute(
+                update(
+                    Workflow
+                ).where(
+                    Workflow.id == workflow_id
+                ).values(
+                    created_date=func.now()
+                )
+            )
+
     resp = jsonify(tasks=return_tasks)
     resp.status_code = StatusCodes.OK
     return resp
@@ -330,5 +346,44 @@ def get_most_recent_ti_error(task_id: int) -> Any:
         )
     else:
         resp = jsonify({"error_description": "", "task_instance_id": None})
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@blueprint.route("/task/<workflow_id>/set_resume_state", methods=["POST"])
+def set_task_resume_state(workflow_id: int) -> Any:
+    """An endpoint to set all tasks to a resumable state for a workflow.
+
+    Conditioned on the workflow already being in an appropriate resume state.
+    """
+    data = cast(Dict, request.get_json())
+    reset_if_running = bool(data['reset_if_running'])
+
+    session = SessionLocal()
+    with session.begin():
+        # Ensure that the workflow is resumable
+        workflow = session.execute(
+            select(Workflow).where(Workflow.id == workflow_id)
+        ).scalar().one()
+        if not workflow.is_resumable:
+            raise InvalidUsage(f"Workflow {workflow_id} is not resumable. Please "
+                               f"set the appropriate resume state.")
+
+        # Set task reset. If calling this bulk route, don't update any metadata besides what's
+        # already bound in the database.
+        tasks = session.execute(
+            select(Task).where(Task.workflow_id == workflow_id)
+        ).all()
+        for task in tasks:
+            task.reset(
+                name=task.name,
+                command=task.command,
+                max_attempts=task.max_attempts,
+                reset_if_running=reset_if_running
+            )
+        session.flush()
+        session.commit()
+
+    resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp

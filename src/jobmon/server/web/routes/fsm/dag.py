@@ -76,8 +76,6 @@ def add_edges(dag_id: int) -> Any:
         else:
             edges["downstream_node_ids"] = str(edges["downstream_node_ids"])
 
-    logger.debug(f"Edges: {edges}")
-
     # Bulk insert the nodes and node args with raw SQL, for performance. Ignore duplicate
     # keys
     session = SessionLocal()

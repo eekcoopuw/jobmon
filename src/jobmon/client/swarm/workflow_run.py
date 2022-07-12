@@ -232,6 +232,7 @@ class WorkflowRun:
         dag_id = self.set_workflow_metadata()
         self.set_tasks_from_db()
         self.set_downstreams_from_db(task_ids=list(self.tasks.keys()), dag_id=dag_id)
+        self.update_status(BOUND)
 
     def set_workflow_metadata(self) -> int:
         """Fetch the dag_id and max_concurrently_running parameters of this workflow."""
@@ -253,7 +254,7 @@ class WorkflowRun:
         return database_wf['dag_id']
 
     def set_tasks_from_db(self):
-
+        # log heartbeats while setting tasks and edges
         # Fetch metadata
         rc, resp = self._requester.send_request(
             app_route=f'/workflow/get_tasks/{self.workflow_id}',

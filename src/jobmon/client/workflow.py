@@ -475,13 +475,30 @@ class Workflow(object):
                 "sure the workflow args are unique or the tasks are unique"
             )
 
+        # normal api:
+        # if resume:
+        # set resume, bind tasks, create wfr in bound state
+
+        # if not resume:
+        # bind tasks, create wfr in bound state
+
+        # cli api:
+        # if resume:
+        # set resume, set task status, create wfr in linking state
+
+
         # Bind tasks
         logger.info("Adding task metadata to database")
+        # Need to wait for resume signal to be sent before resetting tasks
+        cf = WorkflowRunFactory()
+        if resume:
+            cf.set_workflow_resume()
+
         self._bind_tasks(reset_if_running=reset_running_jobs, chunk_size=self._chunk_size)
 
         # create workflow_run
         logger.info("Adding WorkflowRun metadata to database")
-        wfr = self._create_workflow_run(resume, reset_running_jobs, resume_timeout)
+        wfr = cf._create_workflow_run(resume, reset_running_jobs, resume_timeout)
         logger.info(f"WorkflowRun ID {wfr.workflow_run_id} assigned")
 
         # start distributor
@@ -630,6 +647,10 @@ class Workflow(object):
             task_hashes_chunk = remaining_task_hashes[:chunk_size]
             remaining_task_hashes = remaining_task_hashes[chunk_size:]
 
+            # If this is the last chunk, mark the created_date field in the
+            # database.
+            mark_created = len(remaining_task_hashes) == 0
+
             # send to server in a format of:
             # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), array_id(3),
             # name(4), command(5), max_attempts(6)], reset_if_running(7), task_args(8),
@@ -664,6 +685,7 @@ class Workflow(object):
             parameters = {
                 "workflow_id": self.workflow_id,
                 "tasks": task_metadata,
+                "mark_created": mark_created
             }
             return_code, response = self.requester.send_request(
                 app_route=app_route,
@@ -764,8 +786,6 @@ class Workflow(object):
                     "are unique for this set of tasks, or make sure your tasks"
                     " match the workflow you are trying to resume"
                 )
-
-
 
     def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""

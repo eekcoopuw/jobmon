@@ -32,20 +32,35 @@ class WorkflowRunFactory:
     resume or not.
     """
 
-    def __init__(self, requester: Optional[Requester] = None):
+    # TODO: workflow run factory is for now mostly a placeholder for various functions
+    # useful for instantiating workflow runs either from a workflow or from the CLI.
+    # Might want to consider unifying the resume API more, think about how to handle
+    # task resource caching and creation as well in order to resume.
+
+    def __init__(self, workflow_id: int, requester: Optional[Requester] = None):
+        self.workflow_id = workflow_id
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
             requester = Requester(requester_url)
         self.requester = requester
+        self._workflow_is_resumable = False
+
+    @property
+    def workflow_is_resumable(self):
+        return self._workflow_is_resumable
+
+    @workflow_is_resumable.setter
+    def workflow_is_resumable(self, val: bool):
+        self._workflow_is_resumable = val
 
     def set_workflow_resume(
-        self, workflow_id: int, reset_running_jobs: bool = True,
+        self, reset_running_jobs: bool = True, resume_timeout: int = 300
     ) -> None:
         """Set statuses of the given workflow ID's workflow to a resumable state.
 
         Move active workflow runs to hot/cold resume states, depending on reset_running_jobs.
         """
-        app_route = f"/workflow/{workflow_id}/set_resume"
+        app_route = f"/workflow/{self.workflow_id}/set_resume"
         self.requester.send_request(
             app_route=app_route,
             message={
@@ -53,22 +68,24 @@ class WorkflowRunFactory:
             },
             request_type="post",
         )
+        # Wait for the workflow to become resumable
+        self.wait_for_workflow_resume(resume_timeout)
 
-    def workflow_is_resumable(self, workflow_id: int, resume_timeout: int = 300) -> None:
+    def wait_for_workflow_resume(self, resume_timeout: int = 300) -> None:
         # previous workflow exists but is resumable. we will wait till it terminates
+
         wait_start = time.time()
-        workflow_is_resumable = False
-        while not workflow_is_resumable:
+        while not self.workflow_is_resumable:
             logger.info(
                 f"Waiting for resume. "
                 f"Timeout in {round(resume_timeout - (time.time() - wait_start), 1)}"
             )
-            app_route = f"/workflow/{workflow_id}/is_resumable"
+            app_route = f"/workflow/{self.workflow_id}/is_resumable"
             return_code, response = self.requester.send_request(
                 app_route=app_route, message={}, request_type="get"
             )
 
-            workflow_is_resumable = response.get("workflow_is_resumable")
+            self.workflow_is_resumable = bool(response.get("workflow_is_resumable"))
             if (time.time() - wait_start) > resume_timeout:
                 raise WorkflowNotResumable(
                     "workflow_run timed out waiting for previous "
@@ -80,19 +97,13 @@ class WorkflowRunFactory:
 
     def create_workflow_run(
         self,
-        workflow_id: int,
         resume: bool = False,
         reset_running_jobs: bool = True,
-        resume_timeout: int = 300,
     ) -> WorkflowRun:
-        # raise error if workflow exists and is done
-        if resume:
-            self.set_workflow_resume(workflow_id, reset_running_jobs)
-            self.workflow_is_resumable(resume_timeout)
 
         # create workflow run
-        client_wfr = WorkflowRun(workflow_id)
-        client_wfr.bind()
+        client_wfr = WorkflowRun(workflow_id=self.workflow_id, requester=self.requester)
+        client_wfr.bind(resume=resume)
 
         return client_wfr
 
@@ -138,28 +149,29 @@ class WorkflowRun(object):
         self._workflow_run_id = val
 
     def bind(
-        self
+        self,
+        resume: bool = False
     ) -> None:
-        """Link this workflow run with the workflow and add all tasks."""
+        """Link this workflow run with the workflow and add all tasks.
 
-        # get an id for this workflow run
-        # TODO: If we remove linking, "G" may not even be necessary - will be moved straight to "B"
-        self.workflow_run_id = self._register_workflow_run()
-        # workflow was created successfully
-        self.status = WorkflowRunStatus.REGISTERED
+        Resume: bool, determines whether the workflowrun is immediately transitioned to bound
+        or not.
+        """
 
-        # we did not successfully link. returned workflow_run_id is not the same as this ID
-        # TODO: If linking state is removed this check is no longer needed
-        # current_wfr = self.link()
-        # if self.workflow_run_id != current_wfr_id:
-        #
-        #     raise WorkflowNotResumable(
-        #         "There is another active workflow run already for workflow_id "
-        #         f"({self.workflow_id}). Found previous workflow_run_id/status: "
-        #         f"{current_wfr_id}/{current_wfr_status}"
-        #     )
-
-        self._update_status(WorkflowRunStatus.BOUND)
+        # bind to database
+        app_route = "/workflow_run"
+        _, resp = self.requester.send_request(
+            app_route=app_route,
+            message={
+                "workflow_id": self.workflow_id,
+                "user": self.user,
+                "jobmon_version": __version__,
+                "resume": resume
+            },
+            request_type="post",
+        )
+        if not resp.workflow_run_id:
+            raise WorkflowNotResumable(resp.err_msg)
 
     def _update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""
@@ -176,36 +188,6 @@ class WorkflowRun(object):
                 f"code 200. Response content: {response}"
             )
         self.status = status
-
-    def _register_workflow_run(self) -> int:
-        # bind to database
-        app_route = "/workflow_run"
-        rc, response = self.requester.send_request(
-            app_route=app_route,
-            message={
-                "workflow_id": self.workflow_id,
-                "user": self.user,
-                "jobmon_version": __version__
-            },
-            request_type="post",
-        )
-        if http_request_ok(rc) is False:
-            raise InvalidResponse(f"Invalid Response to {app_route}: {rc}")
-        return response["workflow_run_id"]
-
-    def _link_to_workflow(self, next_report_increment: float) -> Tuple[int, int]:
-        app_route = f"/workflow_run/{self.workflow_run_id}/link"
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={"next_report_increment": next_report_increment},
-            request_type="post",
-        )
-        if http_request_ok(return_code) is False:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from POST  request through route "
-                f"{app_route}. Expected code 200. Response content: {response}"
-            )
-        return response["current_wfr"]
 
     def __repr__(self) -> str:
         """A representation string for a client WorkflowRun instance."""

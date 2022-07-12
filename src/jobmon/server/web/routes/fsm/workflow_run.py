@@ -11,6 +11,7 @@ from jobmon.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
+from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.fsm import blueprint
@@ -28,6 +29,7 @@ def add_workflow_run() -> Any:
         workflow_id = int(data["workflow_id"])
         user = data["user"]
         jobmon_version = data["jobmon_version"]
+        resume = bool(data["resume"])
 
         structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
     except Exception as e:
@@ -36,7 +38,22 @@ def add_workflow_run() -> Any:
     logger.info(f"Add wfr for workflow_id:{workflow_id}.")
 
     session = SessionLocal()
+
     with session.begin():
+        workflow = session.execute(
+            select(
+                Workflow
+            ).where(
+                Workflow.id == workflow_id
+            )
+        ).one_or_none()
+        err_msg = ''
+        if not workflow:
+            err_msg = f"No workflow exists for ID {workflow_id}"
+
+        if not workflow.is_resumable:
+            err_msg = f"Workflow {workflow_id} is not in a resume-able state"
+
         workflow_run = WorkflowRun(
             workflow_id=workflow_id,
             user=user,
@@ -44,45 +61,26 @@ def add_workflow_run() -> Any:
             status=constants.WorkflowRunStatus.REGISTERED,
         )
         session.add(workflow_run)
+        session.flush()
 
-    logger.info(f"Add workflow_run:{workflow_run.id} for workflow.")
-    resp = jsonify(workflow_run_id=workflow_run.id)
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-@blueprint.route("/workflow_run/<workflow_run_id>/link", methods=["POST"])
-def link_workflow_run(workflow_run_id: int) -> Any:
-    """Link this workflow run to a workflow."""
-    try:
-        data = cast(Dict, request.get_json())
-        next_report_increment = float(data["next_report_increment"])
-    except Exception as e:
-        raise InvalidUsage(
-            f"{str(e)} in request to {request.path}", status_code=400
-        ) from e
-    structlog.threadlocal.bind_threadlocal(workflow_run_id=workflow_run_id)
-    logger.info(f"Linking workflow_run with {workflow_run_id}")
-
-    session = SessionLocal()
-    with session.begin():
-        select_stmt = select(
-            WorkflowRun
-        ).where(
-            WorkflowRun.id == workflow_run_id
-        )
-        workflow_run = session.execute(select_stmt).scalars().one()
-
-        # refresh with lock in case other workflow run is trying to progress
-        workflow = workflow_run.workflow
-        logger.info(f"Got wf for wfr {workflow_run_id}: {workflow}")
         session.refresh(workflow, with_for_update=True)
+        # Transition to linking state, with_for_update claims a lock on the workflow
+        # Any other actively linking workflows will return the incorrect workflow run id
+        #
+        active_workflow_run = workflow.link_workflow_run(workflow_run)
+        if active_workflow_run.id != workflow_run.id:
+            err_msg = (f"WorkflowRun {active_workflow_run.id} is currently"
+                       f"linking, this workflowrun will be terminated.")
 
-        # check if any workflow run is in linked state.
-        # if not any linked, proceed.
-        current_wfr = workflow.link_workflow_run(workflow_run, next_report_increment)
+        if not resume:
+            active_workflow_run.transition(constants.WorkflowRunStatus.BOUND)
 
-    resp = jsonify(current_wfr=current_wfr)
+    if err_msg:
+        logger.warning(f"Possible race condition in adding workflowrun: {err_msg}")
+        resp = jsonify(workflow_run_id=None, err_msg=err_msg)
+    else:
+        logger.info(f"Add workflow_run:{active_workflow_run.id} for workflow.")
+        resp = jsonify(workflow_run_id=active_workflow_run.id)
     resp.status_code = StatusCodes.OK
     return resp
 

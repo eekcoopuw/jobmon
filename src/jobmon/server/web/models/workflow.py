@@ -45,7 +45,7 @@ class Workflow(Base):
         ForeignKey("workflow_status.id"),
         default=WorkflowStatus.REGISTERING,
     )
-    created_date = Column(DateTime, default=func.now())
+    created_date = Column(DateTime, default=None)
     status_date = Column(DateTime, default=func.now())
 
     dag = relationship("Dag", back_populates="workflow", lazy=True)
@@ -116,12 +116,6 @@ class Workflow(Base):
         linked_wfr = [
             wfr.status == WorkflowRunStatus.LINKING for wfr in self.workflow_runs
         ]
-        # Purpose of this is to prevent linking additional workflowruns when an existing workflowrun
-        # is already in the process of binding tasks, either a user is impatiently resuming or
-        # a workflowrun is lost.
-
-        # Question: If we remove a linking state, what challenges still exist? We should be able
-        # to allow two simultaneous active workflow runs,
 
         if not any(linked_wfr) and self.ready_to_link:
             workflow_run.heartbeat(next_report_increment, WorkflowRunStatus.LINKING)
@@ -161,4 +155,6 @@ class Workflow(Base):
     @property
     def is_resumable(self) -> bool:
         """Is this workflow resumable."""
-        return not any([wfr.is_alive for wfr in self.workflow_runs])
+        wfrs_active = any([wfr.is_alive for wfr in self.workflow_runs])
+        done_binding = self.created_date is not None
+        return done_binding and not wfrs_active
