@@ -244,7 +244,8 @@ def bind_tasks() -> Any:
                 update(
                     Workflow
                 ).where(
-                    Workflow.id == workflow_id
+                    Workflow.id == workflow_id,
+                    Workflow.created_date is None
                 ).values(
                     created_date=func.now()
                 )
@@ -362,6 +363,7 @@ def set_task_resume_state(workflow_id: int) -> Any:
     session = SessionLocal()
     with session.begin():
         # Ensure that the workflow is resumable
+        # Necessary?
         workflow = session.execute(
             select(Workflow).where(Workflow.id == workflow_id)
         ).scalar().one()

@@ -95,12 +95,23 @@ class WorkflowRunFactory:
                 sleep_time = round(float(resume_timeout) / 10.0, 1)
                 time.sleep(sleep_time)
 
+    def reset_task_statuses(self, reset_if_running: bool = True) -> None:
+        """Sets the tasks associated with a workflow to the appropriate states."""
+        self.wait_for_workflow_resume()
+
+        self.requester.send_request(
+            app_route=f"/task/{self.workflow_id}/set_resume_state",
+            message={'reset_if_running': reset_if_running},
+            request_type='post'
+        )
+
     def create_workflow_run(
         self,
         resume: bool = False,
-        reset_running_jobs: bool = True,
     ) -> WorkflowRun:
+        """Workflow should at least have signalled for a resume at this point."""
 
+        self.wait_for_workflow_resume()
         # create workflow run
         client_wfr = WorkflowRun(workflow_id=self.workflow_id, requester=self.requester)
         client_wfr.bind(resume=resume)

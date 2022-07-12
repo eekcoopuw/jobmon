@@ -475,30 +475,19 @@ class Workflow(object):
                 "sure the workflow args are unique or the tasks are unique"
             )
 
-        # normal api:
-        # if resume:
-        # set resume, bind tasks, create wfr in bound state
-
-        # if not resume:
-        # bind tasks, create wfr in bound state
-
-        # cli api:
-        # if resume:
-        # set resume, set task status, create wfr in linking state
-
-
         # Bind tasks
         logger.info("Adding task metadata to database")
-        # Need to wait for resume signal to be sent before resetting tasks
-        cf = WorkflowRunFactory()
+        # Need to wait for resume signal to be sent before resetting tasks, in case of a resume
+        cf = WorkflowRunFactory(self.workflow_id)
         if resume:
-            cf.set_workflow_resume()
+            cf.set_workflow_resume(reset_running_jobs=reset_running_jobs,
+                                   resume_timeout=resume_timeout)
 
         self._bind_tasks(reset_if_running=reset_running_jobs, chunk_size=self._chunk_size)
 
         # create workflow_run
         logger.info("Adding WorkflowRun metadata to database")
-        wfr = cf._create_workflow_run(resume, reset_running_jobs, resume_timeout)
+        wfr = cf.create_workflow_run(resume=resume)
         logger.info(f"WorkflowRun ID {wfr.workflow_run_id} assigned")
 
         # start distributor

@@ -408,6 +408,10 @@ def get_tasks_from_workflow(workflow_id: int):
             Task.task_resources_id == TaskResources.id,
             TaskResources.queue_id == Queue.id,
             Queue.cluster_id == Cluster.id,
+            # Note: because of this status != "DONE" filter, only the portion of the DAG
+            # that is not complete is returned. Assumes that all tasks in a workflow correspond
+            # to nodes that belong in the same DAG, and that no downstream nodes can be in DONE
+            # for any unfinished task
             Task.status != TaskStatus.DONE,
             Task.array_id == Array.id
         )

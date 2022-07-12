@@ -81,6 +81,7 @@ class WorkflowRun:
         fail_fast: bool = False,
         wedged_workflow_sync_interval: int = 600,
         fail_after_n_executions: int = 1_000_000_000,
+        status: str = WorkflowRunStatus.BOUND,
         requester: Optional[Requester] = None,
     ) -> None:
         """Initialization of the swarm WorkflowRun."""
@@ -111,7 +112,7 @@ class WorkflowRun:
         self._task_resources: Dict[int, TaskResources] = {}
 
         # workflow run attributes
-        self._status = WorkflowRunStatus.BOUND
+        self._status = status
         self._last_heartbeat_time = time.time()
 
         # flow control
@@ -169,9 +170,6 @@ class WorkflowRun:
         if self.initialized:
             raise ValueError("Swarm has already been initialized")
 
-        self.workflow_id = workflow.workflow_id
-        self.max_concurrently_running: int = workflow.max_concurrently_running
-
         # construct arrays
         array: Array
         for array in workflow.arrays.values():
@@ -225,19 +223,27 @@ class WorkflowRun:
 
         self.last_sync = self._get_current_time()
         self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
+        self.workflow_id = workflow.workflow_id
+        self.max_concurrently_running: int = workflow.max_concurrently_running
+        self.dag_id = workflow.dag_id
+        self.initialized = True
 
-    def from_workflow_id(self, workflow_id: int):
+    def from_workflow_id(self, workflow_id: int, edge_chunk_size: int = 500) -> None:
         if self.initialized:
-            raise ValueError("Swarm has already been initialized")
-        dag_id = self.set_workflow_metadata()
+            logger.warning("Swarm has already been initialized")
+            return
+        # Log heartbeat prior to starting work
+        self._log_heartbeat()
+        self.set_workflow_metadata(workflow_id)
         self.set_tasks_from_db()
-        self.set_downstreams_from_db(task_ids=list(self.tasks.keys()), dag_id=dag_id)
-        self.update_status(BOUND)
+        self.set_downstreams_from_db(chunk_size=edge_chunk_size)
+        self._update_status(WorkflowRunStatus.BOUND)
+        self.initialized = True
 
-    def set_workflow_metadata(self) -> int:
+    def set_workflow_metadata(self, workflow_id: int):
         """Fetch the dag_id and max_concurrently_running parameters of this workflow."""
         _, resp = self._requester.send_request(
-            app_route=f"/workflow_run/{self.workflow_run_id}/fetch_workflow_metadata",
+            app_route=f"/workflow/{workflow_id}/fetch_workflow_metadata",
             message={},
             request_type='get'
         )
@@ -250,8 +256,7 @@ class WorkflowRun:
         self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
         self.workflow_id = database_wf['workflow_id']
         self.max_concurrently_running = database_wf['max_concurrently_running']
-
-        return database_wf['dag_id']
+        self.dag_id = database_wf['dag_id']
 
     def set_tasks_from_db(self):
         # log heartbeats while setting tasks and edges
@@ -267,6 +272,11 @@ class WorkflowRun:
 
         # populate tasks dict, and arrays registry
         for task_id, metadata in resp.task_ids.json().items():
+            # TODO: make this an asynchronous context manager, avoid duplicating code
+            if (time.time() - self._last_heartbeat_time) > \
+                    self._workflow_run_heartbeat_interval:
+                self._log_heartbeat()
+
             array_id, array_concurrency, status, max_attempts, resource_scales, \
                 fallback_queues, requested_resources, cluster_name = metadata
 
@@ -304,7 +314,7 @@ class WorkflowRun:
                 )
                 self.arrays[array_id] = array
 
-    def set_downstreams_from_db(self, task_ids: List[int], dag_id: int, chunk_size: int = 500):
+    def set_downstreams_from_db(self, chunk_size: int = 500):
         # Get edges in a different route to prevent overload
 
         # Create two maps: one to map node -> task_id
@@ -313,8 +323,12 @@ class WorkflowRun:
         task_edge_map: Dict[int, Set] = {}
 
         start_idx, end_idx = 0, chunk_size
-
+        task_ids = list(self.tasks.keys())
         while start_idx < len(task_ids):
+            # Log heartbeats if needed
+            if (time.time() - self._last_heartbeat_time) > \
+                    self._workflow_run_heartbeat_interval:
+                self._log_heartbeat()
             task_id_chunk = task_ids[start_idx:end_idx]
             start_idx = end_idx
             end_idx += chunk_size
@@ -322,7 +336,7 @@ class WorkflowRun:
             _, edge_resp = self._requester.send_request(
                 app_route=f'/task/get_downstream_tasks',
                 message={'task_ids': task_id_chunk,
-                         'dag_id': dag_id},
+                         'dag_id': self.dag_id},
                 request_type='get'
             )
 
@@ -330,23 +344,15 @@ class WorkflowRun:
                 node_id, downstream_node_ids = values
                 # Assumption: every single node in the downstream edge is not in "D" state
                 # Shouldn't be possible to have a downstream node of a task not in "D" state
-                # that is complete. If it is, we'll raise KeyErrors here
+                # that is complete. If it is, we'll raise unexpected KeyErrors here
                 task_node_id_map[node_id] = task_id
                 task_edge_map[task_id] = downstream_node_ids
 
         # Create the dependency graph
         # NOTE: only tasks that are not in status "DONE" are returned. This means the created
         # dependency graph is not the full DAG, only a subset of the tasks that still need to
-        # complete. Based on the algorithm for determining number of upstreams, the reduced DAG
-        # should still be "complete" for all intents and purposes.
+        # complete.
 
-        # Example: take the following rough dependency tree
-
-        #   1(D)  2(D)  3(F)  4(D)
-        #   /  \  /  \  /  \  /  \
-        #  5(D) 6(D)  7(G)  8(G)  9(D)
-
-        # This can be reduced to 3 -> [7, 8] without any difference in traversal path.
         for task_id, swarm_task in self.tasks.items():
             downstream_edges = task_edge_map[task_id]
             for downstream_node_id in downstream_edges:

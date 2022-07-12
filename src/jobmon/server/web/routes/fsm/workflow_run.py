@@ -66,7 +66,7 @@ def add_workflow_run() -> Any:
         session.refresh(workflow, with_for_update=True)
         # Transition to linking state, with_for_update claims a lock on the workflow
         # Any other actively linking workflows will return the incorrect workflow run id
-        #
+
         active_workflow_run = workflow.link_workflow_run(workflow_run)
         if active_workflow_run.id != workflow_run.id:
             err_msg = (f"WorkflowRun {active_workflow_run.id} is currently"
