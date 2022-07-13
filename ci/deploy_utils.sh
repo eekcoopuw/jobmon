@@ -79,6 +79,9 @@ upload_python_dist () {
         --skip-existing \
         ./dist/*
     else
+      ${DOCKER_ACTIVATE} && \
+        RES_CURL=$(curl -X GET "${PYPI_URL}"/jobmon/"${JOBMON_VERSION}") && \
+        if [[ ! $RES_CURL == *"File not found"* ]]; then echo "Artifact ${JOBMON_VERSION} already existing. Upload aborted!"; exit 1; fi
       $ACTIVATE && twine upload \
         --repository-url $PYPI_URL \
         --username $REG_USERNAME \
