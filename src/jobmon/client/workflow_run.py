@@ -40,7 +40,7 @@ class WorkflowRunFactory:
         self.workflow_is_resumable = False
 
     def set_workflow_resume(
-        self, reset_running_jobs: bool = True, resume_timeout: int = 300
+        self, workflow_id: int, reset_running_jobs: bool = True, resume_timeout: int = 300
     ) -> None:
         """Set statuses of the given workflow ID's workflow to a resumable state.
 
@@ -48,7 +48,7 @@ class WorkflowRunFactory:
         """
         if self.workflow_is_resumable:
             return
-        app_route = f"/workflow/{self.workflow_id}/set_resume"
+        app_route = f"/workflow/{workflow_id}/set_resume"
         self.requester.send_request(
             app_route=app_route,
             message={

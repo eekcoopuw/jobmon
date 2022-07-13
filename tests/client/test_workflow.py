@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy.orm import Session
 
 from jobmon.client.tool import Tool
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import (
     WorkflowAlreadyComplete,
@@ -39,11 +40,13 @@ def test_wfargs_update(tool):
     wf1 = tool.create_workflow(wfa1)
     wf1.add_tasks([t1, t2, t3])
     wf1.bind()
+    wf1._bind_tasks()
 
     wfa2 = "v2"
     wf2 = tool.create_workflow(wfa2)
     wf2.add_tasks([t4, t5, t6])
     wf2.bind()
+    wf2._bind_tasks()
 
     # Make sure the second Workflow has a distinct Workflow ID & WorkflowRun ID
     assert wf1.workflow_id != wf2.workflow_id
@@ -52,9 +55,9 @@ def test_wfargs_update(tool):
     assert hash(wf1) != hash(wf2)
 
     # Make sure the second Workflow has a distinct set of Tasks
-    wfr1 = WorkflowRun(wf1)
+    wfr1 = WorkflowRun(wf1.workflow_id)
     wfr1.bind()
-    wfr2 = WorkflowRun(wf2)
+    wfr2 = WorkflowRun(wf2.workflow_id)
     wfr2.bind()
     assert not (
         set([t.task_id for _, t in wf1.tasks.items()])
@@ -80,8 +83,10 @@ def test_attempt_resume_on_complete_workflow(tool):
 
     # bind workflow to db and move to done state
     wf1.bind()
-    wfr1 = WorkflowRun(wf1)
+    wf1._bind_tasks()
+    wfr1 = WorkflowRun(wf1.workflow_id)
     wfr1.bind()
+    wfr1._update_status(WorkflowRunStatus.BOUND)
     wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr1._update_status(WorkflowRunStatus.LAUNCHED)
     wfr1._update_status(WorkflowRunStatus.RUNNING)
@@ -100,9 +105,8 @@ def test_attempt_resume_on_complete_workflow(tool):
     workflow2.add_tasks([t1, t2])
 
     # bind workflow to db and move to done state
-    workflow2.bind()
     with pytest.raises(WorkflowAlreadyComplete):
-        workflow2._create_workflow_run()
+        workflow2.run()
 
 
 def test_resume_with_old_and_new_workflow_attributes(tool, db_engine):
@@ -125,7 +129,10 @@ def test_resume_with_old_and_new_workflow_attributes(tool, db_engine):
 
     # bind workflow to db and move to ERROR state
     wf1.bind()
-    wfr1 = wf1._create_workflow_run()
+    wf1._bind_tasks()
+    factory1 = WorkflowRunFactory(wf1.workflow_id)
+    wfr1 = factory1.create_workflow_run()
+    wfr1._update_status(WorkflowRunStatus.BOUND)
     wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr1._update_status(WorkflowRunStatus.LAUNCHED)
     wfr1._update_status(WorkflowRunStatus.RUNNING)
@@ -146,7 +153,9 @@ def test_resume_with_old_and_new_workflow_attributes(tool, db_engine):
 
     # bind workflow to db and run resume
     workflow2.bind()
-    workflow2._create_workflow_run(resume=True)
+    workflow2._bind_tasks()
+    fact2 = WorkflowRunFactory(workflow2.workflow_id)
+    fact2.create_workflow_run()
 
     # check database entries are populated correctly
     with Session(bind=db_engine) as session:
@@ -160,11 +169,11 @@ def test_resume_with_old_and_new_workflow_attributes(tool, db_engine):
             .filter(WorkflowAttribute.workflow_id == wf1.workflow_id)
             .all()
         )
-    assert set(wf_attributes) == set(
-        [("location_id", "5"), ("year", "2022"), ("sex", "F")]
-    )
+    assert set(wf_attributes) == {("location_id", "5"), ("year", "2022"), ("sex", "F")}
 
 
+@pytest.mark.skip("This functionality is already tested "
+                  "in test_workflow_run.py::test_workflow_run_bind")
 def test_multiple_active_race_condition(tool, task_template):
     """test that we cannot create 2 workflow runs simultaneously"""
 
@@ -195,15 +204,15 @@ def test_workflow_identical_args(tool, task_template):
     task = task_template.create_task(arg="sleep 1")
     wf1.add_task(task)
     wf1.bind()
-    wf1._create_workflow_run()
+    wf1._bind_tasks()
+    WorkflowRunFactory(wf1.workflow_id).create_workflow_run()
 
     # tries to create an identical workflow without the restart flag
     wf2 = tool.create_workflow(workflow_args="same")
     task = task_template.create_task(arg="sleep 1")
     wf2.add_task(task)
     with pytest.raises(WorkflowAlreadyExists):
-        wf2.bind()
-        wf2._create_workflow_run()
+        wf2.run()
 
 
 def test_add_same_node_args_twice(client_env):
@@ -225,7 +234,7 @@ def test_add_same_node_args_twice(client_env):
         workflow.add_task(b)
 
 
-def test_numpy_array_node_args(tool):
+def test_non_serializable_node_args(tool):
     """Test passing an object (set) that is not JSON serializable to node and task args."""
     workflow = tool.create_workflow(name="numpy_test_wf")
     template = tool.get_task_template(
@@ -368,9 +377,9 @@ def test_workflow_attribute(db_engine, tool, client_env, task_template):
             .filter(WorkflowAttribute.workflow_id == wf1.workflow_id)
             .all()
         )
-    assert set(wf_attributes) == set(
-        [("location_id", "5"), ("year", "2019"), ("sex", "2"), ("age_group_id", "1")]
-    )
+    assert set(wf_attributes) == {
+        ("location_id", "5"), ("year", "2019"), ("sex", "2"), ("age_group_id", "1")
+    }
 
     # Test workflow w/o attributes
     wf2 = tool.create_workflow(
@@ -505,7 +514,8 @@ def test_workflow_get_errors(tool, task_template, db_engine):
 
     # add workflow to database
     workflow1.bind()
-    wfr_1 = workflow1._create_workflow_run()
+    workflow1._bind_tasks()
+    wfr_1 = WorkflowRunFactory(workflow1.workflow_id).create_workflow_run()
 
     # for an just initialized task, get_errors() should be None
     assert task_a.get_errors() is None
