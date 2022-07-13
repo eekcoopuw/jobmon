@@ -19,6 +19,7 @@ INSTALL_REQUIRES = [
 
 SERVER_REQUIRES = [
     'flask',
+    'flask_cors',
     'elastic-apm[flask]',
     'pymysql',  # install MySQLdb/mysqlclient for more performance
     'python-logstash-async',
