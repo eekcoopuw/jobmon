@@ -19,6 +19,7 @@ from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
 from jobmon.server.web.models.task_resources import TaskResources
+from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.fsm import blueprint
@@ -245,7 +246,7 @@ def bind_tasks() -> Any:
                     Workflow
                 ).where(
                     Workflow.id == workflow_id,
-                    Workflow.created_date is None
+                    Workflow.created_date.is_(None)
                 ).values(
                     created_date=func.now()
                 )
@@ -366,25 +367,34 @@ def set_task_resume_state(workflow_id: int) -> Any:
         # Necessary?
         workflow = session.execute(
             select(Workflow).where(Workflow.id == workflow_id)
-        ).scalar().one()
+        ).scalar()
         if not workflow.is_resumable:
-            raise InvalidUsage(f"Workflow {workflow_id} is not resumable. Please "
-                               f"set the appropriate resume state.")
+            err_msg = (f"Workflow {workflow_id} is not resumable. Please "
+                       f"set the appropriate resume state.")
+            resp = jsonify(err_msg=err_msg)
+            resp.status_code = StatusCodes.OK
+            return resp
 
         # Set task reset. If calling this bulk route, don't update any metadata besides what's
         # already bound in the database.
-        tasks = session.execute(
-            select(Task).where(Task.workflow_id == workflow_id)
-        ).all()
-        for task in tasks:
-            task.reset(
-                name=task.name,
-                command=task.command,
-                max_attempts=task.max_attempts,
-                reset_if_running=reset_if_running
+
+        # Logic: reset_if_running -> Reset all tasks not in "D" state
+        # else, reset all tasks not in "D" or "R" state
+        excluded_states = [TaskStatus.DONE]
+        if not reset_if_running:
+            excluded_states.append(TaskStatus.RUNNING)
+
+        session.execute(
+            update(
+                Task
+            ).where(
+                Task.status.not_in(excluded_states)
+            ).values(
+                status=TaskStatus.REGISTERING,
+                num_attempts=0,
+                status_date=func.now()
             )
-        session.flush()
-        session.commit()
+        )
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK

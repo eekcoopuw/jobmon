@@ -7,7 +7,7 @@ import pandas as pd
 
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.workflow import DistributorContext
-from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.constants import ExecludeTTVs, TaskStatus, WorkflowStatus
 from jobmon.exceptions import InvalidResponse
@@ -611,24 +611,21 @@ def get_filepaths(
     return resp["array_tasks"]
 
 
-def resume_workflow_from_id(workflow_id: int, reset_if_running: bool = True):
+def resume_workflow_from_id(workflow_id: int, cluster: str, reset_if_running: bool = True):
+
+    factory = WorkflowRunFactory(workflow_id=workflow_id)
 
     # Signal for a resume - move existing workflow runs to C or H resume depending on the input
-    rc, resp = requester.send_request(
-        f'/workflow/{workflow_id}/set_resume',
-        message={'reset_running_jobs': reset_if_running},
-        request_type='post'
-    )
-
-    new_wfr = ClientWorkflowRun(workflow_id=workflow_id)
-    new_wfr.set_workflow_resume()
-    new_wfr.workflow_is_resumable()
-    new_wfr.bind()
+    factory.set_workflow_resume(reset_running_jobs=reset_if_running)
+    # Create the client workflow run. Resume is always true in this API
+    new_wfr = factory.create_workflow_run()
 
     # Create swarm
-    swarm = SwarmWorkflowRun(workflow_run_id=new_wfr.workflow_run_id)
+    swarm = SwarmWorkflowRun(workflow_run_id=new_wfr.workflow_run_id, status=new_wfr.status)
     swarm.from_workflow_id(workflow_id)
     with DistributorContext(
-            workflow_run_id=new_wfr.workflow_run_id
+            workflow_run_id=new_wfr.workflow_run_id,
+            cluster_name=cluster,
+            timeout=180
         ) as distributor:
         swarm.run(distributor.alive)

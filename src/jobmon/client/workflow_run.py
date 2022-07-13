@@ -4,20 +4,12 @@ from __future__ import annotations
 import getpass
 import logging
 import time
-from typing import Dict, List, Optional, Tuple, TYPE_CHECKING
+from typing import Optional
 
 from jobmon import __version__
 from jobmon.client.client_config import ClientConfig
-from jobmon.client.task import Task
-from jobmon.client.task_resources import TaskResources
-from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import http_request_ok, Requester
-
-
-# avoid circular imports on backrefs
-if TYPE_CHECKING:
-    from jobmon.client.workflow import Workflow
 
 
 logger = logging.getLogger(__name__)
@@ -37,21 +29,15 @@ class WorkflowRunFactory:
     # Might want to consider unifying the resume API more, think about how to handle
     # task resource caching and creation as well in order to resume.
 
-    def __init__(self, workflow_id: int, requester: Optional[Requester] = None):
+    def __init__(self,
+                 workflow_id: int,
+                 requester: Optional[Requester] = None):
         self.workflow_id = workflow_id
         if requester is None:
             requester_url = ClientConfig.from_defaults().url
             requester = Requester(requester_url)
         self.requester = requester
-        self._workflow_is_resumable = False
-
-    @property
-    def workflow_is_resumable(self):
-        return self._workflow_is_resumable
-
-    @workflow_is_resumable.setter
-    def workflow_is_resumable(self, val: bool):
-        self._workflow_is_resumable = val
+        self.workflow_is_resumable = False
 
     def set_workflow_resume(
         self, reset_running_jobs: bool = True, resume_timeout: int = 300
@@ -60,6 +46,8 @@ class WorkflowRunFactory:
 
         Move active workflow runs to hot/cold resume states, depending on reset_running_jobs.
         """
+        if self.workflow_is_resumable:
+            return
         app_route = f"/workflow/{self.workflow_id}/set_resume"
         self.requester.send_request(
             app_route=app_route,
@@ -107,14 +95,12 @@ class WorkflowRunFactory:
 
     def create_workflow_run(
         self,
-        resume: bool = False,
     ) -> WorkflowRun:
         """Workflow should at least have signalled for a resume at this point."""
 
-        self.wait_for_workflow_resume()
         # create workflow run
         client_wfr = WorkflowRun(workflow_id=self.workflow_id, requester=self.requester)
-        client_wfr.bind(resume=resume)
+        client_wfr.bind()
 
         return client_wfr
 
@@ -136,6 +122,8 @@ class WorkflowRun(object):
         self,
         workflow_id: int,
         requester: Optional[Requester] = None,
+        workflow_run_heartbeat_interval: int = 30,
+        heartbeat_report_by_buffer: float = 3.1,
     ) -> None:
         """Initialize client WorkflowRun."""
         # set attrs
@@ -146,28 +134,39 @@ class WorkflowRun(object):
         if requester is None:
             requester = Requester(ClientConfig.from_defaults().url)
         self.requester = requester
-
+        self.heartbeat_interval = workflow_run_heartbeat_interval
+        self.heartbeat_report_by_buffer = heartbeat_report_by_buffer
         self._workflow_run_id = None
+        self._status = None
 
     @property
     def workflow_run_id(self) -> int:
         if not self._workflow_run_id:
-            raise ValueError("Workflow Run not yet bound")
+            raise WorkflowNotResumable(
+                "This workflow run was not yet bound successfully, "
+                "cannot access workflow run id attribute."
+            )
         return self._workflow_run_id
 
-    @workflow_run_id.setter
-    def workflow_run_id(self, val: int) -> None:
-        self._workflow_run_id = val
+    @property
+    def status(self) -> Optional[str]:
+        if not self._status:
+            raise WorkflowNotResumable(
+                "This workflow run was not bound successfully, "
+                "cannot access status attribute.")
+        return self._status
 
     def bind(
-        self,
-        resume: bool = False
+        self
     ) -> None:
-        """Link this workflow run with the workflow and add all tasks.
+        """Link this workflow run with the workflow and add all tasks."""
 
-        Resume: bool, determines whether the workflowrun is immediately transitioned to bound
-        or not.
-        """
+        if self._workflow_run_id:
+            return  # WorkflowRun already bound
+
+        next_report_increment = (
+            self.heartbeat_interval * self.heartbeat_report_by_buffer
+        )
 
         # bind to database
         app_route = "/workflow_run"
@@ -177,12 +176,15 @@ class WorkflowRun(object):
                 "workflow_id": self.workflow_id,
                 "user": self.user,
                 "jobmon_version": __version__,
-                "resume": resume
+                "next_report_increment": next_report_increment
             },
             request_type="post",
         )
-        if not resp.workflow_run_id:
-            raise WorkflowNotResumable(resp.err_msg)
+        workflow_run_id = resp.get('workflow_run_id')
+        if not workflow_run_id:
+            raise WorkflowNotResumable(resp.get('err_msg'))
+        self._workflow_run_id = workflow_run_id
+        self._status = resp.get('status')
 
     def _update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""
@@ -198,7 +200,7 @@ class WorkflowRun(object):
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-        self.status = status
+        self._status = status
 
     def __repr__(self) -> str:
         """A representation string for a client WorkflowRun instance."""

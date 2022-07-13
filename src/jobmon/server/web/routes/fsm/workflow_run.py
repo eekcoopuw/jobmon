@@ -29,7 +29,7 @@ def add_workflow_run() -> Any:
         workflow_id = int(data["workflow_id"])
         user = data["user"]
         jobmon_version = data["jobmon_version"]
-        resume = bool(data["resume"])
+        next_heartbeat = float(data['next_report_increment'])
 
         structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
     except Exception as e:
@@ -46,13 +46,14 @@ def add_workflow_run() -> Any:
             ).where(
                 Workflow.id == workflow_id
             )
-        ).one_or_none()
+        ).scalar()
         err_msg = ''
         if not workflow:
+            # Binding to a non-existent workflow, exit early
             err_msg = f"No workflow exists for ID {workflow_id}"
-
-        if not workflow.is_resumable:
-            err_msg = f"Workflow {workflow_id} is not in a resume-able state"
+            resp = jsonify(workflow_run_id=None, err_msg=err_msg)
+            resp.status_code = StatusCodes.OK
+            return resp
 
         workflow_run = WorkflowRun(
             workflow_id=workflow_id,
@@ -67,20 +68,26 @@ def add_workflow_run() -> Any:
         # Transition to linking state, with_for_update claims a lock on the workflow
         # Any other actively linking workflows will return the incorrect workflow run id
 
-        active_workflow_run = workflow.link_workflow_run(workflow_run)
-        if active_workflow_run.id != workflow_run.id:
-            err_msg = (f"WorkflowRun {active_workflow_run.id} is currently"
-                       f"linking, this workflowrun will be terminated.")
+        active_workflow_run = workflow.link_workflow_run(workflow_run, next_heartbeat)
+        session.flush()
 
-        if not resume:
-            active_workflow_run.transition(constants.WorkflowRunStatus.BOUND)
+        try:
+            if active_workflow_run[0] != workflow_run.id:
+                err_msg = (f"WorkflowRun {active_workflow_run[0]} is currently"
+                           f"linking, WorkflowRun {workflow_run.id} will be aborted.")
+        except IndexError:
+            # Raised if the workflow is not resume-able, without any active workflowruns
+            # Unlikely to be raised
+            err_msg = f"Workflow {workflow_id} is not in a resume-able state"
 
+    session.commit()
     if err_msg:
         logger.warning(f"Possible race condition in adding workflowrun: {err_msg}")
         resp = jsonify(workflow_run_id=None, err_msg=err_msg)
     else:
-        logger.info(f"Add workflow_run:{active_workflow_run.id} for workflow.")
-        resp = jsonify(workflow_run_id=active_workflow_run.id)
+        logger.info(f"Add workflow_run:{workflow_run.id} for workflow.")
+        resp = jsonify(workflow_run_id=workflow_run.id,
+                       status=workflow_run.status)
     resp.status_code = StatusCodes.OK
     return resp
 

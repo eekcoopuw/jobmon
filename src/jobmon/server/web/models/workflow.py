@@ -76,6 +76,8 @@ class Workflow(Base):
         (WorkflowStatus.LAUNCHED, WorkflowStatus.RUNNING),
         # workflow run was running and then got moved to a resume state
         (WorkflowStatus.RUNNING, WorkflowStatus.HALTED),
+        # workflow run was bound, and then got moved to a resume state
+        (WorkflowStatus.QUEUED, WorkflowStatus.HALTED),
         # workflow run was running and then completed successfully
         (WorkflowStatus.RUNNING, WorkflowStatus.DONE),
         # workflow run was running and then failed with an error
@@ -129,7 +131,11 @@ class Workflow(Base):
         # currently linked workflow run
         else:
             current_wfr = [(wfr.id, wfr.status) for wfr in self.workflow_runs]
-        return current_wfr[0]
+
+        if current_wfr:
+            return current_wfr[0]
+        else:
+            return ()
 
     def resume(self, reset_running_jobs: bool) -> None:
         """Resume a workflow."""
@@ -150,7 +156,7 @@ class Workflow(Base):
             WorkflowStatus.QUEUED,
             WorkflowStatus.RUNNING,
             WorkflowStatus.DONE,
-        ]
+        ] and self.is_resumable
 
     @property
     def is_resumable(self) -> bool:

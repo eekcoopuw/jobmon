@@ -487,7 +487,10 @@ class Workflow(object):
 
         # create workflow_run
         logger.info("Adding WorkflowRun metadata to database")
-        wfr = cf.create_workflow_run(resume=resume)
+        wfr = cf.create_workflow_run()
+        # Update the workflowrun to BOUND state immediately if workflow.run is called. Swarm
+        # can start immediately
+        wfr._update_status(WorkflowRunStatus.BOUND)
         logger.info(f"WorkflowRun ID {wfr.workflow_run_id} assigned")
 
         # start distributor
@@ -502,6 +505,7 @@ class Workflow(object):
                 fail_after_n_executions=self._fail_after_n_executions,
                 requester=self.requester,
                 fail_fast=fail_fast,
+                status=wfr.status
             )
             swarm.from_workflow(self)
             self._num_previously_completed = swarm.num_previously_complete
@@ -740,16 +744,6 @@ class Workflow(object):
             self._task_resources[hash(task_resources)] = task_resources
 
         task.original_task_resources = task_resources
-
-    def _create_workflow_run(self, resume: bool = False, reset_running_jobs: bool = True,
-                             resume_timeout: int = 300):
-        workflow_run_factory = WorkflowRunFactory(requester=self.requester)
-        return workflow_run_factory.create_workflow_run(
-            workflow_id=self.workflow_id,
-            resume=resume,
-            reset_running_jobs=reset_running_jobs,
-            resume_timeout=resume_timeout
-        )
 
     def _matching_wf_args_diff_hash(self) -> None:
         """Check that that an existing workflow does not contain different tasks.

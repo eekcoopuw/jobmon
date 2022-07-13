@@ -237,6 +237,8 @@ class WorkflowRun:
         self.set_workflow_metadata(workflow_id)
         self.set_tasks_from_db()
         self.set_downstreams_from_db(chunk_size=edge_chunk_size)
+        # Resumed workflow runs initialized in LINKING state, so update to bound here
+        # once tasks are all created and the DAG is in memory
         self._update_status(WorkflowRunStatus.BOUND)
         self.initialized = True
 
@@ -245,6 +247,7 @@ class WorkflowRun:
         _, resp = self._requester.send_request(
             app_route=f"/workflow/{workflow_id}/fetch_workflow_metadata",
             message={},
+
             request_type='get'
         )
 
@@ -259,11 +262,16 @@ class WorkflowRun:
         self.dag_id = database_wf['dag_id']
 
     def set_tasks_from_db(self):
-        # log heartbeats while setting tasks and edges
-        # Fetch metadata
+        """Pull the tasks that need to be run associated with this workflow.
+
+        I.e. all tasks that aren't in DONE state."""
+        # Fetch metadata for all tasks
+        # TODO: review this query
+        # Potential chunking: say chunk size of 500, while response_length = 500, start_index =0
+        # return maximum task_id,
         rc, resp = self._requester.send_request(
             app_route=f'/workflow/get_tasks/{self.workflow_id}',
-            message={},
+            message={'max_task_id': 0},
             request_type='get'
         )
 
@@ -315,9 +323,10 @@ class WorkflowRun:
                 self.arrays[array_id] = array
 
     def set_downstreams_from_db(self, chunk_size: int = 500):
+        """Pull downstream edges from the database associated with the workflow."""
         # Get edges in a different route to prevent overload
 
-        # Create two maps: one to map node -> task_id
+        # Create two maps: one to map node_id -> task_id
         task_node_id_map: Dict[int, int] = {}
         # one to map task_id -> Set(downstream node_ids)
         task_edge_map: Dict[int, Set] = {}
@@ -328,7 +337,7 @@ class WorkflowRun:
             # Log heartbeats if needed
             if (time.time() - self._last_heartbeat_time) > \
                     self._workflow_run_heartbeat_interval:
-                self._log_heartbeat()
+                self._log_heartbeat() # TODO: ensure linking -> linking is valid
             task_id_chunk = task_ids[start_idx:end_idx]
             start_idx = end_idx
             end_idx += chunk_size

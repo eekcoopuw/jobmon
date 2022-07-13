@@ -388,6 +388,10 @@ def fetch_workflow_metadata(workflow_id: int):
 @blueprint.route("/workflow/get_tasks/<workflow_id>", methods=["GET"])
 def get_tasks_from_workflow(workflow_id: int):
 
+    data = cast(Dict, request.get_json())
+    max_task_id = data['max_task_id']
+    chunk_size = data['chunk_size']
+
     session = SessionLocal()
 
     with session.begin():
@@ -413,9 +417,14 @@ def get_tasks_from_workflow(workflow_id: int):
             # to nodes that belong in the same DAG, and that no downstream nodes can be in DONE
             # for any unfinished task
             Task.status != TaskStatus.DONE,
-            Task.array_id == Array.id
+            Task.array_id == Array.id,
+            # Greater than set by the input max_task_id
+            Task.task_id > max_task_id,
+        ).order_by(
+            Task.id
+        ).limit(
+            chunk_size
         )
-
         res = session.execute(query)
         resp_dict = {row.task_id: row[1:]
                      for row in res}
