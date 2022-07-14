@@ -77,7 +77,7 @@ pipeline {
                 ).trim()
             }
           } else {
-            error("Build Python Distribution is stopped due to invalid Branch type (${BRANCH_TYPE}) and/or Branch Name(${BRANCH_NAME})! Need to be release/major.minor.patch")
+            error("The branch type (${BRANCH_TYPE}) must be 'release' for PROD deployment. Build aborted!")
           } // end branch checking
 
           if ("${EXISTING_PROD_ARTIFACT}".length() > 0) {

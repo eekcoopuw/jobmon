@@ -107,7 +107,7 @@ pipeline {
                    '''
             }
           } else {
-            error("Build Python Distribution is stopped due to invalid Branch type (${BRANCH_TYPE}) and/or Branch Name(${BRANCH_NAME})! Need to be release/major.minor.patch")
+            error("The branch type (${BRANCH_TYPE}) must be 'release' for RC deployment. Build aborted!")
           } // end branch checking
 
           // recheck out the branch to entirely capture the tag update above
