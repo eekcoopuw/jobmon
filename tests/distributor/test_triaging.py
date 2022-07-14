@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import select, update
 
 from jobmon.constants import TaskInstanceStatus
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.server.web._compat import subtract_time
 from jobmon.server.web import session_factory
 from jobmon.server.web.models import load_model
@@ -55,7 +56,9 @@ def test_set_status_for_triaging(tool, db_engine, task_template):
 
     workflow.add_tasks(tis)
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
 
     # create task instances
     swarm = SwarmWorkflowRun(
@@ -153,7 +156,9 @@ def test_triaging_to_specific_error(
 
     workflow.add_tasks(tis)
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
 
     # create task instances
     swarm = SwarmWorkflowRun(

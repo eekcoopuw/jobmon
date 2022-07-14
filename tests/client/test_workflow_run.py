@@ -1,17 +1,11 @@
-import time
 import pytest
 
 from sqlalchemy.orm import Session
-from sqlalchemy import select
 
 from jobmon.constants import WorkflowRunStatus, WorkflowStatus
 from jobmon.client.api import Tool
 from jobmon.client.workflow_run import WorkflowRunFactory, WorkflowRun
-from jobmon.client.swarm.workflow_run import WorkflowRun as Swarm
 from jobmon.exceptions import WorkflowNotResumable
-
-from jobmon.server.web.models.task import Task as TaskModel
-from jobmon.server.web.models.workflow_run import WorkflowRun as WorkflowRunModel
 
 
 @pytest.fixture
