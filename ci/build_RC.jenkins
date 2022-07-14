@@ -73,37 +73,28 @@ pipeline {
           def branch_sections = "${GIT_BRANCH}".split('/')
           env.BRANCH_TYPE = branch_sections[branch_sections.length-2]
           env.BRANCH_NAME = branch_sections[branch_sections.length-1]
-          if (branch_type == 'release' ||
-            ("${BRANCH_NAME}" ==~ /\d{1,3}\.\d{1,3}\.\d{1,3}/ ||
-              "${BRANCH_NAME}" ==~ /\d{1,3}\.\d{1,3}/ ||
-              "${BRANCH_NAME}" ==~ /\d{1,3}/ )) {
-            def bn_sections = "${BRANCH_NAME}".split('\\.')
-            if (bn_sections.length == 1) {
-                env.BRANCH_NAME_NORMALIZED = "${BRANCH_NAME}" + '.0.0'
-            } else if (bn_sections.length == 2) {
-                env.BRANCH_NAME_NORMALIZED = "${BRANCH_NAME}" + '.0'
-            } else {
-                env.BRANCH_NAME_NORMALIZED = "${BRANCH_NAME}"
+          if (branch_type == 'release') {
+            if (!("${BRANCH_NAME}" ==~ /\d+\.\d+\.\d+/)) {
+              error("Branch Name ${BRANCH_NAME} is not a valid semver in complete major.minor.patch format. Build aborted!"
             }
-
             sh '''#!/bin/bash
-                JOBMON_LAST_RC_TAG=$(git tag -l --sort=refname ${BRANCH_NAME_NORMALIZED}rc* | tail -1)
-                echo "$JOBMON_LAST_RC_TAG" > $WORKSPACE/jobmon_last_rc_tag.txt
+                JOBMON_LAST_RC_TAG=$(git tag -l --sort=refname ${BRANCH_NAME}rc* | tail -1)
+                echo "$JOBMON_LAST_RC_TAG" > $WORKSPACE/jobmon_last_rc_tag_${BUILD_NUMBER}.txt
                '''
             env.JOBMON_LAST_RC_TAG = sh (
               script: '''#!/bin/bash
-                         cat ${WORKSPACE}/jobmon_last_rc_tag.txt
+                         cat ${WORKSPACE}/jobmon_last_rc_tag_${BUILD_NUMBER}.txt
                       ''',
               returnStdout: true
             ).trim()
             println "JOBMON_LAST_RC_TAG=${JOBMON_LAST_RC_TAG}"
 
             if ("${JOBMON_LAST_RC_TAG}" == '') {
-              env.JOBMON_NEW_RC_TAG = "${BRANCH_NAME_NORMALIZED}rc1"
+              env.JOBMON_NEW_RC_TAG = "${BRANCH_NAME}rc1"
             } else {
-              def last_number = "${JOBMON_LAST_RC_TAG}".substring("${BRANCH_NAME_NORMALIZED}rc".length())
+              def last_number = "${JOBMON_LAST_RC_TAG}".substring("${BRANCH_NAME}rc".length())
               int intNum = last_number as int
-              env.JOBMON_NEW_RC_TAG = "${BRANCH_NAME_NORMALIZED}rc" + (intNum+1)
+              env.JOBMON_NEW_RC_TAG = "${BRANCH_NAME}rc" + (intNum+1)
             }
             println "JOBMON_NEW_RC_TAG=${JOBMON_NEW_RC_TAG}"
 
