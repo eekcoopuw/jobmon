@@ -43,7 +43,7 @@ pipeline {
           env.BRANCH_NAME = branch_sections[branch_sections.length-1]
 		  if (branch_type == 'release') {
             if (!("${BRANCH_NAME}" ==~ /\d+\.\d+\.\d+/)) {
-              error("Branch Name ${BRANCH_NAME} is not a valid semver in complete major.minor.patch format. Build aborted!"
+              error("Branch Name ${BRANCH_NAME} is not a valid semver in complete major.minor.patch format. Build aborted!")
             }
             withCredentials([gitUsernamePassword(credentialsId: 'svcscicompci')]) {
                 sh '''#!/bin/bash
