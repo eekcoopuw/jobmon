@@ -130,7 +130,7 @@ def test_task_template_resources(tool):
     task3 = task_template.create_task(arg="sleep 3")
     workflow1.add_tasks([task1, task2, task3])
     workflow1.bind()
-    workflow1._create_workflow_run()
+    workflow1._bind_tasks()
 
     assert task1.original_task_resources.requested_resources == {
         "cores": 1,

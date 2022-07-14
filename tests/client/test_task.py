@@ -92,7 +92,8 @@ def test_task_attribute(db_engine, tool):
     )
     workflow1.add_tasks([task1, task2, task3])
     workflow1.bind()
-    client_wfr = WorkflowRun(workflow1)
+    workflow1._bind_tasks()
+    client_wfr = WorkflowRun(workflow1.workflow_id)
     client_wfr.bind()
 
     with Session(bind=db_engine) as session:
@@ -162,7 +163,9 @@ def test_get_errors(db_engine, tool):
 
     # add workflow to database
     workflow1.bind()
-    wfr_1 = workflow1._create_workflow_run()
+    workflow1._bind_tasks()
+    wfr_1 = WorkflowRun(workflow1.workflow_id)
+    wfr_1.bind()
 
     # for an just initialized task, get_errors() should be None
     assert task_a.get_errors() is None
@@ -244,7 +247,10 @@ def test_reset_attempts_on_resume(db_engine, tool):
 
     # add workflow to database
     workflow1.bind()
-    wfr_1 = workflow1._create_workflow_run()
+    workflow1._bind_tasks()
+    wfr_1 = WorkflowRun(workflow1.workflow_id)
+    wfr_1.bind()
+    wfr_1._update_status(WorkflowRunStatus.BOUND)
     wfr_1._update_status(WorkflowRunStatus.ERROR)
 
     # now set everything to error fail
@@ -265,7 +271,7 @@ def test_reset_attempts_on_resume(db_engine, tool):
     task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 5")
     workflow2.add_task(task_a)
     workflow2.bind()
-    workflow2._create_workflow_run(resume=True)
+    workflow2._bind_tasks()
 
     # Validate that the database indicates the Dag and its Jobs are complete
     with Session(bind=db_engine) as session:
@@ -291,7 +297,7 @@ def test_binding_length(db_engine, client_env, tool):
     wf.add_task(task1)
     wf.bind()
     with pytest.raises(InvalidResponse) as resp:
-        wf._create_workflow_run()
+        wf._bind_tasks()
     exc_msg = resp.value.args[0]
     assert "Unexpected status code 400" in exc_msg
 
@@ -303,7 +309,7 @@ def test_binding_length(db_engine, client_env, tool):
     wf2.add_task(task2)
     wf2.bind()
     with pytest.raises(InvalidResponse) as resp2:
-        wf2._create_workflow_run()
+        wf2._bind_tasks()
     exc_msg = resp2.value.args[0]
     assert "Task attributes are constrained to 255 characters" in exc_msg
     assert "Unexpected status code 400" in exc_msg

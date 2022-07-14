@@ -53,7 +53,7 @@ def test_task_resource_bind(db_engine, tool, task_template):
     wf.add_tasks([t1, t2, t3])
 
     wf.bind()
-    wf._create_workflow_run()
+    wf._bind_tasks()
 
     with Session(bind=db_engine) as session:
         q = f"""
