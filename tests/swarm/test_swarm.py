@@ -11,6 +11,7 @@ from jobmon.builtins.dummy import DummyDistributor
 from jobmon.builtins.sequential.seq_distributor import SequentialDistributor
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.workflow import DistributorContext
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.constants import WorkflowRunStatus, TaskInstanceStatus
 from jobmon.exceptions import CallableReturnedInvalidObject
@@ -488,7 +489,7 @@ def test_swarm_terminate(tool):
     assert len(swarm.ready_to_run) == 0
 
 
-def test_resume_from_workflow(tool, task_template, sqlite_file, web_server_in_memory):
+def test_resume_from_workflow_id(tool, task_template, sqlite_file, web_server_in_memory):
     workflow = tool.create_workflow()
 
     # Create a small example DAG.
@@ -500,22 +501,55 @@ def test_resume_from_workflow(tool, task_template, sqlite_file, web_server_in_me
     t1 = task_template.create_task(arg='sleep 1')
     t2 = task_template.create_task(arg='sleep 2', upstream_tasks=[t1])
     t3 = task_template.create_task(arg='exit 1', upstream_tasks=[t1], max_attempts=1)
-    t4 = task_template.create_task(arg='sleep 4', upstream_tasks=[t2, t3])
-
+    t4 = task_template.create_task(arg='sleep 4', upstream_tasks=[t2, t3],
+                                   compute_resources={'foo': 'bar'},
+                                   fallback_queues=['null.q'])
     workflow.add_tasks([t1, t2, t3, t4])
     # Run the workflow. Task 3 should error, task 4 doesn't run.
     workflow.run()
-    # Task states should be [D, D, F, D] at this point
-
-    # Get wf metdata
-    resp = web_server_in_memory.get(f"/workflow/{workflow.workflow_id}/fetch_workflow_metadata")
-    breakpoint()
+    # Task states should be [D, D, F, G] at this point
 
     # Test a resumed workflow
-    # workflow._set_workflow_resume()
-    # # Not representative, but just for testing
-    # client_wfr_2 = workflow._create_workflow_run(resume=True)
-    # swarm_resume = SwarmWorkflowRun(client_wfr_2.workflow_run_id)
-    # swarm_resume.from_workflow_id(workflow.workflow_id)
-    breakpoint()
-    assert False
+    resume_factory = WorkflowRunFactory(workflow.workflow_id)
+    resume_factory.set_workflow_resume()
+    resume_factory.reset_task_statuses()
+    resume_wfr = resume_factory.create_workflow_run()
+
+    resume_swarm = SwarmWorkflowRun(workflow_run_id=resume_wfr.workflow_run_id,
+                                    status=resume_wfr.status)
+    assert resume_swarm.status == WorkflowRunStatus.LINKING
+
+    # Pull workflow metadata
+    resume_swarm.set_workflow_metadata(workflow.workflow_id)
+    assert resume_swarm.dag_id == workflow._dag.dag_id
+    assert resume_swarm.max_concurrently_running == workflow.max_concurrently_running
+
+    # Fetch tasks from the database.
+    # Expect 2 tasks back, use a chunk size of 1 to test edge cases.
+    resume_swarm.set_tasks_from_db(chunk_size=1)
+    # 2 tasks, t3 and t4 expected back.
+    assert len(resume_swarm.tasks) == 2
+    assert set(resume_swarm.tasks.keys()) == {t3.task_id, t4.task_id}
+    st3, st4 = resume_swarm.tasks[t3.task_id], resume_swarm.tasks[t4.task_id]
+
+    assert st3.current_task_resources.requested_resources == {}
+    assert st4.current_task_resources.requested_resources == {"foo": "bar"}
+    assert len(st4.fallback_queues) == 1
+    assert st4.fallback_queues[0].queue_id == 2  # null.q, sequential cluster
+    assert st3.status == TaskStatus.REGISTERING
+    # T3 and T4 share same array, 1 value present
+    assert len(resume_swarm.arrays) == 1
+    swarmarray = resume_swarm.arrays[st3.array_id]
+    assert swarmarray.tasks == {st3, st4}
+    assert resume_swarm._task_status_map[TaskStatus.REGISTERING] == {st3, st4}
+
+    # Set downstreams from the database
+    # resp = web_server_in_memory[0].get('/task/get_downstream_tasks')
+    resume_swarm.set_downstreams_from_db(30)
+    assert st3.downstream_swarm_tasks == {st4}
+    assert st4.num_upstreams == 1
+    assert st4.downstream_swarm_tasks == set()
+
+    resume_swarm.set_initial_fringe()
+    assert len(resume_swarm.ready_to_run) == 1
+    assert resume_swarm.ready_to_run[0] == st3

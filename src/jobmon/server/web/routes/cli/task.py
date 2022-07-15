@@ -465,7 +465,6 @@ def _get_tasks_from_nodes(
 @blueprint.route("/task/get_downstream_tasks", methods=["GET"])
 def get_downstream_tasks():
     """Get only the direct downstreams of a task."""
-
     task_ids = request.args.getlist("task_ids")
     dag_id = request.args.get("dag_id")
     session = SessionLocal()
@@ -482,9 +481,8 @@ def get_downstream_tasks():
                 Edge.dag_id == dag_id
             )
         ).all()
-
         result = {
-            row.task_id: [row.node_id, set(row.downstream_node_ids)]
+            row.id: [row.node_id, row.downstream_node_ids]
             for row in tasks_and_edges
         }
 

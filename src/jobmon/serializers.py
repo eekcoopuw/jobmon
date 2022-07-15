@@ -444,10 +444,11 @@ class SerializeDistributorWorkflow:
     """Serialize the data to and from the database for DistributorWorkflow."""
 
     @staticmethod
-    def to_wire(workflow_id: int, max_concurrently_running: int) -> tuple:
+    def to_wire(workflow_id: int, dag_id: int, max_concurrently_running: int) -> tuple:
         """"""
         return (
             workflow_id,
+            dag_id,
             max_concurrently_running,
         )
 

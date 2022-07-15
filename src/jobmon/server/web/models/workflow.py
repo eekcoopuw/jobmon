@@ -27,6 +27,7 @@ class Workflow(Base):
         """Serialize workflow object."""
         serialized = SerializeDistributorWorkflow.to_wire(
             workflow_id=self.id,
+            dag_id=self.dag_id,
             max_concurrently_running=self.max_concurrently_running,
         )
         return serialized

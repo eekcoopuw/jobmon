@@ -380,7 +380,13 @@ def fetch_workflow_metadata(workflow_id: int):
             select(Workflow).where(Workflow.id == workflow_id)
         ).scalar()
 
-    resp = jsonify(workflow=wf)
+    if not wf:
+        return_tuple = ()
+    else:
+        logger.warning(f"No workflow found for ID {workflow_id}")
+        return_tuple = wf.to_wire_as_distributor_workflow()
+
+    resp = jsonify(workflow=return_tuple)
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -388,9 +394,8 @@ def fetch_workflow_metadata(workflow_id: int):
 @blueprint.route("/workflow/get_tasks/<workflow_id>", methods=["GET"])
 def get_tasks_from_workflow(workflow_id: int):
 
-    data = cast(Dict, request.get_json())
-    max_task_id = data['max_task_id']
-    chunk_size = data['chunk_size']
+    max_task_id = request.args.get("max_task_id")
+    chunk_size = request.args.get("chunk_size")
 
     session = SessionLocal()
 
@@ -406,7 +411,8 @@ def get_tasks_from_workflow(workflow_id: int):
             Task.resource_scales,
             Task.fallback_queues,
             TaskResources.requested_resources,
-            Cluster.name
+            Cluster.name,
+            Queue.name
         ).where(
             Task.workflow_id == workflow_id,
             Task.task_resources_id == TaskResources.id,
@@ -419,15 +425,14 @@ def get_tasks_from_workflow(workflow_id: int):
             Task.status != TaskStatus.DONE,
             Task.array_id == Array.id,
             # Greater than set by the input max_task_id
-            Task.task_id > max_task_id,
+            Task.id > max_task_id,
         ).order_by(
             Task.id
         ).limit(
             chunk_size
         )
-        res = session.execute(query)
-        resp_dict = {row.task_id: row[1:]
-                     for row in res}
+        res = session.execute(query).all()
+        resp_dict = {row[0]: row[1:] for row in res}
 
     resp = jsonify(tasks=resp_dict)
     resp.status_code = StatusCodes.OK
