@@ -7,7 +7,7 @@ from sqlalchemy.sql import func
 import structlog
 
 from jobmon.exceptions import InvalidStateTransition
-from jobmon.serializers import SerializeDistributorWorkflow, SerializeClientWorkflow
+from jobmon.serializers import SerializeDistributorWorkflow
 from jobmon.server.web.models import Base
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
@@ -28,24 +28,6 @@ class Workflow(Base):
             workflow_id=self.id,
             dag_id=self.dag_id,
             max_concurrently_running=self.max_concurrently_running,
-        )
-        return serialized
-
-    def to_wire_as_client_workflow(self) -> tuple:
-        """Serialize entire workflow object."""
-        serialized = SerializeClientWorkflow.to_wire(
-            workflow_id=self.id,
-            tool_version_id=self.tool_version_id,
-            dag_id=self.dag_id,
-            workflow_args_hash=self.workflow_args_hash,
-            task_hash=self.task_hash,
-            description=self.description,
-            name=self.name,
-            workflow_args=self.workflow_args,
-            max_concurrently_running=self.max_concurrently_running,
-            status=self.status,
-            created_date=self.created_date,
-            status_date=self.status_date
         )
         return serialized
 

@@ -281,7 +281,7 @@ def test_hot_resume(tool, task_template):
         tasks.append(t)
     workflow2.add_tasks(tasks)
     workflow2.bind()
-    workflow2._bind_tasks
+    workflow2._bind_tasks()
 
     fact2 = WorkflowRunFactory(workflow2.workflow_id)
     with pytest.raises(WorkflowNotResumable):

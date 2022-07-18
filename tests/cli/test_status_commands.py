@@ -1005,13 +1005,12 @@ def test_resume_workflow_from_cli(tool, task_template, db_engine, cli):
         res = session.execute(
             select(Task.status).where(Task.id.in_(task_ids))
         ).scalars().all()
-        breakpoint()
         assert res == [TaskStatus.DONE] * 4
 
         res = session.execute(
             select(
                 WorkflowModel.status
             ).where(WorkflowModel.id == workflow.workflow_id)
-        ).one()
+        ).scalar()
         assert res == WorkflowStatus.DONE
         session.commit()

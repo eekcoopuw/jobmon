@@ -240,12 +240,12 @@ def set_resume(workflow_id: int) -> Any:
         ).where(
             Workflow.id == workflow_id
         )
-        workflow = session.execute(select_stmt).scalars().one()
-
-        # trigger resume on active workflow run
-        workflow.resume(reset_running_jobs)
-        session.flush()
-        logger.info(f"Resume set for wf {workflow_id}")
+        workflow = session.execute(select_stmt).scalars().one_or_none()
+        if workflow:
+            # trigger resume on active workflow run
+            workflow.resume(reset_running_jobs)
+            session.flush()
+            logger.info(f"Resume set for wf {workflow_id}")
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -384,7 +384,7 @@ def fetch_workflow_metadata(workflow_id: int):
         logger.warning(f"No workflow found for ID {workflow_id}")
         return_tuple = ()
     else:
-        return_tuple = wf.to_wire_as_client_workflow()
+        return_tuple = wf.to_wire_as_distributor_workflow()
 
     resp = jsonify(workflow=return_tuple)
     resp.status_code = StatusCodes.OK

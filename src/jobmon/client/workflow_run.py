@@ -39,33 +39,6 @@ class WorkflowRunFactory:
             requester = Requester(requester_url)
         self.requester = requester
         self.workflow_is_resumable = False
-        self._valid_workflow = None
-
-    def validate_workflow(self) -> None:
-        # Fetch metadata on the workflow from the database.
-        # Raise errors if either a) workflow doesn't exist, or
-        # b) workflow is DONE
-
-        # Lazy load so endpoint isn't hit on factory creation
-        _, resp = self.requester.send_request(
-            app_route=f'/workflow/{self.workflow_id}/fetch_workflow_metadata',
-            message={},
-            request_type='get'
-        )
-
-        wf = resp['workflow']
-        if not wf:
-            raise WorkflowNotResumable(
-                f"Workflow(id={self.workflow_id}) does not exist. Cannot resume."
-            )
-        elif wf[9] == WorkflowStatus.DONE:
-            raise WorkflowNotResumable(
-                f"Workflow(id={self.workflow_id}) is already Done, cannot resume."
-            )
-        elif wf[10] is None:
-            raise WorkflowNotResumable(
-                f"Workflow(id={self.workflow_id}) has not completed binding tasks."
-            )
 
     def set_workflow_resume(
         self, reset_running_jobs: bool = True, resume_timeout: int = 300

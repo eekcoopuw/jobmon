@@ -621,11 +621,9 @@ def resume_workflow_from_id(
 
     factory = WorkflowRunFactory(workflow_id=workflow_id)
 
-    # Validate that the workflow exists and is not DONE
-    factory.validate_workflow()
-
     # Signal for a resume - move existing workflow runs to C or H resume depending on the input
     factory.set_workflow_resume(reset_running_jobs=reset_if_running)
+    factory.reset_task_statuses(reset_if_running=reset_if_running)
     # Create the client workflow run
     new_wfr = factory.create_workflow_run()
 

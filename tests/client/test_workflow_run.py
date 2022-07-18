@@ -41,7 +41,7 @@ def test_workflow_run_bind(tool, task_template, requester_no_retry):
     # Ensure workflowrun bind fails with not resumable
     factory = WorkflowRunFactory(workflow_id=wf.workflow_id, requester=requester_no_retry)
     with pytest.raises(WorkflowNotResumable) as error:
-        factory.validate_workflow()
+        factory.create_workflow_run()
         assert 'has not completed binding tasks' in str(error.value)
 
     # bind tasks, try again

@@ -267,40 +267,6 @@ class SerializeClientTaskTemplateVersion:
         }
 
 
-class SerializeClientWorkflow:
-    """Serialize data to and from the DB for a client-side workflow."""
-
-    @staticmethod
-    def to_wire(
-        workflow_id: int,
-        tool_version_id: int,
-        dag_id: int,
-        workflow_args_hash: str,
-        task_hash: str,
-        description: str,
-        name: str,
-        workflow_args: str,
-        max_concurrently_running: int,
-        status: str,
-        created_date: Optional[str],
-        status_date: Optional[str]
-    ) -> tuple:
-        # Index order:
-        # 0: workflow_id, 1: tool_version_id, 2: dag_id, 3: workflow_args_hash,
-        # 4: task_hash, 5: description, 6: name, 7: workflow_args, 8: max_concurrently_running,
-        # 9: status, 10: created_date, 11: status_date
-        return (
-            workflow_id, tool_version_id, dag_id, workflow_args_hash,
-            task_hash, description, name, workflow_args, max_concurrently_running,
-            status, created_date, status_date
-        )
-
-    @staticmethod
-    # TODO: Implement if needed
-    def from_wire(wire_tuple: tuple):
-        NotImplemented
-
-
 class SerializeWorkflowRun:
     """Serialize the data to and from the database for a WorkflowRun."""
 
