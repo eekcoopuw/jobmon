@@ -381,10 +381,10 @@ def fetch_workflow_metadata(workflow_id: int):
         ).scalar()
 
     if not wf:
+        logger.warning(f"No workflow found for ID {workflow_id}")
         return_tuple = ()
     else:
-        logger.warning(f"No workflow found for ID {workflow_id}")
-        return_tuple = wf.to_wire_as_distributor_workflow()
+        return_tuple = wf.to_wire_as_client_workflow()
 
     resp = jsonify(workflow=return_tuple)
     resp.status_code = StatusCodes.OK

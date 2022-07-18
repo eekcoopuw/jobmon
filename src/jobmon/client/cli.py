@@ -62,6 +62,7 @@ class ClientCLI(CLI):
         self._add_workflow_reset_subparser()
         self._add_create_resource_yaml_subparser()
         self._add_get_filepaths_subparser()
+        self._add_resume_workflow_parser()
 
     @staticmethod
     def limit_checker(limit: Any) -> int:
@@ -233,11 +234,11 @@ class ClientCLI(CLI):
     @staticmethod
     def resume_workflow(args: configargparse.Namespace) -> None:
         """Resume a workflow from a workflow ID"""
-
         from jobmon.client.status_commands import resume_workflow_from_id
-        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
 
-        resume_workflow_from_id(args.workflow_id)
+        resume_workflow_from_id(workflow_id=args.workflow_id,
+                                cluster_name=args.cluster_name,
+                                reset_if_running=args.reset_running_jobs)
 
     @staticmethod
     def get_filepaths(args: configargparse.Namespace) -> None:
@@ -616,6 +617,30 @@ class ClientCLI(CLI):
         )
         ParserDefaults.web_service_fqdn(get_filepaths_parser)
         ParserDefaults.web_service_port(get_filepaths_parser)
+
+    def _add_resume_workflow_parser(self) -> None:
+        workflow_resume_parser = self._subparsers.add_parser(
+            "workflow_resume", **PARSER_KWARGS
+        )
+        workflow_resume_parser.set_defaults(func=self.resume_workflow)
+        workflow_resume_parser.add_argument(
+            "-w", "--workflow_id", help="workflow_id to resume", required=True, type=int
+        )
+        # TODO: perhaps provide a mechanism to infer the last cluster this
+        # workflow was run on
+        workflow_resume_parser.add_argument(
+            "-c", "--cluster_name",
+            help="cluster to run this workflow on, e.g. 'slurm', 'slurm_test', 'dummy'",
+            required=True
+        )
+        workflow_resume_parser.add_argument(
+            "--reset-running-jobs",
+            help="whether to reset running jobs or not",
+            required=False,
+            action="store_true"
+        )
+        ParserDefaults.web_service_fqdn(workflow_resume_parser)
+        ParserDefaults.web_service_port(workflow_resume_parser)
 
 
 def main(argstr: Optional[str] = None) -> None:

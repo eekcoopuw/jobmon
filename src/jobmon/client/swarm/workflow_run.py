@@ -257,7 +257,10 @@ class WorkflowRun:
         if not database_wf:
             raise EmptyWorkflowError(f"No workflow found for workflow id {workflow_id}")
 
-        workflow_id, dag_id, max_concurrently_running = database_wf
+        # Magic indices defined in serializers.SerializeClientWorkflow
+        workflow_id = database_wf[0]
+        dag_id = database_wf[2]
+        max_concurrently_running = database_wf[8]
 
         self.last_sync = self._get_current_time()
         self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])

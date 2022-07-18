@@ -6,6 +6,7 @@ from jobmon.constants import WorkflowRunStatus, TaskInstanceStatus
 from jobmon.exceptions import WorkflowAlreadyExists, WorkflowNotResumable
 from jobmon.builtins.multiprocess.multiproc_distributor import MultiprocessDistributor
 from jobmon.client.tool import Tool
+from jobmon.client.workflow_run import WorkflowRunFactory
 
 from mock import patch
 
@@ -87,7 +88,6 @@ def test_fail_one_task_resume(tool, task_template_fail_one, tmpdir):
         fail_always="--fail_always",
     )
     workflow1.add_tasks([t1])
-    workflow1.bind()
     workflow_run_status = workflow1.run()
 
     assert workflow_run_status == WorkflowRunStatus.ERROR
@@ -108,7 +108,6 @@ def test_fail_one_task_resume(tool, task_template_fail_one, tmpdir):
         fail_always="",
     )  # fail bool is not set. workflow should succeed
     workflow2.add_tasks([t2])
-    workflow2.bind()
 
     with pytest.raises(WorkflowAlreadyExists):
         workflow2.run()
@@ -153,6 +152,7 @@ def test_cold_resume(tool):
     workflow1.add_tasks(get_two_wave_tasks(tool))
     workflow1.bind()
     wfr1 = workflow1._create_workflow_run()
+    wfr1._update_status(WorkflowRunStatus.BOUND)
 
     # create task instances
     swarm = SwarmWorkflowRun(
@@ -193,7 +193,9 @@ def test_cold_resume(tool):
         )
         workflow2.add_tasks(get_two_wave_tasks(tool))
         workflow2.bind()
-        workflow2._create_workflow_run(resume=True, resume_timeout=1)
+        workflow2._bind_tasks()
+        fact2 = WorkflowRunFactory(workflow2.workflow_id)
+        fact2.set_workflow_resume(resume_timeout=1)
 
     # test if resume signal is received
     swarm.synchronize_state()
@@ -232,7 +234,11 @@ def test_hot_resume(tool, task_template):
         tasks.append(t)
     workflow1.add_tasks(tasks)
     workflow1.bind()
-    wfr1 = workflow1._create_workflow_run()
+    workflow1._bind_tasks()
+
+    factory = WorkflowRunFactory(workflow_id=workflow1.workflow_id)
+    wfr1 = factory.create_workflow_run()
+    wfr1._update_status(WorkflowRunStatus.BOUND)
 
     # run first 3 tasks
     distributor_service = DistributorService(
@@ -275,10 +281,11 @@ def test_hot_resume(tool, task_template):
         tasks.append(t)
     workflow2.add_tasks(tasks)
     workflow2.bind()
+    workflow2._bind_tasks
+
+    fact2 = WorkflowRunFactory(workflow2.workflow_id)
     with pytest.raises(WorkflowNotResumable):
-        workflow2._create_workflow_run(
-            resume=True, reset_running_jobs=False, resume_timeout=1
-        )
+        fact2.set_workflow_resume(reset_running_jobs=False, resume_timeout=1)
 
     # test if resume signal is received
     swarm.synchronize_state()

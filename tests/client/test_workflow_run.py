@@ -41,8 +41,8 @@ def test_workflow_run_bind(tool, task_template, requester_no_retry):
     # Ensure workflowrun bind fails with not resumable
     factory = WorkflowRunFactory(workflow_id=wf.workflow_id, requester=requester_no_retry)
     with pytest.raises(WorkflowNotResumable) as error:
-        factory.create_workflow_run()
-        assert 'not in a resume-able state' in str(error.value)
+        factory.validate_workflow()
+        assert 'has not completed binding tasks' in str(error.value)
 
     # bind tasks, try again
     wf._bind_tasks()
