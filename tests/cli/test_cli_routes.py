@@ -1,21 +1,14 @@
 import pytest
-from sqlalchemy import select
 from sqlalchemy.orm import Session
-from sqlalchemy import update
 import getpass
 import pandas as pd
 
-from jobmon.constants import WorkflowRunStatus, TaskStatus, TaskInstanceStatus
-from jobmon.client.task import Task
-from jobmon.client.workflow_run import WorkflowRun
-from jobmon.exceptions import InvalidResponse
+from jobmon.constants import WorkflowRunStatus
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.server.web.models import load_model
-from jobmon.server.web.models import task
-from jobmon.server.web.models.task_attribute import TaskAttribute
-from jobmon.server.web.models.task_attribute_type import TaskAttributeType
-from jobmon.server.web.models.workflow import Workflow
 
 load_model()
+
 
 def test_get_task_template_version(db_engine, tool):
     t = tool
@@ -40,7 +33,10 @@ def test_get_task_template_version(db_engine, tool):
     task_3 = tt2.create_task(arg=3)
     wf.add_tasks([task_1, task_2, task_3])
     wf.bind()
-    wf._create_workflow_run()
+    wf._bind_tasks()
+    factory = WorkflowRunFactory(wf.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
 
     # Test getting task template for task
     app_route = "/get_task_template_version"
@@ -88,7 +84,10 @@ def test_get_requested_cores(db_engine, tool):
     )
     wf.add_tasks([t1, t2])
     wf.bind()
-    wf._create_workflow_run()
+    wf._bind_tasks()
+    factory = WorkflowRunFactory(wf.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
 
     # Get task template for workflow
     app_route = "/get_task_template_version"
@@ -171,10 +170,10 @@ def test_get_workflow_validation_status(db_engine, tool):
     )
     wf1.add_tasks([t1])
     wf1.bind()
-    wf1._create_workflow_run()
+    wf1._bind_tasks()
     wf2.add_tasks([t2])
     wf2.bind()
-    wf2._create_workflow_run()
+    wf2._bind_tasks()
 
     app_route = "/workflow_validation"
     return_code, msg = wf1.requester.send_request(
@@ -206,7 +205,7 @@ def test_get_workflow_tasks(db_engine, tool):
     )
     wf.add_tasks([t1, t2])
     wf.bind()
-    wf._create_workflow_run()
+    wf._bind_tasks()
 
     app_route = f"/workflow/{wf.workflow_id}/workflow_tasks"
     return_code, msg = wf.requester.send_request(
@@ -243,7 +242,9 @@ def test_get_workflow_user_validation(db_engine, tool):
     )
     wf.add_tasks([t1, t2])
     wf.bind()
-    wf._create_workflow_run()
+    wf._bind_tasks()
+    factory = WorkflowRunFactory(wf.workflow_id)
+    factory.create_workflow_run()
 
     app_route = f"/workflow/{wf.workflow_id}/validate_username/whoever"
     return_code, msg = wf.requester.send_request(
@@ -278,7 +279,9 @@ def test_get_workflow_run_for_workflow_reset(db_engine, tool):
     )
     wf.add_tasks([t1, t2])
     wf.bind()
-    wf._create_workflow_run()
+    wf._bind_tasks()
+    factory = WorkflowRunFactory(wf.workflow_id)
+    factory.create_workflow_run()
 
     app_route = f"/workflow/{wf.workflow_id}/validate_for_workflow_reset/whoever"
     return_code, msg = wf.requester.send_request(
@@ -306,7 +309,10 @@ def test_reset_workflow(db_engine, tool):
     )
     wf.add_tasks([t1, t2])
     wf.bind()
-    wf._create_workflow_run()
+    wf._bind_tasks()
+    factory = WorkflowRunFactory(wf.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
 
     app_route = f"/workflow/{wf.workflow_id}/reset"
     return_code, msg = wf.requester.send_request(
@@ -333,7 +339,7 @@ def test_get_workflow_status(db_engine, tool):
     )
     wf.add_tasks([t1, t2])
     wf.bind()
-    wf._create_workflow_run()
+    wf._bind_tasks()
 
     app_route = f"/workflow_status"
     return_code, msg = wf.requester.send_request(
@@ -342,32 +348,6 @@ def test_get_workflow_status(db_engine, tool):
     assert return_code == 200
     result = pd.read_json(msg["workflows"])
     assert len(result) == 1
-
-
-def test_get_task_template_resource_usage(db_engine, tool):
-    t = tool
-    wf = t.create_workflow(name="i_am_a_fake_wf")
-    tt1 = t.get_task_template(
-        template_name="tt_core", command_template="echo {arg}", node_args=["arg"]
-    )
-    t1 = tt1.create_task(
-        arg=1,
-        cluster_name="sequential",
-        compute_resources={"queue": "null.q", "num_cores": 2},
-    )
-    t2 = tt1.create_task(
-        arg=2,
-        cluster_name="sequential",
-        compute_resources={"queue": "null.q", "num_cores": 4},
-    )
-    wf.add_tasks([t1, t2])
-    wf.run()
-
-    app_route = f"/task_template_resource_usage"
-    return_code, msg = wf.requester.send_request(
-        app_route=app_route, message={"task_template_version_id": 1}, request_type="post"
-    )
-    assert return_code == 200
 
 
 def test_get_task_status(db_engine, tool):
@@ -437,6 +417,9 @@ def test_get_array_task_instances(db_engine, tool):
     assert msg['array_tasks'][0]["OUTPUT_PATH"] == "/cool/filepath.o"
 
 
+@pytest.mark.skip("This test might not be well designed. Task templates are not unique"
+                  "to workflows, so running this test alone will yield different results than"
+                  "when this test is run in sequence with other tests.")
 def test_get_task_template_resource_usage(db_engine, tool):
     t = tool
     wf = t.create_workflow(name="i_am_a_fake_wf")
@@ -522,7 +505,7 @@ def test_get_workflow_status_viz(tool):
         )
         wf.add_tasks([t1, t2])
         wf.bind()
-        wf._create_workflow_run()
+        wf._bind_tasks()
         wfids.append(wf.workflow_id)
 
     app_route = "/workflow_status_viz"

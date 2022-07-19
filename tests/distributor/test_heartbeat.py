@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 
 from jobmon.constants import TaskInstanceStatus
 from jobmon.client.distributor.distributor_service import DistributorService
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.builtins.multiprocess.multiproc_distributor import MultiprocessDistributor
 from jobmon.server.web.models.task_instance import TaskInstance
@@ -20,7 +21,8 @@ def test_heartbeat_on_launched(tool, db_engine, task_template):
     workflow = tool.create_workflow(name="test_instantiate_queued_jobs_on_sequential")
     workflow.add_tasks([t1, t2])
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    wfr = WorkflowRunFactory(workflow.workflow_id).create_workflow_run()
 
     # create task instances
     swarm = SwarmWorkflowRun(

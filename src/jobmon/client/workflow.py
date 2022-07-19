@@ -6,7 +6,6 @@ import logging
 import logging.config
 from subprocess import PIPE, Popen, TimeoutExpired
 import sys
-import time
 from types import TracebackType
 from typing import Any, Dict, List, Optional, Sequence, Union
 import uuid
@@ -21,7 +20,7 @@ from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
 from jobmon.client.task_resources import TaskResources
 from jobmon.client.tool_version import ToolVersion
-from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.cluster import Cluster
 from jobmon.constants import (
     TaskStatus,
@@ -206,8 +205,9 @@ class Workflow(object):
                     "dictionary of attributes and their values"
                 )
 
-        # Cache for clusters
+        # Cache for clusters and task resources
         self._clusters: Dict[str, Cluster] = {}
+        self._task_resources: Dict[int, TaskResources] = {}
         self.default_cluster_name: str = ""
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
         self.default_resource_scales_set: Dict[str, Dict[str, float]] = {}
@@ -462,9 +462,35 @@ class Workflow(object):
         self.bind()
         logger.info(f"Workflow ID {self.workflow_id} assigned")
 
+        # Check if this workflow is already complete and is runnable
+        if self._status == WorkflowStatus.DONE:
+            raise WorkflowAlreadyComplete(
+                f"Workflow ({self.workflow_id}) is already in done state and cannot be resumed"
+            )
+
+        if not self._newly_created and not resume:
+            raise WorkflowAlreadyExists(
+                "This workflow already exists. If you are trying to resume a workflow, "
+                "please set the resume flag. If you are not trying to resume a workflow, make "
+                "sure the workflow args are unique or the tasks are unique"
+            )
+
+        # Bind tasks
+        logger.info("Adding task metadata to database")
+        # Need to wait for resume signal to be sent before resetting tasks, in case of a resume
+        factory = WorkflowRunFactory(self.workflow_id)
+        if resume:
+            factory.set_workflow_resume(reset_running_jobs=reset_running_jobs,
+                                        resume_timeout=resume_timeout)
+
+        self._bind_tasks(reset_if_running=reset_running_jobs, chunk_size=self._chunk_size)
+
         # create workflow_run
         logger.info("Adding WorkflowRun metadata to database")
-        wfr = self._create_workflow_run(resume, reset_running_jobs, resume_timeout)
+        wfr = factory.create_workflow_run()
+        # Update the workflowrun to BOUND state immediately in this API. All metadata already
+        # bound, so the swarm can start immediately.
+        wfr._update_status(WorkflowRunStatus.BOUND)
         logger.info(f"WorkflowRun ID {wfr.workflow_run_id} assigned")
 
         # start distributor
@@ -479,6 +505,7 @@ class Workflow(object):
                 fail_after_n_executions=self._fail_after_n_executions,
                 requester=self.requester,
                 fail_fast=fail_fast,
+                status=wfr.status
             )
             swarm.from_workflow(self)
             self._num_previously_completed = swarm.num_previously_complete
@@ -603,15 +630,77 @@ class Workflow(object):
             },
             request_type="post",
         )
-        if http_request_ok(return_code) is False:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from POST request through route "
-                f"{app_route}. Expected code 200. Response content: {response}"
-            )
 
         self._workflow_id = response["workflow_id"]
         self._status = response["status"]
         self._newly_created = response["newly_created"]
+
+    def _bind_tasks(
+        self,
+        reset_if_running: bool = True,
+        chunk_size: int = 500,
+    ) -> None:
+        app_route = "/task/bind_tasks"
+        remaining_task_hashes = list(self.tasks.keys())
+
+        while remaining_task_hashes:
+
+            # split off first chunk elements from queue.
+            task_hashes_chunk = remaining_task_hashes[:chunk_size]
+            remaining_task_hashes = remaining_task_hashes[chunk_size:]
+
+            # If this is the last chunk, mark the created_date field in the
+            # database.
+            mark_created = len(remaining_task_hashes) == 0
+
+            # send to server in a format of:
+            # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), array_id(3),
+            # name(4), command(5), max_attempts(6)], reset_if_running(7), task_args(8),
+            # task_attributes(9)}
+            # flat the data structure so that the server won't depend on the client
+            task_metadata: Dict[int, List] = {}
+            for task_hash in task_hashes_chunk:
+                task = self.tasks[task_hash]
+
+                # get array id
+                array = task.array
+                if not array.is_bound:
+                    array.bind()
+
+                # get task resources id
+                self._set_original_task_resources(task)
+
+                task_metadata[task_hash] = [
+                    task.node.node_id,
+                    str(task.task_args_hash),
+                    task.array.array_id,
+                    task.original_task_resources.id,
+                    task.name,
+                    task.command,
+                    task.max_attempts,
+                    reset_if_running,
+                    task.mapped_task_args,
+                    task.task_attributes,
+                    task.resource_scales,
+                    task.fallback_queues,
+                ]
+            parameters = {
+                "workflow_id": self.workflow_id,
+                "tasks": task_metadata,
+                "mark_created": mark_created
+            }
+            return_code, response = self.requester.send_request(
+                app_route=app_route,
+                message=parameters,
+                request_type="put",
+            )
+
+            # populate returned values onto task dict
+            return_tasks = response["tasks"]
+            for k in return_tasks.keys():
+                task = self.tasks[int(k)]
+                task.task_id = return_tasks[k][0]
+                task.initial_status = return_tasks[k][1]
 
     def get_errors(
         self, limit: int = 1000
@@ -650,34 +739,20 @@ class Workflow(object):
             self._clusters[cluster_name] = cluster
         return cluster
 
-    def _create_workflow_run(
-        self,
-        resume: bool = False,
-        reset_running_jobs: bool = True,
-        resume_timeout: int = 300,
-    ) -> ClientWorkflowRun:
-        # raise error if workflow exists and is done
-        if self._status == WorkflowStatus.DONE:
-            raise WorkflowAlreadyComplete(
-                f"Workflow ({self.workflow_id}) is already in done state and cannot be resumed"
-            )
+    def _set_original_task_resources(self, task: Task) -> None:
+        cluster = self.get_cluster_by_name(task.cluster_name)
+        queue = cluster.get_queue(task.queue_name)
+        task_resources = TaskResources(
+            requested_resources=task.requested_resources, queue=queue
+        )
 
-        if not self._newly_created and not resume:
-            raise WorkflowAlreadyExists(
-                "This workflow already exists. If you are trying to resume a workflow, "
-                "please set the resume flag. If you are not trying to resume a workflow, make "
-                "sure the workflow args are unique or the tasks are unique"
-            )
-        elif not self._newly_created and resume:
-            self._set_workflow_resume(reset_running_jobs)
-            self._workflow_is_resumable(resume_timeout)
+        try:
+            task_resources = self._task_resources[hash(task_resources)]
+        except KeyError:
+            task_resources.bind()
+            self._task_resources[hash(task_resources)] = task_resources
 
-        # create workflow run
-        client_wfr = ClientWorkflowRun(workflow=self, requester=self.requester)
-        client_wfr.bind(reset_running_jobs, self._chunk_size)
-        self._status = WorkflowStatus.QUEUED
-
-        return client_wfr
+        task.original_task_resources = task_resources
 
     def _matching_wf_args_diff_hash(self) -> None:
         """Check that that an existing workflow does not contain different tasks.
@@ -703,56 +778,6 @@ class Workflow(object):
                     "are unique for this set of tasks, or make sure your tasks"
                     " match the workflow you are trying to resume"
                 )
-
-    def _set_workflow_resume(self, reset_running_jobs: bool = True) -> None:
-        app_route = f"/workflow/{self.workflow_id}/set_resume"
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={
-                "reset_running_jobs": reset_running_jobs,
-                "description": self.description,
-                "name": self.name,
-                "max_concurrently_running": self.max_concurrently_running,
-                "workflow_attributes": self.workflow_attributes,
-            },
-            request_type="post",
-        )
-        if http_request_ok(return_code) is False:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from POST "
-                f"request through route {app_route}. Expected "
-                f"code 200. Response content: {response}"
-            )
-
-    def _workflow_is_resumable(self, resume_timeout: int = 300) -> None:
-        # previous workflow exists but is resumable. we will wait till it terminates
-        wait_start = time.time()
-        workflow_is_resumable = False
-        while not workflow_is_resumable:
-            logger.info(
-                f"Waiting for resume. "
-                f"Timeout in {round(resume_timeout - (time.time() - wait_start), 1)}"
-            )
-            app_route = f"/workflow/{self.workflow_id}/is_resumable"
-            return_code, response = self.requester.send_request(
-                app_route=app_route, message={}, request_type="get"
-            )
-            if http_request_ok(return_code) is False:
-                raise InvalidResponse(
-                    f"Unexpected status code {return_code} from POST "
-                    f"request through route {app_route}. Expected "
-                    f"code 200. Response content: {response}"
-                )
-
-            workflow_is_resumable = response.get("workflow_is_resumable")
-            if (time.time() - wait_start) > resume_timeout:
-                raise WorkflowNotResumable(
-                    "workflow_run timed out waiting for previous "
-                    "workflow_run to exit. Try again in a few minutes."
-                )
-            else:
-                sleep_time = round(float(resume_timeout) / 10.0, 1)
-                time.sleep(sleep_time)
 
     def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""

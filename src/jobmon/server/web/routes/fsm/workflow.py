@@ -9,8 +9,13 @@ from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 import structlog
 
+from jobmon.server.web.models.array import Array
+from jobmon.server.web.models.cluster import Cluster
 from jobmon.server.web.models.dag import Dag
+from jobmon.server.web.models.queue import Queue
 from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_resources import TaskResources
+from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
 from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
@@ -99,6 +104,18 @@ def bind_workflow() -> Any:
                 session.flush()
             newly_created = True
         else:
+            # set mutable attributes. Moved here from the set_resume method
+            workflow.description = description
+            workflow.name = name
+            workflow.max_concurrently_running = max_concurrently_running
+            session.flush()
+
+            # upsert attributes
+            if workflow_attributes:
+                logger.info("Upsert attributes for workflow")
+                if workflow_attributes:
+                    for name, val in workflow_attributes.items():
+                        _upsert_wf_attribute(workflow.id, name, val, session)
             newly_created = False
 
     resp = jsonify(
@@ -213,10 +230,6 @@ def set_resume(workflow_id: int) -> Any:
         data = cast(Dict, request.get_json())
         logger.info("Set resume for workflow")
         reset_running_jobs = bool(data["reset_running_jobs"])
-        description = str(data["description"])
-        name = str(data["name"])
-        max_concurrently_running = int(data["max_concurrently_running"])
-        workflow_attributes = data["workflow_attributes"]
     except Exception as e:
         raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
 
@@ -227,25 +240,12 @@ def set_resume(workflow_id: int) -> Any:
         ).where(
             Workflow.id == workflow_id
         )
-        workflow = session.execute(select_stmt).scalars().one()
-
-        # set mutable attribute
-        workflow.description = description
-        workflow.name = name
-        workflow.max_concurrently_running = max_concurrently_running
-        session.flush()
-
-        # trigger resume on active workflow run
-        workflow.resume(reset_running_jobs)
-        session.flush()
-        logger.info(f"Resume set for wf {workflow_id}")
-
-        # upsert attributes
-        if workflow_attributes:
-            logger.info("Upsert attributes for workflow")
-            if workflow_attributes:
-                for name, val in workflow_attributes.items():
-                    _upsert_wf_attribute(workflow_id, name, val, session)
+        workflow = session.execute(select_stmt).scalars().one_or_none()
+        if workflow:
+            # trigger resume on active workflow run
+            workflow.resume(reset_running_jobs)
+            session.flush()
+            logger.info(f"Resume set for wf {workflow_id}")
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -367,5 +367,73 @@ def task_status_updates(workflow_id: int) -> Any:
             result_dict[row[0]] = [int(i) for i in row[1].split(",")]
 
     resp = jsonify(tasks_by_status=result_dict, time=str_time)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@blueprint.route("/workflow/<workflow_id>/fetch_workflow_metadata", methods=["GET"])
+def fetch_workflow_metadata(workflow_id: int):
+    # Query for a workflow object
+    session = SessionLocal()
+    with session.begin():
+        wf = session.execute(
+            select(Workflow).where(Workflow.id == workflow_id)
+        ).scalar()
+
+    if not wf:
+        logger.warning(f"No workflow found for ID {workflow_id}")
+        return_tuple = ()
+    else:
+        return_tuple = wf.to_wire_as_distributor_workflow()
+
+    resp = jsonify(workflow=return_tuple)
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@blueprint.route("/workflow/get_tasks/<workflow_id>", methods=["GET"])
+def get_tasks_from_workflow(workflow_id: int):
+
+    max_task_id = request.args.get("max_task_id")
+    chunk_size = request.args.get("chunk_size")
+
+    session = SessionLocal()
+
+    with session.begin():
+
+        # Query task table
+        query = select(
+            Task.id,
+            Task.array_id,
+            Array.max_concurrently_running,
+            Task.status,
+            Task.max_attempts,
+            Task.resource_scales,
+            Task.fallback_queues,
+            TaskResources.requested_resources,
+            Cluster.name,
+            Queue.name
+        ).where(
+            Task.workflow_id == workflow_id,
+            Task.task_resources_id == TaskResources.id,
+            TaskResources.queue_id == Queue.id,
+            Queue.cluster_id == Cluster.id,
+            # Note: because of this status != "DONE" filter, only the portion of the DAG
+            # that is not complete is returned. Assumes that all tasks in a workflow correspond
+            # to nodes that belong in the same DAG, and that no downstream nodes can be in DONE
+            # for any unfinished task
+            Task.status != TaskStatus.DONE,
+            Task.array_id == Array.id,
+            # Greater than set by the input max_task_id
+            Task.id > max_task_id,
+        ).order_by(
+            Task.id
+        ).limit(
+            chunk_size
+        )
+        res = session.execute(query).all()
+        resp_dict = {row[0]: row[1:] for row in res}
+
+    resp = jsonify(tasks=resp_dict)
     resp.status_code = StatusCodes.OK
     return resp

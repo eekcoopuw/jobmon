@@ -1,3 +1,5 @@
+from jobmon.client.workflow_run import WorkflowRunFactory
+
 def test_distributor_context(tool, task_template, client_env):
     from jobmon.client.workflow import DistributorContext
 
@@ -6,7 +8,8 @@ def test_distributor_context(tool, task_template, client_env):
 
     workflow.add_tasks([t1])
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    wfr = WorkflowRunFactory(workflow.workflow_id).create_workflow_run()
 
     distributor_context = DistributorContext("sequential", wfr.workflow_run_id, 15)
     distributor_context.__enter__()

@@ -31,9 +31,9 @@ def test_add_structlog_context(requester_in_memory, log_config):
     requester = Requester("")
     added_context = {"foo": "bar", "baz": "qux"}
     requester.add_server_structlog_context(**added_context)
-    requester.send_request("/health", {}, "get", tenacious=False)
-    requester.send_request("/health", {}, "post", tenacious=False)
-    requester.send_request("/health", {}, "put", tenacious=False)
+    requester._send_request("/health", {}, "get")
+    requester._send_request("/health", {}, "post")
+    requester._send_request("/health", {}, "put")
     with open(log_config, "r") as server_log_file:
         for line in server_log_file:
             stripped_line = line.strip()
@@ -55,7 +55,7 @@ def test_error_handling(requester_in_memory, log_config, monkeypatch):
 
     captured_exception = False
     requester = Requester("")
-    requester.send_request("/health", {}, "get", tenacious=False)
+    requester._send_request("/health", {}, "get")
     with open(log_config, "r") as server_log_file:
         for line in server_log_file:
             stripped_line = line.strip()

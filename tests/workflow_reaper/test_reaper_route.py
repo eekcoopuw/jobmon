@@ -1,5 +1,7 @@
 import pytest
 
+from jobmon.constants import WorkflowRunStatus
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.server.web.models import load_model
 
 load_model()
@@ -22,7 +24,10 @@ def test_fix_status_inconsistency(db_engine, tool):
     task_1 = tt1.create_task(arg=1)
     wf.add_tasks([task_1])
     wf.bind()
-    wf._create_workflow_run()
+    wf._bind_tasks()
+    factory = WorkflowRunFactory(wf.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
 
     app_route = f"/workflow/{wf.workflow_id}/fix_status_inconsistency"
     return_code, msg = wf.requester.send_request(
@@ -46,7 +51,10 @@ def test_workflow_name_and_args(db_engine, tool):
     task_1 = tt1.create_task(arg=1)
     wf.add_tasks([task_1])
     wf.bind()
-    wf._create_workflow_run()
+    wf._bind_tasks()
+    factory = WorkflowRunFactory(wf.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
     app_route = f"/workflow/{wf.workflow_id}/workflow_name_and_args"
     return_code, msg = wf.requester.send_request(
         app_route=app_route, message={}, request_type="get"
@@ -70,7 +78,10 @@ def test_lost_workflow_run(db_engine, tool):
     task_1 = tt1.create_task(arg=1)
     wf.add_tasks([task_1])
     wf.bind()
-    wf._create_workflow_run()
+    wf._bind_tasks()
+    factory = WorkflowRunFactory(wf.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
     app_route = f"/lost_workflow_run"
     return_code, msg = wf.requester.send_request(
         app_route=app_route, message={'status': 'R', 'version': 'whatever'}, request_type="get"
@@ -92,8 +103,10 @@ def test_reap_workflow_run(db_engine, tool):
     task_1 = tt1.create_task(arg=1)
     wf.add_tasks([task_1])
     wf.bind()
-    wfr = wf._create_workflow_run()
-    wfr.bind()
+    wf._bind_tasks()
+    factory = WorkflowRunFactory(wf.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
     app_route = f"/workflow_run/{wfr.workflow_run_id}/reap"
     return_code, msg = wf.requester.send_request(
         app_route=app_route, message={'status': 'R', 'version': 'whatever'}, request_type="put"

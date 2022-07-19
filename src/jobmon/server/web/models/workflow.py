@@ -8,7 +8,6 @@ import structlog
 
 from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeDistributorWorkflow
-# from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import Base
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
@@ -27,6 +26,7 @@ class Workflow(Base):
         """Serialize workflow object."""
         serialized = SerializeDistributorWorkflow.to_wire(
             workflow_id=self.id,
+            dag_id=self.dag_id,
             max_concurrently_running=self.max_concurrently_running,
         )
         return serialized
@@ -45,7 +45,7 @@ class Workflow(Base):
         ForeignKey("workflow_status.id"),
         default=WorkflowStatus.REGISTERING,
     )
-    created_date = Column(DateTime, default=func.now())
+    created_date = Column(DateTime, default=None)
     status_date = Column(DateTime, default=func.now())
 
     dag = relationship("Dag", back_populates="workflow", lazy=True)
@@ -76,6 +76,8 @@ class Workflow(Base):
         (WorkflowStatus.LAUNCHED, WorkflowStatus.RUNNING),
         # workflow run was running and then got moved to a resume state
         (WorkflowStatus.RUNNING, WorkflowStatus.HALTED),
+        # workflow run was bound, and then got moved to a resume state
+        (WorkflowStatus.QUEUED, WorkflowStatus.HALTED),
         # workflow run was running and then completed successfully
         (WorkflowStatus.RUNNING, WorkflowStatus.DONE),
         # workflow run was running and then failed with an error
@@ -115,6 +117,7 @@ class Workflow(Base):
         linked_wfr = [
             wfr.status == WorkflowRunStatus.LINKING for wfr in self.workflow_runs
         ]
+
         if not any(linked_wfr) and self.ready_to_link:
             workflow_run.heartbeat(next_report_increment, WorkflowRunStatus.LINKING)
             current_wfr = [(workflow_run.id, workflow_run.status)]
@@ -127,7 +130,11 @@ class Workflow(Base):
         # currently linked workflow run
         else:
             current_wfr = [(wfr.id, wfr.status) for wfr in self.workflow_runs]
-        return current_wfr[0]
+
+        if current_wfr:
+            return current_wfr[0]
+        else:
+            return ()
 
     def resume(self, reset_running_jobs: bool) -> None:
         """Resume a workflow."""
@@ -148,9 +155,11 @@ class Workflow(Base):
             WorkflowStatus.QUEUED,
             WorkflowStatus.RUNNING,
             WorkflowStatus.DONE,
-        ]
+        ] and self.is_resumable
 
     @property
     def is_resumable(self) -> bool:
         """Is this workflow resumable."""
-        return not any([wfr.is_alive for wfr in self.workflow_runs])
+        wfrs_active = any([wfr.is_alive for wfr in self.workflow_runs])
+        done_binding = self.created_date is not None
+        return done_binding and not wfrs_active

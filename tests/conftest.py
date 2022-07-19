@@ -155,7 +155,7 @@ def requester_no_retry(client_env):
 
 
 @pytest.fixture(scope="function")
-def web_server_in_memory():
+def web_server_in_memory(sqlite_file, monkeypatch):
     """This sets up the JSM/JQS using the test_client which is a
     fake server
     """
@@ -163,6 +163,7 @@ def web_server_in_memory():
     from jobmon.server.web.web_config import WebConfig
 
     # The create_app call sets up database connections
+    monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", f"sqlite:///{sqlite_file}")
     config = WebConfig.from_defaults()
     app_factory = AppFactory(config)
     app = app_factory.get_app()

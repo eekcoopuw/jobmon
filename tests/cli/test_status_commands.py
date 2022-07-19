@@ -11,8 +11,16 @@ from unittest.mock import patch, PropertyMock
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 
+from jobmon.constants import TaskStatus, WorkflowStatus, WorkflowRunStatus
 from jobmon.client.workflow import DistributorContext
+from jobmon.client.workflow_run import WorkflowRunFactory
+from jobmon.exceptions import InvalidResponse
+from jobmon.server.web.models import load_model
 from jobmon.server.web.models.task_instance import TaskInstance
+from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.workflow import Workflow as WorkflowModel
+
+load_model()
 
 
 def get_task_template(tool, template_name="my_template"):
@@ -118,7 +126,10 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
     t2 = task_template_2.create_task(arg="sleep 5", upstream_tasks=[t1])
     workflow.add_tasks([t1, t2])
     workflow.bind()
-    workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
 
     # we should have the column headers plus 2 tasks in pending
     command_str = f"workflow_status -u {user} -w {workflow.workflow_id}"
@@ -151,7 +162,7 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
         "RUNNING": {"0": "0 (0.0%)"},
         "DONE": {"0": "0 (0.0%)"},
         "FATAL": {"0": "0 (0.0%)"},
-        "RETRIES": {"0": 0.0},
+        "RETRIES": {"0": 0},
     }
     # Don't have millisecond precision, but can at least check our margin is +- 1 day
     now = datetime.date.today()
@@ -167,7 +178,9 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
     )
     workflow.add_tasks([t1, t2])
     workflow.bind()
-    workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    factory.create_workflow_run()
 
     # check that we get 2 rows now
     command_str = f"workflow_status -u {user}"
@@ -196,7 +209,9 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
     t1 = task_template_1.create_task(arg="sleep 1")
     workflow1.add_tasks([t1])
     workflow1.bind()
-    workflow1._create_workflow_run()
+    workflow1._bind_tasks()
+    factory = WorkflowRunFactory(workflow1.workflow_id)
+    factory.create_workflow_run()
 
     workflow2 = tool.create_workflow(
         default_cluster_name="sequential",
@@ -205,7 +220,9 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
     t2 = task_template_1.create_task(arg="sleep 2")
     workflow2.add_tasks([t2])
     workflow2.bind()
-    workflow2._create_workflow_run()
+    workflow2._bind_tasks()
+    factory = WorkflowRunFactory(workflow2.workflow_id)
+    factory.create_workflow_run()
 
     workflow3 = tool.create_workflow(
         default_cluster_name="sequential",
@@ -214,7 +231,9 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
     t3 = task_template_1.create_task(arg="sleep 3")
     workflow3.add_tasks([t3])
     workflow3.bind()
-    workflow3._create_workflow_run()
+    workflow3._bind_tasks()
+    factory = WorkflowRunFactory(workflow3.workflow_id)
+    factory.create_workflow_run()
 
     workflow4 = tool.create_workflow(
         default_cluster_name="sequential",
@@ -223,7 +242,9 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
     t4 = task_template_1.create_task(arg="sleep 4")
     workflow4.add_tasks([t4])
     workflow4.bind()
-    workflow4._create_workflow_run()
+    workflow4._bind_tasks()
+    factory = WorkflowRunFactory(workflow4.workflow_id)
+    factory.create_workflow_run()
 
     # check limit 1
     command_str = f"workflow_status -u {user}  -l 1"
@@ -269,7 +290,6 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
 def test_workflow_tasks(db_engine, tool, client_env, cli):
     from jobmon.client.status_commands import workflow_tasks
     from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.constants import WorkflowRunStatus
 
     workflow = tool.create_workflow(
         default_cluster_name="sequential",
@@ -281,7 +301,10 @@ def test_workflow_tasks(db_engine, tool, client_env, cli):
 
     workflow.add_tasks([t1, t2])
     workflow.bind()
-    client_wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    client_wfr = factory.create_workflow_run()
+    client_wfr._update_status(WorkflowRunStatus.BOUND)
     wfr = SwarmWorkflowRun(
         workflow_run_id=client_wfr.workflow_run_id, requester=workflow.requester
     )
@@ -516,7 +539,9 @@ def test_sub_dag(db_engine, client_env, tool):
     t13_1.add_upstream(t3)
     workflow.add_tasks([t1, t1_1, t1_2, t1_11_213_1_1, t2, t3, t13_1])
     workflow.bind()
-    workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    factory.create_workflow_run()
 
     # test node with no sub nodes
     tree = get_sub_task_tree([t2.task_id])
@@ -637,8 +662,11 @@ def test_update_task_status(db_engine, client_env, tool, cli):
     )
     wf3, wf3_tasks = generate_workflow_and_tasks(tool)
     wf3.bind()
-    wf3._workflow_is_resumable()
-    client_wfr3 = wf3._create_workflow_run(resume=True)
+    factory = WorkflowRunFactory(wf3.workflow_id)
+    factory.set_workflow_resume()
+    wf3._bind_tasks()
+    client_wfr3 = factory.create_workflow_run()
+    client_wfr3._update_status(WorkflowRunStatus.BOUND)
 
     wfr3 = SwarmWorkflowRun(
         workflow_run_id=client_wfr3.workflow_run_id, requester=wf3.requester
@@ -661,20 +689,22 @@ def test_400_cli_route(db_engine, client_env):
     from jobmon.requester import Requester
 
     requester = Requester(client_env)
-    rc, resp = requester.send_request(
-        app_route="/task_status", message={}, request_type="get"
-    )
-    assert rc == 400
+    with pytest.raises(InvalidResponse) as exc:
+        requester.send_request(
+            app_route="/task_status", message={}, request_type="get"
+        )
+        assert "400" in str(exc.value)
 
 
 def test_bad_put_route(db_engine, client_env):
     from jobmon.requester import Requester
 
-    requester = Requester(client_env, logger)
-    rc, resp = requester.send_request(
-        app_route="/task/update_statuses", message={}, request_type="put"
-    )
-    assert rc == 400
+    requester = Requester(client_env)
+    with pytest.raises(InvalidResponse) as exc:
+        requester.send_request(
+            app_route="/task/update_statuses", message={}, request_type="put"
+        )
+        assert "400" in str(exc.value)
 
 
 def test_get_yaml_data(db_engine, client_env):
@@ -916,3 +946,71 @@ def test_get_filepaths(db_engine, tool):
     )
     assert len(df_array1) == 3
 
+
+def test_resume_workflow_from_cli(tool, task_template, db_engine, cli):
+    from jobmon.client.status_commands import resume_workflow_from_id
+
+    workflow = tool.create_workflow()
+
+    # Create a small example DAG.
+    #       t1
+    #     /    \
+    #    t2     t3
+    #      \   /
+    #        t4
+    t1 = task_template.create_task(arg='echo 1')
+    t2 = task_template.create_task(arg='echo 2', upstream_tasks=[t1])
+    t3 = task_template.create_task(arg='exit 1', upstream_tasks=[t1], max_attempts=1)
+    t4 = task_template.create_task(arg='echo 4', upstream_tasks=[t2, t3])
+
+    workflow.add_tasks([t1, t2, t3, t4])
+    # Run the workflow. Task 3 should error, task 4 doesn't run.
+    workflow.run()
+    # Task states should be [D, D, F, D] at this point
+
+    task_ids = [t.task_id for t in (t1, t2, t3, t4)]
+
+    with Session(bind=db_engine) as session:
+        query = select(
+            Task.status
+        ).where(
+            Task.id.in_(task_ids)
+        )
+        res = session.execute(query).scalars().all()
+        assert res == ["D", "D", "F", "G"]
+        session.commit()
+
+    # Update the exit 1 command to something that'll work on resume
+    with Session(bind=db_engine) as session:
+        query = update(
+            Task
+        ).where(
+            Task.id == t3.task_id
+        ).values(
+            command='echo 3'
+        )
+        session.execute(query)
+        session.commit()
+
+    # Signal a resume, assert it returned accordingly.
+    resume_str = f"workflow_resume -w {workflow.workflow_id} -c sequential"
+    args = cli.parse_args(resume_str)
+    assert args.workflow_id == workflow.workflow_id
+    assert not args.reset_running_jobs
+    resume_workflow_from_id(args.workflow_id, args.cluster_name,
+                            args.reset_running_jobs)
+
+    # Check that the swarm is complete
+    with Session(bind=db_engine) as session:
+        res = session.execute(
+            select(Task.status).where(Task.id.in_(task_ids))
+        ).scalars().all()
+        assert res == [TaskStatus.DONE] * 4
+
+        res = session.execute(
+            select(
+                WorkflowModel.status
+            ).where(WorkflowModel.id == workflow.workflow_id)
+        ).scalar()
+        assert res == WorkflowStatus.DONE
+        session.commit()

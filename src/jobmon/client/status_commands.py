@@ -6,8 +6,11 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 
 from jobmon.client.client_config import ClientConfig
-from jobmon.constants import ExecludeTTVs, TaskStatus, WorkflowStatus
-from jobmon.exceptions import InvalidResponse
+from jobmon.client.workflow import DistributorContext
+from jobmon.client.workflow_run import WorkflowRunFactory
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+from jobmon.constants import ExecludeTTVs, TaskStatus, WorkflowStatus, WorkflowRunStatus
+from jobmon.exceptions import InvalidResponse, WorkflowRunStateError
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
 
@@ -617,3 +620,40 @@ def get_filepaths(
         )
 
     return resp["array_tasks"]
+
+
+def resume_workflow_from_id(
+    workflow_id: int, cluster_name: str, reset_if_running: bool = True
+) -> None:
+    """Given a workflow ID, resume the workflow.
+
+    Raise an error if the workflow is not completed successfully on resume.
+    """
+
+    factory = WorkflowRunFactory(workflow_id=workflow_id)
+
+    # Signal for a resume - move existing workflow runs to C or H resume depending on the input
+    factory.set_workflow_resume(reset_running_jobs=reset_if_running)
+    factory.reset_task_statuses(reset_if_running=reset_if_running)
+    # Create the client workflow run
+    new_wfr = factory.create_workflow_run()
+
+    # Create swarm
+    swarm = SwarmWorkflowRun(workflow_run_id=new_wfr.workflow_run_id, status=new_wfr.status)
+    swarm.from_workflow_id(workflow_id)
+
+    with DistributorContext(
+            workflow_run_id=new_wfr.workflow_run_id,
+            cluster_name=cluster_name,
+            timeout=180
+    ) as distributor:
+        swarm.run(distributor_alive_callable=distributor.alive)
+
+    # Check on the swarm status - raise an error if != "D"
+    if swarm.status == WorkflowRunStatus.DONE:
+        print(f"Workflow {workflow_id} has successfully resumed to completion.")
+    else:
+        raise WorkflowRunStateError(
+            f"Workflow run {swarm.workflow_run_id}, associated with workflow {workflow_id}",
+            f"failed with status {swarm.status}"
+        )

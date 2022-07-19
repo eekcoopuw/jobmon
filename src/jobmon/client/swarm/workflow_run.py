@@ -1,6 +1,8 @@
 """Workflow Run is an distributor instance of a declared workflow."""
 from __future__ import annotations
 
+import ast
+from collections import deque
 from datetime import datetime
 import logging
 import time
@@ -16,6 +18,7 @@ from typing import (
     Union,
 )
 
+from jobmon.cluster import Cluster
 from jobmon.client.array import Array
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_array import SwarmArray
@@ -27,6 +30,7 @@ from jobmon.exceptions import (
     DistributorNotAlive,
     InvalidResponse,
     TransitionError,
+    EmptyWorkflowError,
     WorkflowTestError,
 )
 from jobmon.requester import http_request_ok, Requester
@@ -79,6 +83,7 @@ class WorkflowRun:
         fail_fast: bool = False,
         wedged_workflow_sync_interval: int = 600,
         fail_after_n_executions: int = 1_000_000_000,
+        status: str = WorkflowRunStatus.BOUND,
         requester: Optional[Requester] = None,
     ) -> None:
         """Initialization of the swarm WorkflowRun."""
@@ -93,7 +98,7 @@ class WorkflowRun:
         ]
         self.tasks: Dict[int, SwarmTask] = {}
         self.arrays: Dict[int, SwarmArray] = {}
-        self.ready_to_run: List[SwarmTask] = []
+        self.ready_to_run: deque[SwarmTask] = deque()
         self._task_status_map: Dict[str, Set[SwarmTask]] = {
             TaskStatus.REGISTERING: set(),
             TaskStatus.QUEUED: set(),
@@ -109,7 +114,7 @@ class WorkflowRun:
         self._task_resources: Dict[int, TaskResources] = {}
 
         # workflow run attributes
-        self._status = WorkflowRunStatus.BOUND
+        self._status = status
         self._last_heartbeat_time = time.time()
 
         # flow control
@@ -129,6 +134,8 @@ class WorkflowRun:
 
         # This signal is set if the workflow run receives a resume
         self._terminated = False
+
+        self.initialized = False  # Need to call from_workflow or from_workflow_id
 
     @property
     def status(self) -> str:
@@ -161,8 +168,10 @@ class WorkflowRun:
         return any_active_tasks
 
     def from_workflow(self, workflow: Workflow) -> None:
-        self.workflow_id = workflow.workflow_id
-        self.max_concurrently_running: int = workflow.max_concurrently_running
+
+        if self.initialized:
+            logger.warning("Swarm has already been initialized")
+            return
 
         # construct arrays
         array: Array
@@ -198,9 +207,7 @@ class WorkflowRun:
             swarm_task = self.tasks[task.task_id]
 
             # assign upstream and downstreams
-            swarm_task.upstream_swarm_tasks = set(
-                [self.tasks[t.task_id] for t in task.upstream_tasks]
-            )
+            swarm_task.num_upstreams = len(task.upstream_tasks)
             swarm_task.downstream_swarm_tasks = set(
                 [self.tasks[t.task_id] for t in task.downstream_tasks]
             )
@@ -219,6 +226,184 @@ class WorkflowRun:
 
         self.last_sync = self._get_current_time()
         self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
+        self.workflow_id = workflow.workflow_id
+        self.max_concurrently_running: int = workflow.max_concurrently_running
+        self.dag_id = workflow.dag_id
+        self.initialized = True
+
+    def from_workflow_id(self, workflow_id: int, edge_chunk_size: int = 500) -> None:
+        if self.initialized:
+            logger.warning("Swarm has already been initialized")
+            return
+        # Log heartbeat prior to starting work
+        self._log_heartbeat()
+        self.set_workflow_metadata(workflow_id)
+        self.set_tasks_from_db(chunk_size=edge_chunk_size)
+        self.set_downstreams_from_db(chunk_size=edge_chunk_size)
+        # Resumed workflow runs initialized in LINKING state, so update to bound here
+        # once tasks are all created and the DAG is in memory
+        self._update_status(WorkflowRunStatus.BOUND)
+        self.initialized = True
+
+    def set_workflow_metadata(self, workflow_id: int):
+        """Fetch the dag_id and max_concurrently_running parameters of this workflow."""
+        _, resp = self._requester.send_request(
+            app_route=f"/workflow/{workflow_id}/fetch_workflow_metadata",
+            message={},
+
+            request_type='get'
+        )
+
+        database_wf = resp['workflow']
+        if not database_wf:
+            raise EmptyWorkflowError(f"No workflow found for workflow id {workflow_id}")
+
+        workflow_id, dag_id, max_concurrently_running = database_wf
+
+        self.last_sync = self._get_current_time()
+        self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
+        self.workflow_id = workflow_id
+        self.max_concurrently_running = max_concurrently_running
+        self.dag_id = dag_id
+
+    def set_tasks_from_db(self, chunk_size: int = 500):
+        """Pull the tasks that need to be run associated with this workflow.
+
+        I.e. all tasks that aren't in DONE state."""
+        # Fetch metadata for all tasks
+
+        # Keep a cluster registry.
+        cluster_registry: Dict[str, Cluster] = {}
+        all_tasks_returned = False
+        max_task_id = 0
+        while not all_tasks_returned:
+
+            # TODO: make this an asynchronous context manager, avoid duplicating code
+            if (time.time() - self._last_heartbeat_time) > \
+                    self._workflow_run_heartbeat_interval:
+                self._log_heartbeat()
+
+            _, resp = self._requester.send_request(
+                app_route=f'/workflow/get_tasks/{self.workflow_id}',
+                message={'max_task_id': max_task_id, 'chunk_size': chunk_size},
+                request_type='get'
+            )
+            task_dict = resp['tasks']
+            # Case when no tasks are returned - happen to have 1000 tasks, for example, and
+            # 2 chunks of 500. No more work to be done
+            if not task_dict:
+                return
+            elif len(task_dict) < chunk_size:
+                # Last chunk has been returned, exit after task creation
+                all_tasks_returned = True
+
+            max_task_id = max(task_dict)
+
+            # populate tasks dict, and arrays registry
+            for task_id, metadata in task_dict.items():
+                array_id, array_concurrency, status, max_attempts, resource_scales, \
+                    fallback_queues, requested_resources, cluster_name, queue_name = metadata
+
+                # Convert datatypes as appropriate
+                task_id = int(task_id)
+                resource_scales = ast.literal_eval(resource_scales)
+                fallback_queues = ast.literal_eval(fallback_queues)
+                requested_resources = ast.literal_eval(requested_resources)
+                # Construct a queue, a cluster, and a task resources object
+                try:
+                    cluster = cluster_registry[cluster_name]
+                except KeyError:
+                    cluster = Cluster(cluster_name=cluster_name, requester=self._requester)
+                    cluster.bind()
+                    cluster_registry[cluster_name] = cluster
+
+                queue = cluster.get_queue(queue_name)
+                fallback_queues = [cluster.get_queue(q) for q in fallback_queues]
+
+                task_resources = TaskResources(
+                    requested_resources=requested_resources,
+                    queue=queue,
+                    requester=self._requester
+                )
+
+                st = SwarmTask(
+                    task_id=task_id,
+                    array_id=array_id,
+                    status=status,
+                    max_attempts=max_attempts,
+                    task_resources=task_resources,
+                    cluster=cluster,
+                    resource_scales=resource_scales,
+                    fallback_queues=fallback_queues)
+                self.tasks[task_id] = st
+
+                # Also create arrays
+                if array_id not in self.arrays:
+                    array = SwarmArray(
+                        array_id=array_id,
+                        max_concurrently_running=array_concurrency
+                    )
+                    self.arrays[array_id] = array
+                self.arrays[array_id].add_task(st)
+
+                # Add to correct status queue
+                self._task_status_map[st.status].add(st)
+
+    def set_downstreams_from_db(self, chunk_size: int = 500) -> None:
+        """Pull downstream edges from the database associated with the workflow."""
+        # Get edges in a different route to prevent overload
+
+        # Create two maps: one to map node_id -> task_id
+        task_node_id_map: Dict[int, int] = {}
+        # one to map task_id -> Set(downstream node_ids)
+        task_edge_map: Dict[int, Set] = {}
+
+        start_idx, end_idx = 0, chunk_size
+        task_ids = list(self.tasks.keys())
+        while start_idx < len(task_ids):
+            # Log heartbeats if needed
+            if (time.time() - self._last_heartbeat_time) > \
+                    self._workflow_run_heartbeat_interval:
+                self._log_heartbeat()
+            task_id_chunk = task_ids[start_idx:end_idx]
+            start_idx = end_idx
+            end_idx += chunk_size
+
+            _, edge_resp = self._requester.send_request(
+                app_route=f'/task/get_downstream_tasks',
+                message={'task_ids': task_id_chunk,
+                         'dag_id': self.dag_id},
+                request_type='get'
+            )
+            downstream_tasks = edge_resp['downstream_tasks']
+            # Format is {task_id: (node_id, '[downstream_node_ids]')}
+            for task_id, values in downstream_tasks.items():
+                node_id, downstream_node_ids = values
+                # Convert to Python datatypes
+                task_id = int(task_id)
+                if downstream_node_ids:
+                    downstream_node_ids = ast.literal_eval(downstream_node_ids)
+                # Assumption: every single node in the downstream edge is not in "D" state
+                # Shouldn't be possible to have a downstream node of a task not in "D" state
+                # that is complete. If it is, we'll raise unexpected KeyErrors here
+                task_node_id_map[node_id] = task_id
+                task_edge_map[task_id] = downstream_node_ids
+
+        # Create the dependency graph
+        # NOTE: only tasks that are not in status "DONE" are returned. This means the created
+        # dependency graph is not the full DAG, only a subset of the tasks that still need to
+        # complete.
+
+        for task_id, swarm_task in self.tasks.items():
+            downstream_edges = task_edge_map[task_id]
+            if downstream_edges:
+                for downstream_node_id in downstream_edges:
+                    # Select the appropriate task id
+                    downstream_task_id = task_node_id_map[downstream_node_id]
+                    # Select the swarm task and add it as a dependency
+                    downstream_swarm_task = self.tasks[downstream_task_id]
+                    swarm_task.downstream_swarm_tasks.add(downstream_swarm_task)
+                    downstream_swarm_task.num_upstreams += 1
 
     def run(
         self,
@@ -396,7 +581,7 @@ class WorkflowRun:
             unscheduled_tasks: List[SwarmTask] = []
             while self.ready_to_run and workflow_capacity > 0:
                 # pop the next task off of the queue
-                next_task = self.ready_to_run.pop(0)
+                next_task = self.ready_to_run.popleft()
                 array_id = next_task.array_id
                 task_resources = next_task.current_task_resources
 
@@ -409,9 +594,10 @@ class WorkflowRun:
                     array_capacity -= 1
 
                     # we started a batch. let's try and add compatible tasks
-                    compatible_indices: List[int] = []
-                    for index, task in enumerate(self.ready_to_run):
-
+                    for _ in range(len(self.ready_to_run)):
+                        # Remove task from the front of the queue.
+                        # If compatible, expire from the ready to run queue
+                        task = self.ready_to_run.popleft()
                         # check for batch compatible tasks
                         if (
                             workflow_capacity > 0
@@ -420,14 +606,11 @@ class WorkflowRun:
                             and task.current_task_resources == task_resources
                         ):
                             current_batch.append(task)
-                            compatible_indices.append(index)
                             workflow_capacity -= 1
                             array_capacity -= 1
-
-                    # remove from original queue in reverse order so the indices don't move
-                    compatible_indices.reverse()
-                    for index in compatible_indices:
-                        task = self.ready_to_run.pop(index)
+                        else:
+                            # Put it back in the queue
+                            self.ready_to_run.append(task)
 
                     # set final array capacity
                     array_capacity_lookup[array_id] = array_capacity
@@ -440,7 +623,7 @@ class WorkflowRun:
 
         # make sure to put unscheduled back on queue, even when the generator is closed
         finally:
-            self.ready_to_run = unscheduled_tasks + self.ready_to_run
+            self.ready_to_run.extendleft(unscheduled_tasks)
 
     def process_commands(self, timeout: Union[int, float] = -1) -> None:
         """Processes swarm commands until all work is done or timeout is reached.
@@ -511,7 +694,7 @@ class WorkflowRun:
                 self._set_adjusted_task_resources(task)
 
                 # put at front of queue since we already tried it once
-                self.ready_to_run = [task] + self.ready_to_run
+                self.ready_to_run.appendleft(task)
 
             else:
                 logger.debug(

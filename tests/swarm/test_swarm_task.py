@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 
 from jobmon.constants import WorkflowRunStatus
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
 
@@ -20,7 +21,10 @@ def test_swarmtask_resources_integration(tool, task_template, db_engine):
     # Add to workflow, bind and create wfr
     workflow.add_task(task)
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
 
     # Move workflow and wfr through Instantiating -> Launched
     wfr._update_status(WorkflowRunStatus.INSTANTIATED)

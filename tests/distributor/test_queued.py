@@ -1,6 +1,7 @@
 from jobmon.constants import TaskInstanceStatus
 from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.builtins.dummy import DummyDistributor
 
 
@@ -16,7 +17,9 @@ def test_queued(tool, task_template):
     workflow = tool.create_workflow(name="test_n_queued", max_concurrently_running=10)
     workflow.add_tasks(tasks)
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
 
     # create task instances
     swarm = SwarmWorkflowRun(

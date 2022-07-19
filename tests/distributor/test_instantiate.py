@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.client.status_commands import concurrency_limit
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.builtins.multiprocess.multiproc_distributor import (
     MultiprocessDistributor,
@@ -30,7 +31,9 @@ def test_instantiate_job(tool, db_engine, task_template):
     workflow = tool.create_workflow(name="test_instantiate_queued_jobs_on_sequential")
     workflow.add_tasks([t1, t2])
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
 
     # create task instances
     swarm = SwarmWorkflowRun(
@@ -114,7 +117,9 @@ def test_instantiate_array(tool, db_engine, task_template):
     workflow = tool.create_workflow(name="test_instantiate_queued_jobs_on_multiprocess")
     workflow.add_tasks([t1, t2])
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
 
     # create task instances
     swarm = SwarmWorkflowRun(
@@ -210,7 +215,9 @@ def test_job_submit_raises_error(db_engine, tool):
     task1 = tool.active_task_templates["simple_template"].create_task(arg="sleep 120")
     workflow.add_task(task1)
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
 
     # create task instances
     swarm = SwarmWorkflowRun(
@@ -263,7 +270,9 @@ def test_array_submit_raises_error(db_engine, tool):
     workflow = tool.create_workflow(name="test_array_submit_raises_error")
     workflow.add_tasks([t1, t2])
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
 
     # create task instances
     swarm = SwarmWorkflowRun(
@@ -312,7 +321,9 @@ def test_workflow_concurrency_limiting(tool, task_template):
     )
     workflow.add_tasks(tasks)
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
 
     swarm = SwarmWorkflowRun(
         workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
@@ -366,7 +377,9 @@ def test_array_concurrency(
     )
 
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
 
     swarm = SwarmWorkflowRun(
         workflow_run_id=wfr.workflow_run_id, requester=workflow.requester
@@ -410,10 +423,11 @@ def test_dynamic_concurrency_limiting(tool, task_template):
 
     workflow.add_tasks(tasks)
     workflow.bind()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
 
     # Start with limit of 2. Adjust up to 5 and try again
-
-    wfr = workflow._create_workflow_run()
     # queue the tasks
     swarm = SwarmWorkflowRun(
         workflow_run_id=wfr.workflow_run_id, requester=workflow.requester

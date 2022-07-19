@@ -50,8 +50,7 @@ def test_node_args(tool, test_script, input, expect):
     )
     workflow1.add_tasks([t1])
     workflow1.bind()
-    wfr = workflow1._create_workflow_run()
-    assert wfr.status == WorkflowRunStatus.BOUND
+    workflow1._bind_tasks()
 
 
 @pytest.mark.parametrize(
@@ -79,8 +78,7 @@ def test_task_args(tool, test_script, input, expect):
     )
     workflow1.add_tasks([t1])
     workflow1.bind()
-    wfr = workflow1._create_workflow_run()
-    assert wfr.status == WorkflowRunStatus.BOUND
+    workflow1._bind_tasks()
 
 
 @pytest.mark.parametrize(
@@ -106,5 +104,4 @@ def test_op_args(tool, test_script, input, expect):
     )
     workflow1.add_tasks([t1])
     workflow1.bind()
-    wfr = workflow1._create_workflow_run()
-    assert wfr.status == WorkflowRunStatus.BOUND
+    workflow1._bind_tasks()

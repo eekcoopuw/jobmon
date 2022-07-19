@@ -67,7 +67,7 @@ def test_array_bind(db_engine, client_env, task_template_dummy, tool):
     wf = tool.create_workflow()
     wf.add_tasks(tasks)
     wf.bind()
-    wf._create_workflow_run()
+    wf._bind_tasks()
 
     assert hasattr(wf.arrays["dummy_template"], "_array_id")
 
@@ -160,7 +160,7 @@ def test_create_tasks(db_engine, client_env, tool):
 
     # Check node and task args are recorded in the proper tables
     wf.bind()
-    wf._create_workflow_run()
+    wf._bind_tasks()
 
     with Session(bind=db_engine) as session:
 

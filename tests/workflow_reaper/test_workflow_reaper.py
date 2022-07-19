@@ -74,9 +74,11 @@ def test_error_state(db_engine, requester_no_retry, tool, sleepy_task_template):
     wf1 = tool.create_workflow()
     wf1.add_tasks([task1])
     wf1.bind()
-    wfr1 = WorkflowRun(workflow=wf1, requester=wf1.requester)
-    wfr1._link_to_workflow(0)
-    wfr1._log_heartbeat(3000)
+    wf1._bind_tasks()
+    wfr1 = WorkflowRun(workflow_id=wf1.workflow_id,
+                       requester=wf1.requester,
+                       workflow_run_heartbeat_interval=1000)
+    wfr1.bind()
     wfr1._update_status(WorkflowRunStatus.BOUND)
     wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr1._update_status(WorkflowRunStatus.LAUNCHED)
@@ -87,8 +89,11 @@ def test_error_state(db_engine, requester_no_retry, tool, sleepy_task_template):
     wf2 = tool.create_workflow(name="reaper_error_test", workflow_args="error_v_1")
     wf2.add_tasks([task2])
     wf2.bind()
-    wfr2 = WorkflowRun(workflow=wf2, requester=wf2.requester)
-    wfr2._link_to_workflow(0)
+    wf2._bind_tasks()
+    wfr2 = WorkflowRun(workflow_id=wf2.workflow_id,
+                       requester=wf2.requester,
+                       workflow_run_heartbeat_interval=0)
+    wfr2.bind()
     wfr2._update_status(WorkflowRunStatus.BOUND)
     wfr2._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr2._update_status(WorkflowRunStatus.LAUNCHED)
@@ -141,9 +146,11 @@ def test_halted_state(db_engine, requester_no_retry, tool, sleepy_task_template)
     workflow1 = tool.create_workflow()
     workflow1.add_tasks([task1])
     workflow1.bind()
-    wfr1 = WorkflowRun(workflow=workflow1, requester=workflow1.requester)
-    wfr1._link_to_workflow(0)
-    wfr1._log_heartbeat(300)
+    workflow1._bind_tasks()
+    wfr1 = WorkflowRun(
+        workflow_id=workflow1.workflow_id,
+        requester=workflow1.requester)
+    wfr1.bind()
     wfr1._update_status(WorkflowRunStatus.BOUND)
     wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr1._update_status(WorkflowRunStatus.LAUNCHED)
@@ -157,8 +164,13 @@ def test_halted_state(db_engine, requester_no_retry, tool, sleepy_task_template)
 
     workflow2.add_tasks([task2])
     workflow2.bind()
-    wfr2 = WorkflowRun(workflow=workflow2, requester=workflow2.requester)
-    wfr2._link_to_workflow(0)
+    workflow2._bind_tasks()
+    wfr2 = WorkflowRun(
+        workflow_id=workflow2.workflow_id,
+        requester=workflow2.requester,
+        workflow_run_heartbeat_interval=0
+    )
+    wfr2.bind()
     wfr2._update_status(WorkflowRunStatus.BOUND)
     wfr2._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr2._update_status(WorkflowRunStatus.LAUNCHED)
@@ -173,8 +185,12 @@ def test_halted_state(db_engine, requester_no_retry, tool, sleepy_task_template)
 
     workflow3.add_tasks([task3])
     workflow3.bind()
-    wfr3 = WorkflowRun(workflow=workflow3, requester=workflow3.requester)
-    wfr3._link_to_workflow(0)
+    workflow3._bind_tasks()
+    wfr3 = WorkflowRun(
+        workflow_id=workflow3.workflow_id,
+        requester=workflow3.requester,
+        workflow_run_heartbeat_interval=0)
+    wfr3.bind()
     wfr3._update_status(WorkflowRunStatus.BOUND)
     wfr3._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr3._update_status(WorkflowRunStatus.LAUNCHED)
@@ -227,10 +243,11 @@ def test_aborted_state(db_engine, requester_no_retry, tool, sleepy_task_template
     workflow1 = tool.create_workflow()
     workflow1.add_tasks([task, task2])
     workflow1.bind()
-    # Re-implement the logic of _create_workflow_run.
-    # This will allow us to keep the workflow_run in G state and not bind it
-    wfr1 = WorkflowRun(workflow=workflow1, requester=requester_no_retry)
-    wfr1._link_to_workflow(90)
+    workflow1._bind_tasks()
+    wfr1 = WorkflowRun(
+        workflow_id=workflow1.workflow_id,
+        requester=requester_no_retry)
+    wfr1.bind()
 
     # create a workflow without binding the tasks
     workflow2 = tool.create_workflow(
@@ -238,10 +255,13 @@ def test_aborted_state(db_engine, requester_no_retry, tool, sleepy_task_template
     )
     workflow2.add_tasks([task, task2])
     workflow2.bind()
+    workflow2._bind_tasks()
     # Re-implement the logic of _create_workflow_run.
-    # This will allow us to keep the workflow_run in G state and not bind it
-    wfr2 = WorkflowRun(workflow=workflow2, requester=requester_no_retry)
-    wfr2._link_to_workflow(0)
+    wfr2 = WorkflowRun(
+        workflow_id=workflow2.workflow_id,
+        requester=requester_no_retry,
+        workflow_run_heartbeat_interval=0)
+    wfr2.bind()
 
     # Call aborted state logic
     def mock_slack_notifier(msg: str):
@@ -281,12 +301,13 @@ def test_reaper_version(db_engine, requester_no_retry, tool, sleepy_task_templat
     workflow = tool.create_workflow()
     workflow.add_tasks([task, task2])
     workflow.bind()
+    workflow._bind_tasks()
 
-    # Re-implement the logic of _create_workflow_run.
-    # This will allow us to keep the workflow_run in G state and not bind it
-    wfr = WorkflowRun(workflow=workflow, requester=requester_no_retry)
-    wfr._link_to_workflow(0)
-    wfr._log_heartbeat(0)
+    wfr = WorkflowRun(
+        workflow_id=workflow.workflow_id,
+        requester=requester_no_retry,
+        workflow_run_heartbeat_interval=0)
+    wfr.bind()
 
     # Check for lost workflow runs
     reaper = WorkflowReaper(5, requester=requester_no_retry)

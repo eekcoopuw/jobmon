@@ -6,8 +6,9 @@ from unittest.mock import patch
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from jobmon.constants import TaskInstanceStatus
+from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 from jobmon.client.distributor.distributor_service import DistributorService
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.cluster import Cluster
 from jobmon.builtins.dummy import DummyDistributor
@@ -57,7 +58,10 @@ def test_task_instance(db_engine, tool):
     task_a = tool.active_task_templates["simple_template"].create_task(arg="echo 1")
     workflow.add_task(task_a)
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
 
     # create task instances
     swarm = SwarmWorkflowRun(
@@ -103,7 +107,10 @@ def test_array_task_instance(tool, db_engine, client_env, array_template, monkey
     workflow.add_tasks(tasks)
     workflow.bind()
     array1 = workflow.arrays["array_template"]
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
 
     # create task instances
     swarm = SwarmWorkflowRun(
@@ -165,7 +172,10 @@ def test_ti_kill_self_state(db_engine, tool):
     task_a = tool.active_task_templates["simple_template"].create_task(arg="sleep 120")
     workflow.add_task(task_a)
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
 
     # create task instances
     swarm = SwarmWorkflowRun(
@@ -254,7 +264,10 @@ def test_limited_error_log(tool, db_engine):
     )
     wf.add_tasks([task])
     wf.bind()
-    wfr = wf._create_workflow_run()
+    wf._bind_tasks()
+    factory = WorkflowRunFactory(wf.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
 
     # create task instances
     swarm = SwarmWorkflowRun(

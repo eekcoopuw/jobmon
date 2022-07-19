@@ -47,7 +47,6 @@ class SwarmTask(object):
         self.array_id = array_id
         self.status = status
 
-        self.upstream_swarm_tasks: Set[SwarmTask] = set()
         self.downstream_swarm_tasks: Set[SwarmTask] = set()
 
         self.current_task_resources = task_resources
@@ -57,15 +56,15 @@ class SwarmTask(object):
         self.cluster = cluster
 
         self.max_attempts = max_attempts
+        self.num_upstreams: int = 0
         self.num_upstreams_done: int = 0
 
     @property
     def all_upstreams_done(self) -> bool:
         """Return a bool of if upstreams are done or not."""
-        if self.num_upstreams_done == len(self.upstream_tasks):
-            logger.debug(f"task id: {self.task_id} is checking all upstream tasks")
+        if self.num_upstreams_done == self.num_upstreams:
             return True
-        elif self.num_upstreams_done > len(self.upstream_tasks):
+        elif self.num_upstreams_done > self.num_upstreams:
             raise RuntimeError(
                 "Error in dependency management. More upstream tasks done than exist in DAG."
             )
@@ -76,11 +75,6 @@ class SwarmTask(object):
     def downstream_tasks(self) -> List[SwarmTask]:
         """Return list of downstream tasks."""
         return list(self.downstream_swarm_tasks)
-
-    @property
-    def upstream_tasks(self) -> List[SwarmTask]:
-        """Return a list of upstream tasks."""
-        return list(self.upstream_swarm_tasks)
 
     def __hash__(self) -> int:
         """Returns the ID of the task."""

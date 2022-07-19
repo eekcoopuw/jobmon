@@ -2,6 +2,8 @@ import time
 
 from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+from jobmon.client.workflow_run import WorkflowRunFactory
+from jobmon.constants import WorkflowRunStatus
 from jobmon.builtins.sequential.seq_distributor import SequentialDistributor
 from jobmon.builtins.multiprocess.multiproc_distributor import MultiprocessDistributor
 
@@ -20,7 +22,10 @@ def test_sequential_logging(tool, task_template, tmp_path):
                                    upstream_tasks=[t1])
     workflow.add_tasks([t1, t2])
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id, requester=workflow.requester)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
 
     # create task instances
     swarm = SwarmWorkflowRun(
@@ -74,7 +79,10 @@ def test_multiprocess_logging(tool, task_template, tmp_path):
                                    upstream_tasks=[t1])
     workflow.add_tasks([t1, t2])
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id, requester=workflow.requester)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
 
     # create task instances
     swarm = SwarmWorkflowRun(

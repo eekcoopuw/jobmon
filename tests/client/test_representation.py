@@ -1,3 +1,5 @@
+from jobmon.client.workflow_run import WorkflowRun
+
 def test_repr_strings(tool, task_template):
     """Smoke tests to check the various client object repr strings."""
 
@@ -11,7 +13,9 @@ def test_repr_strings(tool, task_template):
 
     wf.add_task(task)
     wf.bind()
-    wfr = wf._create_workflow_run()
+    wf._bind_tasks()
+    wfr = WorkflowRun(wf.workflow_id)
+    wfr.bind()
 
     wfr.__repr__()
     wf._dag.__repr__()
