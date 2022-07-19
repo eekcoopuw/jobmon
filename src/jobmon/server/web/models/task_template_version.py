@@ -1,7 +1,7 @@
 """Database Table for Task Template Versions."""
 from typing import Dict, List
 
-from sqlalchemy import Column, ForeignKey, Integer, Text, UniqueConstraint, VARCHAR, ForeignKeyConstraint, Index
+from sqlalchemy import Column, ForeignKey, Index, Integer, Text, VARCHAR
 from sqlalchemy.orm import relationship
 
 from jobmon.serializers import SerializeClientTaskTemplateVersion
