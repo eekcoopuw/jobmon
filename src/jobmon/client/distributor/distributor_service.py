@@ -231,7 +231,6 @@ class DistributorService:
                 array_id=task_instance_batch_kwargs["array_id"],
                 array_batch_num=task_instance_batch_kwargs["array_batch_num"],
                 task_resources_id=task_instance_batch_kwargs["task_resources_id"],
-                array_name=task_instance_batch_kwargs["array_name"],
                 requester=self.requester,
             )
 
@@ -259,7 +258,7 @@ class DistributorService:
             distributor_id_map = (
                 self.cluster_interface.submit_array_to_batch_distributor(
                     command=command,
-                    name=task_instance_batch.name,
+                    name=task_instance_batch.submission_name,
                     requested_resources=task_instance_batch.requested_resources,
                     array_length=len(task_instance_batch.task_instances),
                 )
@@ -271,7 +270,6 @@ class DistributorService:
                 distributor_command = DistributorCommand(
                     self.launch_task_instance,
                     task_instance,
-                    "TODO:GETNAME",
                 )
                 distributor_commands.append(distributor_command)
 
@@ -302,7 +300,7 @@ class DistributorService:
             )
 
     def launch_task_instance(
-        self, task_instance: DistributorTaskInstance, name: str
+        self, task_instance: DistributorTaskInstance
     ) -> None:
         """Submits a task instance on a given distributor.
 
@@ -323,7 +321,8 @@ class DistributorService:
         # Submit to batch distributor
         try:
             resp = self.cluster_interface.submit_to_batch_distributor(
-                command=command, name=name, requested_resources=requested_resources
+                command=command, name=task_instance.submission_name,
+                requested_resources=requested_resources
             )
             distributor_id, output_path, error_path = resp  # unpack response tuple
         except Exception as e:

@@ -485,34 +485,39 @@ def test_get_task_template_resource_usage(db_engine, tool):
     assert msg[0] is None
 
 
-def test_get_workflow_status_viz(db_engine, tool, web_server_in_memory):
+def test_get_workflow_status_viz(tool):
     t = tool
-    wf = t.create_workflow(name="i_am_a_fake_wf")
-    tt1 = t.get_task_template(
-        template_name="tt_core", command_template="echo {arg}", node_args=["arg"]
-    )
-    t1 = tt1.create_task(
-        arg=1,
-        cluster_name="sequential",
-        compute_resources={"queue": "null.q", "num_cores": 2},
-    )
-    t2 = tt1.create_task(
-        arg=2,
-        cluster_name="sequential",
-        compute_resources={"queue": "null.q", "num_cores": 4},
-    )
-    wf.add_tasks([t1, t2])
-    wf.bind()
-    wf._bind_tasks()
+    wfids = []
+    for i in [1, 2]:
+        wf = t.create_workflow(name=f"i_am_a_fake_wf_{i}")
+        tt1 = t.get_task_template(
+            template_name="tt_core", command_template="echo {arg}", node_args=["arg"]
+        )
+        t1 = tt1.create_task(
+            arg=1,
+            cluster_name="sequential",
+            compute_resources={"queue": "null.q", "num_cores": 2},
+        )
+        t2 = tt1.create_task(
+            arg=2,
+            cluster_name="sequential",
+            compute_resources={"queue": "null.q", "num_cores": 4},
+        )
+        wf.add_tasks([t1, t2])
+        wf.bind()
+        wf._bind_tasks()
+        wfids.append(wf.workflow_id)
 
-    app_route = f"/workflow_status_viz"
+    app_route = "/workflow_status_viz"
     return_code, msg = wf.requester.send_request(
-        app_route=app_route, message={"workflow_ids[]": [wf.workflow_id]}, request_type="get"
+        app_route=app_route, message={"workflow_ids[]": wfids}, request_type="get"
     )
     assert return_code == 200
-    assert str(wf.workflow_id) in msg.keys()
-    assert msg[str(wf.workflow_id)]['tasks'] == 2
-    assert msg[str(wf.workflow_id)]['PENDING'] == 2
-    assert msg[str(wf.workflow_id)]['RUNNING'] == 0
-    assert msg[str(wf.workflow_id)]['FATAL'] == 0
-    assert msg[str(wf.workflow_id)]['DONE'] == 0
+
+    for wfid in wfids:
+        assert str(wfid) in msg.keys()
+        assert msg[str(wfid)]['tasks'] == 2
+        assert msg[str(wfid)]['PENDING'] == 2
+        assert msg[str(wfid)]['RUNNING'] == 0
+        assert msg[str(wfid)]['FATAL'] == 0
+        assert msg[str(wfid)]['DONE'] == 0

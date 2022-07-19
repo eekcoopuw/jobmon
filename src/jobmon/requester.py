@@ -8,7 +8,6 @@ import tenacity
 
 from jobmon.exceptions import InvalidResponse
 
-
 logger = logging.getLogger(__name__)
 
 

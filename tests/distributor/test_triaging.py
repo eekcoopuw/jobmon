@@ -1,5 +1,4 @@
 import pytest
-from sqlalchemy.sql import text
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update
 
@@ -146,6 +145,8 @@ def test_triaging_to_specific_error(
         MultiprocessDistributor,
     )
     from jobmon.server.web.models.task_instance import TaskInstance
+
+    session_factory.configure(bind=db_engine)
 
     tool.set_default_compute_resources_from_dict(
         cluster_name="multiprocess", compute_resources={"queue": "null.q"}

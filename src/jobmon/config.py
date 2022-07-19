@@ -438,6 +438,23 @@ class ParserDefaults:
         return parser
 
     @staticmethod
+    def tenacity_max_retries(
+        parser: configargparse.ArgumentParser,
+    ) -> configargparse.ArgumentParser:
+        """
+        Set the maximum number of retries for tenacity. Useful to set this to zero during unit tests so that
+        tests fail-fast
+        """
+        parser.add_argument(
+            "--tenacity_max_retries",
+            type=int,
+            help="The maximum number of retries for tenacity",
+            default=10,
+            env_var="TENACITY_MAX_RETRIES",
+        )
+        return parser
+
+    @staticmethod
     def distributor_poll_interval(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:

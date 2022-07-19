@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Set, Tuple, TYPE_CHECKING
+from typing import List, Optional, Set, Tuple, TYPE_CHECKING
 
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
@@ -44,6 +44,10 @@ class DistributorTaskInstance:
         self.requester = requester
 
     @property
+    def submission_name(self) -> str:
+        return str(self.task_instance_id)
+
+    @property
     def batch(self) -> TaskInstanceBatch:
         """Returns the batch the DistributorTaskInstance is in."""
         return self._batch
@@ -66,8 +70,8 @@ class DistributorTaskInstance:
         self,
         distributor_id: str,
         next_report_increment: float,
-        stdout_path: str,
-        stderr_path: str,
+        stdout_path: Optional[str] = None,
+        stderr_path: Optional[str] = None,
     ) -> None:
         """Register the submission of a new task instance to a cluster.
 

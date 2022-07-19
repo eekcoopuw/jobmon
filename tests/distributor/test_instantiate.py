@@ -366,13 +366,16 @@ def test_array_concurrency(
         arg=[1, 2, 3],
         cluster_name="multiprocess",
         compute_resources={"queue": "null.q"},
-        max_concurrently_running=array_limit,
     )
 
     workflow = tool.create_workflow(
         name="test_array_concurrency_1", max_concurrently_running=wf_limit
     )
     workflow.add_tasks(tasks1)
+    workflow.set_task_template_max_concurrency_limit(
+        task_template_name=array_template.template_name, limit=array_limit
+    )
+
     workflow.bind()
     workflow._bind_tasks()
     factory = WorkflowRunFactory(workflow.workflow_id)

@@ -54,6 +54,7 @@ def test_error_handling(requester_in_memory, log_config, monkeypatch):
 
     monkeypatch.setattr(routes, "_get_time", raise_error)
 
+    captured_exception = False
     requester = Requester("")
     requester._send_request("/health", {}, "get")
     with open(log_config, "r") as server_log_file:

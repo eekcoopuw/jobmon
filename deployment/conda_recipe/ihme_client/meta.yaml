@@ -14,7 +14,7 @@
 {% set jobmon_slurm_setup = load_setup_py_data(setup_file="jobmon_slurm/setup.py") %}
 
 # don't install these dependencies
-{% set skip_list = ['jobmon', 'slurm_rest'] %}
+{% set skip_list = ['jobmon>=3.1.3', 'slurm_rest'] %}
 
 package:
   name: ihme_jobmon

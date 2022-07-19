@@ -19,10 +19,49 @@ from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.fsm import blueprint
+from jobmon.server.web.routes.fsm._common import _get_logfile_template
 from jobmon.server.web.server_side_exception import ServerError
 
 
 logger = structlog.get_logger(__name__)
+
+
+@blueprint.route(
+    "/task_instance/<task_instance_id>/logfile_template/<template_type>", methods=["POST"]
+)
+def get_logfile_template(task_instance_id: int, template_type: str):
+    """Get the logfile location for a task instance.
+
+    Args:
+        task_instance_id: id of the task_instance
+        template_type: submission type of the task instance. job, array, both
+    """
+    structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id,
+                                           template_type=template_type)
+
+    session = SessionLocal()
+    with session.begin():
+
+        select_stmt = select(
+            TaskInstance.task_resources_id, Task.name
+        ).join_from(
+            TaskInstance, Task, TaskInstance.task_id == Task.id
+        ).where(
+            TaskInstance.id == task_instance_id
+        )
+        task_resources_id, task_name = session.execute(select_stmt).fetchone()
+        requested_resources, _ = _get_logfile_template(task_resources_id, template_type,
+                                                       session)
+
+    log_types = ["stderr", "stdout"]
+    logpaths = {}
+    for log_type in log_types:
+        if log_type in requested_resources:
+            logpaths[log_type] = requested_resources[log_type][template_type]
+
+    resp = jsonify(logpaths=logpaths, task_name=task_name)
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
 @blueprint.route("/task_instance/<task_instance_id>/log_running", methods=["POST"])
@@ -45,6 +84,8 @@ def log_running(task_instance_id: int) -> Any:
         if data.get("nodename", None) is not None:
             task_instance.nodename = data["nodename"]
         task_instance.process_group_id = data["process_group_id"]
+        task_instance.stdout = data["stdout"]
+        task_instance.stderr = data["stderr"]
         try:
             task_instance.transition(constants.TaskInstanceStatus.RUNNING)
             task_instance.report_by_date = add_time(data["next_report_increment"])
@@ -121,7 +162,7 @@ def log_ti_report_by_batch() -> Any:
     data = cast(Dict, request.get_json())
     tis = data.get("task_instance_ids", None)
 
-    next_report_increment = float(data.get("next_report_increment"))
+    next_report_increment = float(data["next_report_increment"])
 
     logger.debug(f"Log report_by for TI {tis}.")
     if tis:
@@ -482,13 +523,9 @@ def instantiate_task_instances() -> Any:
                 int(task_instance_id)
                 for task_instance_id in task_instance_ids.split(",")
             ]
-            array_name_query = select(Array.name).where(Array.id == array_id)
-            result = session.execute(array_name_query).fetchone()
-            array_name = result["name"]
             serialized_batches.append(
                 SerializeTaskInstanceBatch.to_wire(
                     array_id=array_id,
-                    array_name=array_name,
                     array_batch_num=array_batch_num,
                     task_resources_id=task_resources_id,
                     task_instance_ids=task_instance_ids,

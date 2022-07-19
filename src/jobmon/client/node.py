@@ -47,8 +47,8 @@ class Node:
         self.downstream_nodes: Set[Node] = set()
 
         if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
+            cc = ClientConfig.from_defaults()
+            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
         self.requester = requester
 
     @property

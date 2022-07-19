@@ -17,7 +17,7 @@ from jobmon.builtins.sequential.seq_distributor import SequentialDistributor
 from jobmon.server.web.models import load_model
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
-from jobmon.worker_node.start import get_worker_node_task_instance
+from jobmon.worker_node.worker_node_factory import WorkerNodeFactory
 
 
 load_model()
@@ -88,8 +88,9 @@ def test_task_instance(db_engine, tool):
 
         task_instance_id = session.execute(task_instance_id_query).scalar()
 
-    worker_node_task_instance = get_worker_node_task_instance(
-        task_instance_id=task_instance_id, cluster_name="dummy"
+    worker_node_factory = WorkerNodeFactory(cluster_name="dummy")
+    worker_node_task_instance = worker_node_factory.get_job_task_instance(
+        task_instance_id=task_instance_id
     )
     worker_node_task_instance.run()
     assert worker_node_task_instance.status == TaskInstanceStatus.DONE
@@ -147,12 +148,13 @@ def test_array_task_instance(tool, db_engine, client_env, array_template, monkey
 
     for distributor_id, array_batch_num, *_ in distributor_ids:
 
-        job_id, step_id = distributor_id.split(".")
+        job_id, step_id = distributor_id.split("_")
         monkeypatch.setenv("JOB_ID", job_id)
         monkeypatch.setenv("ARRAY_STEP_ID", step_id)
 
-        wnti = get_worker_node_task_instance(
-            cluster_name="multiprocess",
+        worker_node_factory = WorkerNodeFactory(cluster_name="multiprocess")
+
+        wnti = worker_node_factory.get_array_task_instance(
             array_id=array1.array_id,
             batch_number=array_batch_num,
         )
