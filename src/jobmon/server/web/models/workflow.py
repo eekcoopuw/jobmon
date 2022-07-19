@@ -91,7 +91,6 @@ class Workflow(Base):
         # bind_to_logger(workflow_id=self.id)
         logger.info(f"Transitioning workflow_id from {self.status} to {new_state}")
         if self._is_timely_transition(new_state):
-            # Do we want to log heartbeats when transitions are called?
             self._validate_transition(new_state)
             self.status = new_state
             self.status_date = func.now()

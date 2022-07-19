@@ -388,7 +388,8 @@ def set_task_resume_state(workflow_id: int) -> Any:
             update(
                 Task
             ).where(
-                Task.status.not_in(excluded_states)
+                Task.status.not_in(excluded_states),
+                Task.workflow_id == workflow_id
             ).values(
                 status=TaskStatus.REGISTERING,
                 num_attempts=0,

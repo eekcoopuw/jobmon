@@ -170,7 +170,8 @@ class WorkflowRun:
     def from_workflow(self, workflow: Workflow) -> None:
 
         if self.initialized:
-            raise ValueError("Swarm has already been initialized")
+            logger.warning("Swarm has already been initialized")
+            return
 
         # construct arrays
         array: Array
@@ -282,7 +283,7 @@ class WorkflowRun:
                     self._workflow_run_heartbeat_interval:
                 self._log_heartbeat()
 
-            _, resp = self._requester._send_request(
+            _, resp = self._requester.send_request(
                 app_route=f'/workflow/get_tasks/{self.workflow_id}',
                 message={'max_task_id': max_task_id, 'chunk_size': chunk_size},
                 request_type='get'
@@ -348,8 +349,7 @@ class WorkflowRun:
                 # Add to correct status queue
                 self._task_status_map[st.status].add(st)
 
-
-    def set_downstreams_from_db(self, chunk_size: int = 500):
+    def set_downstreams_from_db(self, chunk_size: int = 500) -> None:
         """Pull downstream edges from the database associated with the workflow."""
         # Get edges in a different route to prevent overload
 
@@ -369,13 +369,14 @@ class WorkflowRun:
             start_idx = end_idx
             end_idx += chunk_size
 
-            _, edge_resp = self._requester._send_request(
+            _, edge_resp = self._requester.send_request(
                 app_route=f'/task/get_downstream_tasks',
                 message={'task_ids': task_id_chunk,
                          'dag_id': self.dag_id},
                 request_type='get'
             )
             downstream_tasks = edge_resp['downstream_tasks']
+            # Format is {task_id: (node_id, '[downstream_node_ids]')}
             for task_id, values in downstream_tasks.items():
                 node_id, downstream_node_ids = values
                 # Convert to Python datatypes
@@ -593,7 +594,7 @@ class WorkflowRun:
                     array_capacity -= 1
 
                     # we started a batch. let's try and add compatible tasks
-                    for index in range(len(self.ready_to_run)):
+                    for _ in range(len(self.ready_to_run)):
                         # Remove task from the front of the queue.
                         # If compatible, expire from the ready to run queue
                         task = self.ready_to_run.popleft()

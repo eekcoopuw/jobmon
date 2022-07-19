@@ -128,7 +128,6 @@ class WorkflowRun(object):
     ) -> None:
         """Initialize client WorkflowRun."""
         # set attrs
-        # Note: move task bind to workflow, pass in workflow id here instead of workflow object
         self.workflow_id = workflow_id
         self.user = getpass.getuser()
 

@@ -10,11 +10,7 @@ from sqlalchemy import func, select, update
 import structlog
 
 from jobmon.constants import WorkflowStatus as Statuses
-from jobmon.server.web.models.cluster import Cluster
-from jobmon.server.web.models.queue import Queue
 from jobmon.server.web.models.task import Task
-from jobmon.server.web.models.task_resources import TaskResources
-from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.tool import Tool
 from jobmon.server.web.models.tool_version import ToolVersion
 from jobmon.server.web.models.workflow import Workflow

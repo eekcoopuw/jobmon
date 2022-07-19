@@ -488,8 +488,8 @@ class Workflow(object):
         # create workflow_run
         logger.info("Adding WorkflowRun metadata to database")
         wfr = factory.create_workflow_run()
-        # Update the workflowrun to BOUND state immediately if workflow.run is called. Swarm
-        # can start immediately
+        # Update the workflowrun to BOUND state immediately in this API. All metadata already
+        # bound, so the swarm can start immediately.
         wfr._update_status(WorkflowRunStatus.BOUND)
         logger.info(f"WorkflowRun ID {wfr.workflow_run_id} assigned")
 
