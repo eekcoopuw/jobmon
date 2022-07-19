@@ -44,6 +44,8 @@ def load_model():
 
 def init_db(engine):
     """emit DDL for all modules in 'models'"""
+    if engine.dialect.name == "mysql":
+        event.remove(Base, "instrument_class", add_string_length_constraint)
 
     load_model()
 

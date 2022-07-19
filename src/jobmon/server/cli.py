@@ -23,6 +23,7 @@ class ServerCLI(CLI):
         self._add_web_service_subparser()
         self._add_workflow_reaper_subparser()
         self._add_integrator_subparser()
+        self._add_init_db_subparser()
 
     def web_service(self, args: configargparse.Namespace) -> None:
         """Web service entrypoint logic."""
@@ -80,6 +81,12 @@ class ServerCLI(CLI):
                 "Invalid command choice. Options are (start), got " f"({args.command})"
             )
 
+    def init_db(self, args: configargparse.Namespace) -> None:
+        """entrypoint to initialize new jobmon db."""
+        import sqlalchemy
+        from jobmon.server.web.models import init_db
+        init_db(sqlalchemy.create_engine(args.sqlalchemy_database_uri))
+
     def _add_web_service_subparser(self) -> None:
         web_service_parser = self._subparsers.add_parser("web_service", **PARSER_KWARGS)
         web_service_parser.set_defaults(func=self.web_service)
@@ -127,6 +134,11 @@ class ServerCLI(CLI):
                 "usage_integration.maxrss_forever()."
             ),
         )
+
+    def _add_init_db_subparser(self) -> None:
+        web_service_parser = self._subparsers.add_parser("init_db", **PARSER_KWARGS)
+        web_service_parser.set_defaults(func=self.init_db)
+        ParserDefaults.sqlalchemy_database_uri(web_service_parser)
 
 
 def main(argstr: Optional[str] = None) -> None:
