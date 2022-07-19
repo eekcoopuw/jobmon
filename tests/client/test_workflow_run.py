@@ -74,37 +74,6 @@ def test_workflow_run_bind(tool, task_template, requester_no_retry):
     assert wfr3.status == WorkflowRunStatus.LINKING
 
 
-@pytest.mark.skip("Workflow Run Heartbeats are moved to swarm, not relevant in client.")
-def test_log_heartbeat(tool, task_template, db_engine):
-    """test _log_heartbeat sets the wfr status to L"""
-
-    wf = tool.create_workflow()
-    t1 = task_template.create_task(arg="sleep 1")
-    wf.add_tasks([t1])
-    wf.bind()
-    wfr = WorkflowRun(workflow=wf, requester=wf.requester)
-    id, s = wfr._link_to_workflow(89)
-    assert s == WorkflowRunStatus.LINKING
-    assert wf._status == WorkflowStatus.REGISTERING
-    # get current heartbeat
-    # Validate that the database indicates the Dag and its Jobs are complete
-    with Session(bind=db_engine) as session:
-        query = "SELECT heartbeat_date " "FROM workflow_run " "WHERE id={} ".format(id)
-        res = session.execute(query).fetchone()
-        session.commit()
-    current_hb = res[0]
-    wfr._log_heartbeat(90)
-
-    with Session(bind=db_engine) as session:
-        query = "SELECT heartbeat_date " "FROM workflow_run " "WHERE id={} ".format(id)
-        res = session.execute(query).fetchone()
-        session.commit()
-    new_hb = res[0]
-    assert new_hb > current_hb
-    assert s == WorkflowRunStatus.LINKING
-    assert wf._status == WorkflowStatus.REGISTERING
-
-
 def test_task_resources_conversion(tool, task_template):
     too_many_cores = {"memory": "20G", "queue": "null.q", "runtime": "01:02:33"}
     t1 = task_template.create_task(

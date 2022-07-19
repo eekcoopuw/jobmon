@@ -172,29 +172,6 @@ def test_resume_with_old_and_new_workflow_attributes(tool, db_engine):
     assert set(wf_attributes) == {("location_id", "5"), ("year", "2022"), ("sex", "F")}
 
 
-@pytest.mark.skip("This functionality is already tested "
-                  "in test_workflow_run.py::test_workflow_run_bind")
-def test_multiple_active_race_condition(tool, task_template):
-    """test that we cannot create 2 workflow runs simultaneously"""
-
-    # create initial workflow
-    t1 = task_template.create_task(arg="sleep 1")
-    workflow1 = tool.create_workflow(name="created_race_condition")
-    workflow1.add_tasks([t1])
-    workflow1.bind()
-    workflow1._create_workflow_run()
-
-    # create identical workflow
-    t2 = task_template.create_task(arg="sleep 1")
-    workflow2 = tool.create_workflow(
-        name=workflow1.name, workflow_args=workflow1.workflow_args
-    )
-    workflow2.add_tasks([t2])
-    workflow2.bind()
-    with pytest.raises(WorkflowNotResumable):
-        workflow2._create_workflow_run(resume=True, resume_timeout=1)
-
-
 def test_workflow_identical_args(tool, task_template):
     """test that 2 workflows with identical arguments can't exist
     simultaneously"""

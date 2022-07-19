@@ -75,6 +75,20 @@ task_dependencies
            3               D
            4               D
 
+Resume a Workflow
+*****************
+
+    Jobmon's CLI allows you to resume a workflow you've already started running, but has since failed. The CLI
+    entrypoint is ``jobmon workflow_resume``. The following arguments are supported:
+        * ``-w``, ``--workflow_id`` - required, the workflow ID to resume.
+        * ``-c``, ``--cluster_name`` - required, the cluster name you'd like to resume on.
+        * ``--reset-running-jobs`` - default False. Whether to kill currently running jobs or let them finish
+
+    Example usages:
+        * ``jobmon workflow_resume -w 123 -c slurm`` - resume workflow ID 123 on the "slurm" cluster in the database.
+        * ``jobmon workflow_resume -w 123 -c dummy --reset-running-jobs`` - resume workflow ID 123 on the dummy cluster.
+            Specify a cold resume so that currently running jobs are also terminated and therefore rerun.
+
 Jobmon Database
 ###############
 
