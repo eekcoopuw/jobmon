@@ -2,7 +2,6 @@ import json
 
 import pytest
 
-from jobmon.exceptions import InvalidResponse
 from jobmon.server.web.log_config import configure_logger
 from jobmon.requester import Requester
 from jobmon.server.web import routes
@@ -32,9 +31,9 @@ def test_add_structlog_context(requester_in_memory, log_config):
     requester = Requester("")
     added_context = {"foo": "bar", "baz": "qux"}
     requester.add_server_structlog_context(**added_context)
-    requester.send_request("/health", {}, "get", tenacious=False)
-    requester.send_request("/health", {}, "post", tenacious=False)
-    requester.send_request("/health", {}, "put", tenacious=False)
+    requester._send_request("/health", {}, "get")
+    requester._send_request("/health", {}, "post")
+    requester._send_request("/health", {}, "put")
     with open(log_config, "r") as server_log_file:
         for line in server_log_file:
             stripped_line = line.strip()
