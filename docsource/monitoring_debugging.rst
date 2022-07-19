@@ -86,8 +86,7 @@ Resume a Workflow
 
     Example usages:
         * ``jobmon workflow_resume -w 123 -c slurm`` - resume workflow ID 123 on the "slurm" cluster in the database.
-        * ``jobmon workflow_resume -w 123 -c dummy --reset-running-jobs`` - resume workflow ID 123 on the dummy cluster.
-            Specify a cold resume so that currently running jobs are also terminated and therefore rerun.
+        * ``jobmon workflow_resume -w 123 -c dummy --reset-running-jobs`` - resume workflow ID 123 on the dummy cluster. Specify a cold resume so that currently running jobs are also terminated and therefore rerun.
 
 Jobmon Database
 ###############
