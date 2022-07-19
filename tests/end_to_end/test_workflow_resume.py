@@ -151,7 +151,9 @@ def test_cold_resume(tool):
     workflow1 = tool.create_workflow(name="cold_resume")
     workflow1.add_tasks(get_two_wave_tasks(tool))
     workflow1.bind()
-    wfr1 = workflow1._create_workflow_run()
+    workflow1._bind_tasks()
+    factory = WorkflowRunFactory(workflow1.workflow_id)
+    wfr1 = factory.create_workflow_run()
     wfr1._update_status(WorkflowRunStatus.BOUND)
 
     # create task instances

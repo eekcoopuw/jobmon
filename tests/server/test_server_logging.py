@@ -2,6 +2,7 @@ import json
 
 import pytest
 
+from jobmon.exceptions import InvalidResponse
 from jobmon.server.web.log_config import configure_logger
 from jobmon.requester import Requester
 from jobmon.server.web import routes
@@ -54,7 +55,7 @@ def test_error_handling(requester_in_memory, log_config, monkeypatch):
     monkeypatch.setattr(routes, "_get_time", raise_error)
 
     requester = Requester("")
-    requester.send_request("/health", {}, "get", tenacious=False)
+    requester._send_request("/health", {}, "get")
     with open(log_config, "r") as server_log_file:
         for line in server_log_file:
             stripped_line = line.strip()

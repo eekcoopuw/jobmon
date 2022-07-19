@@ -478,16 +478,16 @@ class Workflow(object):
         # Bind tasks
         logger.info("Adding task metadata to database")
         # Need to wait for resume signal to be sent before resetting tasks, in case of a resume
-        cf = WorkflowRunFactory(self.workflow_id)
+        factory = WorkflowRunFactory(self.workflow_id)
         if resume:
-            cf.set_workflow_resume(reset_running_jobs=reset_running_jobs,
-                                   resume_timeout=resume_timeout)
+            factory.set_workflow_resume(reset_running_jobs=reset_running_jobs,
+                                        resume_timeout=resume_timeout)
 
         self._bind_tasks(reset_if_running=reset_running_jobs, chunk_size=self._chunk_size)
 
         # create workflow_run
         logger.info("Adding WorkflowRun metadata to database")
-        wfr = cf.create_workflow_run()
+        wfr = factory.create_workflow_run()
         # Update the workflowrun to BOUND state immediately if workflow.run is called. Swarm
         # can start immediately
         wfr._update_status(WorkflowRunStatus.BOUND)
