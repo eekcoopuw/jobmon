@@ -46,7 +46,7 @@ spec:
             defaultMode: 0600
       containers:
       - name: apm-server
-        image: "docker.elastic.co/apm/apm-server:7.11.0"
+        image: "docker.elastic.co/apm/apm-server:7.16.1"
         imagePullPolicy: "IfNotPresent"
         securityContext:
           privileged: false

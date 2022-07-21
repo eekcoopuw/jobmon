@@ -19,7 +19,7 @@ spec:
         app: metricbeat
     spec:
       containers:
-        - image: docker.elastic.co/beats/metricbeat:7.13.2
+        - image: docker.elastic.co/beats/metricbeat:7.16.1
           name: metricbeat
           env:
           - name: ROOT_DB_USER
