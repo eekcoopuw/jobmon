@@ -134,10 +134,10 @@ class DummyDistributor(ClusterDistributor):
             cluster_name=args.cluster_name,
             worker_node_config=worker_node_config,
         )
-        worker_node_task_instance = worker_node_factory.get_job_task_instance(
+        worker_node_task_instance = worker_node_factory.get_job_task_instance_without_logging(
             task_instance_id=args.task_instance_id
         )
-        #worker_node_task_instance.configure_logging()
+        # worker_node_task_instance.configure_logging()
         # Log running, log done, and exit
         worker_node_task_instance.log_running()
         worker_node_task_instance.log_done()

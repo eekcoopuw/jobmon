@@ -167,6 +167,45 @@ class WorkerNodeTaskInstance:
             }
         }
         logging.config.dictConfig(logging_config)
+        self._initialize_logfiles(self.task_instance_id)
+
+    def _initialize_logfiles(
+            self,
+            task_instance_id: int,
+            template_type: str,
+            job_name: str
+    ) -> Dict[str, Path]:
+        requester = Requester(self._worker_node_config.url)
+        app_route = f"/task_instance/{task_instance_id}/logfile_template/{template_type}"
+        return_code, response = requester.send_request(
+            app_route=app_route,
+            message={},
+            request_type="post",
+        )
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
+
+        logfiles: Dict[str, Path] = {}
+        task_name = response["task_name"]
+        for log_type, template in response["logpaths"].items():
+            initial_logfile = Path(
+                template.format(
+                    name=job_name,
+                    distributor_id=self._worker_node_interface.distributor_id
+                )
+            )
+            final_logfile = initial_logfile.parent / f"{task_name}{initial_logfile.suffix}"
+            if initial_logfile.exists():
+                initial_logfile.rename(final_logfile)
+            else:
+                final_logfile.touch()
+            logfiles[log_type] = final_logfile
+
+        return logfiles
 
     def log_done(self) -> None:
         """Tell the JobStateManager that this task_instance is done."""

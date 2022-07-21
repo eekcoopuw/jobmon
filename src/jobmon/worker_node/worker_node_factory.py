@@ -85,10 +85,27 @@ class WorkerNodeFactory:
         )
         return worker_node_task_instance
 
+    def get_job_task_instance_without_logging(
+        self,
+        task_instance_id: int,
+    ) -> WorkerNodeTaskInstance:
+        """Set up and return WorkerNodeTaskInstance object."""
+
+        worker_node_task_instance = WorkerNodeTaskInstance(
+            cluster_interface=self._worker_node_interface,
+            task_instance_id=task_instance_id,
+            stdout=None,
+            stderr=None,
+            heartbeat_interval=self._worker_node_config.task_instance_heartbeat_interval,
+            report_by_buffer=self._worker_node_config.heartbeat_report_by_buffer,
+            requester=Requester(self._worker_node_config.url),
+        )
+        return worker_node_task_instance
+
     def get_array_task_instance(
         self,
         array_id: int,
-        batch_number: int,
+        batch_number: int
     ) -> WorkerNodeTaskInstance:
         """Set up and return WorkerNodeTaskInstance object."""
         requester = Requester(self._worker_node_config.url)
