@@ -89,7 +89,7 @@ class WorkerNodeFactory:
         self,
         task_instance_id: int,
     ) -> WorkerNodeTaskInstance:
-        """Set up and return WorkerNodeTaskInstance object."""
+        """Called by the dummy executor because it does not want logging at all. Feels hacky"""
 
         worker_node_task_instance = WorkerNodeTaskInstance(
             cluster_interface=self._worker_node_interface,

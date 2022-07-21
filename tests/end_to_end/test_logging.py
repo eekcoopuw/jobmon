@@ -138,8 +138,8 @@ def test_dummy_executor_with_bad_log_path(tool, task_template, tmp_path):
                                     default_compute_resources_set={"dummy": {"queue": "null.q"}} )
     t1 = task_template.create_task(arg="echo helloworld" , name="bad_stderr_task",
                                    compute_resources={
-                                       "stdout": "/ihme/homes/gphipps/hack",
-                                       "stderr": "/ihme/homes/gphipps/hack" })
+                                       "stdout": "/utterly/bogus/file/path",
+                                       "stderr": "/utterly/bogus/file/path" })
     workflow.add_tasks([t1])
     workflow_run_status = workflow.run()
     assert workflow_run_status == WorkflowRunStatus.DONE
