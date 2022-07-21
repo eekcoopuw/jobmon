@@ -46,6 +46,8 @@ def get_logfile_template(task_instance_id: int, template_type: str):
     logpaths = {}
     for log_type in log_types:
         if log_type in requested_resources:
+            with open('xxx.txt', 'w') as writer:
+                writer.write(f"XXX _{template_type}_{requested_resources[log_type]}_")
             logpaths[log_type] = requested_resources[log_type][template_type]
 
     resp = jsonify(logpaths=logpaths, task_name=task_name)

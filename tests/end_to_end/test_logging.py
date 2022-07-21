@@ -134,9 +134,12 @@ def test_dummy_executor_with_bad_log_path(tool, task_template, tmp_path):
     """Check that the Dummy executor ignores bad paths. A real executor will fail this workflow"""
 
     workflow = tool.create_workflow(name="test_dummy_executor_with_bad_log_path",
-                                    default_cluster_name="dummy")
-    t1 = task_template.create_task(arg="echo hello world", name="bad_stderr_task",
-                                   compute_resources={"stderr": f"/utterly/bogus/file/path"})
+                                    default_cluster_name="dummy",
+                                    default_compute_resources_set={"dummy": {"queue": "null.q"}} )
+    t1 = task_template.create_task(arg="echo helloworld" , name="bad_stderr_task",
+                                   compute_resources={
+                                       "stdout": "/ihme/homes/gphipps/hack",
+                                       "stderr": "/ihme/homes/gphipps/hack" })
     workflow.add_tasks([t1])
     workflow_run_status = workflow.run()
     assert workflow_run_status == WorkflowRunStatus.DONE
