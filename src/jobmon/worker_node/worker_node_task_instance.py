@@ -342,7 +342,7 @@ class WorkerNodeTaskInstance:
 
             is_done = False
             while not is_done:
-                # process any commands that we can in the time alotted
+                # process any commands that we can in the time allotted
                 time_till_next_heartbeat = self.heartbeat_interval - (
                     time() - self.last_heartbeat_time
                 )

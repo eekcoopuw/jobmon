@@ -382,7 +382,7 @@ class Tool:
             )
 
         if set_task_templates:
-            # Set the the compute resources for the TaskTemplates associated with the Tool
+            # Set the compute resources for the TaskTemplates associated with the Tool
             for tt in self.active_task_templates.values():
                 try:
                     tt.set_default_compute_resources_from_dict(
@@ -455,7 +455,7 @@ class Tool:
             )
 
         if set_task_templates:
-            # Set the the resource scales for the TaskTemplates associated with the Tool
+            # Set the resource scales for the TaskTemplates associated with the Tool
             for tt in self.active_task_templates.values():
                 try:
                     tt.set_default_resource_scales_from_dict(

@@ -5,7 +5,7 @@ from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.builtins.sequential.seq_distributor import SequentialDistributor
 from jobmon.builtins.multiprocess.multiproc_distributor import MultiprocessDistributor
 
-from jobmon.constants import TaskInstanceStatus
+from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 
 
 def test_sequential_logging(tool, task_template, tmp_path):
@@ -128,3 +128,18 @@ def test_multiprocess_logging(tool, task_template, tmp_path):
         assert f.readline().rstrip() == "/bin/sh: foobar: command not found"
 
     distributor_service.cluster_interface.stop()
+
+
+def test_dummy_executor_with_bad_log_path(tool, task_template, tmp_path):
+    """Check that the Dummy executor ignores bad paths. A real executor will fail this workflow"""
+
+    workflow = tool.create_workflow(name="test_dummy_executor_with_bad_log_path",
+                                    default_cluster_name="dummy")
+    t1 = task_template.create_task(arg="echo hello world", name="bad_stderr_task",
+                                   compute_resources={"stderr": f"/utterly/bogus/file/path"})
+    workflow.add_tasks([t1])
+    workflow_run_status = workflow.run()
+    assert workflow_run_status == WorkflowRunStatus.DONE
+    assert workflow._num_newly_completed == 1
+    assert workflow._num_previously_completed == 0
+    assert len(workflow.task_errors) == 0
