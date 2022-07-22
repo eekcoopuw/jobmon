@@ -1,5 +1,8 @@
+import contextlib
 import os
 import random
+import subprocess
+import sys
 from typing import Dict, Tuple
 
 from unittest.mock import patch
@@ -296,3 +299,50 @@ def test_limited_error_log(tool, db_cfg):
 
     error = res[0]
     assert error == (("a" * 2**10 + "\n") * (2**8))[-10000:]
+
+
+def test_worker_node_environment(db_cfg, client_env):
+
+    @contextlib.contextmanager
+    def env_var_context():
+        # Context manager to ensure we don't pollute the testing environment outside of
+        # this single task.
+        environ = os.environ.copy()
+        try:
+            yield
+        finally:
+            os.environ = environ
+
+    class MockTaskInstance(WorkerNodeTaskInstance):
+
+        def run(self):
+            """Override run method to only check the subprocess call."""
+            self.set_environment()
+            proc = subprocess.Popen(
+                self._command,
+                env=os.environ.copy(),
+                stdout=subprocess.PIPE,
+                shell=True,
+                universal_newlines=True,
+            )
+            out, err = proc.communicate()
+            return out, err
+
+    with env_var_context():
+        cluster = Cluster.get_cluster('sequential')
+        worker_node = cluster.get_worker_node()
+        ti = MockTaskInstance(
+            cluster_interface=worker_node,
+            task_instance_id=100,
+            workflow_id=200,
+            task_id=300
+        )
+        ti._command = (
+            "echo $JOBMON_WORKFLOW_ID; "
+            "echo $JOBMON_TASK_ID; "
+            "echo $JOBMON_TASK_INSTANCE_ID;"
+        )
+
+        out, err = ti.run()
+        # We printed out environment variables in 3 lines. Check that equality
+        assert out == "\n".join(['200', '300', '100']) + "\n"
