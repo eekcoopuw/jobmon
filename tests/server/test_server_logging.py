@@ -71,4 +71,5 @@ def test_server_500(requester_in_memory):
         app_route="/test_bad", message={}, request_type="get"
     )
     assert rc == 500
-    assert "MySQLdb._exceptions.ProgrammingError" in resp["error"]["exception_message"]
+    # The exact error string varies by SQL version
+    assert "ProgrammingError" in resp["error"]["exception_message"]
