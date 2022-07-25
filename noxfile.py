@@ -129,6 +129,7 @@ def docs(session: Session) -> None:
 
 @nox.session(python=python, venv_backend="conda")
 def build(session: Session) -> None:
+    session.install("build")
     session.run("python", "-m", "build")
 
 
