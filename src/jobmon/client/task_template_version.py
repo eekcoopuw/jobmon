@@ -265,7 +265,7 @@ class TaskTemplateVersion:
 
     @property
     def op_args(self) -> set:
-        """Return the the task template version OP args.
+        """Return the task template version OP args.
 
         Any named arguments in command_template that can change without changing the
         identity of the task. Generally these are things like the task executable location or
