@@ -108,6 +108,8 @@ class WorkerNodeFactory:
                 f"200. Response content: {rc}"
             )
         task_instance_id = resp["task_instance_id"]
+        workflow_id = resp["workflow_id"]
+        task_id = resp["task_id"]
 
         logfiles = self._initialize_logfiles(
             task_instance_id=task_instance_id,
@@ -118,6 +120,8 @@ class WorkerNodeFactory:
         worker_node_task_instance = WorkerNodeTaskInstance(
             cluster_interface=self._worker_node_interface,
             task_instance_id=task_instance_id,
+            workflow_id=workflow_id,
+            task_id=task_id,
             stdout=logfiles.get("stdout", None),
             stderr=logfiles.get("stderr", None),
             heartbeat_interval=self._worker_node_config.task_instance_heartbeat_interval,

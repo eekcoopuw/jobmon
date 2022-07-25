@@ -31,6 +31,8 @@ class WorkerNodeTaskInstance:
         self,
         cluster_interface: ClusterWorkerNode,
         task_instance_id: int,
+        workflow_id: Optional[int] = None,
+        task_id: Optional[int] = None,
         stdout: Optional[Path] = None,
         stderr: Optional[Path] = None,
         heartbeat_interval: int = 90,
@@ -55,6 +57,8 @@ class WorkerNodeTaskInstance:
         """
         # identity attributes
         self._task_instance_id = task_instance_id
+        self._workflow_id = workflow_id
+        self._task_id = task_id
         self.stdout = stdout
         self.stderr = stderr
 
@@ -321,6 +325,8 @@ class WorkerNodeTaskInstance:
         self.log_running()
 
         try:
+            # Add task instance, workflow id, and task id attributes into the environment.
+            self.set_environment()
             self._proc = subprocess.Popen(
                 self.command,
                 env=os.environ.copy(),
@@ -403,6 +409,14 @@ class WorkerNodeTaskInstance:
                     self.command_return_code, self.proc_stderr
                 )
                 self.log_error(error_state, msg)
+
+    def set_environment(self) -> None:
+        """Add task instance id, task id, and workflow id to the environment."""
+        os.environ["JOBMON_TASK_INSTANCE_ID"] = str(self.task_instance_id)
+        if self._task_id:
+            os.environ["JOBMON_TASK_ID"] = str(self._task_id)
+        if self._workflow_id:
+            os.environ["JOBMON_WORKFLOW_ID"] = str(self._workflow_id)
 
     def _poll_subprocess(self, timeout: Union[int, float] = -1) -> bool:
         """Poll subprocess until it is finished or timeout is reached.

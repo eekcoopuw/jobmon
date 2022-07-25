@@ -422,20 +422,22 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> A
     bind_to_logger(array_id=array_id)
 
     query = """
-        SELECT id
-        FROM task_instance
-        WHERE array_id=:array_id
-        AND array_batch_num=:batch_num
-        AND array_step_id=:step_id"""
+        SELECT ti.id AS id, wr.workflow_id AS workflow_id, ti.task_id AS task_id
+        FROM task_instance ti
+        JOIN workflow_run wr ON ti.workflow_run_id = wr.id
+        WHERE ti.array_id=:array_id
+        AND ti.array_batch_num=:batch_num
+        AND ti.array_step_id=:step_id"""
 
-    task_instance_id = (
-        DB.session.query(TaskInstance)
-        .from_statement(text(query))
-        .params(array_id=array_id, batch_num=batch_num, step_id=step_id)
-        .one()
+    task_instance = (
+        DB.session.execute(
+            text(query), dict(array_id=array_id, batch_num=batch_num, step_id=step_id)
+        ).one()
     )
 
-    resp = jsonify(task_instance_id=task_instance_id.id)
+    resp = jsonify(task_instance_id=task_instance.id,
+                   workflow_id=task_instance.workflow_id,
+                   task_id=task_instance.task_id)
     resp.status_code = StatusCodes.OK
     return resp
 

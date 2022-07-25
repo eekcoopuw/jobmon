@@ -42,7 +42,7 @@ def sleepy_task_template(db_cfg, client_env, base_tool):
     return tt
 
 
-def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
+def test_error_state(db_cfg, client_env, requester_no_retry, base_tool, sleepy_task_template):
     """Tests that the workflow reaper successfully checks for error state.
 
     Error state occurs when a workflow run has not logged a heartbeat in a
@@ -109,7 +109,7 @@ def test_error_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template
     assert wfr_status == WorkflowRunStatus.ERROR
 
 
-def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
+def test_halted_state(db_cfg, client_env, requester_no_retry, base_tool, sleepy_task_template):
     """Tests that the workflow reaper successfully checks for halted state.
 
     Halted state occurs when a workflow run is either in C (cold resume) or
@@ -201,7 +201,7 @@ def test_halted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templat
     assert workflow3_status == WorkflowStatus.HALTED
 
 
-def test_aborted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
+def test_aborted_state(db_cfg, client_env, requester_no_retry, base_tool, sleepy_task_template):
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
     from jobmon.client.workflow_run import WorkflowRun
 
@@ -255,7 +255,7 @@ def test_aborted_state(db_cfg, requester_no_retry, base_tool, sleepy_task_templa
     assert workflow_status == WorkflowStatus.ABORTED
 
 
-def test_reaper_version(db_cfg, requester_no_retry, base_tool, sleepy_task_template):
+def test_reaper_version(db_cfg, client_env, requester_no_retry, base_tool, sleepy_task_template):
     from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
     from jobmon.client.workflow_run import WorkflowRun
 
