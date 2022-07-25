@@ -129,7 +129,7 @@ def docs(session: Session) -> None:
 
 @nox.session(python=python, venv_backend="conda")
 def build(session: Session) -> None:
-    session.run("python", "setup.py", "sdist", "bdist_wheel")
+    session.run("python", "-m", "build")
 
 
 @nox.session(python=python, venv_backend="conda")
