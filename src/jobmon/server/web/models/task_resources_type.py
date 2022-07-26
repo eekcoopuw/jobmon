@@ -1,5 +1,6 @@
 """Task Resources Type Database Table."""
 from sqlalchemy import Column, String
+from sqlalchemy.orm import Session
 
 from jobmon.constants import TaskResourcesType as Types
 from jobmon.server.web.models import Base
@@ -15,3 +16,12 @@ class TaskResourcesType(Base):
 
     id = Column(String(1), primary_key=True)
     label = Column(String(150), nullable=False)
+
+
+def add_task_resources_types(session: Session):
+    task_resources_type = [
+        TaskResourcesType(id='O', label='ORIGINAL'),
+        TaskResourcesType(id='V', label='VALIDATED'),
+        TaskResourcesType(id='A', label='ADJUSTED'),
+    ]
+    session.add_all(task_resources_type)

@@ -77,6 +77,7 @@ def init_db(engine):
         from jobmon.server.web.models.cluster_type import add_cluster_types
         from jobmon.server.web.models.cluster import add_clusters
         from jobmon.server.web.models.queue import add_queues
+        from jobmon.server.web.models.task_resources_type import add_task_resources_types
         from jobmon.server.web.models.task_status import add_task_statuses
         from jobmon.server.web.models.task_instance_status import add_task_instance_statuses
         from jobmon.server.web.models.workflow_status import add_workflow_statuses
@@ -88,6 +89,7 @@ def init_db(engine):
                 add_cluster_types,
                 add_clusters,
                 add_queues,
+                add_task_resources_types,
                 add_task_statuses,
                 add_task_instance_statuses,
                 add_workflow_statuses,
