@@ -229,6 +229,7 @@ class DistributorService:
 
             task_instance_batch = TaskInstanceBatch(
                 array_id=task_instance_batch_kwargs["array_id"],
+                array_name=task_instance_batch_kwargs["array_name"],
                 array_batch_num=task_instance_batch_kwargs["array_batch_num"],
                 task_resources_id=task_instance_batch_kwargs["task_resources_id"],
                 requester=self.requester,

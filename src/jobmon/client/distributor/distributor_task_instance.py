@@ -45,7 +45,10 @@ class DistributorTaskInstance:
 
     @property
     def submission_name(self) -> str:
-        return str(self.task_instance_id)
+        try:
+            return self.batch.submission_name
+        except AttributeError:
+            return str(self.task_instance_id)
 
     @property
     def batch(self) -> TaskInstanceBatch:

@@ -22,12 +22,14 @@ class TaskInstanceBatch:
     def __init__(
         self,
         array_id: int,
+        array_name: str,
         array_batch_num: int,
         task_resources_id: int,
         requester: Requester,
     ) -> None:
         """Initialization of the TaskInstanceBatch object."""
         self.array_id = array_id
+        self.array_name = array_name
         self.batch_number = array_batch_num
         self.task_resources_id = task_resources_id
         self.task_instances: Set[DistributorTaskInstance] = set()
@@ -35,7 +37,7 @@ class TaskInstanceBatch:
 
     @property
     def submission_name(self) -> str:
-        return f"{self.array_id}-{self.batch_number}"
+        return f"{self.array_name}-{self.batch_number}"
 
     @property
     def requested_resources(self) -> Dict:

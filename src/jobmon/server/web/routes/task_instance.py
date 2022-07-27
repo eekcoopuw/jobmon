@@ -13,6 +13,7 @@ from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeTaskInstanceBatch
 from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import DB
+from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance import TaskInstanceStatus
@@ -682,6 +683,7 @@ def instantiate_task_instances() -> Any:
         instantiated_batches_query = (
             select(
                 TaskInstance.array_id,
+                Array.name,
                 TaskInstance.array_batch_num,
                 TaskInstance.task_resources_id,
                 func.group_concat(TaskInstance.id),
@@ -689,16 +691,19 @@ def instantiate_task_instances() -> Any:
             .where(
                 TaskInstance.id.in_(task_instance_ids_list)
                 & (TaskInstance.status == TaskInstanceStatus.INSTANTIATED)
+                & (TaskInstance.array_id == Array.id)
             )
             .group_by(
                 TaskInstance.array_id,
                 TaskInstance.array_batch_num,
                 TaskInstance.task_resources_id,
+                Array.name
             )
         )
         result = DB.session.execute(instantiated_batches_query)
         serialized_batches = []
-        for array_id, array_batch_num, task_resources_id, task_instance_ids in result:
+        for array_id, array_name, array_batch_num, task_resources_id, task_instance_ids \
+                in result:
             task_instance_ids = [
                 int(task_instance_id)
                 for task_instance_id in task_instance_ids.split(",")
@@ -706,6 +711,7 @@ def instantiate_task_instances() -> Any:
             serialized_batches.append(
                 SerializeTaskInstanceBatch.to_wire(
                     array_id=array_id,
+                    array_name=array_name,
                     array_batch_num=array_batch_num,
                     task_resources_id=task_resources_id,
                     task_instance_ids=task_instance_ids,
