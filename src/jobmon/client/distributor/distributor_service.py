@@ -260,6 +260,7 @@ class DistributorService:
                 self.cluster_interface.submit_array_to_batch_distributor(
                     command=command,
                     name=task_instance_batch.submission_name,
+                    logfile_name=task_instance_batch.logfile_name,
                     requested_resources=task_instance_batch.requested_resources,
                     array_length=len(task_instance_batch.task_instances),
                 )
@@ -276,6 +277,7 @@ class DistributorService:
 
         except Exception as e:
             # if other error, transition to No ID status
+            logger.error(str(e))
             for task_instance in task_instance_batch.task_instances:
                 distributor_command = DistributorCommand(
                     task_instance.transition_to_no_distributor_id, no_id_err_msg=str(e)
@@ -323,10 +325,12 @@ class DistributorService:
         try:
             resp = self.cluster_interface.submit_to_batch_distributor(
                 command=command, name=task_instance.submission_name,
+                logfile_name=task_instance.logfile_name,
                 requested_resources=requested_resources
             )
             distributor_id, output_path, error_path = resp  # unpack response tuple
         except Exception as e:
+            logger.error(str(e))
             task_instance.transition_to_no_distributor_id(no_id_err_msg=str(e))
 
         else:

@@ -12,8 +12,8 @@ def test_multiprocess_distributor(
     dist.start()
 
     # submit 2 commands to non-array operation
-    dist.submit_to_batch_distributor("echo 1", "echo_1", {"queue": "null.q"})
-    dist.submit_to_batch_distributor("echo 2", "echo_2", {"queue": "null.q"})
+    dist.submit_to_batch_distributor("echo 1", "echo_1", "echo_1", {"queue": "null.q"})
+    dist.submit_to_batch_distributor("echo 2", "echo_2", "echo_2", {"queue": "null.q"})
     assert len(dist.consumers) == 5
 
     # we expect that dist.task_queue will be consumed by the consumers
@@ -36,8 +36,8 @@ def test_multiprocess_distributor(
     dist.start()
 
     # submit 2 to array operation with array_length = 3
-    dist.submit_array_to_batch_distributor("echo 1", "echo_1", {"queue": "null.q"}, 3)
-    dist.submit_array_to_batch_distributor("echo 2", "echo_2", {"queue": "null.q"}, 3)
+    dist.submit_array_to_batch_distributor("echo 1", "echo_1", "echo_1", {"queue": "null.q"}, 3)
+    dist.submit_array_to_batch_distributor("echo 2", "echo_2", "echo_1", {"queue": "null.q"}, 3)
 
     # we expect that dist.task_queue will be consumed by the consumers
     # fairly soon and become empty;
