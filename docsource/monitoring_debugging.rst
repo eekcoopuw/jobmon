@@ -75,6 +75,17 @@ task_dependencies
            3               D
            4               D
 
+
+get_filepaths
+*************
+
+Due to the introduction of array task submission in Jobmon 3.1, sometimes the structure of the output filepaths isn't
+intuitive to human operators. Jobmon provides a ``jobmon get_filepaths`` CLI tool to retrieve a more useful representation
+of the location of your log files based on the provided compute_resources.
+
+You can filter the results by workflow ID, array name, or job name using the -w, -a, -j flags respectively.
+By default the query returns 5 results but you can always increase the limit using the -l flag.
+
 Jobmon Database
 ###############
 

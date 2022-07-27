@@ -208,9 +208,11 @@ In other words, it starts from first failure, creating a new workflow run for an
 
 To resume a Workflow, make sure that your previous workflow
 run process is dead (kill it using the pid from the workflow run table). Users for the
-most part will keep the same Jobmon code, only one line of code needs to change to resume. A
-user simply needs to add a resume parameter to the run() function to resume their Workflow.::
+most part will keep the same Jobmon code. When creating a resumed workflow, the user must ensure that the
+workflow_args provided to Tool.create_workflow() match the workflow they are attempting to resume. Additionally,
+users need to add a resume parameter to the run() function to resume their Workflow.::
 
+    workflow = Tool.create_workflow(workflow_args='previous_workflow_args')
     workflow.run(resume=True)
 
 That's it. If you don't set "resume=True", Jobmon will raise an error saying that the user is
