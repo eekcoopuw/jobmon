@@ -107,6 +107,7 @@ class DummyDistributor(ClusterDistributor):
         self,
         command: str,
         name: str,
+        logfile_name: str,
         requested_resources: Dict[str, Any],
     ) -> Tuple[str, Optional[str], Optional[str]]:
         """Run a fake execution of the task.

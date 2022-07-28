@@ -668,6 +668,9 @@ class Workflow(object):
         elif not self._newly_created and resume:
             self._set_workflow_resume(reset_running_jobs)
             self._workflow_is_resumable(resume_timeout)
+        elif self._newly_created and resume:
+            logger.warning("The resume flag has been set but no previous workflow_args exist."
+                           "Note that the workflow will execute as a new workflow.")
 
         # create workflow run
         client_wfr = ClientWorkflowRun(workflow=self, requester=self.requester)
