@@ -417,14 +417,11 @@ def test_get_array_task_instances(db_engine, tool):
     assert msg['array_tasks'][0]["OUTPUT_PATH"] == "/cool/filepath.o"
 
 
-@pytest.mark.skip("This test might not be well designed. Task templates are not unique"
-                  "to workflows, so running this test alone will yield different results than"
-                  "when this test is run in sequence with other tests.")
 def test_get_task_template_resource_usage(db_engine, tool):
     t = tool
     wf = t.create_workflow(name="i_am_a_fake_wf")
     tt1 = t.get_task_template(
-        template_name="tt_core", command_template="echo {arg}", node_args=["arg"]
+        template_name="tt_template_resource", command_template="echo {arg}", node_args=["arg"]
     )
     t1 = tt1.create_task(
         arg=1,
