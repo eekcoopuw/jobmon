@@ -1,19 +1,8 @@
 import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from sqlalchemy import update
-import getpass
-import pandas as pd
-from time import sleep
 
-from jobmon.constants import WorkflowRunStatus, TaskStatus, TaskInstanceStatus
-from jobmon.client.task import Task
-from jobmon.client.workflow_run import WorkflowRun
-from jobmon.exceptions import InvalidResponse
 from jobmon.server.web.models import load_model
-from jobmon.server.web.models import task
-from jobmon.server.web.models.task_attribute import TaskAttribute
-from jobmon.server.web.models.task_attribute_type import TaskAttributeType
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_run import WorkflowRun as WFR
 from mock import patch, PropertyMock
@@ -58,7 +47,7 @@ def sleepy_task_template(db_engine, tool):
     return tt
 
 
-def test_error_state(db_engine, requester_no_retry, tool, sleepy_task_template):
+def test_error_state(db_engine, client_env, requester_no_retry, tool, sleepy_task_template):
     """Tests that the workflow reaper successfully checks for error state.
 
     Error state occurs when a workflow run has not logged a heartbeat in a

@@ -107,6 +107,7 @@ class DummyDistributor(ClusterDistributor):
         self,
         command: str,
         name: str,
+        logfile_name: str,
         requested_resources: Dict[str, Any],
     ) -> Tuple[str, Optional[str], Optional[str]]:
         """Run a fake execution of the task.
@@ -134,10 +135,10 @@ class DummyDistributor(ClusterDistributor):
             cluster_name=args.cluster_name,
             worker_node_config=worker_node_config,
         )
-        worker_node_task_instance = worker_node_factory.get_job_task_instance(
+        # Do not do ANY logging at all
+        worker_node_task_instance = worker_node_factory.get_job_task_instance_without_logging(
             task_instance_id=args.task_instance_id
         )
-        worker_node_task_instance.configure_logging()
         # Log running, log done, and exit
         worker_node_task_instance.log_running()
         worker_node_task_instance.log_done()

@@ -17,6 +17,7 @@ from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
+from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.fsm import blueprint
 from jobmon.server.web.routes.fsm._common import _get_logfile_template
@@ -307,15 +308,23 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> A
     with session.begin():
 
         select_stmt = select(
-            TaskInstance
+            TaskInstance.id,
+            WorkflowRun.workflow_id,
+            TaskInstance.task_id
         ).where(
             TaskInstance.array_id == array_id,
             TaskInstance.array_batch_num == batch_num,
-            TaskInstance.array_step_id == step_id
+            TaskInstance.array_step_id == step_id,
+            TaskInstance.workflow_run_id == WorkflowRun.id,
         )
-        task_instance = session.execute(select_stmt).scalars().one()
+        task_instance = session.execute(select_stmt).all()
 
-    resp = jsonify(task_instance_id=task_instance.id)
+        # Unpack first element, should always only have one item
+        task_instance_id, workflow_id, task_id = task_instance[0]
+
+    resp = jsonify(task_instance_id=task_instance_id,
+                   workflow_id=workflow_id,
+                   task_id=task_id)
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -502,6 +511,7 @@ def instantiate_task_instances() -> Any:
         instantiated_batches_query = (
             select(
                 TaskInstance.array_id,
+                Array.name,
                 TaskInstance.array_batch_num,
                 TaskInstance.task_resources_id,
                 func.group_concat(TaskInstance.id),
@@ -509,16 +519,19 @@ def instantiate_task_instances() -> Any:
             .where(
                 TaskInstance.id.in_(task_instance_ids_list)
                 & (TaskInstance.status == constants.TaskInstanceStatus.INSTANTIATED)
+                & (TaskInstance.array_id == Array.id)
             )
             .group_by(
                 TaskInstance.array_id,
                 TaskInstance.array_batch_num,
                 TaskInstance.task_resources_id,
+                Array.name
             )
         )
         result = session.execute(instantiated_batches_query)
         serialized_batches = []
-        for array_id, array_batch_num, task_resources_id, task_instance_ids in result:
+        for array_id, array_name, array_batch_num, task_resources_id, task_instance_ids \
+                in result:
             task_instance_ids = [
                 int(task_instance_id)
                 for task_instance_id in task_instance_ids.split(",")
@@ -526,6 +539,7 @@ def instantiate_task_instances() -> Any:
             serialized_batches.append(
                 SerializeTaskInstanceBatch.to_wire(
                     array_id=array_id,
+                    array_name=array_name,
                     array_batch_num=array_batch_num,
                     task_resources_id=task_resources_id,
                     task_instance_ids=task_instance_ids,

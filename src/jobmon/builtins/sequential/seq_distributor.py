@@ -123,6 +123,7 @@ class SequentialDistributor(ClusterDistributor):
         self,
         command: str,
         name: str,
+        logfile_name: str,
         requested_resources: Dict[str, Any],
     ) -> Tuple[str, Optional[str], Optional[str]]:
         """Execute sequentially."""
@@ -141,7 +142,7 @@ class SequentialDistributor(ClusterDistributor):
                 for io_type, redirect_manager in redirect_io.items():
                     try:
                         fname = requested_resources[io_type]["job"].format(
-                            name=name, type=io_type, distributor_id=distributor_id
+                            name=logfile_name, type=io_type, distributor_id=distributor_id
                         )
                         logfiles[io_type] = fname
                         f = stack.enter_context(open(fname, "w"))

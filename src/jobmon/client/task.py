@@ -341,8 +341,13 @@ class Task:
 
         self.node.add_upstream_node(ancestor.node)
 
+    def add_upstreams(self, tasks: List[Task]) -> None:
+        """Add all Tasks in user provided list as upstreams."""
+        for task in tasks:
+            self.add_upstream(task)
+
     def add_downstream(self, descendent: Task) -> None:
-        """Add an downstream (ancestor) Task.
+        """Add a downstream (ancestor) Task.
 
         This has Set semantics, a downstream task will only be added once. Symmetrically,
         this method also adds this Task as an upstream on the ancestor.
@@ -351,6 +356,11 @@ class Task:
         descendent.upstream_tasks.add(self)
 
         self.node.add_downstream_node(descendent.node)
+
+    def add_downstreams(self, tasks: List[Task]) -> None:
+        """Add all Tasks in user provided list as downstreams."""
+        for task in tasks:
+            self.add_downstream(task)
 
     def add_attribute(self, attribute: str, value: str) -> None:
         """Function that users can call to add a single attribute for a task."""

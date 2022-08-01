@@ -493,6 +493,7 @@ class SerializeTaskInstanceBatch:
     @staticmethod
     def to_wire(
         array_id: int,
+        array_name: str,
         array_batch_num: int,
         task_resources_id: int,
         task_instance_ids: List[int],
@@ -500,6 +501,7 @@ class SerializeTaskInstanceBatch:
         """"""
         return (
             array_id,
+            array_name,
             array_batch_num,
             task_resources_id,
             task_instance_ids,
@@ -510,7 +512,8 @@ class SerializeTaskInstanceBatch:
         """"""
         return {
             "array_id": wire_tuple[0],
-            "array_batch_num": wire_tuple[1],
-            "task_resources_id": wire_tuple[2],
-            "task_instance_ids": wire_tuple[3],
+            "array_name": wire_tuple[1],
+            "array_batch_num": wire_tuple[2],
+            "task_resources_id": wire_tuple[3],
+            "task_instance_ids": wire_tuple[4],
         }

@@ -290,6 +290,7 @@ class MultiprocessDistributor(ClusterDistributor):
         self,
         command: str,
         name: str,
+        logfile_name: str,
         requested_resources: Dict[str, Any],
     ) -> Tuple[str, Optional[str], Optional[str]]:
         distributor_id = str(self._next_job_id)
@@ -299,7 +300,7 @@ class MultiprocessDistributor(ClusterDistributor):
         for io_type in ["stdout", "stderr"]:
             try:
                 fname = requested_resources[io_type]["job"].format(
-                    name=name,
+                    name=logfile_name,
                     type=io_type,
                     distributor_id=distributor_id
                 )
@@ -320,6 +321,7 @@ class MultiprocessDistributor(ClusterDistributor):
         self,
         command: str,
         name: str,
+        logfile_name: str,
         requested_resources: Dict[str, Any],
         array_length: int,
     ) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
@@ -337,7 +339,7 @@ class MultiprocessDistributor(ClusterDistributor):
             for io_type in ["stdout", "stderr"]:
                 try:
                     fname = requested_resources[io_type]["array"].format(
-                        name=name,
+                        name=logfile_name,
                         type=io_type,
                         distributor_id=distributor_id
                     )
