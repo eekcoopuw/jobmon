@@ -202,7 +202,7 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources: Dict[str, Any]
+        self, command: str, name: str, logfile_name: str, requested_resources: Dict[str, Any]
     ) -> Tuple[str, Optional[str], Optional[str]]:
         """Submit the command on the cluster technology and return a distributor_id.
 
@@ -214,6 +214,7 @@ class ClusterDistributor(Protocol):
         Args:
             command: command to be run
             name: name of task
+            logfile_name: the initial filepaths logs will be written to
             requested_resources: resource requests sent to distributor API
 
         Returns:
@@ -226,6 +227,7 @@ class ClusterDistributor(Protocol):
         self,
         command: str,
         name: str,
+        logfile_name: str,
         requested_resources: Dict[str, Any],
         array_length: int,
     ) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
@@ -237,6 +239,7 @@ class ClusterDistributor(Protocol):
         Args:
             command: the array worker node command to run
             name: name of the array
+            logfile_name: parent name of the initial filepath logs will be written to.
             requested_resources: resources with which to run the array
             array_length: how many tasks associated with the array
         Return:

@@ -53,6 +53,12 @@ def test_instantiate_job(tool, db_engine, task_template):
     distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
     distributor_service.process_status(TaskInstanceStatus.QUEUED)
 
+    # Check that batches have the correct submission name
+    instantiated_task_instances = list(
+        distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]
+    )
+    assert [ti.submission_name == "simple_template" for ti in instantiated_task_instances]
+
     # check the job turned into I
     with Session(bind=db_engine) as session:
         select_stmt = select(

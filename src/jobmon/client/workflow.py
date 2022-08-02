@@ -309,6 +309,7 @@ class Workflow(object):
                     task_args=task.task_args,
                     op_args=task.op_args,
                     cluster_name=task.cluster_name,
+                    requester=self.requester
                 )
                 self._link_array_and_workflow(array)
 
@@ -474,6 +475,9 @@ class Workflow(object):
                 "please set the resume flag. If you are not trying to resume a workflow, make "
                 "sure the workflow args are unique or the tasks are unique"
             )
+        if self._newly_created and resume:
+            logger.warning("The resume flag has been set but no previous workflow_args exist."
+                           "Note that the workflow will execute as a new workflow.")
 
         # Bind tasks
         logger.info("Adding task metadata to database")

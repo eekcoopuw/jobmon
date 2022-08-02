@@ -1,5 +1,8 @@
+import contextlib
 import os
 import random
+import subprocess
+import sys
 from typing import Dict, Tuple
 
 from unittest.mock import patch
@@ -25,7 +28,7 @@ load_model()
 
 class DoNothingDistributor(DummyDistributor):
     def submit_to_batch_distributor(
-        self, command: str, name: str, requested_resources
+        self, command: str, name: str, logfile_name: str, requested_resources
     ) -> Tuple[str, str, str]:
         distributor_id = random.randint(1, int(1e7))
         return str(distributor_id), "/foo", "/bar"
@@ -36,6 +39,7 @@ class DoNothingArrayDistributor(MultiprocessDistributor):
         self,
         command: str,
         name: str,
+        logfile_name: str,
         requested_resources,
         array_length: int,
     ) -> Dict[int, Tuple[str, str, str]]:
@@ -300,3 +304,39 @@ def test_limited_error_log(tool, db_engine):
 
     error = res[0]
     assert error == (("a" * 2**10 + "\n") * (2**8))[-10000:]
+
+
+def test_worker_node_environment(client_env):
+
+    class MockTaskInstance(WorkerNodeTaskInstance):
+
+        def run(self):
+            """Override run method to only check the subprocess call."""
+            self.set_environment()
+            proc = subprocess.Popen(
+                self._command,
+                env=os.environ.copy(),
+                stdout=subprocess.PIPE,
+                shell=True,
+                universal_newlines=True,
+            )
+            out, err = proc.communicate()
+            return out, err
+
+    cluster = Cluster.get_cluster('sequential')
+    worker_node = cluster.get_worker_node()
+    ti: MockTaskInstance = MockTaskInstance(
+        cluster_interface=worker_node,
+        task_instance_id=100,
+        workflow_id=200,
+        task_id=300
+    )
+    ti._command = (
+        "echo $JOBMON_WORKFLOW_ID; "
+        "echo $JOBMON_TASK_ID; "
+        "echo $JOBMON_TASK_INSTANCE_ID;"
+    )
+
+    out, err = ti.run()
+    # We printed out environment variables in 3 lines. Check that equality
+    assert out == "\n".join(['200', '300', '100']) + "\n"

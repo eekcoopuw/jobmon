@@ -208,9 +208,11 @@ In other words, it starts from first failure, creating a new workflow run for an
 
 To resume a Workflow, make sure that your previous workflow
 run process is dead (kill it using the pid from the workflow run table). Users for the
-most part will keep the same Jobmon code, only one line of code needs to change to resume. A
-user simply needs to add a resume parameter to the run() function to resume their Workflow.::
+most part will keep the same Jobmon code. When creating a resumed workflow, the user must ensure that the
+workflow_args provided to Tool.create_workflow() match the workflow they are attempting to resume. Additionally,
+users need to add a resume parameter to the run() function to resume their Workflow.::
 
+    workflow = Tool.create_workflow(workflow_args='previous_workflow_args')
     workflow.run(resume=True)
 
 That's it. If you don't set "resume=True", Jobmon will raise an error saying that the user is
@@ -682,6 +684,19 @@ G state. The usage of this command is ``jobmon workflow_reset -w [workflow_id]``
 To use this command the last WorkflowRun of the specified Workflow must be in E (ERROR) state.
 The last WorkflowRun must also have been started by the same user that is attempting to reset
 the Workflow.
+
+workflow_resume
+*****************
+
+    Jobmon's CLI allows you to resume a workflow you've already started running, but has since failed. The CLI
+    entrypoint is ``jobmon workflow_resume``. The following arguments are supported:
+        * ``-w``, ``--workflow_id`` - required, the workflow ID to resume.
+        * ``-c``, ``--cluster_name`` - required, the cluster name you'd like to resume on.
+        * ``--reset-running-jobs`` - default False. Whether to kill currently running jobs or let them finish
+
+    Example usages:
+        * ``jobmon workflow_resume -w 123 -c slurm`` - resume workflow ID 123 on the "slurm" cluster in the database.
+        * ``jobmon workflow_resume -w 123 -c dummy --reset-running-jobs`` - resume workflow ID 123 on the dummy cluster. Specify a cold resume so that currently running jobs are also terminated and therefore rerun.
 
 update_task_status
 ******************

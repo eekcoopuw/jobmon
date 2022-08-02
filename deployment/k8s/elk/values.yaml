@@ -9,5 +9,5 @@ ports:
   apm: 8200
  
 metricbeat:
-  db_host_secret: jobmon-dev-db
+  db_host_secret: jobmon-prod-db
   db_root_secret: jobmon-db-root-password

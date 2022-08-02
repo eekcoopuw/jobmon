@@ -75,18 +75,15 @@ task_dependencies
            3               D
            4               D
 
-Resume a Workflow
-*****************
+get_filepaths
+*************
 
-    Jobmon's CLI allows you to resume a workflow you've already started running, but has since failed. The CLI
-    entrypoint is ``jobmon workflow_resume``. The following arguments are supported:
-        * ``-w``, ``--workflow_id`` - required, the workflow ID to resume.
-        * ``-c``, ``--cluster_name`` - required, the cluster name you'd like to resume on.
-        * ``--reset-running-jobs`` - default False. Whether to kill currently running jobs or let them finish
+Due to the introduction of array task submission in Jobmon 3.1, sometimes the structure of the output filepaths isn't
+intuitive to human operators. Jobmon provides a ``jobmon get_filepaths`` CLI tool to retrieve a more useful representation
+of the location of your log files based on the provided compute_resources.
 
-    Example usages:
-        * ``jobmon workflow_resume -w 123 -c slurm`` - resume workflow ID 123 on the "slurm" cluster in the database.
-        * ``jobmon workflow_resume -w 123 -c dummy --reset-running-jobs`` - resume workflow ID 123 on the dummy cluster. Specify a cold resume so that currently running jobs are also terminated and therefore rerun.
+You can filter the results by workflow ID, array name, or job name using the -w, -a, -j flags respectively.
+By default the query returns 5 results but you can always increase the limit using the -l flag.
 
 Jobmon Database
 ###############
