@@ -18,7 +18,7 @@ logger = logging.getLogger(__name__)
 
 
 class UsageIntegrator:
-    """Retrieves usage data for jobs run on Slurm and UGE."""
+    """Retrieves usage data for jobs run on Slurm."""
 
     def __init__(self, config: UsageConfig = None) -> None:
         """Initialization of the UsageIntegrator class."""

@@ -168,7 +168,7 @@ cluster
 cluster_type
 ************
     A list of cluster types that Jobmon can run jobs on. Currently includes dummy, sequential,
-    multiprocess, UGE, and slurm.
+    multiprocess, UGE and Slurm.
 
 dag
 ***

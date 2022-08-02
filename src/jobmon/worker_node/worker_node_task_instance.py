@@ -175,7 +175,8 @@ class WorkerNodeTaskInstance:
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)
         else:
-            logger.debug("No executor id was found in the qsub env at this time")
+            logger.debug("No distributor id was found in the job submission env (e.g. sbatch, "
+                         "qsub) at this time")
 
         app_route = f"/task_instance/{self.task_instance_id}/log_done"
         return_code, response = self.requester.send_request(
@@ -208,7 +209,7 @@ class WorkerNodeTaskInstance:
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)
         else:
-            logger.debug("No distributor_id was found in the qsub env at this time")
+            logger.debug("No distributor_id was found in the sbatch env at this time")
 
         app_route = f"/task_instance/{self.task_instance_id}/log_error_worker_node"
         return_code, response = self.requester.send_request(
@@ -287,7 +288,7 @@ class WorkerNodeTaskInstance:
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)
         else:
-            logger.debug("No distributor_id was found in the qsub env at this time")
+            logger.debug("No distributor_id was found in the sbatch env at this time")
 
         app_route = f"/task_instance/{self.task_instance_id}/log_report_by"
         return_code, response = self.requester.send_request(

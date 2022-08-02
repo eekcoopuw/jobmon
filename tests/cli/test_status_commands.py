@@ -837,7 +837,7 @@ def test_create_yaml():
       memory: "400B"
       runtime: 10
       queue: "all.q"
-    ihme_uge:
+    sequential:
       cores: 1
       memory: "400B"
       runtime: 10
@@ -848,7 +848,7 @@ def test_create_yaml():
       memory: "600B"
       runtime: 20
       queue: "long.q"
-    ihme_uge:
+    sequential:
       cores: 1
       memory: "600B"
       runtime: 20
@@ -857,7 +857,7 @@ def test_create_yaml():
     from jobmon.client.status_commands import _create_yaml
 
     input = {1: ["tt1", 1, 400, 10, "all.q"], 2: ["tt2", 1, 600, 20, "long.q"]}
-    result = _create_yaml(input, ["ihme_slurm", "ihme_uge"])
+    result = _create_yaml(input, ["ihme_slurm", "sequential"])
     assert result == expected
 
 

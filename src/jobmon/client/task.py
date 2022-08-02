@@ -99,7 +99,8 @@ class Task:
                 the initial request fails.
             fallback_queues: a list of queues that a user wants to try if their original
                 queue is unable to accommodate their requested resources.
-            name: name that will be visible in qstat for this job
+            name: name that will be visible in the job status information (e.g. squeue or
+                qstat) for this job.
             max_attempts: number of attempts to allow the cluster to try before giving
                 up. Default is 3.
             upstream_tasks: Task objects that must be run prior to this

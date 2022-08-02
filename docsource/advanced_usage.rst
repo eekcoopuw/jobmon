@@ -199,7 +199,7 @@ With a Workflow you can:
    a result of an adverse cluster event)
 #. Re-attempt a set of Tasks that may have ERROR'd out in the middle (assuming you
    identified and fixed the source of the error)
-#. Set stderr, stdout, working_dir, and project qsub arguments from the top level
+#. Set stderr, stdout, working_dir, and project sbatch arguments from the top level
 
 When a workflow is resumed, Jobmon examines  it from the beginning and skips over
 any tasks that are already Done. It will restart jobs that were in Error (maybe you fixed

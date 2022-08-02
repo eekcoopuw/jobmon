@@ -111,8 +111,9 @@ class DummyDistributor(ClusterDistributor):
     ) -> Tuple[str, Optional[str], Optional[str]]:
         """Run a fake execution of the task.
 
-        In a real executor, this is where qsub would happen. Here, since it's a dummy executor,
-        we just get a random number and empty file paths.
+        In a real executor, this is where submission to the cluster would happen (e.g. sbatch
+        or qsub). Here, since it's a dummy executor, we just get a random number and empty
+        file paths.
         """
         logger.debug("This is the Dummy Distributor")
         # even number for non array tasks

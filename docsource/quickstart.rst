@@ -15,17 +15,16 @@ Install
 
 plugins
 *******
-Jobmon has the capability to run jobs on both the Slurm and UGE clusters. At present, it also
+Jobmon has the capability to run jobs on the Slurm cluster. At present, it also
 has limited capabilities for executing Tasks locally on a single machine using either
 sequential execution or multiprocessing.
 
 To use either of the clusters with Jobmon users need to install their Jobmon plugin. If a user
 wants to use Slurm with Jobmon, they would need to have the core Jobmon software and the
-Jobmon Slurm plugin installed. If a user wants to use UGE with Jobmon, they would need to have
-core Jobmon and the Jobmon UGE plugin installed.
+Jobmon Slurm plugin installed.
 
-Users can either install Jobmon core and the plugins individually using "pip" or they can
-install Jobmon core, the UGE plugin, and Slurm plugin all together with a single conda command.
+Users can either: 1) install Jobmon core and the plugins individually using "pip" or 2)
+install Jobmon core and the Slurm plugin together with a single conda command.
 
 conda install
 *************
@@ -39,7 +38,7 @@ To install just core jobmon (no cluster plugins) via pip::
 
     pip install jobmon
 
-To install the preconfigured UGE and Slurm plugins::
+To install the preconfigured Slurm plugin::
 
     pip install jobmon_installer_ihme
 
@@ -307,8 +306,7 @@ runtime will be 10 minutes.
 
 Users can specify that they want to run their jobs on an archive node (nodes with /snfs1
 mounted) in their compute resources. Users simply need to add the following key value pair to
-their compute resources: ``"constraints": "archive"``. This works on both the Slurm and UGE
-(Buster) clusters.
+their compute resources: ``"constraints": "archive"``.
 
 Cluster name: You can specify the cluster you want to use on the Task, TaskTemplate, Workflow
 and Tool level. To set cluster name on Tasks, use "cluster_name". To set cluster_name on

@@ -461,11 +461,8 @@ def test_bushy_real_dag(tool, tmpdir):
 
     workflow_run_status = workflow.run()
 
-    # TODO: How to check that nothing was started before its upstream were
-    # done?
-    # Could we read database? Unfortunately not - submitted_date is initial
-    # creation, not qsub status_date is date of last change.
-    # Could we listen to job-instance state transitions?
+    # TODO: How to check that nothing was started before its upstream were done? Could we
+    # listen to job-instance state transitions?
 
     assert workflow_run_status == WorkflowRunStatus.DONE
     assert workflow._num_newly_completed == 1 + 3 + 3 + 1
