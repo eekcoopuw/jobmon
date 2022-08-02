@@ -131,7 +131,7 @@ def get_lost_workflow_runs() -> Any:
     with session.begin():
         query_filter = [WorkflowRun.status.in_(statuses),
                         WorkflowRun.heartbeat_date <= func.now(),
-                        WorkflowRun.jobmon_version == version]
+                        WorkflowRun.jobmon_server_version == version]
         sql = (select(WorkflowRun.id,
                       WorkflowRun.workflow_id).where(*query_filter))
         rows = session.execute(sql).all()
