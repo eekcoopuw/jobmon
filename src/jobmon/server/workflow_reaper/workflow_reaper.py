@@ -80,8 +80,7 @@ class WorkflowReaper(object):
         logger.info("Monitoring forever...")
 
         if self._wf_notification_sink is not None:
-            pass
-            # TODO: turn it back on: self._wf_notification_sink(msg=f"Workflow Reaper v{__version__} is alive")
+            self._wf_notification_sink(msg=f"Workflow Reaper v{__version__} is alive")
         try:
             while True:
                 self._halted_state()
