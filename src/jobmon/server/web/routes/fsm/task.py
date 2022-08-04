@@ -265,21 +265,19 @@ def _add_or_get_attribute_type(
 ) -> List[TaskAttributeType]:
     attribute_types = [{"name": name} for name in names]
     try:
-        with session.begin():
-
-            if SessionLocal.bind.dialect.name == "mysql":
-                insert_stmt = (
-                    insert(TaskAttributeType)
-                    .values(attribute_types)
-                    .prefix_with("IGNORE")
-                )
-            elif SessionLocal.bind.dialect.name == "sqlite":
-                insert_stmt = (
-                    sqlite_insert(TaskAttributeType)
-                    .values(attribute_types)
-                    .on_conflict_do_nothing()
-                )
-            session.execute(insert_stmt, attribute_types)
+        if SessionLocal.bind.dialect.name == "mysql":
+            insert_stmt = (
+                insert(TaskAttributeType)
+                .values(attribute_types)
+                .prefix_with("IGNORE")
+            )
+        elif SessionLocal.bind.dialect.name == "sqlite":
+            insert_stmt = (
+                sqlite_insert(TaskAttributeType)
+                .values(attribute_types)
+                .on_conflict_do_nothing()
+            )
+        session.execute(insert_stmt, attribute_types)
     except DataError as e:
         raise InvalidUsage(
             "Attribute types are constrained to 255 characters, your "
