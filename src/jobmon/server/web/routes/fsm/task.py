@@ -265,7 +265,7 @@ def _add_or_get_attribute_type(
 ) -> List[TaskAttributeType]:
     attribute_types = [{"name": name} for name in names]
     try:
-        with session.begin_nested():
+        with session.begin():
 
             if SessionLocal.bind.dialect.name == "mysql":
                 insert_stmt = (
