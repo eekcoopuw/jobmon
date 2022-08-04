@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import structlog
 
+from jobmon import __version__
 from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeWorkflowRun
 from jobmon.server.web._compat import add_time
@@ -32,6 +33,7 @@ class WorkflowRun(Base):
     workflow_id = Column(Integer, ForeignKey("workflow.id"))
     user = Column(String(150))
     jobmon_version = Column(String(150), default="UNKNOWN")
+    jobmon_server_version = Column(String(150), default=__version__)
     status = Column(
         String(1),
         ForeignKey("workflow_run_status.id"),
@@ -45,7 +47,7 @@ class WorkflowRun(Base):
     workflow = relationship("Workflow", back_populates="workflow_runs", lazy=True)
 
     __table_args__ = (
-        Index('ix_status_version', 'status', 'jobmon_version'),
+        Index('ix_status_version', 'status', 'jobmon_version', 'jobmon_server_version'),
     )
 
     valid_transitions = [

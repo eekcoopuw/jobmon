@@ -78,7 +78,9 @@ pipeline {
               error("Branch Name ${BRANCH_NAME} is not a valid semver in complete major.minor.patch format. Build aborted!")
             }
             sh '''#!/bin/bash
-                JOBMON_LAST_RC_TAG=$(git tag -l --sort=refname ${BRANCH_NAME}rc* | tail -1)
+                git config --global alias.versions 'tag --sort=v:refname'
+                if [ $? -ne 0 ]; then echo "git config failed"; exit 1; fi
+                JOBMON_LAST_RC_TAG=$(git versions -l ${BRANCH_NAME}rc* | tail -1)
                 echo "$JOBMON_LAST_RC_TAG" > $WORKSPACE/jobmon_last_rc_tag_${BUILD_NUMBER}.txt
                '''
             env.JOBMON_LAST_RC_TAG = sh (

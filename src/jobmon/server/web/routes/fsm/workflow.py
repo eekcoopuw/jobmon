@@ -5,6 +5,7 @@ from typing import Any, cast, Dict, Tuple
 from flask import jsonify, request
 import sqlalchemy
 from sqlalchemy import insert, func, select, update
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 import structlog
@@ -183,7 +184,7 @@ def _upsert_wf_attribute(workflow_id: int, name: str, value: str, session: Sessi
     with session.begin_nested():
         wf_attrib_id = _add_or_get_wf_attribute_type(name, session)
         if SessionLocal.bind.dialect.name == "mysql":
-            insert_vals = insert(WorkflowAttribute).values(
+            insert_vals = mysql_insert(WorkflowAttribute).values(
                 workflow_id=workflow_id, workflow_attribute_type_id=wf_attrib_id, value=value
             )
             upsert_stmt = insert_vals.on_duplicate_key_update(value=insert_vals.inserted.value)
