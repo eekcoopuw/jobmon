@@ -96,6 +96,5 @@ def test_fail_fast(client_env):
     with pytest.raises(InvalidResponse) as exc:
         requester.send_request("/no-route-should-fail", {}, "get")
         assert "Unexpected status code 404" in str(exc.value)
-    tries = requester._retry.statistics['attempt_number']
+    tries = requester._retry.statistics["attempt_number"]
     assert tries == 1
-

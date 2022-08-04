@@ -18,11 +18,8 @@ def get_queue_by_cluster_queue_names(cluster_id: int, queue_name: str) -> Any:
     """
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            Queue
-        ).where(
-            Queue.cluster_id == cluster_id,
-            Queue.name == queue_name
+        select_stmt = select(Queue).where(
+            Queue.cluster_id == cluster_id, Queue.name == queue_name
         )
         queue = session.execute(select_stmt).scalars().one_or_none()
 

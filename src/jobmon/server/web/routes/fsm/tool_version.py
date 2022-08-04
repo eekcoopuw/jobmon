@@ -26,7 +26,9 @@ def add_tool_version() -> Any:
     try:
         tool_id = int(data["tool_id"])
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     session = SessionLocal()
     try:
@@ -45,9 +47,7 @@ def add_tool_version() -> Any:
     return resp
 
 
-@blueprint.route(
-    "/tool_version/<tool_version_id>/task_templates", methods=["GET"]
-)
+@blueprint.route("/tool_version/<tool_version_id>/task_templates", methods=["GET"])
 def get_task_templates(tool_version_id: int) -> Any:
     """Get the Tool Version."""
     # check input variable
@@ -56,9 +56,7 @@ def get_task_templates(tool_version_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            TaskTemplate
-        ).where(
+        select_stmt = select(TaskTemplate).where(
             TaskTemplate.tool_version_id == tool_version_id
         )
         task_templates = session.execute(select_stmt).scalars().all()

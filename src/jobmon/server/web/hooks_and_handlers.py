@@ -41,7 +41,7 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
 
     # handle 404 at the application level not the blueprint level
     @app.errorhandler(404)
-    def page_not_found(e: Any):
+    def page_not_found(e: Any) -> tuple:
         return f"This route does not exist: {request.url}", 404
 
     # error handling

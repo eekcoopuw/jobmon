@@ -14,8 +14,8 @@ from jobmon.cluster_type import (
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.worker_node.cli import WorkerNodeCLI
-from jobmon.worker_node.worker_node_factory import WorkerNodeFactory
 from jobmon.worker_node.worker_node_config import WorkerNodeConfig
+from jobmon.worker_node.worker_node_factory import WorkerNodeFactory
 
 
 logger = logging.getLogger(__name__)
@@ -137,8 +137,10 @@ class DummyDistributor(ClusterDistributor):
             worker_node_config=worker_node_config,
         )
         # Do not do ANY logging at all
-        worker_node_task_instance = worker_node_factory.get_job_task_instance_without_logging(
-            task_instance_id=args.task_instance_id
+        worker_node_task_instance = (
+            worker_node_factory.get_job_task_instance_without_logging(
+                task_instance_id=args.task_instance_id
+            )
         )
         # Log running, log done, and exit
         worker_node_task_instance.log_running()

@@ -4,8 +4,8 @@ from typing import Any, cast, Dict
 
 from flask import jsonify, request
 import sqlalchemy
-from sqlalchemy.orm import Session
 from sqlalchemy import select
+from sqlalchemy.orm import Session
 import structlog
 
 from jobmon import constants
@@ -45,11 +45,9 @@ def get_task_template() -> Any:
             session.add(task_template)
     except sqlalchemy.exc.IntegrityError:
         with session.begin():
-            select_stmt = select(
-                TaskTemplate
-            ).where(
+            select_stmt = select(TaskTemplate).where(
                 TaskTemplate.tool_version_id == tool_version_id,
-                TaskTemplate.name == name
+                TaskTemplate.name == name,
             )
             task_template = session.execute(select_stmt).scalars().one()
 
@@ -67,9 +65,7 @@ def get_task_template_versions(task_template_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            TaskTemplateVersion
-        ).where(
+        select_stmt = select(TaskTemplateVersion).where(
             TaskTemplateVersion.task_template_id == task_template_id
         )
         ttvs = session.execute(select_stmt).scalars().all()
@@ -106,7 +102,9 @@ def add_task_template_version(task_template_id: int) -> Any:
         command_template = data["command_template"]
         arg_mapping_hash = str(data["arg_mapping_hash"])
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     session = SessionLocal()
     with session.begin():
@@ -158,9 +156,7 @@ def add_task_template_version(task_template_id: int) -> Any:
         with session.begin():
             # if another process is adding this task_template_version then this query should
             # block until the template_arg_map has been populated and committed
-            select_stmt = select(
-                TaskTemplateVersion
-            ).where(
+            select_stmt = select(TaskTemplateVersion).where(
                 TaskTemplateVersion.task_template_id == task_template_id,
                 TaskTemplateVersion.command_template == command_template,
                 TaskTemplateVersion.arg_mapping_hash == arg_mapping_hash,

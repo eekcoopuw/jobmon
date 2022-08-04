@@ -1,4 +1,4 @@
-"""Workflow Run is an distributor instance of a declared workflow."""
+"""Workflow Run is a distributor instance of a declared workflow."""
 from __future__ import annotations
 
 import ast
@@ -18,19 +18,19 @@ from typing import (
     Union,
 )
 
-from jobmon.cluster import Cluster
 from jobmon.client.array import Array
 from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_array import SwarmArray
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.task_resources import TaskResources
+from jobmon.cluster import Cluster
 from jobmon.constants import TaskStatus, WorkflowRunStatus
 from jobmon.exceptions import (
     CallableReturnedInvalidObject,
     DistributorNotAlive,
+    EmptyWorkflowError,
     InvalidResponse,
     TransitionError,
-    EmptyWorkflowError,
     WorkflowTestError,
 )
 from jobmon.requester import http_request_ok, Requester
@@ -245,16 +245,15 @@ class WorkflowRun:
         self._update_status(WorkflowRunStatus.BOUND)
         self.initialized = True
 
-    def set_workflow_metadata(self, workflow_id: int):
+    def set_workflow_metadata(self, workflow_id: int) -> None:
         """Fetch the dag_id and max_concurrently_running parameters of this workflow."""
         _, resp = self._requester.send_request(
             app_route=f"/workflow/{workflow_id}/fetch_workflow_metadata",
             message={},
-
-            request_type='get'
+            request_type="get",
         )
 
-        database_wf = resp['workflow']
+        database_wf = resp["workflow"]
         if not database_wf:
             raise EmptyWorkflowError(f"No workflow found for workflow id {workflow_id}")
 
@@ -266,12 +265,12 @@ class WorkflowRun:
         self.max_concurrently_running = max_concurrently_running
         self.dag_id = dag_id
 
-    def set_tasks_from_db(self, chunk_size: int = 500):
+    def set_tasks_from_db(self, chunk_size: int = 500) -> None:
         """Pull the tasks that need to be run associated with this workflow.
 
-        I.e. all tasks that aren't in DONE state."""
+        I.e. all tasks that aren't in DONE state.
+        """
         # Fetch metadata for all tasks
-
         # Keep a cluster registry.
         cluster_registry: Dict[str, Cluster] = {}
         all_tasks_returned = False
@@ -279,16 +278,17 @@ class WorkflowRun:
         while not all_tasks_returned:
 
             # TODO: make this an asynchronous context manager, avoid duplicating code
-            if (time.time() - self._last_heartbeat_time) > \
-                    self._workflow_run_heartbeat_interval:
+            if (
+                time.time() - self._last_heartbeat_time
+            ) > self._workflow_run_heartbeat_interval:
                 self._log_heartbeat()
 
             _, resp = self._requester.send_request(
-                app_route=f'/workflow/get_tasks/{self.workflow_id}',
-                message={'max_task_id': max_task_id, 'chunk_size': chunk_size},
-                request_type='get'
+                app_route=f"/workflow/get_tasks/{self.workflow_id}",
+                message={"max_task_id": max_task_id, "chunk_size": chunk_size},
+                request_type="get",
             )
-            task_dict = resp['tasks']
+            task_dict = resp["tasks"]
             # Case when no tasks are returned - happen to have 1000 tasks, for example, and
             # 2 chunks of 500. No more work to be done
             if not task_dict:
@@ -301,8 +301,17 @@ class WorkflowRun:
 
             # populate tasks dict, and arrays registry
             for task_id, metadata in task_dict.items():
-                array_id, array_concurrency, status, max_attempts, resource_scales, \
-                    fallback_queues, requested_resources, cluster_name, queue_name = metadata
+                (
+                    array_id,
+                    array_concurrency,
+                    status,
+                    max_attempts,
+                    resource_scales,
+                    fallback_queues,
+                    requested_resources,
+                    cluster_name,
+                    queue_name,
+                ) = metadata
 
                 # Convert datatypes as appropriate
                 task_id = int(task_id)
@@ -313,7 +322,9 @@ class WorkflowRun:
                 try:
                     cluster = cluster_registry[cluster_name]
                 except KeyError:
-                    cluster = Cluster(cluster_name=cluster_name, requester=self._requester)
+                    cluster = Cluster(
+                        cluster_name=cluster_name, requester=self._requester
+                    )
                     cluster.bind()
                     cluster_registry[cluster_name] = cluster
 
@@ -323,7 +334,7 @@ class WorkflowRun:
                 task_resources = TaskResources(
                     requested_resources=requested_resources,
                     queue=queue,
-                    requester=self._requester
+                    requester=self._requester,
                 )
 
                 st = SwarmTask(
@@ -334,14 +345,14 @@ class WorkflowRun:
                     task_resources=task_resources,
                     cluster=cluster,
                     resource_scales=resource_scales,
-                    fallback_queues=fallback_queues)
+                    fallback_queues=fallback_queues,
+                )
                 self.tasks[task_id] = st
 
                 # Also create arrays
                 if array_id not in self.arrays:
                     array = SwarmArray(
-                        array_id=array_id,
-                        max_concurrently_running=array_concurrency
+                        array_id=array_id, max_concurrently_running=array_concurrency
                     )
                     self.arrays[array_id] = array
                 self.arrays[array_id].add_task(st)
@@ -362,20 +373,20 @@ class WorkflowRun:
         task_ids = list(self.tasks.keys())
         while start_idx < len(task_ids):
             # Log heartbeats if needed
-            if (time.time() - self._last_heartbeat_time) > \
-                    self._workflow_run_heartbeat_interval:
+            if (
+                time.time() - self._last_heartbeat_time
+            ) > self._workflow_run_heartbeat_interval:
                 self._log_heartbeat()
             task_id_chunk = task_ids[start_idx:end_idx]
             start_idx = end_idx
             end_idx += chunk_size
 
             _, edge_resp = self._requester.send_request(
-                app_route=f'/task/get_downstream_tasks',
-                message={'task_ids': task_id_chunk,
-                         'dag_id': self.dag_id},
-                request_type='get'
+                app_route="/task/get_downstream_tasks",
+                message={"task_ids": task_id_chunk, "dag_id": self.dag_id},
+                request_type="get",
             )
-            downstream_tasks = edge_resp['downstream_tasks']
+            downstream_tasks = edge_resp["downstream_tasks"]
             # Format is {task_id: (node_id, '[downstream_node_ids]')}
             for task_id, values in downstream_tasks.items():
                 node_id, downstream_node_ids = values

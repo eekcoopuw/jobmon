@@ -1,6 +1,15 @@
 """Task Table for the Database."""
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text, VARCHAR
+from sqlalchemy import (
+    Column,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    VARCHAR,
+)
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import structlog
@@ -44,9 +53,7 @@ class Task(Base):
     array_id = Column(Integer, ForeignKey("array.id"), default=None)
     name = Column(String(255), index=True)
     command = Column(Text)
-    task_resources_id = Column(
-        Integer, ForeignKey("task_resources.id"), default=None
-    )
+    task_resources_id = Column(Integer, ForeignKey("task_resources.id"), default=None)
     num_attempts = Column(Integer, default=0)
     max_attempts = Column(Integer, default=1)
     resource_scales = Column(String(1000), default=None)
@@ -61,7 +68,7 @@ class Task(Base):
     array = relationship("Array", foreign_keys=[array_id])
 
     __table_args__ = (
-        Index('ix_workflow_id_status_date', 'workflow_id', 'status_date'),
+        Index("ix_workflow_id_status_date", "workflow_id", "status_date"),
     )
 
     # Finite state machine

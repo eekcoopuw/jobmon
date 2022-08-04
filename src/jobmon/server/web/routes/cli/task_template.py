@@ -1,13 +1,12 @@
 """Routes for TaskTemplate."""
 from http import HTTPStatus as StatusCodes
 import json
-import numpy as np
-import scipy.stats as st  # type:ignore
-from typing import Any, cast, Dict, List, Set
+from typing import Any, Dict, List
 
 from flask import jsonify, request
-from sqlalchemy import func, select, update
-from sqlalchemy.orm import Session
+import numpy as np
+import scipy.stats as st  # type:ignore
+from sqlalchemy import select
 import structlog
 
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
@@ -29,6 +28,7 @@ from jobmon.server.web.server_side_exception import InvalidUsage
 # new structlog logger per flask request context. internally stored as flask.g.logger
 logger = structlog.get_logger(__name__)
 
+
 @blueprint.route("/get_task_template_version", methods=["GET"])
 def get_task_template_version_for_tasks() -> Any:
     """Get the task_template_version_ids."""
@@ -40,27 +40,29 @@ def get_task_template_version_for_tasks() -> Any:
     session = SessionLocal()
     with session.begin():
         if t_id:
-            query_filter = [Task.id == t_id,
-                      Task.node_id == Node.id,
-                      Node.task_template_version_id == TaskTemplateVersion.id,
-                      TaskTemplateVersion.task_template_id == TaskTemplate.id]
-            sql = (
-                select(TaskTemplateVersion.id,
-                       TaskTemplate.name,
-                      )
-                .where(*query_filter)
-            )
+            query_filter = [
+                Task.id == t_id,
+                Task.node_id == Node.id,
+                Node.task_template_version_id == TaskTemplateVersion.id,
+                TaskTemplateVersion.task_template_id == TaskTemplate.id,
+            ]
+            sql = select(
+                TaskTemplateVersion.id,
+                TaskTemplate.name,
+            ).where(*query_filter)
 
         else:
-            query_filter = [Task.workflow_id == wf_id,
-                            Task.node_id == Node.id,
-                            Node.task_template_version_id == TaskTemplateVersion.id,
-                            TaskTemplateVersion.task_template_id == TaskTemplate.id]
+            query_filter = [
+                Task.workflow_id == wf_id,
+                Task.node_id == Node.id,
+                Node.task_template_version_id == TaskTemplateVersion.id,
+                TaskTemplateVersion.task_template_id == TaskTemplate.id,
+            ]
             sql = (
-                select(TaskTemplateVersion.id,
-                       TaskTemplate.name,
-                       )
-                .where(*query_filter)
+                select(
+                    TaskTemplateVersion.id,
+                    TaskTemplate.name,
+                ).where(*query_filter)
             ).distinct()
         rows = session.execute(sql).all()
     column_names = ("id", "name")
@@ -80,16 +82,15 @@ def get_requested_cores() -> Any:
     # null core should be treated as 1 instead of 0
     session = SessionLocal()
     with session.begin():
-        query_filter = [TaskTemplateVersion.id.in_(ttvis),
+        query_filter = [
+            TaskTemplateVersion.id.in_(ttvis),
             TaskTemplateVersion.id == Node.task_template_version_id,
             Task.node_id == Node.id,
-            Task.task_resources_id == TaskResources.id]
+            Task.task_resources_id == TaskResources.id,
+        ]
 
-        sql = (
-            select(
-                TaskTemplateVersion.id,
-                TaskResources.requested_resources
-            ).where(*query_filter)
+        sql = select(TaskTemplateVersion.id, TaskResources.requested_resources).where(
+            *query_filter
         )
     rows = session.execute(sql).all()
     column_names = ("id", "rr")
@@ -119,6 +120,7 @@ def get_requested_cores() -> Any:
     resp.status_code = StatusCodes.OK
     return resp
 
+
 @blueprint.route("/get_most_popular_queue", methods=["GET"])
 def get_most_popular_queue() -> Any:
     """Get the most popular queue of the task template."""
@@ -127,18 +129,16 @@ def get_most_popular_queue() -> Any:
     ttvis = [int(i) for i in ttvis[1:-1].split(",")]
     session = SessionLocal()
     with session.begin():
-        query_filter = [TaskTemplateVersion.id.in_(ttvis),
-                        TaskTemplateVersion.id == Node.task_template_version_id,
-                        Task.node_id == Node.id,
-                        TaskInstance.task_id == Task.id,
-                        TaskInstance.task_resources_id == TaskResources.id,
-                        TaskResources.queue_id.isnot(None)
-                        ]
-        sql = (
-            select(
-                TaskTemplateVersion.id,
-                TaskResources.queue_id
-            ).where(*query_filter)
+        query_filter = [
+            TaskTemplateVersion.id.in_(ttvis),
+            TaskTemplateVersion.id == Node.task_template_version_id,
+            Task.node_id == Node.id,
+            TaskInstance.task_id == Task.id,
+            TaskInstance.task_resources_id == TaskResources.id,
+            TaskResources.queue_id.isnot(None),
+        ]
+        sql = select(TaskTemplateVersion.id, TaskResources.queue_id).where(
+            *query_filter
         )
 
     rows = session.execute(sql).all()
@@ -168,12 +168,8 @@ def get_most_popular_queue() -> Any:
                     max_usage = result_dir[ttvi][q]
             # get queue name; and return queue id with it
             with session:
-                query_filter = [Queue.id == popular_q
-                                ]
-                sql = (
-                    select(Queue.name
-                    ).where(*query_filter)
-                )
+                query_filter = [Queue.id == popular_q]
+                sql = select(Queue.name).where(*query_filter)
             popular_q_name = session.execute(sql).one()[0]
             queue_info.append(
                 {"id": ttvi, "queue": popular_q_name, "queue_id": popular_q}
@@ -201,22 +197,25 @@ def get_task_template_resource_usage() -> Any:
 
     session = SessionLocal()
     with session.begin():
-        query_filter = [TaskTemplateVersion.id == task_template_version_id,
-                        Task.status == "D",
-                        TaskInstance.status == "D",
-                        TaskTemplateVersion.id == Node.task_template_version_id,
-                        Node.id == Task.node_id,
-                        Task.id == TaskInstance.task_id
-                        ]
+        query_filter = [
+            TaskTemplateVersion.id == task_template_version_id,
+            Task.status == "D",
+            TaskInstance.status == "D",
+            TaskTemplateVersion.id == Node.task_template_version_id,
+            Node.id == Task.node_id,
+            Task.id == TaskInstance.task_id,
+        ]
         if workflows:
-            query_filter += [TaskInstance.workflow_run_id == WorkflowRun.id,
-                             WorkflowRun.workflow_id == Workflow.id,
-                             Workflow.id.in_(workflows)]
-        sql = (select(TaskInstance.wallclock,
-                      TaskInstance.maxrss,
-                      Node.id,
-                     ).where(*query_filter)
-               )
+            query_filter += [
+                TaskInstance.workflow_run_id == WorkflowRun.id,
+                WorkflowRun.workflow_id == Workflow.id,
+                Workflow.id.in_(workflows),
+            ]
+        sql = select(
+            TaskInstance.wallclock,
+            TaskInstance.maxrss,
+            Node.id,
+        ).where(*query_filter)
         rows = session.execute(sql).all()
         session.commit()
     column_names = ("r", "m", "node_id")
@@ -229,13 +228,8 @@ def get_task_template_resource_usage() -> Any:
             if node_args:
                 session = SessionLocal()
                 with session.begin():
-                    node_f = [NodeArg.arg_id == Arg.id,
-                              NodeArg.node_id == r["node_id"]]
-                    node_s = (
-                        select(Arg.name,
-                               NodeArg.val
-                               ).where(*node_f)
-                    )
+                    node_f = [NodeArg.arg_id == Arg.id, NodeArg.node_id == r["node_id"]]
+                    node_s = select(Arg.name, NodeArg.val).where(*node_f)
                     node_rows = session.execute(node_s).all()
                     session.commit()
                 _include = False

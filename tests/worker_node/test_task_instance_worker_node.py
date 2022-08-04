@@ -307,9 +307,7 @@ def test_limited_error_log(tool, db_engine):
 
 
 def test_worker_node_environment(client_env):
-
     class MockTaskInstance(WorkerNodeTaskInstance):
-
         def run(self):
             """Override run method to only check the subprocess call."""
             self.set_environment()
@@ -323,13 +321,13 @@ def test_worker_node_environment(client_env):
             out, err = proc.communicate()
             return out, err
 
-    cluster = Cluster.get_cluster('sequential')
+    cluster = Cluster.get_cluster("sequential")
     worker_node = cluster.get_worker_node()
     ti: MockTaskInstance = MockTaskInstance(
         cluster_interface=worker_node,
         task_instance_id=100,
         workflow_id=200,
-        task_id=300
+        task_id=300,
     )
     ti._command = (
         "echo $JOBMON_WORKFLOW_ID; "
@@ -339,4 +337,4 @@ def test_worker_node_environment(client_env):
 
     out, err = ti.run()
     # We printed out environment variables in 3 lines. Check that equality
-    assert out == "\n".join(['200', '300', '100']) + "\n"
+    assert out == "\n".join(["200", "300", "100"]) + "\n"

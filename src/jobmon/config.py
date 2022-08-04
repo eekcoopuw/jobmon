@@ -441,9 +441,9 @@ class ParserDefaults:
     def tenacity_max_retries(
         parser: configargparse.ArgumentParser,
     ) -> configargparse.ArgumentParser:
-        """
-        Set the maximum number of retries for tenacity. Useful to set this to zero during unit tests so that
-        tests fail-fast
+        """Set the maximum number of retries for tenacity.
+
+        Useful to set this to zero during unit tests so that tests fail-fast.
         """
         parser.add_argument(
             "--tenacity_max_retries",
@@ -526,11 +526,11 @@ class CLI:
         return args
 
 
-def install_default_config_from_plugin(parser: ArgumentParser):
+def install_default_config_from_plugin(parser: ArgumentParser) -> None:
     """Install a config from jobmon_installer plugin.
 
     Args:
-        cli: CLI object to confirm installation
+        parser: argument parser
 
     Raises: ConfigError
     """

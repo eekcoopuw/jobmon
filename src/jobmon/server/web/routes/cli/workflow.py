@@ -1,11 +1,10 @@
 """Routes for TaskTemplate."""
 from http import HTTPStatus as StatusCodes
-import json
-import pandas as pd
-from typing import Any, cast, Dict, List, Set
+from typing import Any
 
 from flask import jsonify, request
 from flask_cors import cross_origin
+import pandas as pd
 from sqlalchemy import func, select, update
 import structlog
 
@@ -61,13 +60,9 @@ def get_workflow_validation_status() -> Any:
     session = SessionLocal()
     with session.begin():
         # execute query
-        query_filter = [Task.workflow_id == Workflow.id,
-                        Task.id.in_(task_ids)]
+        query_filter = [Task.workflow_id == Workflow.id, Task.id.in_(task_ids)]
         sql = (
-            select(
-                Task.workflow_id,
-                Workflow.status
-            ).where(*query_filter)
+            select(Task.workflow_id, Workflow.status).where(*query_filter)
         ).distinct()
         rows = session.execute(sql).all()
     res = [ti[1] for ti in rows]
@@ -97,18 +92,26 @@ def get_workflow_tasks(workflow_id: int) -> Any:
     session = SessionLocal()
     with session.begin():
         if status_request:
-            query_filter = [Workflow.id == Task.workflow_id,
-                            Task.status.in_([i for arg in status_request for i in _reversed_cli_label_mapping[arg]]),
-                            Workflow.id == int(workflow_id)]
+            query_filter = [
+                Workflow.id == Task.workflow_id,
+                Task.status.in_(
+                    [
+                        i
+                        for arg in status_request
+                        for i in _reversed_cli_label_mapping[arg]
+                    ]
+                ),
+                Workflow.id == int(workflow_id),
+            ]
         else:
-            query_filter = [Workflow.id == Task.workflow_id,
-                            Workflow.id == int(workflow_id)]
+            query_filter = [
+                Workflow.id == Task.workflow_id,
+                Workflow.id == int(workflow_id),
+            ]
         sql = (
-            select(Task.id,
-                   Task.name,
-                   Task.status,
-                   Task.num_attempts
-                   ).where(*query_filter)
+            select(Task.id, Task.name, Task.status, Task.num_attempts).where(
+                *query_filter
+            )
         ).order_by(Task.id.desc())
         rows = session.execute(sql).all()
     column_names = ("TASK_ID", "TASK_NAME", "STATUS", "RETRIES")
@@ -117,7 +120,7 @@ def get_workflow_tasks(workflow_id: int) -> Any:
         r["RETRIES"] = 0 if r["RETRIES"] <= 1 else r["RETRIES"] - 1
 
     if limit:
-        res = res[:int(limit)]
+        res = res[: int(limit)]
 
     logger.debug(
         f"The following tasks of workflow are in status {status_request}:\n{res}"
@@ -150,9 +153,7 @@ def get_workflow_user_validation(workflow_id: int, username: str) -> Any:
     session = SessionLocal()
     with session.begin():
         query_filter = [WorkflowRun.workflow_id == workflow_id]
-        sql = (
-            select(WorkflowRun.user).where(*query_filter)
-        ).distinct()
+        sql = (select(WorkflowRun.user).where(*query_filter)).distinct()
         rows = session.execute(sql).all()
     usernames = [row[0] for row in rows]
 
@@ -175,15 +176,15 @@ def get_workflow_run_for_workflow_reset(workflow_id: int, username: str) -> Any:
     """
     session = SessionLocal()
     with session.begin():
-        query_filter = [WorkflowRun.workflow_id == workflow_id,
-                        WorkflowRun.status == "E"]
-        sql = (
-            select(WorkflowRun.id,
-                   WorkflowRun.user
-                   ).where(*query_filter)
-        ).order_by(WorkflowRun.created_date.desc())
+        query_filter = [
+            WorkflowRun.workflow_id == workflow_id,
+            WorkflowRun.status == "E",
+        ]
+        sql = (select(WorkflowRun.id, WorkflowRun.user).where(*query_filter)).order_by(
+            WorkflowRun.created_date.desc()
+        )
         rows = session.execute(sql).all()
-    result = None if len(rows) <=0 else rows[0]
+    result = None if len(rows) <= 0 else rows[0]
     if result is not None and result[1] == username:
         resp = jsonify({"workflow_run_id": result[0]})
     else:
@@ -198,17 +199,17 @@ def reset_workflow(workflow_id: int) -> Any:
     """Update the workflow's status, all its tasks' statuses to 'G'."""
     session = SessionLocal()
     with session.begin():
-        update_stmt = update(
-            Workflow
-        ).where(
-            Workflow.id == workflow_id
-        ).values(status="G", status_date=func.now())
+        update_stmt = (
+            update(Workflow)
+            .where(Workflow.id == workflow_id)
+            .values(status="G", status_date=func.now())
+        )
         session.execute(update_stmt)
-        update_stmt = update(
-            Task
-        ).where(
-            Task.workflow_id == workflow_id
-        ).values(status="G", status_date=func.now(), num_attempts = 0)
+        update_stmt = (
+            update(Task)
+            .where(Task.workflow_id == workflow_id)
+            .values(status="G", status_date=func.now(), num_attempts=0)
+        )
         session.execute(update_stmt)
         session.commit()
 
@@ -235,7 +236,6 @@ def get_workflow_status() -> Any:
     if workflow_request:
         workflow_request = [int(w) for w in workflow_request]
         params["workflow_id"] = workflow_request
-        where_clause = "WHERE workflow.id in :workflow_id "
     else:  # if we don't specify workflow then we use the users
         # convert user request into sql filter
         # directly producing workflow_ids, and thus where_clause
@@ -243,18 +243,18 @@ def get_workflow_status() -> Any:
             session = SessionLocal()
             with session.begin():
                 query_filter = [WorkflowRun.user.in_(user_request)]
-                sql = (
-                    select(WorkflowRun.workflow_id).where(*query_filter)
-                ).distinct()
+                sql = (select(WorkflowRun.workflow_id).where(*query_filter)).distinct()
                 rows = session.execute(sql).all()
             workflow_request = [int(row[0]) for row in rows]
 
     # execute query
     session = SessionLocal()
     with session.begin():
-        query_filter = [Workflow.id == Task.workflow_id,
-                        WorkflowStatus.id == Workflow.status,
-                        Workflow.id.in_(workflow_request)]
+        query_filter = [
+            Workflow.id == Task.workflow_id,
+            WorkflowStatus.id == Workflow.status,
+            Workflow.id.in_(workflow_request),
+        ]
         sql = (
             select(
                 Workflow.id,
@@ -272,11 +272,8 @@ def get_workflow_status() -> Any:
     for r in rows:
         session = SessionLocal()
         with session.begin():
-            q_filter = [Task.workflow_id == r["WF_ID"],
-                        Task.status == r["STATUS"]]
-            q = (
-                select(Task.num_attempts).where(*q_filter)
-            )
+            q_filter = [Task.workflow_id == r["WF_ID"], Task.status == r["STATUS"]]
+            q = select(Task.num_attempts).where(*q_filter)
             query_result = session.execute(q).all()
         retries = 0
         for rr in query_result:
@@ -286,7 +283,7 @@ def get_workflow_status() -> Any:
 
     if res is not None and len(res) > 0:
         if limit:
-            res = res[:int(limit)]
+            res = res[: int(limit)]
 
         # assign to dataframe for aggregation
         df = pd.DataFrame(res, columns=res[0].keys())
@@ -361,24 +358,26 @@ def get_workflow_status() -> Any:
 @blueprint.route("/workflow_status_viz", methods=["GET"])
 def get_workflow_status_viz() -> Any:
     """Get the status of the workflows for GUI."""
-    wf_ids = request.args.getlist('workflow_ids[]')
+    wf_ids = request.args.getlist("workflow_ids[]")
     # return DS
     return_dic = dict()
     for wf_id in wf_ids:
         return_dic[int(wf_id)] = {
-            'id': int(wf_id), 'tasks': 0, 'PENDING': 0, 'RUNNING': 0, 'DONE': 0, 'FATAL': 0
+            "id": int(wf_id),
+            "tasks": 0,
+            "PENDING": 0,
+            "RUNNING": 0,
+            "DONE": 0,
+            "FATAL": 0,
         }
 
     session = SessionLocal()
     with session.begin():
         query_filter = [Task.workflow_id.in_(wf_ids)]
-        sql = (select(
-            Task.workflow_id,
-            Task.status
-        ).where(*query_filter))
+        sql = select(Task.workflow_id, Task.status).where(*query_filter)
         rows = session.execute(sql).all()
     for row in rows:
-        return_dic[row[0]]['tasks'] += 1
+        return_dic[row[0]]["tasks"] += 1
         return_dic[row[0]][_cli_label_mapping[row[1]]] += 1
     resp = jsonify(return_dic)
     resp.status_code = 200
@@ -401,26 +400,33 @@ def workflow_status_by_user(username: str) -> Any:
                 WorkflowStatus.label,
                 WorkflowRun.id,
                 WorkflowRunStatus.label,
-            ).where(
+            )
+            .where(
                 WorkflowRun.user == username,
                 WorkflowRun.workflow_id == Workflow.id,
                 Workflow.tool_version_id == ToolVersion.id,
                 ToolVersion.tool_id == Tool.id,
                 Workflow.status == WorkflowStatus.id,
                 WorkflowRun.status == WorkflowRunStatus.id,
-            ).order_by(
-                WorkflowRun.id.desc()
-            ).limit(number_workflows)
+            )
+            .order_by(WorkflowRun.id.desc())
+            .limit(number_workflows)
         )
         rows = session.execute(sql).all()
 
-    column_names = ("wf_id", "wf_tool", "wf_name", "wf_submitted_date",
-                    "wf_status", "wfr_id", "wfr_status")
+    column_names = (
+        "wf_id",
+        "wf_tool",
+        "wf_name",
+        "wf_submitted_date",
+        "wf_status",
+        "wfr_id",
+        "wfr_status",
+    )
     # Initialize all possible states as 0. No need to return data since it will be refreshed
     # on demand anyways.
     initial_status_counts = {
-        label_mapping: 0
-        for label_mapping in set(_cli_label_mapping.values())
+        label_mapping: 0 for label_mapping in set(_cli_label_mapping.values())
     }
     result = [dict(zip(column_names, row), **initial_status_counts) for row in rows]
 

@@ -1,5 +1,5 @@
 """Queue Table in the Database."""
-from sqlalchemy import Column, Integer, select, String, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, ForeignKey, Integer, select, String, UniqueConstraint
 from sqlalchemy.orm import relationship, Session
 
 from jobmon.serializers import SerializeQueue
@@ -25,17 +25,20 @@ class Queue(Base):
     cluster = relationship("Cluster", back_populates="queues")
 
     __table_args__ = (
-        UniqueConstraint('name', 'cluster_id', name='uc_name_cluster_id'),
+        UniqueConstraint("name", "cluster_id", name="uc_name_cluster_id"),
     )
 
 
-def add_queues(session: Session):
+def add_queues(session: Session) -> None:
+    """Populate hte queue table in the database."""
     for cluster_name in ["dummy", "sequential", "multiprocess"]:
-        cluster = session.execute(
-            select(Cluster).where(Cluster.name == cluster_name)
-        ).scalars().one()
+        cluster = (
+            session.execute(select(Cluster).where(Cluster.name == cluster_name))
+            .scalars()
+            .one()
+        )
         if cluster_name == "multiprocess":
             parameters = '{"cores": (1,20)}'
         else:
-            parameters = '{}'
+            parameters = "{}"
         session.add(Queue(name="null.q", cluster_id=cluster.id, parameters=parameters))

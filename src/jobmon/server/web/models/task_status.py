@@ -25,16 +25,17 @@ class TaskStatus(Base):
     label = Column(String(150))
 
 
-def add_task_statuses(session: Session):
+def add_task_statuses(session: Session) -> None:
+    """Populate the task_status table in the database."""
     statuses = [
-        TaskStatus(id='G', label='REGISTERING'),
-        TaskStatus(id='Q', label='QUEUED'),
-        TaskStatus(id='I', label='INSTANTIATING'),
-        TaskStatus(id='O', label='LAUNCHED'),
-        TaskStatus(id='R', label='RUNNING'),
-        TaskStatus(id='D', label='DONE'),
-        TaskStatus(id='E', label='ERROR_RECOVERABLE'),
-        TaskStatus(id='A', label='ADJUSTING_RESOURCES'),
-        TaskStatus(id='F', label='ERROR_FATAL'),
+        TaskStatus(id="G", label="REGISTERING"),
+        TaskStatus(id="Q", label="QUEUED"),
+        TaskStatus(id="I", label="INSTANTIATING"),
+        TaskStatus(id="O", label="LAUNCHED"),
+        TaskStatus(id="R", label="RUNNING"),
+        TaskStatus(id="D", label="DONE"),
+        TaskStatus(id="E", label="ERROR_RECOVERABLE"),
+        TaskStatus(id="A", label="ADJUSTING_RESOURCES"),
+        TaskStatus(id="F", label="ERROR_FATAL"),
     ]
     session.add_all(statuses)

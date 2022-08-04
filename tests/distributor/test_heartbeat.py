@@ -50,11 +50,11 @@ def test_heartbeat_on_launched(tool, db_engine, task_template):
 
     # check the heartbeat date is greater than the latest status
     with Session(bind=db_engine) as session:
-        select_stmt = select(
-            TaskInstance
-        ).where(
-            TaskInstance.task_id.in_([t1.task_id, t2.task_id])
-        ).order_by(TaskInstance.id)
+        select_stmt = (
+            select(TaskInstance)
+            .where(TaskInstance.task_id.in_([t1.task_id, t2.task_id]))
+            .order_by(TaskInstance.id)
+        )
         task_instances = session.execute(select_stmt).scalars().all()
         session.commit()
 

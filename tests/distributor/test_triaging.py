@@ -80,22 +80,20 @@ def test_set_status_for_triaging(tool, db_engine, task_template):
     # turn the 3 task instances in different testing paths
     # 1. stage the report_by_date, along with respective status
     with session_factory() as session:
-        launched_stmt = update(
-            TaskInstance
-        ).where(
-            TaskInstance.task_id.in_([tis[0].task_id, tis[2].task_id])
-        ).values(
-            report_by_date=subtract_time(500),
-            status=TaskInstanceStatus.LAUNCHED
+        launched_stmt = (
+            update(TaskInstance)
+            .where(TaskInstance.task_id.in_([tis[0].task_id, tis[2].task_id]))
+            .values(
+                report_by_date=subtract_time(500), status=TaskInstanceStatus.LAUNCHED
+            )
         )
         session.execute(launched_stmt)
-        running_stmt = update(
-            TaskInstance
-        ).where(
-            TaskInstance.task_id == tis[1].task_id
-        ).values(
-            report_by_date=subtract_time(500),
-            status=TaskInstanceStatus.RUNNING
+        running_stmt = (
+            update(TaskInstance)
+            .where(TaskInstance.task_id == tis[1].task_id)
+            .values(
+                report_by_date=subtract_time(500), status=TaskInstanceStatus.RUNNING
+            )
         )
         session.execute(running_stmt)
         session.commit()
@@ -104,11 +102,11 @@ def test_set_status_for_triaging(tool, db_engine, task_template):
 
     # check the jobs to be Triaging
     with session_factory() as session:
-        select_stmt = select(
-            TaskInstance
-        ).where(
-            TaskInstance.task_id.in_([ti.task_id for ti in tis])
-        ).order_by(TaskInstance.id)
+        select_stmt = (
+            select(TaskInstance)
+            .where(TaskInstance.task_id.in_([ti.task_id for ti in tis]))
+            .order_by(TaskInstance.id)
+        )
         task_instances = session.execute(select_stmt).scalars().all()
         session.commit()
 
@@ -186,13 +184,12 @@ def test_triaging_to_specific_error(
     # stage all the task instances as triaging
     with Session(bind=db_engine) as session:
 
-        update_stmt = update(
-            TaskInstance
-        ).where(
-            TaskInstance.task_id.in_([tis[x].task_id for x in range(len(tis))])
-        ).values(
-            report_by_date=subtract_time(500),
-            status=TaskInstanceStatus.TRIAGING
+        update_stmt = (
+            update(TaskInstance)
+            .where(TaskInstance.task_id.in_([tis[x].task_id for x in range(len(tis))]))
+            .values(
+                report_by_date=subtract_time(500), status=TaskInstanceStatus.TRIAGING
+            )
         )
         session.execute(update_stmt)
         session.commit()
@@ -212,11 +209,11 @@ def test_triaging_to_specific_error(
 
     # check the jobs to be UNKNOWN_ERROR as expected
     with Session(bind=db_engine) as session:
-        select_stmt = select(
-            TaskInstance
-        ).where(
-            TaskInstance.task_id.in_([ti.task_id for ti in tis])
-        ).order_by(TaskInstance.id)
+        select_stmt = (
+            select(TaskInstance)
+            .where(TaskInstance.task_id.in_([ti.task_id for ti in tis]))
+            .order_by(TaskInstance.id)
+        )
         task_instances = session.execute(select_stmt).scalars().all()
 
         assert len(task_instances) == len(tis)

@@ -62,19 +62,19 @@ def lint(session: Session) -> None:
     flake8-annotations -is a plugin for Flake8 that detects the absence of PEP 3107-style
     function annotations and PEP 484-style type comments.
     """
-    args = session.posargs or src_locations + test_locations
+    args = session.posargs or src_locations
     # TODO: work these in over time?
     # "darglint",
     # "flake8-bandit"
     session.install("flake8",
                     "flake8-annotations",
                     "flake8-import-order",
-                    "flake8-docstrings")
-                    # "flake8-black")
+                    "flake8-docstrings",
+                    "flake8-black")
     session.run("flake8", *args)
 
 
-@nox.session(python="3.7", venv_backend="conda")
+@nox.session(python=python, venv_backend="conda")
 def black(session):
     args = session.posargs or src_locations + test_locations
     session.install("black")

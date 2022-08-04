@@ -30,5 +30,5 @@ class TaskTemplate(Base):
     )
 
     __table_args__ = (
-        UniqueConstraint('tool_version_id', 'name', name='uc_tool_version_id_name'),
+        UniqueConstraint("tool_version_id", "name", name="uc_tool_version_id_name"),
     )

@@ -21,10 +21,11 @@ class ArgType(Base):
     template_arg_map = relationship("TemplateArgMap", back_populates="argument_type")
 
 
-def add_arg_types(session: Session):
+def add_arg_types(session: Session) -> None:
+    """Populate the arg_type table in the database."""
     types = [
         ArgType(id=1, name="NODE_ARG"),
         ArgType(id=2, name="TASK_ARG"),
-        ArgType(id=3, name="OP_ARG")
+        ArgType(id=3, name="OP_ARG"),
     ]
     session.add_all(types)

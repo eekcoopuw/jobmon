@@ -45,8 +45,12 @@ def test_node_args(tool, test_script, input, expect):
     arg3_val = "A" * 2048
     workflow1 = tool.create_workflow(name="node_arg_test")
     t1 = tt.create_task(
-        name="a_task", max_attempts=1, script=test_script, arg1=input, arg2=expect,
-        arg3=arg3_val
+        name="a_task",
+        max_attempts=1,
+        script=test_script,
+        arg1=input,
+        arg2=expect,
+        arg3=arg3_val,
     )
     workflow1.add_tasks([t1])
     workflow1.bind()
@@ -73,8 +77,12 @@ def test_task_args(tool, test_script, input, expect):
     arg3_val = "A" * 2048
     workflow1 = tool.create_workflow(name="node_arg_test")
     t1 = tt.create_task(
-        name="a_task", max_attempts=1, script=test_script, arg1=input, arg2=expect,
-        arg3=arg3_val
+        name="a_task",
+        max_attempts=1,
+        script=test_script,
+        arg1=input,
+        arg2=expect,
+        arg3=arg3_val,
     )
     workflow1.add_tasks([t1])
     workflow1.bind()

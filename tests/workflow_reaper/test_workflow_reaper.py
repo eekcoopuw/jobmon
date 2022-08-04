@@ -16,9 +16,7 @@ load_model()
 def get_workflow_status(db_engine, workflow_id):
     with Session(bind=db_engine) as session:
         query_filter = [Workflow.id == workflow_id]
-        sql = (select(
-            Workflow.status
-        ).where(*query_filter))
+        sql = select(Workflow.status).where(*query_filter)
         rows = session.execute(sql).all()
         session.commit()
     return rows[0][0]
@@ -27,9 +25,7 @@ def get_workflow_status(db_engine, workflow_id):
 def get_workflow_run_status(db_engine, wfr_id):
     with Session(bind=db_engine) as session:
         query_filter = [WFR.id == wfr_id]
-        sql = (select(
-            WFR.status
-        ).where(*query_filter))
+        sql = select(WFR.status).where(*query_filter)
         rows = session.execute(sql).all()
         session.commit()
     return rows[0][0]
@@ -47,7 +43,9 @@ def sleepy_task_template(db_engine, tool):
     return tt
 
 
-def test_error_state(db_engine, client_env, requester_no_retry, tool, sleepy_task_template):
+def test_error_state(
+    db_engine, client_env, requester_no_retry, tool, sleepy_task_template
+):
     """Tests that the workflow reaper successfully checks for error state.
 
     Error state occurs when a workflow run has not logged a heartbeat in a
@@ -64,9 +62,11 @@ def test_error_state(db_engine, client_env, requester_no_retry, tool, sleepy_tas
     wf1.add_tasks([task1])
     wf1.bind()
     wf1._bind_tasks()
-    wfr1 = WorkflowRun(workflow_id=wf1.workflow_id,
-                       requester=wf1.requester,
-                       workflow_run_heartbeat_interval=1000)
+    wfr1 = WorkflowRun(
+        workflow_id=wf1.workflow_id,
+        requester=wf1.requester,
+        workflow_run_heartbeat_interval=1000,
+    )
     wfr1.bind()
     wfr1._update_status(WorkflowRunStatus.BOUND)
     wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
@@ -79,9 +79,11 @@ def test_error_state(db_engine, client_env, requester_no_retry, tool, sleepy_tas
     wf2.add_tasks([task2])
     wf2.bind()
     wf2._bind_tasks()
-    wfr2 = WorkflowRun(workflow_id=wf2.workflow_id,
-                       requester=wf2.requester,
-                       workflow_run_heartbeat_interval=0)
+    wfr2 = WorkflowRun(
+        workflow_id=wf2.workflow_id,
+        requester=wf2.requester,
+        workflow_run_heartbeat_interval=0,
+    )
     wfr2.bind()
     wfr2._update_status(WorkflowRunStatus.BOUND)
     wfr2._update_status(WorkflowRunStatus.INSTANTIATED)
@@ -136,9 +138,7 @@ def test_halted_state(db_engine, requester_no_retry, tool, sleepy_task_template)
     workflow1.add_tasks([task1])
     workflow1.bind()
     workflow1._bind_tasks()
-    wfr1 = WorkflowRun(
-        workflow_id=workflow1.workflow_id,
-        requester=workflow1.requester)
+    wfr1 = WorkflowRun(workflow_id=workflow1.workflow_id, requester=workflow1.requester)
     wfr1.bind()
     wfr1._update_status(WorkflowRunStatus.BOUND)
     wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
@@ -157,7 +157,7 @@ def test_halted_state(db_engine, requester_no_retry, tool, sleepy_task_template)
     wfr2 = WorkflowRun(
         workflow_id=workflow2.workflow_id,
         requester=workflow2.requester,
-        workflow_run_heartbeat_interval=0
+        workflow_run_heartbeat_interval=0,
     )
     wfr2.bind()
     wfr2._update_status(WorkflowRunStatus.BOUND)
@@ -178,7 +178,8 @@ def test_halted_state(db_engine, requester_no_retry, tool, sleepy_task_template)
     wfr3 = WorkflowRun(
         workflow_id=workflow3.workflow_id,
         requester=workflow3.requester,
-        workflow_run_heartbeat_interval=0)
+        workflow_run_heartbeat_interval=0,
+    )
     wfr3.bind()
     wfr3._update_status(WorkflowRunStatus.BOUND)
     wfr3._update_status(WorkflowRunStatus.INSTANTIATED)
@@ -233,9 +234,7 @@ def test_aborted_state(db_engine, requester_no_retry, tool, sleepy_task_template
     workflow1.add_tasks([task, task2])
     workflow1.bind()
     workflow1._bind_tasks()
-    wfr1 = WorkflowRun(
-        workflow_id=workflow1.workflow_id,
-        requester=requester_no_retry)
+    wfr1 = WorkflowRun(workflow_id=workflow1.workflow_id, requester=requester_no_retry)
     wfr1.bind()
 
     # create a workflow without binding the tasks
@@ -249,7 +248,8 @@ def test_aborted_state(db_engine, requester_no_retry, tool, sleepy_task_template
     wfr2 = WorkflowRun(
         workflow_id=workflow2.workflow_id,
         requester=requester_no_retry,
-        workflow_run_heartbeat_interval=0)
+        workflow_run_heartbeat_interval=0,
+    )
     wfr2.bind()
 
     # Call aborted state logic
@@ -295,7 +295,8 @@ def test_reaper_version(db_engine, requester_no_retry, tool, sleepy_task_templat
     wfr = WorkflowRun(
         workflow_id=workflow.workflow_id,
         requester=requester_no_retry,
-        workflow_run_heartbeat_interval=0)
+        workflow_run_heartbeat_interval=0,
+    )
     wfr.bind()
 
     # Check for lost workflow runs
@@ -353,8 +354,8 @@ def test_inconsistent_status(db_engine, tool):
     # check workflow status changed on both
     with Session(bind=db_engine) as session:
         # fake workflow run
-        query_filter = [ Workflow.id == workflows[0].workflow_id ]
-        sql = (select(Workflow.status).where(*query_filter))
+        query_filter = [Workflow.id == workflows[0].workflow_id]
+        sql = select(Workflow.status).where(*query_filter)
         rows = session.execute(sql).all()
         assert rows[0][0] == "D"
 

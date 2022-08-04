@@ -33,7 +33,6 @@ from jobmon.exceptions import (
     InvalidResponse,
     WorkflowAlreadyComplete,
     WorkflowAlreadyExists,
-    WorkflowNotResumable,
 )
 from jobmon.requester import http_request_ok, Requester
 
@@ -309,7 +308,7 @@ class Workflow(object):
                     task_args=task.task_args,
                     op_args=task.op_args,
                     cluster_name=task.cluster_name,
-                    requester=self.requester
+                    requester=self.requester,
                 )
                 self._link_array_and_workflow(array)
 
@@ -417,7 +416,9 @@ class Workflow(object):
         tasks = array.get_tasks_by_node_args(**kwargs)
         return tasks
 
-    def set_max_concurrently_running(self, task_template_name, max_concurrently_running):
+    def set_max_concurrently_running(
+        self, task_template_name: str, max_concurrently_running: int
+    ) -> None:
         pass
 
     def run(
@@ -476,18 +477,23 @@ class Workflow(object):
                 "sure the workflow args are unique or the tasks are unique"
             )
         if self._newly_created and resume:
-            logger.warning("The resume flag has been set but no previous workflow_args exist."
-                           "Note that the workflow will execute as a new workflow.")
+            logger.warning(
+                "The resume flag has been set but no previous workflow_args exist."
+                "Note that the workflow will execute as a new workflow."
+            )
 
         # Bind tasks
         logger.info("Adding task metadata to database")
         # Need to wait for resume signal to be sent before resetting tasks, in case of a resume
         factory = WorkflowRunFactory(self.workflow_id)
         if resume:
-            factory.set_workflow_resume(reset_running_jobs=reset_running_jobs,
-                                        resume_timeout=resume_timeout)
+            factory.set_workflow_resume(
+                reset_running_jobs=reset_running_jobs, resume_timeout=resume_timeout
+            )
 
-        self._bind_tasks(reset_if_running=reset_running_jobs, chunk_size=self._chunk_size)
+        self._bind_tasks(
+            reset_if_running=reset_running_jobs, chunk_size=self._chunk_size
+        )
 
         # create workflow_run
         logger.info("Adding WorkflowRun metadata to database")
@@ -509,7 +515,7 @@ class Workflow(object):
                 fail_after_n_executions=self._fail_after_n_executions,
                 requester=self.requester,
                 fail_fast=fail_fast,
-                status=wfr.status
+                status=wfr.status,
             )
             swarm.from_workflow(self)
             self._num_previously_completed = swarm.num_previously_complete
@@ -539,13 +545,16 @@ class Workflow(object):
 
         return swarm.status
 
-    def set_task_template_max_concurrency_limit(self, task_template_name: str, limit: int) \
-            -> None:
+    def set_task_template_max_concurrency_limit(
+        self, task_template_name: str, limit: int
+    ) -> None:
         try:
             array = self.arrays[task_template_name]
         except Exception:
-            raise KeyError(f"There is no task_template named '{task_template_name}' "
-                           f"associated with this workflow. Workflow name: {self.name}")
+            raise KeyError(
+                f"There is no task_template named '{task_template_name}' "
+                f"associated with this workflow. Workflow name: {self.name}"
+            )
         array.max_concurrently_running = limit
 
     def validate(self, strict: bool = True, raise_on_error: bool = False) -> None:
@@ -691,7 +700,7 @@ class Workflow(object):
             parameters = {
                 "workflow_id": self.workflow_id,
                 "tasks": task_metadata,
-                "mark_created": mark_created
+                "mark_created": mark_created,
             }
             return_code, response = self.requester.send_request(
                 app_route=app_route,

@@ -45,8 +45,9 @@ class TaskTemplateVersion(Base):
         )
 
     id = Column(Integer, primary_key=True)
-    task_template_id = Column(Integer, ForeignKey("task_template.id"), index=True,
-                              nullable=False)
+    task_template_id = Column(
+        Integer, ForeignKey("task_template.id"), index=True, nullable=False
+    )
     command_template = Column(Text)
     arg_mapping_hash = Column(VARCHAR(50))
 
@@ -59,7 +60,11 @@ class TaskTemplateVersion(Base):
     )
 
     __table_args__ = (
-        Index('uc_task_template_id_command_template_arg_mapping_hash',
-              'task_template_id', 'command_template', 'arg_mapping_hash',
-              unique=True),
+        Index(
+            "uc_task_template_id_command_template_arg_mapping_hash",
+            "task_template_id",
+            "command_template",
+            "arg_mapping_hash",
+            unique=True,
+        ),
     )

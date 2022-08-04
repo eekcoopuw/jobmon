@@ -55,6 +55,7 @@ class WebServerProcess:
             from jobmon.server.cli import main
             from jobmon.server.web.models import init_db
             from sqlalchemy import create_engine
+
             init_db(create_engine(database_uri))
 
             signal.signal(signal.SIGTERM, sigterm_handler)
@@ -112,9 +113,9 @@ def set_mac_to_fork():
         multiprocessing.set_start_method("fork")
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def sqlite_file(tmpdir_factory) -> str:
-    file = str(tmpdir_factory.mktemp('db').join("tests.sqlite"))
+    file = str(tmpdir_factory.mktemp("db").join("tests.sqlite"))
     return file
 
 
@@ -201,9 +202,7 @@ def requester_in_memory(monkeypatch, web_server_in_memory):
 
     def get_in_mem(url, params, data, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return app.get(
-            path=url, query_string=params, data=data, headers=headers
-        )
+        return app.get(path=url, query_string=params, data=data, headers=headers)
 
     def post_in_mem(url, json, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]

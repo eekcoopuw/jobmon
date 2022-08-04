@@ -355,7 +355,10 @@ def test_workflow_attribute(db_engine, tool, client_env, task_template):
             .all()
         )
     assert set(wf_attributes) == {
-        ("location_id", "5"), ("year", "2019"), ("sex", "2"), ("age_group_id", "1")
+        ("location_id", "5"),
+        ("year", "2019"),
+        ("sex", "2"),
+        ("age_group_id", "1"),
     }
 
     # Test workflow w/o attributes
@@ -467,7 +470,7 @@ def test_workflow_validation(tool, task_template, caplog):
     # Bind wf1, and create a new workflow with the same args but a different DAG.
     wf1.bind()
     wf3 = tool.create_workflow(workflow_args=wf1.workflow_args)
-    t3 = task_template.create_task(arg='echo 3')
+    t3 = task_template.create_task(arg="echo 3")
     wf3.add_task(t3)
     with pytest.raises(WorkflowAlreadyExists):
         wf3._matching_wf_args_diff_hash()

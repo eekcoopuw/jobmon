@@ -151,11 +151,15 @@ class Workflow(Base):
     @property
     def ready_to_link(self) -> bool:
         """Is this workflow able to link a new workflow run."""
-        return self.status not in [
-            WorkflowStatus.QUEUED,
-            WorkflowStatus.RUNNING,
-            WorkflowStatus.DONE,
-        ] and self.is_resumable
+        return (
+            self.status
+            not in [
+                WorkflowStatus.QUEUED,
+                WorkflowStatus.RUNNING,
+                WorkflowStatus.DONE,
+            ]
+            and self.is_resumable
+        )
 
     @property
     def is_resumable(self) -> bool:

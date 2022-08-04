@@ -9,7 +9,7 @@ from jobmon.config import CLI, ParserDefaults
 
 
 class WebConfig:
-    """web config class"""
+    """Web config class."""
 
     @classmethod
     def from_defaults(cls: Type[WebConfig]) -> WebConfig:

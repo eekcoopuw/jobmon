@@ -1,22 +1,17 @@
 """Routes used to move through the finite state."""
 from http import HTTPStatus as StatusCodes
-import json
-import numpy as np
-import scipy.stats as st  # type:ignore
-from typing import Any, cast, Dict, List, Set
+from typing import Any
 
 from flask import jsonify, request
 from sqlalchemy import func, select, update
-from sqlalchemy.orm import Session
-from sqlalchemy.sql import text
 import structlog
 
 from jobmon.exceptions import InvalidStateTransition
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.workflow import Workflow
-from jobmon.server.web.models.workflow_status import WorkflowStatus
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
+from jobmon.server.web.models.workflow_status import WorkflowStatus
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.reaper import blueprint
 
@@ -24,9 +19,7 @@ from jobmon.server.web.routes.reaper import blueprint
 logger = structlog.get_logger(__name__)
 
 
-@blueprint.route(
-    "/workflow/<workflow_id>/fix_status_inconsistency", methods=["PUT"]
-)
+@blueprint.route("/workflow/<workflow_id>/fix_status_inconsistency", methods=["PUT"])
 def fix_wf_inconsistency(workflow_id: int) -> Any:
     """Find wf in F with all tasks in D and fix them.
 
@@ -35,7 +28,9 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
     """
     data = request.get_json()
     increase_step = data["increase_step"]
-    logger.debug(f"Fix inconsistencies starting at workflow {workflow_id} by {increase_step}")
+    logger.debug(
+        f"Fix inconsistencies starting at workflow {workflow_id} by {increase_step}"
+    )
     session = SessionLocal()
     with session.begin():
         sql = select(Workflow.id)
@@ -60,13 +55,13 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
     # should be D.
     session = SessionLocal()
     with session.begin():
-        query_filter = [Workflow.id > workflow_id,
-                        Workflow.id <= int(workflow_id) + increase_step,
-                        Workflow.status == "F",
-                        Workflow.id == Task.workflow_id]
-        sql = (select(
-            Workflow.id, Task.status
-        ).where(*query_filter))
+        query_filter = [
+            Workflow.id > workflow_id,
+            Workflow.id <= int(workflow_id) + increase_step,
+            Workflow.status == "F",
+            Workflow.id == Task.workflow_id,
+        ]
+        sql = select(Workflow.id, Task.status).where(*query_filter)
         rows = session.execute(sql).all()
         result_set = set([r[0] for r in rows])
         for r in rows:
@@ -80,11 +75,11 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
         logger.info("Fixing inconsistent F-D workflow: {ids}")
         session = SessionLocal()
         with session.begin():
-            update_stmt = update(
-                Workflow
-            ).where(
-                Workflow.id.in_(result_list)
-            ).values(status="D", status_date=func.now())
+            update_stmt = (
+                update(Workflow)
+                .where(Workflow.id.in_(result_list))
+                .values(status="D", status_date=func.now())
+            )
             session.execute(update_stmt)
             session.commit()
 
@@ -95,18 +90,13 @@ def fix_wf_inconsistency(workflow_id: int) -> Any:
     return resp
 
 
-@blueprint.route(
-    "/workflow/<workflow_id>/workflow_name_and_args", methods=["GET"]
-)
+@blueprint.route("/workflow/<workflow_id>/workflow_name_and_args", methods=["GET"])
 def get_wf_name_and_args(workflow_id: int) -> Any:
     """Return workflow name and args associated with specified workflow ID."""
     session = SessionLocal()
     with session.begin():
         query_filter = [Workflow.id == workflow_id]
-        sql = (select(
-            Workflow.name,
-            Workflow.workflow_args
-        ).where(*query_filter))
+        sql = select(Workflow.name, Workflow.workflow_args).where(*query_filter)
         result = session.execute(sql).all()
 
     if result is None or len(result) == 0:
@@ -115,9 +105,7 @@ def get_wf_name_and_args(workflow_id: int) -> Any:
         resp.status_code = StatusCodes.OK
         return resp
 
-    resp = jsonify(
-        workflow_name=result[0][0], workflow_args=result[0][1]
-    )
+    resp = jsonify(workflow_name=result[0][0], workflow_args=result[0][1])
     resp.status_code = StatusCodes.OK
     return resp
 
@@ -129,17 +117,17 @@ def get_lost_workflow_runs() -> Any:
     version = request.args.get("version")
     session = SessionLocal()
     with session.begin():
-        query_filter = [WorkflowRun.status.in_(statuses),
-                        WorkflowRun.heartbeat_date <= func.now(),
-                        WorkflowRun.jobmon_server_version == version]
-        sql = (select(WorkflowRun.id,
-                      WorkflowRun.workflow_id).where(*query_filter))
+        query_filter = [
+            WorkflowRun.status.in_(statuses),
+            WorkflowRun.heartbeat_date <= func.now(),
+            WorkflowRun.jobmon_server_version == version,
+        ]
+        sql = select(WorkflowRun.id, WorkflowRun.workflow_id).where(*query_filter)
         rows = session.execute(sql).all()
     workflow_runs = [(r[0], r[1]) for r in rows]
     resp = jsonify(workflow_runs=workflow_runs)
     resp.status_code = StatusCodes.OK
     return resp
-
 
 
 @blueprint.route("/workflow_run/<workflow_run_id>/reap", methods=["PUT"])
@@ -156,13 +144,13 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
     session = SessionLocal()
     with session.begin():
         # get the wfr
-        query_filter = [WorkflowRun.id == workflow_run_id,
-                        WorkflowRun.heartbeat_date <= func.now()]
-        sql = (select(
-            WorkflowRun.id,
-            WorkflowRun.workflow_id,
-            WorkflowRun.status
-        ).where(*query_filter))
+        query_filter = [
+            WorkflowRun.id == workflow_run_id,
+            WorkflowRun.heartbeat_date <= func.now(),
+        ]
+        sql = select(WorkflowRun.id, WorkflowRun.workflow_id, WorkflowRun.status).where(
+            *query_filter
+        )
         rows = session.execute(sql).all()
     if len(rows) == 0:
         resp = jsonify(status="")
@@ -187,25 +175,26 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
     # validate transition
     if (wfr_status, target_wfr_status) not in WorkflowRun().valid_transitions:
         try:
-            raise InvalidStateTransition(model="WorkflowRun",
-                                         id=wfr_id,
-                                         old_state=wfr_status,
-                                         new_state=target_wfr_status)
+            raise InvalidStateTransition(
+                model="WorkflowRun",
+                id=wfr_id,
+                old_state=wfr_status,
+                new_state=target_wfr_status,
+            )
         except (InvalidStateTransition, AttributeError) as e:
             # this branch handles race condition or case where no wfr was returned
             logger.debug(f"Unable to reap workflow_run {wfr_id}: {e}")
-            status = ""
 
     # update status
     session = SessionLocal()
     with session.begin():
         query1 = f"""UPDATE workflow_run
-                    SET status="{target_wfr_status}" 
+                    SET status="{target_wfr_status}"
                     WHERE id={wfr_id}
                 """
         session.execute(query1)
         query2 = f"""UPDATE workflow
-                     SET status="{target_wf_status}" 
+                     SET status="{target_wf_status}"
                      WHERE id={wf_id}
                 """
         session.execute(query2)

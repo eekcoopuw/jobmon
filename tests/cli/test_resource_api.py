@@ -470,4 +470,3 @@ def test_max_mem(db_engine, client_env):
         session.commit()
     resources = template.resource_usage()
     assert resources["max_mem"] == "0B"
-

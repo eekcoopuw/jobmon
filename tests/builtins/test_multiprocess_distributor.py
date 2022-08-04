@@ -2,9 +2,7 @@ import time
 from jobmon.builtins.multiprocess.multiproc_distributor import MultiprocessDistributor
 
 
-def test_multiprocess_distributor(
-    tool, client_env, task_template, array_template
-):
+def test_multiprocess_distributor(tool, client_env, task_template, array_template):
 
     # set up a MultiprocessDistributor with 5 consumers.
     dist = MultiprocessDistributor("multiprocess", 5)
@@ -36,8 +34,12 @@ def test_multiprocess_distributor(
     dist.start()
 
     # submit 2 to array operation with array_length = 3
-    dist.submit_array_to_batch_distributor("echo 1", "echo_1", "echo_1", {"queue": "null.q"}, 3)
-    dist.submit_array_to_batch_distributor("echo 2", "echo_2", "echo_1", {"queue": "null.q"}, 3)
+    dist.submit_array_to_batch_distributor(
+        "echo 1", "echo_1", "echo_1", {"queue": "null.q"}, 3
+    )
+    dist.submit_array_to_batch_distributor(
+        "echo 2", "echo_2", "echo_1", {"queue": "null.q"}, 3
+    )
 
     # we expect that dist.task_queue will be consumed by the consumers
     # fairly soon and become empty;

@@ -23,9 +23,7 @@ def get_task_resources(task_resources_id: int) -> Any:
     with session.begin():
         template_type = data.get("template_type", "both")
         requested_resources, queue_name = _get_logfile_template(
-            task_resources_id,
-            template_type,
-            session
+            task_resources_id, template_type, session
         )
 
     resp = jsonify(requested_resources=requested_resources, queue_name=queue_name)

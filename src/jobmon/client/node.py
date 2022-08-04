@@ -59,7 +59,7 @@ class Node:
         return self._node_id
 
     @node_id.setter
-    def node_id(self, val: int):
+    def node_id(self, val: int) -> None:
         """Unique id for each node."""
         self._node_id = val
 

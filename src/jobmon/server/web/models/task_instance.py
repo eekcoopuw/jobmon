@@ -8,7 +8,6 @@ import structlog
 
 from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeTaskInstance
-# from jobmon.server.web.log_config import bind_to_logger, get_logger
 from jobmon.server.web.models import Base
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
@@ -83,8 +82,13 @@ class TaskInstance(Base):
     task_resources = relationship("TaskResources")
 
     __table_args__ = (
-        Index('ix_array_batch_index', 'array_id', 'array_batch_num', 'array_step_id',),
-        Index('ix_status_status_date', 'status', 'status_date'),
+        Index(
+            "ix_array_batch_index",
+            "array_id",
+            "array_batch_num",
+            "array_step_id",
+        ),
+        Index("ix_status_status_date", "status", "status_date"),
     )
 
     # finite state machine transition information

@@ -202,7 +202,11 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def submit_to_batch_distributor(
-        self, command: str, name: str, logfile_name: str, requested_resources: Dict[str, Any]
+        self,
+        command: str,
+        name: str,
+        logfile_name: str,
+        requested_resources: Dict[str, Any],
     ) -> Tuple[str, Optional[str], Optional[str]]:
         """Submit the command on the cluster technology and return a distributor_id.
 
@@ -270,8 +274,13 @@ class ClusterDistributor(Protocol):
             )
         elif array_id is not None and batch_number is not None:
             wrapped_cmd.extend(
-                ["worker_node_array", "--array_id", str(array_id), "--batch_number",
-                 str(batch_number)]
+                [
+                    "worker_node_array",
+                    "--array_id",
+                    str(array_id),
+                    "--batch_number",
+                    str(batch_number),
+                ]
             )
         else:
             raise ValueError(

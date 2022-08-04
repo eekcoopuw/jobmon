@@ -29,6 +29,7 @@ class ServerCLI(CLI):
         """Web service entrypoint logic."""
         from jobmon.server.web.api import WebConfig
         from jobmon.server.web.app_factory import AppFactory
+
         web_config = WebConfig(
             sqlalchemy_database_uri=args.sqlalchemy_database_uri,
             logstash_host=args.logstash_host,
@@ -82,9 +83,10 @@ class ServerCLI(CLI):
             )
 
     def init_db(self, args: configargparse.Namespace) -> None:
-        """entrypoint to initialize new jobmon db."""
+        """Entrypoint to initialize new Jobmon database."""
         import sqlalchemy
         from jobmon.server.web.models import init_db
+
         init_db(sqlalchemy.create_engine(args.sqlalchemy_database_uri))
 
     def _add_web_service_subparser(self) -> None:

@@ -29,6 +29,9 @@ class Array(Base):
     created_date = Column(DateTime, default=func.now())
 
     __table_args__ = (
-        UniqueConstraint('task_template_version_id', 'workflow_id',
-                         name='uc_task_template_version_id_workflow_id'),
+        UniqueConstraint(
+            "task_template_version_id",
+            "workflow_id",
+            name="uc_task_template_version_id_workflow_id",
+        ),
     )

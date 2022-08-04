@@ -3,7 +3,7 @@ from http import HTTPStatus as StatusCodes
 import os
 from typing import Any
 
-from flask import jsonify, current_app
+from flask import current_app, jsonify
 from sqlalchemy import func, select
 from sqlalchemy import orm
 from structlog import get_logger
@@ -20,9 +20,7 @@ logger = get_logger(__name__)
 # ############################ SHARED LANDING ROUTES ##########################################
 def is_alive() -> Any:
     """Action that sends a response to the requester indicating that responder is listening."""
-    logger.info(
-        f"{os.getpid()}: {current_app.__class__.__name__} received is_alive?"
-    )
+    logger.info(f"{os.getpid()}: {current_app.__class__.__name__} received is_alive?")
     resp = jsonify(msg="Yes, I am alive")
     resp.status_code = StatusCodes.OK
     return resp
@@ -56,7 +54,7 @@ def health() -> Any:
 
 
 # ############################ TESTING ROUTES ################################################
-def test_route():
+def test_route() -> None:
     """Test route to force a 500 error."""
     session = SessionLocal()
     with session.begin():

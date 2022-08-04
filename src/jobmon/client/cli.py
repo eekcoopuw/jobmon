@@ -233,12 +233,14 @@ class ClientCLI(CLI):
 
     @staticmethod
     def resume_workflow(args: configargparse.Namespace) -> None:
-        """Resume a workflow from a workflow ID"""
+        """Resume a workflow from a workflow ID."""
         from jobmon.client.status_commands import resume_workflow_from_id
 
-        resume_workflow_from_id(workflow_id=args.workflow_id,
-                                cluster_name=args.cluster_name,
-                                reset_if_running=args.reset_running_jobs)
+        resume_workflow_from_id(
+            workflow_id=args.workflow_id,
+            cluster_name=args.cluster_name,
+            reset_if_running=args.reset_running_jobs,
+        )
 
     @staticmethod
     def get_filepaths(args: configargparse.Namespace) -> None:
@@ -629,15 +631,16 @@ class ClientCLI(CLI):
         # TODO: perhaps provide a mechanism to infer the last cluster this
         # workflow was run on
         workflow_resume_parser.add_argument(
-            "-c", "--cluster_name",
+            "-c",
+            "--cluster_name",
             help="cluster to run this workflow on, e.g. 'slurm', 'slurm_test', 'dummy'",
-            required=True
+            required=True,
         )
         workflow_resume_parser.add_argument(
             "--reset-running-jobs",
             help="whether to reset running jobs or not",
             required=False,
-            action="store_true"
+            action="store_true",
         )
         ParserDefaults.web_service_fqdn(workflow_resume_parser)
         ParserDefaults.web_service_port(workflow_resume_parser)

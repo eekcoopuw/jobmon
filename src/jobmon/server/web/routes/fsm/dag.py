@@ -4,7 +4,7 @@ from typing import Any, cast, Dict
 
 from flask import jsonify, request
 import sqlalchemy
-from sqlalchemy import select, insert, update
+from sqlalchemy import insert, select, update
 from sqlalchemy.sql import func
 import structlog
 
@@ -61,7 +61,9 @@ def add_edges(dag_id: int) -> Any:
         edges_to_add = data.pop("edges_to_add")
         mark_created = bool(data.pop("mark_created"))
     except KeyError as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     # add dag and cast types
     for edges in edges_to_add:
@@ -89,12 +91,8 @@ def add_edges(dag_id: int) -> Any:
         session.flush()
 
         if mark_created:
-            update_stmt = update(
-                Dag
-            ).where(
-                Dag.id == dag_id
-            ).values(
-                created_date=func.now()
+            update_stmt = (
+                update(Dag).where(Dag.id == dag_id).values(created_date=func.now())
             )
             session.execute(update_stmt)
 

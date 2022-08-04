@@ -302,9 +302,7 @@ class DistributorService:
                 distributor_commands, self._distributor_commands
             )
 
-    def launch_task_instance(
-        self, task_instance: DistributorTaskInstance
-    ) -> None:
+    def launch_task_instance(self, task_instance: DistributorTaskInstance) -> None:
         """Submits a task instance on a given distributor.
 
         Adds the new task instance to self.submitted_or_running_task_instances.
@@ -324,9 +322,10 @@ class DistributorService:
         # Submit to batch distributor
         try:
             resp = self.cluster_interface.submit_to_batch_distributor(
-                command=command, name=task_instance.submission_name,
+                command=command,
+                name=task_instance.submission_name,
                 logfile_name=task_instance.logfile_name,
-                requested_resources=requested_resources
+                requested_resources=requested_resources,
             )
             distributor_id, output_path, error_path = resp  # unpack response tuple
         except Exception as e:
@@ -433,13 +432,17 @@ class DistributorService:
                         new_status,
                         self.requester,
                     )
-                    self._task_instance_status_map[task_instance.status].add(task_instance)
+                    self._task_instance_status_map[task_instance.status].add(
+                        task_instance
+                    )
                     self._task_instances[task_instance.task_instance_id] = task_instance
 
                 else:
                     # remove from old status set
                     previous_status = task_instance.status
-                    self._task_instance_status_map[previous_status].remove(task_instance)
+                    self._task_instance_status_map[previous_status].remove(
+                        task_instance
+                    )
 
                     # change to new status and move to new set
                     task_instance.status = new_status

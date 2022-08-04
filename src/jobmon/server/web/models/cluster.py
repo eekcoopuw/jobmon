@@ -1,7 +1,7 @@
 """Cluster Table in the Database."""
 from typing import Tuple
 
-from sqlalchemy import Column, Integer, select, String, ForeignKey
+from sqlalchemy import Column, ForeignKey, Integer, select, String
 from sqlalchemy.orm import relationship, Session
 
 from jobmon.serializers import SerializeCluster
@@ -34,14 +34,19 @@ class Cluster(Base):
     queues = relationship("Queue", back_populates="cluster")
 
 
-def add_clusters(session: Session):
+def add_clusters(session: Session) -> None:
+    """Populate the cluster table in the database."""
     for cluster_type_name in ["dummy", "sequential", "multiprocess"]:
-        cluster_type = session.execute(
-            select(ClusterType).where(ClusterType.name == cluster_type_name)
-        ).scalars().one()
+        cluster_type = (
+            session.execute(
+                select(ClusterType).where(ClusterType.name == cluster_type_name)
+            )
+            .scalars()
+            .one()
+        )
         cluster = Cluster(
             name=cluster_type_name,
             cluster_type_id=cluster_type.id,
-            connection_parameters=None
+            connection_parameters=None,
         )
         session.add(cluster)

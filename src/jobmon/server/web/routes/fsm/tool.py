@@ -24,7 +24,9 @@ def add_tool() -> Any:
     try:
         tool_name = data["name"]
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     # add tool to db
     session = SessionLocal()

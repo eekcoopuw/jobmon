@@ -97,14 +97,18 @@ def test_task_attribute(db_engine, tool):
     client_wfr.bind()
 
     with Session(bind=db_engine) as session:
-        select_stmt = select(
-            TaskAttribute.value, TaskAttributeType.name, TaskAttributeType.id
-        ).join_from(
-            TaskAttribute, TaskAttributeType,
-            TaskAttribute.task_attribute_type_id == TaskAttributeType.id
-        ).where(
-            TaskAttribute.task_id.in_([task1.task_id, task2.task_id, task3.task_id])
-        ).order_by(TaskAttributeType.name, TaskAttribute.task_id)
+        select_stmt = (
+            select(TaskAttribute.value, TaskAttributeType.name, TaskAttributeType.id)
+            .join_from(
+                TaskAttribute,
+                TaskAttributeType,
+                TaskAttribute.task_attribute_type_id == TaskAttributeType.id,
+            )
+            .where(
+                TaskAttribute.task_id.in_([task1.task_id, task2.task_id, task3.task_id])
+            )
+            .order_by(TaskAttributeType.name, TaskAttribute.task_id)
+        )
         resp = session.execute(select_stmt).all()
 
         values = [tup[0] for tup in resp]

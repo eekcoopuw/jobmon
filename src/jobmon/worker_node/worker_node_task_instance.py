@@ -46,9 +46,11 @@ class WorkerNodeTaskInstance:
 
         Args:
             cluster_interface: interface that gathers executor info in the execution_wrapper.
-            task_instance_id: the id of the task_instance that is reporting back.
-            array_id: If this is an array job, the corresponding array ID
-            batch_number: If this is an array job, what is the batch?
+            task_instance_id: the id of the TaskInstance that is reporting back.
+            workflow_id: the id of the Workflow.
+            task_id: the id of the Task.
+            stdout: path to stdout.
+            stderr: path to stderr.
             heartbeat_interval: how ofter to log a report by with the db
             report_by_buffer: multiplier for report by date in case we miss a few.
             command_interrupt_timeout: the amount of time to wait for the child process to
@@ -151,7 +153,10 @@ class WorkerNodeTaskInstance:
             "version": 1,
             "disable_existing_loggers": True,
             "formatters": {
-                "default": {"format": _DEFAULT_LOG_FORMAT, "datefmt": "%Y-%m-%d %H:%M:%S"}
+                "default": {
+                    "format": _DEFAULT_LOG_FORMAT,
+                    "datefmt": "%Y-%m-%d %H:%M:%S",
+                }
             },
             "handlers": {
                 "default": {
@@ -160,7 +165,6 @@ class WorkerNodeTaskInstance:
                     "formatter": "default",
                     "stream": sys.stdout,
                 },
-
             },
             "loggers": {
                 "jobmon.worker_node": {
@@ -168,7 +172,7 @@ class WorkerNodeTaskInstance:
                     "propagate": False,
                     "level": "INFO",
                 },
-            }
+            },
         }
         logging.config.dictConfig(logging_config)
 
@@ -179,8 +183,10 @@ class WorkerNodeTaskInstance:
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)
         else:
-            logger.debug("No distributor id was found in the job submission env (e.g. sbatch, "
-                         "qsub) at this time")
+            logger.debug(
+                "No distributor id was found in the job submission env (e.g. sbatch, "
+                "qsub) at this time"
+            )
 
         app_route = f"/task_instance/{self.task_instance_id}/log_done"
         return_code, response = self.requester.send_request(
@@ -246,7 +252,7 @@ class WorkerNodeTaskInstance:
             "process_group_id": str(self.process_group_id),
             "next_report_increment": (self.heartbeat_interval * self.report_by_buffer),
             "stdout": str(self.stdout) if self.stdout is not None else None,
-            "stderr": str(self.stderr) if self.stderr is not None else None
+            "stderr": str(self.stderr) if self.stderr is not None else None,
         }
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)

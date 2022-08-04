@@ -162,20 +162,15 @@ def test_wedged_dag(db_engine, tool, task_template, requester_no_retry):
                         f"task instance is {self.wedged_task_id}, entering"
                         " first if statement"
                     )
-                    task_inst_stmt = update(
-                        TaskInstance
-                    ).where(
-                        TaskInstance.id == args.task_instance_id
-                    ).values(
-                        status='D'
+                    task_inst_stmt = (
+                        update(TaskInstance)
+                        .where(TaskInstance.id == args.task_instance_id)
+                        .values(status="D")
                     )
-                    task_stmt = update(
-                        Task
-                    ).where(
-                        Task.id == task_id
-                    ).values(
-                        status='D',
-                        status_date=subtract_time(600)
+                    task_stmt = (
+                        update(Task)
+                        .where(Task.id == task_id)
+                        .values(status="D", status_date=subtract_time(600))
                     )
 
                     session.execute(task_inst_stmt)
@@ -524,12 +519,15 @@ def test_resume_from_workflow_id(tool, task_template):
     #    t2     t3
     #      \   /
     #        t4
-    t1 = task_template.create_task(arg='sleep 1')
-    t2 = task_template.create_task(arg='sleep 2', upstream_tasks=[t1])
-    t3 = task_template.create_task(arg='exit 1', upstream_tasks=[t1], max_attempts=1)
-    t4 = task_template.create_task(arg='sleep 4', upstream_tasks=[t2, t3],
-                                   compute_resources={'foo': 'bar'},
-                                   fallback_queues=['null.q'])
+    t1 = task_template.create_task(arg="sleep 1")
+    t2 = task_template.create_task(arg="sleep 2", upstream_tasks=[t1])
+    t3 = task_template.create_task(arg="exit 1", upstream_tasks=[t1], max_attempts=1)
+    t4 = task_template.create_task(
+        arg="sleep 4",
+        upstream_tasks=[t2, t3],
+        compute_resources={"foo": "bar"},
+        fallback_queues=["null.q"],
+    )
     workflow.add_tasks([t1, t2, t3, t4])
     # Run the workflow. Task 3 should error, task 4 doesn't run.
     workflow.run()
@@ -541,8 +539,9 @@ def test_resume_from_workflow_id(tool, task_template):
     resume_factory.reset_task_statuses()
     resume_wfr = resume_factory.create_workflow_run()
 
-    resume_swarm = SwarmWorkflowRun(workflow_run_id=resume_wfr.workflow_run_id,
-                                    status=resume_wfr.status)
+    resume_swarm = SwarmWorkflowRun(
+        workflow_run_id=resume_wfr.workflow_run_id, status=resume_wfr.status
+    )
     assert resume_swarm.status == WorkflowRunStatus.LINKING
 
     # Pull workflow metadata

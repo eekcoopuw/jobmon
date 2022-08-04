@@ -11,9 +11,7 @@ def test_add_tool(client_env):
     # @jobmon_client.route('/tool', methods=['POST'])
     requester = Requester(client_env)
     with pytest.raises(InvalidResponse) as error:
-        requester.send_request(
-            app_route="/tool", message={}, request_type="post"
-        )
+        requester.send_request(app_route="/tool", message={}, request_type="post")
         assert "Unexpected status code 400" in str(error.value)
 
 
@@ -78,7 +76,9 @@ def test_add_workflow(client_env):
 
     with pytest.raises(InvalidResponse) as error:
         requester.send_request(
-            app_route="/workflow", message={"tool_version_id": "abc"}, request_type="post"
+            app_route="/workflow",
+            message={"tool_version_id": "abc"},
+            request_type="post",
         )
         assert "Unexpected status code 400" in str(error.value)
     with pytest.raises(InvalidResponse) as error:
@@ -111,7 +111,9 @@ def test_workflow_attributes(client_env):
     requester = Requester(client_env)
     with pytest.raises(InvalidResponse) as error:
         requester.send_request(
-            app_route="/workflow/abc/workflow_attributes", message={}, request_type="put"
+            app_route="/workflow/abc/workflow_attributes",
+            message={},
+            request_type="put",
         )
         assert "Unexpected status code 400" in str(error.value)
 

@@ -14,6 +14,9 @@ class Node(Base):
     node_args_hash = Column(VARCHAR(50))
 
     __table_args__ = (
-        UniqueConstraint('task_template_version_id', 'node_args_hash',
-                         name='uc_task_template_version_id_node_args_hash'),
+        UniqueConstraint(
+            "task_template_version_id",
+            "node_args_hash",
+            name="uc_task_template_version_id_node_args_hash",
+        ),
     )

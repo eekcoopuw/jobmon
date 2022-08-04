@@ -16,12 +16,10 @@ def get_cluster_by_name(cluster_name: str) -> Any:
     """Get the id, cluster_type_name and connection_parameters of a Cluster."""
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            Cluster
-        ).join(
-            ClusterType, Cluster.cluster_type_id == ClusterType.id
-        ).filter(
-            Cluster.name == cluster_name
+        select_stmt = (
+            select(Cluster)
+            .join(ClusterType, Cluster.cluster_type_id == ClusterType.id)
+            .filter(Cluster.name == cluster_name)
         )
         cluster = session.execute(select_stmt).scalars().one_or_none()
 

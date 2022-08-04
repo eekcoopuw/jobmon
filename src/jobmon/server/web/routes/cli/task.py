@@ -1,10 +1,10 @@
 """Routes for Tasks."""
 from http import HTTPStatus as StatusCodes
 import json
-import pandas as pd
 from typing import Any, cast, Dict, List, Set
 
 from flask import jsonify, request
+import pandas as pd
 from sqlalchemy import func, select, update
 from sqlalchemy.orm import Session
 import structlog
@@ -53,16 +53,16 @@ def get_task_status() -> Any:
     task_ids = request.args.getlist("task_ids")
     if len(task_ids) == 0:
         raise InvalidUsage(f"Missing {task_ids} in request", status_code=400)
-    params = {"task_ids": task_ids}
-    where_clause = "task.id IN :task_ids"
 
     # status is an optional arg
     status_request = request.args.getlist("status", None)
 
     session = SessionLocal()
     with session.begin():
-        query_filter = [Task.id == TaskInstance.task_id,
-                        TaskInstanceStatus.id == TaskInstance.status]
+        query_filter = [
+            Task.id == TaskInstance.task_id,
+            TaskInstanceStatus.id == TaskInstance.status,
+        ]
         if status_request:
             if len(status_request) > 0:
                 status_codes = [
@@ -70,30 +70,47 @@ def get_task_status() -> Any:
                     for arg in status_request
                     for i in _reversed_task_instance_label_mapping[arg]
                 ]
-            query_filter.append(TaskInstance.status.in_([i for arg in status_request for i in status_codes]))
+            query_filter.append(
+                TaskInstance.status.in_(
+                    [i for arg in status_request for i in status_codes]
+                )
+            )
 
         if task_ids:
             query_filter.append(Task.id.in_(task_ids))
         sql = (
-            select(Task.id,
-                   Task.status,
-                   TaskInstance.id,
-                   TaskInstance.distributor_id,
-                   TaskInstanceStatus.label,
-                   TaskInstance.usage_str,
-                   TaskInstance.stdout,
-                   TaskInstance.stderr,
-                   TaskInstanceErrorLog.description
-                   ).join_from(TaskInstance,
-                               TaskInstanceErrorLog,
-                               TaskInstance.id == TaskInstanceErrorLog.task_instance_id,
-                               isouter=True
-                               ).where(*query_filter)
+            select(
+                Task.id,
+                Task.status,
+                TaskInstance.id,
+                TaskInstance.distributor_id,
+                TaskInstanceStatus.label,
+                TaskInstance.usage_str,
+                TaskInstance.stdout,
+                TaskInstance.stderr,
+                TaskInstanceErrorLog.description,
+            )
+            .join_from(
+                TaskInstance,
+                TaskInstanceErrorLog,
+                TaskInstance.id == TaskInstanceErrorLog.task_instance_id,
+                isouter=True,
+            )
+            .where(*query_filter)
         )
         rows = session.execute(sql).all()
-        
-    column_names = ("TASK_ID", "task_status", "TASK_INSTANCE_ID", "DISTRIBUTOR_ID", "STATUS", "RESOURCE_USAGE",
-                    "STDOUT", "STDERR", "ERROR_TRACE")
+
+    column_names = (
+        "TASK_ID",
+        "task_status",
+        "TASK_INSTANCE_ID",
+        "DISTRIBUTOR_ID",
+        "STATUS",
+        "RESOURCE_USAGE",
+        "STDOUT",
+        "STDERR",
+        "ERROR_TRACE",
+    )
     if rows and len(rows) > 0:
         # assign to dataframe for serialization
         df = pd.DataFrame(rows, columns=column_names)
@@ -125,15 +142,16 @@ def get_task_subdag() -> Any:
         task_status = []
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            Task.workflow_id.label("workflow_id"),
-            Workflow.dag_id.label("dag_id"),
-            func.group_concat(Task.node_id).label("node_ids"),
-        ).join_from(
-            Task, Workflow, Task.workflow_id == Workflow.id
-        ).where(
-            Task.id.in_(task_ids)
-        ).group_by(Task.workflow_id, Workflow.dag_id)
+        select_stmt = (
+            select(
+                Task.workflow_id.label("workflow_id"),
+                Workflow.dag_id.label("dag_id"),
+                func.group_concat(Task.node_id).label("node_ids"),
+            )
+            .join_from(Task, Workflow, Task.workflow_id == Workflow.id)
+            .where(Task.id.in_(task_ids))
+            .group_by(Task.workflow_id, Workflow.dag_id)
+        )
         result = session.execute(select_stmt).one_or_none()
 
         if not result:
@@ -148,7 +166,9 @@ def get_task_subdag() -> Any:
         dag_id = result.dag_id
         node_ids = [int(node_id) for node_id in result.node_ids.split(",")]
         sub_dag_tree = _get_subdag(set(node_ids), dag_id, session)
-        sub_task_tree = _get_tasks_from_nodes(workflow_id, sub_dag_tree, task_status, session)
+        sub_task_tree = _get_tasks_from_nodes(
+            workflow_id, sub_dag_tree, task_status, session
+        )
 
     resp = jsonify(workflow_id=workflow_id, sub_task=sub_task_tree)
     resp.status_code = StatusCodes.OK
@@ -173,39 +193,32 @@ def update_task_statuses() -> Any:
     with SessionLocal.begin():
 
         try:
-            update_stmt = update(
-                Task
-            ).where(
-                Task.id.in_(task_ids)
-            )
+            update_stmt = update(Task).where(Task.id.in_(task_ids))
             vals = {"status": new_status}
             session.execute(update_stmt.values(**vals))
 
             # If job is supposed to be rerun, set task instances to "K"
             if new_status == constants.TaskStatus.REGISTERING:
-                task_instance_update_stmt = update(
-                    TaskInstance
-                ).where(
+                task_instance_update_stmt = update(TaskInstance).where(
                     TaskInstance.task_id.in_(task_ids),
-                    TaskInstance.status.notin_([
-                        constants.TaskInstanceStatus.ERROR_FATAL,
-                        constants.TaskInstanceStatus.DONE,
-                        constants.TaskInstanceStatus.ERROR,
-                        constants.TaskInstanceStatus.UNKNOWN_ERROR,
-                        constants.TaskInstanceStatus.RESOURCE_ERROR,
-                        constants.TaskInstanceStatus.KILL_SELF,
-                        constants.TaskInstanceStatus.NO_DISTRIBUTOR_ID,
+                    TaskInstance.status.notin_(
+                        [
+                            constants.TaskInstanceStatus.ERROR_FATAL,
+                            constants.TaskInstanceStatus.DONE,
+                            constants.TaskInstanceStatus.ERROR,
+                            constants.TaskInstanceStatus.UNKNOWN_ERROR,
+                            constants.TaskInstanceStatus.RESOURCE_ERROR,
+                            constants.TaskInstanceStatus.KILL_SELF,
+                            constants.TaskInstanceStatus.NO_DISTRIBUTOR_ID,
                         ]
-                    )
+                    ),
                 )
                 vals = {"status": constants.TaskInstanceStatus.KILL_SELF}
                 session.execute(task_instance_update_stmt.values(**vals))
 
                 # If workflow is done, need to set it to an error state before resume
                 if workflow_status == constants.WorkflowStatus.DONE:
-                    workflow_update_stmt = update(
-                        Workflow
-                    ).where(
+                    workflow_update_stmt = update(Workflow).where(
                         Workflow.id == workflow_id
                     )
                     vals = {"status": constants.WorkflowStatus.FAILED}
@@ -232,7 +245,9 @@ def get_task_dependencies(task_id: int) -> Any:
         up_nodes = _get_node_uptream({node_id}, dag_id, session)
         down_nodes = _get_node_downstream({node_id}, dag_id, session)
         up_task_dict = _get_tasks_from_nodes(workflow_id, list(up_nodes), [], session)
-        down_task_dict = _get_tasks_from_nodes(workflow_id, list(down_nodes), [], session)
+        down_task_dict = _get_tasks_from_nodes(
+            workflow_id, list(down_nodes), [], session
+        )
     # return a "standard" json format so that it can be reused by future GUI
     up = (
         []
@@ -283,16 +298,18 @@ def get_task_resource_usage() -> Any:
 
     session = SessionLocal()
     with SessionLocal.begin():
-        select_stmt = select(
-            Task.num_attempts,
-            TaskInstance.nodename,
-            TaskInstance.wallclock,
-            TaskInstance.maxpss
-        ).join_from(
-            Task, TaskInstance, Task.id == TaskInstance.task_id
-        ).where(
-            TaskInstance.task_id == task_id,
-            TaskInstance.status == constants.TaskInstanceStatus.DONE
+        select_stmt = (
+            select(
+                Task.num_attempts,
+                TaskInstance.nodename,
+                TaskInstance.wallclock,
+                TaskInstance.maxpss,
+            )
+            .join_from(Task, TaskInstance, Task.id == TaskInstance.task_id)
+            .where(
+                TaskInstance.task_id == task_id,
+                TaskInstance.status == constants.TaskInstanceStatus.DONE,
+            )
         )
         result = session.execute(select_stmt).one_or_none()
 
@@ -350,14 +367,10 @@ def _get_tasks_recursive(task_ids: Set[int], direction: str, session: Session) -
 
 
 def _get_dag_and_wf_id(task_id: int, session: Session) -> tuple:
-    select_stmt = select(
-        Workflow.dag_id,
-        Task.workflow_id,
-        Task.node_id
-    ).join_from(
-        Task, Workflow, Task.workflow_id == Workflow.id
-    ).where(
-        Task.id == task_id
+    select_stmt = (
+        select(Workflow.dag_id, Task.workflow_id, Task.node_id)
+        .join_from(Task, Workflow, Task.workflow_id == Workflow.id)
+        .where(Task.id == task_id)
     )
     row = session.execute(select_stmt).one_or_none()
 
@@ -372,12 +385,10 @@ def _get_node_downstream(nodes: set, dag_id: int, session: Session) -> Set[int]:
     Args:
         nodes (set): set of nodes
         dag_id (int): ID of DAG
+        session (Session): SQLAlchemy session
     """
-    select_stmt = select(
-        Edge.downstream_node_ids
-    ).where(
-        Edge.dag_id == dag_id,
-        Edge.node_id.in_(list(nodes))
+    select_stmt = select(Edge.downstream_node_ids).where(
+        Edge.dag_id == dag_id, Edge.node_id.in_(list(nodes))
     )
     result = session.execute(select_stmt).all()
     node_ids: Set[int] = set()
@@ -394,11 +405,8 @@ def _get_node_uptream(nodes: set, dag_id: int, session: Session) -> Set[int]:
     :param node_id:
     :return: a list of node_id
     """
-    select_stmt = select(
-        Edge.upstream_node_ids
-    ).where(
-        Edge.dag_id == dag_id,
-        Edge.node_id.in_(list(nodes))
+    select_stmt = select(Edge.upstream_node_ids).where(
+        Edge.dag_id == dag_id, Edge.node_id.in_(list(nodes))
     )
     result = session.execute(select_stmt).scalars().all()
     node_ids: Set[int] = set()
@@ -417,6 +425,7 @@ def _get_subdag(node_ids: list, dag_id: int, session: Session) -> list:
     Args:
         node_ids (list): list of node IDs
         dag_id (int): ID of DAG
+        session (Session): SQLAlchemy sessions
     """
     node_set = set(node_ids)
     node_descendants = node_set
@@ -427,10 +436,7 @@ def _get_subdag(node_ids: list, dag_id: int, session: Session) -> list:
 
 
 def _get_tasks_from_nodes(
-    workflow_id: int,
-    nodes: List,
-    task_status: List,
-    session: Session
+    workflow_id: int, nodes: List, task_status: List, session: Session
 ) -> dict:
     """Get task ids of the given node ids.
 
@@ -438,16 +444,13 @@ def _get_tasks_from_nodes(
         workflow_id (int): ID of the workflow
         nodes (list): list of nodes
         task_status (list): list of task statuses
+        session (Session): SQLAlchemy session
     """
     if not nodes:
         return {}
 
-    select_stmt = select(
-        Task.id,
-        Task.status
-    ).where(
-        Task.workflow_id == workflow_id,
-        Task.node_id.in_(list(nodes))
+    select_stmt = select(Task.id, Task.status).where(
+        Task.workflow_id == workflow_id, Task.node_id.in_(list(nodes))
     )
 
     result = session.execute(select_stmt).all()
@@ -463,7 +466,7 @@ def _get_tasks_from_nodes(
 
 
 @blueprint.route("/task/get_downstream_tasks", methods=["GET"])
-def get_downstream_tasks():
+def get_downstream_tasks() -> Any:
     """Get only the direct downstreams of a task."""
     task_ids = request.args.getlist("task_ids")
     dag_id = request.args.get("dag_id")
@@ -471,19 +474,14 @@ def get_downstream_tasks():
     with session.begin():
 
         tasks_and_edges = session.execute(
-            select(
-                Task.id,
-                Task.node_id,
-                Edge.downstream_node_ids
-            ).where(
+            select(Task.id, Task.node_id, Edge.downstream_node_ids).where(
                 Task.id.in_(task_ids),
                 Task.node_id == Edge.node_id,
-                Edge.dag_id == dag_id
+                Edge.dag_id == dag_id,
             )
         ).all()
         result = {
-            row.id: [row.node_id, row.downstream_node_ids]
-            for row in tasks_and_edges
+            row.id: [row.node_id, row.downstream_node_ids] for row in tasks_and_edges
         }
 
     resp = jsonify(downstream_tasks=result)
