@@ -6,6 +6,7 @@ from typing import Any, cast, Dict, List, Set, Union
 from flask import jsonify, request
 from sqlalchemy import desc, insert, select, tuple_, update
 from sqlalchemy.sql import func
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import DataError, IntegrityError
@@ -208,7 +209,7 @@ def bind_tasks() -> Any:
         if attrs_to_add:
             try:
                 if SessionLocal.bind.dialect.name == "mysql":
-                    attr_insert_stmt = insert(TaskAttribute).values(attrs_to_add)
+                    attr_insert_stmt = mysql_insert(TaskAttribute).values(attrs_to_add)
                     attr_insert_stmt = attr_insert_stmt.on_duplicate_key_update(
                         val=attr_insert_stmt.inserted.val
                     )
