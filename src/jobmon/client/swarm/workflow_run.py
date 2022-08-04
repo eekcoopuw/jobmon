@@ -264,6 +264,7 @@ class WorkflowRun:
         self.workflow_id = workflow_id
         self.max_concurrently_running = max_concurrently_running
         self.dag_id = dag_id
+        logger.info(f"Initialized Swarm(workflow_id={workflow_id}, dag_id={dag_id})")
 
     def set_tasks_from_db(self, chunk_size: int = 500) -> None:
         """Pull the tasks that need to be run associated with this workflow.
@@ -275,6 +276,7 @@ class WorkflowRun:
         cluster_registry: Dict[str, Cluster] = {}
         all_tasks_returned = False
         max_task_id = 0
+        logger.info(f"Fetching tasks from the database")
         while not all_tasks_returned:
 
             # TODO: make this an asynchronous context manager, avoid duplicating code
@@ -282,6 +284,9 @@ class WorkflowRun:
                 time.time() - self._last_heartbeat_time
             ) > self._workflow_run_heartbeat_interval:
                 self._log_heartbeat()
+                logger.info(
+                    f"Still fetching tasks, {len(self.tasks)} collected so far..."
+                )
 
             _, resp = self._requester.send_request(
                 app_route=f"/workflow/get_tasks/{self.workflow_id}",
@@ -359,6 +364,7 @@ class WorkflowRun:
 
                 # Add to correct status queue
                 self._task_status_map[st.status].add(st)
+        logger.info("All tasks fetched")
 
     def set_downstreams_from_db(self, chunk_size: int = 500) -> None:
         """Pull downstream edges from the database associated with the workflow."""
@@ -371,12 +377,14 @@ class WorkflowRun:
 
         start_idx, end_idx = 0, chunk_size
         task_ids = list(self.tasks.keys())
+        logger.info("Setting dependencies on tasks")
         while start_idx < len(task_ids):
             # Log heartbeats if needed
             if (
                 time.time() - self._last_heartbeat_time
             ) > self._workflow_run_heartbeat_interval:
                 self._log_heartbeat()
+                logger.info("Still fetching edges from the database...")
             task_id_chunk = task_ids[start_idx:end_idx]
             start_idx = end_idx
             end_idx += chunk_size
@@ -404,6 +412,7 @@ class WorkflowRun:
         # NOTE: only tasks that are not in status "DONE" are returned. This means the created
         # dependency graph is not the full DAG, only a subset of the tasks that still need to
         # complete.
+        logger.info("All edges fetched from the database, starting to build the graph")
 
         for task_id, swarm_task in self.tasks.items():
             downstream_edges = task_edge_map[task_id]
@@ -415,6 +424,8 @@ class WorkflowRun:
                     downstream_swarm_task = self.tasks[downstream_task_id]
                     swarm_task.downstream_swarm_tasks.add(downstream_swarm_task)
                     downstream_swarm_task.num_upstreams += 1
+
+        logger.info("Task DAG fully constructed, swarm is ready to run")
 
     def run(
         self,

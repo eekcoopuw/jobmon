@@ -11,6 +11,7 @@ from jobmon.client.workflow import DistributorContext
 from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.constants import ExecludeTTVs, TaskStatus, WorkflowRunStatus, WorkflowStatus
 from jobmon.exceptions import InvalidResponse, WorkflowRunStateError
+from jobmon.client.logging import JobmonLoggerConfig
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
 
@@ -623,12 +624,17 @@ def get_filepaths(
 
 
 def resume_workflow_from_id(
-    workflow_id: int, cluster_name: str, reset_if_running: bool = True
+    workflow_id: int, cluster_name: str, reset_if_running: bool = True, log: bool = True
 ) -> None:
     """Given a workflow ID, resume the workflow.
 
     Raise an error if the workflow is not completed successfully on resume.
     """
+    if log:
+        JobmonLoggerConfig.attach_default_handler(
+            logger_name="jobmon", log_level=logging.INFO
+        )
+
     factory = WorkflowRunFactory(workflow_id=workflow_id)
 
     # Signal for a resume - move existing workflow runs to C or H resume depending on the input
