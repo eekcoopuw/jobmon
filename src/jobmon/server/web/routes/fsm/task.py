@@ -210,7 +210,7 @@ def bind_tasks() -> Any:
                 if SessionLocal.bind.dialect.name == "mysql":
                     attr_insert_stmt = insert(TaskAttribute).values(attrs_to_add)
                     attr_insert_stmt = attr_insert_stmt.on_duplicate_key_update(
-                        val=attr_insert_stmt.inserted.val
+                        val=attr_insert_stmt.inserted.value
                     )
                     session.execute(attr_insert_stmt)
                 elif SessionLocal.bind.dialect.name == "sqlite":
