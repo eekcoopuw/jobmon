@@ -400,7 +400,7 @@ def workflow_status_by_user(username: str) -> Any:
                 WorkflowStatus.label,
                 WorkflowRun.id,
                 WorkflowRunStatus.label,
-                Workflow.status_date
+                Workflow.status_date,
             )
             .where(
                 WorkflowRun.user == username,
