@@ -232,10 +232,13 @@ def get_workflow_status() -> Any:
     if workflow_request == "all":  # specifying all is equivalent to None
         workflow_request = []
     limit = request.args.get("limit")
+    # set default to 5 to match status_commands
+    limit = int(limit) if limit else 5
     # convert workflow request into sql filter
     if workflow_request:
         workflow_request = [int(w) for w in workflow_request]
         params["workflow_id"] = workflow_request
+        where_clause = "WHERE workflow.id in :workflow_id "
     else:  # if we don't specify workflow then we use the users
         # convert user request into sql filter
         # directly producing workflow_ids, and thus where_clause
@@ -243,48 +246,66 @@ def get_workflow_status() -> Any:
             session = SessionLocal()
             with session.begin():
                 query_filter = [WorkflowRun.user.in_(user_request)]
-                sql = (select(WorkflowRun.workflow_id).where(*query_filter)).distinct()
+                sql = (
+                    select(WorkflowRun.workflow_id).where(*query_filter)
+                ).distinct().limit(limit)
                 rows = session.execute(sql).all()
             workflow_request = [int(row[0]) for row in rows]
-
-    # execute query
+    # performance improvement one: only query the limited number of workflows
+    workflow_request = workflow_request[: limit]
+    # performance improvement two: split query
     session = SessionLocal()
     with session.begin():
-        query_filter = [
-            Workflow.id == Task.workflow_id,
-            WorkflowStatus.id == Workflow.status,
-            Workflow.id.in_(workflow_request),
-        ]
+        query_filter = [Workflow.id.in_(workflow_request),
+                        WorkflowStatus.id == Workflow.status]
         sql = (
             select(
                 Workflow.id,
                 Workflow.name,
                 WorkflowStatus.label,
+                Workflow.created_date
+            )
+        ).where(*query_filter)
+        rows1 = session.execute(sql).all()
+    row_map = dict()
+    for r in rows1:
+        row_map[r[0]] = r
+    session = SessionLocal()
+    with session.begin():
+        query_filter = [Task.workflow_id.in_(workflow_request),
+                       ]
+        sql = (
+            select(
+                Task.workflow_id,
                 func.count(Task.status),
                 Task.status,
-                Workflow.created_date,
             ).where(*query_filter)
-        ).group_by(Workflow.id, Task.status, Workflow.name, WorkflowStatus.label)
-        rows = session.execute(sql).all()
-    column_names = ("WF_ID", "WF_NAME", "WF_STATUS", "TASKS", "STATUS", "CREATED_DATE")
-    rows = [dict(zip(column_names, ti)) for ti in rows]
+        ).group_by(Task.workflow_id, Task.status)
+        rows2 = session.execute(sql).all()
+
     res = []
-    for r in rows:
+    for r in rows2:
+        d = dict()
+        d["WF_ID"] = r[0]
+        d["WF_NAME"] = row_map[r[0]][1]
+        d["WF_STATUS"] = row_map[r[0]][2]
+        d["TASKS"] = r[1]
+        d["STATUS"] = r[2]
+        d["CREATED_DATE"] = row_map[r[0]][3]
         session = SessionLocal()
         with session.begin():
-            q_filter = [Task.workflow_id == r["WF_ID"], Task.status == r["STATUS"]]
-            q = select(Task.num_attempts).where(*q_filter)
+            q_filter = [Task.workflow_id == d["WF_ID"],
+                        Task.status == d["STATUS"]]
+            q = (
+                select(Task.num_attempts).where(*q_filter)
+            )
             query_result = session.execute(q).all()
         retries = 0
         for rr in query_result:
             retries += 0 if int(rr[0]) <= 1 else int(rr[0]) - 1
-        r["RETRIES"] = retries
-        res.append(r)
-
+        d["RETRIES"] = retries
+        res.append(d)
     if res is not None and len(res) > 0:
-        if limit:
-            res = res[: int(limit)]
-
         # assign to dataframe for aggregation
         df = pd.DataFrame(res, columns=res[0].keys())
 
