@@ -276,7 +276,7 @@ class WorkflowRun:
         cluster_registry: Dict[str, Cluster] = {}
         all_tasks_returned = False
         max_task_id = 0
-        logger.info(f"Fetching tasks from the database")
+        logger.info("Fetching tasks from the database")
         while not all_tasks_returned:
 
             # TODO: make this an asynchronous context manager, avoid duplicating code

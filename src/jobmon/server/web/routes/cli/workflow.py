@@ -400,6 +400,8 @@ def workflow_status_by_user(username: str) -> Any:
                 WorkflowStatus.label,
                 WorkflowRun.id,
                 WorkflowRunStatus.label,
+                Workflow.status_date,
+                Workflow.workflow_args,
             )
             .where(
                 WorkflowRun.user == username,
@@ -422,6 +424,8 @@ def workflow_status_by_user(username: str) -> Any:
         "wf_status",
         "wfr_id",
         "wfr_status",
+        "wf_status_date",
+        "wf_args",
     )
     # Initialize all possible states as 0. No need to return data since it will be refreshed
     # on demand anyways.

@@ -6,12 +6,12 @@ from typing import Any, Dict, List, Optional, Union
 import pandas as pd
 
 from jobmon.client.client_config import ClientConfig
+from jobmon.client.logging import JobmonLoggerConfig
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.workflow import DistributorContext
 from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.constants import ExecludeTTVs, TaskStatus, WorkflowRunStatus, WorkflowStatus
 from jobmon.exceptions import InvalidResponse, WorkflowRunStateError
-from jobmon.client.logging import JobmonLoggerConfig
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
 
