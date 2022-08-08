@@ -267,9 +267,7 @@ def _add_or_get_attribute_type(
     try:
         if SessionLocal.bind.dialect.name == "mysql":
             insert_stmt = (
-                insert(TaskAttributeType)
-                .values(attribute_types)
-                .prefix_with("IGNORE")
+                insert(TaskAttributeType).values(attribute_types).prefix_with("IGNORE")
             )
         elif SessionLocal.bind.dialect.name == "sqlite":
             insert_stmt = (
