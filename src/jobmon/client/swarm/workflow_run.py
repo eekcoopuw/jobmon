@@ -83,7 +83,7 @@ class WorkflowRun:
         fail_fast: bool = False,
         wedged_workflow_sync_interval: int = 600,
         fail_after_n_executions: int = 1_000_000_000,
-        status: str = WorkflowRunStatus.BOUND,
+        status: Optional[str] = None,
         requester: Optional[Requester] = None,
     ) -> None:
         """Initialization of the swarm WorkflowRun."""
@@ -114,6 +114,8 @@ class WorkflowRun:
         self._task_resources: Dict[int, TaskResources] = {}
 
         # workflow run attributes
+        if status is None:
+            status = WorkflowRunStatus.BOUND
         self._status = status
         self._last_heartbeat_time = time.time()
 

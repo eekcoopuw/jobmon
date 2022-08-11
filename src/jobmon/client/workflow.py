@@ -430,14 +430,13 @@ class Workflow(object):
         distributor_startup_timeout: int = 180,
         resume_timeout: int = 300,
         configure_logging: bool = False,
-    ) -> str:
+    ) -> Optional[str]:
         """Run the workflow.
 
         Traverse the dag and submitting new tasks when their tasks have completed successfully.
 
         Args:
-            fail_fast: whether or not to break out of distributor on
-                first failure
+            fail_fast: whether to break out of distributor on first failure.
             seconds_until_timeout: amount of time (in seconds) to wait
                 until the whole workflow times out. Submitted jobs will
                 continue
