@@ -24,7 +24,7 @@ class WorkerNodeConfig:
             with redirect_stderr(io.StringIO()):
                 args = cli.parse_args("")
         except SystemExit:
-            args = install_default_config_from_plugin(cli)
+            install_default_config_from_plugin(cli.parser)
 
         return cls(
             task_instance_heartbeat_interval=args.task_instance_heartbeat_interval,

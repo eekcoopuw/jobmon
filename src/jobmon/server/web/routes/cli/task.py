@@ -165,7 +165,7 @@ def get_task_subdag() -> Any:
         workflow_id = result.workflow_id
         dag_id = result.dag_id
         node_ids = [int(node_id) for node_id in result.node_ids.split(",")]
-        sub_dag_tree = _get_subdag(set(node_ids), dag_id, session)
+        sub_dag_tree = _get_subdag(node_ids, dag_id, session)
         sub_task_tree = _get_tasks_from_nodes(
             workflow_id, sub_dag_tree, task_status, session
         )

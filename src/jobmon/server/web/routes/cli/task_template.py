@@ -78,6 +78,10 @@ def get_requested_cores() -> Any:
     """Get the min, max, and arg of requested cores."""
     # parse args
     ttvis = request.args.get("task_template_version_ids")
+    if ttvis is None:
+        raise ValueError(
+            "No task_template_version_ids returned in /get_requested_cores"
+        )
     ttvis = [int(i) for i in ttvis[1:-1].split(",")]
     # null core should be treated as 1 instead of 0
     session = SessionLocal()
@@ -126,6 +130,10 @@ def get_most_popular_queue() -> Any:
     """Get the most popular queue of the task template."""
     # parse args
     ttvis = request.args.get("task_template_version_ids")
+    if ttvis is None:
+        raise ValueError(
+            "No task_template_version_ids returned in /get_most_popular_queue."
+        )
     ttvis = [int(i) for i in ttvis[1:-1].split(",")]
     session = SessionLocal()
     with session.begin():

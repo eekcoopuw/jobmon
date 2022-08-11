@@ -138,7 +138,7 @@ class WorkflowRun:
         self.initialized = False  # Need to call from_workflow or from_workflow_id
 
     @property
-    def status(self) -> str:
+    def status(self) -> Optional[str]:
         """Status of the workflow run."""
         return self._status
 

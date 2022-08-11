@@ -130,7 +130,7 @@ class WorkflowRun(object):
         self.heartbeat_interval = workflow_run_heartbeat_interval
         self.heartbeat_report_by_buffer = heartbeat_report_by_buffer
         self._workflow_run_id = None
-        self._status = None
+        self._status: Optional[str] = None
 
     @property
     def workflow_run_id(self) -> int:
