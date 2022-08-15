@@ -408,7 +408,6 @@ def get_workflow_status_viz() -> Any:
 @blueprint.route("/workflow_status_viz/<username>", methods=["GET"])
 def workflow_status_by_user(username: str) -> Any:
     """Fetch associated workflows and workflow runs by username."""
-    number_workflows = request.args.get("limit", 100)
     session = SessionLocal()
     with session.begin():
 
@@ -433,7 +432,6 @@ def workflow_status_by_user(username: str) -> Any:
                 WorkflowRun.status == WorkflowRunStatus.id,
             )
             .order_by(WorkflowRun.id.desc())
-            .limit(number_workflows)
         )
         rows = session.execute(sql).all()
 
