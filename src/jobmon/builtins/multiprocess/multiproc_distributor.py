@@ -338,7 +338,7 @@ class MultiprocessDistributor(ClusterDistributor):
         job_id = self._next_job_id
         self._next_job_id += 1
 
-        mapping: Dict[int, Tuple[str, str, str]] = {}
+        mapping: Dict[int, Tuple[str, Optional[str], Optional[str]]] = {}
         for array_step_id in range(0, array_length):
             distributor_id = self._get_subtask_id(job_id, array_step_id)
             logfiles: Dict = {}

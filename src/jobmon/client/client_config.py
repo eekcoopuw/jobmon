@@ -26,7 +26,7 @@ class ClientConfig(object):
             with redirect_stderr(io.StringIO()):
                 args = cli.parse_args("")
         except SystemExit:
-            args = install_default_config_from_plugin(cli)
+            install_default_config_from_plugin(cli.parser)
 
         return cls(
             host=args.web_service_fqdn,
@@ -42,7 +42,7 @@ class ClientConfig(object):
         port: int,
         workflow_run_heartbeat_interval: Optional[int] = None,
         heartbeat_report_by_buffer: Optional[float] = None,
-        tenacity_max_retries: Optional[int] = 0,
+        tenacity_max_retries: int = 0,
     ) -> None:
         """Initialization of ClientConfig."""
         self.host = host

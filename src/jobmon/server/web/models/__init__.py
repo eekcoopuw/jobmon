@@ -40,7 +40,7 @@ def add_string_length_constraint(Base: DeclarativeMeta, cls_: Any) -> None:
 def load_model() -> None:
     """Iterate through the modules in the current package."""
     package_dir = Path(__file__).resolve().parent
-    for (_, module_name, _) in iter_modules([package_dir]):
+    for (_, module_name, _) in iter_modules([str(package_dir)]):
         import_module(f"{__name__}.{module_name}")
 
 

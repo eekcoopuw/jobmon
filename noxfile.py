@@ -87,7 +87,8 @@ def typecheck(session: Session) -> None:
     args = session.posargs or src_locations
     session.install("-e", ".")
     session.install("mypy", "types-Flask", "types-requests", "types-PyMySQL", "types-filelock",
-                    "types-PyYAML", "types-setuptools", "types-tabulate")
+                    "types-PyYAML", "types-setuptools", "types-tabulate", "types-psutil",
+                    "types-Flask-Cors")
     session.run("mypy", *args)
 
 
