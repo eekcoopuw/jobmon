@@ -108,3 +108,32 @@ def init_db(engine: Engine) -> None:
                 loader(session)
                 session.flush()
             session.commit()
+
+
+def term_db(engine: Engine) -> None:
+    """Terminate/drop a dev database."""
+
+    print("in term_db")
+
+    # dialect specific init logic
+    if engine.dialect.name == "mysql":
+        # event.remove(Base, "instrument_class", add_string_length_constraint)
+
+        print("in if")
+
+        if not engine.url.database:
+            raise ValueError("Engine url must include database when calling term_db.")
+
+        print(f"                                     engine.url.database = {engine.url.database}")
+
+        with engine.connect() as conn:
+
+            print(f"                                     conn = {conn}")
+            print(f"                                     engine.url.database = {engine.url.database}")
+            #
+            # no_schema_engine = create_engine(
+            #     str(engine.url).replace(engine.url.database, "")
+            # )
+            # drop_db_query = f"DROP DATABASE {engine.url.database}"
+            # with no_schema_engine.connect() as conn:
+            #     conn.execute(text(drop_db_query))

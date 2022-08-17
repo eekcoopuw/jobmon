@@ -89,6 +89,13 @@ class ServerCLI(CLI):
 
         init_db(sqlalchemy.create_engine(args.sqlalchemy_database_uri))
 
+    def term_db(self, args: configargparse.Namespace) -> None:
+        """Entrypoint to terminate a Jobmon database."""
+        import sqlalchemy
+        from jobmon.server.web.models import term_db
+
+        term_db(sqlalchemy.create_engine(args.sqlalchemy_database_uri))
+
     def _add_web_service_subparser(self) -> None:
         web_service_parser = self._subparsers.add_parser("web_service", **PARSER_KWARGS)
         web_service_parser.set_defaults(func=self.web_service)
