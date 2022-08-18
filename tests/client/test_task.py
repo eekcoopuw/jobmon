@@ -322,25 +322,27 @@ def test_binding_length(db_engine, client_env, tool):
 def test_binding_tasks(db_engine, client_env, tool):
     tt = tool.get_task_template(
         template_name="test_tt",
-        command_template="echo {arg}",
-        task_args=["arg"]
+        command_template="{arg1} {arg2} {arg3}",
+        node_args=["arg1"],
+        task_args=["arg2", "arg3"]
     )
-    task1 = tt.create_task(name="foo", task_attributes={"aa": "a"}, arg="abc")
+    task1 = tt.create_task(name="foo", task_attributes={"aa": "a"}, arg1="abc", arg2="def", arg3="ghi")
     wf = tool.create_workflow()
     wf.add_task(task1)
     wf.bind()
-    wf._bind_tasks_old()
-    # verify the task is correctly binded, so are the args
+    wf._bind_tasks()
+    # verify the task is correctly bind, so are the args
     assert task1.task_id is not None
     with Session(bind=db_engine) as session:
-    # verify attribute
+        # verify attribute
         mysql = f"select value from task_attribute where task_id={task1.task_id}"
         rows = session.execute(mysql).fetchall()
-
         assert len(rows[0]) == 1
         assert rows[0][0] == "a"
         # verify args
         mysql = f"select val from task_arg where task_id={task1.task_id}"
         rows = session.execute(mysql).fetchall()
-        assert rows[0][0] == "abc"
+        print(f"!!!!!!!!!!!!!{rows}")
+        assert rows[0][0] == "def"
+        assert rows[1][0] == "ghi"
 

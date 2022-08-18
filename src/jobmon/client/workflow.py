@@ -652,6 +652,88 @@ class Workflow(object):
         reset_if_running: bool = True,
         chunk_size: int = 500,
     ) -> None:
+        app_route_trip_1 = "/task/bind_tasks_no_args"
+        app_route_trip_2 = "/task/bind_tasks_args"
+        remaining_task_hashes = list(self.tasks.keys())
+
+        while remaining_task_hashes:
+
+            # split off first chunk elements from queue.
+            task_hashes_chunk = remaining_task_hashes[:chunk_size]
+            remaining_task_hashes = remaining_task_hashes[chunk_size:]
+
+            # If this is the last chunk, mark the created_date field in the
+            # database.
+            mark_created = len(remaining_task_hashes) == 0
+
+            # send to server in a format of:
+            # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), array_id(3),
+            # name(4), command(5), max_attempts(6)], reset_if_running(7), task_args(8),
+            # task_attributes(9), resource_scales(10), fallback_queues(11)}
+            # flat the data structure so that the server won't depend on the client
+            task_metadata_trip_1: Dict[int, List] = {}
+            task_metadata_trip_2: Dict[int, List] = {}
+            for task_hash in task_hashes_chunk:
+                task = self.tasks[task_hash]
+
+                # get array id
+                array = task.array
+                if not array.is_bound:
+                    array.bind()
+
+                # get task resources id
+                self._set_original_task_resources(task)
+
+                task_metadata_trip_1[task_hash] = [
+                    task.node.node_id,
+                    str(task.task_args_hash),
+                    task.array.array_id,
+                    task.original_task_resources.id,
+                    task.name,
+                    task.command,
+                    task.max_attempts,
+                    reset_if_running,
+                    task.resource_scales,
+                    task.fallback_queues,
+                ]
+                task_metadata_trip_2[task_hash] = [
+                    task.mapped_task_args,
+                    task.task_attributes,
+                ]
+
+            parameters = {
+                "workflow_id": self.workflow_id,
+                "tasks": task_metadata_trip_1,
+                "mark_created": mark_created,
+            }
+            return_code, response = self.requester.send_request(
+                app_route=app_route_trip_1,
+                message=parameters,
+                request_type="put",
+            )
+
+            # populate returned values onto task dict
+            trip2_dict: Dict[int, List] = {}
+            return_tasks = response["tasks"]
+            for k in return_tasks.keys():
+                task = self.tasks[int(k)]
+                task.task_id = return_tasks[k][0]
+                task.initial_status = return_tasks[k][1]
+                trip2_dict[return_tasks[k][0]] = task_metadata_trip_2[int(k)]
+
+            return_code, _ = self.requester.send_request(
+                app_route=app_route_trip_2,
+                message={"workflow_id": self.workflow_id,
+                         "task_attr_args": trip2_dict},
+                request_type="put",
+            )
+            logger.info(return_code)
+
+    def _bind_tasks_old(
+        self,
+        reset_if_running: bool = True,
+        chunk_size: int = 500,
+    ) -> None:
         app_route = "/task/bind_tasks"
         remaining_task_hashes = list(self.tasks.keys())
 
