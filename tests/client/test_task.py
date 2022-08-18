@@ -317,3 +317,30 @@ def test_binding_length(db_engine, client_env, tool):
     exc_msg = resp2.value.args[0]
     assert "Task attributes are constrained to 255 characters" in exc_msg
     assert "Unexpected status code 400" in exc_msg
+
+
+def test_binding_tasks(db_engine, client_env, tool):
+    tt = tool.get_task_template(
+        template_name="test_tt",
+        command_template="echo {arg}",
+        task_args=["arg"]
+    )
+    task1 = tt.create_task(name="foo", task_attributes={"aa": "a"}, arg="abc")
+    wf = tool.create_workflow()
+    wf.add_task(task1)
+    wf.bind()
+    wf._bind_tasks_old()
+    # verify the task is correctly binded, so are the args
+    assert task1.task_id is not None
+    with Session(bind=db_engine) as session:
+    # verify attribute
+        mysql = f"select value from task_attribute where task_id={task1.task_id}"
+        rows = session.execute(mysql).fetchall()
+
+        assert len(rows[0]) == 1
+        assert rows[0][0] == "a"
+        # verify args
+        mysql = f"select val from task_arg where task_id={task1.task_id}"
+        rows = session.execute(mysql).fetchall()
+        assert rows[0][0] == "abc"
+
