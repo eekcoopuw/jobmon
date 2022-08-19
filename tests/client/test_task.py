@@ -343,6 +343,7 @@ def test_binding_tasks(db_engine, client_env, tool):
         mysql = f"select val from task_arg where task_id={task1.task_id}"
         rows = session.execute(mysql).fetchall()
         print(f"!!!!!!!!!!!!!{rows}")
-        assert rows[0][0] == "def"
-        assert rows[1][0] == "ghi"
+        result_set = {rows[0][0], rows[1][0]}
+        assert result_set == {"def", "ghi"}
+
 

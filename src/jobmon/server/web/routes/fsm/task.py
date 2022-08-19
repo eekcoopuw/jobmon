@@ -166,6 +166,8 @@ def bind_tasks_no_args() -> Any:
 
 @blueprint.route("/task/bind_tasks_args", methods=["PUT"])
 def bind_tasks_attr_args() -> Any:
+    import time
+    t1 = time.time()
     all_data = cast(Dict, request.get_json())
     tasks_attr_args = all_data["task_attr_args"]
     workflow_id = int(all_data["workflow_id"])
@@ -176,8 +178,8 @@ def bind_tasks_attr_args() -> Any:
 
     session = SessionLocal()
     with session.begin():
+        all_type_attr_maps = dict()
         for id in tasks_attr_args.keys():
-
             task_id = int(id)
             args, attrs = tasks_attr_args[id]
 
@@ -187,10 +189,20 @@ def bind_tasks_attr_args() -> Any:
 
             attr_names = set([name for x in tasks_attr_args.values() for name in x[1]])
             if attr_names:
-                task_attributes_types = _add_or_get_attribute_type(attr_names, session)
+                # only send not mapped attrs to db
+                subset_attr = set()
+                for attr in attr_names:
+                    if attr in all_type_attr_maps.keys():
+                        pass
+                    else:
+                        subset_attr.add(attr)
+                if len(subset_attr) > 0:
+                    subset_task_attributes_types = _add_or_get_attribute_type(subset_attr, session)
+                    dict_subset_task_attributes_types = {ta.name: ta.id for ta in subset_task_attributes_types}
+                    all_type_attr_maps = {**all_type_attr_maps, **dict_subset_task_attributes_types}
 
                 # Map name to ID from resultant list
-                task_attr_type_mapping = {ta.name: ta.id for ta in task_attributes_types}
+                task_attr_type_mapping = {attr: all_type_attr_maps[attr] for attr in all_type_attr_maps}
             else:
                 task_attr_type_mapping = {}
 
@@ -261,6 +273,8 @@ def bind_tasks_attr_args() -> Any:
                     f"that are too long. Message: {str(e)}",
                     status_code=400,
                 ) from e
+        t2 = time.time()
+        logger.warn(f"^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^{t2-t1}")
         resp = jsonify()
         resp.status_code = StatusCodes.OK
         return resp
