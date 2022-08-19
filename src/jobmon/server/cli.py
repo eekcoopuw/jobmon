@@ -24,7 +24,7 @@ class ServerCLI(CLI):
         self._add_workflow_reaper_subparser()
         self._add_integrator_subparser()
         self._add_init_db_subparser()
-        self._add_term_db_subparser()
+        self._add_terminate_db_subparser()
 
     def web_service(self, args: configargparse.Namespace) -> None:
         """Web service entrypoint logic."""
@@ -90,12 +90,12 @@ class ServerCLI(CLI):
 
         init_db(sqlalchemy.create_engine(args.sqlalchemy_database_uri))
 
-    def term_db(self, args: configargparse.Namespace) -> None:
+    def terminate_db(self, args: configargparse.Namespace) -> None:
         """Entrypoint to terminate a Jobmon database."""
         import sqlalchemy
-        from jobmon.server.web.models import term_db
+        from jobmon.server.web.models import terminate_db
 
-        term_db(sqlalchemy.create_engine(args.sqlalchemy_database_uri))
+        terminate_db(sqlalchemy.create_engine(args.sqlalchemy_database_uri))
 
     def _add_web_service_subparser(self) -> None:
         web_service_parser = self._subparsers.add_parser("web_service", **PARSER_KWARGS)
@@ -150,9 +150,9 @@ class ServerCLI(CLI):
         web_service_parser.set_defaults(func=self.init_db)
         ParserDefaults.sqlalchemy_database_uri(web_service_parser)
 
-    def _add_term_db_subparser(self) -> None:
-        web_service_parser = self._subparsers.add_parser("term_db", **PARSER_KWARGS)
-        web_service_parser.set_defaults(func=self.term_db)
+    def _add_terminate_db_subparser(self) -> None:
+        web_service_parser = self._subparsers.add_parser("terminate_db", **PARSER_KWARGS)
+        web_service_parser.set_defaults(func=self.terminate_db)
         ParserDefaults.sqlalchemy_database_uri(web_service_parser)
 
 def main(argstr: Optional[str] = None) -> None:

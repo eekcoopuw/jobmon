@@ -110,7 +110,7 @@ def init_db(engine: Engine) -> None:
             session.commit()
 
 
-def term_db(engine: Engine) -> None:
+def terminate_db(engine: Engine) -> None:
     """Terminate/drop a dev database."""
 
     # dialect specific init logic
