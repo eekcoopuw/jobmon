@@ -151,9 +151,12 @@ class ServerCLI(CLI):
         ParserDefaults.sqlalchemy_database_uri(web_service_parser)
 
     def _add_terminate_db_subparser(self) -> None:
-        web_service_parser = self._subparsers.add_parser("terminate_db", **PARSER_KWARGS)
+        web_service_parser = self._subparsers.add_parser(
+            "terminate_db", **PARSER_KWARGS
+        )
         web_service_parser.set_defaults(func=self.terminate_db)
         ParserDefaults.sqlalchemy_database_uri(web_service_parser)
+
 
 def main(argstr: Optional[str] = None) -> None:
     """Create CLI."""
