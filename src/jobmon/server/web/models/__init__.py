@@ -1,4 +1,5 @@
 """SQLAlchemy database objects."""
+import re
 from importlib import import_module
 from pathlib import Path
 from pkgutil import iter_modules
@@ -113,14 +114,8 @@ def init_db(engine: Engine) -> None:
 def term_db(engine: Engine) -> None:
     """Terminate/drop a dev database."""
 
-    print(f"                                                                   term_db")
-    print(f"                                                                   engine.dialect.name = {engine.dialect.name}")
-
     # dialect specific init logic
     if engine.dialect.name == "mysql":
-
-        print(f"                                                                            engine.url.database = {engine.url.database}")
-
         if not re.match("jobmon_[0-9]+", engine.url.database):
             raise ValueError("To-be-termed database must be a TAD dev database, "
                              "whose name is in such a format as jobmon_123.")
