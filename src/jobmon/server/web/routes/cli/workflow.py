@@ -238,7 +238,6 @@ def get_workflow_status() -> Any:
     if workflow_request:
         workflow_request = [int(w) for w in workflow_request]
         params["workflow_id"] = workflow_request
-        where_clause = "WHERE workflow.id in :workflow_id "
     else:  # if we don't specify workflow then we use the users
         # convert user request into sql filter
         # directly producing workflow_ids, and thus where_clause
@@ -247,23 +246,24 @@ def get_workflow_status() -> Any:
             with session.begin():
                 query_filter = [WorkflowRun.user.in_(user_request)]
                 sql = (
-                    select(WorkflowRun.workflow_id).where(*query_filter)
-                ).distinct().limit(limit)
+                    (select(WorkflowRun.workflow_id).where(*query_filter))
+                    .distinct()
+                    .limit(limit)
+                )
                 rows = session.execute(sql).all()
             workflow_request = [int(row[0]) for row in rows]
     # performance improvement one: only query the limited number of workflows
-    workflow_request = workflow_request[: limit]
+    workflow_request = workflow_request[:limit]
     # performance improvement two: split query
     session = SessionLocal()
     with session.begin():
-        query_filter = [Workflow.id.in_(workflow_request),
-                        WorkflowStatus.id == Workflow.status]
+        query_filter = [
+            Workflow.id.in_(workflow_request),
+            WorkflowStatus.id == Workflow.status,
+        ]
         sql = (
             select(
-                Workflow.id,
-                Workflow.name,
-                WorkflowStatus.label,
-                Workflow.created_date
+                Workflow.id, Workflow.name, WorkflowStatus.label, Workflow.created_date
             )
         ).where(*query_filter)
         rows1 = session.execute(sql).all()
@@ -272,8 +272,9 @@ def get_workflow_status() -> Any:
         row_map[r[0]] = r
     session = SessionLocal()
     with session.begin():
-        query_filter = [Task.workflow_id.in_(workflow_request),
-                       ]
+        query_filter = [
+            Task.workflow_id.in_(workflow_request),
+        ]
         sql = (
             select(
                 Task.workflow_id,
@@ -294,11 +295,8 @@ def get_workflow_status() -> Any:
         d["CREATED_DATE"] = row_map[r[0]][3]
         session = SessionLocal()
         with session.begin():
-            q_filter = [Task.workflow_id == d["WF_ID"],
-                        Task.status == d["STATUS"]]
-            q = (
-                select(Task.num_attempts).where(*q_filter)
-            )
+            q_filter = [Task.workflow_id == d["WF_ID"], Task.status == d["STATUS"]]
+            q = select(Task.num_attempts).where(*q_filter)
             query_result = session.execute(q).all()
         retries = 0
         for rr in query_result:
