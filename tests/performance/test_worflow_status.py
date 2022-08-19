@@ -7,6 +7,7 @@ from jobmon.server.web.models import load_model
 
 load_model()
 
+
 @pytest.mark.performance_tests
 def test_get_workflow_status(db_engine, tool):
     t = tool
@@ -30,7 +31,9 @@ def test_get_workflow_status(db_engine, tool):
     n1 = time.time()
     app_route = f"/workflow_status"
     r1, m1 = wf.requester.send_request(
-        app_route=app_route, message={"workflow_id": wfs, "limit": 5}, request_type="get"
+        app_route=app_route,
+        message={"workflow_id": wfs, "limit": 5},
+        request_type="get",
     )
     n2 = time.time()
     new_route = n2 - n1
