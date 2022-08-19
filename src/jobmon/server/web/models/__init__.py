@@ -108,3 +108,15 @@ def init_db(engine: Engine) -> None:
                 loader(session)
                 session.flush()
             session.commit()
+
+
+def terminate_db(engine: Engine) -> None:
+    """Terminate/drop a dev database."""
+
+    # dialect specific init logic
+    if engine.dialect.name == "mysql":
+        with engine.connect() as conn:
+            drop_db_query = f"DROP DATABASE {engine.url.database}"
+            conn.execute(text(drop_db_query))
+
+
