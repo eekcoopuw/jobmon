@@ -72,6 +72,7 @@ pipeline {
           extensions: [[$class: 'WipeWorkspace']],
           userRemoteConfigs: scm.userRemoteConfigs
         ])
+        sh "git status"
       } // End step
     } // End remote checkout repo stage
     stage("parallel") {
