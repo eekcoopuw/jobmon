@@ -189,7 +189,7 @@ pipeline {
 
             println "Starting jobmon_central_controller for: Jobmon ${JOBMON_VERSION_DEPLOYED} with MODULE_TARGET_RELEASE ${TARGET_RELEASE}"
 
-            build job: "jobmon_TAD/jobmon_central_controller", parameters: [
+            build job: "scicomp/jobmon_TAD/jobmon_central_controller", parameters: [
              listGitBranches(name: 'BRANCH_OF_TAD', value: "main"),
              string(name: 'MODULE_OF_CHANGE', value: "jobmon_core"),
              string(name: 'MODULE_TARGET_RELEASE', value: "${TARGET_RELEASE}"),
