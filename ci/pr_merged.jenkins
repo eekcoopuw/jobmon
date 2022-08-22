@@ -61,9 +61,15 @@ pipeline {
   stages {
     stage('Remote Checkout Repo') {
       steps {
+        // checkout([
+        //   $class: 'GitSCM',
+        //   branches: [[name: params.BRANCH_TO_BUILD]],
+        //   userRemoteConfigs: scm.userRemoteConfigs
+        // ])
         checkout([
           $class: 'GitSCM',
           branches: [[name: params.BRANCH_TO_BUILD]],
+          extensions: [[$class: 'WipeWorkspace']],
           userRemoteConfigs: scm.userRemoteConfigs
         ])
       } // End step
