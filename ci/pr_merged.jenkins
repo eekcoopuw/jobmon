@@ -50,6 +50,9 @@ pipeline {
     booleanParam(defaultValue: 'true',
       description: 'Whether or not you want to deploy Jobmon to Pypi',
       name: 'DEPLOY_PYPI')
+    booleanParam(defaultValue: 'true',
+      description: 'Whether or not you want to trigger the central controller',
+      name: 'TRIGGER_CENTRAL_CONTROLLER')
   }
   options {
     buildDiscarder(logRotator(numToKeepStr: '30'))
@@ -184,6 +187,18 @@ pipeline {
               returnStdout: true
             ).trim()
 
+          } // end if params
+          else {
+            echo "Not deploying to Pypi"
+          } // end else
+        } // end script
+      } // end steps
+    } // end Build Python Distribution stage
+    stage ('Central Controller') {
+      steps {
+        script {
+          // Optionally build Python package and publish to Pypi, conditioned on success of tests/lint/typecheck
+          if (params.TRIGGER_CENTRAL_CONTROLLER && params.DEPLOY_PYPI) {
             def branch_sections = "${BRANCH_TO_BUILD}".split('/')
             env.TARGET_RELEASE = branch_sections[branch_sections.length-1]
 
@@ -195,13 +210,14 @@ pipeline {
              string(name: 'MODULE_TARGET_RELEASE', value: "${TARGET_RELEASE}"),
              string(name: 'ARTIFACT', value: "${JOBMON_VERSION_DEPLOYED}"),
             ]
+
           } // end if params
           else {
             echo "Not deploying to Pypi"
           } // end else
         } // end script
       } // end steps
-    } // end Build Python Distribution stage
+    } // end central controller stage
   } // end stages
   post {
     always {
