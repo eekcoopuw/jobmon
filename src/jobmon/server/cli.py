@@ -86,9 +86,14 @@ class ServerCLI(CLI):
     def init_db(self, args: configargparse.Namespace) -> None:
         """Entrypoint to initialize new Jobmon database."""
         import sqlalchemy
-        from jobmon.server.web.models import init_db
+        from jobmon.server.web.models import init_db, terminate_db
 
-        init_db(sqlalchemy.create_engine(args.sqlalchemy_database_uri))
+        engine = sqlalchemy.create_engine(args.sqlalchemy_database_uri)
+        try:
+            init_db(engine)
+        except Exception:
+            terminate_db(engine)
+            raise
 
     def terminate_db(self, args: configargparse.Namespace) -> None:
         """Entrypoint to terminate a Jobmon database."""
