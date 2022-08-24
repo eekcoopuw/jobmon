@@ -110,10 +110,9 @@ def test_task_attribute(db_engine, tool):
             .order_by(TaskAttributeType.name, TaskAttribute.task_id)
         )
         resp = session.execute(select_stmt).all()
-
         values = [tup[0] for tup in resp]
         names = [tup[1] for tup in resp]
-        ids = [tup[2] for tup in resp]
+
         expected_vals = ["5", "1", None, "3", None, "5", "1"]
         expected_names = [
             "AGE_GROUP_ID",
@@ -127,8 +126,15 @@ def test_task_attribute(db_engine, tool):
 
         assert values == expected_vals
         assert names == expected_names
-        # assert ids[2] == ids[3]  # will fail if adding non-unique task_attribute_types; then don't check
-        assert ids[4] == ids[5]
+        num_cores_set = set()
+        num_years_set = set()
+        for item in resp:
+            if item[1] == "NUM_CORES":
+                num_cores_set.add(item[2])
+            if item[1] == "NUM_YEARS":
+                num_years_set.add(item[2])
+        assert len(num_years_set) == 1
+        assert len(num_cores_set) == 1
 
 
 def test_executor_parameter_copy(tool, task_template):
