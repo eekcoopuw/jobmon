@@ -30,8 +30,8 @@ from jobmon.server.web.server_side_exception import InvalidUsage, ServerError
 logger = structlog.get_logger(__name__)
 
 
-@blueprint.route("/task/bind_tasks", methods=["PUT"])
-def bind_tasks() -> Any:
+@blueprint.route("/task/bind_tasks_no_args", methods=["PUT"])
+def bind_tasks_no_args() -> Any:
     """Bind the task objects to the database."""
     all_data = cast(Dict, request.get_json())
     tasks = all_data["tasks"]
@@ -41,8 +41,8 @@ def bind_tasks() -> Any:
     logger.info("Binding tasks")
     # receive from client the tasks in a format of:
     # {<hash>:[node_id(1), task_args_hash(2), array_id(3), task_resources_id(4), name(5),
-    # command(6), max_attempts(7), reset_if_running(8),
-    # task_args(9),task_attributes(10),resource_scales(11)]}
+    # command(6), max_attempts(7), reset_if_running(8),resource_scales(9),
+    # fallback_queues(10) }
 
     session = SessionLocal()
     with session.begin():
@@ -62,9 +62,7 @@ def bind_tasks() -> Any:
         present_tasks = {
             (task.node_id, task.task_args_hash): task for task in prebound_tasks
         }  # Dictionary mapping existing Tasks to the supplied arguments
-        arg_attr_mapping = (
-            {}
-        )  # Dict mapping input tasks to the corresponding args/attributes
+        # Dict mapping input tasks to the corresponding args/attributes
         task_hash_lookup = {}  # Reverse dictionary of inputs, maps hash back to values
         for hashval, items in tasks.items():
 
@@ -77,8 +75,6 @@ def bind_tasks() -> Any:
                 command,
                 max_att,
                 reset,
-                args,
-                attrs,
                 resource_scales,
                 fallback_queues,
             ) = items
@@ -113,7 +109,6 @@ def bind_tasks() -> Any:
                 }
                 tasks_to_add.append(task)
 
-            arg_attr_mapping[hashval] = (args, attrs)
             task_hash_lookup[id_tuple] = hashval
 
         # Update existing tasks
@@ -154,29 +149,69 @@ def bind_tasks() -> Any:
             hashval = task_hash_lookup[id_tuple]
             return_tasks[hashval] = [task.id, task.status]
 
-        # Add new task attribute types
-        attr_names = set([name for x in arg_attr_mapping.values() for name in x[1]])
-        if attr_names:
-            task_attributes_types = _add_or_get_attribute_type(attr_names, session)
+        # Set the workflow's created date if this is the last chunk of tasks.
+        # Mark that a workflow has completed binding
+        if mark_created:
+            session.execute(
+                update(Workflow)
+                .where(Workflow.id == workflow_id, Workflow.created_date.is_(None))
+                .values(created_date=func.now())
+            )
 
-            # Map name to ID from resultant list
-            task_attr_type_mapping = {ta.name: ta.id for ta in task_attributes_types}
-        else:
-            task_attr_type_mapping = {}
+    resp = jsonify(tasks=return_tasks)
+    resp.status_code = StatusCodes.OK
+    return resp
 
-        # Add task_args and attributes to the DB
 
-        args_to_add = []
-        attrs_to_add = []
+@blueprint.route("/task/bind_tasks_args", methods=["PUT"])
+def bind_tasks_attr_args() -> Any:
+    """Bind the task args to the database."""
+    all_data = cast(Dict, request.get_json())
+    tasks_attr_args = all_data["task_attr_args"]
+    workflow_id = int(all_data["workflow_id"])
+    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    logger.info("Binding task attributes and args")
+    args_to_add = []
+    attrs_to_add = []
 
-        for hashval, task in return_tasks.items():
-
-            task_id = task[0]
-            args, attrs = arg_attr_mapping[hashval]
+    session = SessionLocal()
+    with session.begin():
+        all_type_attr_maps: Dict[str, int] = dict()
+        for id in tasks_attr_args.keys():
+            task_id = int(id)
+            args, attrs = tasks_attr_args[id]
 
             for key, val in args.items():
                 task_arg = {"task_id": task_id, "arg_id": int(key), "val": val}
                 args_to_add.append(task_arg)
+
+            attr_names = set([name for x in tasks_attr_args.values() for name in x[1]])
+            if attr_names:
+                # only send not mapped attrs to db
+                subset_attr = set()
+                for attr in attr_names:
+                    if attr in all_type_attr_maps.keys():
+                        pass
+                    else:
+                        subset_attr.add(attr)
+                if len(subset_attr) > 0:
+                    subset_task_attributes_types = _add_or_get_attribute_type(
+                        subset_attr, session
+                    )
+                    dict_subset_task_attributes_types = {
+                        ta.name: ta.id for ta in subset_task_attributes_types
+                    }
+                    all_type_attr_maps = {
+                        **all_type_attr_maps,
+                        **dict_subset_task_attributes_types,
+                    }
+
+                # Map name to ID from resultant list
+                task_attr_type_mapping = {
+                    attr: all_type_attr_maps[attr] for attr in all_type_attr_maps
+                }
+            else:
+                task_attr_type_mapping = {}
 
             for name, val in attrs.items():
                 # An interesting bug: the attribute type names are inserted using the
@@ -246,18 +281,9 @@ def bind_tasks() -> Any:
                     status_code=400,
                 ) from e
 
-        # Set the workflow's created date if this is the last chunk of tasks.
-        # Mark that a workflow has completed binding
-        if mark_created:
-            session.execute(
-                update(Workflow)
-                .where(Workflow.id == workflow_id, Workflow.created_date.is_(None))
-                .values(created_date=func.now())
-            )
-
-    resp = jsonify(tasks=return_tasks)
-    resp.status_code = StatusCodes.OK
-    return resp
+        resp = jsonify()
+        resp.status_code = StatusCodes.OK
+        return resp
 
 
 def _add_or_get_attribute_type(
