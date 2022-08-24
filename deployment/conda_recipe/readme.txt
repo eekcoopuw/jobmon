@@ -1,9 +1,0 @@
-To build ihme_client recipe:
-1) export env variables:
-  a) IHME_CLIENT - the version number for this client
-  b) WEB_SERVER_FQDN - the service domain for this client build
-  c) WEB_SERVER_PORT - the service port for this client build
-  d) JOBMON_VERSION - version specifier for core jobmon
-  e) SLURM_REST_VERSION - version specifier for slurm_rest
-  f) JOBMON_SLURM_VERSION - version specifier for jobmon_slurm
-2) conda build ihme_client -c conda-forge

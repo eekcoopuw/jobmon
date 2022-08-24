@@ -1,9 +1,0 @@
-global:
-  # Will be overwritten by the Jenkins deploy pipeline, values will then be injected in to yaml
-  # files in k8s/integrator/templates
-  jobmon_container_uri: ""
-  namespace: ""
-  rancher_db_secret: ""
-  rancher_project: ""
-  rancher_db_slurm_sdb_secret: ""
-  rancher_retire_age: ""

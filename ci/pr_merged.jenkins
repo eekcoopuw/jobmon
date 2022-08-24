@@ -50,6 +50,9 @@ pipeline {
     booleanParam(defaultValue: 'true',
       description: 'Whether or not you want to deploy Jobmon to Pypi',
       name: 'DEPLOY_PYPI')
+    booleanParam(defaultValue: 'true',
+      description: 'Whether or not you want to trigger the central controller',
+      name: 'TRIGGER_CENTRAL_CONTROLLER')
   }
   options {
     buildDiscarder(logRotator(numToKeepStr: '30'))
@@ -64,8 +67,10 @@ pipeline {
         checkout([
           $class: 'GitSCM',
           branches: [[name: params.BRANCH_TO_BUILD]],
+          extensions: [[$class: 'WipeWorkspace'], [$class: 'LocalBranch', localBranch: params.BRANCH_TO_BUILD]],
           userRemoteConfigs: scm.userRemoteConfigs
         ])
+        sh "git status"
       } // End step
     } // End remote checkout repo stage
     stage("parallel") {
@@ -182,17 +187,6 @@ pipeline {
               returnStdout: true
             ).trim()
 
-            def branch_sections = "${BRANCH_TO_BUILD}".split('/')
-            env.TARGET_RELEASE = branch_sections[branch_sections.length-1]
-
-            println "Starting jobmon_central_controller for: Jobmon ${JOBMON_VERSION_DEPLOYED} with MODULE_TARGET_RELEASE ${TARGET_RELEASE}"
-
-            build job: "jobmon_central_controller", parameters: [
-             listGitBranches(name: 'BRANCH_OF_TAD', value: "main"),
-             string(name: 'MODULE_OF_CHANGE', value: "jobmon_core"),
-             string(name: 'MODULE_TARGET_RELEASE', value: "${TARGET_RELEASE}"),
-             string(name: 'ARTIFACT', value: "${JOBMON_VERSION_DEPLOYED}"),
-            ]
           } // end if params
           else {
             echo "Not deploying to Pypi"
@@ -200,6 +194,30 @@ pipeline {
         } // end script
       } // end steps
     } // end Build Python Distribution stage
+    stage ('Central Controller') {
+      steps {
+        script {
+          // Optionally build Python package and publish to Pypi, conditioned on success of tests/lint/typecheck
+          if (params.TRIGGER_CENTRAL_CONTROLLER && params.DEPLOY_PYPI) {
+            def branch_sections = "${BRANCH_TO_BUILD}".split('/')
+            env.TARGET_RELEASE = branch_sections[branch_sections.length-1]
+
+            println "Starting jobmon_central_controller for: Jobmon ${JOBMON_VERSION_DEPLOYED} with MODULE_TARGET_RELEASE ${TARGET_RELEASE}"
+
+            build job: "scicomp/jobmon_TAD/jobmon_central_controller", parameters: [
+             listGitBranches(name: 'BRANCH_OF_TAD', value: "main"),
+             string(name: 'MODULE_OF_CHANGE', value: "jobmon_core"),
+             string(name: 'MODULE_TARGET_RELEASE', value: "${TARGET_RELEASE}"),
+             string(name: 'ARTIFACT', value: "${JOBMON_VERSION_DEPLOYED}"),
+            ]
+
+          } // end if params
+          else {
+            echo "Not deploying to Pypi"
+          } // end else
+        } // end script
+      } // end steps
+    } // end central controller stage
   } // end stages
   post {
     always {

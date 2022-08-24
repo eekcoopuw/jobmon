@@ -7,7 +7,7 @@ import logging.config
 from subprocess import PIPE, Popen, TimeoutExpired
 import sys
 from types import TracebackType
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, TYPE_CHECKING, Union
 import uuid
 
 import psutil
@@ -35,6 +35,9 @@ from jobmon.exceptions import (
     WorkflowAlreadyExists,
 )
 from jobmon.requester import http_request_ok, Requester
+
+if TYPE_CHECKING:
+    from jobmon.client.tool import Tool
 
 
 logger = logging.getLogger(__name__)
@@ -213,6 +216,11 @@ class Workflow(object):
 
         self._fail_after_n_executions = 1_000_000_000
         self.last_workflow_run_id: Optional[int] = None
+
+    @property
+    def tool(self) -> Tool:
+        """Returns the associated tool to this workflow."""
+        return self._tool_version.tool
 
     @property
     def is_bound(self) -> bool:

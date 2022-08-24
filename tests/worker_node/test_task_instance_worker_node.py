@@ -303,7 +303,7 @@ def test_limited_error_log(tool, db_engine):
         res = session.execute(query).fetchone()
 
     error = res[0]
-    assert error == (("a" * 2**10 + "\n") * (2**8))[-10000:]
+    assert error == (("a" * 2 ** 10 + "\n") * (2 ** 8))[-10000:]
 
 
 def test_worker_node_environment(client_env):
