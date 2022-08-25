@@ -1,4 +1,4 @@
-"""Routes for TaskTemplate."""
+"""Routes for Workflow."""
 from http import HTTPStatus as StatusCodes
 from typing import Any
 
@@ -9,7 +9,11 @@ from sqlalchemy import func, select, update
 import structlog
 
 from jobmon.constants import WorkflowStatus as Statuses
+from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.task import Task
+from jobmon.server.web.models.task_status import TaskStatus
+from jobmon.server.web.models.task_template import TaskTemplate
+from jobmon.server.web.models.task_template_version import TaskTemplateVersion
 from jobmon.server.web.models.tool import Tool
 from jobmon.server.web.models.tool_version import ToolVersion
 from jobmon.server.web.models.workflow import Workflow
@@ -453,5 +457,51 @@ def workflow_status_by_user(username: str) -> Any:
     result = [dict(zip(column_names, row), **initial_status_counts) for row in rows]
 
     res = jsonify(workflows=result)
+    res.return_code = StatusCodes.OK
+    return res
+
+
+@blueprint.route("/task_table_viz/<workflow_id>", methods=["GET"])
+def task_details_by_wf_id(workflow_id: int) -> Any:
+    """Fetch Task details associated with Workflow ID and TaskTemplate name."""
+    task_template_name = request.args.get("tt_name")
+    session = SessionLocal()
+    with session.begin():
+
+        sql = (
+            select(
+                Task.id,
+                Task.name,
+                TaskStatus.label,
+                Task.command,
+                Task.num_attempts,
+                Task.status_date,
+                Task.max_attempts,
+            )
+            .join_from(TaskStatus, Task, Task.status == TaskStatus.id)
+            .where(
+                Task.workflow_id == workflow_id,
+                Task.node_id == Node.id,
+                Node.task_template_version_id == TaskTemplateVersion.id,
+                TaskTemplateVersion.task_template_id == TaskTemplate.id,
+                TaskTemplate.name == task_template_name,
+            )
+            .order_by(Task.id.asc())
+        )
+        rows = session.execute(sql).all()
+
+    column_names = (
+        "task_id",
+        "task_name",
+        "task_status",
+        "task_command",
+        "task_num_attempts",
+        "task_status_date",
+        "task_max_attempts",
+    )
+
+    result = [dict(zip(column_names, row)) for row in rows]
+
+    res = jsonify(tasks=result)
     res.return_code = StatusCodes.OK
     return res
