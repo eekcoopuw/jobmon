@@ -314,7 +314,7 @@ def get_task_template_resource_usage() -> Any:
 def get_workflow_tt_status_viz(workflow_id: int) -> Any:
     """Get the status of the workflows for GUI."""
     # return DS
-    return_dic = dict()
+    return_dic: Dict[str, any] = dict()
 
     session = SessionLocal()
     with session.begin():
