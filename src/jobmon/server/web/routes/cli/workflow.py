@@ -384,7 +384,7 @@ def get_workflow_status_viz() -> Any:
     """Get the status of the workflows for GUI."""
     wf_ids = request.args.getlist("workflow_ids[]")
     # return DS
-    return_dic: Dict[str, Any] = dict()
+    return_dic: Dict[int, Any] = dict()
     for wf_id in wf_ids:
         return_dic[int(wf_id)] = {
             "id": int(wf_id),
