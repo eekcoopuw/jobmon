@@ -338,7 +338,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
         session.commit()
 
     for r in rows:
-        if r[0] in return_dic.keys():
+        if int(r[0]) in return_dic.keys():
             pass
         else:
             return_dic[int(r[0])] = {

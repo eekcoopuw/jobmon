@@ -543,11 +543,12 @@ def test_get_workflow_status_viz(tool):
         assert msg[str(wfid)]["DONE"] == 0
 
 
-def test_get_workflow_tt_status_viz(tool):
-    t = tool
+def test_get_workflow_tt_status_viz(client_env):
+    from jobmon.client.api import Tool
+    t = Tool(name="gui_tt_progress_test")
     wf = t.create_workflow(name=f"i_am_a_fake_wf")
     tt1 = t.get_task_template(
-        template_name="tt1", command_template="echo {arg}", node_args=["arg"]
+        template_name="tt_1", command_template="echo {arg}", node_args=["arg"]
     )
     t1 = tt1.create_task(
         arg=1,
@@ -560,7 +561,7 @@ def test_get_workflow_tt_status_viz(tool):
         compute_resources={"queue": "null.q", "num_cores": 4},
     )
     tt2 = t.get_task_template(
-        template_name="tt2", command_template="{arg}", node_args=["arg"]
+        template_name="tt_2", command_template="{arg}", node_args=["arg"]
     )
     t3 = tt2.create_task(
         arg="pwd",
@@ -579,11 +580,11 @@ def test_get_workflow_tt_status_viz(tool):
     assert msg[str(tt1._task_template_id)]["DONE"] == 0
     assert msg[str(tt1._task_template_id)]["FATAL"] == 0
     assert msg[str(tt1._task_template_id)]["RUNNING"] == 0
-    assert msg[str(tt1._task_template_id)]["name"] == "tt1"
+    assert msg[str(tt1._task_template_id)]["name"] == "tt_1"
 
     assert msg[str(tt2._task_template_id)]["tasks"] == 1
     assert msg[str(tt2._task_template_id)]["PENDING"] == 1
     assert msg[str(tt2._task_template_id)]["DONE"] == 0
     assert msg[str(tt2._task_template_id)]["FATAL"] == 0
     assert msg[str(tt2._task_template_id)]["RUNNING"] == 0
-    assert msg[str(tt2._task_template_id)]["name"] == "tt2"
+    assert msg[str(tt2._task_template_id)]["name"] == "tt_2"
