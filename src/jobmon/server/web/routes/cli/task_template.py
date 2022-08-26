@@ -23,6 +23,7 @@ from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.cli import blueprint
+from jobmon.server.web.routes.cli.workflow import _cli_label_mapping
 from jobmon.server.web.server_side_exception import InvalidUsage
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
@@ -306,4 +307,51 @@ def get_task_template_resource_usage() -> Any:
         )
     resp = jsonify(resource_usage)
     resp.status_code = StatusCodes.OK
+    return resp
+
+
+@blueprint.route("/workflow_tt_status_viz/<workflow_id>", methods=["GET"])
+def get_workflow_tt_status_viz(workflow_id: int) -> Any:
+    """Get the status of the workflows for GUI."""
+    # return DS
+    return_dic = dict()
+
+    session = SessionLocal()
+    with session.begin():
+        query_filter = [
+            Task.workflow_id == workflow_id,
+            Task.node_id == Node.id,
+            Node.task_template_version_id == TaskTemplateVersion.id,
+            TaskTemplateVersion.task_template_id == TaskTemplate.id,
+        ]
+        sql = (
+            select(
+                TaskTemplate.id,
+                TaskTemplate.name,
+                Task.id,
+                Task.status,
+            )
+            .where(*query_filter)
+            .order_by(Task.id)
+        )
+        rows = session.execute(sql).all()
+        session.commit()
+
+    for r in rows:
+        if r[0] in return_dic.keys():
+            pass
+        else:
+            return_dic[int(r[0])] = {
+                "id": int(r[0]),
+                "name": r[1],
+                "tasks": 0,
+                "PENDING": 0,
+                "RUNNING": 0,
+                "DONE": 0,
+                "FATAL": 0,
+            }
+        return_dic[int(r[0])]["tasks"] += 1
+        return_dic[int(r[0])][_cli_label_mapping[r[3]]] += 1
+    resp = jsonify(return_dic)
+    resp.status_code = 200
     return resp
