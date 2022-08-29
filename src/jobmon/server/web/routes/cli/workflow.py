@@ -1,6 +1,6 @@
 """Routes for Workflow."""
 from http import HTTPStatus as StatusCodes
-from typing import Any
+from typing import Any, Dict
 
 from flask import jsonify, request
 from flask_cors import cross_origin
@@ -384,7 +384,7 @@ def get_workflow_status_viz() -> Any:
     """Get the status of the workflows for GUI."""
     wf_ids = request.args.getlist("workflow_ids[]")
     # return DS
-    return_dic = dict()
+    return_dic: Dict[int, Any] = dict()
     for wf_id in wf_ids:
         return_dic[int(wf_id)] = {
             "id": int(wf_id),

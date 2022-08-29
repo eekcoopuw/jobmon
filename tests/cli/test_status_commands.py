@@ -704,7 +704,7 @@ def test_bad_put_route(db_engine, client_env):
 def test_get_yaml_data(db_engine, client_env):
     from jobmon.client.tool import Tool
 
-    t = Tool()
+    t = Tool(name="test_get_yaml_data_tool")
     wf = t.create_workflow(name="i_am_a_fake_wf")
     tt1 = t.get_task_template(
         template_name="tt1", command_template="echo {arg}", node_args=["arg"]
