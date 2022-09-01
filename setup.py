@@ -11,7 +11,7 @@ INSTALL_REQUIRES = [
     'psutil',
     'pyyaml',
     'requests',
-    'scipy',
+    'scipy==1.8.1', # Pinned because scipy 1.9.0 is not compatible with uwsgi for some reason.
     'tabulate',
     'tenacity',
     'typing_extensions'  # TODO: remove when we no longer support 3.7
