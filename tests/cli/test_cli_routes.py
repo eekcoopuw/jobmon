@@ -545,6 +545,7 @@ def test_get_workflow_status_viz(tool):
 
 def test_get_workflow_tt_status_viz(client_env):
     from jobmon.client.api import Tool
+
     t = Tool(name="gui_tt_progress_test")
     wf = t.create_workflow(name=f"i_am_a_fake_wf")
     tt1 = t.get_task_template(

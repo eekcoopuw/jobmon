@@ -18,7 +18,6 @@ from jobmon.server.web.models.tool import Tool
 from jobmon.server.web.models.tool_version import ToolVersion
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_run import WorkflowRun
-from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.models.workflow_status import WorkflowStatus
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.cli import blueprint
@@ -414,47 +413,73 @@ def workflow_status_by_user(username: str) -> Any:
     session = SessionLocal()
     with session.begin():
 
+        # Get latest WFR ID associated with each Workflow for all Workflows associated with a
+        # user.
+        subquery = (
+            (
+                select(
+                    WorkflowRun.workflow_id,
+                    func.max(WorkflowRun.status_date).label("MaxStatusDate"),
+                )
+            )
+            .group_by(WorkflowRun.workflow_id)
+            .subquery()
+        )
+
+        query = (
+            select(WorkflowRun.id)
+            .join(
+                subquery,
+                WorkflowRun.workflow_id == subquery.c.workflow_id,
+                WorkflowRun.status_date == subquery.c.MaxStatusDate,
+            )
+            .where(WorkflowRun.user == username)
+        )
+
+        rows = session.execute(query).all()
+        wfr_ids = [int(row[0]) for row in rows]
+
+        # Get information for each wfr_id (including count of wfrs associated with workflow).
         sql = (
             select(
                 Workflow.id,
-                Tool.name,
                 Workflow.name,
                 Workflow.created_date,
-                WorkflowStatus.label,
-                WorkflowRun.id,
-                WorkflowRunStatus.label,
                 Workflow.status_date,
                 Workflow.workflow_args,
+                func.count(),
+                WorkflowStatus.label,
+                Tool.name,
             )
             .where(
-                WorkflowRun.user == username,
+                WorkflowRun.id.in_(wfr_ids),
                 WorkflowRun.workflow_id == Workflow.id,
                 Workflow.tool_version_id == ToolVersion.id,
                 ToolVersion.tool_id == Tool.id,
                 Workflow.status == WorkflowStatus.id,
-                WorkflowRun.status == WorkflowRunStatus.id,
             )
+            .group_by(WorkflowRun.workflow_id)
             .order_by(WorkflowRun.id.desc())
         )
-        rows = session.execute(sql).all()
+
+        rows2 = session.execute(sql).all()
 
     column_names = (
         "wf_id",
-        "wf_tool",
         "wf_name",
         "wf_submitted_date",
-        "wf_status",
-        "wfr_id",
-        "wfr_status",
         "wf_status_date",
         "wf_args",
+        "wfr_count",
+        "wf_status",
+        "wf_tool",
     )
     # Initialize all possible states as 0. No need to return data since it will be refreshed
     # on demand anyways.
     initial_status_counts = {
         label_mapping: 0 for label_mapping in set(_cli_label_mapping.values())
     }
-    result = [dict(zip(column_names, row), **initial_status_counts) for row in rows]
+    result = [dict(zip(column_names, row), **initial_status_counts) for row in rows2]
 
     res = jsonify(workflows=result)
     res.return_code = StatusCodes.OK
