@@ -3,7 +3,6 @@ from typing import Dict
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.sql import text
 from sqlalchemy.orm import Session
 
 

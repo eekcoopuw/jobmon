@@ -4,7 +4,6 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.cluster_type import (
     ClusterDistributor,
     ClusterQueue,
@@ -29,8 +28,7 @@ class Cluster:
         self.cluster_name = cluster_name
 
         if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
+            requester = Requester.from_defaults()
         self.requester = requester
 
         self.queues: Dict[str, ClusterQueue] = {}
@@ -87,10 +85,13 @@ class Cluster:
         return self._cluster_id
 
     def get_worker_node(self) -> ClusterWorkerNode:
+        """Get the cluster specific worker_node interface"""
         cluster_worker_node_class = self._cluster_type.cluster_worker_node_class
         return cluster_worker_node_class()
 
     def get_distributor(self) -> ClusterDistributor:
+        """Get the cluster specific distributor interface"""
+        # TODO: read in cluster args from config here?
         distributor_class = self._cluster_type.cluster_distributor_class
         return distributor_class(self.cluster_name, **self._connection_parameters)
 

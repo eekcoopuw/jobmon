@@ -6,6 +6,7 @@ from typing import Any, Dict, Tuple
 import requests
 import tenacity
 
+from jobmon.configuration import JobmonConfig
 from jobmon.exceptions import InvalidResponse
 
 logger = logging.getLogger(__name__)
@@ -32,6 +33,16 @@ class Requester(object):
         self.max_retries = max_retries
         self.stop_after_delay = stop_after_delay
         self.server_structlog_context: Dict[str, str] = {}
+
+    @classmethod
+    def from_defaults(cls):
+        """Instantiate a requester from default config values."""
+        config = JobmonConfig()
+        service_url = config.get("http", "service_url")
+        max_retries = config.get_int("http", "max_retries")
+        stop_after_delay = config.get_int("http", "stop_after_delay")
+
+        return cls(service_url, max_retries, stop_after_delay)
 
     def add_server_structlog_context(self, **kwargs: Any) -> None:
         """Add the structlogging context if it has been provided."""

@@ -5,7 +5,6 @@ import hashlib
 import logging
 from typing import Any, Dict, List, Optional, Set
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template_version import TaskTemplateVersion
 from jobmon.constants import SpecialChars
 from jobmon.requester import Requester
@@ -47,8 +46,7 @@ class Node:
         self.downstream_nodes: Set[Node] = set()
 
         if requester is None:
-            cc = ClientConfig.from_defaults()
-            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+            requester = Requester.from_defaults()
         self.requester = requester
 
     @property

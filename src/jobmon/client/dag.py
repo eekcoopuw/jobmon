@@ -4,7 +4,6 @@ from http import HTTPStatus as StatusCodes
 import logging
 from typing import Dict, List, Optional, Set, Tuple, Union
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.exceptions import (
     DuplicateNodeArgsError,
@@ -34,8 +33,7 @@ class Dag(object):
         self.nodes: Set[Node] = set()
 
         if requester is None:
-            cc = ClientConfig.from_defaults()
-            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+            requester = Requester.from_defaults()
         self.requester = requester
 
     @property

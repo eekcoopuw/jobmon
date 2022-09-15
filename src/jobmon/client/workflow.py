@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import logging.config
+import os
 from subprocess import PIPE, Popen, TimeoutExpired
 import sys
 from types import TracebackType
@@ -13,7 +14,6 @@ import uuid
 import psutil
 
 from jobmon.client.array import Array
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.dag import Dag
 from jobmon.client.logging import JobmonLoggerConfig
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
@@ -54,6 +54,12 @@ class DistributorContext:
         """Starts the Distributor Process."""
         logger.info("Starting Distributor Process")
 
+        # construct env
+        env = os.environ.copy()
+        entry_point = self.derive_jobmon_command_from_env()
+        if entry_point is not None:
+            env["JOBMON__DISTRIBUTOR__WORKER_NODE_ENTRY_POINT"] = f'"{entry_point}"'
+
         # Start the distributor. Write stderr to a file.
         cmd = [
             sys.executable,
@@ -65,7 +71,12 @@ class DistributorContext:
             "--workflow_run_id",
             str(self._workflow_run_id),
         ]
-        self.process = Popen(cmd, stderr=PIPE, universal_newlines=True)
+        self.process = Popen(
+            cmd,
+            stderr=PIPE,
+            universal_newlines=True,
+            env=env,
+        )
 
         # check if stderr contains "ALIVE"
         assert self.process.stderr is not None  # keep mypy happy on optional type
@@ -110,6 +121,14 @@ class DistributorContext:
             self.process.wait()
 
         return err
+
+    @staticmethod
+    def derive_jobmon_command_from_env() -> Optional[str]:
+        """If a singularity path is provided, use it when running the worker node."""
+        singularity_img_path = os.environ.get("IMGPATH", None)
+        if singularity_img_path:
+            return f"singularity run --app jobmon_command {singularity_img_path}"
+        return None
 
 
 class Workflow(object):
@@ -167,8 +186,7 @@ class Workflow(object):
         self.max_concurrently_running: int = max_concurrently_running
 
         if requester is None:
-            cc = ClientConfig.from_defaults()
-            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+            requester = Requester.from_defaults()
         self.requester = requester
 
         self._dag = Dag(requester)

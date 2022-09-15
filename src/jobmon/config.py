@@ -23,14 +23,6 @@ PARSER_KWARGS = {
 }
 
 
-def derive_jobmon_command_from_env() -> Optional[str]:
-    """If a singularity path is provided, use it when running the worker node."""
-    singularity_img_path = os.environ.get("IMGPATH", None)
-    if singularity_img_path:
-        return f"singularity run --app jobmon_command {singularity_img_path}"
-    return None
-
-
 class ParserDefaults:
     """Default config setup if not set by user."""
 

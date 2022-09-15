@@ -14,7 +14,6 @@ from jobmon.cluster_type import (
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import RemoteExitInfoNotAvailable
 from jobmon.worker_node.cli import WorkerNodeCLI
-from jobmon.worker_node.worker_node_config import WorkerNodeConfig
 from jobmon.worker_node.worker_node_factory import WorkerNodeFactory
 
 
@@ -124,23 +123,10 @@ class DummyDistributor(ClusterDistributor):
         cli = WorkerNodeCLI()
         args = cli.parse_args(command)
 
-        # Bring in the worker node here since dummy executor is never run
-        worker_node_config = WorkerNodeConfig(
-            task_instance_heartbeat_interval=args.task_instance_heartbeat_interval,
-            heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
-            web_service_fqdn=args.web_service_fqdn,
-            web_service_port=args.web_service_port,
-        )
-
-        worker_node_factory = WorkerNodeFactory(
-            cluster_name=args.cluster_name,
-            worker_node_config=worker_node_config,
-        )
+        worker_node_factory = WorkerNodeFactory(cluster_name=args.cluster_name)
         # Do not do ANY logging at all
-        worker_node_task_instance = (
-            worker_node_factory.get_job_task_instance_without_logging(
-                task_instance_id=args.task_instance_id
-            )
+        worker_node_task_instance = worker_node_factory.get_job_task_instance(
+            task_instance_id=args.task_instance_id, initialize_logfiles=False
         )
         # Log running, log done, and exit
         worker_node_task_instance.log_running()
