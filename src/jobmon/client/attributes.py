@@ -25,4 +25,6 @@ def add_task_attributes(attr_dict: Dict[str, Any], task_id: Optional[int] = None
         )
 
     requester = Requester.from_defaults()
-    requester.send_request(app_route=f"/task/{task_id}/attributes", data=attr_dict)
+    requester.send_request(
+        app_route=f"/task/{task_id}/attributes", message=attr_dict, request_type="post"
+    )
