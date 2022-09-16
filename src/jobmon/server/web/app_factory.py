@@ -29,7 +29,7 @@ class AppFactory:
         config = JobmonConfig()
         # configuration for sqlalchemy
         if not sqlalchemy_database_uri:
-            sqlalchemy_database_uri = config.get("web", "sqlalchemy_database_uri")
+            sqlalchemy_database_uri = config.get("db", "sqlalchemy_database_uri")
         self.engine = sqlalchemy.create_engine(
             sqlalchemy_database_uri, pool_recycle=200, future=True
         )
@@ -73,9 +73,6 @@ class AppFactory:
 
         # bind the engine to the session factory before importing the blueprint
         session_factory.configure(bind=self.engine)
-
-        # add logger to app global context
-        log_config.configure_logger("jobmon.server.web", self.logstash_handler_config)
 
         # in memory db must be created in same thread as app
         if str(self.engine.url) == "sqlite://":

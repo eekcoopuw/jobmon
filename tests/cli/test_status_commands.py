@@ -133,13 +133,13 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
 
     # we should have the column headers plus 2 tasks in pending
     command_str = f"workflow_status -u {user} -w {workflow.workflow_id}"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert df["PENDING"][0] == "2 (100.0%)"
 
     # defaults should return an identical value
     command_str = "workflow_status"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert df["PENDING"][0] == "2 (100.0%)"
 
@@ -184,20 +184,20 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
 
     # check that we get 2 rows now
     command_str = f"workflow_status -u {user}"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 2
 
     # check that we can get values by workflow_id
     command_str = f"workflow_status -w {workflow.workflow_id}"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 1
     assert df["WF_ID"][0] == str(workflow.workflow_id)
 
     # check that we can get both
     command_str = "workflow_status -w 1 2"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 2
 
@@ -248,32 +248,32 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
 
     # check limit 1
     command_str = f"workflow_status -u {user}  -l 1"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 1
 
     # check limit 2
     command_str = f"workflow_status -u {user}  -l 2"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 2
 
     # check default
     command_str = f"workflow_status -u {user}"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 5
 
     # check over limit
     command_str = f"workflow_status -u {user}  -l 12"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 6
 
     # Check setting the limit to 0
     try:
         command_str = f"workflow_status -u {user}  -l 0"
-        parsed_args = cli.parser.parse_args(command_str)
+        parsed_args = cli.parse_args(command_str)
         df_from_stdout(cli.workflow_status, parsed_args)
     except SystemExit as e:
         assert isinstance(e.__context__, argparse.ArgumentError)
@@ -281,7 +281,7 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
     # Check setting the limit to a negative
     try:
         command_str = f"workflow_status -u {user}  -l -1"
-        parsed_args = cli.parser.parse_args(command_str)
+        parsed_args = cli.parse_args(command_str)
         df_from_stdout(cli.workflow_status, parsed_args)
     except SystemExit as e:
         assert isinstance(e.__context__, argparse.ArgumentError)
@@ -311,7 +311,7 @@ def test_workflow_tasks(db_engine, tool, client_env, cli):
 
     # we should get 2 tasks back in pending state
     command_str = f"workflow_tasks -w {workflow.workflow_id}"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 2
     assert df.STATUS[0] == "PENDING"
@@ -351,38 +351,37 @@ def test_workflow_tasks(db_engine, tool, client_env, cli):
         workflow.add_task(t)
 
     workflow.bind()
-
     wfrs = workflow.run()
     assert wfrs == WorkflowRunStatus.DONE
 
     # check limit 1
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l 1"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 1
 
     # check limit 2
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l 2"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 2
 
     # check default (no limit)
     command_str = f"workflow_tasks -w {workflow.workflow_id}"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 5
 
     # check over limit
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l 12"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 6
 
     # Check setting the limit to 0
     try:
         command_str = f"workflow_tasks -w {workflow.workflow_id} -l 0"
-        parsed_args = cli.parser.parse_args(command_str)
+        parsed_args = cli.parse_args(command_str)
         df_from_stdout(cli.workflow_tasks, parsed_args)
     except SystemExit as e:
         assert isinstance(e.__context__, argparse.ArgumentError)
@@ -390,7 +389,7 @@ def test_workflow_tasks(db_engine, tool, client_env, cli):
     # Check setting the limit to a negative
     try:
         command_str = f"workflow_tasks -w {workflow.workflow_id} -l -1"
-        parsed_args = cli.parser.parse_args(command_str)
+        parsed_args = cli.parse_args(command_str)
         df_from_stdout(cli.workflow_tasks, parsed_args)
     except SystemExit as e:
         assert isinstance(e.__context__, argparse.ArgumentError)

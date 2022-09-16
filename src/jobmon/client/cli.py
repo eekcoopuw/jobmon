@@ -40,6 +40,7 @@ class ClientCLI(CLI):
 
     def __init__(self) -> None:
         """Initialization of client CLI."""
+        self.parser = argparse.ArgumentParser("Jobmon Client CLI", add_help=False)
         self.parser.add_argument(
             "--help", action=_HelpAction, help="Help if you need Help"
         )

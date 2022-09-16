@@ -51,8 +51,8 @@ class WorkerNodeTaskInstance:
             task_id: the id of the Task.
             stdout: path to stdout.
             stderr: path to stderr.
-            heartbeat_interval: how ofter to log a report by with the db
-            report_by_buffer: multiplier for report by date in case we miss a few.
+            task_instance_heartbeat_interval: how ofter to log a report by with the db
+            heartbeat_report_by_buffer: multiplier for report by date in case we miss a few.
             command_interrupt_timeout: the amount of time to wait for the child process to
                 terminate.
             requester: communicate with the flask services.

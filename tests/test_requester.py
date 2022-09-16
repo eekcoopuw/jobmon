@@ -25,7 +25,7 @@ def test_server_502(client_env):
     )
     good_response = (200, {"time": "2019-02-21 17:40:07"})
 
-    test_requester = Requester.from_defaults()
+    test_requester = Requester(client_env)
 
     # mock requester.get_content to return 2 502s then 200
     with mock.patch("jobmon.requester.get_content") as m:

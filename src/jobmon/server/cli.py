@@ -1,5 +1,6 @@
 """Set up server specific CLI config."""
 import logging
+import sys
 from typing import Optional
 
 import argparse
@@ -19,39 +20,33 @@ class ServerCLI(CLI):
 
         # now add specific sub parsers
         self._add_web_service_subparser()
-        # self._add_workflow_reaper_subparser()
-        # self._add_integrator_subparser()
-        # self._add_init_db_subparser()
-        # self._add_terminate_db_subparser()
+        self._add_workflow_reaper_subparser()
+        self._add_integrator_subparser()
+        self._add_init_db_subparser()
+        self._add_terminate_db_subparser()
 
     def web_service(self, args: argparse.Namespace) -> None:
         """Web service entrypoint logic."""
-        from jobmon.server.web.api import AppFactory
+        from jobmon.server.web.api import AppFactory, log_config
 
         app_factory = AppFactory(sqlalchemy_database_uri=args.sqlalchemy_database_uri)
+        log_config.configure_logger("jobmon.server.web", app_factory.logstash_handler_config)
         app = app_factory.get_app()
         with app.app_context():
             app.run(host="0.0.0.0", port=args.port)
 
     def workflow_reaper(self, args: argparse.Namespace) -> None:
         """Workflow reaper entrypoint logic."""
-        from jobmon.server.workflow_reaper.api import (
-            WorkflowReaperConfig,
-            start_workflow_reaper,
-        )
-
-        reaper_config = WorkflowReaperConfig(
-            poll_interval_minutes=args.reaper_poll_interval_minutes,
-            host=args.web_service_fqdn,
-            port=args.web_service_port,
-            slack_api_url=args.slack_api_url,
-            slack_token=args.slack_token,
-            slack_channel_default=args.slack_channel_default,
-            workflow_run_heartbeat_interval=args.workflow_run_heartbeat_interval,
-            heartbeat_report_by_buffer=args.heartbeat_report_by_buffer,
-        )
+        from jobmon.server.workflow_reaper.api import start_workflow_reaper
+        logging.basicConfig(stream=sys.stdout, level=logging.INFO)
         if args.command == "start":
-            start_workflow_reaper(reaper_config)
+            start_workflow_reaper(
+                service_url=args.service_url,
+                slack_api_url=args.slack_api_url,
+                slack_token=args.slack_token,
+                slack_channel_default=args.slack_channel_default,
+                poll_interval_minutes=args.poll_interval_minutes,
+            )
         else:
             raise ValueError(
                 "Invalid command choice. Options are (start), got " f"({args.command})"
@@ -72,9 +67,14 @@ class ServerCLI(CLI):
     def init_db(self, args: argparse.Namespace) -> None:
         """Entrypoint to initialize new Jobmon database."""
         import sqlalchemy
+        from jobmon.configuration import JobmonConfig
         from jobmon.server.web.models import init_db, terminate_db
 
-        engine = sqlalchemy.create_engine(args.sqlalchemy_database_uri)
+        sqlalchemy_database_uri = args.sqlalchemy_database_uri
+        if not sqlalchemy_database_uri:
+            config = JobmonConfig()
+            sqlalchemy_database_uri = config.get("db", "sqlalchemy_database_uri")
+        engine = sqlalchemy.create_engine(sqlalchemy_database_uri)
         try:
             init_db(engine)
         except Exception:
@@ -84,9 +84,15 @@ class ServerCLI(CLI):
     def terminate_db(self, args: argparse.Namespace) -> None:
         """Entrypoint to terminate a Jobmon database."""
         import sqlalchemy
+        from jobmon.configuration import JobmonConfig
         from jobmon.server.web.models import terminate_db
 
-        terminate_db(sqlalchemy.create_engine(args.sqlalchemy_database_uri))
+        sqlalchemy_database_uri = args.sqlalchemy_database_uri
+        if not sqlalchemy_database_uri:
+            config = JobmonConfig()
+            sqlalchemy_database_uri = config.get("db", "sqlalchemy_database_uri")
+        engine = sqlalchemy.create_engine(sqlalchemy_database_uri)
+        terminate_db(engine)
 
     def _add_web_service_subparser(self) -> None:
         web_service_parser = self._subparsers.add_parser("web_service")
@@ -117,14 +123,41 @@ class ServerCLI(CLI):
                 "workflow_reaper.monitor_forever() method."
             ),
         )
-        ParserDefaults.reaper_poll_interval_minutes(reaper_parser)
-        ParserDefaults.web_service_fqdn(reaper_parser)
-        ParserDefaults.web_service_port(reaper_parser)
-        ParserDefaults.slack_api_url(reaper_parser)
-        ParserDefaults.slack_token(reaper_parser)
-        ParserDefaults.slack_channel_default(reaper_parser)
-        ParserDefaults.workflow_run_heartbeat_interval(reaper_parser)
-        ParserDefaults.heartbeat_report_by_buffer(reaper_parser)
+        reaper_parser.add_argument(
+            "--service_url",
+            type=str,
+            help="Jobmon web service URL",
+            required=False,
+            default=""
+        )
+        reaper_parser.add_argument(
+            "--slack_api_url",
+            type=str,
+            help="URL to post notifications",
+            required=False,
+            default=""
+        )
+        reaper_parser.add_argument(
+            "--slack_token",
+            type=str,
+            help="Authentication token for posting updates to slack",
+            required=False,
+            default=""
+        )
+        reaper_parser.add_argument(
+            "--slack_channel_default",
+            type=str,
+            help="Default channel to post updates to",
+            required=False,
+            default=""
+        )
+        reaper_parser.add_argument(
+            "--poll_interval_minutes",
+            type=int,
+            help="Duration in minutes to sleep between reaper loops",
+            required=False,
+            default=None
+        )
 
     def _add_integrator_subparser(self) -> None:
         integrator_parser = self._subparsers.add_parser("integration")

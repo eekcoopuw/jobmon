@@ -73,7 +73,7 @@ class WorkerNodeFactory:
                 job_name=str(task_instance_id),
             )
             stdout = logfiles.get("stdout", None)
-            stderr = logfiles.get("stderr", None),
+            stderr = logfiles.get("stderr", None)
 
         worker_node_task_instance = WorkerNodeTaskInstance(
             cluster_interface=self._worker_node_interface,
@@ -87,7 +87,7 @@ class WorkerNodeFactory:
         self, array_id: int, batch_number: int, initialize_logfiles: bool = True
     ) -> WorkerNodeTaskInstance:
         """Set up and return WorkerNodeTaskInstance object."""
-        requester = Requester(self._worker_node_config.url)
+        requester = Requester.from_defaults()
 
         # Always assumed to be a value in the range [1, len(array)]
         array_step_id = self._worker_node_interface.array_step_id
@@ -118,7 +118,7 @@ class WorkerNodeFactory:
                 job_name=f"{array_id}-{batch_number}",
             )
             stdout = logfiles.get("stdout", None)
-            stderr = logfiles.get("stderr", None),
+            stderr = logfiles.get("stderr", None)
 
         worker_node_task_instance = WorkerNodeTaskInstance(
             cluster_interface=self._worker_node_interface,

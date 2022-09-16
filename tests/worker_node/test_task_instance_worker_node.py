@@ -212,7 +212,7 @@ def test_ti_kill_self_state(db_engine, tool):
     worker_node_task_instance = WorkerNodeTaskInstance(
         task_instance_id=task_instance_id,
         cluster_interface=cluster.get_worker_node(),
-        heartbeat_interval=5,
+        task_instance_heartbeat_interval=5,
     )
 
     # Log running

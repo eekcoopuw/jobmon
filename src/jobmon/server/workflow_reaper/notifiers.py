@@ -4,30 +4,40 @@ from typing import Optional
 
 import requests
 
+from jobmon.configuration import JobmonConfig
+
 logger = logging.getLogger(__name__)
 
 
 class SlackNotifier(object):
     """Send notifications via slack."""
 
-    def __init__(self, slack_api_url: str, token: str, default_channel: str) -> None:
+    def __init__(self, api_url: str = "", token: str = "", channel_default: str = "") -> None:
         """Container for connection with Slack.
 
         Args:
-            slack_api_url (str): url to Slack.
+            api_url (str): url to Slack.
             token (str): token gotten from your app in api.slack.com.
-            default_channel (str): name of channel to which you want to post.
+            channel_default (str): name of channel to which you want to post.
         """
+        config = JobmonConfig()
+        if not api_url:
+            api_url = config.get("reaper", "slack_api_url")
+        if not token:
+            token = config.get("reaper", "slack_token")
+        if not channel_default:
+            channel_default = config.get("reaper", "slack_channel_default")
+
+        self.api_url = api_url
         self._token = token
-        self.default_channel = default_channel
-        self.slack_api_url = slack_api_url
+        self.channel_default = channel_default
 
     def send(self, msg: str, channel: Optional[str] = None) -> None:
         """Send message to Slack using requests.post."""
         if channel is None:
-            channel = self.default_channel
+            channel = self.channel_default
         resp = requests.post(
-            self.slack_api_url,
+            self.api_url,
             headers={"Authorization": "Bearer {}".format(self._token)},
             json={"channel": channel, "text": msg},
         )

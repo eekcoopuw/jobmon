@@ -6,8 +6,8 @@ import pytest
 def test_no_raise():
     notifier = SlackNotifier(
         token="fake_token",
-        default_channel="jobmon-alerts",
-        slack_api_url="https://slack.com/apis/chat.postMessage",
+        channel_default="jobmon-alerts",
+        api_url="https://slack.com/apis/chat.postMessage",
     )
     try:
         notifier.send(msg="This should fail because of fake link")

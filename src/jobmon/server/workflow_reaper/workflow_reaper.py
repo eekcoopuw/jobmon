@@ -4,9 +4,11 @@ from time import sleep
 from typing import Callable, List, Optional, Tuple
 
 from jobmon import __version__
+from jobmon.configuration import JobmonConfig
 from jobmon.constants import WorkflowRunStatus
-from jobmon.exceptions import InvalidResponse
+from jobmon.exceptions import InvalidResponse, ConfigError
 from jobmon.requester import http_request_ok, Requester
+from jobmon.server.workflow_reaper.notifiers import SlackNotifier
 from jobmon.server.workflow_reaper.reaper_workflow_run import ReaperWorkflowRun
 
 logger = logging.getLogger(__file__)
@@ -49,9 +51,9 @@ class WorkflowReaper(object):
 
     def __init__(
         self,
-        poll_interval_seconds: int,
-        requester: Requester,
-        wf_notification_sink: Callable[..., None] = None,
+        poll_interval_seconds: Optional[int] = None,
+        requester: Optional[Requester] = None,
+        wf_notification_sink: Optional[Callable[..., None]] = None,
     ) -> None:
         """Initializes WorkflowReaper class with specified poll interval and slack info.
 
@@ -62,6 +64,20 @@ class WorkflowReaper(object):
             requester (Requester): requester to communicate with Flask.
             wf_notification_sink (Callable): Slack notifier send().
         """
+        config = JobmonConfig()
+
+        # get poll interval from config
+        if poll_interval_seconds is None:
+            poll_interval_seconds = config.get_int("reaper", "poll_interval_minutes") * 60
+        if requester is None:
+            requester = Requester.from_defaults()
+        if wf_notification_sink is None:
+            try:
+                wf_notifier = SlackNotifier()
+                wf_notification_sink = wf_notifier.send
+            except ConfigError:
+                pass
+
         logger.info(
             f"WorkflowReaper initializing with: poll_interval_minutes={poll_interval_seconds},"
             f"requester_url={requester.url}"
