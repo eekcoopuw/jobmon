@@ -43,7 +43,7 @@ def task_template_dummy(tool):
     return tt
 
 
-def test_create_array(client_env, task_template):
+def test_create_array(task_template):
     tasks = task_template.create_tasks(arg="echo 1")
     array = tasks[0].array
     assert (

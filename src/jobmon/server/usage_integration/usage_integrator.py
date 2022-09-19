@@ -10,7 +10,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.orm.session import Session
 
-from jobmon.server.usage_integration.config import UsageConfig
+from jobmon.configuration import JobmonConfig
 from jobmon.server.usage_integration.usage_queue import UsageQ
 from jobmon.server.usage_integration.usage_utils import QueuedTI
 
@@ -20,21 +20,23 @@ logger = logging.getLogger(__name__)
 class UsageIntegrator:
     """Retrieves usage data for jobs run on Slurm."""
 
-    def __init__(self, config: UsageConfig = None) -> None:
+    def __init__(self, jobmon_db_uri: str = "", slurm_db_uri: str = "") -> None:
         """Initialization of the UsageIntegrator class."""
         self.heartbeat_time = 0
 
         # Initialize config
-        self.config = _get_config(config)
+        self.config = JobmonConfig()
 
         # Initialize sqlalchemy session
-        eng = create_engine(self.config["conn_str"], pool_recycle=200)
+        eng = create_engine(self.config.get("slurm", "jobmon_db_uri"), pool_recycle=200)
         session = sessionmaker(bind=eng)
         self.session = session()
 
         # Initialize sqlalchemy session for slurm_sdb
         eng_slurm_sdb = create_engine(
-            self.config["conn_slurm_sdb_str"], pool_recycle=200, pool_pre_ping=True
+            self.config.get("slurm", "slurm_db_uri"),
+            pool_recycle=200,
+            pool_pre_ping=True,
         )
         session_slurm_sdb = sessionmaker(bind=eng_slurm_sdb)
         self.session_slurm_sdb = session_slurm_sdb()
@@ -45,9 +47,11 @@ class UsageIntegrator:
         # Initialize empty queue-cluster mapping, to be populated and cached on startup
         self._queue_cluster_map: Optional[Dict] = None
 
-    @property
-    def integrator_retire_age(self) -> int:
-        return self.config["integrator_retire_age"]
+        self.integrator_retire_age = self.config.get_int(
+            "slurm", "integrator_retire_age"
+        )
+        self.poll_interval = self.config.get_int("slurm", "poll_interval")
+        self.max_update_per_sec = self.config.get_int("slurm", "max_update_per_sec")
 
     @property
     def queue_cluster_map(self) -> Dict:
@@ -303,18 +307,6 @@ def _get_slurm_resource_via_slurm_sdb(
     return all_usage_stats
 
 
-def _get_config(config: UsageConfig = None) -> dict:
-    if config is None:
-        config = UsageConfig.from_defaults()
-    return {
-        "conn_str": config.conn_str,
-        "conn_slurm_sdb_str": config.conn_slurm_sdb_str,
-        "polling_interval": config.slurm_polling_interval,
-        "max_update_per_sec": config.slurm_max_update_per_second,
-        "integrator_retire_age": config.integrator_retire_age,
-    }
-
-
 def _keep_running() -> bool:
     """Make it a function for easy mock in testing."""
     return UsageQ.keep_running
@@ -322,7 +314,6 @@ def _keep_running() -> bool:
 
 def q_forever(
     init_time: datetime.datetime = datetime.datetime(2022, 4, 8),
-    integrator_config: UsageConfig = None,
     never_retire: bool = True,
 ) -> None:
     """A never stop method running in a thread that queries the SLURM and Jobmon databases.
@@ -342,7 +333,7 @@ def q_forever(
 
     # allow the service to decide the time to go back to fill maxrss/maxpss
     last_heartbeat = init_time
-    integrator = UsageIntegrator(integrator_config)
+    integrator = UsageIntegrator()
 
     # only query each ti once in one polling_interval
     initial_q_size = UsageQ.get_size()
@@ -357,7 +348,7 @@ def q_forever(
             logger.info(f"Processed size in this polling interval: {processed_size}")
             # Update slurm_max_update_per_second of jobs as defined in jobmon.cfg
             task_instances = [
-                UsageQ.get() for _ in range(integrator.config["max_update_per_sec"])
+                UsageQ.get() for _ in range(integrator.max_update_per_sec)
             ]
             # If the queue is empty, drop the None entries
             task_instances_trimmed = [t for t in task_instances if t is not None]
@@ -367,7 +358,7 @@ def q_forever(
         # Query DB to add newly completed jobs to q and log q length
         current_time = datetime.datetime.now()
         if current_time - last_heartbeat > datetime.timedelta(
-            seconds=integrator.config["polling_interval"]
+            seconds=integrator.poll_interval
         ):
             logger.info(
                 "UsageQ length: {}, last heartbeat time: {}".format(

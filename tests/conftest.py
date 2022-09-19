@@ -41,10 +41,7 @@ class WebServerProcess:
         """Starts the web service process."""
         # jobmon_cli string
         database_uri = f"sqlite:///{self.filepath}"
-        argstr = (
-            f"web_service --web_service_port {self.web_port} "
-            f"--sqlalchemy_database_uri {database_uri}"
-        )
+        argstr = f"web_service --port {self.web_port} --sqlalchemy_database_uri {database_uri}"
 
         def run_server_with_handler(argstr: str) -> None:
             def sigterm_handler(_signo: int, _stack_frame: Any) -> None:
@@ -134,18 +131,16 @@ def db_engine(sqlite_file) -> Engine:
 @pytest.fixture(scope="function")
 def client_env(web_server_process, monkeypatch):
 
-    from jobmon.client.client_config import ClientConfig
+    from jobmon.requester import Requester
 
     monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
     monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
-    monkeypatch.setenv("TENACITY_MAX_RETRIES", "0")
+    monkeypatch.setenv("JOBMON__HTTP__STOP_AFTER_DELAY", "0")
 
     # This instance is thrown away, hence monkey-patching the defaults via the
     # environment variables
-    cc = ClientConfig(
-        web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"], 30, 3.1, 0
-    )
-    yield cc.url
+    requester = Requester.from_defaults()
+    yield requester.url
 
 
 @pytest.fixture(scope="function")
@@ -161,17 +156,17 @@ def web_server_in_memory(sqlite_file, monkeypatch):
     fake server
     """
     from jobmon.server.web.app_factory import AppFactory
-    from jobmon.server.web.web_config import WebConfig
 
     # The create_app call sets up database connections
-    monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", f"sqlite:///{sqlite_file}")
-    config = WebConfig.from_defaults()
-    app_factory = AppFactory(config)
+    monkeypatch.setenv(
+        "JOBMON__FLASK__SQLALCHEMY_DATABASE_URI", f"sqlite:///{sqlite_file}"
+    )
+    app_factory = AppFactory()
     app = app_factory.get_app()
     app.config["TESTING"] = True
     with app.app_context():
         client = app.test_client()
-        yield client, config.engine
+        yield client, app_factory.engine
 
 
 def get_test_content(response):

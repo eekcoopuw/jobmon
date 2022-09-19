@@ -30,6 +30,7 @@ def add_tool() -> Any:
 
     # add tool to db
     session = SessionLocal()
+    print(session.bind)
     try:
         with session.begin():
             logger.info(f"Adding tool {tool_name}")

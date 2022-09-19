@@ -1,8 +1,7 @@
-import contextlib
 import os
 import random
 import subprocess
-import sys
+import time
 from typing import Dict, Tuple
 
 from unittest.mock import patch
@@ -212,7 +211,7 @@ def test_ti_kill_self_state(db_engine, tool):
     worker_node_task_instance = WorkerNodeTaskInstance(
         task_instance_id=task_instance_id,
         cluster_interface=cluster.get_worker_node(),
-        heartbeat_interval=5,
+        task_instance_heartbeat_interval=5,
     )
 
     # Log running
@@ -303,7 +302,7 @@ def test_limited_error_log(tool, db_engine):
         res = session.execute(query).fetchone()
 
     error = res[0]
-    assert error == (("a" * 2**10 + "\n") * (2**8))[-10000:]
+    assert error == (("a" * 2 ** 10 + "\n") * (2 ** 8))[-10000:]
 
 
 def test_worker_node_environment(client_env):
@@ -338,3 +337,67 @@ def test_worker_node_environment(client_env):
     out, err = ti.run()
     # We printed out environment variables in 3 lines. Check that equality
     assert out == "\n".join(["200", "300", "100"]) + "\n"
+
+
+def test_worker_node_add_attributes(tool, db_engine):
+
+    thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
+
+    wf = tool.create_workflow(name="random_workflow")
+    template = tool.get_task_template(
+        template_name="some_template",
+        command_template="python {node_arg}",
+        node_args=["node_arg"],
+    )
+    task_resources = {
+        "num_cores": 1,
+        "mem": "1G",
+        "max_runtime_seconds": 600,
+        "queue": "null.q",
+    }
+    task = template.create_task(
+        name="task1",
+        node_arg=os.path.join(thisdir, "add_attributes.py"),
+        compute_resources=task_resources,
+        cluster_name="multiprocess",
+        max_attempts=1,
+    )
+    wf.add_tasks([task])
+    wf.bind()
+    wf._bind_tasks()
+    factory = WorkflowRunFactory(wf.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
+
+    # create task instances
+    swarm = SwarmWorkflowRun(
+        workflow_run_id=wfr.workflow_run_id,
+        requester=wf.requester,
+    )
+    swarm.from_workflow(wf)
+    swarm.set_initial_fringe()
+    swarm.process_commands()
+
+    cluster = Cluster.get_cluster("multiprocess")
+    cluster_interface = cluster.get_distributor()
+    cluster_interface.start()
+    distributor_service = DistributorService(
+        cluster_interface, requester=wf.requester, raise_on_error=True
+    )
+    distributor_service.set_workflow_run(wfr.workflow_run_id)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.QUEUED)
+    distributor_service.process_status(TaskInstanceStatus.QUEUED)
+    distributor_service.refresh_status_from_db(TaskInstanceStatus.INSTANTIATED)
+    distributor_service.process_status(TaskInstanceStatus.INSTANTIATED)
+
+    while swarm.active_tasks:
+        time.sleep(1)
+        swarm.synchronize_state()
+    cluster_interface.stop()
+
+    # check db
+    with Session(bind=db_engine) as session:
+        query = "SELECT * FROM task_attribute where task_id = {}".format(task.task_id)
+        for row in session.execute(query).fetchall():
+            _, _, val = row
+            assert val in ["1", "zzz"]

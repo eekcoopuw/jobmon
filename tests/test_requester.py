@@ -5,7 +5,6 @@ import pytest
 from tenacity import stop_after_attempt
 from requests import ConnectionError
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 
@@ -91,8 +90,7 @@ def test_fail_fast(client_env):
     Use the client-env requestor that has max-retries == 0.
     """
 
-    cc = ClientConfig.from_defaults()
-    requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+    requester = Requester.from_defaults()
     with pytest.raises(InvalidResponse) as exc:
         requester.send_request("/no-route-should-fail", {}, "get")
         assert "Unexpected status code 404" in str(exc.value)

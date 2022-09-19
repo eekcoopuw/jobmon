@@ -15,11 +15,11 @@ from time import sleep, time
 from typing import Dict, Optional, Union
 
 from jobmon.cluster_type import ClusterWorkerNode
+from jobmon.configuration import JobmonConfig
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse, ReturnCodes, TransitionError
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskInstance
-from jobmon.worker_node.worker_node_config import WorkerNodeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -35,9 +35,9 @@ class WorkerNodeTaskInstance:
         task_id: Optional[int] = None,
         stdout: Optional[Path] = None,
         stderr: Optional[Path] = None,
-        heartbeat_interval: int = 90,
-        report_by_buffer: float = 3.1,
-        command_interrupt_timeout: int = 10,
+        task_instance_heartbeat_interval: Optional[int] = None,
+        heartbeat_report_by_buffer: Optional[float] = None,
+        command_interrupt_timeout: Optional[int] = None,
         requester: Optional[Requester] = None,
     ) -> None:
         """A mechanism whereby a running task_instance can communicate back to the JSM.
@@ -51,8 +51,8 @@ class WorkerNodeTaskInstance:
             task_id: the id of the Task.
             stdout: path to stdout.
             stderr: path to stderr.
-            heartbeat_interval: how ofter to log a report by with the db
-            report_by_buffer: multiplier for report by date in case we miss a few.
+            task_instance_heartbeat_interval: how ofter to log a report by with the db
+            heartbeat_report_by_buffer: multiplier for report by date in case we miss a few.
             command_interrupt_timeout: the amount of time to wait for the child process to
                 terminate.
             requester: communicate with the flask services.
@@ -66,7 +66,7 @@ class WorkerNodeTaskInstance:
 
         # service API
         if requester is None:
-            requester = Requester(WorkerNodeConfig.from_defaults().url)
+            requester = Requester.from_defaults()
         self.requester = requester
 
         # cluster API
@@ -76,9 +76,25 @@ class WorkerNodeTaskInstance:
         self._distributor_id = self.cluster_interface.distributor_id
 
         # config
-        self.heartbeat_interval = heartbeat_interval
-        self.report_by_buffer = report_by_buffer
-        self.command_interrupt_timeout = command_interrupt_timeout
+        config = JobmonConfig()
+        if task_instance_heartbeat_interval is None:
+            self._task_instance_heartbeat_interval = config.get_int(
+                "heartbeat", "task_instance_interval"
+            )
+        else:
+            self._task_instance_heartbeat_interval = task_instance_heartbeat_interval
+        if heartbeat_report_by_buffer is None:
+            self._heartbeat_report_by_buffer = config.get_float(
+                "heartbeat", "report_by_buffer"
+            )
+        else:
+            self._heartbeat_report_by_buffer = heartbeat_report_by_buffer
+        if command_interrupt_timeout is None:
+            self._command_interrupt_timeout = config.get_int(
+                "worker_node", "command_interrupt_timeout"
+            )
+        else:
+            self._command_interrupt_timeout = command_interrupt_timeout
 
         # set last heartbeat
         self.last_heartbeat_time = time()
@@ -250,7 +266,10 @@ class WorkerNodeTaskInstance:
         message = {
             "nodename": self.nodename,
             "process_group_id": str(self.process_group_id),
-            "next_report_increment": (self.heartbeat_interval * self.report_by_buffer),
+            "next_report_increment": (
+                self._task_instance_heartbeat_interval
+                * self._heartbeat_report_by_buffer
+            ),
             "stdout": str(self.stdout) if self.stdout is not None else None,
             "stderr": str(self.stderr) if self.stderr is not None else None,
         }
@@ -293,7 +312,10 @@ class WorkerNodeTaskInstance:
         """Log the heartbeat to show that the task instance is still alive."""
         logger.debug(f"Logging heartbeat for task_instance {self.task_instance_id}")
         message: Dict = {
-            "next_report_increment": self.heartbeat_interval * self.report_by_buffer
+            "next_report_increment": (
+                self._task_instance_heartbeat_interval
+                * self._heartbeat_report_by_buffer
+            )
         }
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)
@@ -356,7 +378,7 @@ class WorkerNodeTaskInstance:
             is_done = False
             while not is_done:
                 # process any commands that we can in the time allotted
-                time_till_next_heartbeat = self.heartbeat_interval - (
+                time_till_next_heartbeat = self._task_instance_heartbeat_interval - (
                     time() - self.last_heartbeat_time
                 )
                 is_done = self._poll_subprocess(timeout=time_till_next_heartbeat)
@@ -380,10 +402,10 @@ class WorkerNodeTaskInstance:
 
                 # if it doesn't die of natural causes raise TimeoutExpired
                 try:
-                    self._proc.wait(timeout=self.command_interrupt_timeout)
+                    self._proc.wait(timeout=self._command_interrupt_timeout)
                 except subprocess.TimeoutExpired:
                     self._proc.kill()
-                    self._proc.wait(timeout=self.command_interrupt_timeout)
+                    self._proc.wait(timeout=self._command_interrupt_timeout)
 
                 self._collect_stderr()
                 logger.info(f"Collected stderr after termination: {self.proc_stderr}")

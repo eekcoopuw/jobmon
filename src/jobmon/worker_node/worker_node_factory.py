@@ -5,29 +5,23 @@ from typing import Dict, Optional
 from jobmon.cluster import Cluster
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
-from jobmon.worker_node.worker_node_config import WorkerNodeConfig
 from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
 
 
 class WorkerNodeFactory:
     def __init__(
-        self, cluster_name: str, worker_node_config: Optional[WorkerNodeConfig] = None
+        self, cluster_name: str, requester: Optional[Requester] = None
     ) -> None:
         """Initialization of the WorkerNode Factory."""
         self._cluster_name = cluster_name
-        if worker_node_config is None:
-            worker_node_config = WorkerNodeConfig.from_defaults()
-        self._worker_node_config = worker_node_config
 
-        cluster = Cluster.get_cluster(
-            cluster_name, Requester(self._worker_node_config.url)
-        )
+        cluster = Cluster.get_cluster(cluster_name)
         self._worker_node_interface = cluster.get_worker_node()
 
     def _initialize_logfiles(
         self, task_instance_id: int, template_type: str, job_name: str
     ) -> Dict[str, Path]:
-        requester = Requester(self._worker_node_config.url)
+        requester = Requester.from_defaults()
         app_route = (
             f"/task_instance/{task_instance_id}/logfile_template/{template_type}"
         )
@@ -66,46 +60,33 @@ class WorkerNodeFactory:
     def get_job_task_instance(
         self,
         task_instance_id: int,
+        initialize_logfiles: bool = True,
     ) -> WorkerNodeTaskInstance:
         """Set up and return WorkerNodeTaskInstance object."""
-        logfiles = self._initialize_logfiles(
-            task_instance_id=task_instance_id,
-            template_type="job",
-            job_name=str(task_instance_id),
-        )
+        stdout = None
+        stderr = None
+        if initialize_logfiles:
+            logfiles = self._initialize_logfiles(
+                task_instance_id=task_instance_id,
+                template_type="job",
+                job_name=str(task_instance_id),
+            )
+            stdout = logfiles.get("stdout", None)
+            stderr = logfiles.get("stderr", None)
 
         worker_node_task_instance = WorkerNodeTaskInstance(
             cluster_interface=self._worker_node_interface,
             task_instance_id=task_instance_id,
-            stdout=logfiles.get("stdout", None),
-            stderr=logfiles.get("stderr", None),
-            heartbeat_interval=self._worker_node_config.task_instance_heartbeat_interval,
-            report_by_buffer=self._worker_node_config.heartbeat_report_by_buffer,
-            requester=Requester(self._worker_node_config.url),
-        )
-        return worker_node_task_instance
-
-    def get_job_task_instance_without_logging(
-        self,
-        task_instance_id: int,
-    ) -> WorkerNodeTaskInstance:
-        """Called by the DummyExecutor because it does not want logging at all. Feels hacky."""
-        worker_node_task_instance = WorkerNodeTaskInstance(
-            cluster_interface=self._worker_node_interface,
-            task_instance_id=task_instance_id,
-            stdout=None,
-            stderr=None,
-            heartbeat_interval=self._worker_node_config.task_instance_heartbeat_interval,
-            report_by_buffer=self._worker_node_config.heartbeat_report_by_buffer,
-            requester=Requester(self._worker_node_config.url),
+            stdout=stdout,
+            stderr=stderr,
         )
         return worker_node_task_instance
 
     def get_array_task_instance(
-        self, array_id: int, batch_number: int
+        self, array_id: int, batch_number: int, initialize_logfiles: bool = True
     ) -> WorkerNodeTaskInstance:
         """Set up and return WorkerNodeTaskInstance object."""
-        requester = Requester(self._worker_node_config.url)
+        requester = Requester.from_defaults()
 
         # Always assumed to be a value in the range [1, len(array)]
         array_step_id = self._worker_node_interface.array_step_id
@@ -127,21 +108,23 @@ class WorkerNodeFactory:
         workflow_id = resp["workflow_id"]
         task_id = resp["task_id"]
 
-        logfiles = self._initialize_logfiles(
-            task_instance_id=task_instance_id,
-            template_type="array",
-            job_name=f"{array_id}-{batch_number}",
-        )
+        stdout = None
+        stderr = None
+        if initialize_logfiles:
+            logfiles = self._initialize_logfiles(
+                task_instance_id=task_instance_id,
+                template_type="array",
+                job_name=f"{array_id}-{batch_number}",
+            )
+            stdout = logfiles.get("stdout", None)
+            stderr = logfiles.get("stderr", None)
 
         worker_node_task_instance = WorkerNodeTaskInstance(
             cluster_interface=self._worker_node_interface,
             task_instance_id=task_instance_id,
             workflow_id=workflow_id,
             task_id=task_id,
-            stdout=logfiles.get("stdout", None),
-            stderr=logfiles.get("stderr", None),
-            heartbeat_interval=self._worker_node_config.task_instance_heartbeat_interval,
-            report_by_buffer=self._worker_node_config.heartbeat_report_by_buffer,
-            requester=requester,
+            stdout=stdout,
+            stderr=stderr,
         )
         return worker_node_task_instance

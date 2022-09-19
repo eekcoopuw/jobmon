@@ -7,7 +7,7 @@ import time
 from typing import Optional
 
 from jobmon import __version__
-from jobmon.client.client_config import ClientConfig
+from jobmon.configuration import JobmonConfig
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import http_request_ok, Requester
 
@@ -32,8 +32,7 @@ class WorkflowRunFactory:
         """Initialization of client WorkflowRun."""
         self.workflow_id = workflow_id
         if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
+            requester = Requester.from_defaults()
         self.requester = requester
         self.workflow_is_resumable = False
 
@@ -115,8 +114,8 @@ class WorkflowRun(object):
         self,
         workflow_id: int,
         requester: Optional[Requester] = None,
-        workflow_run_heartbeat_interval: int = 30,
-        heartbeat_report_by_buffer: float = 3.1,
+        workflow_run_heartbeat_interval: Optional[int] = None,
+        heartbeat_report_by_buffer: Optional[float] = None,
     ) -> None:
         """Initialize client WorkflowRun."""
         # set attrs
@@ -124,11 +123,22 @@ class WorkflowRun(object):
         self.user = getpass.getuser()
 
         if requester is None:
-            cc = ClientConfig.from_defaults()
-            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+            requester = Requester.from_defaults()
         self.requester = requester
-        self.heartbeat_interval = workflow_run_heartbeat_interval
-        self.heartbeat_report_by_buffer = heartbeat_report_by_buffer
+
+        # set values from config
+        config = JobmonConfig()
+        if workflow_run_heartbeat_interval is None:
+            heartbeat_interval = config.get_int("heartbeat", "workflow_run_interval")
+        else:
+            heartbeat_interval = int(workflow_run_heartbeat_interval)
+        self.heartbeat_interval = heartbeat_interval
+        if heartbeat_report_by_buffer is None:
+            report_by_buffer = config.get_float("heartbeat", "report_by_buffer")
+        else:
+            report_by_buffer = float(heartbeat_report_by_buffer)
+        self.heartbeat_report_by_buffer = report_by_buffer
+
         self._workflow_run_id = None
         self._status: Optional[str] = None
 

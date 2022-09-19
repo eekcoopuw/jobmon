@@ -19,7 +19,6 @@ from typing import (
 )
 
 from jobmon.client.array import Array
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.swarm.swarm_array import SwarmArray
 from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.task_resources import TaskResources
@@ -131,8 +130,8 @@ class WorkflowRun:
         self._workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
         self._heartbeat_report_by_buffer = heartbeat_report_by_buffer
         if requester is None:
-            requester = Requester(ClientConfig.from_defaults().url)
-        self._requester = requester
+            requester = Requester.from_defaults()
+        self.requester = requester
 
         # This signal is set if the workflow run receives a resume
         self._terminated = False
@@ -249,7 +248,7 @@ class WorkflowRun:
 
     def set_workflow_metadata(self, workflow_id: int) -> None:
         """Fetch the dag_id and max_concurrently_running parameters of this workflow."""
-        _, resp = self._requester.send_request(
+        _, resp = self.requester.send_request(
             app_route=f"/workflow/{workflow_id}/fetch_workflow_metadata",
             message={},
             request_type="get",
@@ -290,7 +289,7 @@ class WorkflowRun:
                     f"Still fetching tasks, {len(self.tasks)} collected so far..."
                 )
 
-            _, resp = self._requester.send_request(
+            _, resp = self.requester.send_request(
                 app_route=f"/workflow/get_tasks/{self.workflow_id}",
                 message={"max_task_id": max_task_id, "chunk_size": chunk_size},
                 request_type="get",
@@ -330,7 +329,7 @@ class WorkflowRun:
                     cluster = cluster_registry[cluster_name]
                 except KeyError:
                     cluster = Cluster(
-                        cluster_name=cluster_name, requester=self._requester
+                        cluster_name=cluster_name, requester=self.requester
                     )
                     cluster.bind()
                     cluster_registry[cluster_name] = cluster
@@ -341,7 +340,7 @@ class WorkflowRun:
                 task_resources = TaskResources(
                     requested_resources=requested_resources,
                     queue=queue,
-                    requester=self._requester,
+                    requester=self.requester,
                 )
 
                 st = SwarmTask(
@@ -391,7 +390,7 @@ class WorkflowRun:
             start_idx = end_idx
             end_idx += chunk_size
 
-            _, edge_resp = self._requester.send_request(
+            _, edge_resp = self.requester.send_request(
                 app_route="/task/get_downstream_tasks",
                 message={"task_ids": task_id_chunk, "dag_id": self.dag_id},
                 request_type="get",
@@ -741,7 +740,7 @@ class WorkflowRun:
 
     def _set_status_for_triaging(self) -> None:
         app_route = f"/workflow_run/{self.workflow_run_id}/set_status_for_triaging"
-        return_code, response = self._requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route, message={}, request_type="post"
         )
         if http_request_ok(return_code) is False:
@@ -756,7 +755,7 @@ class WorkflowRun:
             self._workflow_run_heartbeat_interval * self._heartbeat_report_by_buffer
         )
         app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
-        return_code, response = self._requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
                 "status": self._status,
@@ -776,7 +775,7 @@ class WorkflowRun:
     def _update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""
         app_route = f"/workflow_run/{self.workflow_run_id}/update_status"
-        return_code, response = self._requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"status": status},
             request_type="put",
@@ -797,7 +796,7 @@ class WorkflowRun:
     def _terminate_task_instances(self) -> None:
         """Terminate the workflow run."""
         app_route = f"/workflow_run/{self.workflow_run_id}/terminate_task_instances"
-        return_code, response = self._requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route, message={}, request_type="put"
         )
         if http_request_ok(return_code) is False:
@@ -821,7 +820,7 @@ class WorkflowRun:
 
     def _get_current_time(self) -> datetime:
         app_route = "/time"
-        return_code, response = self._requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route, message={}, request_type="get"
         )
 
@@ -844,7 +843,7 @@ class WorkflowRun:
             message = {"last_sync": str(self.last_sync)}
 
         app_route = f"/workflow/{self.workflow_id}/task_status_updates"
-        return_code, response = self._requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route,
             message=message,
             request_type="post",
@@ -868,7 +867,7 @@ class WorkflowRun:
 
     def _synchronize_max_concurrently_running(self) -> None:
         app_route = f"/workflow/{self.workflow_id}/get_max_concurrently_running"
-        return_code, response = self._requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route, message={}, request_type="get"
         )
 
@@ -887,7 +886,7 @@ class WorkflowRun:
             task_resources.bind()
 
         app_route = f"/array/{first_task.array_id}/queue_task_batch"
-        return_code, response = self._requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
                 "task_ids": [task.task_id for task in tasks],

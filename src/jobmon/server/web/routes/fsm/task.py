@@ -315,6 +315,71 @@ def _add_or_get_attribute_type(
     return attribute_type_ids
 
 
+@blueprint.route("/task/<task_id>/attributes", methods=["POST"])
+def add_task_attributes(task_id: str) -> Any:
+    """Route to add task attributes from the worker node."""
+    data = cast(Dict, request.get_json())
+    attrs_to_add = []
+
+    session = SessionLocal()
+    with session.begin():
+        task_attributes_types = _add_or_get_attribute_type(set(data.keys()), session)
+        task_attributes_types_lookup = {ta.name: ta.id for ta in task_attributes_types}
+
+        for name, val in data.items():
+            # An interesting bug: the attribute type names are inserted using the
+            # insert.prefix("IGNORE") syntax, which silently truncates names that are
+            # overly long. So this will raise a keyerror if the attribute name is >255
+            # characters. Don't imagine this is a serious issue but might be worth
+            # protecting
+            attr_type_id = task_attributes_types_lookup[name]
+            insert_vals = {
+                "task_id": task_id,
+                "task_attribute_type_id": attr_type_id,
+                "value": val,
+            }
+            attrs_to_add.append(insert_vals)
+
+    if attrs_to_add:
+        with session.begin():
+            try:
+                if SessionLocal.bind.dialect.name == "mysql":
+                    attr_insert_stmt = mysql_insert(TaskAttribute).values(attrs_to_add)
+                    attr_insert_stmt = attr_insert_stmt.on_duplicate_key_update(
+                        value=attr_insert_stmt.inserted.value
+                    )
+                    session.execute(attr_insert_stmt)
+                elif SessionLocal.bind.dialect.name == "sqlite":
+                    for attr_to_add in attrs_to_add:
+                        attr_insert_stmt = (
+                            sqlite_insert(TaskAttribute)
+                            .values(attr_to_add)
+                            .on_conflict_do_update(
+                                index_elements=["task_id", "task_attribute_type_id"],
+                                set_=dict(value=attr_to_add["value"]),
+                            )
+                        )
+                        print(attr_insert_stmt)
+                        session.execute(attr_insert_stmt)
+                else:
+                    raise ServerError(
+                        "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
+                        + SessionLocal.bind.dialect.name
+                    )
+
+            except (DataError, IntegrityError) as e:
+                # Attributes too long, message back
+                raise InvalidUsage(
+                    "Task attributes are constrained to 255 characters, you may have values "
+                    f"that are too long. Message: {str(e)}",
+                    status_code=400,
+                ) from e
+
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 @blueprint.route("/task/bind_resources", methods=["POST"])
 def bind_task_resources() -> Any:
     """Add the task resources for a given task."""

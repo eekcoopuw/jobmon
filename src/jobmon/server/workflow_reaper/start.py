@@ -1,37 +1,45 @@
 """Start up workflow reaper service."""
-import logging
-import sys
 from typing import Callable, Optional
 
 
+from jobmon.exceptions import ConfigError
 from jobmon.requester import Requester
 from jobmon.server.workflow_reaper.notifiers import SlackNotifier
-from jobmon.server.workflow_reaper.reaper_config import WorkflowReaperConfig
 from jobmon.server.workflow_reaper.workflow_reaper import WorkflowReaper
 
 
 def start_workflow_reaper(
-    workflow_reaper_config: Optional[WorkflowReaperConfig] = None,
+    service_url: str = "",
+    slack_api_url: str = "",
+    slack_token: str = "",
+    slack_channel_default: str = "",
+    poll_interval_minutes: Optional[int] = None,
 ) -> None:
     """Start monitoring for lost workflow runs."""
-    logging.basicConfig(stream=sys.stdout, level=logging.INFO)
+    # build slack notifier
+    wf_sink: Optional[Callable[[str, Optional[str]], None]] = None
+    if slack_api_url or slack_token or slack_channel_default:
+        try:
+            wf_notifier = SlackNotifier(
+                api_url=slack_api_url,
+                token=slack_token,
+                channel_default=slack_channel_default,
+            )
+            wf_sink = wf_notifier.send
+        except ConfigError:
+            pass
 
-    if workflow_reaper_config is None:
-        workflow_reaper_config = WorkflowReaperConfig.from_defaults()
+    # construct requester
+    requester: Optional[Requester] = None
+    if service_url:
+        requester = Requester(service_url)
 
-    if workflow_reaper_config.slack_token and workflow_reaper_config.slack_api_url:
-        wf_notifier = SlackNotifier(
-            slack_api_url=workflow_reaper_config.slack_api_url,
-            token=workflow_reaper_config.slack_token,
-            default_channel=workflow_reaper_config.slack_channel_default,
-        )
-        wf_sink: Optional[Callable[[str, Optional[str]], None]] = wf_notifier.send
-    else:
-        wf_sink = None
+    poll_interval_seconds: Optional[int] = None
+    if poll_interval_minutes is not None:
+        poll_interval_seconds = poll_interval_minutes * 60
 
-    requester = Requester(workflow_reaper_config.url)
     reaper = WorkflowReaper(
-        poll_interval_seconds=workflow_reaper_config.poll_interval_minutes * 60,
+        poll_interval_seconds=poll_interval_seconds,
         requester=requester,
         wf_notification_sink=wf_sink,
     )
