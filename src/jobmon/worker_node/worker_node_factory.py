@@ -63,7 +63,6 @@ class WorkerNodeFactory:
         initialize_logfiles: bool = True,
     ) -> WorkerNodeTaskInstance:
         """Set up and return WorkerNodeTaskInstance object."""
-
         stdout = None
         stderr = None
         if initialize_logfiles:

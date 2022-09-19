@@ -34,7 +34,9 @@ class UsageIntegrator:
 
         # Initialize sqlalchemy session for slurm_sdb
         eng_slurm_sdb = create_engine(
-            self.config.get("slurm", "slurm_db_uri"), pool_recycle=200, pool_pre_ping=True
+            self.config.get("slurm", "slurm_db_uri"),
+            pool_recycle=200,
+            pool_pre_ping=True,
         )
         session_slurm_sdb = sessionmaker(bind=eng_slurm_sdb)
         self.session_slurm_sdb = session_slurm_sdb()
@@ -45,7 +47,9 @@ class UsageIntegrator:
         # Initialize empty queue-cluster mapping, to be populated and cached on startup
         self._queue_cluster_map: Optional[Dict] = None
 
-        self.integrator_retire_age = self.config.get_int("slurm", "integrator_retire_age")
+        self.integrator_retire_age = self.config.get_int(
+            "slurm", "integrator_retire_age"
+        )
         self.poll_interval = self.config.get_int("slurm", "poll_interval")
         self.max_update_per_sec = self.config.get_int("slurm", "max_update_per_sec")
 

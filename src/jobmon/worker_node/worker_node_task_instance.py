@@ -266,8 +266,10 @@ class WorkerNodeTaskInstance:
         message = {
             "nodename": self.nodename,
             "process_group_id": str(self.process_group_id),
-            "next_report_increment": (self._task_instance_heartbeat_interval *
-                                      self._heartbeat_report_by_buffer),
+            "next_report_increment": (
+                self._task_instance_heartbeat_interval
+                * self._heartbeat_report_by_buffer
+            ),
             "stdout": str(self.stdout) if self.stdout is not None else None,
             "stderr": str(self.stderr) if self.stderr is not None else None,
         }
@@ -310,8 +312,10 @@ class WorkerNodeTaskInstance:
         """Log the heartbeat to show that the task instance is still alive."""
         logger.debug(f"Logging heartbeat for task_instance {self.task_instance_id}")
         message: Dict = {
-            "next_report_increment": (self._task_instance_heartbeat_interval *
-                                      self._heartbeat_report_by_buffer)
+            "next_report_increment": (
+                self._task_instance_heartbeat_interval
+                * self._heartbeat_report_by_buffer
+            )
         }
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)

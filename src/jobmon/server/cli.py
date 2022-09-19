@@ -1,9 +1,8 @@
 """Set up server specific CLI config."""
+import argparse
 import logging
 import sys
 from typing import Optional
-
-import argparse
 
 from jobmon.cli import CLI
 
@@ -30,7 +29,9 @@ class ServerCLI(CLI):
         from jobmon.server.web.api import AppFactory, log_config
 
         app_factory = AppFactory(sqlalchemy_database_uri=args.sqlalchemy_database_uri)
-        log_config.configure_logger("jobmon.server.web", app_factory.logstash_handler_config)
+        log_config.configure_logger(
+            "jobmon.server.web", app_factory.logstash_handler_config
+        )
         app = app_factory.get_app()
         with app.app_context():
             app.run(host="0.0.0.0", port=args.port)
@@ -38,6 +39,7 @@ class ServerCLI(CLI):
     def workflow_reaper(self, args: argparse.Namespace) -> None:
         """Workflow reaper entrypoint logic."""
         from jobmon.server.workflow_reaper.api import start_workflow_reaper
+
         logging.basicConfig(stream=sys.stdout, level=logging.INFO)
         if args.command == "start":
             start_workflow_reaper(
@@ -108,7 +110,7 @@ class ServerCLI(CLI):
             type=str,
             help="The connection string for sqlalchemy to use when running the server.",
             required=False,
-            default=""
+            default="",
         )
 
     def _add_workflow_reaper_subparser(self) -> None:
@@ -128,35 +130,35 @@ class ServerCLI(CLI):
             type=str,
             help="Jobmon web service URL",
             required=False,
-            default=""
+            default="",
         )
         reaper_parser.add_argument(
             "--slack_api_url",
             type=str,
             help="URL to post notifications",
             required=False,
-            default=""
+            default="",
         )
         reaper_parser.add_argument(
             "--slack_token",
             type=str,
             help="Authentication token for posting updates to slack",
             required=False,
-            default=""
+            default="",
         )
         reaper_parser.add_argument(
             "--slack_channel_default",
             type=str,
             help="Default channel to post updates to",
             required=False,
-            default=""
+            default="",
         )
         reaper_parser.add_argument(
             "--poll_interval_minutes",
             type=int,
             help="Duration in minutes to sleep between reaper loops",
             required=False,
-            default=None
+            default=None,
         )
 
     def _add_integrator_subparser(self) -> None:
@@ -180,7 +182,7 @@ class ServerCLI(CLI):
             type=str,
             help="The connection string for sqlalchemy to use when running the server.",
             required=False,
-            default=""
+            default="",
         )
 
     def _add_terminate_db_subparser(self) -> None:
@@ -191,7 +193,7 @@ class ServerCLI(CLI):
             type=str,
             help="The connection string for sqlalchemy to use when running the server.",
             required=False,
-            default=""
+            default="",
         )
 
 

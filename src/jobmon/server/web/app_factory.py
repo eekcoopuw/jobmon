@@ -77,6 +77,7 @@ class AppFactory:
         # in memory db must be created in same thread as app
         if str(self.engine.url) == "sqlite://":
             from jobmon.server.web.models import init_db
+
             init_db(self.engine)
 
     @property

@@ -302,7 +302,7 @@ def test_limited_error_log(tool, db_engine):
         res = session.execute(query).fetchone()
 
     error = res[0]
-    assert error == (("a" * 2**10 + "\n") * (2**8))[-10000:]
+    assert error == (("a" * 2 ** 10 + "\n") * (2 ** 8))[-10000:]
 
 
 def test_worker_node_environment(client_env):
@@ -397,9 +397,7 @@ def test_worker_node_add_attributes(tool, db_engine):
 
     # check db
     with Session(bind=db_engine) as session:
-        query = (
-            "SELECT * FROM task_attribute where task_id = {}".format(task.task_id)
-        )
+        query = "SELECT * FROM task_attribute where task_id = {}".format(task.task_id)
         for row in session.execute(query).fetchall():
             _, _, val = row
             assert val in ["1", "zzz"]

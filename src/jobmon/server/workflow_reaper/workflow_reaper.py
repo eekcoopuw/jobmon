@@ -6,7 +6,7 @@ from typing import Callable, List, Optional, Tuple
 from jobmon import __version__
 from jobmon.configuration import JobmonConfig
 from jobmon.constants import WorkflowRunStatus
-from jobmon.exceptions import InvalidResponse, ConfigError
+from jobmon.exceptions import ConfigError, InvalidResponse
 from jobmon.requester import http_request_ok, Requester
 from jobmon.server.workflow_reaper.notifiers import SlackNotifier
 from jobmon.server.workflow_reaper.reaper_workflow_run import ReaperWorkflowRun
@@ -68,7 +68,9 @@ class WorkflowReaper(object):
 
         # get poll interval from config
         if poll_interval_seconds is None:
-            poll_interval_seconds = config.get_int("reaper", "poll_interval_minutes") * 60
+            poll_interval_seconds = (
+                config.get_int("reaper", "poll_interval_minutes") * 60
+            )
         if requester is None:
             requester = Requester.from_defaults()
         if wf_notification_sink is None:

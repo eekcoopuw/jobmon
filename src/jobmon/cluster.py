@@ -85,12 +85,12 @@ class Cluster:
         return self._cluster_id
 
     def get_worker_node(self) -> ClusterWorkerNode:
-        """Get the cluster specific worker_node interface"""
+        """Get the cluster specific worker_node interface."""
         cluster_worker_node_class = self._cluster_type.cluster_worker_node_class
         return cluster_worker_node_class()
 
     def get_distributor(self) -> ClusterDistributor:
-        """Get the cluster specific distributor interface"""
+        """Get the cluster specific distributor interface."""
         # TODO: read in cluster args from config here?
         distributor_class = self._cluster_type.cluster_distributor_class
         return distributor_class(self.cluster_name, **self._connection_parameters)

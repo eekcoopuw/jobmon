@@ -4,7 +4,9 @@ from typing import Any, Dict, Optional
 from jobmon.requester import Requester
 
 
-def add_task_attributes(attr_dict: Dict[str, Any], task_id: Optional[int] = None) -> None:
+def add_task_attributes(
+    attr_dict: Dict[str, Any], task_id: Optional[int] = None
+) -> None:
     """Add task attributes to database.
 
     Args:
@@ -14,7 +16,6 @@ def add_task_attributes(attr_dict: Dict[str, Any], task_id: Optional[int] = None
 
     Raises: ValueError, TypeError
     """
-
     try:
         if task_id is None:
             task_id = int(os.environ["JOBMON_TASK_ID"])

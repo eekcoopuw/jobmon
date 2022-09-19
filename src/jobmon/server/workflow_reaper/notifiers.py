@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 class SlackNotifier(object):
     """Send notifications via slack."""
 
-    def __init__(self, api_url: str = "", token: str = "", channel_default: str = "") -> None:
+    def __init__(
+        self, api_url: str = "", token: str = "", channel_default: str = ""
+    ) -> None:
         """Container for connection with Slack.
 
         Args:

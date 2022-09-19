@@ -1,7 +1,9 @@
 """Requester object to make HTTP requests to the Jobmon Flask services."""
+from __future__ import annotations
+
 import json
 import logging
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Type
 
 import requests
 import tenacity
@@ -35,7 +37,7 @@ class Requester(object):
         self.server_structlog_context: Dict[str, str] = {}
 
     @classmethod
-    def from_defaults(cls):
+    def from_defaults(cls: Type[Requester]) -> Requester:
         """Instantiate a requester from default config values."""
         config = JobmonConfig()
         service_url = config.get("http", "service_url")

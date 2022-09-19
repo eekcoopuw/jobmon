@@ -41,9 +41,7 @@ class WebServerProcess:
         """Starts the web service process."""
         # jobmon_cli string
         database_uri = f"sqlite:///{self.filepath}"
-        argstr = (
-            f"web_service --port {self.web_port} --sqlalchemy_database_uri {database_uri}"
-        )
+        argstr = f"web_service --port {self.web_port} --sqlalchemy_database_uri {database_uri}"
 
         def run_server_with_handler(argstr: str) -> None:
             def sigterm_handler(_signo: int, _stack_frame: Any) -> None:
@@ -160,7 +158,9 @@ def web_server_in_memory(sqlite_file, monkeypatch):
     from jobmon.server.web.app_factory import AppFactory
 
     # The create_app call sets up database connections
-    monkeypatch.setenv("JOBMON__FLASK__SQLALCHEMY_DATABASE_URI", f"sqlite:///{sqlite_file}")
+    monkeypatch.setenv(
+        "JOBMON__FLASK__SQLALCHEMY_DATABASE_URI", f"sqlite:///{sqlite_file}"
+    )
     app_factory = AppFactory()
     app = app_factory.get_app()
     app.config["TESTING"] = True

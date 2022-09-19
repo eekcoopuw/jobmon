@@ -316,7 +316,8 @@ def _add_or_get_attribute_type(
 
 
 @blueprint.route("/task/<task_id>/attributes", methods=["POST"])
-def add_task_attributes(task_id) -> Any:
+def add_task_attributes(task_id: str) -> Any:
+    """Route to add task attributes from the worker node."""
     data = cast(Dict, request.get_json())
     attrs_to_add = []
 

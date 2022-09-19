@@ -65,7 +65,9 @@ class WorkerNodeCLI(CLI):
 
         worker_node_factory = WorkerNodeFactory(cluster_name=args.cluster_name)
         worker_node_task_instance = worker_node_factory.get_array_task_instance(
-            array_id=args.array_id, batch_number=args.batch_number, initialize_logfiles=True
+            array_id=args.array_id,
+            batch_number=args.batch_number,
+            initialize_logfiles=True,
         )
         worker_node_task_instance.configure_logging()
 

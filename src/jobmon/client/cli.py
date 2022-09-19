@@ -78,9 +78,7 @@ class ClientCLI(CLI):
         from tabulate import tabulate
         from jobmon.client.status_commands import workflow_status as workflow_status_cmd
 
-        df = workflow_status_cmd(
-            args.workflow_id, args.user, args.json, args.limit
-        )
+        df = workflow_status_cmd(args.workflow_id, args.user, args.json, args.limit)
         if args.json:
             print(df)
         else:
@@ -92,9 +90,7 @@ class ClientCLI(CLI):
         from tabulate import tabulate
         from jobmon.client.status_commands import workflow_tasks as workflow_tasks_cmd
 
-        df = workflow_tasks_cmd(
-            args.workflow_id, args.status, args.json, args.limit
-        )
+        df = workflow_tasks_cmd(args.workflow_id, args.status, args.json, args.limit)
         if args.json:
             print(df)
         else:
@@ -460,7 +456,9 @@ class ClientCLI(CLI):
         )
 
     def _add_create_resource_yaml_subparser(self) -> None:
-        create_resource_yaml_parser = self._subparsers.add_parser("create_resource_yaml")
+        create_resource_yaml_parser = self._subparsers.add_parser(
+            "create_resource_yaml"
+        )
         create_resource_yaml_parser.set_defaults(func=self.resource_yaml)
         create_resource_yaml_parser.add_argument(
             "-w",

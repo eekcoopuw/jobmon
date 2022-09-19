@@ -1,14 +1,14 @@
+"""Parse configuration options and set them to be used throughout the Jobmon Architecture."""
 import argparse
 import configparser
+import importlib
 import os
 from pathlib import Path
-from typing import Optional
-
-import importlib
 import pkgutil
+from typing import Mapping, MutableMapping, Optional
 
-from jobmon.exceptions import ConfigError
 from jobmon.cli import CLI
+from jobmon.exceptions import ConfigError
 
 CONFIG_FILE_NAME = "defaults.ini"
 CONFIG_FILE = Path(__file__).parent / CONFIG_FILE_NAME
@@ -18,21 +18,35 @@ ENV_VAR_PREFIX = "JOBMON__"
 class EnvInterpolation(configparser.BasicInterpolation):
     """Interpolation which expands environment variables in values."""
 
-    def before_get(self, parser, section, option, value, defaults):
+    def before_get(
+        self,
+        parser: MutableMapping[str, Mapping[str, str]],
+        section: str,
+        option: str,
+        value: str,
+        defaults: Mapping[str, str],
+    ) -> str:
+        """Expand env variables when they are read."""
         value = super().before_get(parser, section, option, value, defaults)
         return os.path.expandvars(value)
 
 
 class JobmonConfig:
+    """Default config setup."""
 
-    def __init__(self, filepath: str = ""):
+    def __init__(self, filepath: str = "") -> None:
+        """Jobmon config class.
+
+        Args:
+            filepath: where to read defaults from.
+        """
         if not filepath:
             filepath = str(CONFIG_FILE)
         self._ini_config = configparser.ConfigParser(interpolation=EnvInterpolation())
         self._ini_config.read(filepath)
 
     def _get_env_var_name(self, section: str, key: str) -> str:
-        return f'{ENV_VAR_PREFIX}{section.upper()}__{key.upper()}'
+        return f"{ENV_VAR_PREFIX}{section.upper()}__{key.upper()}"
 
     def _get_environment_variable(self, section: str, key: str) -> Optional[str]:
         # must have format JOBMON__{SECTION}__{KEY} (note double underscore)
@@ -66,7 +80,7 @@ class JobmonConfig:
         )
 
     def get(self, section: str, key: str) -> str:
-        """Get the configuration value for the section and key. Raise if key not found
+        """Get the configuration value for the section and key. Raise if key not found.
 
         Args:
             section: the section of the ini file to search.
@@ -96,7 +110,7 @@ class JobmonConfig:
                 print(f"Successfully ran installer from {module}.")
             elif len(plugins) > 1:
                 raise RuntimeError(
-                    'Found multiple plugins while installing config from plugin, but only one '
+                    "Found multiple plugins while installing config from plugin, but only one "
                     f'is allowed. Got "{plugins}".'
                 ) from e
             else:
@@ -106,7 +120,7 @@ class JobmonConfig:
         return val
 
     def get_boolean(self, section: str, key: str) -> bool:
-        """Get the configuration value for the section and key as bool. Raise if key not found
+        """Get the configuration value for the section and key as bool. Raise if key not found.
 
         Args:
             section: the section of the ini file to search.
@@ -115,9 +129,9 @@ class JobmonConfig:
         Raises: ConfigError, RuntimeError
         """
         val = str(self.get(section, key)).lower().strip()
-        if val in ('t', 'true', '1'):
+        if val in ("t", "true", "1"):
             return True
-        elif val in ('f', 'false', '0'):
+        elif val in ("f", "false", "0"):
             return False
         else:
             raise ConfigError(
@@ -127,7 +141,7 @@ class JobmonConfig:
             )
 
     def get_int(self, section: str, key: str) -> int:
-        """Get the configuration value for the section and key as int. Raise if key not found
+        """Get the configuration value for the section and key as int. Raise if key not found.
 
         Args:
             section: the section of the ini file to search.
@@ -151,7 +165,7 @@ class JobmonConfig:
             )
 
     def get_float(self, section: str, key: str) -> float:
-        """Get the configuration value for the section and key as float. Raise if key not found
+        """Get the configuration value for the section/key as float. Raise if key not found.
 
         Args:
             section: the section of the ini file to search.
@@ -174,14 +188,14 @@ class JobmonConfig:
                 f'value: "{val}".'
             )
 
-    def set(self, section: str, key: str, val: str):
-        """Set the configuration value for the section and key. Must call write() to persist"""
+    def set(self, section: str, key: str, val: str) -> None:
+        """Set the configuration value for the section/key. Must call write() to persist."""
         if not self._ini_config.has_section(section):
             self._ini_config.add_section(section)
         self._ini_config.set(section, key, val)
 
-    def write(self, filepath: str = ""):
-        """Persis the currenct config to disc.
+    def write(self, filepath: str = "") -> None:
+        """Persist the current config to disc.
 
         Args:
             filepath: the location to write the config to.
@@ -218,19 +232,15 @@ class ConfigCLI(CLI):
         update_config_parser = self._subparsers.add_parser("update")
         update_config_parser.set_defaults(func=self.update_config)
         update_config_parser.add_argument(
-            "--section",
-            type=str,
-            help="The section of the config to set the value in."
+            "--section", type=str, help="The section of the config to set the value in."
         )
         update_config_parser.add_argument(
             "--key",
             type=str,
-            help="The key within a section of the config to set the value in."
+            help="The key within a section of the config to set the value in.",
         )
         update_config_parser.add_argument(
-            "--value",
-            type=str,
-            help="The value to add to the config."
+            "--value", type=str, help="The value to add to the config."
         )
 
 

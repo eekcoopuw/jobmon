@@ -419,7 +419,7 @@ def workflow_reset(workflow_id: int, requester: Optional[Requester] = None) -> s
 
     Args:
         workflow_id: the workflow id to be reset.
-        requester_url: the url.
+        requester: http server interface.
     """
     if requester is None:
         requester = Requester.from_defaults()
