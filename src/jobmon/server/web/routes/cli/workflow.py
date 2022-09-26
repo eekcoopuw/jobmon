@@ -29,7 +29,7 @@ _cli_label_mapping = {
     "A": "PENDING",
     "G": "PENDING",
     "Q": "PENDING",
-    "I": "PENDING",
+    "I": "SUBMITTED",
     "E": "PENDING",
     "O": "PENDING",
     "R": "RUNNING",
@@ -38,7 +38,8 @@ _cli_label_mapping = {
 }
 
 _reversed_cli_label_mapping = {
-    "PENDING": ["A", "G", "Q", "I", "E", "O"],
+    "SUBMITTED": ["I"],
+    "PENDING": ["A", "G", "Q", "E", "O"],
     "RUNNING": ["R"],
     "FATAL": ["F"],
     "DONE": ["D"],
