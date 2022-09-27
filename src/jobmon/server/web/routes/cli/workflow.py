@@ -45,7 +45,7 @@ _reversed_cli_label_mapping = {
     "DONE": ["D"],
 }
 
-_cli_order = ["PENDING", "RUNNING", "DONE", "FATAL"]
+_cli_order = ["PENDING", "SCHEDULED", "RUNNING", "DONE", "FATAL"]
 
 
 @blueprint.route("/workflow_validation", methods=["POST"])
