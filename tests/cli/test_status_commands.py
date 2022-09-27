@@ -159,6 +159,7 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
         "WF_STATUS": {"0": "QUEUED"},
         "TASKS": {"0": 2},
         "PENDING": {"0": "2 (100.0%)"},
+        "SCHEDULED": {"0": "0 (0.0%)"},
         "RUNNING": {"0": "0 (0.0%)"},
         "DONE": {"0": "0 (0.0%)"},
         "FATAL": {"0": "0 (0.0%)"},
