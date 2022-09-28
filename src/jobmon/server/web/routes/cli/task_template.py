@@ -346,6 +346,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 "name": r[1],
                 "tasks": 0,
                 "PENDING": 0,
+                "SCHEDULED": 0,
                 "RUNNING": 0,
                 "DONE": 0,
                 "FATAL": 0,
