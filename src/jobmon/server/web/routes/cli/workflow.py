@@ -390,6 +390,7 @@ def get_workflow_status_viz() -> Any:
             "id": int(wf_id),
             "tasks": 0,
             "PENDING": 0,
+            "SCHEDULED": 0,
             "RUNNING": 0,
             "DONE": 0,
             "FATAL": 0,
