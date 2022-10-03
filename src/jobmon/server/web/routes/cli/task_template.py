@@ -6,7 +6,7 @@ from typing import Any, Dict, List
 from flask import jsonify, request
 import numpy as np
 import scipy.stats as st  # type:ignore
-from sqlalchemy import select
+from sqlalchemy import join, select
 import structlog
 
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
@@ -318,22 +318,32 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-        query_filter = [
-            Task.workflow_id == workflow_id,
-            Task.node_id == Node.id,
-            Node.task_template_version_id == TaskTemplateVersion.id,
-            TaskTemplateVersion.task_template_id == TaskTemplate.id,
-        ]
+        join_table = Task.__table__.join(
+            Node, Task.node_id == Node.id
+        ).join(
+            TaskTemplateVersion, Node.task_template_version_id == TaskTemplateVersion.id
+        ).join(
+            TaskTemplate, TaskTemplateVersion.task_template_id == TaskTemplate.id
+        )
         sql = (
             select(
                 TaskTemplate.id,
                 TaskTemplate.name,
                 Task.id,
                 Task.status,
+            ).select_from(
+                join_table
+            ).where(
+                Task.workflow_id == workflow_id
+            ).order_by(
+                Task.id
             )
-            .where(*query_filter)
-            .order_by(Task.id)
         )
+        # For performance reasons, use STRAIGHT_JOIN to set the join order. If not set,
+        # the optimizer may choose a suboptimal execution plan for large datasets.
+        # Has to be conditional since not all database engines support STRAIGHT_JOIN.
+        if SessionLocal.bind.dialect.name == "mysql":
+            sql = sql.prefix_with("STRAIGHT_JOIN")
         rows = session.execute(sql).all()
         session.commit()
 
