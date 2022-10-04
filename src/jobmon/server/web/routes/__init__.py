@@ -1,7 +1,7 @@
 """Routes used by task instances on worker nodes."""
 from http import HTTPStatus as StatusCodes
 import os
-from typing import Any, Optional, Dict, cast
+from typing import Any, cast, Dict, Optional
 
 from flask import current_app, jsonify, request
 from sqlalchemy import func, select
