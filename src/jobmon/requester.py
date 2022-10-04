@@ -189,7 +189,7 @@ class Requester(object):
                 route,
                 params=params,
                 json=message,
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             )
         elif request_type == "get":
             params = message.copy()
@@ -206,7 +206,7 @@ class Requester(object):
                 route,
                 params=params,
                 json=message,
-                headers={"Content-Type": "application/json"}
+                headers={"Content-Type": "application/json"},
             )
         else:
             raise ValueError(
