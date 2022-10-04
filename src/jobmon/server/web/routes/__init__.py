@@ -1,9 +1,9 @@
 """Routes used by task instances on worker nodes."""
 from http import HTTPStatus as StatusCodes
 import os
-from typing import Any
+from typing import Any, Optional, Dict, cast
 
-from flask import current_app, jsonify
+from flask import current_app, jsonify, request
 from sqlalchemy import func, select
 from sqlalchemy import orm
 from structlog import get_logger
@@ -39,6 +39,19 @@ def get_pst_now() -> Any:
     resp = jsonify(time=time)
     resp.status_code = StatusCodes.OK
     return resp
+
+
+def get_client_jobmon_version(request: request) -> Optional[str]:
+    """Get the client_jobmon_version based on request.
+
+    Usage: on the server, apply this function on 'request' object
+    to return client_jobmon_version.
+    """
+    all_data = cast(Dict, request.get_json())
+    client_jobmon_version = all_data.get("client_jobmon_version")
+    if not client_jobmon_version and hasattr(request, "args"):
+        client_jobmon_version = request.args.get("client_jobmon_version")
+    return client_jobmon_version
 
 
 def health() -> Any:

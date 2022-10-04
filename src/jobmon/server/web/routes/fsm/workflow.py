@@ -20,7 +20,7 @@ from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
 from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
-from jobmon.server.web.routes import SessionLocal
+from jobmon.server.web.routes import SessionLocal, get_client_jobmon_version
 from jobmon.server.web.routes.fsm import blueprint
 from jobmon.server.web.server_side_exception import InvalidUsage
 
@@ -51,6 +51,8 @@ def _add_workflow_attributes(
 @blueprint.route("/workflow", methods=["POST"])
 def bind_workflow() -> Any:
     """Bind a workflow to the database."""
+    print(
+        f"           BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB = {get_client_jobmon_version(request)}")
     try:
         data = cast(Dict, request.get_json())
         tv_id = int(data["tool_version_id"])
