@@ -94,7 +94,6 @@ class Requester(object):
             RuntimeError if 500 errors occur for > 2 minutes
 
         """
-        message["client_jobmon_version"] = __version__
         if tenacious:
             res = self._tenacious_send_request(app_route, message, request_type)
         else:
@@ -185,19 +184,23 @@ class Requester(object):
 
         # send request to server
         if request_type == "post":
+            params = dict({'client_jobmon_version': __version__})
             response = requests.post(
-                route, json=message, headers={"Content-Type": "application/json"}
+                route, params=params, json=message, headers={"Content-Type": "application/json"}
             )
         elif request_type == "get":
+            params = message.copy()
+            params['client_jobmon_version'] = __version__
             response = requests.get(
                 route,
-                params=message,
+                params=params,
                 data=json.dumps(self.server_structlog_context),
                 headers={"Content-Type": "application/json"},
             )
         elif request_type == "put":
+            params = dict({'client_jobmon_version': __version__})
             response = requests.put(
-                route, json=message, headers={"Content-Type": "application/json"}
+                route, params=params, json=message, headers={"Content-Type": "application/json"}
             )
         else:
             raise ValueError(
