@@ -186,7 +186,9 @@ class Requester(object):
         if request_type == "post":
             params = {"client_jobmon_version": __version__}
             response = requests.post(
-                route, params=params, json=message,
+                route,
+                params=params,
+                json=message,
                 headers={"Content-Type": "application/json"}
             )
         elif request_type == "get":
@@ -201,7 +203,9 @@ class Requester(object):
         elif request_type == "put":
             params = {"client_jobmon_version": __version__}
             response = requests.put(
-                route, params=params, json=message,
+                route,
+                params=params,
+                json=message,
                 headers={"Content-Type": "application/json"}
             )
         else:
