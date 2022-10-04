@@ -86,7 +86,7 @@ setup(
     packages=find_packages('src'),
     package_dir={'': 'src'},
     py_modules=[os.path.splitext(os.path.basename(path))[0] for path in glob('src/*.py')],
-    package_data={"jobmon": ["py.typed"]},
+    package_data={"jobmon": ["py.typed", "defaults.ini"]},
 
     use_scm_version={'local_scheme': 'no-local-version',
                      'write_to': 'src/jobmon/_version.py',

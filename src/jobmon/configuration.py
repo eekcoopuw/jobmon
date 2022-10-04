@@ -42,6 +42,7 @@ class JobmonConfig:
         """
         if not filepath:
             filepath = str(CONFIG_FILE)
+        self._filepath = filepath
         self._ini_config = configparser.ConfigParser(interpolation=EnvInterpolation())
         self._ini_config.read(filepath)
 
@@ -75,8 +76,9 @@ class JobmonConfig:
             return val
 
         raise ConfigError(
-            f'"{key}" key not found in "{section}" section of .config.ini. Fallback option '
-            f'using environment var "{self._get_env_var_name(section, key)}" was not found.'
+            f'"{key}" key not found in "{section}" section of {self._filepath}. Fallback '
+            f'option using environment var "{self._get_env_var_name(section, key)}" was not '
+            'found.'
         )
 
     def get(self, section: str, key: str) -> str:
