@@ -8,7 +8,7 @@ from typing import Any, Dict, Tuple, Type
 import requests
 import tenacity
 
-import jobmon._version
+from jobmon import __version__
 from jobmon.configuration import JobmonConfig
 from jobmon.exceptions import InvalidResponse
 
@@ -94,7 +94,7 @@ class Requester(object):
             RuntimeError if 500 errors occur for > 2 minutes
 
         """
-        message["client_jobmon_version"] = jobmon._version.version
+        message["client_jobmon_version"] = __version__
         if tenacious:
             res = self._tenacious_send_request(app_route, message, request_type)
         else:
