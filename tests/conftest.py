@@ -130,11 +130,12 @@ def db_engine(sqlite_file) -> Engine:
 
 @pytest.fixture(scope="function")
 def client_env(web_server_process, monkeypatch):
-
     from jobmon.requester import Requester
 
-    monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
-    monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
+    monkeypatch.setenv(
+        "JOBMON__HTTP__SERVICE_URL",
+        f'http://{web_server_process["JOBMON_HOST"]}:{web_server_process["JOBMON_PORT"]}'
+    )
     monkeypatch.setenv("JOBMON__HTTP__STOP_AFTER_DELAY", "0")
 
     # This instance is thrown away, hence monkey-patching the defaults via the
@@ -190,8 +191,7 @@ def requester_in_memory(monkeypatch, web_server_in_memory):
     import requests
     from jobmon import requester
 
-    monkeypatch.setenv("WEB_SERVICE_FQDN", "1")
-    monkeypatch.setenv("WEB_SERVICE_PORT", "2")
+    monkeypatch.setenv("JOBMON__HTTP__SERVICE_URL", "1")
 
     app, engine = web_server_in_memory
 
