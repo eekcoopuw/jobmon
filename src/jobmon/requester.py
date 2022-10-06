@@ -8,6 +8,7 @@ from typing import Any, Dict, Tuple, Type
 import requests
 import tenacity
 
+from jobmon import __version__
 from jobmon.configuration import JobmonConfig
 from jobmon.exceptions import InvalidResponse
 
@@ -183,19 +184,29 @@ class Requester(object):
 
         # send request to server
         if request_type == "post":
+            params = {"client_jobmon_version": __version__}
             response = requests.post(
-                route, json=message, headers={"Content-Type": "application/json"}
+                route,
+                params=params,
+                json=message,
+                headers={"Content-Type": "application/json"},
             )
         elif request_type == "get":
+            params = message.copy()
+            params["client_jobmon_version"] = __version__
             response = requests.get(
                 route,
-                params=message,
+                params=params,
                 data=json.dumps(self.server_structlog_context),
                 headers={"Content-Type": "application/json"},
             )
         elif request_type == "put":
+            params = {"client_jobmon_version": __version__}
             response = requests.put(
-                route, json=message, headers={"Content-Type": "application/json"}
+                route,
+                params=params,
+                json=message,
+                headers={"Content-Type": "application/json"},
             )
         else:
             raise ValueError(
