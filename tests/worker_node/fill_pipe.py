@@ -1,8 +1,8 @@
 import sys
 from time import sleep
 
-ten_twenty_four = ("a" * 2 ** 10) + "\n"
-for i in range(2 ** 8):
+ten_twenty_four = ("a" * 2**10) + "\n"
+for i in range(2**8):
     sys.stderr.write(ten_twenty_four)
     sys.stderr.flush()
     sys.stdout.write(ten_twenty_four)
