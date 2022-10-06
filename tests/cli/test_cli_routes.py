@@ -541,6 +541,7 @@ def test_get_workflow_status_viz(tool):
         assert msg[str(wfid)]["RUNNING"] == 0
         assert msg[str(wfid)]["FATAL"] == 0
         assert msg[str(wfid)]["DONE"] == 0
+        assert msg[str(wfid)]["MAXC"] == 10000
 
 
 def test_get_workflow_tt_status_viz(client_env):
@@ -581,6 +582,7 @@ def test_get_workflow_tt_status_viz(client_env):
     assert msg[str(tt1._task_template_id)]["DONE"] == 0
     assert msg[str(tt1._task_template_id)]["FATAL"] == 0
     assert msg[str(tt1._task_template_id)]["RUNNING"] == 0
+    assert msg[str(tt1._task_template_id)]["MAXC"] == 10000
     assert msg[str(tt1._task_template_id)]["name"] == "tt_1"
 
     assert msg[str(tt2._task_template_id)]["tasks"] == 1
@@ -588,4 +590,5 @@ def test_get_workflow_tt_status_viz(client_env):
     assert msg[str(tt2._task_template_id)]["DONE"] == 0
     assert msg[str(tt2._task_template_id)]["FATAL"] == 0
     assert msg[str(tt2._task_template_id)]["RUNNING"] == 0
+    assert msg[str(tt1._task_template_id)]["MAXC"] == 10000
     assert msg[str(tt2._task_template_id)]["name"] == "tt_2"

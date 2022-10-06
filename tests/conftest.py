@@ -134,7 +134,7 @@ def client_env(web_server_process, monkeypatch):
 
     monkeypatch.setenv(
         "JOBMON__HTTP__SERVICE_URL",
-        f'http://{web_server_process["JOBMON_HOST"]}:{web_server_process["JOBMON_PORT"]}'
+        f'http://{web_server_process["JOBMON_HOST"]}:{web_server_process["JOBMON_PORT"]}',
     )
     monkeypatch.setenv("JOBMON__HTTP__STOP_AFTER_DELAY", "0")
 

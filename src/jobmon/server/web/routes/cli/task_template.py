@@ -11,6 +11,7 @@ import structlog
 
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
 from jobmon.server.web.models.arg import Arg
+from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.node_arg import NodeArg
 from jobmon.server.web.models.queue import Queue
@@ -324,14 +325,23 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 TaskTemplateVersion,
                 Node.task_template_version_id == TaskTemplateVersion.id,
             )
-            .join(TaskTemplate, TaskTemplateVersion.task_template_id == TaskTemplate.id)
+            .join(
+                TaskTemplate,
+                TaskTemplateVersion.task_template_id == TaskTemplate.id,
+            )
+            .join(
+                Array,
+                Array.task_template_version_id == TaskTemplateVersion.id,
+            )
         )
+
         sql = (
             select(
                 TaskTemplate.id,
                 TaskTemplate.name,
                 Task.id,
                 Task.status,
+                Array.max_concurrently_running,
             )
             .select_from(join_table)
             .where(Task.workflow_id == workflow_id)
@@ -358,9 +368,11 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 "RUNNING": 0,
                 "DONE": 0,
                 "FATAL": 0,
+                "MAXC": 0,
             }
         return_dic[int(r[0])]["tasks"] += 1
         return_dic[int(r[0])][_cli_label_mapping[r[3]]] += 1
+        return_dic[int(r[0])]["MAXC"] = r[4]
     resp = jsonify(return_dic)
     resp.status_code = 200
     return resp
