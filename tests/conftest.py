@@ -199,13 +199,13 @@ def requester_in_memory(monkeypatch, web_server_in_memory):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
         return app.get(path=url, query_string=params, data=data, headers=headers)
 
-    def post_in_mem(url, json, headers):
+    def post_in_mem(url, params, json, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return app.post(url, json=json, headers=headers)
+        return app.post(url, query_string=params, json=json, headers=headers)
 
-    def put_in_mem(url, json, headers):
+    def put_in_mem(url, params, json, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return app.put(url, json=json, headers=headers)
+        return app.put(url, query_string=params, json=json, headers=headers)
 
     monkeypatch.setattr(requests, "get", get_in_mem)
     monkeypatch.setattr(requests, "post", post_in_mem)
