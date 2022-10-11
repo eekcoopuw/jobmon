@@ -319,6 +319,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
+        # Arrays were introduced in 3.1.0, hence the outer-join for 3.0.* workflows
         join_table = (
             Task.__table__.join(Node, Task.node_id == Node.id)
             .join(
@@ -332,6 +333,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
             .join(
                 Array,
                 Array.task_template_version_id == TaskTemplateVersion.id,
+                isouter=True
             )
         )
 
