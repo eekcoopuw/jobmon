@@ -374,7 +374,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
             }
         return_dic[int(r[0])]["tasks"] += 1
         return_dic[int(r[0])][_cli_label_mapping[r[3]]] += 1
-        return_dic[int(r[0])]["MAXC"] = r[4]
+        return_dic[int(r[0])]["MAXC"] = r[4] if r[4] is not None else "NA"
     resp = jsonify(return_dic)
     resp.status_code = 200
     return resp
