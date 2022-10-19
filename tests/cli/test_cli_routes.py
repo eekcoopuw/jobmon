@@ -593,13 +593,13 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     assert msg[str(tt1._task_template_id)]["MAXC"] == 10000
     assert msg[str(tt2._task_template_id)]["name"] == "tt_2"
 
-    #test 3.0 records
+    # test 3.0 records
     with Session(bind=db_engine) as session:
         session.execute(
             """
             DELETE FROM array
             """
-            )
+        )
         session.commit()
     app_route = f"/workflow_tt_status_viz/{wf.workflow_id}"
     return_code, msg = wf.requester.send_request(

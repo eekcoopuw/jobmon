@@ -333,7 +333,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
             .join(
                 Array,
                 Array.task_template_version_id == TaskTemplateVersion.id,
-                isouter=True
+                isouter=True,
             )
         )
 
