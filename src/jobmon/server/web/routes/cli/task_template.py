@@ -319,6 +319,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
+        # Arrays were introduced in 3.1.0, hence the outer-join for 3.0.* workflows
         join_table = (
             Task.__table__.join(Node, Task.node_id == Node.id)
             .join(
@@ -332,6 +333,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
             .join(
                 Array,
                 Array.task_template_version_id == TaskTemplateVersion.id,
+                isouter=True,
             )
         )
 
@@ -372,7 +374,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
             }
         return_dic[int(r[0])]["tasks"] += 1
         return_dic[int(r[0])][_cli_label_mapping[r[3]]] += 1
-        return_dic[int(r[0])]["MAXC"] = r[4]
+        return_dic[int(r[0])]["MAXC"] = r[4] if r[4] is not None else "NA"
     resp = jsonify(return_dic)
     resp.status_code = 200
     return resp
