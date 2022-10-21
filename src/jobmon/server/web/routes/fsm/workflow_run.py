@@ -305,8 +305,8 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
             TaskInstance.report_by_date <= func.now()
         ).values(
             status=case(
-                [(TaskInstance.status == constants.TaskInstanceStatus.RUNNING,
-                  constants.TaskInstanceStatus.TRIAGING)],
+                (TaskInstance.status == constants.TaskInstanceStatus.RUNNING,
+                 constants.TaskInstanceStatus.TRIAGING),
                 else_=constants.TaskInstanceStatus.KILL_SELF
             )
         ).execution_options(synchronize_session=False)
