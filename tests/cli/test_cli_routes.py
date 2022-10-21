@@ -620,3 +620,47 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     assert msg[str(tt2._task_template_id)]["RUNNING"] == 0
     assert msg[str(tt1._task_template_id)]["MAXC"] == "NA"
     assert msg[str(tt2._task_template_id)]["name"] == "tt_2"
+
+
+def test_get_tt_error_log_viz(client_env, db_engine):
+    from jobmon.client.api import Tool
+    t = Tool(name="gui_tt_error_log")
+
+    # test no error
+    wf1 = t.create_workflow(name=f"i_am_a_fake_wf")
+    tt1 = t.get_task_template(
+        template_name="tt_1", command_template="echo {arg}", node_args=["arg"]
+    )
+    t1 = tt1.create_task(
+        arg=1,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 2},
+    )
+    wf1.add_tasks([t1])
+    wf1.run()
+    app_route = f"/tt_error_log_viz/{tt1.id}"
+    return_code, msg = wf1.requester.send_request(
+        app_route=app_route, message={}, request_type="get"
+    )
+    assert len(msg) == 0
+
+    # test error
+    wf2 = t.create_workflow(name=f"i_am_another_fake_wf")
+    tt2 = t.get_task_template(
+        template_name="tt_2", command_template="{arg}", node_args=["arg"]
+    )
+    t2 = tt2.create_task(
+        arg="abc",
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 2},
+        max_attempts=1
+    )
+    wf2.add_tasks([t2])
+    wf2.run()
+    app_route = f"/tt_error_log_viz/{tt2.id}"
+    return_code, msg = wf1.requester.send_request(
+        app_route=app_route, message={}, request_type="get"
+    )
+    assert len(msg) == 1
+    assert list(msg.values())[0][0] == t2.task_id
+    assert "command not found" in list(msg.values())[0][3]
