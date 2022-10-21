@@ -300,21 +300,6 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-<<<<<<< HEAD
-        update_stmt = update(
-            TaskInstance
-        ).where(
-            TaskInstance.workflow_run_id == workflow_run_id,
-            TaskInstance.status.in_(
-                [constants.TaskInstanceStatus.LAUNCHED, constants.TaskInstanceStatus.RUNNING]
-            ),
-            TaskInstance.report_by_date <= func.now()
-        ).values(
-            status=case(
-                (TaskInstance.status == constants.TaskInstanceStatus.RUNNING,
-                 constants.TaskInstanceStatus.TRIAGING),
-                else_=constants.TaskInstanceStatus.KILL_SELF
-=======
         update_stmt = (
             update(TaskInstance)
             .where(
@@ -326,16 +311,13 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
                     ]
                 ),
                 TaskInstance.report_by_date <= func.now(),
->>>>>>> 57f2fc13d38ee1d7dbfdd67cf11fa00210c417ad
             )
             .values(
                 status=case(
-                    [
-                        (
-                            TaskInstance.status == constants.TaskInstanceStatus.RUNNING,
-                            constants.TaskInstanceStatus.TRIAGING,
-                        )
-                    ],
+                    (
+                        TaskInstance.status == constants.TaskInstanceStatus.RUNNING,
+                        constants.TaskInstanceStatus.TRIAGING,
+                    ),
                     else_=constants.TaskInstanceStatus.KILL_SELF,
                 )
             )
