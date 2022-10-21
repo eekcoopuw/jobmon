@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 import importlib
-from typing import Any, Dict, List, Optional, Set, Tuple, Type
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
 # the following try-except is to accommodate Python versions on both >=3.8 and 3.7.
 # The Protocol was officially introduced in 3.8, with typing_extensions slapped on 3.7.
@@ -106,13 +106,13 @@ class ClusterQueue(Protocol):
 
     @abstractmethod
     def validate_resources(
-        self, strict: bool = False, **kwargs: Dict
+        self, strict: bool = False, **kwargs: Union[str, int, float]
     ) -> Tuple[bool, str]:
         """Ensures that requested resources aren't greater than what's available."""
         raise NotImplementedError
 
     @abstractmethod
-    def coerce_resources(self, **kwargs: Dict) -> Dict:
+    def coerce_resources(self, **kwargs: Union[str, int, float]) -> Dict:
         """Ensures that requested resources aren't greater than what's available."""
         raise NotImplementedError
 

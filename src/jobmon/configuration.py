@@ -78,7 +78,7 @@ class JobmonConfig:
         raise ConfigError(
             f'"{key}" key not found in "{section}" section of {self._filepath}. Fallback '
             f'option using environment var "{self._get_env_var_name(section, key)}" was not '
-            'found.'
+            "found."
         )
 
     def get(self, section: str, key: str) -> str:
@@ -230,7 +230,7 @@ class ConfigCLI(CLI):
         config.set(
             "http",
             "service_url",
-            f"http://{args.web_service_fqdn}:{args.web_service_port}"
+            f"http://{args.web_service_fqdn}:{args.web_service_port}",
         )
         config.write()
 
@@ -238,9 +238,7 @@ class ConfigCLI(CLI):
         update_config_parser = self._subparsers.add_parser("update")
         update_config_parser.set_defaults(func=self.update_config)
         update_config_parser.add_argument(
-            "--web_service_fqdn",
-            type=str,
-            help="The fqdn of the web service."
+            "--web_service_fqdn", type=str, help="The fqdn of the web service."
         )
         update_config_parser.add_argument(
             "--web_service_port",

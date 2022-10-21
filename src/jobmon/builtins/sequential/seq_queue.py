@@ -1,5 +1,5 @@
 """The client for the Sequential Executor."""
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 from jobmon.cluster_type import ClusterQueue
 
@@ -17,12 +17,12 @@ class SequentialQueue(ClusterQueue):
         self._parameters = parameters
 
     def validate_resources(
-        self, strict: bool = False, **kwargs: Dict
+        self, strict: bool = False, **kwargs: Union[str, int, float]
     ) -> Tuple[bool, str]:
         """No resources defined for sequential execution. All resources valid."""
         return True, ""
 
-    def coerce_resources(self, **kwargs: Dict) -> Dict:
+    def coerce_resources(self, **kwargs: Union[str, int, float]) -> Dict:
         return kwargs
 
     @property
