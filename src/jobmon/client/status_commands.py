@@ -5,11 +5,11 @@ from typing import Any, Dict, List, Optional, Union
 
 import pandas as pd
 
-from jobmon.client.client_config import ClientConfig
+from jobmon.client.logging import JobmonLoggerConfig
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.workflow import DistributorContext
 from jobmon.client.workflow_run import WorkflowRunFactory
-from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-from jobmon.constants import ExecludeTTVs, TaskStatus, WorkflowStatus, WorkflowRunStatus
+from jobmon.constants import ExecludeTTVs, TaskStatus, WorkflowRunStatus, WorkflowStatus
 from jobmon.exceptions import InvalidResponse, WorkflowRunStateError
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
@@ -22,8 +22,8 @@ def workflow_status(
     workflow_id: List[int] = None,
     user: List[str] = None,
     json: bool = False,
-    requester_url: Optional[str] = None,
     limit: Optional[int] = 5,
+    requester: Optional[Requester] = None,
 ) -> pd.DataFrame:
     """Get metadata about workflow progress.
 
@@ -34,7 +34,7 @@ def workflow_status(
         limit: return # of records order by wf id desc. Return 5 if not provided;
             return all if [], [<0].
         json: Flag to return data as JSON
-        requester_url (str): url to communicate with the flask services
+        requester: object to communicate with the flask services
 
     Returns:
         dataframe of all workflows and their status
@@ -53,10 +53,8 @@ def workflow_status(
         msg["user"] = getpass.getuser()
     msg["limit"] = limit
 
-    cc = ClientConfig.from_defaults()
-    if requester_url is None:
-        requester_url = cc.url
-    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
+    if requester is None:
+        requester = Requester.from_defaults()
 
     rc, res = requester.send_request(
         app_route="/workflow_status", message=msg, request_type="get"
@@ -74,8 +72,8 @@ def workflow_tasks(
     workflow_id: int,
     status: List[str] = None,
     json: bool = False,
-    requester_url: Optional[str] = None,
     limit: int = 5,
+    requester: Optional[Requester] = None,
 ) -> pd.DataFrame:
     """Get metadata about task state for a given workflow.
 
@@ -83,8 +81,8 @@ def workflow_tasks(
         workflow_id: workflow_id/s to retrieve info for
         status: limit task state to one of [PENDING, RUNNING, DONE, FATAL] tasks
         json: Flag to return data as JSON
-        requester_url (str): url to communicate with the flask services
         limit: return # of records order by wf id desc. Return 5 if not provided
+        requester: object to communicate with the flask services
 
     Returns:
         Dataframe of tasks for a given workflow
@@ -95,10 +93,8 @@ def workflow_tasks(
         msg["status"] = [i.upper() for i in status]
     msg["limit"] = limit
 
-    cc = ClientConfig.from_defaults()
-    if requester_url is None:
-        requester_url = cc.url
-    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
+    if requester is None:
+        requester = Requester.from_defaults()
 
     rc, res = requester.send_request(
         app_route=f"/workflow/{workflow_id}/workflow_tasks",
@@ -115,8 +111,8 @@ def task_template_resources(
     task_template_version: int,
     workflows: Optional[list] = None,
     node_args: Optional[Dict] = None,
-    requester_url: Optional[str] = None,
     ci: Optional[float] = None,
+    requester: Optional[Requester] = None,
 ) -> Optional[Dict]:
     """Get aggregate resource usage data for a given TaskTemplateVersion.
 
@@ -125,8 +121,8 @@ def task_template_resources(
             resource usage of.
         workflows: list of workflows a user wants query by.
         node_args: dictionary of node arguments a user wants to query by.
-        requester_url: url to communicate with the flask services.
         ci: confidence interval. Not calculate if None.
+        requester: object to communicate with the flask services
 
     Returns:
         Dataframe of TaskTemplate resource usage
@@ -149,10 +145,8 @@ def task_template_resources(
     if ci:
         message["ci"] = ci
 
-    cc = ClientConfig.from_defaults()
-    if requester_url is None:
-        requester_url = cc.url
-    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
+    if requester is None:
+        requester = Requester.from_defaults()
 
     app_route = "/task_template_resource_usage"
     return_code, response = requester.send_request(
@@ -187,7 +181,7 @@ def task_status(
     task_ids: List[int],
     status: Optional[List[str]] = None,
     json: bool = False,
-    requester_url: Optional[str] = None,
+    requester: Optional[Requester] = None,
 ) -> Union[dict, pd.DataFrame]:
     """Get metadata about a task and its task instances.
 
@@ -195,7 +189,7 @@ def task_status(
         task_ids: a list of task_ids to retrieve task_instance metadata for.
         status: a list of statuses to check for.
         json: Flag to return data as JSON.
-        requester_url: url to communicate with the Flask service.
+        requester: object to communicate with the flask services
 
     Returns:
         Task status and task_instance metadata
@@ -205,10 +199,8 @@ def task_status(
     if status:
         msg["status"] = [i.upper() for i in status]
 
-    cc = ClientConfig.from_defaults()
-    if requester_url is None:
-        requester_url = cc.url
-    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
+    if requester is None:
+        requester = Requester.from_defaults()
 
     rc, res = requester.send_request(
         app_route="/task_status", message=msg, request_type="get"
@@ -220,7 +212,9 @@ def task_status(
 
 
 def concurrency_limit(
-    workflow_id: int, max_tasks: int, requester_url: Optional[str] = None
+    workflow_id: int,
+    max_tasks: int,
+    requester: Optional[Requester] = None,
 ) -> str:
     """Update a workflow's max_concurrently_running field in the database.
 
@@ -229,16 +223,14 @@ def concurrency_limit(
     Args:
         workflow_id (int): ID of the running workflow whose max_running value needs to be reset
         max_tasks (int) : new allowed value of parallel tasks
-        requester_url (str): url to requester to connect to Flask service.
+        requester: object to communicate with the flask services
 
     Returns: string displaying success or failure of the update.
     """
     msg = {"max_tasks": max_tasks}
 
-    cc = ClientConfig.from_defaults()
-    if requester_url is None:
-        requester_url = cc.url
-    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
+    if requester is None:
+        requester = Requester.from_defaults()
 
     _, resp = requester.send_request(
         app_route=f"/workflow/{workflow_id}/update_max_concurrently_running",
@@ -274,7 +266,7 @@ def update_task_status(
     new_status: str,
     force: bool = False,
     recursive: bool = False,
-    requester_url: Optional[str] = None,
+    requester: Optional[Requester] = None,
 ) -> Any:
     """Set the specified task IDs to the new status, pending validation.
 
@@ -287,12 +279,10 @@ def update_task_status(
         recursive: if true and force, apply recursive update_status downstream
             or upstream depending on new_status
             (upstream if new_status == 'D'; downstream if new_status == 'G').
-        requester_url: optional.
+        requester: object to communicate with the flask services
     """
-    cc = ClientConfig.from_defaults()
-    if requester_url is None:
-        requester_url = cc.url
-    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
+    if requester is None:
+        requester = Requester.from_defaults()
 
     # Validate the username is appropriate
     user = getpass.getuser()
@@ -319,7 +309,7 @@ def update_task_status(
         task_ids = res["task_ids"]
     else:
         if new_status == TaskStatus.REGISTERING:
-            subdag_tasks = get_sub_task_tree(task_ids).keys()
+            subdag_tasks = get_sub_task_tree(task_ids, requester=requester).keys()
             task_ids = task_ids + [*subdag_tasks]
 
     # We want to prevent excessive requests, with a hard-limit of 10,000 set up
@@ -387,8 +377,8 @@ def get_sub_task_tree(
     """Get the sub_tree from tasks to ensure that they end up in the right states."""
     # This is to make the test case happy. Otherwise, requester should not be None.
     if requester is None:
-        cc = ClientConfig.from_defaults()
-        requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+        requester = Requester.from_defaults()
+
     # Valid input
     rc, res = requester.send_request(
         app_route="/task/subdag",
@@ -401,13 +391,11 @@ def get_sub_task_tree(
     return task_tree_dict
 
 
-def get_task_dependencies(task_id: int, requester_url: Optional[str] = None) -> dict:
+def get_task_dependencies(task_id: int, requester: Optional[Requester] = None) -> dict:
     """Get the upstream and down stream of a task."""
     # This is to make the test case happy. Otherwise, requester should not be None.
-    cc = ClientConfig.from_defaults()
-    if requester_url is None:
-        requester_url = cc.url
-    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
+    if requester is None:
+        requester = Requester.from_defaults()
     # Valid input
     rc, res = requester.send_request(
         app_route=f"/task_dependencies/{task_id}", message={}, request_type="get"
@@ -423,7 +411,7 @@ def get_task_dependencies(task_id: int, requester_url: Optional[str] = None) -> 
     return res
 
 
-def workflow_reset(workflow_id: int, requester_url: Optional[str] = None) -> str:
+def workflow_reset(workflow_id: int, requester: Optional[Requester] = None) -> str:
     """Workflow reset.
 
     Return:
@@ -431,12 +419,10 @@ def workflow_reset(workflow_id: int, requester_url: Optional[str] = None) -> str
 
     Args:
         workflow_id: the workflow id to be reset.
-        requester_url: the url.
+        requester: http server interface.
     """
-    cc = ClientConfig.from_defaults()
-    if requester_url is None:
-        requester_url = cc.url
-    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
+    if requester is None:
+        requester = Requester.from_defaults()
 
     username = getpass.getuser()
 
@@ -579,13 +565,11 @@ def create_resource_yaml(
     v_core: str,
     v_runtime: str,
     clusters: List,
-    requester_url: Optional[str] = None,
+    requester: Optional[Requester] = None,
 ) -> str:
     """The method to create resource yaml."""
-    cc = ClientConfig.from_defaults()
-    if requester_url is None:
-        requester_url = cc.url
-    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
+    if requester is None:
+        requester = Requester.from_defaults()
 
     ttvis_dic = _get_yaml_data(wfid, tid, v_mem, v_core, v_runtime, requester)
     yaml = _create_yaml(ttvis_dic, clusters)
@@ -597,13 +581,11 @@ def get_filepaths(
     array_name: str = "",
     job_name: str = "",
     limit: int = 5,
-    requester_url: Optional[str] = None,
+    requester: Optional[Requester] = None,
 ) -> dict:
     """Allows users to get the stdout/stderr paths of their tasks."""
-    cc = ClientConfig.from_defaults()
-    if requester_url is None:
-        requester_url = cc.url
-    requester = Requester(requester_url, max_retries=cc.tenacity_max_retries)
+    if requester is None:
+        requester = Requester.from_defaults()
 
     app_route = f"/array/{workflow_id}/get_array_tasks"
     rc, resp = requester.send_request(
@@ -623,12 +605,16 @@ def get_filepaths(
 
 
 def resume_workflow_from_id(
-    workflow_id: int, cluster_name: str, reset_if_running: bool = True
+    workflow_id: int, cluster_name: str, reset_if_running: bool = True, log: bool = True
 ) -> None:
     """Given a workflow ID, resume the workflow.
 
     Raise an error if the workflow is not completed successfully on resume.
     """
+    if log:
+        JobmonLoggerConfig.attach_default_handler(
+            logger_name="jobmon", log_level=logging.INFO
+        )
 
     factory = WorkflowRunFactory(workflow_id=workflow_id)
 
@@ -639,13 +625,13 @@ def resume_workflow_from_id(
     new_wfr = factory.create_workflow_run()
 
     # Create swarm
-    swarm = SwarmWorkflowRun(workflow_run_id=new_wfr.workflow_run_id, status=new_wfr.status)
+    swarm = SwarmWorkflowRun(
+        workflow_run_id=new_wfr.workflow_run_id, status=new_wfr.status
+    )
     swarm.from_workflow_id(workflow_id)
 
     with DistributorContext(
-            workflow_run_id=new_wfr.workflow_run_id,
-            cluster_name=cluster_name,
-            timeout=180
+        workflow_run_id=new_wfr.workflow_run_id, cluster_name=cluster_name, timeout=180
     ) as distributor:
         swarm.run(distributor_alive_callable=distributor.alive)
 
@@ -655,5 +641,5 @@ def resume_workflow_from_id(
     else:
         raise WorkflowRunStateError(
             f"Workflow run {swarm.workflow_run_id}, associated with workflow {workflow_id}",
-            f"failed with status {swarm.status}"
+            f"failed with status {swarm.status}",
         )

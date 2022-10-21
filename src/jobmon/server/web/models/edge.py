@@ -1,7 +1,7 @@
 """Edge Database table."""
-from jobmon.server.web.models import Base
-
 from sqlalchemy import Column, Integer, Text
+
+from jobmon.server.web.models import Base
 
 
 class Edge(Base):

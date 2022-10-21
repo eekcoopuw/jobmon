@@ -11,7 +11,6 @@ from typing import Any, Dict, List, Optional, Union
 
 import yaml
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
 from jobmon.client.tool_version import ToolVersion
 from jobmon.client.workflow import Workflow
@@ -58,8 +57,7 @@ class Tool:
             requester: communicate with the flask services.
         """
         if requester is None:
-            cc = ClientConfig.from_defaults()
-            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+            requester = Requester.from_defaults()
         self.requester = requester
 
         # set tool defining attributes

@@ -36,11 +36,11 @@ def add_nodes() -> Any:
         node_keys = [
             (n["task_template_version_id"], n["node_args_hash"]) for n in data["nodes"]
         ]
-        node_insert_stmt = insert(
-            Node
-        ).values(
-            [{"task_template_version_id": ttv, "node_args_hash": arghash}
-             for ttv, arghash in node_keys]
+        node_insert_stmt = insert(Node).values(
+            [
+                {"task_template_version_id": ttv, "node_args_hash": arghash}
+                for ttv, arghash in node_keys
+            ]
         )
         if SessionLocal.bind.dialect.name == "mysql":
             node_insert_stmt = node_insert_stmt.prefix_with("IGNORE")
@@ -52,11 +52,9 @@ def add_nodes() -> Any:
 
         # Retrieve the node IDs
         ttvids, node_arg_hashes = zip(*node_keys)
-        select_stmt = select(
-            Node
-        ).where(
+        select_stmt = select(Node).where(
             Node.task_template_version_id.in_(ttvids),
-            Node.node_args_hash.in_(node_arg_hashes)
+            Node.node_args_hash.in_(node_arg_hashes),
         )
         nodes = session.execute(select_stmt).scalars().all()
 
@@ -80,7 +78,9 @@ def add_nodes() -> Any:
                 local_logger.debug(
                     "Adding node_arg", node_id=node_id, arg_id=arg_id, val=val
                 )
-                node_args_list.append({"node_id": node_id, "arg_id": arg_id, "val": val})
+                node_args_list.append(
+                    {"node_id": node_id, "arg_id": arg_id, "val": val}
+                )
 
         # Bulk insert again with raw SQL
         if node_args_list:
@@ -94,7 +94,9 @@ def add_nodes() -> Any:
             session.flush()
 
     # return result
-    return_nodes = {":".join(str(i) for i in key): val for key, val in node_id_dict.items()}
+    return_nodes = {
+        ":".join(str(i) for i in key): val for key, val in node_id_dict.items()
+    }
     resp = jsonify(nodes=return_nodes)
     resp.status_code = StatusCodes.OK
     return resp

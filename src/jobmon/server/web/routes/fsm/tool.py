@@ -24,10 +24,13 @@ def add_tool() -> Any:
     try:
         tool_name = data["name"]
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     # add tool to db
     session = SessionLocal()
+    print(session.bind)
     try:
         with session.begin():
             logger.info(f"Adding tool {tool_name}")

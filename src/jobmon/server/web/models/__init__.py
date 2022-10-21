@@ -1,13 +1,15 @@
 """SQLAlchemy database objects."""
-from pkgutil import iter_modules
-from pathlib import Path
 from importlib import import_module
-import structlog
+from pathlib import Path
+from pkgutil import iter_modules
+from typing import Any
 
-from sqlalchemy import CheckConstraint, create_engine, event, func, text, String
+from sqlalchemy import CheckConstraint, create_engine, event, func, String, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm.decl_api import DeclarativeMeta
+import structlog
 
 
 logger = structlog.get_logger(__name__)
@@ -16,10 +18,9 @@ logger = structlog.get_logger(__name__)
 Base: DeclarativeMeta = declarative_base()
 
 
-# add check constraint to enforce column size limits on sqlite
 @event.listens_for(Base, "instrument_class", propagate=True)
-def add_string_length_constraint(Base, cls_):
-
+def add_string_length_constraint(Base: DeclarativeMeta, cls_: Any) -> None:
+    """Add check constraint to enforce column size limits on sqlite."""
     table = cls_.__table__
 
     for column in table.columns:
@@ -36,15 +37,15 @@ def add_string_length_constraint(Base, cls_):
                 )
 
 
-def load_model():
-    # iterate through the modules in the current package
+def load_model() -> None:
+    """Iterate through the modules in the current package."""
     package_dir = Path(__file__).resolve().parent
-    for (_, module_name, _) in iter_modules([package_dir]):
+    for (_, module_name, _) in iter_modules([str(package_dir)]):
         import_module(f"{__name__}.{module_name}")
 
 
-def init_db(engine):
-    """emit DDL for all modules in 'models'"""
+def init_db(engine: Engine) -> None:
+    """Emit DDL for all modules in 'models'."""
     emit_ddl = True
 
     # dialect specific init logic
@@ -61,7 +62,9 @@ def init_db(engine):
                 emit_ddl = False
         except OperationalError:
             # strip database
-            no_schema_engine = create_engine(str(engine.url).replace(engine.url.database, ""))
+            no_schema_engine = create_engine(
+                str(engine.url).replace(engine.url.database, "")
+            )
             create_db_query = f"CREATE DATABASE {engine.url.database}"
             with no_schema_engine.connect() as conn:
                 conn.execute(text(create_db_query))
@@ -77,11 +80,17 @@ def init_db(engine):
         from jobmon.server.web.models.cluster_type import add_cluster_types
         from jobmon.server.web.models.cluster import add_clusters
         from jobmon.server.web.models.queue import add_queues
-        from jobmon.server.web.models.task_resources_type import add_task_resources_types
+        from jobmon.server.web.models.task_resources_type import (
+            add_task_resources_types,
+        )
         from jobmon.server.web.models.task_status import add_task_statuses
-        from jobmon.server.web.models.task_instance_status import add_task_instance_statuses
+        from jobmon.server.web.models.task_instance_status import (
+            add_task_instance_statuses,
+        )
         from jobmon.server.web.models.workflow_status import add_workflow_statuses
-        from jobmon.server.web.models.workflow_run_status import add_workflow_run_statuses
+        from jobmon.server.web.models.workflow_run_status import (
+            add_workflow_run_statuses,
+        )
 
         with session_factory(bind=engine) as session:
             metadata_loaders = [
@@ -93,9 +102,18 @@ def init_db(engine):
                 add_task_statuses,
                 add_task_instance_statuses,
                 add_workflow_statuses,
-                add_workflow_run_statuses
+                add_workflow_run_statuses,
             ]
             for loader in metadata_loaders:
                 loader(session)
                 session.flush()
             session.commit()
+
+
+def terminate_db(engine: Engine) -> None:
+    """Terminate/drop a dev database."""
+    # dialect specific init logic
+    if engine.dialect.name == "mysql":
+        with engine.connect() as conn:
+            drop_db_query = f"DROP DATABASE {engine.url.database}"
+            conn.execute(text(drop_db_query))

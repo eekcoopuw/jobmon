@@ -5,6 +5,7 @@ from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import structlog
 
+from jobmon import __version__
 from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeWorkflowRun
 from jobmon.server.web._compat import add_time
@@ -32,6 +33,7 @@ class WorkflowRun(Base):
     workflow_id = Column(Integer, ForeignKey("workflow.id"))
     user = Column(String(150))
     jobmon_version = Column(String(150), default="UNKNOWN")
+    jobmon_server_version = Column(String(150), default=__version__)
     status = Column(
         String(1),
         ForeignKey("workflow_run_status.id"),
@@ -45,7 +47,7 @@ class WorkflowRun(Base):
     workflow = relationship("Workflow", back_populates="workflow_runs", lazy=True)
 
     __table_args__ = (
-        Index('ix_status_version', 'status', 'jobmon_version'),
+        Index("ix_status_version", "status", "jobmon_version", "jobmon_server_version"),
     )
 
     valid_transitions = [
@@ -129,8 +131,9 @@ class WorkflowRun(Base):
 
     def reap(self) -> None:
         """Transition dead workflow runs to a terminal state."""
-        structlog.threadlocal.bind_threadlocal(workflow_run_id=self.id,
-                                               workflow_id=self.workflow_id)
+        structlog.threadlocal.bind_threadlocal(
+            workflow_run_id=self.id, workflow_id=self.workflow_id
+        )
         logger.info("Dead workflow_run will be reaped.")
         if self.status == WorkflowRunStatus.LINKING:
             logger.debug(f"Transitioning wfr {self.id} to ABORTED")
@@ -145,8 +148,9 @@ class WorkflowRun(Base):
 
     def transition(self, new_state: str) -> None:
         """Transition the Workflow Run's state."""
-        structlog.threadlocal.bind_threadlocal(workflow_run_id=self.id,
-                                               workflow_id=self.workflow_id)
+        structlog.threadlocal.bind_threadlocal(
+            workflow_run_id=self.id, workflow_id=self.workflow_id
+        )
         logger.info(f"Transitioning workflow_run from {self.status} to {new_state}")
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
@@ -173,15 +177,17 @@ class WorkflowRun(Base):
 
     def hot_reset(self) -> None:
         """Set Workflow Run to Hot Resume."""
-        structlog.threadlocal.bind_threadlocal(workflow_run_id=self.id,
-                                               workflow_id=self.workflow_id)
+        structlog.threadlocal.bind_threadlocal(
+            workflow_run_id=self.id, workflow_id=self.workflow_id
+        )
         logger.info("Transitioning workflow_run to HOT_RESUME.")
         self.transition(WorkflowRunStatus.HOT_RESUME)
 
     def cold_reset(self) -> None:
         """Set Workflow Run to Cold Resume."""
-        structlog.threadlocal.bind_threadlocal(workflow_run_id=self.id,
-                                               workflow_id=self.workflow_id)
+        structlog.threadlocal.bind_threadlocal(
+            workflow_run_id=self.id, workflow_id=self.workflow_id
+        )
         logger.info("Transitioning workflow_run to COLD_RESUME.")
         self.transition(WorkflowRunStatus.COLD_RESUME)
 
@@ -192,8 +198,9 @@ class WorkflowRun(Base):
 
     def _is_timely_transition(self, new_state: str) -> bool:
         """Check if the transition is invalid due to a race condition."""
-        structlog.threadlocal.bind_threadlocal(workflow_run_id=self.id,
-                                               workflow_id=self.workflow_id)
+        structlog.threadlocal.bind_threadlocal(
+            workflow_run_id=self.id, workflow_id=self.workflow_id
+        )
         if (self.status, new_state) in self.untimely_transitions:
             logger.info(
                 f"Ignoring transition of workflow_run from {self.status} to {new_state}"

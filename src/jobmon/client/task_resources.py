@@ -10,7 +10,6 @@ from math import ceil
 import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.cluster_type import ClusterQueue
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
@@ -39,8 +38,7 @@ class TaskResources:
         self.queue = queue
 
         if requester is None:
-            cc = ClientConfig.from_defaults()
-            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+            requester = Requester.from_defaults()
         self.requester = requester
 
     @property

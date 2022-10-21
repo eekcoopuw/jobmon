@@ -28,19 +28,20 @@ class TaskInstanceStatus(Base):
     label = Column(String(150))
 
 
-def add_task_instance_statuses(session: Session):
+def add_task_instance_statuses(session: Session) -> None:
+    """Populate the task_instance_status table in the database."""
     statuses = [
-        TaskInstanceStatus(id='Q', label='QUEUED'),
-        TaskInstanceStatus(id='I', label='INSTANTIATED'),
-        TaskInstanceStatus(id='W', label='NO_DISTRIBUTOR_ID'),
-        TaskInstanceStatus(id='O', label='LAUNCHED'),
-        TaskInstanceStatus(id='R', label='RUNNING'),
-        TaskInstanceStatus(id='T', label='TRIAGING'),
-        TaskInstanceStatus(id='Z', label='RESOURCE_ERROR'),
-        TaskInstanceStatus(id='U', label='UNKNOWN_ERROR'),
-        TaskInstanceStatus(id='E', label='ERROR'),
-        TaskInstanceStatus(id='D', label='DONE'),
-        TaskInstanceStatus(id='K', label='KILL_SELF'),
-        TaskInstanceStatus(id='F', label='ERROR_FATAL'),
+        TaskInstanceStatus(id="Q", label="QUEUED"),
+        TaskInstanceStatus(id="I", label="INSTANTIATED"),
+        TaskInstanceStatus(id="W", label="NO_DISTRIBUTOR_ID"),
+        TaskInstanceStatus(id="O", label="LAUNCHED"),
+        TaskInstanceStatus(id="R", label="RUNNING"),
+        TaskInstanceStatus(id="T", label="TRIAGING"),
+        TaskInstanceStatus(id="Z", label="RESOURCE_ERROR"),
+        TaskInstanceStatus(id="U", label="UNKNOWN_ERROR"),
+        TaskInstanceStatus(id="E", label="ERROR"),
+        TaskInstanceStatus(id="D", label="DONE"),
+        TaskInstanceStatus(id="K", label="KILL_SELF"),
+        TaskInstanceStatus(id="F", label="ERROR_FATAL"),
     ]
     session.add_all(statuses)

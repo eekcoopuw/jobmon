@@ -1,6 +1,6 @@
 """Sequential distributor that runs one task at a time."""
 from collections import OrderedDict
-from contextlib import ExitStack, redirect_stdout, redirect_stderr
+from contextlib import ExitStack, redirect_stderr, redirect_stdout
 import logging
 import os
 import shutil
@@ -142,7 +142,9 @@ class SequentialDistributor(ClusterDistributor):
                 for io_type, redirect_manager in redirect_io.items():
                     try:
                         fname = requested_resources[io_type]["job"].format(
-                            name=logfile_name, type=io_type, distributor_id=distributor_id
+                            name=logfile_name,
+                            type=io_type,
+                            distributor_id=distributor_id,
                         )
                         logfiles[io_type] = fname
                         f = stack.enter_context(open(fname, "w"))

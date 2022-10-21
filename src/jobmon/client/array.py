@@ -6,7 +6,6 @@ from itertools import product
 import logging
 from typing import Any, Callable, Dict, Iterator, List, Optional, TYPE_CHECKING, Union
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
@@ -78,8 +77,7 @@ class Array:
         )
 
         if requester is None:
-            cc = ClientConfig.from_defaults()
-            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+            requester = Requester.from_defaults()
         self.requester = requester
 
         self.tasks: Dict[int, Task] = {}  # Initialize to empty dict

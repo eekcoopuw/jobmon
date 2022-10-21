@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from abc import abstractmethod
 import importlib
-from typing import Any, Dict, List, Optional, Set, Tuple, Type
+from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
 # the following try-except is to accommodate Python versions on both >=3.8 and 3.7.
 # The Protocol was officially introduced in 3.8, with typing_extensions slapped on 3.7.
@@ -106,13 +106,13 @@ class ClusterQueue(Protocol):
 
     @abstractmethod
     def validate_resources(
-        self, strict: bool = False, **kwargs: Dict
+        self, strict: bool = False, **kwargs: Union[str, int, float]
     ) -> Tuple[bool, str]:
         """Ensures that requested resources aren't greater than what's available."""
         raise NotImplementedError
 
     @abstractmethod
-    def coerce_resources(self, **kwargs: Dict) -> Dict:
+    def coerce_resources(self, **kwargs: Union[str, int, float]) -> Dict:
         """Ensures that requested resources aren't greater than what's available."""
         raise NotImplementedError
 
@@ -202,7 +202,11 @@ class ClusterDistributor(Protocol):
 
     @abstractmethod
     def submit_to_batch_distributor(
-        self, command: str, name: str, logfile_name: str, requested_resources: Dict[str, Any]
+        self,
+        command: str,
+        name: str,
+        logfile_name: str,
+        requested_resources: Dict[str, Any],
     ) -> Tuple[str, Optional[str], Optional[str]]:
         """Submit the command on the cluster technology and return a distributor_id.
 
@@ -270,8 +274,13 @@ class ClusterDistributor(Protocol):
             )
         elif array_id is not None and batch_number is not None:
             wrapped_cmd.extend(
-                ["worker_node_array", "--array_id", str(array_id), "--batch_number",
-                 str(batch_number)]
+                [
+                    "worker_node_array",
+                    "--array_id",
+                    str(array_id),
+                    "--batch_number",
+                    str(batch_number),
+                ]
             )
         else:
             raise ValueError(

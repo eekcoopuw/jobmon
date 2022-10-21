@@ -41,10 +41,7 @@ class WebServerProcess:
         """Starts the web service process."""
         # jobmon_cli string
         database_uri = f"sqlite:///{self.filepath}"
-        argstr = (
-            f"web_service --web_service_port {self.web_port} "
-            f"--sqlalchemy_database_uri {database_uri}"
-        )
+        argstr = f"web_service --port {self.web_port} --sqlalchemy_database_uri {database_uri}"
 
         def run_server_with_handler(argstr: str) -> None:
             def sigterm_handler(_signo: int, _stack_frame: Any) -> None:
@@ -55,6 +52,7 @@ class WebServerProcess:
             from jobmon.server.cli import main
             from jobmon.server.web.models import init_db
             from sqlalchemy import create_engine
+
             init_db(create_engine(database_uri))
 
             signal.signal(signal.SIGTERM, sigterm_handler)
@@ -112,9 +110,9 @@ def set_mac_to_fork():
         multiprocessing.set_start_method("fork")
 
 
-@pytest.fixture(scope='session')
+@pytest.fixture(scope="session")
 def sqlite_file(tmpdir_factory) -> str:
-    file = str(tmpdir_factory.mktemp('db').join("tests.sqlite"))
+    file = str(tmpdir_factory.mktemp("db").join("tests.sqlite"))
     return file
 
 
@@ -132,19 +130,18 @@ def db_engine(sqlite_file) -> Engine:
 
 @pytest.fixture(scope="function")
 def client_env(web_server_process, monkeypatch):
+    from jobmon.requester import Requester
 
-    from jobmon.client.client_config import ClientConfig
-
-    monkeypatch.setenv("WEB_SERVICE_FQDN", web_server_process["JOBMON_HOST"])
-    monkeypatch.setenv("WEB_SERVICE_PORT", web_server_process["JOBMON_PORT"])
-    monkeypatch.setenv("TENACITY_MAX_RETRIES", "0")
+    monkeypatch.setenv(
+        "JOBMON__HTTP__SERVICE_URL",
+        f'http://{web_server_process["JOBMON_HOST"]}:{web_server_process["JOBMON_PORT"]}',
+    )
+    monkeypatch.setenv("JOBMON__HTTP__STOP_AFTER_DELAY", "0")
 
     # This instance is thrown away, hence monkey-patching the defaults via the
     # environment variables
-    cc = ClientConfig(
-        web_server_process["JOBMON_HOST"], web_server_process["JOBMON_PORT"], 30, 3.1, 0
-    )
-    yield cc.url
+    requester = Requester.from_defaults()
+    yield requester.url
 
 
 @pytest.fixture(scope="function")
@@ -160,17 +157,17 @@ def web_server_in_memory(sqlite_file, monkeypatch):
     fake server
     """
     from jobmon.server.web.app_factory import AppFactory
-    from jobmon.server.web.web_config import WebConfig
 
     # The create_app call sets up database connections
-    monkeypatch.setenv("SQLALCHEMY_DATABASE_URI", f"sqlite:///{sqlite_file}")
-    config = WebConfig.from_defaults()
-    app_factory = AppFactory(config)
+    monkeypatch.setenv(
+        "JOBMON__FLASK__SQLALCHEMY_DATABASE_URI", f"sqlite:///{sqlite_file}"
+    )
+    app_factory = AppFactory()
     app = app_factory.get_app()
     app.config["TESTING"] = True
     with app.app_context():
         client = app.test_client()
-        yield client, config.engine
+        yield client, app_factory.engine
 
 
 def get_test_content(response):
@@ -194,24 +191,21 @@ def requester_in_memory(monkeypatch, web_server_in_memory):
     import requests
     from jobmon import requester
 
-    monkeypatch.setenv("WEB_SERVICE_FQDN", "1")
-    monkeypatch.setenv("WEB_SERVICE_PORT", "2")
+    monkeypatch.setenv("JOBMON__HTTP__SERVICE_URL", "1")
 
     app, engine = web_server_in_memory
 
     def get_in_mem(url, params, data, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return app.get(
-            path=url, query_string=params, data=data, headers=headers
-        )
+        return app.get(path=url, query_string=params, data=data, headers=headers)
 
-    def post_in_mem(url, json, headers):
+    def post_in_mem(url, params, json, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return app.post(url, json=json, headers=headers)
+        return app.post(url, query_string=params, json=json, headers=headers)
 
-    def put_in_mem(url, json, headers):
+    def put_in_mem(url, params, json, headers):
         url = "/" + url.split(":")[-1].split("/", 1)[1]
-        return app.put(url, json=json, headers=headers)
+        return app.put(url, query_string=params, json=json, headers=headers)
 
     monkeypatch.setattr(requests, "get", get_in_mem)
     monkeypatch.setattr(requests, "post", post_in_mem)

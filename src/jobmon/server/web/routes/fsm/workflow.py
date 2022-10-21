@@ -4,7 +4,8 @@ from typing import Any, cast, Dict, Tuple
 
 from flask import jsonify, request
 import sqlalchemy
-from sqlalchemy import insert, func, select, update
+from sqlalchemy import func, select, update
+from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import Session
 import structlog
@@ -38,7 +39,9 @@ def _add_workflow_attributes(
         for name, val in workflow_attributes.items():
             wf_type_id = _add_or_get_wf_attribute_type(name, session)
             wf_attribute = WorkflowAttribute(
-                workflow_id=workflow_id, workflow_attribute_type_id=wf_type_id, value=val
+                workflow_id=workflow_id,
+                workflow_attribute_type_id=wf_type_id,
+                value=val,
             )
             wf_attributes_list.append(wf_attribute)
             logger.debug(f"Attribute name: {name}, value: {val}")
@@ -61,7 +64,9 @@ def bind_workflow() -> Any:
         workflow_attributes = data["workflow_attributes"]
 
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     structlog.threadlocal.bind_threadlocal(
         dag_id=dag_id,
@@ -73,9 +78,7 @@ def bind_workflow() -> Any:
     session = SessionLocal()
     with session.begin():
 
-        select_stmt = select(
-            Workflow
-        ).where(
+        select_stmt = select(Workflow).where(
             Workflow.tool_version_id == tv_id,
             Workflow.dag_id == dag_id,
             Workflow.workflow_args_hash == whash,
@@ -135,7 +138,9 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: str) -> Any:
     try:
         workflow_args_hash = str(int(workflow_args_hash))
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     structlog.threadlocal.bind_threadlocal(workflow_args_hash=str(workflow_args_hash))
     logger.info(f"Looking for wf with hash {workflow_args_hash}")
@@ -143,19 +148,19 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: str) -> Any:
     session = SessionLocal()
     with session.begin():
 
-        select_stmt = select(
-            Workflow.task_hash, Workflow.tool_version_id, Dag.hash
-        ).join_from(
-            Workflow, Dag, Workflow.dag_id == Dag.id
-        ).where(
-            Workflow.workflow_args_hash == workflow_args_hash
+        select_stmt = (
+            select(Workflow.task_hash, Workflow.tool_version_id, Dag.hash)
+            .join_from(Workflow, Dag, Workflow.dag_id == Dag.id)
+            .where(Workflow.workflow_args_hash == workflow_args_hash)
         )
         res = []
         for row in session.execute(select_stmt).all():
             res.append((row.task_hash, row.tool_version_id, row.hash))
 
     if len(res) > 0:
-        logger.debug(f"Found {res} workflow for " f"workflow_args_hash {workflow_args_hash}")
+        logger.debug(
+            f"Found {res} workflow for " f"workflow_args_hash {workflow_args_hash}"
+        )
 
     resp = jsonify(matching_workflows=res)
     resp.status_code = StatusCodes.OK
@@ -169,9 +174,7 @@ def _add_or_get_wf_attribute_type(name: str, session: Session) -> int:
             session.add(wf_attrib_type)
     except sqlalchemy.exc.IntegrityError:
         with session.begin_nested():
-            select_stmt = select(
-                WorkflowAttributeType
-            ).where(
+            select_stmt = select(WorkflowAttributeType).where(
                 WorkflowAttributeType.name == name
             )
             wf_attrib_type = session.execute(select_stmt).scalars().one()
@@ -179,21 +182,29 @@ def _add_or_get_wf_attribute_type(name: str, session: Session) -> int:
     return wf_attrib_type.id
 
 
-def _upsert_wf_attribute(workflow_id: int, name: str, value: str, session: Session) -> None:
+def _upsert_wf_attribute(
+    workflow_id: int, name: str, value: str, session: Session
+) -> None:
     with session.begin_nested():
         wf_attrib_id = _add_or_get_wf_attribute_type(name, session)
         if SessionLocal.bind.dialect.name == "mysql":
-            insert_vals = insert(WorkflowAttribute).values(
-                workflow_id=workflow_id, workflow_attribute_type_id=wf_attrib_id, value=value
+            insert_vals = mysql_insert(WorkflowAttribute).values(
+                workflow_id=workflow_id,
+                workflow_attribute_type_id=wf_attrib_id,
+                value=value,
             )
-            upsert_stmt = insert_vals.on_duplicate_key_update(value=insert_vals.inserted.value)
+            upsert_stmt = insert_vals.on_duplicate_key_update(
+                value=insert_vals.inserted.value
+            )
         elif SessionLocal.bind.dialect.name == "sqlite":
             insert_vals = sqlite_insert(WorkflowAttribute).values(
-                workflow_id=workflow_id, workflow_attribute_type_id=wf_attrib_id, value=value
+                workflow_id=workflow_id,
+                workflow_attribute_type_id=wf_attrib_id,
+                value=value,
             )
             upsert_stmt = insert_vals.on_conflict_do_update(
-                index_elements=['workflow_id', 'workflow_attribute_type_id'],
-                set_=dict(value=value)
+                index_elements=["workflow_id", "workflow_attribute_type_id"],
+                set_=dict(value=value),
             )
         session.execute(upsert_stmt)
 
@@ -205,7 +216,9 @@ def update_workflow_attribute(workflow_id: int) -> Any:
     try:
         workflow_id = int(workflow_id)
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
     """ Add/update attributes for a workflow """
     data = cast(Dict, request.get_json())
 
@@ -231,15 +244,13 @@ def set_resume(workflow_id: int) -> Any:
         logger.info("Set resume for workflow")
         reset_running_jobs = bool(data["reset_running_jobs"])
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            Workflow
-        ).where(
-            Workflow.id == workflow_id
-        )
+        select_stmt = select(Workflow).where(Workflow.id == workflow_id)
         workflow = session.execute(select_stmt).scalars().one_or_none()
         if workflow:
             # trigger resume on active workflow run
@@ -259,11 +270,7 @@ def workflow_is_resumable(workflow_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            Workflow
-        ).where(
-            Workflow.id == workflow_id
-        )
+        select_stmt = select(Workflow).where(Workflow.id == workflow_id)
         workflow = session.execute(select_stmt).scalars().one()
 
     logger.info(f"Workflow is resumable: {workflow.is_resumable}")
@@ -272,18 +279,16 @@ def workflow_is_resumable(workflow_id: int) -> Any:
     return resp
 
 
-@blueprint.route("/workflow/<workflow_id>/get_max_concurrently_running", methods=["GET"])
+@blueprint.route(
+    "/workflow/<workflow_id>/get_max_concurrently_running", methods=["GET"]
+)
 def get_max_concurrently_running(workflow_id: int) -> Any:
     """Return the maximum concurrency of this workflow."""
     structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
 
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            Workflow
-        ).where(
-            Workflow.id == workflow_id
-        )
+        select_stmt = select(Workflow).where(Workflow.id == workflow_id)
         workflow = session.execute(select_stmt).scalars().one()
 
     resp = jsonify(max_concurrently_running=workflow.max_concurrently_running)
@@ -303,16 +308,16 @@ def update_max_running(workflow_id: int) -> Any:
     try:
         new_limit = data["max_tasks"]
     except KeyError as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     session = SessionLocal()
     with session.begin():
-        update_stmt = update(
-            Workflow
-        ).where(
-            Workflow.id == workflow_id
-        ).values(
-            max_concurrently_running=new_limit
+        update_stmt = (
+            update(Workflow)
+            .where(Workflow.id == workflow_id)
+            .values(max_concurrently_running=new_limit)
         )
         res = session.execute(update_stmt)
 
@@ -322,16 +327,16 @@ def update_max_running(workflow_id: int) -> Any:
             f"{new_limit}"
         )
     else:
-        message = f"Workflow ID {workflow_id} max concurrently running updated to {new_limit}"
+        message = (
+            f"Workflow ID {workflow_id} max concurrently running updated to {new_limit}"
+        )
 
     resp = jsonify(message=message)
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@blueprint.route(
-    "/workflow/<workflow_id>/task_status_updates", methods=["POST"]
-)
+@blueprint.route("/workflow/<workflow_id>/task_status_updates", methods=["POST"])
 def task_status_updates(workflow_id: int) -> Any:
     """Returns all tasks in the database that have the specified status.
 
@@ -345,7 +350,7 @@ def task_status_updates(workflow_id: int) -> Any:
     try:
         filter_criteria: Tuple = (
             (Task.workflow_id == workflow_id),
-            (Task.status_date >= data["last_sync"])
+            (Task.status_date >= data["last_sync"]),
         )
     except KeyError:
         filter_criteria = (Task.workflow_id == workflow_id,)
@@ -372,7 +377,8 @@ def task_status_updates(workflow_id: int) -> Any:
 
 
 @blueprint.route("/workflow/<workflow_id>/fetch_workflow_metadata", methods=["GET"])
-def fetch_workflow_metadata(workflow_id: int):
+def fetch_workflow_metadata(workflow_id: int) -> Any:
+    """Get metadata associated with specified Workflow ID."""
     # Query for a workflow object
     session = SessionLocal()
     with session.begin():
@@ -392,8 +398,8 @@ def fetch_workflow_metadata(workflow_id: int):
 
 
 @blueprint.route("/workflow/get_tasks/<workflow_id>", methods=["GET"])
-def get_tasks_from_workflow(workflow_id: int):
-
+def get_tasks_from_workflow(workflow_id: int) -> Any:
+    """Return tasks associated with specified Workflow ID."""
     max_task_id = request.args.get("max_task_id")
     chunk_size = request.args.get("chunk_size")
 
@@ -402,34 +408,35 @@ def get_tasks_from_workflow(workflow_id: int):
     with session.begin():
 
         # Query task table
-        query = select(
-            Task.id,
-            Task.array_id,
-            Array.max_concurrently_running,
-            Task.status,
-            Task.max_attempts,
-            Task.resource_scales,
-            Task.fallback_queues,
-            TaskResources.requested_resources,
-            Cluster.name,
-            Queue.name
-        ).where(
-            Task.workflow_id == workflow_id,
-            Task.task_resources_id == TaskResources.id,
-            TaskResources.queue_id == Queue.id,
-            Queue.cluster_id == Cluster.id,
-            # Note: because of this status != "DONE" filter, only the portion of the DAG
-            # that is not complete is returned. Assumes that all tasks in a workflow correspond
-            # to nodes that belong in the same DAG, and that no downstream nodes can be in DONE
-            # for any unfinished task
-            Task.status != TaskStatus.DONE,
-            Task.array_id == Array.id,
-            # Greater than set by the input max_task_id
-            Task.id > max_task_id,
-        ).order_by(
-            Task.id
-        ).limit(
-            chunk_size
+        query = (
+            select(
+                Task.id,
+                Task.array_id,
+                Array.max_concurrently_running,
+                Task.status,
+                Task.max_attempts,
+                Task.resource_scales,
+                Task.fallback_queues,
+                TaskResources.requested_resources,
+                Cluster.name,
+                Queue.name,
+            )
+            .where(
+                Task.workflow_id == workflow_id,
+                Task.task_resources_id == TaskResources.id,
+                TaskResources.queue_id == Queue.id,
+                Queue.cluster_id == Cluster.id,
+                # Note: because of this status != "DONE" filter, only the portion of the DAG
+                # that is not complete is returned. Assumes that all tasks in a workflow
+                # correspond to nodes that belong in the same DAG, and that no downstream
+                # nodes can be in DONE for any unfinished task
+                Task.status != TaskStatus.DONE,
+                Task.array_id == Array.id,
+                # Greater than set by the input max_task_id
+                Task.id > max_task_id,
+            )
+            .order_by(Task.id)
+            .limit(chunk_size)
         )
         res = session.execute(query).all()
         resp_dict = {row[0]: row[1:] for row in res}

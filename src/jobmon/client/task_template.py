@@ -19,7 +19,6 @@ from typing import (
 import yaml
 
 from jobmon.client.array import Array
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
@@ -65,8 +64,7 @@ class TaskTemplate:
         self._active_task_template_version: TaskTemplateVersion
 
         if requester is None:
-            cc = ClientConfig.from_defaults()
-            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+            requester = Requester.from_defaults()
         self.requester = requester
 
     @classmethod

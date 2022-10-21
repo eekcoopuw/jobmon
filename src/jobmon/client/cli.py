@@ -3,11 +3,8 @@ import argparse
 import json
 from typing import Any, Optional
 
-import configargparse
-
-from jobmon.client.client_config import ClientConfig
+from jobmon.cli import CLI
 from jobmon.client.status_commands import get_task_dependencies
-from jobmon.config import CLI, PARSER_KWARGS, ParserDefaults
 
 
 class _HelpAction(argparse._HelpAction):
@@ -43,12 +40,12 @@ class ClientCLI(CLI):
 
     def __init__(self) -> None:
         """Initialization of client CLI."""
-        self.parser = configargparse.ArgumentParser(add_help=False, **PARSER_KWARGS)
+        self.parser = argparse.ArgumentParser("Jobmon Client CLI", add_help=False)
         self.parser.add_argument(
             "--help", action=_HelpAction, help="Help if you need Help"
         )
         self._subparsers = self.parser.add_subparsers(
-            dest="sub_command", parser_class=configargparse.ArgumentParser
+            dest="sub_command", parser_class=argparse.ArgumentParser
         )
 
         self._add_workflow_status_subparser()
@@ -76,54 +73,46 @@ class ClientCLI(CLI):
         return limit
 
     @staticmethod
-    def workflow_status(args: configargparse.Namespace) -> None:
+    def workflow_status(args: argparse.Namespace) -> None:
         """Workflow status checking options."""
         from tabulate import tabulate
         from jobmon.client.status_commands import workflow_status as workflow_status_cmd
 
-        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = workflow_status_cmd(
-            args.workflow_id, args.user, args.json, cc.url, args.limit
-        )
+        df = workflow_status_cmd(args.workflow_id, args.user, args.json, args.limit)
         if args.json:
             print(df)
         else:
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
     @staticmethod
-    def workflow_tasks(args: configargparse.Namespace) -> None:
+    def workflow_tasks(args: argparse.Namespace) -> None:
         """Check the tasks for a given workflow."""
         from tabulate import tabulate
         from jobmon.client.status_commands import workflow_tasks as workflow_tasks_cmd
 
-        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = workflow_tasks_cmd(
-            args.workflow_id, args.status, args.json, cc.url, args.limit
-        )
+        df = workflow_tasks_cmd(args.workflow_id, args.status, args.json, args.limit)
         if args.json:
             print(df)
         else:
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
     @staticmethod
-    def task_template_resources(args: configargparse.Namespace) -> None:
+    def task_template_resources(args: argparse.Namespace) -> None:
         """Aggregates the resource usage for a given TaskTemplateVersion."""
         from jobmon.client.status_commands import task_template_resources
 
-        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
         resources = task_template_resources(
-            args.task_template_version, args.workflows, args.node_args, cc.url
+            args.task_template_version, args.workflows, args.node_args
         )
         print(resources)
 
     @staticmethod
-    def task_status(args: configargparse.Namespace) -> None:
+    def task_status(args: argparse.Namespace) -> None:
         """Check task status."""
         from tabulate import tabulate
         from jobmon.client.status_commands import task_status as task_status_cmd
 
-        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        df = task_status_cmd(args.task_ids, args.status, args.json, cc.url)
+        df = task_status_cmd(args.task_ids, args.status, args.json)
         print(f"\nTASK_IDS: {args.task_ids}")
         if args.json:
             print(df)
@@ -131,37 +120,33 @@ class ClientCLI(CLI):
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
     @staticmethod
-    def update_task_status(args: configargparse.Namespace) -> None:
+    def update_task_status(args: argparse.Namespace) -> None:
         """Manually update task status for resumes, reruns, etc."""
         from jobmon.client.status_commands import update_task_status
 
-        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
         response = update_task_status(
             args.task_ids,
             args.workflow_id,
             args.new_status,
             args.force,
             args.recursive,
-            cc.url,
         )
         print(f"Response is: {response}")
 
     @staticmethod
-    def concurrency_limit(args: configargparse.Namespace) -> None:
+    def concurrency_limit(args: argparse.Namespace) -> None:
         """Set a limit for the number of tasks that can run concurrently."""
         from jobmon.client.status_commands import (
             concurrency_limit as concurrency_limit_cmd,
         )
 
-        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        response = concurrency_limit_cmd(args.workflow_id, args.max_tasks, cc.url)
+        response = concurrency_limit_cmd(args.workflow_id, args.max_tasks)
         print(response)
 
     @staticmethod
-    def task_dependencies(args: configargparse.Namespace) -> None:
+    def task_dependencies(args: argparse.Namespace) -> None:
         """Get task's upstream and downstream tasks and their status."""
-        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        r = get_task_dependencies(args.task_id, cc.url)
+        r = get_task_dependencies(args.task_id)
         up = r["up"]
         down = r["down"]
         """Format output that should look like:
@@ -190,29 +175,27 @@ class ClientCLI(CLI):
             print("{:<8} {:<15} {:<15}".format("", task_id, status))
 
     @staticmethod
-    def workflow_reset(args: configargparse.Namespace) -> None:
+    def workflow_reset(args: argparse.Namespace) -> None:
         """Manually reset a workflow."""
         from jobmon.client.status_commands import workflow_reset
 
-        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
-        response = workflow_reset(args.workflow_id, cc.url)
+        response = workflow_reset(args.workflow_id)
         print(f"Response is: {response}")
 
     @staticmethod
-    def jobmon_version(args: configargparse.Namespace) -> None:
+    def jobmon_version(args: argparse.Namespace) -> None:
         """Return the jobmon version."""
         from jobmon import _version
 
         print(_version.version)
 
     @staticmethod
-    def resource_yaml(args: configargparse.Namespace) -> None:
+    def resource_yaml(args: argparse.Namespace) -> None:
         """Create resource yaml."""
         from jobmon.client.status_commands import create_resource_yaml
 
         # input check
         if (args.workflow_id is None) ^ (args.task_id is None):
-            cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
             r = create_resource_yaml(
                 args.workflow_id,
                 args.task_id,
@@ -220,7 +203,6 @@ class ClientCLI(CLI):
                 args.value_core,
                 args.value_runtime,
                 args.clusters,
-                cc.url,
             )
             if args.print:
                 print(r)
@@ -232,26 +214,26 @@ class ClientCLI(CLI):
             print("Please provide a value for either -w or -t but not both.")
 
     @staticmethod
-    def resume_workflow(args: configargparse.Namespace) -> None:
-        """Resume a workflow from a workflow ID"""
+    def resume_workflow(args: argparse.Namespace) -> None:
+        """Resume a workflow from a workflow ID."""
         from jobmon.client.status_commands import resume_workflow_from_id
 
-        resume_workflow_from_id(workflow_id=args.workflow_id,
-                                cluster_name=args.cluster_name,
-                                reset_if_running=args.reset_running_jobs)
+        resume_workflow_from_id(
+            workflow_id=args.workflow_id,
+            cluster_name=args.cluster_name,
+            reset_if_running=args.reset_running_jobs,
+        )
 
     @staticmethod
-    def get_filepaths(args: configargparse.Namespace) -> None:
+    def get_filepaths(args: argparse.Namespace) -> None:
         from tabulate import tabulate
         from jobmon.client.status_commands import get_filepaths
 
-        cc = ClientConfig(args.web_service_fqdn, args.web_service_port)
         df = get_filepaths(
             workflow_id=args.workflow_id,
             array_name=args.array_name,
             job_name=args.job_name,
             limit=args.limit,
-            requester_url=cc.url,
         )
         if args.json:
             print(df)
@@ -259,13 +241,11 @@ class ClientCLI(CLI):
             print(tabulate(df, headers="keys", tablefmt="psql", showindex=False))
 
     def _add_version_subparser(self) -> None:
-        version_parser = self._subparsers.add_parser("version", **PARSER_KWARGS)
+        version_parser = self._subparsers.add_parser("version")
         version_parser.set_defaults(func=self.jobmon_version)
 
     def _add_workflow_status_subparser(self) -> None:
-        workflow_status_parser = self._subparsers.add_parser(
-            "workflow_status", **PARSER_KWARGS
-        )
+        workflow_status_parser = self._subparsers.add_parser("workflow_status")
         workflow_status_parser.set_defaults(func=self.workflow_status)
         workflow_status_parser.add_argument(
             "-w",
@@ -291,13 +271,9 @@ class ClientCLI(CLI):
             required=False,
             type=self.limit_checker,
         )
-        ParserDefaults.web_service_fqdn(workflow_status_parser)
-        ParserDefaults.web_service_port(workflow_status_parser)
 
     def _add_workflow_tasks_subparser(self) -> None:
-        workflow_tasks_parser = self._subparsers.add_parser(
-            "workflow_tasks", **PARSER_KWARGS
-        )
+        workflow_tasks_parser = self._subparsers.add_parser("workflow_tasks")
         workflow_tasks_parser.set_defaults(func=self.workflow_tasks)
         workflow_tasks_parser.add_argument(
             "-w",
@@ -334,13 +310,9 @@ class ClientCLI(CLI):
             required=False,
             type=self.limit_checker,
         )
-        ParserDefaults.web_service_fqdn(workflow_tasks_parser)
-        ParserDefaults.web_service_port(workflow_tasks_parser)
 
     def _add_task_template_resources_subparser(self) -> None:
-        tt_resources_parser = self._subparsers.add_parser(
-            "task_template_resources", **PARSER_KWARGS
-        )
+        tt_resources_parser = self._subparsers.add_parser("task_template_resources")
         tt_resources_parser.set_defaults(func=self.task_template_resources)
         tt_resources_parser.add_argument(
             "-t",
@@ -364,11 +336,9 @@ class ClientCLI(CLI):
             required=False,
             type=json.loads,
         )
-        ParserDefaults.web_service_fqdn(tt_resources_parser)
-        ParserDefaults.web_service_port(tt_resources_parser)
 
     def _add_task_status_subparser(self) -> None:
-        task_status_parser = self._subparsers.add_parser("task_status", **PARSER_KWARGS)
+        task_status_parser = self._subparsers.add_parser("task_status")
         task_status_parser.set_defaults(func=self.task_status)
         task_status_parser.add_argument(
             "-t",
@@ -398,13 +368,9 @@ class ClientCLI(CLI):
         task_status_parser.add_argument(
             "-n", "--json", dest="json", action="store_true"
         )
-        ParserDefaults.web_service_fqdn(task_status_parser)
-        ParserDefaults.web_service_port(task_status_parser)
 
     def _add_update_task_status_subparser(self) -> None:
-        update_task_parser = self._subparsers.add_parser(
-            "update_task_status", **PARSER_KWARGS
-        )
+        update_task_parser = self._subparsers.add_parser("update_task_status")
         update_task_parser.set_defaults(func=self.update_task_status)
         update_task_parser.add_argument(
             "-t",
@@ -443,13 +409,9 @@ class ClientCLI(CLI):
             default=False,
             action="store_true",
         )
-        ParserDefaults.web_service_fqdn(update_task_parser)
-        ParserDefaults.web_service_port(update_task_parser)
 
     def _add_concurrency_limit_subparser(self) -> None:
-        concurrency_limit_parser = self._subparsers.add_parser(
-            "concurrency_limit", **PARSER_KWARGS
-        )
+        concurrency_limit_parser = self._subparsers.add_parser("concurrency_limit")
         concurrency_limit_parser.set_defaults(func=self.concurrency_limit)
         concurrency_limit_parser.add_argument(
             "-w",
@@ -478,34 +440,24 @@ class ClientCLI(CLI):
             type=_validate_ntasks,
             help="Number of concurrent tasks to allow. Must be at least 1.",
         )
-        ParserDefaults.web_service_fqdn(concurrency_limit_parser)
-        ParserDefaults.web_service_port(concurrency_limit_parser)
 
     def _add_task_dependencies_subparser(self) -> None:
-        task_dependencies_parser = self._subparsers.add_parser(
-            "task_dependencies", **PARSER_KWARGS
-        )
+        task_dependencies_parser = self._subparsers.add_parser("task_dependencies")
         task_dependencies_parser.set_defaults(func=self.task_dependencies)
         task_dependencies_parser.add_argument(
             "-t", "--task_id", help="list of task dependencies", required=True, type=int
         )
-        ParserDefaults.web_service_fqdn(task_dependencies_parser)
-        ParserDefaults.web_service_port(task_dependencies_parser)
 
     def _add_workflow_reset_subparser(self) -> None:
-        workflow_reset_parser = self._subparsers.add_parser(
-            "workflow_reset", **PARSER_KWARGS
-        )
+        workflow_reset_parser = self._subparsers.add_parser("workflow_reset")
         workflow_reset_parser.set_defaults(func=self.workflow_reset)
         workflow_reset_parser.add_argument(
             "-w", "--workflow_id", help="workflow_id to reset", required=True, type=int
         )
-        ParserDefaults.web_service_fqdn(workflow_reset_parser)
-        ParserDefaults.web_service_port(workflow_reset_parser)
 
     def _add_create_resource_yaml_subparser(self) -> None:
         create_resource_yaml_parser = self._subparsers.add_parser(
-            "create_resource_yaml", **PARSER_KWARGS
+            "create_resource_yaml"
         )
         create_resource_yaml_parser.set_defaults(func=self.resource_yaml)
         create_resource_yaml_parser.add_argument(
@@ -570,16 +522,12 @@ class ClientCLI(CLI):
             nargs="+",
             help="The clusters for the YAML.",
             required=False,
-            default=["ihme_slurm"],
+            default=["slurm"],
             type=str,
         )
-        ParserDefaults.web_service_fqdn(create_resource_yaml_parser)
-        ParserDefaults.web_service_port(create_resource_yaml_parser)
 
     def _add_get_filepaths_subparser(self) -> None:
-        get_filepaths_parser = self._subparsers.add_parser(
-            "get_filepaths", **PARSER_KWARGS
-        )
+        get_filepaths_parser = self._subparsers.add_parser("get_filepaths")
         get_filepaths_parser.set_defaults(func=self.get_filepaths)
         get_filepaths_parser.add_argument(
             "-w",
@@ -615,13 +563,9 @@ class ClientCLI(CLI):
         get_filepaths_parser.add_argument(
             "-n", "--json", dest="json", action="store_true"
         )
-        ParserDefaults.web_service_fqdn(get_filepaths_parser)
-        ParserDefaults.web_service_port(get_filepaths_parser)
 
     def _add_resume_workflow_parser(self) -> None:
-        workflow_resume_parser = self._subparsers.add_parser(
-            "workflow_resume", **PARSER_KWARGS
-        )
+        workflow_resume_parser = self._subparsers.add_parser("workflow_resume")
         workflow_resume_parser.set_defaults(func=self.resume_workflow)
         workflow_resume_parser.add_argument(
             "-w", "--workflow_id", help="workflow_id to resume", required=True, type=int
@@ -629,18 +573,17 @@ class ClientCLI(CLI):
         # TODO: perhaps provide a mechanism to infer the last cluster this
         # workflow was run on
         workflow_resume_parser.add_argument(
-            "-c", "--cluster_name",
+            "-c",
+            "--cluster_name",
             help="cluster to run this workflow on, e.g. 'slurm', 'slurm_test', 'dummy'",
-            required=True
+            required=True,
         )
         workflow_resume_parser.add_argument(
             "--reset-running-jobs",
             help="whether to reset running jobs or not",
             required=False,
-            action="store_true"
+            action="store_true",
         )
-        ParserDefaults.web_service_fqdn(workflow_resume_parser)
-        ParserDefaults.web_service_port(workflow_resume_parser)
 
 
 def main(argstr: Optional[str] = None) -> None:

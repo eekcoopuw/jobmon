@@ -7,7 +7,6 @@ from jobmon.requester import Requester
 from jobmon.server.web import routes
 
 
-
 @pytest.fixture(scope="function")
 def log_config(web_server_in_memory, tmp_path):
     app, engine = web_server_in_memory

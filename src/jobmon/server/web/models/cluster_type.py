@@ -1,5 +1,6 @@
 """ClusterType table in the database."""
 import json
+
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship, Session
 
@@ -25,32 +26,37 @@ class ClusterType(Base):
         return SerializeClusterType.to_wire(self.id, self.name, self.package_location)
 
 
-def add_cluster_types(session: Session):
+def add_cluster_types(session: Session) -> None:
+    """Populate the cluster_type table in the database."""
     cluster_types = [
         ClusterType(
-            name='dummy',
-            package_location='jobmon.builtins.dummy',
-            logfile_templates=json.dumps({})
+            name="dummy",
+            package_location="jobmon.builtins.dummy",
+            logfile_templates=json.dumps({}),
         ),
         ClusterType(
-            name='sequential',
-            package_location='jobmon.builtins.sequential',
-            logfile_templates=json.dumps({
-                "job": {
-                    "stdout": "{root}/{name}.o{distributor_id}",
-                    "stderr": "{root}/{name}.e{distributor_id}"
-                },
-            })
+            name="sequential",
+            package_location="jobmon.builtins.sequential",
+            logfile_templates=json.dumps(
+                {
+                    "job": {
+                        "stdout": "{root}/{name}.o{distributor_id}",
+                        "stderr": "{root}/{name}.e{distributor_id}",
+                    },
+                }
+            ),
         ),
         ClusterType(
-            name='multiprocess',
-            package_location='jobmon.builtins.multiprocess',
-            logfile_templates=json.dumps({
-                "array": {
-                    "stdout": "{root}/{name}.o{distributor_id}",
-                    "stderr": "{root}/{name}.e{distributor_id}"
-                },
-            })
+            name="multiprocess",
+            package_location="jobmon.builtins.multiprocess",
+            logfile_templates=json.dumps(
+                {
+                    "array": {
+                        "stdout": "{root}/{name}.o{distributor_id}",
+                        "stderr": "{root}/{name}.e{distributor_id}",
+                    },
+                }
+            ),
         ),
     ]
     session.add_all(cluster_types)

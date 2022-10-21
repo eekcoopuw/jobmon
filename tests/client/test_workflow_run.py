@@ -39,10 +39,12 @@ def test_workflow_run_bind(tool, task_template, requester_no_retry):
 
     # Tasks not bound yet, therefore workflow has not logged created_date.
     # Ensure workflowrun bind fails with not resumable
-    factory = WorkflowRunFactory(workflow_id=wf.workflow_id, requester=requester_no_retry)
+    factory = WorkflowRunFactory(
+        workflow_id=wf.workflow_id, requester=requester_no_retry
+    )
     with pytest.raises(WorkflowNotResumable) as error:
         factory.create_workflow_run()
-        assert 'has not completed binding tasks' in str(error.value)
+        assert "has not completed binding tasks" in str(error.value)
 
     # bind tasks, try again
     wf._bind_tasks()
@@ -53,12 +55,12 @@ def test_workflow_run_bind(tool, task_template, requester_no_retry):
     wfr2 = WorkflowRun(workflow_id=-1, requester=requester_no_retry)
     with pytest.raises(WorkflowNotResumable) as error:
         wfr2.bind()
-        assert 'No workflow exists' in str(error.value)
+        assert "No workflow exists" in str(error.value)
 
     # WFR 1 is linking still. A resume should fail
     with pytest.raises(WorkflowNotResumable) as error:
         factory.create_workflow_run()
-        assert 'not in a resume-able state' in str(error.value)
+        assert "not in a resume-able state" in str(error.value)
 
     # If we signal for a resume first, then wfr3 should be able to bind
     # Set to bound state so it's detected as an active wfr, can be terminated by resume

@@ -28,31 +28,32 @@ logger = structlog.get_logger(__name__)
 
 
 @blueprint.route(
-    "/task_instance/<task_instance_id>/logfile_template/<template_type>", methods=["POST"]
+    "/task_instance/<task_instance_id>/logfile_template/<template_type>",
+    methods=["POST"],
 )
-def get_logfile_template(task_instance_id: int, template_type: str):
+def get_logfile_template(task_instance_id: int, template_type: str) -> Any:
     """Get the logfile location for a task instance.
 
     Args:
         task_instance_id: id of the task_instance
         template_type: submission type of the task instance. job, array, both
     """
-    structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id,
-                                           template_type=template_type)
+    structlog.threadlocal.bind_threadlocal(
+        task_instance_id=task_instance_id, template_type=template_type
+    )
 
     session = SessionLocal()
     with session.begin():
 
-        select_stmt = select(
-            TaskInstance.task_resources_id, Task.name
-        ).join_from(
-            TaskInstance, Task, TaskInstance.task_id == Task.id
-        ).where(
-            TaskInstance.id == task_instance_id
+        select_stmt = (
+            select(TaskInstance.task_resources_id, Task.name)
+            .join_from(TaskInstance, Task, TaskInstance.task_id == Task.id)
+            .where(TaskInstance.id == task_instance_id)
         )
         task_resources_id, task_name = session.execute(select_stmt).fetchone()
-        requested_resources, _ = _get_logfile_template(task_resources_id, template_type,
-                                                       session)
+        requested_resources, _ = _get_logfile_template(
+            task_resources_id, template_type, session
+        )
 
     log_types = ["stderr", "stdout"]
     logpaths = {}
@@ -124,14 +125,8 @@ def log_ti_report_by(task_instance_id: int) -> Any:
     session = SessionLocal()
     with session.begin():
         next_report_increment = data["next_report_increment"]
-        update_stmt = update(
-            TaskInstance
-        ).where(
-            TaskInstance.id == task_instance_id
-        )
-        vals = {
-            "report_by_date": add_time(next_report_increment)
-        }
+        update_stmt = update(TaskInstance).where(TaskInstance.id == task_instance_id)
+        vals = {"report_by_date": add_time(next_report_increment)}
         distributor_id = data.get("distributor_id", None)
         if distributor_id is not None:
             vals["distributor_id"] = distributor_id
@@ -169,13 +164,13 @@ def log_ti_report_by_batch() -> Any:
     if tis:
         session = SessionLocal()
         with session.begin():
-            update_stmt = update(
-                TaskInstance
-            ).where(
-                TaskInstance.id.in_(tis),
-                TaskInstance.status == constants.TaskInstanceStatus.LAUNCHED
-            ).values(
-                report_by_date=add_time(next_report_increment)
+            update_stmt = (
+                update(TaskInstance)
+                .where(
+                    TaskInstance.id.in_(tis),
+                    TaskInstance.status == constants.TaskInstanceStatus.LAUNCHED,
+                )
+                .values(report_by_date=add_time(next_report_increment))
             )
 
             session.execute(update_stmt)
@@ -219,7 +214,9 @@ def log_done(task_instance_id: int) -> Any:
     return resp
 
 
-@blueprint.route("/task_instance/<task_instance_id>/log_error_worker_node", methods=["POST"])
+@blueprint.route(
+    "/task_instance/<task_instance_id>/log_error_worker_node", methods=["POST"]
+)
 def log_error_worker_node(task_instance_id: int) -> Any:
     """Log a task_instance as errored.
 
@@ -263,7 +260,9 @@ def log_error_worker_node(task_instance_id: int) -> Any:
     return resp
 
 
-@blueprint.route("/task_instance/<task_instance_id>/task_instance_error_log", methods=["GET"])
+@blueprint.route(
+    "/task_instance/<task_instance_id>/task_instance_error_log", methods=["GET"]
+)
 def get_task_instance_error_log(task_instance_id: int) -> Any:
     """Route to return all task_instance_error_log entries of the task_instance_id.
 
@@ -279,12 +278,10 @@ def get_task_instance_error_log(task_instance_id: int) -> Any:
     session = SessionLocal()
     with session.begin():
 
-        select_stmt = select(
-            TaskInstanceErrorLog
-        ).where(
-            TaskInstanceErrorLog.task_instance_id == task_instance_id
-        ).order_by(
-            TaskInstanceErrorLog.task_instance_id
+        select_stmt = (
+            select(TaskInstanceErrorLog)
+            .where(TaskInstanceErrorLog.task_instance_id == task_instance_id)
+            .order_by(TaskInstanceErrorLog.task_instance_id)
         )
         res = session.execute(select_stmt).scalars().all()
 
@@ -308,9 +305,7 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> A
     with session.begin():
 
         select_stmt = select(
-            TaskInstance.id,
-            WorkflowRun.workflow_id,
-            TaskInstance.task_id
+            TaskInstance.id, WorkflowRun.workflow_id, TaskInstance.task_id
         ).where(
             TaskInstance.array_id == array_id,
             TaskInstance.array_batch_num == batch_num,
@@ -322,18 +317,22 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> A
         # Unpack first element, should always only have one item
         task_instance_id, workflow_id, task_id = task_instance[0]
 
-    resp = jsonify(task_instance_id=task_instance_id,
-                   workflow_id=workflow_id,
-                   task_id=task_id)
+    resp = jsonify(
+        task_instance_id=task_instance_id, workflow_id=workflow_id, task_id=task_id
+    )
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@blueprint.route("/task_instance/<task_instance_id>/log_no_distributor_id", methods=["POST"])
+@blueprint.route(
+    "/task_instance/<task_instance_id>/log_no_distributor_id", methods=["POST"]
+)
 def log_no_distributor_id(task_instance_id: int) -> Any:
     """Log a task_instance_id that did not get an distributor_id upon submission."""
     structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
-    logger.info(f"Logging ti {task_instance_id} did not get distributor id upon submission")
+    logger.info(
+        f"Logging ti {task_instance_id} did not get distributor id upon submission"
+    )
     data = cast(Dict, request.get_json())
     logger.debug(f"Log NO DISTRIBUTOR ID. Data {data['no_id_err_msg']}")
     err_msg = data["no_id_err_msg"]
@@ -345,7 +344,9 @@ def log_no_distributor_id(task_instance_id: int) -> Any:
         msg = _update_task_instance_state(
             task_instance, constants.TaskInstanceStatus.NO_DISTRIBUTOR_ID
         )
-        error = TaskInstanceErrorLog(task_instance_id=task_instance.id, description=err_msg)
+        error = TaskInstanceErrorLog(
+            task_instance_id=task_instance.id, description=err_msg
+        )
         session.add(error)
 
     resp = jsonify(message=msg)
@@ -353,7 +354,9 @@ def log_no_distributor_id(task_instance_id: int) -> Any:
     return resp
 
 
-@blueprint.route("/task_instance/<task_instance_id>/log_distributor_id", methods=["POST"])
+@blueprint.route(
+    "/task_instance/<task_instance_id>/log_distributor_id", methods=["POST"]
+)
 def log_distributor_id(task_instance_id: int) -> Any:
     """Log a task_instance's distributor id.
 
@@ -367,7 +370,9 @@ def log_distributor_id(task_instance_id: int) -> Any:
 
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
-        msg = _update_task_instance_state(task_instance, constants.TaskInstanceStatus.LAUNCHED)
+        msg = _update_task_instance_state(
+            task_instance, constants.TaskInstanceStatus.LAUNCHED
+        )
         task_instance.distributor_id = data["distributor_id"]
         task_instance.report_by_date = add_time(data["next_report_increment"])
 
@@ -398,7 +403,12 @@ def log_known_error(task_instance_id: int) -> Any:
 
         try:
             resp = _log_error(
-                session, task_instance, error_state, error_message, distributor_id, nodename
+                session,
+                task_instance,
+                error_state,
+                error_message,
+                distributor_id,
+                nodename,
             )
         except sqlalchemy.exc.OperationalError:
             # modify the error message and retry
@@ -412,7 +422,9 @@ def log_known_error(task_instance_id: int) -> Any:
     return resp
 
 
-@blueprint.route("/task_instance/<task_instance_id>/log_unknown_error", methods=["POST"])
+@blueprint.route(
+    "/task_instance/<task_instance_id>/log_unknown_error", methods=["POST"]
+)
 def log_unknown_error(task_instance_id: int) -> Any:
     """Log a task_instance as errored.
 
@@ -431,11 +443,9 @@ def log_unknown_error(task_instance_id: int) -> Any:
     with session.begin():
         # make sure the task hasn't logged a new heartbeat since we began
         # reconciliation
-        select_stmt = select(
-            TaskInstance
-        ).where(
+        select_stmt = select(TaskInstance).where(
             TaskInstance.id == task_instance_id,
-            TaskInstance.report_by_date <= func.now()
+            TaskInstance.report_by_date <= func.now(),
         )
         task_instance = session.execute(select_stmt).scalars().one_or_none()
         session.flush()
@@ -443,14 +453,23 @@ def log_unknown_error(task_instance_id: int) -> Any:
         if task_instance is not None:
             try:
                 resp = _log_error(
-                    session, task_instance, error_state, error_message, distributor_id,
-                    nodename
+                    session,
+                    task_instance,
+                    error_state,
+                    error_message,
+                    distributor_id,
+                    nodename,
                 )
             except sqlalchemy.exc.OperationalError:
                 # modify the error message and retry
                 new_msg = error_message.encode("latin1", "replace").decode("utf-8")
                 resp = _log_error(
-                    session, task_instance, error_state, new_msg, distributor_id, nodename
+                    session,
+                    task_instance,
+                    error_state,
+                    new_msg,
+                    distributor_id,
+                    nodename,
                 )
 
     resp = jsonify()
@@ -501,8 +520,8 @@ def instantiate_task_instances() -> Any:
                 )
             )
             .values(
-                status=constants.TaskInstanceStatus.INSTANTIATED,
-                status_date=func.now())
+                status=constants.TaskInstanceStatus.INSTANTIATED, status_date=func.now()
+            )
             .execution_options(synchronize_session=False)
         )
         session.execute(task_instance_update)
@@ -525,13 +544,18 @@ def instantiate_task_instances() -> Any:
                 TaskInstance.array_id,
                 TaskInstance.array_batch_num,
                 TaskInstance.task_resources_id,
-                Array.name
+                Array.name,
             )
         )
         result = session.execute(instantiated_batches_query)
         serialized_batches = []
-        for array_id, array_name, array_batch_num, task_resources_id, task_instance_ids \
-                in result:
+        for (
+            array_id,
+            array_name,
+            array_batch_num,
+            task_resources_id,
+            task_instance_ids,
+        ) in result:
             task_instance_ids = [
                 int(task_instance_id)
                 for task_instance_id in task_instance_ids.split(",")

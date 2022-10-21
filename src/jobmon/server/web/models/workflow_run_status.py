@@ -29,20 +29,21 @@ class WorkflowRunStatus(Base):
     label = Column(String(150), nullable=False)
 
 
-def add_workflow_run_statuses(session: Session):
+def add_workflow_run_statuses(session: Session) -> None:
+    """Populate the workflow_run_status table in the database."""
     statuses = [
-        WorkflowRunStatus(id='G', label='REGISTERED'),
-        WorkflowRunStatus(id='L', label='LINKING'),
-        WorkflowRunStatus(id='B', label='BOUND'),
-        WorkflowRunStatus(id='A', label='ABORTED'),
-        WorkflowRunStatus(id='R', label='RUNNING'),
-        WorkflowRunStatus(id='D', label='DONE'),
-        WorkflowRunStatus(id='S', label='STOPPED'),
-        WorkflowRunStatus(id='E', label='ERROR'),
-        WorkflowRunStatus(id='C', label='COLD_RESUME'),
-        WorkflowRunStatus(id='H', label='HOT_RESUME'),
-        WorkflowRunStatus(id='T', label='TERMINATED'),
-        WorkflowRunStatus(id='I', label='INSTANTIATED'),
-        WorkflowRunStatus(id='O', label='LAUNCHED'),
+        WorkflowRunStatus(id="G", label="REGISTERED"),
+        WorkflowRunStatus(id="L", label="LINKING"),
+        WorkflowRunStatus(id="B", label="BOUND"),
+        WorkflowRunStatus(id="A", label="ABORTED"),
+        WorkflowRunStatus(id="R", label="RUNNING"),
+        WorkflowRunStatus(id="D", label="DONE"),
+        WorkflowRunStatus(id="S", label="STOPPED"),
+        WorkflowRunStatus(id="E", label="ERROR"),
+        WorkflowRunStatus(id="C", label="COLD_RESUME"),
+        WorkflowRunStatus(id="H", label="HOT_RESUME"),
+        WorkflowRunStatus(id="T", label="TERMINATED"),
+        WorkflowRunStatus(id="I", label="INSTANTIATED"),
+        WorkflowRunStatus(id="O", label="LAUNCHED"),
     ]
     session.add_all(statuses)

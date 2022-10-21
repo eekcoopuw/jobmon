@@ -7,7 +7,6 @@ import logging
 from string import Formatter
 from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientTaskTemplateVersion
@@ -51,8 +50,7 @@ class TaskTemplateVersion:
         self.default_cluster_name: str = ""
 
         if requester is None:
-            cc = ClientConfig.from_defaults()
-            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+            requester = Requester.from_defaults()
         self.requester = requester
 
     @classmethod

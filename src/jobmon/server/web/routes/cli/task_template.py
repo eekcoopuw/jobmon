@@ -1,17 +1,17 @@
 """Routes for TaskTemplate."""
 from http import HTTPStatus as StatusCodes
 import json
-import numpy as np
-import scipy.stats as st  # type:ignore
-from typing import Any, cast, Dict, List, Set
+from typing import Any, Dict, List
 
 from flask import jsonify, request
-from sqlalchemy import func, select, update
-from sqlalchemy.orm import Session
+import numpy as np
+import scipy.stats as st  # type:ignore
+from sqlalchemy import select
 import structlog
 
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
 from jobmon.server.web.models.arg import Arg
+from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.node_arg import NodeArg
 from jobmon.server.web.models.queue import Queue
@@ -24,10 +24,12 @@ from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.cli import blueprint
+from jobmon.server.web.routes.cli.workflow import _cli_label_mapping
 from jobmon.server.web.server_side_exception import InvalidUsage
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
 logger = structlog.get_logger(__name__)
+
 
 @blueprint.route("/get_task_template_version", methods=["GET"])
 def get_task_template_version_for_tasks() -> Any:
@@ -40,27 +42,29 @@ def get_task_template_version_for_tasks() -> Any:
     session = SessionLocal()
     with session.begin():
         if t_id:
-            query_filter = [Task.id == t_id,
-                      Task.node_id == Node.id,
-                      Node.task_template_version_id == TaskTemplateVersion.id,
-                      TaskTemplateVersion.task_template_id == TaskTemplate.id]
-            sql = (
-                select(TaskTemplateVersion.id,
-                       TaskTemplate.name,
-                      )
-                .where(*query_filter)
-            )
+            query_filter = [
+                Task.id == t_id,
+                Task.node_id == Node.id,
+                Node.task_template_version_id == TaskTemplateVersion.id,
+                TaskTemplateVersion.task_template_id == TaskTemplate.id,
+            ]
+            sql = select(
+                TaskTemplateVersion.id,
+                TaskTemplate.name,
+            ).where(*query_filter)
 
         else:
-            query_filter = [Task.workflow_id == wf_id,
-                            Task.node_id == Node.id,
-                            Node.task_template_version_id == TaskTemplateVersion.id,
-                            TaskTemplateVersion.task_template_id == TaskTemplate.id]
+            query_filter = [
+                Task.workflow_id == wf_id,
+                Task.node_id == Node.id,
+                Node.task_template_version_id == TaskTemplateVersion.id,
+                TaskTemplateVersion.task_template_id == TaskTemplate.id,
+            ]
             sql = (
-                select(TaskTemplateVersion.id,
-                       TaskTemplate.name,
-                       )
-                .where(*query_filter)
+                select(
+                    TaskTemplateVersion.id,
+                    TaskTemplate.name,
+                ).where(*query_filter)
             ).distinct()
         rows = session.execute(sql).all()
     column_names = ("id", "name")
@@ -76,20 +80,23 @@ def get_requested_cores() -> Any:
     """Get the min, max, and arg of requested cores."""
     # parse args
     ttvis = request.args.get("task_template_version_ids")
+    if ttvis is None:
+        raise ValueError(
+            "No task_template_version_ids returned in /get_requested_cores"
+        )
     ttvis = [int(i) for i in ttvis[1:-1].split(",")]
     # null core should be treated as 1 instead of 0
     session = SessionLocal()
     with session.begin():
-        query_filter = [TaskTemplateVersion.id.in_(ttvis),
+        query_filter = [
+            TaskTemplateVersion.id.in_(ttvis),
             TaskTemplateVersion.id == Node.task_template_version_id,
             Task.node_id == Node.id,
-            Task.task_resources_id == TaskResources.id]
+            Task.task_resources_id == TaskResources.id,
+        ]
 
-        sql = (
-            select(
-                TaskTemplateVersion.id,
-                TaskResources.requested_resources
-            ).where(*query_filter)
+        sql = select(TaskTemplateVersion.id, TaskResources.requested_resources).where(
+            *query_filter
         )
     rows = session.execute(sql).all()
     column_names = ("id", "rr")
@@ -119,26 +126,29 @@ def get_requested_cores() -> Any:
     resp.status_code = StatusCodes.OK
     return resp
 
+
 @blueprint.route("/get_most_popular_queue", methods=["GET"])
 def get_most_popular_queue() -> Any:
     """Get the most popular queue of the task template."""
     # parse args
     ttvis = request.args.get("task_template_version_ids")
+    if ttvis is None:
+        raise ValueError(
+            "No task_template_version_ids returned in /get_most_popular_queue."
+        )
     ttvis = [int(i) for i in ttvis[1:-1].split(",")]
     session = SessionLocal()
     with session.begin():
-        query_filter = [TaskTemplateVersion.id.in_(ttvis),
-                        TaskTemplateVersion.id == Node.task_template_version_id,
-                        Task.node_id == Node.id,
-                        TaskInstance.task_id == Task.id,
-                        TaskInstance.task_resources_id == TaskResources.id,
-                        TaskResources.queue_id.isnot(None)
-                        ]
-        sql = (
-            select(
-                TaskTemplateVersion.id,
-                TaskResources.queue_id
-            ).where(*query_filter)
+        query_filter = [
+            TaskTemplateVersion.id.in_(ttvis),
+            TaskTemplateVersion.id == Node.task_template_version_id,
+            Task.node_id == Node.id,
+            TaskInstance.task_id == Task.id,
+            TaskInstance.task_resources_id == TaskResources.id,
+            TaskResources.queue_id.isnot(None),
+        ]
+        sql = select(TaskTemplateVersion.id, TaskResources.queue_id).where(
+            *query_filter
         )
 
     rows = session.execute(sql).all()
@@ -168,12 +178,8 @@ def get_most_popular_queue() -> Any:
                     max_usage = result_dir[ttvi][q]
             # get queue name; and return queue id with it
             with session:
-                query_filter = [Queue.id == popular_q
-                                ]
-                sql = (
-                    select(Queue.name
-                    ).where(*query_filter)
-                )
+                query_filter = [Queue.id == popular_q]
+                sql = select(Queue.name).where(*query_filter)
             popular_q_name = session.execute(sql).one()[0]
             queue_info.append(
                 {"id": ttvi, "queue": popular_q_name, "queue_id": popular_q}
@@ -201,22 +207,25 @@ def get_task_template_resource_usage() -> Any:
 
     session = SessionLocal()
     with session.begin():
-        query_filter = [TaskTemplateVersion.id == task_template_version_id,
-                        Task.status == "D",
-                        TaskInstance.status == "D",
-                        TaskTemplateVersion.id == Node.task_template_version_id,
-                        Node.id == Task.node_id,
-                        Task.id == TaskInstance.task_id
-                        ]
+        query_filter = [
+            TaskTemplateVersion.id == task_template_version_id,
+            Task.status == "D",
+            TaskInstance.status == "D",
+            TaskTemplateVersion.id == Node.task_template_version_id,
+            Node.id == Task.node_id,
+            Task.id == TaskInstance.task_id,
+        ]
         if workflows:
-            query_filter += [TaskInstance.workflow_run_id == WorkflowRun.id,
-                             WorkflowRun.workflow_id == Workflow.id,
-                             Workflow.id.in_(workflows)]
-        sql = (select(TaskInstance.wallclock,
-                      TaskInstance.maxrss,
-                      Node.id,
-                     ).where(*query_filter)
-               )
+            query_filter += [
+                TaskInstance.workflow_run_id == WorkflowRun.id,
+                WorkflowRun.workflow_id == Workflow.id,
+                Workflow.id.in_(workflows),
+            ]
+        sql = select(
+            TaskInstance.wallclock,
+            TaskInstance.maxrss,
+            Node.id,
+        ).where(*query_filter)
         rows = session.execute(sql).all()
         session.commit()
     column_names = ("r", "m", "node_id")
@@ -229,13 +238,8 @@ def get_task_template_resource_usage() -> Any:
             if node_args:
                 session = SessionLocal()
                 with session.begin():
-                    node_f = [NodeArg.arg_id == Arg.id,
-                              NodeArg.node_id == r["node_id"]]
-                    node_s = (
-                        select(Arg.name,
-                               NodeArg.val
-                               ).where(*node_f)
-                    )
+                    node_f = [NodeArg.arg_id == Arg.id, NodeArg.node_id == r["node_id"]]
+                    node_s = select(Arg.name, NodeArg.val).where(*node_f)
                     node_rows = session.execute(node_s).all()
                     session.commit()
                 _include = False
@@ -304,4 +308,73 @@ def get_task_template_resource_usage() -> Any:
         )
     resp = jsonify(resource_usage)
     resp.status_code = StatusCodes.OK
+    return resp
+
+
+@blueprint.route("/workflow_tt_status_viz/<workflow_id>", methods=["GET"])
+def get_workflow_tt_status_viz(workflow_id: int) -> Any:
+    """Get the status of the workflows for GUI."""
+    # return DS
+    return_dic: Dict[int, Any] = dict()
+
+    session = SessionLocal()
+    with session.begin():
+        # Arrays were introduced in 3.1.0, hence the outer-join for 3.0.* workflows
+        join_table = (
+            Task.__table__.join(Node, Task.node_id == Node.id)
+            .join(
+                TaskTemplateVersion,
+                Node.task_template_version_id == TaskTemplateVersion.id,
+            )
+            .join(
+                TaskTemplate,
+                TaskTemplateVersion.task_template_id == TaskTemplate.id,
+            )
+            .join(
+                Array,
+                Array.task_template_version_id == TaskTemplateVersion.id,
+                isouter=True,
+            )
+        )
+
+        sql = (
+            select(
+                TaskTemplate.id,
+                TaskTemplate.name,
+                Task.id,
+                Task.status,
+                Array.max_concurrently_running,
+            )
+            .select_from(join_table)
+            .where(Task.workflow_id == workflow_id)
+            .order_by(Task.id)
+        )
+        # For performance reasons, use STRAIGHT_JOIN to set the join order. If not set,
+        # the optimizer may choose a suboptimal execution plan for large datasets.
+        # Has to be conditional since not all database engines support STRAIGHT_JOIN.
+        if SessionLocal.bind.dialect.name == "mysql":
+            sql = sql.prefix_with("STRAIGHT_JOIN")
+        rows = session.execute(sql).all()
+        session.commit()
+
+    for r in rows:
+        if int(r[0]) in return_dic.keys():
+            pass
+        else:
+            return_dic[int(r[0])] = {
+                "id": int(r[0]),
+                "name": r[1],
+                "tasks": 0,
+                "PENDING": 0,
+                "SCHEDULED": 0,
+                "RUNNING": 0,
+                "DONE": 0,
+                "FATAL": 0,
+                "MAXC": 0,
+            }
+        return_dic[int(r[0])]["tasks"] += 1
+        return_dic[int(r[0])][_cli_label_mapping[r[3]]] += 1
+        return_dic[int(r[0])]["MAXC"] = r[4] if r[4] is not None else "NA"
+    resp = jsonify(return_dic)
+    resp.status_code = 200
     return resp

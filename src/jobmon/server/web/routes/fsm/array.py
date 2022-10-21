@@ -37,11 +37,9 @@ def add_array() -> Any:
     # Check if the array is already bound, if so return it
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            Array
-        ).where(
+        select_stmt = select(Array).where(
             Array.workflow_id == workflow_id,
-            Array.task_template_version_id == task_template_version_id
+            Array.task_template_version_id == task_template_version_id,
         )
         array = session.execute(select_stmt).scalars().one_or_none()
 
@@ -54,12 +52,10 @@ def add_array() -> Any:
             )
             session.add(array)
         else:
-            update_stmt = update(
-                Array
-            ).where(
-                Array.id == array.id
-            ).values(
-                max_concurrently_running=data["max_concurrently_running"]
+            update_stmt = (
+                update(Array)
+                .where(Array.id == array.id)
+                .values(max_concurrently_running=data["max_concurrently_running"])
             )
             session.execute(update_stmt)
         session.commit()
@@ -87,7 +83,9 @@ def record_array_batch_num(array_id: int) -> Any:
             update(Task)
             .where(
                 Task.id.in_(task_ids),
-                Task.status.in_([TaskStatus.REGISTERING, TaskStatus.ADJUSTING_RESOURCES]),
+                Task.status.in_(
+                    [TaskStatus.REGISTERING, TaskStatus.ADJUSTING_RESOURCES]
+                ),
             )
             .values(
                 status=TaskStatus.QUEUED,
@@ -120,15 +118,13 @@ def record_array_batch_num(array_id: int) -> Any:
                 literal_column(str(task_resources_id)).label("task_resources_id"),
                 # batch info
                 select(func.coalesce(func.max(TaskInstance.array_batch_num) + 1, 1))
-                .where((TaskInstance.array_id == array_id)).label("array_batch_num"),
+                .where((TaskInstance.array_id == array_id))
+                .label("array_batch_num"),
                 (func.row_number().over(order_by=Task.id) - 1).label("array_step_id"),
                 # status columns
                 literal_column(f"'{TaskInstanceStatus.QUEUED}'").label("status"),
                 func.now().label("status_date"),
-            ).where(
-                Task.id.in_(task_ids),
-                Task.status == TaskStatus.QUEUED
-            ),
+            ).where(Task.id.in_(task_ids), Task.status == TaskStatus.QUEUED),
             # no python side defaults. Server defaults only
             include_defaults=False,
         )

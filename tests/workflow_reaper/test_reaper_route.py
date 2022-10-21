@@ -10,6 +10,7 @@ load_model()
 Further tests in test_workflow_reaper to verify the logic.
 """
 
+
 def test_fix_status_inconsistency(db_engine, tool):
     t = tool
     wf = t.create_workflow(name="i_am_a_fake_wf")
@@ -34,7 +35,7 @@ def test_fix_status_inconsistency(db_engine, tool):
         app_route=app_route, message={"increase_step": 10}, request_type="put"
     )
     assert return_code == 200
-    assert msg['wfid'] == 0
+    assert msg["wfid"] == 0
 
 
 def test_workflow_name_and_args(db_engine, tool):
@@ -61,7 +62,7 @@ def test_workflow_name_and_args(db_engine, tool):
     )
     assert return_code == 200
     assert msg["workflow_args"] is not None
-    assert msg["workflow_name"] == 'i_am_a_fake_wf'
+    assert msg["workflow_name"] == "i_am_a_fake_wf"
 
 
 def test_lost_workflow_run(db_engine, tool):
@@ -84,7 +85,9 @@ def test_lost_workflow_run(db_engine, tool):
     wfr._update_status(WorkflowRunStatus.BOUND)
     app_route = f"/lost_workflow_run"
     return_code, msg = wf.requester.send_request(
-        app_route=app_route, message={'status': 'R', 'version': 'whatever'}, request_type="get"
+        app_route=app_route,
+        message={"status": "R", "version": "whatever"},
+        request_type="get",
     )
     assert return_code == 200
 
@@ -109,6 +112,8 @@ def test_reap_workflow_run(db_engine, tool):
     wfr._update_status(WorkflowRunStatus.BOUND)
     app_route = f"/workflow_run/{wfr.workflow_run_id}/reap"
     return_code, msg = wf.requester.send_request(
-        app_route=app_route, message={'status': 'R', 'version': 'whatever'}, request_type="put"
+        app_route=app_route,
+        message={"status": "R", "version": "whatever"},
+        request_type="put",
     )
     assert return_code == 200

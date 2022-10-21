@@ -97,19 +97,22 @@ def test_task_attribute(db_engine, tool):
     client_wfr.bind()
 
     with Session(bind=db_engine) as session:
-        select_stmt = select(
-            TaskAttribute.value, TaskAttributeType.name, TaskAttributeType.id
-        ).join_from(
-            TaskAttribute, TaskAttributeType,
-            TaskAttribute.task_attribute_type_id == TaskAttributeType.id
-        ).where(
-            TaskAttribute.task_id.in_([task1.task_id, task2.task_id, task3.task_id])
-        ).order_by(TaskAttributeType.name, TaskAttribute.task_id)
+        select_stmt = (
+            select(TaskAttribute.value, TaskAttributeType.name, TaskAttributeType.id)
+            .join_from(
+                TaskAttribute,
+                TaskAttributeType,
+                TaskAttribute.task_attribute_type_id == TaskAttributeType.id,
+            )
+            .where(
+                TaskAttribute.task_id.in_([task1.task_id, task2.task_id, task3.task_id])
+            )
+            .order_by(TaskAttributeType.name, TaskAttribute.task_id)
+        )
         resp = session.execute(select_stmt).all()
-
         values = [tup[0] for tup in resp]
         names = [tup[1] for tup in resp]
-        ids = [tup[2] for tup in resp]
+
         expected_vals = ["5", "1", None, "3", None, "5", "1"]
         expected_names = [
             "AGE_GROUP_ID",
@@ -123,8 +126,15 @@ def test_task_attribute(db_engine, tool):
 
         assert values == expected_vals
         assert names == expected_names
-        assert ids[2] == ids[3]  # will fail if adding non-unique task_attribute_types
-        assert ids[4] == ids[5]
+        num_cores_set = set()
+        num_years_set = set()
+        for item in resp:
+            if item[1] == "NUM_CORES":
+                num_cores_set.add(item[2])
+            if item[1] == "NUM_YEARS":
+                num_years_set.add(item[2])
+        assert len(num_years_set) == 1
+        assert len(num_cores_set) == 1
 
 
 def test_executor_parameter_copy(tool, task_template):
@@ -313,3 +323,33 @@ def test_binding_length(db_engine, client_env, tool):
     exc_msg = resp2.value.args[0]
     assert "Task attributes are constrained to 255 characters" in exc_msg
     assert "Unexpected status code 400" in exc_msg
+
+
+def test_binding_tasks(db_engine, client_env, tool):
+    tt = tool.get_task_template(
+        template_name="test_tt",
+        command_template="{arg1} {arg2} {arg3}",
+        node_args=["arg1"],
+        task_args=["arg2", "arg3"],
+    )
+    task1 = tt.create_task(
+        name="foo", task_attributes={"aa": "a"}, arg1="abc", arg2="def", arg3="ghi"
+    )
+    wf = tool.create_workflow()
+    wf.add_task(task1)
+    wf.bind()
+    wf._bind_tasks()
+    # verify the task is correctly bind, so are the args
+    assert task1.task_id is not None
+    with Session(bind=db_engine) as session:
+        # verify attribute
+        mysql = f"select value from task_attribute where task_id={task1.task_id}"
+        rows = session.execute(mysql).fetchall()
+        assert len(rows[0]) == 1
+        assert rows[0][0] == "a"
+        # verify args
+        mysql = f"select val from task_arg where task_id={task1.task_id}"
+        rows = session.execute(mysql).fetchall()
+        print(f"!!!!!!!!!!!!!{rows}")
+        result_set = {rows[0][0], rows[1][0]}
+        assert result_set == {"def", "ghi"}

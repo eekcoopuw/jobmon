@@ -12,6 +12,7 @@ from jobmon.client.distributor.distributor_task_instance import DistributorTaskI
 from jobmon.client.distributor.distributor_workflow_run import DistributorWorkflowRun
 from jobmon.client.distributor.task_instance_batch import TaskInstanceBatch
 from jobmon.cluster_type import ClusterDistributor
+from jobmon.configuration import JobmonConfig
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import DistributorInterruptedError, InvalidResponse
 from jobmon.requester import http_request_ok, Requester
@@ -25,21 +26,40 @@ class DistributorService:
     def __init__(
         self,
         cluster_interface: ClusterDistributor,
-        requester: Requester,
-        workflow_run_heartbeat_interval: int = 30,
-        task_instance_heartbeat_interval: int = 90,
-        heartbeat_report_by_buffer: float = 3.1,
-        distributor_poll_interval: int = 10,
-        worker_node_entry_point: Optional[str] = None,
+        requester: Optional[Requester] = None,
+        workflow_run_heartbeat_interval: Optional[int] = None,
+        task_instance_heartbeat_interval: Optional[int] = None,
+        heartbeat_report_by_buffer: Optional[float] = None,
+        distributor_poll_interval: Optional[int] = None,
         raise_on_error: bool = False,
     ) -> None:
         """Initialization of DistributorService."""
         # operational args
-        self._worker_node_entry_point = worker_node_entry_point
-        self._workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
-        self._task_instance_heartbeat_interval = task_instance_heartbeat_interval
-        self._heartbeat_report_by_buffer = heartbeat_report_by_buffer
-        self._distributor_poll_interval = distributor_poll_interval
+        config = JobmonConfig()
+        if workflow_run_heartbeat_interval is None:
+            self._workflow_run_heartbeat_interval = config.get_int(
+                "heartbeat", "workflow_run_interval"
+            )
+        else:
+            self._workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
+        if task_instance_heartbeat_interval is None:
+            self._task_instance_heartbeat_interval = config.get_int(
+                "heartbeat", "task_instance_interval"
+            )
+        else:
+            self._task_instance_heartbeat_interval = task_instance_heartbeat_interval
+        if heartbeat_report_by_buffer is None:
+            self._heartbeat_report_by_buffer = config.get_float(
+                "heartbeat", "report_by_buffer"
+            )
+        else:
+            self._heartbeat_report_by_buffer = heartbeat_report_by_buffer
+        if distributor_poll_interval is None:
+            self._distributor_poll_interval = config.get_int(
+                "distributor", "poll_interval"
+            )
+        else:
+            self._distributor_poll_interval = distributor_poll_interval
         self.raise_on_error = raise_on_error
 
         # indexing of task instance by associated id
@@ -73,7 +93,10 @@ class DistributorService:
         self.cluster_interface = cluster_interface
 
         # web service API
-        self.requester = requester
+        if requester is None:
+            self.requester = Requester.from_defaults()
+        else:
+            self.requester = requester
 
     @property
     def _next_report_increment(self) -> float:
@@ -302,9 +325,7 @@ class DistributorService:
                 distributor_commands, self._distributor_commands
             )
 
-    def launch_task_instance(
-        self, task_instance: DistributorTaskInstance
-    ) -> None:
+    def launch_task_instance(self, task_instance: DistributorTaskInstance) -> None:
         """Submits a task instance on a given distributor.
 
         Adds the new task instance to self.submitted_or_running_task_instances.
@@ -324,9 +345,10 @@ class DistributorService:
         # Submit to batch distributor
         try:
             resp = self.cluster_interface.submit_to_batch_distributor(
-                command=command, name=task_instance.submission_name,
+                command=command,
+                name=task_instance.submission_name,
                 logfile_name=task_instance.logfile_name,
-                requested_resources=requested_resources
+                requested_resources=requested_resources,
             )
             distributor_id, output_path, error_path = resp  # unpack response tuple
         except Exception as e:
@@ -433,13 +455,17 @@ class DistributorService:
                         new_status,
                         self.requester,
                     )
-                    self._task_instance_status_map[task_instance.status].add(task_instance)
+                    self._task_instance_status_map[task_instance.status].add(
+                        task_instance
+                    )
                     self._task_instances[task_instance.task_instance_id] = task_instance
 
                 else:
                     # remove from old status set
                     previous_status = task_instance.status
-                    self._task_instance_status_map[previous_status].remove(task_instance)
+                    self._task_instance_status_map[previous_status].remove(
+                        task_instance
+                    )
 
                     # change to new status and move to new set
                     task_instance.status = new_status

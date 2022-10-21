@@ -18,10 +18,11 @@ class TaskResourcesType(Base):
     label = Column(String(150), nullable=False)
 
 
-def add_task_resources_types(session: Session):
+def add_task_resources_types(session: Session) -> None:
+    """Populate the task_resources_type table in the database."""
     task_resources_type = [
-        TaskResourcesType(id='O', label='ORIGINAL'),
-        TaskResourcesType(id='V', label='VALIDATED'),
-        TaskResourcesType(id='A', label='ADJUSTED'),
+        TaskResourcesType(id="O", label="ORIGINAL"),
+        TaskResourcesType(id="V", label="VALIDATED"),
+        TaskResourcesType(id="A", label="ADJUSTED"),
     ]
     session.add_all(task_resources_type)

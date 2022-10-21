@@ -22,7 +22,11 @@ class PickableTask:
     """Object passed between processes."""
 
     def __init__(
-        self, distributor_id: str, command: str, logfiles: Dict, array_step_id: int = None
+        self,
+        distributor_id: str,
+        command: str,
+        logfiles: Dict,
+        array_step_id: int = None,
     ) -> None:
         """Initialization of PickableTask.
 
@@ -300,9 +304,7 @@ class MultiprocessDistributor(ClusterDistributor):
         for io_type in ["stdout", "stderr"]:
             try:
                 fname = requested_resources[io_type]["job"].format(
-                    name=logfile_name,
-                    type=io_type,
-                    distributor_id=distributor_id
+                    name=logfile_name, type=io_type, distributor_id=distributor_id
                 )
                 logfiles[io_type] = fname
             except KeyError:
@@ -315,7 +317,11 @@ class MultiprocessDistributor(ClusterDistributor):
         )
         self.task_queue.put(task)
         self._running_or_submitted.update({distributor_id: None})
-        return distributor_id, logfiles.get("stdout", None), logfiles.get("stderr", None)
+        return (
+            distributor_id,
+            logfiles.get("stdout", None),
+            logfiles.get("stderr", None),
+        )
 
     def submit_array_to_batch_distributor(
         self,
@@ -332,29 +338,29 @@ class MultiprocessDistributor(ClusterDistributor):
         job_id = self._next_job_id
         self._next_job_id += 1
 
-        mapping: Dict[int, Tuple[str, str, str]] = {}
+        mapping: Dict[int, Tuple[str, Optional[str], Optional[str]]] = {}
         for array_step_id in range(0, array_length):
             distributor_id = self._get_subtask_id(job_id, array_step_id)
             logfiles: Dict = {}
             for io_type in ["stdout", "stderr"]:
                 try:
                     fname = requested_resources[io_type]["array"].format(
-                        name=logfile_name,
-                        type=io_type,
-                        distributor_id=distributor_id
+                        name=logfile_name, type=io_type, distributor_id=distributor_id
                     )
                     logfiles[io_type] = fname
                 except KeyError:
                     pass
             mapping[array_step_id] = (
-                distributor_id, logfiles.get("stdout", None), logfiles.get("stderr", None)
+                distributor_id,
+                logfiles.get("stdout", None),
+                logfiles.get("stderr", None),
             )
 
             task = PickableTask(
                 distributor_id,
                 self.worker_node_entry_point + " " + command,
                 logfiles,
-                array_step_id
+                array_step_id,
             )
             self.task_queue.put(task)
             self._running_or_submitted.update({distributor_id: None})

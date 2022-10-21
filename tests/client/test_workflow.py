@@ -320,6 +320,9 @@ def test_workflow_attribute(db_engine, tool, client_env, task_template):
         workflow_attributes={"location_id": 5, "year": 2019, "sex": 1},
     )
 
+    # Check the workflow has a tool property
+    assert wf1.tool == tool
+
     t1 = task_template.create_task(arg="exit -0")
     wf1.add_task(t1)
     wf1.bind()
@@ -336,9 +339,7 @@ def test_workflow_attribute(db_engine, tool, client_env, task_template):
             .filter(WorkflowAttribute.workflow_id == wf1.workflow_id)
             .all()
         )
-    assert set(wf_attributes) == set(
-        [("location_id", "5"), ("year", "2019"), ("sex", "1")]
-    )
+    assert set(wf_attributes) == {("location_id", "5"), ("year", "2019"), ("sex", "1")}
 
     # Add and update attributes
     wf1.add_attributes({"age_group_id": 1, "sex": 2})
@@ -355,7 +356,10 @@ def test_workflow_attribute(db_engine, tool, client_env, task_template):
             .all()
         )
     assert set(wf_attributes) == {
-        ("location_id", "5"), ("year", "2019"), ("sex", "2"), ("age_group_id", "1")
+        ("location_id", "5"),
+        ("year", "2019"),
+        ("sex", "2"),
+        ("age_group_id", "1"),
     }
 
     # Test workflow w/o attributes
@@ -467,7 +471,7 @@ def test_workflow_validation(tool, task_template, caplog):
     # Bind wf1, and create a new workflow with the same args but a different DAG.
     wf1.bind()
     wf3 = tool.create_workflow(workflow_args=wf1.workflow_args)
-    t3 = task_template.create_task(arg='echo 3')
+    t3 = task_template.create_task(arg="echo 3")
     wf3.add_task(t3)
     with pytest.raises(WorkflowAlreadyExists):
         wf3._matching_wf_args_diff_hash()

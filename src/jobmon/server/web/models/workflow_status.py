@@ -25,16 +25,17 @@ class WorkflowStatus(Base):
     label = Column(String(150), nullable=False)
 
 
-def add_workflow_statuses(session: Session):
+def add_workflow_statuses(session: Session) -> None:
+    """Populate the workflow_status in the database."""
     statuses = [
-        WorkflowStatus(id='G', label='REGISTERING'),
-        WorkflowStatus(id='Q', label='QUEUED'),
-        WorkflowStatus(id='I', label='INSTANTIATING'),
-        WorkflowStatus(id='O', label='LAUNCHED'),
-        WorkflowStatus(id='A', label='ABORTED'),
-        WorkflowStatus(id='R', label='RUNNING'),
-        WorkflowStatus(id='D', label='DONE'),
-        WorkflowStatus(id='F', label='FAILED'),
-        WorkflowStatus(id='H', label='HALTED'),
+        WorkflowStatus(id="G", label="REGISTERING"),
+        WorkflowStatus(id="Q", label="QUEUED"),
+        WorkflowStatus(id="I", label="INSTANTIATING"),
+        WorkflowStatus(id="O", label="LAUNCHED"),
+        WorkflowStatus(id="A", label="ABORTED"),
+        WorkflowStatus(id="R", label="RUNNING"),
+        WorkflowStatus(id="D", label="DONE"),
+        WorkflowStatus(id="F", label="FAILED"),
+        WorkflowStatus(id="H", label="HALTED"),
     ]
     session.add_all(statuses)

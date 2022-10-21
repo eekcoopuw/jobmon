@@ -11,7 +11,6 @@ INSTALL_REQUIRES = [
     'psutil',
     'pyyaml',
     'requests',
-    'scipy',
     'tabulate',
     'tenacity',
     'typing_extensions'  # TODO: remove when we no longer support 3.7
@@ -27,6 +26,7 @@ SERVER_REQUIRES = [
     'sqlalchemy',
     'python_json_logger',
     'structlog',
+    'scipy==1.8.1',  # Pinned because scipy 1.9.0 is not compatible with uwsgi for some reason.
 ]
 
 # pip install -e .[test]
@@ -86,7 +86,7 @@ setup(
     packages=find_packages('src'),
     package_dir={'': 'src'},
     py_modules=[os.path.splitext(os.path.basename(path))[0] for path in glob('src/*.py')],
-    package_data={"jobmon": ["py.typed"]},
+    package_data={"jobmon": ["py.typed", "defaults.ini"]},
 
     use_scm_version={'local_scheme': 'no-local-version',
                      'write_to': 'src/jobmon/_version.py',
@@ -96,7 +96,7 @@ setup(
     entry_points={
         'console_scripts': [
             'jobmon=jobmon.client.cli:main',
-            'jobmon_config=jobmon.cli:main',
+            'jobmon_config=jobmon.configuration:main',
             'jobmon_distributor=jobmon.client.distributor.cli:main',
             'jobmon_server=jobmon.server.cli:main [server]',
             'worker_node_entry_point=jobmon.worker_node.cli:run'

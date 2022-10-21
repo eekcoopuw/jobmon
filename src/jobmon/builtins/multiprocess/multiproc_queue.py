@@ -1,5 +1,5 @@
 """The client for the Multiprocess executor."""
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 
 from jobmon.cluster_type import ClusterQueue
 
@@ -17,7 +17,7 @@ class MultiprocessQueue(ClusterQueue):
         self._parameters = parameters
 
     def validate_resources(
-        self, strict: bool = False, **kwargs: Dict
+        self, strict: bool = False, **kwargs: Union[str, int, float]
     ) -> Tuple[bool, str]:
         """Ensure cores requested isn't more than available on that node."""
         is_valid = True
@@ -57,7 +57,7 @@ class MultiprocessQueue(ClusterQueue):
                 is_valid = False
         return is_valid, msg
 
-    def coerce_resources(self, **kwargs: Dict) -> Dict:
+    def coerce_resources(self, **kwargs: Union[str, int, float]) -> Dict:
         return kwargs
 
     @property

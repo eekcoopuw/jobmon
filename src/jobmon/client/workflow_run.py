@@ -7,8 +7,7 @@ import time
 from typing import Optional
 
 from jobmon import __version__
-from jobmon.constants import WorkflowStatus
-from jobmon.client.client_config import ClientConfig
+from jobmon.configuration import JobmonConfig
 from jobmon.exceptions import InvalidResponse, WorkflowNotResumable
 from jobmon.requester import http_request_ok, Requester
 
@@ -17,8 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class WorkflowRunFactory:
-    """
-    A utility class responsible for instantiating workflow run objects.
+    """A utility class responsible for instantiating workflow run objects.
 
     This class sends the appropriate resume signals so that the parent workflow
     object is in a state where the newly created workflowrun is ready to run, either on
@@ -30,13 +28,11 @@ class WorkflowRunFactory:
     # Might want to consider unifying the resume API more, think about how to handle
     # task resource caching and creation as well in order to resume.
 
-    def __init__(self,
-                 workflow_id: int,
-                 requester: Optional[Requester] = None):
+    def __init__(self, workflow_id: int, requester: Optional[Requester] = None) -> None:
+        """Initialization of client WorkflowRun."""
         self.workflow_id = workflow_id
         if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
+            requester = Requester.from_defaults()
         self.requester = requester
         self.workflow_is_resumable = False
 
@@ -52,9 +48,7 @@ class WorkflowRunFactory:
         app_route = f"/workflow/{self.workflow_id}/set_resume"
         self.requester.send_request(
             app_route=app_route,
-            message={
-                "reset_running_jobs": reset_running_jobs
-            },
+            message={"reset_running_jobs": reset_running_jobs},
             request_type="post",
         )
         # Wait for the workflow to become resumable
@@ -90,15 +84,12 @@ class WorkflowRunFactory:
 
         self.requester.send_request(
             app_route=f"/task/{self.workflow_id}/set_resume_state",
-            message={'reset_if_running': reset_if_running},
-            request_type='post'
+            message={"reset_if_running": reset_if_running},
+            request_type="post",
         )
 
-    def create_workflow_run(
-        self,
-    ) -> WorkflowRun:
+    def create_workflow_run(self) -> WorkflowRun:
         """Workflow should at least have signalled for a resume at this point."""
-
         # create workflow run
         client_wfr = WorkflowRun(workflow_id=self.workflow_id, requester=self.requester)
         client_wfr.bind()
@@ -123,8 +114,8 @@ class WorkflowRun(object):
         self,
         workflow_id: int,
         requester: Optional[Requester] = None,
-        workflow_run_heartbeat_interval: int = 30,
-        heartbeat_report_by_buffer: float = 3.1,
+        workflow_run_heartbeat_interval: Optional[int] = None,
+        heartbeat_report_by_buffer: Optional[float] = None,
     ) -> None:
         """Initialize client WorkflowRun."""
         # set attrs
@@ -132,13 +123,24 @@ class WorkflowRun(object):
         self.user = getpass.getuser()
 
         if requester is None:
-            cc = ClientConfig.from_defaults()
-            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+            requester = Requester.from_defaults()
         self.requester = requester
-        self.heartbeat_interval = workflow_run_heartbeat_interval
-        self.heartbeat_report_by_buffer = heartbeat_report_by_buffer
+
+        # set values from config
+        config = JobmonConfig()
+        if workflow_run_heartbeat_interval is None:
+            heartbeat_interval = config.get_int("heartbeat", "workflow_run_interval")
+        else:
+            heartbeat_interval = int(workflow_run_heartbeat_interval)
+        self.heartbeat_interval = heartbeat_interval
+        if heartbeat_report_by_buffer is None:
+            report_by_buffer = config.get_float("heartbeat", "report_by_buffer")
+        else:
+            report_by_buffer = float(heartbeat_report_by_buffer)
+        self.heartbeat_report_by_buffer = report_by_buffer
+
         self._workflow_run_id = None
-        self._status = None
+        self._status: Optional[str] = None
 
     @property
     def workflow_run_id(self) -> int:
@@ -154,14 +156,12 @@ class WorkflowRun(object):
         if not self._status:
             raise WorkflowNotResumable(
                 "This workflow run was not bound successfully, "
-                "cannot access status attribute.")
+                "cannot access status attribute."
+            )
         return self._status
 
-    def bind(
-        self
-    ) -> None:
+    def bind(self) -> None:
         """Link this workflow run with the workflow and add all tasks."""
-
         if self._workflow_run_id:
             return  # WorkflowRun already bound
 
@@ -177,15 +177,15 @@ class WorkflowRun(object):
                 "workflow_id": self.workflow_id,
                 "user": self.user,
                 "jobmon_version": __version__,
-                "next_report_increment": next_report_increment
+                "next_report_increment": next_report_increment,
             },
             request_type="post",
         )
-        workflow_run_id = resp.get('workflow_run_id')
+        workflow_run_id = resp.get("workflow_run_id")
         if not workflow_run_id:
-            raise WorkflowNotResumable(resp.get('err_msg'))
+            raise WorkflowNotResumable(resp.get("err_msg"))
         self._workflow_run_id = workflow_run_id
-        self._status = resp.get('status')
+        self._status = resp.get("status")
 
     def _update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""

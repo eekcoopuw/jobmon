@@ -47,17 +47,19 @@ def get_array_task_instances(workflow_id: int) -> Any:
                 TaskInstance.stdout,
                 TaskInstance.stderr,
             )
-            .where(
-                *query_filters
-            )
+            .where(*query_filters)
             .limit(limit)
         )
         result = session.execute(select_stmt).all()
 
-    column_names = ("TASK_ID", "TASK_NAME", "ARRAY_NAME",
-                    "TASK_INSTANCE_ID", "OUTPUT_PATH", "ERROR_PATH")
-    resp = jsonify(
-        array_tasks=[dict(zip(column_names, ti)) for ti in result]
+    column_names = (
+        "TASK_ID",
+        "TASK_NAME",
+        "ARRAY_NAME",
+        "TASK_INSTANCE_ID",
+        "OUTPUT_PATH",
+        "ERROR_PATH",
     )
+    resp = jsonify(array_tasks=[dict(zip(column_names, ti)) for ti in result])
     resp.status_code = HTTPStatus.OK
     return resp

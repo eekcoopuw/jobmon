@@ -13,13 +13,20 @@ from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
 def test_sequential_logging(tool, task_template, tmp_path):
     """create a 1 task workflow and confirm it works end to end"""
 
-    workflow = tool.create_workflow(name="test_sequential_logging",
-                                    default_cluster_name="sequential")
-    t1 = task_template.create_task(arg="echo 'hello world'", name="stdout_task",
-                                   compute_resources={"stdout": f"{str(tmp_path)}"})
-    t2 = task_template.create_task(arg="foobar", name="stderr_task",
-                                   compute_resources={"stderr": f"{str(tmp_path)}"},
-                                   upstream_tasks=[t1])
+    workflow = tool.create_workflow(
+        name="test_sequential_logging", default_cluster_name="sequential"
+    )
+    t1 = task_template.create_task(
+        arg="echo 'hello world'",
+        name="stdout_task",
+        compute_resources={"stdout": f"{str(tmp_path)}"},
+    )
+    t2 = task_template.create_task(
+        arg="foobar",
+        name="stderr_task",
+        compute_resources={"stderr": f"{str(tmp_path)}"},
+        upstream_tasks=[t1],
+    )
     workflow.add_tasks([t1, t2])
     workflow.bind()
     workflow._bind_tasks()
@@ -70,13 +77,19 @@ def test_multiprocess_logging(tool, task_template, tmp_path):
     workflow = tool.create_workflow(
         name="test_multiprocess_logging",
         default_cluster_name="multiprocess",
-        default_compute_resources_set={"multiprocess": {"queue": "null.q"}}
+        default_compute_resources_set={"multiprocess": {"queue": "null.q"}},
     )
-    t1 = task_template.create_task(arg="echo 'hello world'", name="stdout_task",
-                                   compute_resources={"stdout": f"{str(tmp_path)}"})
-    t2 = task_template.create_task(arg="foobar", name="stderr_task",
-                                   compute_resources={"stderr": f"{str(tmp_path)}"},
-                                   upstream_tasks=[t1])
+    t1 = task_template.create_task(
+        arg="echo 'hello world'",
+        name="stdout_task",
+        compute_resources={"stdout": f"{str(tmp_path)}"},
+    )
+    t2 = task_template.create_task(
+        arg="foobar",
+        name="stderr_task",
+        compute_resources={"stderr": f"{str(tmp_path)}"},
+        upstream_tasks=[t1],
+    )
     workflow.add_tasks([t1, t2])
     workflow.bind()
     workflow._bind_tasks()
@@ -141,13 +154,19 @@ def test_multiprocess_logging(tool, task_template, tmp_path):
 def test_dummy_executor_with_bad_log_path(tool, task_template, tmp_path):
     """Check that the Dummy executor ignores bad paths. A real executor will fail this workflow"""
 
-    workflow = tool.create_workflow(name="test_dummy_executor_with_bad_log_path",
-                                    default_cluster_name="dummy",
-                                    default_compute_resources_set={"dummy": {"queue": "null.q"}} )
-    t1 = task_template.create_task(arg="echo helloworld" , name="bad_stderr_task",
-                                   compute_resources={
-                                       "stdout": "/utterly/bogus/file/path",
-                                       "stderr": "/utterly/bogus/file/path" })
+    workflow = tool.create_workflow(
+        name="test_dummy_executor_with_bad_log_path",
+        default_cluster_name="dummy",
+        default_compute_resources_set={"dummy": {"queue": "null.q"}},
+    )
+    t1 = task_template.create_task(
+        arg="echo helloworld",
+        name="bad_stderr_task",
+        compute_resources={
+            "stdout": "/utterly/bogus/file/path",
+            "stderr": "/utterly/bogus/file/path",
+        },
+    )
     workflow.add_tasks([t1])
     workflow_run_status = workflow.run()
     assert workflow_run_status == WorkflowRunStatus.DONE

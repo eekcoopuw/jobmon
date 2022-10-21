@@ -5,7 +5,6 @@ from http import HTTPStatus as StatusCodes
 import logging
 from typing import Any, Dict, Optional, Tuple, Type, TYPE_CHECKING
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.task_template import TaskTemplate
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
@@ -40,8 +39,7 @@ class ToolVersion:
         self.default_cluster_name: str = ""
 
         if requester is None:
-            cc = ClientConfig.from_defaults()
-            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+            requester = Requester.from_defaults()
         self.requester = requester
 
     @classmethod

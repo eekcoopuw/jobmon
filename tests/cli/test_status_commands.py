@@ -133,13 +133,13 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
 
     # we should have the column headers plus 2 tasks in pending
     command_str = f"workflow_status -u {user} -w {workflow.workflow_id}"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert df["PENDING"][0] == "2 (100.0%)"
 
     # defaults should return an identical value
     command_str = "workflow_status"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert df["PENDING"][0] == "2 (100.0%)"
 
@@ -159,6 +159,7 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
         "WF_STATUS": {"0": "QUEUED"},
         "TASKS": {"0": 2},
         "PENDING": {"0": "2 (100.0%)"},
+        "SCHEDULED": {"0": "0 (0.0%)"},
         "RUNNING": {"0": "0 (0.0%)"},
         "DONE": {"0": "0 (0.0%)"},
         "FATAL": {"0": "0 (0.0%)"},
@@ -184,20 +185,20 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
 
     # check that we get 2 rows now
     command_str = f"workflow_status -u {user}"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 2
 
     # check that we can get values by workflow_id
     command_str = f"workflow_status -w {workflow.workflow_id}"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 1
     assert df["WF_ID"][0] == str(workflow.workflow_id)
 
     # check that we can get both
     command_str = "workflow_status -w 1 2"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 2
 
@@ -248,32 +249,32 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
 
     # check limit 1
     command_str = f"workflow_status -u {user}  -l 1"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 1
 
     # check limit 2
     command_str = f"workflow_status -u {user}  -l 2"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 2
 
     # check default
     command_str = f"workflow_status -u {user}"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 5
 
     # check over limit
     command_str = f"workflow_status -u {user}  -l 12"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 6
 
     # Check setting the limit to 0
     try:
         command_str = f"workflow_status -u {user}  -l 0"
-        parsed_args = cli.parser.parse_args(command_str)
+        parsed_args = cli.parse_args(command_str)
         df_from_stdout(cli.workflow_status, parsed_args)
     except SystemExit as e:
         assert isinstance(e.__context__, argparse.ArgumentError)
@@ -281,7 +282,7 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
     # Check setting the limit to a negative
     try:
         command_str = f"workflow_status -u {user}  -l -1"
-        parsed_args = cli.parser.parse_args(command_str)
+        parsed_args = cli.parse_args(command_str)
         df_from_stdout(cli.workflow_status, parsed_args)
     except SystemExit as e:
         assert isinstance(e.__context__, argparse.ArgumentError)
@@ -311,7 +312,7 @@ def test_workflow_tasks(db_engine, tool, client_env, cli):
 
     # we should get 2 tasks back in pending state
     command_str = f"workflow_tasks -w {workflow.workflow_id}"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 2
     assert df.STATUS[0] == "PENDING"
@@ -351,38 +352,37 @@ def test_workflow_tasks(db_engine, tool, client_env, cli):
         workflow.add_task(t)
 
     workflow.bind()
-
     wfrs = workflow.run()
     assert wfrs == WorkflowRunStatus.DONE
 
     # check limit 1
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l 1"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 1
 
     # check limit 2
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l 2"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 2
 
     # check default (no limit)
     command_str = f"workflow_tasks -w {workflow.workflow_id}"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 5
 
     # check over limit
     command_str = f"workflow_tasks -w {workflow.workflow_id} -l 12"
-    parsed_args = cli.parser.parse_args(command_str)
+    parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_tasks, parsed_args)
     assert len(df) == 6
 
     # Check setting the limit to 0
     try:
         command_str = f"workflow_tasks -w {workflow.workflow_id} -l 0"
-        parsed_args = cli.parser.parse_args(command_str)
+        parsed_args = cli.parse_args(command_str)
         df_from_stdout(cli.workflow_tasks, parsed_args)
     except SystemExit as e:
         assert isinstance(e.__context__, argparse.ArgumentError)
@@ -390,7 +390,7 @@ def test_workflow_tasks(db_engine, tool, client_env, cli):
     # Check setting the limit to a negative
     try:
         command_str = f"workflow_tasks -w {workflow.workflow_id} -l -1"
-        parsed_args = cli.parser.parse_args(command_str)
+        parsed_args = cli.parse_args(command_str)
         df_from_stdout(cli.workflow_tasks, parsed_args)
     except SystemExit as e:
         assert isinstance(e.__context__, argparse.ArgumentError)
@@ -430,11 +430,9 @@ def test_task_status(db_engine, client_env, tool, cli):
     # Check that the filepaths are returned correctly
     with Session(bind=db_engine) as session:
         # fake workflow run
-        update_stmt = update(
-                TaskInstance
-            ).where(
-                TaskInstance.task_id.in_([t1.task_id, t2.task_id])
-            )
+        update_stmt = update(TaskInstance).where(
+            TaskInstance.task_id.in_([t1.task_id, t2.task_id])
+        )
         val = {"stdout": "/stdout/dir/file.o123", "stderr": "/stderr/dir/file.e123"}
         session.execute(update_stmt.values(**val))
         session.commit()
@@ -629,6 +627,7 @@ def test_update_task_status(db_engine, client_env, tool, cli):
             tasks.append(task)
         wf.add_tasks(tasks)
         return wf, tasks
+
     wf1, wf1_tasks = generate_workflow_and_tasks(tool)
     wf1.run()
     wfr1_statuses = [t.final_status for t in wf1_tasks]
@@ -687,9 +686,7 @@ def test_400_cli_route(db_engine, client_env):
 
     requester = Requester(client_env)
     with pytest.raises(InvalidResponse) as exc:
-        requester.send_request(
-            app_route="/task_status", message={}, request_type="get"
-        )
+        requester.send_request(app_route="/task_status", message={}, request_type="get")
         assert "400" in str(exc.value)
 
 
@@ -707,7 +704,7 @@ def test_bad_put_route(db_engine, client_env):
 def test_get_yaml_data(db_engine, client_env):
     from jobmon.client.tool import Tool
 
-    t = Tool()
+    t = Tool(name="test_get_yaml_data_tool")
     wf = t.create_workflow(name="i_am_a_fake_wf")
     tt1 = t.get_task_template(
         template_name="tt1", command_template="echo {arg}", node_args=["arg"]
@@ -873,9 +870,7 @@ def test_get_filepaths(db_engine, tool):
         default_compute_resources={"queue": "null.q"},
     )
     tasks = tt.create_tasks(
-        arg1=[1, 2],
-        arg2=["a", "b"],
-        compute_resources={"queue": "null.q"}
+        arg1=[1, 2], arg2=["a", "b"], compute_resources={"queue": "null.q"}
     )
     array = tasks[0].array
     wf = tool.create_workflow()
@@ -913,7 +908,7 @@ def test_get_filepaths(db_engine, tool):
     tasks2 = tt.create_tasks(
         arg1=[1, 2, 3, 4],
         arg2=["a", "b", "c", "d"],
-        compute_resources={"queue": "null.q"}
+        compute_resources={"queue": "null.q"},
     )
     tt2 = tool.get_task_template(
         template_name="dummy_template2",
@@ -928,7 +923,7 @@ def test_get_filepaths(db_engine, tool):
         arg1=[5],
         arg2=["a", "b", "c"],
         compute_resources={"queue": "null.q"},
-        name="yiyayiyayou"
+        name="yiyayiyayou",
     )
     wf2 = tool.create_workflow()
     wf2.add_tasks(tasks2 + tasks3)
@@ -955,10 +950,10 @@ def test_resume_workflow_from_cli(tool, task_template, db_engine, cli):
     #    t2     t3
     #      \   /
     #        t4
-    t1 = task_template.create_task(arg='echo 1')
-    t2 = task_template.create_task(arg='echo 2', upstream_tasks=[t1])
-    t3 = task_template.create_task(arg='exit 1', upstream_tasks=[t1], max_attempts=1)
-    t4 = task_template.create_task(arg='echo 4', upstream_tasks=[t2, t3])
+    t1 = task_template.create_task(arg="echo 1")
+    t2 = task_template.create_task(arg="echo 2", upstream_tasks=[t1])
+    t3 = task_template.create_task(arg="exit 1", upstream_tasks=[t1], max_attempts=1)
+    t4 = task_template.create_task(arg="echo 4", upstream_tasks=[t2, t3])
 
     workflow.add_tasks([t1, t2, t3, t4])
     # Run the workflow. Task 3 should error, task 4 doesn't run.
@@ -968,24 +963,14 @@ def test_resume_workflow_from_cli(tool, task_template, db_engine, cli):
     task_ids = [t.task_id for t in (t1, t2, t3, t4)]
 
     with Session(bind=db_engine) as session:
-        query = select(
-            Task.status
-        ).where(
-            Task.id.in_(task_ids)
-        )
+        query = select(Task.status).where(Task.id.in_(task_ids))
         res = session.execute(query).scalars().all()
         assert res == ["D", "D", "F", "G"]
         session.commit()
 
     # Update the exit 1 command to something that'll work on resume
     with Session(bind=db_engine) as session:
-        query = update(
-            Task
-        ).where(
-            Task.id == t3.task_id
-        ).values(
-            command='echo 3'
-        )
+        query = update(Task).where(Task.id == t3.task_id).values(command="echo 3")
         session.execute(query)
         session.commit()
 
@@ -994,20 +979,21 @@ def test_resume_workflow_from_cli(tool, task_template, db_engine, cli):
     args = cli.parse_args(resume_str)
     assert args.workflow_id == workflow.workflow_id
     assert not args.reset_running_jobs
-    resume_workflow_from_id(args.workflow_id, args.cluster_name,
-                            args.reset_running_jobs)
+    resume_workflow_from_id(
+        args.workflow_id, args.cluster_name, args.reset_running_jobs
+    )
 
     # Check that the swarm is complete
     with Session(bind=db_engine) as session:
-        res = session.execute(
-            select(Task.status).where(Task.id.in_(task_ids))
-        ).scalars().all()
+        res = (
+            session.execute(select(Task.status).where(Task.id.in_(task_ids)))
+            .scalars()
+            .all()
+        )
         assert res == [TaskStatus.DONE] * 4
 
         res = session.execute(
-            select(
-                WorkflowModel.status
-            ).where(WorkflowModel.id == workflow.workflow_id)
+            select(WorkflowModel.status).where(WorkflowModel.id == workflow.workflow_id)
         ).scalar()
         assert res == WorkflowStatus.DONE
         session.commit()

@@ -3,7 +3,6 @@ from typing import Dict
 
 import pytest
 from sqlalchemy import select
-from sqlalchemy.sql import text
 from sqlalchemy.orm import Session
 
 
@@ -57,15 +56,17 @@ def test_instantiate_job(tool, db_engine, task_template):
     instantiated_task_instances = list(
         distributor_service._task_instance_status_map[TaskInstanceStatus.INSTANTIATED]
     )
-    assert [ti.submission_name == "simple_template" for ti in instantiated_task_instances]
+    assert [
+        ti.submission_name == "simple_template" for ti in instantiated_task_instances
+    ]
 
     # check the job turned into I
     with Session(bind=db_engine) as session:
-        select_stmt = select(
-            TaskInstance
-        ).where(
-            TaskInstance.task_id.in_([t1.task_id, t2.task_id])
-        ).order_by(TaskInstance.id)
+        select_stmt = (
+            select(TaskInstance)
+            .where(TaskInstance.task_id.in_([t1.task_id, t2.task_id]))
+            .order_by(TaskInstance.id)
+        )
         task_instances = session.execute(select_stmt).scalars().all()
         session.commit()
 
@@ -97,11 +98,11 @@ def test_instantiate_job(tool, db_engine, task_template):
     # Once processed from INSTANTIATED, the sequential (being a single process), would
     # carry it all the way through to D
     with Session(bind=db_engine) as session:
-        select_stmt = select(
-            TaskInstance
-        ).where(
-            TaskInstance.task_id.in_([t1.task_id, t2.task_id])
-        ).order_by(TaskInstance.id)
+        select_stmt = (
+            select(TaskInstance)
+            .where(TaskInstance.task_id.in_([t1.task_id, t2.task_id]))
+            .order_by(TaskInstance.id)
+        )
         task_instances = session.execute(select_stmt).scalars().all()
         session.commit()
 
@@ -147,11 +148,11 @@ def test_instantiate_array(tool, db_engine, task_template):
 
     # check the job turned into I
     with Session(bind=db_engine) as session:
-        select_stmt = select(
-            TaskInstance
-        ).where(
-            TaskInstance.task_id.in_([t1.task_id, t2.task_id])
-        ).order_by(TaskInstance.id)
+        select_stmt = (
+            select(TaskInstance)
+            .where(TaskInstance.task_id.in_([t1.task_id, t2.task_id]))
+            .order_by(TaskInstance.id)
+        )
         task_instances = session.execute(select_stmt).scalars().all()
         session.commit()
 
@@ -182,11 +183,11 @@ def test_instantiate_array(tool, db_engine, task_template):
 
     # check the job to be Launched
     with Session(bind=db_engine) as session:
-        select_stmt = select(
-            TaskInstance
-        ).where(
-            TaskInstance.task_id.in_([t1.task_id, t2.task_id])
-        ).order_by(TaskInstance.id)
+        select_stmt = (
+            select(TaskInstance)
+            .where(TaskInstance.task_id.in_([t1.task_id, t2.task_id]))
+            .order_by(TaskInstance.id)
+        )
         task_instances = session.execute(select_stmt).scalars().all()
         session.commit()
 
@@ -302,11 +303,11 @@ def test_array_submit_raises_error(db_engine, tool):
 
     # check the job finished
     with Session(bind=db_engine) as session:
-        select_stmt = select(
-            TaskInstance
-        ).where(
-            TaskInstance.task_id.in_([t1.task_id, t2.task_id])
-        ).order_by(TaskInstance.id)
+        select_stmt = (
+            select(TaskInstance)
+            .where(TaskInstance.task_id.in_([t1.task_id, t2.task_id]))
+            .order_by(TaskInstance.id)
+        )
         task_instances = session.execute(select_stmt).scalars().all()
         session.commit()
 
@@ -362,9 +363,7 @@ def test_workflow_concurrency_limiting(tool, task_template):
     "wf_limit, array_limit, expected_len",
     [(10_000, 2, 2), (2, 10_000, 2), (2, 3, 2), (3, 2, 2)],
 )
-def test_array_concurrency(
-    tool, array_template, wf_limit, array_limit, expected_len
-):
+def test_array_concurrency(tool, array_template, wf_limit, array_limit, expected_len):
     """Use Case 1: Array concurrency limit is set, workflow is not. Array should be limited by
     the array's max_concurrently running value"""
     # Use Case 1: Array concurrency limit is set, workflow concurrency limit not set
@@ -542,7 +541,11 @@ def test_array_launch_transition(web_server_in_memory):
         next_update_date = ti1_r.report_by_date
         assert next_update_date > datetime.utcnow()
         assert next_update_date <= timedelta(minutes=5) + datetime.utcnow()
-        assert datetime.utcnow() - timedelta(minutes=5) < submitted_date < datetime.utcnow()
+        assert (
+            datetime.utcnow() - timedelta(minutes=5)
+            < submitted_date
+            < datetime.utcnow()
+        )
 
     # Post a request to log the distributor ids
     resp = app.post(

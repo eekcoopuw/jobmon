@@ -1,5 +1,6 @@
 from jobmon.client.workflow_run import WorkflowRun
 
+
 def test_repr_strings(tool, task_template):
     """Smoke tests to check the various client object repr strings."""
 

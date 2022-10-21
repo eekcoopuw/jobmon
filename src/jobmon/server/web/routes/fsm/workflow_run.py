@@ -3,7 +3,7 @@ from http import HTTPStatus as StatusCodes
 from typing import Any, cast, Dict, List
 
 from flask import jsonify, request
-from sqlalchemy import insert, func, select, update, case
+from sqlalchemy import case, func, insert, select, update
 import structlog
 
 from jobmon import constants
@@ -29,11 +29,13 @@ def add_workflow_run() -> Any:
         workflow_id = int(data["workflow_id"])
         user = data["user"]
         jobmon_version = data["jobmon_version"]
-        next_heartbeat = float(data['next_report_increment'])
+        next_heartbeat = float(data["next_report_increment"])
 
         structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     logger.info(f"Add wfr for workflow_id:{workflow_id}.")
 
@@ -41,13 +43,9 @@ def add_workflow_run() -> Any:
 
     with session.begin():
         workflow = session.execute(
-            select(
-                Workflow
-            ).where(
-                Workflow.id == workflow_id
-            )
+            select(Workflow).where(Workflow.id == workflow_id)
         ).scalar()
-        err_msg = ''
+        err_msg = ""
         if not workflow:
             # Binding to a non-existent workflow, exit early
             err_msg = f"No workflow exists for ID {workflow_id}"
@@ -73,8 +71,10 @@ def add_workflow_run() -> Any:
 
         try:
             if active_workflow_run[0] != workflow_run.id:
-                err_msg = (f"WorkflowRun {active_workflow_run[0]} is currently"
-                           f"linking, WorkflowRun {workflow_run.id} will be aborted.")
+                err_msg = (
+                    f"WorkflowRun {active_workflow_run[0]} is currently"
+                    f"linking, WorkflowRun {workflow_run.id} will be aborted."
+                )
         except IndexError:
             # Raised if the workflow is not resume-able, without any active workflowruns
             # Unlikely to be raised
@@ -86,13 +86,14 @@ def add_workflow_run() -> Any:
         resp = jsonify(workflow_run_id=None, err_msg=err_msg)
     else:
         logger.info(f"Add workflow_run:{workflow_run.id} for workflow.")
-        resp = jsonify(workflow_run_id=workflow_run.id,
-                       status=workflow_run.status)
+        resp = jsonify(workflow_run_id=workflow_run.id, status=workflow_run.status)
     resp.status_code = StatusCodes.OK
     return resp
 
 
-@blueprint.route("/workflow_run/<workflow_run_id>/terminate_task_instances", methods=["PUT"])
+@blueprint.route(
+    "/workflow_run/<workflow_run_id>/terminate_task_instances", methods=["PUT"]
+)
 def terminate_workflow_run(workflow_run_id: int) -> Any:
     """Terminate a workflow run and get its tasks in order."""
     structlog.threadlocal.bind_threadlocal(workflow_run_id=workflow_run_id)
@@ -100,15 +101,13 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
     try:
         workflow_run_id = int(workflow_run_id)
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            WorkflowRun
-        ).where(
-            WorkflowRun.id == workflow_run_id
-        )
+        select_stmt = select(WorkflowRun).where(WorkflowRun.id == workflow_run_id)
         workflow_run = session.execute(select_stmt).scalars().one()
 
         if workflow_run.status == constants.WorkflowRunStatus.HOT_RESUME:
@@ -120,39 +119,39 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
             ["task_instance_id", "description", "error_time"],
             select(
                 TaskInstance.id,
-                ('Workflow resume requested. Setting to K from status of: '
-                 + TaskInstance.status),
-                func.now()
+                (
+                    "Workflow resume requested. Setting to K from status of: "
+                    + TaskInstance.status
+                ),
+                func.now(),
             ).where(
                 TaskInstance.workflow_run_id == workflow_run_id,
-                TaskInstance.status == constants.TaskInstanceStatus.KILL_SELF
-            )
+                TaskInstance.status == constants.TaskInstanceStatus.KILL_SELF,
+            ),
         )
         session.execute(insert_error_log_stmt)
 
         workflow_id = workflow_run.workflow_id
-        update_task_instance_stmt = update(
-            TaskInstance
-        ).where(
-            TaskInstance.id.in_(
-                select(
-                    TaskInstance.id
-                ).where(
-                    TaskInstance.workflow_run_id == WorkflowRun.id,
-                    TaskInstance.task_id.in_(
-                        select(
-                            Task.id
-                        ).where(
-                            Task.workflow_id == workflow_id,
-                            Task.status.in_(task_states)
-                        )
+        update_task_instance_stmt = (
+            update(TaskInstance)
+            .where(
+                TaskInstance.id.in_(
+                    select(TaskInstance.id).where(
+                        TaskInstance.workflow_run_id == WorkflowRun.id,
+                        TaskInstance.task_id.in_(
+                            select(Task.id).where(
+                                Task.workflow_id == workflow_id,
+                                Task.status.in_(task_states),
+                            )
+                        ),
                     )
                 )
             )
-        ).values(
-            status=constants.TaskInstanceStatus.KILL_SELF,
-            status_date=func.now()
-        ).execution_options(synchronize_session=False)
+            .values(
+                status=constants.TaskInstanceStatus.KILL_SELF, status_date=func.now()
+            )
+            .execution_options(synchronize_session=False)
+        )
 
         session.execute(update_task_instance_stmt)
 
@@ -171,17 +170,15 @@ def log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
         next_report_increment = data["next_report_increment"]
         status = data["status"]
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     logger.debug(f"WFR {workflow_run_id} heartbeat data")
 
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            WorkflowRun
-        ).where(
-            WorkflowRun.id == workflow_run_id
-        )
+        select_stmt = select(WorkflowRun).where(WorkflowRun.id == workflow_run_id)
         workflow_run = session.execute(select_stmt).scalars().one()
 
         try:
@@ -204,17 +201,15 @@ def log_workflow_run_status_update(workflow_run_id: int) -> Any:
         data = cast(Dict, request.get_json())
         status = data["status"]
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     logger.info(f"Log status update for workflow_run_id:{workflow_run_id}.")
 
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            WorkflowRun
-        ).where(
-            WorkflowRun.id == workflow_run_id
-        )
+        select_stmt = select(WorkflowRun).where(WorkflowRun.id == workflow_run_id)
         workflow_run = session.execute(select_stmt).scalars().one()
 
         try:
@@ -240,7 +235,9 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
         task_instance_ids = data["task_instance_ids"]
         status = data["status"]
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
 
     session = SessionLocal()
     with session.begin():
@@ -255,18 +252,22 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
             # 1) instances that have changed out of the declared status
             # 2) instances that have changed into the declared status
             where_clause.append(
-                (TaskInstance.id.in_(task_instance_ids) & (TaskInstance.status != status))
-                | (TaskInstance.id.notin_(task_instance_ids) & (TaskInstance.status == status))
+                (
+                    TaskInstance.id.in_(task_instance_ids)
+                    & (TaskInstance.status != status)
+                )
+                | (
+                    TaskInstance.id.notin_(task_instance_ids)
+                    & (TaskInstance.status == status)
+                )
             )
         else:
             where_clause.append(TaskInstance.status == status)
 
-        select_stmt = select(
-            TaskInstance.status, func.group_concat(TaskInstance.id)
-        ).where(
-            *where_clause
-        ).group_by(
-            TaskInstance.status
+        select_stmt = (
+            select(TaskInstance.status, func.group_concat(TaskInstance.id))
+            .where(*where_clause)
+            .group_by(TaskInstance.status)
         )
 
         return_dict: Dict[str, List[int]] = {}
@@ -278,7 +279,9 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
     return resp
 
 
-@blueprint.route("/workflow_run/<workflow_run_id>/set_status_for_triaging", methods=["POST"])
+@blueprint.route(
+    "/workflow_run/<workflow_run_id>/set_status_for_triaging", methods=["POST"]
+)
 def set_status_for_triaging(workflow_run_id: int) -> Any:
     """Two triaging related status sets.
 
@@ -290,11 +293,14 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
     try:
         workflow_run_id = int(workflow_run_id)
     except Exception as e:
-        raise InvalidUsage(f"{str(e)} in request to {request.path}", status_code=400) from e
+        raise InvalidUsage(
+            f"{str(e)} in request to {request.path}", status_code=400
+        ) from e
     logger.info(f"Set to triaging those overdue tis for wfr {workflow_run_id}")
 
     session = SessionLocal()
     with session.begin():
+<<<<<<< HEAD
         update_stmt = update(
             TaskInstance
         ).where(
@@ -308,8 +314,33 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
                 (TaskInstance.status == constants.TaskInstanceStatus.RUNNING,
                  constants.TaskInstanceStatus.TRIAGING),
                 else_=constants.TaskInstanceStatus.KILL_SELF
+=======
+        update_stmt = (
+            update(TaskInstance)
+            .where(
+                TaskInstance.workflow_run_id == workflow_run_id,
+                TaskInstance.status.in_(
+                    [
+                        constants.TaskInstanceStatus.LAUNCHED,
+                        constants.TaskInstanceStatus.RUNNING,
+                    ]
+                ),
+                TaskInstance.report_by_date <= func.now(),
+>>>>>>> 57f2fc13d38ee1d7dbfdd67cf11fa00210c417ad
             )
-        ).execution_options(synchronize_session=False)
+            .values(
+                status=case(
+                    [
+                        (
+                            TaskInstance.status == constants.TaskInstanceStatus.RUNNING,
+                            constants.TaskInstanceStatus.TRIAGING,
+                        )
+                    ],
+                    else_=constants.TaskInstanceStatus.KILL_SELF,
+                )
+            )
+            .execution_options(synchronize_session=False)
+        )
         session.execute(update_stmt)
     resp = jsonify()
     resp.status_code = StatusCodes.OK

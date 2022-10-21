@@ -9,7 +9,6 @@ from http import HTTPStatus as StatusCodes
 import logging
 from typing import Any, Callable, Dict, List, Optional, Set, TYPE_CHECKING, Union
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
 from jobmon.constants import SpecialChars
@@ -113,8 +112,7 @@ class Task:
                 is_valid_job_name
         """
         if requester is None:
-            cc = ClientConfig.from_defaults()
-            requester = Requester(cc.url, max_retries=cc.tenacity_max_retries)
+            requester = Requester.from_defaults()
         self.requester = requester
 
         # pre bind hash defining attributes
