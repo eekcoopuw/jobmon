@@ -394,16 +394,20 @@ def get_tt_error_log_viz(tt_id: int) -> Any:
             Node.task_template_version_id == TaskTemplateVersion.id,
             Task.node_id == Node.id,
             TaskInstance.task_id == Task.id,
-            TaskInstanceErrorLog.task_instance_id == TaskInstance.id
+            TaskInstanceErrorLog.task_instance_id == TaskInstance.id,
         ]
 
-        sql = select(
-            Task.id,
-            TaskInstance.id,
-            TaskInstanceErrorLog.id,
-            TaskInstanceErrorLog.error_time,
-            TaskInstanceErrorLog.description
-        ).where(*query_filter).order_by(TaskInstanceErrorLog.id.desc())
+        sql = (
+            select(
+                Task.id,
+                TaskInstance.id,
+                TaskInstanceErrorLog.id,
+                TaskInstanceErrorLog.error_time,
+                TaskInstanceErrorLog.description,
+            )
+            .where(*query_filter)
+            .order_by(TaskInstanceErrorLog.id.desc())
+        )
         # For performance reasons, use STRAIGHT_JOIN to set the join order. If not set,
         # the optimizer may choose a suboptimal execution plan for large datasets.
         # Has to be conditional since not all database engines support STRAIGHT_JOIN.

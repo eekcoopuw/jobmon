@@ -624,6 +624,7 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
 
 def test_get_tt_error_log_viz(client_env, db_engine):
     from jobmon.client.api import Tool
+
     t = Tool(name="gui_tt_error_log")
 
     # test no error
@@ -653,7 +654,7 @@ def test_get_tt_error_log_viz(client_env, db_engine):
         arg="abc",
         cluster_name="sequential",
         compute_resources={"queue": "null.q", "num_cores": 2},
-        max_attempts=1
+        max_attempts=1,
     )
     wf2.add_tasks([t2])
     wf2.run()
