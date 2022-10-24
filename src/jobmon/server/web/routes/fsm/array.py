@@ -236,7 +236,7 @@ def log_array_distributor_id(array_id: int) -> Any:
             )
             .execution_options(synchronize_session=False)
         )
-        session.execute(update_stmt, params)
+        session.connection().execute(update_stmt, params)
 
         # Return the affected rows and their distributor ids
         select_stmt = (
