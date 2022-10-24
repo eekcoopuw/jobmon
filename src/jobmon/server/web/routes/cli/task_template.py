@@ -385,7 +385,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
 def get_tt_error_log_viz(tt_id: int, wf_id: int) -> Any:
     """Get the error logs for a task template id for GUI."""
     # return DS
-    return_dic: Dict[int, Any] = dict()
+    return_list: [Any] = []
 
     session = SessionLocal()
     with session.begin():
@@ -418,7 +418,7 @@ def get_tt_error_log_viz(tt_id: int, wf_id: int) -> Any:
         session.commit()
     for r in rows:
         # dict: {<error log id>: [<tid>, <tiid>, <error time>, <error log>}
-        return_dic[int(r[2])] = [r[0], r[1], r[3], r[4]]
-    resp = jsonify(return_dic)
+        return_list.append({"task_id": r[0], "task_instance_id": r[1], "task_instance_err_id": r[2], "error_time": r[3], "error": r[4]})
+    resp = jsonify(return_list)
     resp.status_code = 200
     return resp

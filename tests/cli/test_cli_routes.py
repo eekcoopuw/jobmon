@@ -663,6 +663,7 @@ def test_get_tt_error_log_viz(client_env, db_engine):
         app_route=app_route, message={}, request_type="get"
     )
     assert len(msg) == 1
-    assert list(msg.values())[0][0] == t2.task_id
-    assert "command not found" in list(msg.values())[0][3]
+    assert msg[0]["task_id"] == t2.task_id
+    assert "command not found" in msg[0]["error"]
+
 
