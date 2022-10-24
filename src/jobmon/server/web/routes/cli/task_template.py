@@ -381,8 +381,8 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
     return resp
 
 
-@blueprint.route("/tt_error_log_viz/<tt_id>", methods=["GET"])
-def get_tt_error_log_viz(tt_id: int) -> Any:
+@blueprint.route("/tt_error_log_viz/<wf_id>/<tt_id>", methods=["GET"])
+def get_tt_error_log_viz(tt_id: int, wf_id: int) -> Any:
     """Get the error logs for a task template id for GUI."""
     # return DS
     return_dic: Dict[int, Any] = dict()
@@ -393,6 +393,7 @@ def get_tt_error_log_viz(tt_id: int) -> Any:
             TaskTemplateVersion.task_template_id == tt_id,
             Node.task_template_version_id == TaskTemplateVersion.id,
             Task.node_id == Node.id,
+            Task.workflow_id == wf_id,
             TaskInstance.task_id == Task.id,
             TaskInstanceErrorLog.task_instance_id == TaskInstance.id,
         ]
