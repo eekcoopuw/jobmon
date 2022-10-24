@@ -17,6 +17,7 @@ from jobmon.server.web.models.node_arg import NodeArg
 from jobmon.server.web.models.queue import Queue
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
+from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
 from jobmon.server.web.models.task_resources import TaskResources
 from jobmon.server.web.models.task_template import TaskTemplate
 from jobmon.server.web.models.task_template_version import TaskTemplateVersion
@@ -375,6 +376,48 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
         return_dic[int(r[0])]["tasks"] += 1
         return_dic[int(r[0])][_cli_label_mapping[r[3]]] += 1
         return_dic[int(r[0])]["MAXC"] = r[4] if r[4] is not None else "NA"
+    resp = jsonify(return_dic)
+    resp.status_code = 200
+    return resp
+
+
+@blueprint.route("/tt_error_log_viz/<tt_id>", methods=["GET"])
+def get_tt_error_log_viz(tt_id: int) -> Any:
+    """Get the error logs for a task template id for GUI."""
+    # return DS
+    return_dic: Dict[int, Any] = dict()
+
+    session = SessionLocal()
+    with session.begin():
+        query_filter = [
+            TaskTemplateVersion.task_template_id == tt_id,
+            Node.task_template_version_id == TaskTemplateVersion.id,
+            Task.node_id == Node.id,
+            TaskInstance.task_id == Task.id,
+            TaskInstanceErrorLog.task_instance_id == TaskInstance.id,
+        ]
+
+        sql = (
+            select(
+                Task.id,
+                TaskInstance.id,
+                TaskInstanceErrorLog.id,
+                TaskInstanceErrorLog.error_time,
+                TaskInstanceErrorLog.description,
+            )
+            .where(*query_filter)
+            .order_by(TaskInstanceErrorLog.id.desc())
+        )
+        # For performance reasons, use STRAIGHT_JOIN to set the join order. If not set,
+        # the optimizer may choose a suboptimal execution plan for large datasets.
+        # Has to be conditional since not all database engines support STRAIGHT_JOIN.
+        if SessionLocal.bind.dialect.name == "mysql":
+            sql = sql.prefix_with("STRAIGHT_JOIN")
+        rows = session.execute(sql).all()
+        session.commit()
+    for r in rows:
+        # dict: {<error log id>: [<tid>, <tiid>, <error time>, <error log>}
+        return_dic[int(r[2])] = [r[0], r[1], r[3], r[4]]
     resp = jsonify(return_dic)
     resp.status_code = 200
     return resp
