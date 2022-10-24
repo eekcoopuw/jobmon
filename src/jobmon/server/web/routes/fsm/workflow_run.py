@@ -314,12 +314,10 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
             )
             .values(
                 status=case(
-                    [
-                        (
-                            TaskInstance.status == constants.TaskInstanceStatus.RUNNING,
-                            constants.TaskInstanceStatus.TRIAGING,
-                        )
-                    ],
+                    (
+                        TaskInstance.status == constants.TaskInstanceStatus.RUNNING,
+                        constants.TaskInstanceStatus.TRIAGING,
+                    ),
                     else_=constants.TaskInstanceStatus.KILL_SELF,
                 )
             )
