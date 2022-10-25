@@ -639,7 +639,7 @@ def test_get_tt_error_log_viz(client_env, db_engine):
     )
     wf1.add_tasks([t1])
     wf1.run()
-    app_route = f"/tt_error_log_viz/{tt1.id}"
+    app_route = f"/tt_error_log_viz/{wf1.workflow_id}/{tt1.id}"
     return_code, msg = wf1.requester.send_request(
         app_route=app_route, message={}, request_type="get"
     )
@@ -658,10 +658,12 @@ def test_get_tt_error_log_viz(client_env, db_engine):
     )
     wf2.add_tasks([t2])
     wf2.run()
-    app_route = f"/tt_error_log_viz/{tt2.id}"
+    app_route = f"/tt_error_log_viz/{wf2.workflow_id}/{tt2.id}"
     return_code, msg = wf1.requester.send_request(
         app_route=app_route, message={}, request_type="get"
     )
     assert len(msg) == 1
-    assert list(msg.values())[0][0] == t2.task_id
-    assert "command not found" in list(msg.values())[0][3]
+    assert msg[0]["task_id"] == t2.task_id
+    assert "command not found" in msg[0]["error"]
+
+
