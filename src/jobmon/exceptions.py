@@ -138,3 +138,9 @@ class DistributorInterruptedError(Exception):
     """raised when signal is sent to distributor."""
 
     pass
+
+
+class StorageAccessError(Exception):
+    """raised when the workflow or task accesses unavailable or restricted storage."""
+
+    pass
