@@ -665,5 +665,3 @@ def test_get_tt_error_log_viz(client_env, db_engine):
     assert len(msg) == 1
     assert msg[0]["task_id"] == t2.task_id
     assert "command not found" in msg[0]["error"]
-
-

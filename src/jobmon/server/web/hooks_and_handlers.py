@@ -79,6 +79,8 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         # get a clean threadlocal structlog context for this request
         structlog.threadlocal.clear_threadlocal()
 
+        server_structlog_context = None
+
         try:
             data = cast(Dict, request.get_json())
         except BadRequest:
