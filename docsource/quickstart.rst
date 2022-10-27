@@ -9,6 +9,8 @@ needed. It is developed and maintained by IHME's Scientific Computing team.
 
 Jobmon’s vision is to make it as easy as possible for everyone to run any kind of code
 on any compute platform, reliably, and efficiently.
+Jobmon should allow people to sleep easily on the
+weekend because they do not have to manually monitor their applications.
 
 .. include:: quickstart-ihme.rst
 

@@ -2,7 +2,7 @@
     :maxdepth: 2
 
     developer-start
-    deployments
+    deployments-brief
     testing
     continuous_integration
 

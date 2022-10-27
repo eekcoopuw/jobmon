@@ -1,291 +1,3 @@
-************
-Architecture
-************
-
-TODO: NOT CURRENTLY UP-TO-DATE
-******************************
-
-Jobmon's Vision
-***************
-
-Make it as easy as possible for everyone at IHME to run any kind of code
-on any compute platform, reliably, efficiently, without heroic effort.
-
-Allow people to sleep easily on the
-weekend because they do not have to manually monitor their applications.
-
-Jobmon exists because UGE is not reliable and is difficult to use.
-IHME was unable to reliably run applications with more than perhaps 10,000 jobs
-without heroic and unreliable work practises.
-
-Document History
-****************
-This document is work in progress; the most mature section is the Deployment Architecture.
-
-Features
-********
-
-Current (as of 2.1)
-===================
-
-- Easier monitoring of Python applications by centralizing statuses in a sql database
-- Finer-grained job dependencies
-- Automatic job retries
-- Resource-retries
-- Whole-of-Application resumes
-- Kubernetes deployment
-- Meta-Type foundation for resource prediction
-- Deployment as a lightweight standalone Docker System
-
-Future
-======
-
-- R Control Script
-- Resource Prediction
-- GUI for code-less operations
-- Control jobs on Azure Batch
-- Control jobs on SLURM
-
-Requirements View
-*****************
-
-Roles
-=====
-
-A Role (aka Actor) is a human or an external system that interacts with Jobmon.
-Most roles are human, but some system roles exist because they initiate a use case.
-For example, the UGE distributor is a system role because it initiates the Use Case "Launch a Job."
-
-One person will often play the part of different Roles during the same day.
-For example, at IHME a Coder will often also be an Application Operator.
-Therefore Roles are not job titles.
-
-Technically, a Role is a Domain Object that can initiate a Use Case.
-
-Human Roles
-===========
-
-- Python Coder
-- R Coder
-- Stata Coder
-- Other-language Coder
-- Application Operator
-- Application Owner
-
-System Roles
-============
-
-- Python Control Script
-- R Control Script
-- UGE Distributor (it starts jobs)
-- cgroups (it kills jobs)
-- OOM Killer (it also kills jobs if cgroups failes)
-- Cluster Distributor (Broadly UGE, Azure, SLURM)
-- The Gremlin (a synthetic System Role, it causes hardware to fail)
-
-Domain Objects
-==============
-
-Any noun mentioned in a use case must either be a role or a domain object.
-Domain Objects are typically capitalized to show that they are defined terms.
-Domain objects might not be implemented in code. For example, there is currently
-no "cluster" object, although Jobmon could need it when it has multiple executors.
-A domain object might be implemented by different pieces of code, depending on its
-location in the deployment architecture. For example, domain objects such as Workflow
-are implemented in the database schema, the sqlalchemy model objects, as a wire format,
-and as a stub in the Python client and the experimental R client.
-
-All domain objects are defined in the :doc:`../glossary`
-
-Domain Objects that are mentioned in the Use Cases but are not part of Jobmon:
-
-- UGE job
-- Linux Process
-- Conda environment
-- Cluster Node
-- Python Application
-- R Application
-
-Use Cases
-=========
-Use Cases all follow the naming pattern:
-
-*<Role> <Verb> <Domain-Object Phrase>*
-
-For example:
-
-- UGE Launches Job
-- Python-Application Creates Workflow
-- Python-Application Runs Workflow
-- Gremlin breaks a Cluster Node
-
-
-In a waterfall project this Use Case section would be much bigger. Jobmon was developed using
-the agile process, therefore the requirements were defined along the way.
-The use cases identified here are looking forward to an operating GUI, and as examples.
-
-
-Coder Use Cases
-===============
-
-100. Coder Converts a direct Qsub Control Script to Jobmon
-
-Included to emphasize the importance of usability, this use case will describe the extra steps that are necessary
-
-
-Application Operator Use Cases
-==============================
-
-210. Application Operator Starts Application
-
-220. Application Operator Monitors Application
-
-They ask questions like: *How is it going? Are there any Failures? When will it be done?*
-Originally they had to run queries in the database. Now they can use a CLI.
-A GUI would open up this feature to more Application Owners.
-
-230. Application Operator Debugs Application
-
-How do they find the task statuses? How do they find Errors from their own applications?
-
-Jobmon Distributor Use Cases
-============================
-
-330. Jobmon submits a Job to UGE
-
-This is a key use case. It must show the flow from the control node to UGE and the special
-flags to qsub command needed for the environment.
-
-UGE Use Cases
-=============
-
-410. UGE Job starts
-
-Discuss the
-# initial bash script
-# the python execution wrapper
-# Call-backs to central services to show progress
-# Launching the actual application code in a sub-process
-# Need for careful exception handling
-
-
-420. UGE Job finishes, with or without error
-
-430. Cgroups kills a UGE for excess Resource Usage
-
-Constraints and Non-functional Requirements (aka -ilities)
-**********************************************************
-
-Scaling
-=======
-
-The goal will be to run "all jobs" on the cluster.
-The current largest workflow is the Burdenator, with about 500k jobs.
-Application Operators have twice submitted workflows with about 1.5 million tasks,
-although they are arguably over-parallelized.
-On IHME's cluster Jobmon should plan for 20% annual growth in all dimensions.
-
-+-----------+-----------------------+---------------------------+---------------------------+
-| Date      |	Largest workflow    | Simultaneous workflows    | Transactions per Second   |
-+===========+=======================+===========================+===========================+
-| Jan 2021  |	500k                |                           |                           |
-+-----------+-----------------------+---------------------------+---------------------------+
-| June 2021 |	1 million           |                           |                           |
-+-----------+-----------------------+---------------------------+---------------------------+
-
-Performance numbers need to more carefully recorded.
-
-Security
-========
-Security does not have to be especially high because Jobmon only has metadat on jobs.
-However, it must not be possible to use
-Jobmon to launch bad-actor jobs on the cluster. For example, exposing a service to the internet
-that allows an external Jobmon to run jobs on the cluster would be a big security risk.
-Jobmon relies on existing IHME security systems.
-
-Jobmon stores no data apart from commands, so the cost of
-a data breach would be low.
-
-Lifetime Maintainability
-========================
-Plan for a 5-10 year lifetime
-
-Portability
-===========
-Jobmon was designed and developed as a sequence of Minimal Viable Product releases, so it was not
-designed to be a cross-platform system. However, it is highly portable because it only depends
-on Python, web technologies, sql, and the cluster OS is abstracted behind the Executor API.
-
-MPI support could be difficult.
-
-GPUs can be supported if they are implemented in separate queues in the cluster OS.
-
-Usability
-=========
-
-Usability is key, otherwise Jobmon will not be adopted.
-It must be easier than raw UGE, preferably easier than Azure Bath Service and SLURM.
-However, we have no experience with SLURM and it might not have the usability problems
-present in UGE. Specifically:
-
-Retries: UGE has one global setting for the number of retries, Jobmon allows the number of retires to be set per task.
-
-
-Logical View (aka software layers, Component View)
-**************************************************
-
-What is a Component?
-
-Components are mini-products. Control and responsibility are their defining characteristics.
-
-In the source control system a component is one directory tree.
-It contains every kind of code needed for that component: Python, sql, javascript, etc.
-
-Suppose we needed to add authentication and authorisation to the rate limiting feature in jobmon.
-For this example, also assume that we could not find an existing external system for people,
-organizations, and their relationships.
-Therefore we need to construct an Organization component that is completely responsible for that area.
-It will have uses cases for:
-
-- CRUD a user (full CRUD)
-- CRUD a team (full CRUD)
-- CRUD an application
-- Get escalation path for a user
-- Is user authorized to control this application?
-
-CRUD = Create, Read, Update, Delete of a Domain Object.
-
-It needs code at the following layers:
-
-- HTML and Javascript for the CRUD screens
-- Python API and then code  for validating CRUD screens, computing escalation paths, authentication etc
-- Database tables
-
-The different kinds of code are deployed in different places.
-Organize the source tree by the are of responsibility, it makes it easier for a maintenance programmer
-
-FYI CRUD = Create, Read, Update, Delete.
-
-*In hindsight I think the following is a little Hyper-modern: abstractly appealing, but too fiddly in practise.*
-Systems rarely need to be so modular that new ones can be
-composed from arbitrary subsets.
-
-In practise each deployment unit has its own source tree.
-The code would be clearer if the relevant fragment of each Domain Object was
-clearly identified in each deployment unit.
-Jobmon is probably one component in its own right, as is
-QPID, UGE, and the organizational component described below.
-
-
-Components in Guppy
-===================
-
-The Python packages are currently organized according to the deployment architecture,
-not by the major noun, although each deployment unit specializes in certain Domain Objects.
-
-Perhaps components make sense within a deployment unit,
-and this section should be repeated within each of the three deployment groups.
-
 
 Process View
 ************
@@ -503,6 +215,41 @@ That image is then used to build a series of Docker containers, which are groupe
 Each pod represents a subset of the server routes, see the above table.
 For example, all /client/* routes are sent to the jobmon-client pod on Kubernetes.
 Each pod is instantiated with 3 containers, each with a preset CPU/memory resource allocation.
+
+
+
+Architecture
+************
+
+.. image:: ../diagrams/k8s_architecture.svg
+
+Since we often need to manage multiple versions of the Jobmon service at one time,
+the majority of deployment units are grouped together into a single **namespace**.
+In the above diagram, we have a sample Jobmon deployment,
+with two concurrent production versions of Jobmon running in separate namespaces.
+Within each namespace is also an Elastic monitoring stack,
+responsible for log aggregation and performance monitoring of the Jobmon service.
+
+Inside a namespace, all internal services can reach each other via DNS lookup -
+Kubernetes assigns the DNS names automatically.
+External traffic, either external to Kubernetes entirely or
+from a separate namespace, is all routed through Traefik.
+Traefik can then route the incoming requests to the appropriate service.
+
+The Jobmon reaper introduces some added complexity to the
+networking architecture outlined above, where there is one version of
+Jobmon/ELK per namespace. The reaper is dependent on the allowed/disallowed
+finite state machine transitions, so each version of Jobmon needs its own reaper
+in order to ensure that new or modified states are accounted for.
+However, server-side updates with no client-facing changes often are "hot deployed" so that users can take advantage of server upgrades without needing to upgrade their clients. While this is fine for the service as the Jobmon service is stateless, the reaper is not - it depends on database state, so old reapers cannot be spun down and reinstantiated like the service deployment can.
+
+The solution is to move the reapers to a separate namespace.
+The jobmon-reapers namespace exposes one service per k8s namespace, and
+forwards web traffic to that namespace's Traefik controller.
+Then each reaper deployment can simply connect to the reaper service,
+ensuring that hot deploys and updates can be made to the target namespace
+without eliminating existing reaper deployments.
+
 
 Metallb
 -------

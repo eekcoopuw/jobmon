@@ -1,27 +1,30 @@
+General
+*******
+
+This section explains what you need to do as a Jobmon coder, plus gives a brief introduction to the major
+technologies. More detailed notes on technologies and design are in the Architecture & Deisgn section.
+
 ******************************
 Working on the Jobmon Codebase
 ******************************
 
 The standard workflow for contributing to Jobmon is:
 
-#. Make your changes, on a feature branch
+#. Create a feature branch from the branch for the next release
+#. Make your changes on that branch
 #. Add or modify the unit tests for your new code
-#. Run the unit tests
+#. Run the unit tests and fix them
 #. Lint and type check the code
-#. Create a pull request, getting approval from at least 2 members of the Scicomp team, and ensurethat the automatic builds pass.
+#. Create a pull request
+   #. Ensure that the automatic builds pass
+#. Gain approval from at least 2 members of the Scicomp team
 
-Updating code
-*************
+Nox and pytest
+^^^^^^^^^^^^^^
 
-All code must be version controlled, so the recommended workflow is to:
-
-#. Clone this repository to your machine
-#. Create a feature branch off the appropriate release branch, with the name of the ticket in the branch name
-
-    #. Naming the ticket number will link to JIRA, so that the associated branch and any pull requests are
-       easily referenced.
-
-#. Make any changes, run the necessary tests, and push to an upstream branch
+The test suite uses nox to manage virtual testing environments and install the necessary dependencies, and pytest to
+define common fixtures such as a temporary database and web service.
+For more details on the unit test architecture, please refer to the Developer Testing section.
 
 Running unit tests
 ******************
@@ -31,21 +34,23 @@ To run the Jobmon test suite, navigate to the top-level folder in this repositor
 To reduce the runtime of the tests, you can optionally suffix the above command with ``-n=<number_of_processes>`` to
 enable testing in parallel. You can also use ``nox -r ...`` to re-use an existing virtual environment.
 
-nox and pytest
-^^^^^^^^^^^^^^
+End-to-end tests
+****************
+As part of the continuous integration pipeline, IHME-TAD repository automatically deploys a complete installation
+of Jobmon and runs post-deployment tests.
+This catches any mismatches between jobmon-core and the jobmon-slurm plugin.
 
-The test suite uses nox to manage virtual testing environments and install the necessary dependencies, and pytest to
-define common fixtures such as a temporary database and web service. For more details on the unit test architecture, please
-refer to the Developer Testing section.
 
 Linting and Typechecking
 ************************
 
 To run linting and type checking, run ``nox -s lint`` and ``nox -s typecheck`` respectively.
 
-The linting check uses flake8 to check that our code conforms to pep8 formatting standards, with exceptions as defined
-in setup.cfg. Type checking uses mypy ensures that our code has the correct type hints and usages conforming to
+The linting check uses flake8 to check that the code conforms to pep8 formatting standards, with exceptions as defined
+in setup.cfg.
+Type checking uses mypy ensures that our code has the correct type hints and usages conforming to
 `PEP484 <https://www.python.org/dev/peps/pep-0484/>`_.
+Type hints catch errors earlier and makes the large codebase much easier to read.
 
 Sometimes the linting check will fail with a message indicating that "Black would make changes". Black is an
 autoformatting tool that ensures code conformity. To address this error you can run ``nox -s black``.

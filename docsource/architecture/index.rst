@@ -1,9 +1,10 @@
 .. toctree::
     :maxdepth: 2
 
-    architecture
-    tech_stack
-    clients
-    core_components
-    cluster_and_distributor
+    use_cases
+    non_functional_requirements
+    components
+    finite_state_machine
+    deployment_units
+    process_view
     finite_state_machine
