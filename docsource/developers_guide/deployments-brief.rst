@@ -84,10 +84,10 @@ or after maintenance.
 
 There are two places that WAIT_TIMEOUT is configured. One is as a global
 variable, which can be set by:
-  SET GLOBAL wait_timeout=600;
+``SET GLOBAL wait_timeout=600;``
 
 There is a different timeout for X. The effect is X still believes that the database
-session is active, but the database server has closed the conneciton.
+session is active, but the database server has closed the connection.
 The symptom is "MySQL has gone away" errors in the server.
 
 
@@ -96,7 +96,7 @@ Using mysqldump to copy a database
 
 On the cluster, run a command like the following:
 ::
-mysqldump -h jobmon-p01.ihme.washington.edu --port 3306 -u docker -p docker --database docker > dbs_dump.sql
+mysqldump -h jobmon-prod-1.db.ihme.washington.edu --port 3306 -u docker -p docker --database docker > dbs_dump.sql
 
 
 Spinning down a database

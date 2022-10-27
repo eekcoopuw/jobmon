@@ -18,12 +18,38 @@ Technically, a Role is a Domain Object that can initiate a Use Case.
 Human Roles
 ===========
 
-- Python Coder
-- R Coder
-- Other-language Coder
-- Application Operator (Operator)
-- Observer
-- Application Owner
+Observer
+  Typically a TPM or a Project Officer.
+  An Observer is not a modeller or coder but they do understand the phases and general running of the Tool.
+  For example, "Has location aggregation started yet?" is something they might ask.
+
+  A person who is interested in how the workflow is going, and especially when it will be done, is it running smoothly.
+  For example, Project Officer of the owning team or a downstream team. Would only have read-only access
+  Distant Observer
+
+  The classic example is a Principal Investigator (PI). They can click on a link that is emailed to them.
+  They don't have the time or knowledge to run a complex search to find what they are interested in.
+  They do not understand internal structure of the modeling pipeline.
+  Only interested in "Are we there yet?" and "How long will it be?"
+
+Operator
+  Someone who starts, stops, observers, and resumes workflows, finds errors.
+  Cannot assume that they know how the code is written, but they are very familiar with what it does. Data Analysts and
+  Research Engineers are typical operators.
+
+Implementer
+  Someone who is implementing a research pipeline.
+  They probably only operate the pipeline during tests, and maybe only from the command line. Data Analysts, Research Engineers, and Software engineers spend most of their time as Implementers.
+
+Debugger
+  Someone who is implementing a research pipeline.
+  This role is deliberately separate to the Implementor to emphasize that pipelines are often debugged by people who did not write that pipeline and don't have intimate knowledge. Data Analysts, Research Engineers, and Software engineers are often Debuggers
+
+Prototyper
+  A special type of implementer-Operator who just wants to "get it done."
+  One run only for this paper deadline, hoping to never run the code again (although it often is  run again next year)
+  A typical Data Analyst activity.
+
 
 System Roles
 ============

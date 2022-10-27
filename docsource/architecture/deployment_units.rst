@@ -107,9 +107,9 @@ The containers are organized according to the load they carry, so that they can 
 .. SVG is renderable in browsers, and can be edited in inkscape or on draw.io
 .. image:: ../diagrams/deployment_and_message_flow.svg
 
-*******
+*****************************
 Clients From Developers Guide
-*******
+*****************************
 
 The Jobmon client is conceptually responsible for basic CRUD (Create, Read, Update, Delete). The client creates and modifies Jobmon
 objects like Workflow, Tool, and Task in memory, and adds these objects to the database when the user requests a workflow run.
@@ -118,7 +118,7 @@ At the moment of writing, the client also currently includes logic for workflow 
 this logic will likely eventually be refactored into the web service.
 
 Python Client
-^^^^^^^^^^^^^
+=============
 
 The core client logic is written in Python, available to use from the ``jobmon`` Python package. A Python user can
 install Jobmon into their conda/singularity/etc. environment, and write a control script defining their workflow. The user
@@ -127,7 +127,7 @@ on. If installing via conda or using ``pip install jobmon[ihme]``, then all IHME
 automatically as well (UGE and SLURM).
 
 R Client
-^^^^^^^^
+========
 
 R users, who may not have experience writing any Python but still wish to use Jobmon, can use the **jobmonr** library to
 write their control scripts. All core logic is still written in Python, but the R client uses the **reticulate** package
@@ -149,7 +149,7 @@ conda environment hardcoded in the startup section, meaning that users *cannot* 
 However, there is very little reason to do so in the first place, and a small update to the crosswalk package could solve this issue.
 
 Future Directions
-^^^^^^^^^^^^^^^^^
+=================
 
 In the long term, the scope of the client should be restricted solely to creation of metadata to send to the database.
 DAG traversal and scheduling/distributing would then be performed inside a long-running back end service container.
@@ -202,14 +202,14 @@ without eliminating existing reaper deployments.
 
 
 Metallb
--------
+=======
 
 Metallb is the load balancer that comes packaged with Kubernetes.
 It is only used to provide the Virtual IP (VIP) to the clients; it does not actually do any
 load balancing.
 
 Traefik
--------
+=======
 Traefik (pronounced *tray-fick*) is an open-source edge router, which means that it parses the
 incoming URL and routes the message to the appropriate back-end service.
 It also loads balances across the set of kubernetes instances for a service.
@@ -231,14 +231,14 @@ three initial containers remaining.
 
 
 Autoscaling Behavior
---------------------
+====================
 
 Jobmon mainly relies uWSGI and Kubernetes to autoscale so as to remain performant under
 heavy load. The database is also tuned to use all threads on its VM, and
 80% of the available memory for its buffers.
 
 uWSGI
------
+=====
 
 uWSGI is a web service used to communicate between the client side application and the server code.
 In our architecture, uWSGI runs inside each of the docker containers created by Kubernetes [#f1]_ .
