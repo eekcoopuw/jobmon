@@ -1,13 +1,14 @@
-********************
-Developer Quickstart
-********************
+******************************
+Working on the Jobmon Codebase
+******************************
 
-The standard workflow for contributing to Jobmon involves:
+The standard workflow for contributing to Jobmon is:
 
-#. Making your changes, on a feature branch
-#. Running the unit tests
-#. Linting and type checking the code base
-#. Creating a pull request, getting approval from at least 2 members of the Scicomp team, and ensuring that the automatic builds pass.
+#. Make your changes, on a feature branch
+#. Add or modify the unit tests for your new code
+#. Run the unit tests
+#. Lint and type check the code
+#. Create a pull request, getting approval from at least 2 members of the Scicomp team, and ensurethat the automatic builds pass.
 
 Updating code
 *************
@@ -15,7 +16,7 @@ Updating code
 All code must be version controlled, so the recommended workflow is to:
 
 #. Clone this repository to your machine
-#. Create a feature branch, with the name of the ticket in the branch name
+#. Create a feature branch off the appropriate release branch, with the name of the ticket in the branch name
 
     #. Naming the ticket number will link to JIRA, so that the associated branch and any pull requests are
        easily referenced.
@@ -34,7 +35,7 @@ nox and pytest
 ^^^^^^^^^^^^^^
 
 The test suite uses nox to manage virtual testing environments and install the necessary dependencies, and pytest to
-define common fixtures like a temporary database and web service. For more details on the unit test architecture, please
+define common fixtures such as a temporary database and web service. For more details on the unit test architecture, please
 refer to the Developer Testing section.
 
 Linting and Typechecking
@@ -49,6 +50,8 @@ in setup.cfg. Type checking uses mypy ensures that our code has the correct type
 Sometimes the linting check will fail with a message indicating that "Black would make changes". Black is an
 autoformatting tool that ensures code conformity. To address this error you can run ``nox -s black``.
 
+Code must pass linting and typechecking before it can be merged.
+
 Pull Requests
 *************
 
@@ -56,5 +59,8 @@ When the above unit tests, formatting checks, and typing checks all pass, you ca
 all members of the Scicomp team to the created pull request.
 
 Creating a pull request should start an automatic build, which runs the above mentioned tests and checks on a
-provisioned Jenkins server. If all the tests pass, you will see a green check mark on the builds page in your PR.
+the scicomp Jenkins server
+`<https://jenkins.scicomp.ihme.washington.edu>`_
+
+If all the tests pass, you will see a green check mark on the builds page in your PR.
 

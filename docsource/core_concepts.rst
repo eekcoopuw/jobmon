@@ -5,43 +5,44 @@
 Core Concepts
 *************
 
-Cluster Name
-############
-The name of the cluster users want to run their Tasks on. Usually either Buster or Slurm. You
-can specify the cluster you want to use on the Task, TaskTemplate, Workflow
-and Tool level. To set cluster name on Tasks, use "cluster_name". To set cluster_name on
-TaskTemplate, Workflow, and Tool, use "default_cluster_name". If cluster name
-is set on multiple Jobmon objects, Jobmon has a hierarchy of which cluster will take precedence,
-the hierarchy is Task -> TaskTemplate -> Workflow -> Tool.
+
+.. _jobmon-tool-label:
 
 Tool
 ####
-A tool is the project (e.g. STG-PR, CODCorrect) that you want to associate your Workflow and
-Task Templates with. You may overhaul your Workflows and Tasks/TaskTemplates over time, but the
-concept of the project will remain to categorize them within the broader IHME pipeline.
+A tool is a major research application, e.g. STG-PR, CODCorrect.
+Task Templates and Workflows  are owned by Tools. You may overhaul your Workflows and Tasks/TaskTemplates over time, but the
+concept of the Tool will remain to categorize them within the broader IHME pipeline.
 
-.. _jobmon-dag-label:
-
-DAG
-###
-Directed Acyclic Graph. The graph of Tasks that will be traversed upon execution of a
-WorkflowRun. Made up of :ref:`jobmon-node-label` (Tasks with specific node arguments) and
-:ref:`jobmon-edge-label` (the relationship between two Nodes)
 
 .. _jobmon-workflow-label:
 
 Workflow
 ########
-*(aka Batch, aka Swarm)*
-The object that encompasses all of your :ref:`jobmon-task-label` and the dependencies
+A workflow encompasses all of your :ref:`jobmon-task-label` and the dependencies
 between them. A Workflow is the intent to run a :ref:`jobmon-dag-label`
 (Directed Acyclic Graph) of Tasks, and a :ref:`jobmon-wfrun-label` is the
-actual execution of the DAG on a cluster. A Workflow can have multiple
+actual execution of that Workflow on a cluster. A Workflow can have multiple
 WorkflowRuns associated with it if previous runs fail or are stopped manually. A Workflow
 can be resumed if it failed on a previous Workflow Run, but the Tasks that it will execute
-must remain the same. Resumability is codified by the :ref:`jobmon-wf-arg-label` parameter that the user
-can define, which indicates what makes this intention to run Tasks unique from other workflows
-with the same tasks and dependencies.
+must remain the same.
+The ability to Resume is controlled by the :ref:`jobmon-wf-arg-label` parameter.
+You can resume a Workflow if you specify a workflow with exactly the same
+workflow arguments.
+
+Jobmon expects a Workflow to run to completion. If you have a long
+research process that requires human vetting of intermediate results then
+each of the computation steps between human vetting steps should be a
+separate Workflow.
+
+
+.. _jobmon-dag-label:
+
+DAG
+###
+Directed Acyclic Graph. The graph of Tasks that will be traversed during the execution of a
+WorkflowRun. THe DAG is composed  of Tasks with specific node arguments and
+:ref:`jobmon-edge-label` (the relationship between two Nodes)
 
 .. _jobmon-wf-arg-label:
 
@@ -87,15 +88,30 @@ before.
 
 .. _jobmon-task-label:
 
-Tasks
+Task
 #####
 A single executable object in the workflow; a command that will be run. Relate it to a
 Task Template in order to classify it as a type of job within the context of your
 Workflow. Do this by using the TaskTemplate create_task() function.
 
+.. _cluster-name-label:
+
+Cluster Name
+############
+The name of the cluster users on which to to run your Tasks.
+You can specify the cluster you want to use on the Task, TaskTemplate, Workflow
+and Tool level. To set cluster name on Tasks, use "cluster_name".
+To set cluster_name on
+TaskTemplate, Workflow, and Tool, use "default_cluster_name".
+If cluster name is set on multiple Jobmon objects,
+Jobmon will use the standard hierarchy precedence:
+*Task -> TaskTemplate -> Workflow -> Tool.*
+
+.. _jobmon-task-attribute-label:
+
 TaskAttribute
 *************
-Additional attributes of the task that can be tracked. For example, release ID or
+Custom attributes of the task that can be tracked. For example, release ID or
 location set version ID. Task attributes are not passed to the job but may be useful
 for profiling or resource prediction work in the Jobmon database. Pass in task
 attributes as a list or dictionary to create_task().
@@ -109,34 +125,37 @@ the Slurm Cluster. Jobmon will create TaskInstances from the Tasks that you defi
 is an actual run of a task. Like calling a function in Python. One Task can have
 multiple task instances if they are retried.
 
-.. _jobmon-node-label:
-
-Nodes
-#####
-Nodes are the object representing a Task within a DAG. It simply keeps track of where a
-Task is and what attributes make the task unique within the DAG. Tasks
-will often be created from a TaskTemplate and they will vary somewhat e.g. by location, this
-variation is what makes a Node unique.
 
 .. _jobmon-edge-label:
 
-Edges
+Edge
 #####
 The relationships between an upstream and a downstream Node.
 
+
 Compute Resources
 #################
-Compute resources are used for users to request resources for their tasks. Compute resources
-are passed in as dictionaries. Users are able to specify requested memory, cores, runtime,
-queue, stdout, stderr, and project. To set compute resources on Tasks, use
+Compute resources a requests for hardware and software resources
+such as memory, cores, runtime,
+queue, stdout, stderr, and project. Compute resources
+are passed in as dictionaries.  To set compute resources on Tasks, use
 "compute_resources". To set resources on TaskTemplate, Workflow, and Tool, use
 "default_compute_resources". If compute resources are set on multiple objects, Jobmon has a
 hierarchy of which resources will take precedence, the hierarchy is Task -> TaskTemplate ->
 Workflow -> Tool.
 
+If compute resources
+are set on multiple objects,
+Jobmon uses the following hierarchy to determine which resources will take precedence:
+*Task -> TaskTemplate -> Workflow -> Tool.*
+
+The default compute resources are stored in the _queue_ table
+in the database.
+
 YAML Configuration Files
 ************************
-Users are also able to pass in compute resources via a YAML file. Users can specify compute
+You can also specifiy compute resources via a YAML file, which keeps them all
+in one location rather than being scattered throughout the code. Users can specify compute
 resources via YAML on the Tool and TaskTemplate objects. Simply create a YAML file with the
 requested resources, for example:
 
@@ -183,8 +202,10 @@ keyword argument "yaml_file" in the "set_default_compute_resources_from_yaml" me
 
 Default Resources
 *****************
-Each queue on both clusters have default resources specified. These are the resources that will
-be used if the user does not provide them. For the Slurm cluster, default compute resources
+Each queue on both clusters have default resources specified.
+These are the resources that will
+be used if the user does not provide them.
+For the Slurm cluster, default compute resources
 are: cores will be 1, memory will be 1G, and runtime will be 10 minutes.
 
 Dependencies
@@ -221,3 +242,49 @@ task_args
     Any named arguments in command_template that make the command unique across workflows if
     the node args are the same as a previous workflow. Generally these are arguments about
     data moving though the task, e.g. release_id.
+
+
+
+Analogy to Programming Languages
+################################
+
+The Jobmon DAG and execution algorithm is similar to a programming language.
+
+A TaskTemplate is analogous to a function call.
+The formal arguments are the named Node Args in the call that creates the
+TaskTemplate. The actual arguments are the values of the NOdeArgs when the
+WOrkflow is created. For example, imagine a TaskTemplate created to parallelize
+a disease model over locations. The TaskTemplate has a NodeArg named location_id.
+When the workflow is created an a list of location_ids is passed to the Workflow,
+which Jobmon uses to create a set of Tasks from that Template, one per location_id.
+This is analogous to calling a function in a for-loop over those location-ids.
+
+A Task is analogous to a function, but in this case it is the _intention to call that function._
+When the workflow is executed, aeac _TaskInstance created represents an actual call
+to that function, analogous to a runtime call and its stack frame.
+
+Abstract, Concrete, and Runtime Objects
+#######################################
+
+In the above set of objects the same concept appears in three
+different points in the lifecycle of computation
+1. Abstract Plan. The highest level intention of what you want to run.
+For example, declare that this workflow will parallelize over a set of locations
+1. Concrete Plan. ThHe actual computational plan – all their jobs and their arguments.
+For example, provide the exact set of locations so the exact set of nodes and Tasks can be generated by Jobmon
+1. Runtime. Actually execute the concrete Plan
+For example, there could be two TaskInstances for a particular location due to a resource retry
+
+
++---------------+----------------+----------------+
+| Abstract Plan | Concrete Plan  | Execution Time |
++===============+================+================+
+| TaskTemplate  | Task           | Task Instance  |
++---------------+----------------+----------------+
+| Tool          |                |                |
++---------------+----------------+----------------+
+|               | Workflow & DAG | WorkflowRun    |
++---------------+----------------+----------------+
+|               | Edge           |                |
++---------------+----------------+----------------+
+

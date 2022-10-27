@@ -63,7 +63,7 @@ master_doc = 'index'
 
 # General information about the project.
 project = u'jobmon'
-copyright = u'2016-2021, University of Washington'
+copyright = u'2016-2022, University of Washington'
 author = u'jobmon'
 
 # The version info for the project you're documenting, acts as replacement for

@@ -7,93 +7,46 @@ distributed computing systems. It manages complex job and resource dependencies 
 computing environment instability, ensuring dependably and assisting in troubleshooting when
 needed. It is developed and maintained by IHME's Scientific Computing team.
 
-Jobmon’s vision is to make it as easy as possible for everyone at IHME to run any kind of code
+Jobmon’s vision is to make it as easy as possible for everyone to run any kind of code
 on any compute platform, reliably, and efficiently.
 
-Install
-#######
-
-plugins
-*******
-Jobmon has the capability to run jobs on the Slurm cluster. At present, it also
-has limited capabilities for executing Tasks locally on a single machine using either
-sequential execution or multiprocessing.
-
-To use either of the clusters with Jobmon users need to install their Jobmon plugin. If a user
-wants to use Slurm with Jobmon, they would need to have the core Jobmon software and the
-Jobmon Slurm plugin installed.
-
-Users can either: 1) install Jobmon core and the plugins individually using "pip" or 2)
-install Jobmon core and the Slurm plugin together with a single conda command.
-
-conda install
-*************
-To install core Jobmon and both plugins using conda::
-
-    conda install ihme_jobmon -k --channel https://artifactory.ihme.washington.edu/artifactory/api/conda/conda-scicomp --channel conda-forge
-
-pip install
-***********
-To install just core jobmon (no cluster plugins) via pip::
-
-    pip install jobmon
-
-To install the preconfigured Slurm plugin::
-
-    pip install jobmon_installer_ihme
-
-To install both at once via pip::
-
-    pip install jobmon[ihme]
-
-Then issue the following command to configure the web service and port:
-
-    .. webservicedir::
-
-.. note::
-    If you get the error **"Could not find a version that satisfies the requirement jobmon (from version: )"** then create (or append) the following to your ``~/.pip/pip.conf``::
-
-        [global]
-        extra-index-url = https://artifactory.ihme.washington.edu/artifactory/api/pypi/pypi-shared/simple
-        trusted-host = artifactory.ihme.washington.edu
-
-
-Jobmon Learning
-###############
-For a deeper dive in to Jobmon, check out some of our courses:
-    1. `About Jobmon <https://hub.ihme.washington.edu/pages/viewpage.action?pageId=74531156>`_.
-    2. `Learn Jobmon <https://hub.ihme.washington.edu/pages/viewpage.action?pageId=78062050>`_.
-    3. `Jobmon Retry <https://hub.ihme.washington.edu/pages/viewpage.action?pageId=78062056>`_.
-    4. `Jobmon Resume <https://hub.ihme.washington.edu/pages/viewpage.action?pageId=78062059>`_.
-
-These courses are occasionally offered in-person. Check IHME Learn to see if there are any
-upcoming trainings.
+.. include:: quickstart-ihme.rst
 
 Getting Started
 ###############
-The Jobmon controller script (i.e. the code defining the workflow) has to be
+The Jobmon controller script (i.e. the code defining the workflow) must be
 written in Python or R. The modeling code can be in Python, R, Stata, C++, or in fact any
 language.
 
-Users will primarily interact with Jobmon by creating a :ref:`jobmon-workflow-label` and
-iteratively adding :ref:`jobmon-task-label` to it. Each Workflow is uniquely defined by its
-:ref:`jobmon-wf-arg-label` and the set of Tasks attached to it.
+The controller script interacts with Jobmon by creating a :ref:`jobmon-workflow-label` and
+then iteratively adding :ref:`jobmon-task-label` to it. Each Workflow is uniquely defined by its
+:ref:`jobmon-wf-arg-label` and its set of Tasks.
 
-Jobmon allows you to resume workflows (:ref:`jobmon-resume-label`). A Workflow can only
-be resumed if the WorkflowArgs and all Tasks added to it are shown to be
+Jobmon allows you to resume workflows (see :ref:`jobmon-resume-label`). A Workflow can only
+be resumed if the WorkflowArgs and all Tasks added to it are
 exact matches to the previous Workflow.
 
 Create a Workflow
 #################
 
-A Workflow is a framework by which a user may define the relationship between
-Tasks and define the relationship between multiple runs of the same set of Tasks.
+A Workflow is essentially a set of Tasks, their configuration details, and the
+dependencies between them.
+For example, a series of jobs that models one disease could be a Workflow.
 
-A task is a single executable object in the workflow, a command that will be run.
 
-A Workflow represents a set of Tasks which may depend on one another such
-that if each relationship were drawn (Task A) -> (Task B) meaning that Task B
-depends on Task A, it would form a `directed-acyclic graph (DAG) <https://en.wikipedia.org/wiki/Directed_acyclic_graph>`_.
+A task is a single executable object in the workflow; a command that will be run.
+
+A dependency from Task A to Task B means that B will not execute until A
+has successfully completed. We say that Task A is _upstream_ of Task B.
+Conversely, Task B is _downstream_ of Task A. If A always fails (up to its retry
+limit) then B will never be started, and the Workflow as a whole will fail.
+
+In general a task can have many upstreams. A Task will not start until all of its
+upstreams have successfully completed, potentially after multiple attempts.
+
+The Tasks and their dependencies form a
+`directed-acyclic graph (DAG) <https://en.wikipedia.org/wiki/Directed_acyclic_graph>`_.
+where the tasks are the nodes, and the edges are the dependencies.
 
 For more about the objects go to :doc:`Core Concepts <core_concepts>`.
 
@@ -291,57 +244,33 @@ Constructing a Workflow and adding a few Tasks is simple:
     you leave workflow_args blank. In this case, WorkflowArgs will default to
     a UUID which, as it is randomly generated, will be harder to remember and
     thus is not recommended for use cases outside of the one-off project. A workflow's
-    uniqueness is based on it's command, upstreams and downstreams, and workflow_args.
+    uniqueness is based on its command, upstreams and downstreams, and workflow_args.
 
-Compute Resources: Compute resources are used to allocate resources for your tasks. Users are
-able to specify requested memory, cores, runtime, queue, stdout, stderr, and project. Compute
-resources can be set at the Task, TaskTemplate, Workflow and Tool level. If compute resources
-are set on multiple objects, Jobmon has a hierarchy of which resources will take precedence,
-the hierarchy is Task -> TaskTemplate -> Workflow -> Tool. To set compute resources on Tasks, use
-"compute_resources". To set compute resources on TaskTemplate, Workflow, and Tool, use
-"default_compute_resources".
+Compute Resources
+#################
 
-By default compute resources on the Slurm cluster: cores will be 1, memory will be 1G, and
-runtime will be 10 minutes.
+Compute Resources are used to allocate resources to your tasks.
+You can specify memory, cores, runtime, queue, stdout, stderr, and project.
 
-Users can specify that they want to run their jobs on an archive node (nodes with /snfs1
-mounted) in their compute resources. Users simply need to add the following key value pair to
+For IHME's Slurm cluster the defaults for all queues are:
+* One core
+* 1G memory, and
+* Ten minutes runtime.
+
+These values might change in the future.
+
+You can specify that you want to run your jobs on an "archive" node
+(i.e., a node with access to /snfs1
+a.k.a "the J-drive"). Add the following key value pair to
 their compute resources: ``"constraints": "archive"``.
 
-Cluster name: You can specify the cluster you want to use on the Task, TaskTemplate, Workflow
-and Tool level. To set cluster name on Tasks, use "cluster_name". To set cluster_name on
-TaskTemplate, Workflow, and Tool, use "default_cluster_name". If cluster name
-is set on multiple Jobmon objects, Jobmon has a hierarchy of which cluster will take precedence,
-the hierarchy is Task -> TaskTemplate -> Workflow -> Tool.
 
 .. note::
     By default Workflows are set to time out if all of your tasks haven't
-    completed after 10 hours (or 36000 seconds). If your Workflow times out
+    completed after 10 hours (36,000 seconds). If your Workflow times out
     before your tasks have finished running, those tasks will continue
     running, but you will need to restart your Workflow again. You can change
-    this if your tasks combined run longer than 10 hours.
+    the Workflow timeout period if your tasks combined run longer than 10 hours.
 
-.. note::
-    Errors with a return code of 199 indicate an issue occurring within Jobmon
-    itself. Errors with a return code of 137, 247, or -9 indicate resource errors.
 
-Getting Additional Help
-#######################
-The Scientific Computing team is always available to answer your questions or to consult on
-Jobmon.
-
-To contact the team via Slack:
-    - #jobmon-users to ask questions or raise concerns about Jobmon.
-
-To set up a consultation:
-    - Create a Help Desk ticket asking for a consultation:
-      `SciComp Help Desk <https://help.ihme.washington.edu/servicedesk/customer/portal/16>`_.
-    - A Scientific Computing team member will reach out to you to schedule a consultation
-      meeting.
-
-To raise a Scientific Computing help desk request:
-    - `SciComp Help Desk <https://help.ihme.washington.edu/servicedesk/customer/portal/16>`_.
-
-When requesting help try to provide the team with as much information as you have about your
-problem. *Please include your Workflow id, the Jobmon version that you're using, and any
-TaskInstance error logs that you have.*
+.. include:: help-ihme.rst

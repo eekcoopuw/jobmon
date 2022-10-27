@@ -7,21 +7,25 @@ Jobmon
 ######
 
 Jobmon is a Scientific Workflow Management system developed at IHME specifically for the
-institute's needs. Jobmon aims to reduce human pain by providing:
+institute's needs. It is developed and maintained by IHME's Scientific Computing team.
+Jobmon aims to reduce human pain by providing:
 
 - An easy to use Python API and R API.
-- Centralized monitoring of jobs, including the job's status and errors.
+- Centralized monitoring of jobs, including the jobs' statuses and errors.
+- A central SQL database with all information on past, current, and future runs.
 - Automatic retries to protect against random cluster failures.
-- Automatic retries following a resource failures, e.g. re-running a job with increased memory.
-- Whole-of-application resumes to handle missing data or in-flight code fixes.
-- Fine-grained job dependencies.
+- Automatic retries following a resource failure, e.g. re-running a job with increased memory.
+- Whole-of-workflow resumes to handle missing data or in-flight code fixes.
+- Adds Application structure to what otherwise would be a soup of jobs.
+- Fine-grained job dependencies, including for jobs within "job arrays."
+- An easy-to-use GUI.
+
+Jobmon was originally developed to augment the Universal Grid Engine (UGE)
+and subsequently ported to Slurm when IHME switch from UGE to Slurm.
 
 #################
 Table of Contents
 #################
-
-User Manual
-===========
 
 .. toctree::
     :maxdepth: 2
@@ -34,15 +38,18 @@ User Manual
     glossary
     API Reference <api/modules>
 
-Developer's Guide
-=================
-
 .. toctree::
    :maxdepth: 2
    :caption: Developer's Guide
 
    developers_guide/index
 
+
+.. toctree::
+    :maxdepth: 2
+    :caption: Architecture and Detailed Design
+
+    architecture/index
 
 Indices and tables
 ******************
