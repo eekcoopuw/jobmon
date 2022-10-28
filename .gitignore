@@ -13,7 +13,6 @@ src/jobmon.egg-info/*
 src/jobmon/_version.py
 /build
 /dist
-requirements.txt
 .eggs/
 
 # Ignore coverage reports
