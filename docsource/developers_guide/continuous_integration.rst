@@ -2,7 +2,7 @@
 Continuous Integration
 **********************
 
-.. _jobmon-continuous-integration-section:
+.. _jobmon-continuous-integration-label:
 
 Jobmon uses Jenkins for its continuous integration. Below you can see all of the pipelines
 that are in place to test and deploy Jobmon and the plugins.
