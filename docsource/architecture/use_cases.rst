@@ -119,7 +119,7 @@ Coder Converts a direct Cluster Job Launching Script to Jobmon
 --------------------------------------------------------------
 
 Included to emphasize the importance of usability,
-this use case will describe the extra steps that are necessary
+this use case will describe the extra steps that are necessary.
 
 Implementor Predicts Resource Usage
 -----------------------------------
@@ -151,7 +151,7 @@ Operator Starts Workflow
 Operator Resumes Workflow
 -------------------------
 
-- From COde
+- From Code
 - From CLI via workflow-id
 - Form GUI via-workflow-iw
 
@@ -180,6 +180,7 @@ Operator Selects set of Tasks
 -----------------------------
 
 - Select an arbitrary set of Tasks.
+
   - Task Template is obvious and easy
   - By a Task or Workflow Attribute (it could be risk_id or some other "thread" through the DAG)
 - Reset an entire workflow to "Not Done;" useful for debugging
@@ -229,8 +230,8 @@ Technically-minded Observers can use the CLI. Distant Observers will only use th
 Jobmon Distributor Use Cases
 ============================
 
-Jobmon submits a Job to the DIstributos (Slurm, UGE, single Linux))
------------------------------
+Jobmon submits a Job to the Distributors (Slurm, UGE, single Linux)
+-------------------------------------------------------------------
 
 - For Slurm, use the Slurm rest API. It could also use the Slurm CLI but currently it does not.
   Using the CLI forces certain Jobmon Deployment units to be deployed on Slurm submit hosts.
@@ -244,12 +245,12 @@ Slurm Use Cases
 Slurm Starts Job via Bash
 -------------------------
 
-# Initial bash script
-# Passing of bash environment, including the conda environment from swarm to worker node
-# python execution wrapper
-# Call-backs to central services to show progress
-# Launching the actual application code in a sub-process
-# Need for careful exception handling
+1. Initial bash script
+1. Passing of bash environment, including the conda environment from swarm to worker node
+1. python execution wrapper
+1. Call-backs to central services to show progress
+1. Launching the actual application code in a sub-process
+1. Need for careful exception handling
 
 
 Slurm Starts Job via a Container

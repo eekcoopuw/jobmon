@@ -204,8 +204,6 @@ The containers are organized according to the load they carry, so that they can 
 .. image:: ../diagrams/deployment_and_message_flow.svg
 
 
-
-
 Kubernetes
 ==========
 
@@ -216,10 +214,6 @@ Each pod represents a subset of the server routes, see the above table.
 For example, all /client/* routes are sent to the jobmon-client pod on Kubernetes.
 Each pod is instantiated with 3 containers, each with a preset CPU/memory resource allocation.
 
-
-
-Architecture
-************
 
 .. image:: ../diagrams/k8s_architecture.svg
 
@@ -288,7 +282,7 @@ heavy load. The database is also tuned to use all threads on its VM, and
 80% of the available memory for its buffers.
 
 uWSGI
------
+=====
 
 uWSGI is a web service used to communicate between the client side application and the server code.
 In our architecture, uWSGI runs inside each of the docker containers created by Kubernetes [#f1]_ .

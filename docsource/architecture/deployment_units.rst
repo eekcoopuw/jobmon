@@ -1,52 +1,72 @@
-
 Deployment View
 ***************
 
 *Which pieces of code are deployed where.*
 
-Jobmon is deployed in three places:
-
-- Client, in the same process as the Python control script
-- Worker-node, a wrapper container around the actual UGE Task
-- Server, as a set of Kubernetes services, defined below
-
-Python Client
-=============
-This ia standard Python wheel that is pip-installable. At run-time the Python client is within the
-Application's Python process and is just an ordinary library. It communicates via http to the
-central kubernetes services.
-
-*Strategies aka Executors*
-
-The strategy package is part of the client. It represents the Cluster Operating system.
-Jobmon has three at present:
-
-- UGE (aka SGE)
-- Sequential (one job after another), and
-- Multiprocessing (jobs launched using Python MP)
-- Dummy, which does nothing and is used to test Jobmon's internal machinery.
-
-Only the UGE distributor is used in production, the others are useful for testing, and for
-the upcoming Jobmon-on-a-laptop deployment.
-
 Be very aware of the difference between where:
 
-1. Where the Jobmon services are deployed (kubernetes or docker), and
-2. Where the jobs that Jobmon controls are running.
+1. Where the Jobmon services are deployed (kubernetes, docker, or as Linux process), and
+2. Where the Jobmon-controlled jobs are running.
 
 **These are two separate axes:**
 
-**(Kubernetes, Docker) CROSS (UGE, SLURM, Azure, Python-Sequential, Python-MP, Dummy)**
+**(Kubernetes, Docker, Linux) CROSS (UGE, SLURM, Azure, Python-Sequential, Python-MP, Dummy)**
+
+Jobmon is deployed in three places:
+
+- Python Client, in the same process as the Python control script
+- R Client, which calls the Python client in-process using Reticulate
+- Worker-node, as a wrapper bash process around the actual UGE Task
+- Server, as a Kubernetes service, defined below
+- Usage integrator, also a central Kubernetes Service
+
+
+Python Client
+=============
+
+The core client logic is written in Python, available to use from the ``jobmon`` Python package.
+A Python user can
+install Jobmon into their conda/singularity/etc. environment, and
+write a control script defining their workflow. The user
+needs both the jobmon core wheel and  a plugin wheel.
+The latter is an execution interface into the desired cluster they wish to run
+on. If installing via conda or using ``pip install jobmon[ihme]``,
+then all IHME-required plugin packages will be installed automatically as well.
+
+At run-time the Python client is within the
+Application's Python process and is just an ordinary library. It communicates via http to the
+central kubernetes service and to the Slurm Rest API.
+
+The Distributor and Cluster Plugins
+-----------------------------------
+
+The Distributor is a separate process launched by the Python Client.
+It interacts with the cluster using the Cluster plugin design.
+The jobmon-core repository contains three plugins that are useful for testing
+and demonstrations:
+
+- Sequential (one job after another using Python process control), and
+- Multiprocessing (jobs launched using Python multi-processing)
+- Dummy, which does nothing and is used to test Jobmon's internal machinery.
+
+It represents the Cluster Operating system.
+Jobmon has two cluster plugins:
+
+- Slurm
+- UGE (aka SGE)
+
+Only the Slurm distributor is in production as of 2022.
+
 
 R-Client & Executor Service
 ===========================
-As of January 2021 we are experimenting with an R-client that calls Python immediately
+Jobmon has R-client that calls Python
 via the R reticulate package. Each Python API call has an R equivalent.
 The Python interpreter runs in the same process as the R interpreter, so values are passed
 directly in memory. The translation overhead is not known.
 
-The second step will be to separate all the machinery that is currently in the Python client
-into an ExecutorService that will contain the ``scheduler`` and ``strategies`` packages.
+A future step will be to separate all the machinery that is currently in the Python client
+into an DistributorService that will contain the ``scheduler`` and ``strategies`` packages.
 Python and R clients will simply use http to communicate with it when necessary. Calls from
 the application that are currently synchronous (e.g. execute dag) will become asynchronous.
 The executor service could be deployed locally (using Python MP), or deployed centrally as
@@ -54,16 +74,9 @@ a highly-scaled kubernetes container.
 
 Worker-node
 ===========
-The worker_node code is inside the Client package, it should move into its own package.
+The worker-node code contains the launching bash script and the python CLI.
+The latter runs the actual customer job as a separate process via popen.
 
-If Jobmon was only supporting UGE then the worker-node code could be moved
-to a new top-level package, named worker-node.
-However, Jobmon will control jobs on UGE, Azure, and SLURM in the near future, so it will
-need a package structure.
-UGE and Slurm can probably share the same execution_wrapper because they both run on Linux.
-Azure needs a different execution wrapper.
-What matters is the worker node operating environment (Linux vs docker), not the cluster OS.
-Therefore this package will be moved as part of the port to Azure.
 
 Server & Services
 =================
@@ -71,9 +84,11 @@ Server & Services
 The server package contains the kubernetes services, plus the model objects for communicating
 to the mysql database.
 
-As of 2.0 (Guppy) the Jobmon production server is deployed as a series of Kubernetes containers.
+As of 2.0 (Guppy) the Jobmon production server is deployed as Kubernetes containers.
 Prior to 1.0.3 Jobmon, services were deployed using docker. That docker capability will return
 in 2.2 as the "Bootable on a Laptop" feature.
+
+HERE
 
 Each container is responsible for the routes from one external system or client.
 The containers are organized according to the load they carry, so that they can scale independently:
@@ -120,11 +135,6 @@ this logic will likely eventually be refactored into the web service.
 Python Client
 =============
 
-The core client logic is written in Python, available to use from the ``jobmon`` Python package. A Python user can
-install Jobmon into their conda/singularity/etc. environment, and write a control script defining their workflow. The user
-will also need to install a plugin package, which acts as an execution interface into the desired cluster they wish to run
-on. If installing via conda or using ``pip install jobmon[ihme]``, then all IHME-required plugin packages will be installed
-automatically as well (UGE and SLURM).
 
 R Client
 ========

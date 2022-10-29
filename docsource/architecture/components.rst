@@ -2,7 +2,7 @@
 Logical View (aka software layers, Component View)
 **************************************************
 
-TODO Needs Major REvision or Removal. Perhaps just a reference back to COre
+TODO Needs Major Revision or Removal. Perhaps just a reference back to COre
 components? Or is this software layers?
 
 What is a Component?
