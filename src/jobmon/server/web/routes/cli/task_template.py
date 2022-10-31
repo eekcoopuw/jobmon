@@ -338,11 +338,6 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 TaskTemplate,
                 TaskTemplateVersion.task_template_id == TaskTemplate.id,
             )
-            .join(
-                Array,
-                Array.task_template_version_id == TaskTemplateVersion.id,
-                isouter=True,
-            )
         )
 
         sql = (
@@ -351,7 +346,6 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 TaskTemplate.name,
                 Task.id,
                 Task.status,
-                Array.max_concurrently_running,
                 TaskTemplateVersion.id,
             )
             .select_from(join_table)
@@ -379,12 +373,19 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 "RUNNING": 0,
                 "DONE": 0,
                 "FATAL": 0,
-                "MAXC": 0,
-                "task_template_version_id": int(r[5]),
+                "MAXC": "NA",
+                "task_template_version_id": int(r[4]),
             }
         return_dic[int(r[0])]["tasks"] += 1
         return_dic[int(r[0])][_cli_label_mapping[r[3]]] += 1
-        return_dic[int(r[0])]["MAXC"] = r[4] if r[4] is not None else "NA"
+        with session.begin():
+            query_filter = [Array.workflow_id == workflow_id,
+                            Array.task_template_version_id == int(r[4])]
+            sql = select(Array.max_concurrently_running).where(*query_filter)
+            rows = session.execute(sql).all()
+            session.commit()
+        if len(rows) > 0:
+            return_dic[int(r[0])]["MAXC"] = rows[0][0]
     resp = jsonify(return_dic)
     resp.status_code = 200
     return resp
