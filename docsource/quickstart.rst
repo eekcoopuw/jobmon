@@ -39,8 +39,8 @@ For example, a series of jobs that models one disease could be a Workflow.
 A task is a single executable object in the workflow; a command that will be run.
 
 A dependency from Task A to Task B means that B will not execute until A
-has successfully completed. We say that Task A is _upstream_ of Task B.
-Conversely, Task B is _downstream_ of Task A. If A always fails (up to its retry
+has successfully completed. We say that Task A is *upstream* of Task B.
+Conversely, Task B is *downstream* of Task A. If A always fails (up to its retry
 limit) then B will never be started, and the Workflow as a whole will fail.
 
 In general a task can have many upstreams. A Task will not start until all of its

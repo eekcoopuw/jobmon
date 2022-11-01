@@ -309,6 +309,7 @@ so the workflow can be retried.
 3. The traefik controller routes the request to the next jobmon-server container
 
   a. If all containers are at high capacity, a new container is created (within a separate flow).
+
 4. Nginx within the container (part of the tiangolo base image) passes it to uWSGI
 
 

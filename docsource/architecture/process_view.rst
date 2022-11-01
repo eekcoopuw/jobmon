@@ -2,6 +2,9 @@
 Asynchronous Services
 *********************
 
+JObmon has two cron-like asynchronos services. They also are deployed in kubernetes but do
+not expose any web routes.
+
 Usage Integrator
 ================
 

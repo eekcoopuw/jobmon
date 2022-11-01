@@ -20,7 +20,7 @@ Jobmon aims to reduce human pain by providing:
 - Fine-grained job dependencies, including for jobs within "job arrays."
 - An easy-to-use GUI.
 
-Jobmon was originally developed to augment the Universal Grid Engine (UGE)
+Jobmon was originally developed to augment the Univa Grid Engine (UGE)
 and subsequently ported to Slurm when IHME switch from UGE to Slurm.
 
 #################

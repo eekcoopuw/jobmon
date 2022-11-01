@@ -75,7 +75,7 @@ Any noun mentioned in a use case must either be a role or a domain object.
 Domain Objects are capitalized to show that they are defined terms.
 Domain objects might not be implemented in code. For example, Jobmon originally
 had no "cluster" object, although it was added to the code
-when Jobmon gained multiple Diostributors.
+when Jobmon gained multiple Distributors.
 
 A domain object might be implemented by several different pieces of code, depending on its
 location in the deployment architecture. For example, domain objects such as Workflow
