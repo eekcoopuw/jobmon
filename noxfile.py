@@ -118,8 +118,13 @@ def docs(session: Session) -> None:
         'src/jobmon/server/squid_integration',
         'src/jobmon/server/web/main.py'
     )
+
+    # Always delete the output to prevent weird image caching bugs
+    html_output = "out/_html"
+    if os.path.exists(html_output):
+        shutil.rmtree(html_output)
     session.run(
-        "sphinx-build", "docsource", "out/_html",
+        "sphinx-build", "docsource", html_output,
         env={
             "WEB_SERVICE_FQDN": web_service_fqdn,
             "WEB_SERVICE_PORT": web_service_port
