@@ -339,7 +339,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
             select(
                 func.count(),
                 TaskTemplate.id,
-                func.max(TaskTemplateVersion.id),
+                TaskTemplateVersion.id,
                 TaskTemplate.name,
             )
             .where(*query_filter)
@@ -373,6 +373,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
             sql = select(Array.max_concurrently_running).where(*query_filter)
             rows1 = session.execute(sql).all()
             session.commit()
+
         if len(rows1) > 0:
             return_dic[int(r[1])]["MAXC"] = rows1[0][0]
 
@@ -381,8 +382,8 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
             query_filter = [
                 Task.workflow_id == workflow_id,
                 # technically we should use task_template_id, but it's 5 times slower
-                # so far in db, task_template_version_id and task_template_id is one to one
-                # so it should work
+                # so far in db, for each wf, task_template_version_id and task_template_id is one to one
+                # it should work
                 Node.task_template_version_id == int(r[2]),
                 Task.node_id == Node.id,
             ]
