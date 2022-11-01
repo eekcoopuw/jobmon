@@ -46,6 +46,18 @@ class TaskStatus:
     ADJUSTING_RESOURCES = "A"
     ERROR_FATAL = "F"
 
+    LABEL_DICT = {
+        "G": "REGISTERING",
+        "Q": "QUEUED",
+        "I": "INSTANTIATING",
+        "O": "LAUNCHED",
+        "R": "RUNNING",
+        "D": "DONE",
+        "E": "ERROR_RECOVERABLE",
+        "A": "ADJUSTING_RESOURCES",
+        "F": "ERROR_FATAL"
+    }
+
 
 class WorkflowRunStatus:
     """Statuses used for Workflow Runs."""

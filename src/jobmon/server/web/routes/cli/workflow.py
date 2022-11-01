@@ -8,6 +8,7 @@ import pandas as pd
 from sqlalchemy import func, select, update
 import structlog
 
+from jobmon.constants import TaskStatus as TStatus
 from jobmon.constants import WorkflowStatus as Statuses
 from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.task import Task
@@ -503,13 +504,12 @@ def task_details_by_wf_id(workflow_id: int) -> Any:
             select(
                 Task.id,
                 Task.name,
-                TaskStatus.label,
+                Task.status,
                 Task.command,
                 Task.num_attempts,
                 Task.status_date,
                 Task.max_attempts,
             )
-            .join_from(TaskStatus, Task, Task.status == TaskStatus.id)
             .where(
                 Task.workflow_id == workflow_id,
                 Task.node_id == Node.id,
@@ -532,6 +532,8 @@ def task_details_by_wf_id(workflow_id: int) -> Any:
     )
 
     result = [dict(zip(column_names, row)) for row in rows]
+    for r in result:
+        r["task_status"] = TStatus.LABEL_DICT[r["task_status"]]
 
     res = jsonify(tasks=result)
     res.return_code = StatusCodes.OK

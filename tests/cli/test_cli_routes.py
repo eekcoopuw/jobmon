@@ -665,3 +665,33 @@ def test_get_tt_error_log_viz(client_env, db_engine):
     assert len(msg) == 1
     assert msg[0]["task_id"] == t2.task_id
     assert "command not found" in msg[0]["error"]
+
+
+def test_task_details_by_wf_id(client_env, db_engine):
+    from jobmon.client.api import Tool
+
+    t = Tool(name="task_detail_tool")
+    wfids = []
+    wf = t.create_workflow(name="i_am_a_fake_wf_vv")
+    tt1 = t.get_task_template(
+        template_name="tt_test", command_template="echo {arg}", node_args=["arg"]
+    )
+    t1 = tt1.create_task(
+        arg=1,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 2},
+    )
+    wf.add_tasks([t1])
+    wf.bind()
+    wf._bind_tasks()
+    wfids.append(wf.workflow_id)
+    app_route = f"/task_table_viz/{wf.workflow_id}"
+    return_code, msg = wf.requester.send_request(
+        app_route=app_route, message={"tt_name": "tt_test"}, request_type="get"
+    )
+    assert return_code == 200
+    tasks = msg["tasks"]
+    assert len(tasks) == 1
+    assert tasks[0]["task_command"] == "echo 1"
+    assert tasks[0]["task_name"] == "tt_test_arg-1"
+    assert tasks[0]["task_status"] == "REGISTERING"
