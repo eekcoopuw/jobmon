@@ -562,15 +562,20 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
         cluster_name="sequential",
         compute_resources={"queue": "null.q", "num_cores": 4},
     )
+    t3 = tt1.create_task(
+        arg=3,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 4},
+    )
     tt2 = t.get_task_template(
         template_name="tt_2", command_template="{arg}", node_args=["arg"]
     )
-    t3 = tt2.create_task(
+    t4 = tt2.create_task(
         arg="pwd",
         cluster_name="sequential",
         compute_resources={"queue": "null.q", "num_cores": 2},
     )
-    wf.add_tasks([t1, t2, t3])
+    wf.add_tasks([t1, t2, t3, t4])
     wf.bind()
     wf._bind_tasks()
     # set one task to F to test TT with more than one task status
@@ -587,8 +592,8 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     return_code, msg = wf.requester.send_request(
         app_route=app_route, message={}, request_type="get"
     )
-    assert msg[str(tt1._task_template_id)]["tasks"] == 2
-    assert msg[str(tt1._task_template_id)]["PENDING"] == 1
+    assert msg[str(tt1._task_template_id)]["tasks"] == 3
+    assert msg[str(tt1._task_template_id)]["PENDING"] == 2
     assert msg[str(tt1._task_template_id)]["DONE"] == 0
     assert msg[str(tt1._task_template_id)]["FATAL"] == 1
     assert msg[str(tt1._task_template_id)]["RUNNING"] == 0
@@ -615,8 +620,8 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     return_code, msg = wf.requester.send_request(
         app_route=app_route, message={}, request_type="get"
     )
-    assert msg[str(tt1._task_template_id)]["tasks"] == 2
-    assert msg[str(tt1._task_template_id)]["PENDING"] == 1
+    assert msg[str(tt1._task_template_id)]["tasks"] == 3
+    assert msg[str(tt1._task_template_id)]["PENDING"] == 2
     assert msg[str(tt1._task_template_id)]["DONE"] == 0
     assert msg[str(tt1._task_template_id)]["FATAL"] == 1
     assert msg[str(tt1._task_template_id)]["RUNNING"] == 0
