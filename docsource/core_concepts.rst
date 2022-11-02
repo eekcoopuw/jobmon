@@ -253,14 +253,14 @@ The Jobmon DAG and execution algorithm is similar to a programming language.
 A TaskTemplate is analogous to a function call.
 The formal arguments are the named Node Args in the call that creates the
 TaskTemplate. The actual arguments are the values of the NOdeArgs when the
-Workflow is created. For example, imagine a TaskTemplate created to parallelize
+WOrkflow is created. For example, imagine a TaskTemplate created to parallelize
 a disease model over locations. The TaskTemplate has a NodeArg named location_id.
 When the workflow is created an a list of location_ids is passed to the Workflow,
 which Jobmon uses to create a set of Tasks from that Template, one per location_id.
 This is analogous to calling a function in a for-loop over those location-ids.
 
 A Task is analogous to a function, but in this case it is the _intention to call that function._
-When the workflow is executed, a TaskInstance created represents an actual call
+When the workflow is executed, aeac _TaskInstance created represents an actual call
 to that function, analogous to a runtime call and its stack frame.
 
 Abstract, Concrete, and Runtime Objects

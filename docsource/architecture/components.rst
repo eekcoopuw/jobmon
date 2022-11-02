@@ -2,57 +2,66 @@
 Logical View (aka software layers, Component View)
 **************************************************
 
-TODO Needs Major Revision or Removal. Perhaps just a reference back to COre
-components? Or is this software layers?
 
-What is a Component?
-
-Components are mini-products. Control and responsibility are their defining characteristics.
-
-In the source control system a component is one directory tree.
-It contains every kind of code needed for that component: Python, sql, javascript, etc.
-
-Suppose we needed to add authentication and authorisation to the rate limiting feature in jobmon.
-For this example, also assume that we could not find an existing external system for people,
-organizations, and their relationships.
-Therefore we need to construct an Organization component that is completely responsible for that area.
-It will have uses cases for:
-
-- CRUD a user (full CRUD)
-- CRUD a team (full CRUD)
-- CRUD an application
-- Get escalation path for a user
-- Is user authorized to control this application?
-
-CRUD = Create, Read, Update, Delete of a Domain Object.
-
-It needs code at the following layers:
-
-- HTML and Javascript for the CRUD screens
-- Python API and then code  for validating CRUD screens, computing escalation paths, authentication etc
-- Database tables
-
-The different kinds of code are deployed in different places.
-Organize the source tree by the are of responsibility, it makes it easier for a maintenance programmer
-
-FYI CRUD = Create, Read, Update, Delete.
-
-*In hindsight I think the following is a little Hyper-modern: abstractly appealing, but too fiddly in practise.*
-Systems rarely need to be so modular that new ones can be
-composed from arbitrary subsets.
-
-In practise each deployment unit has its own source tree.
-The code would be clearer if the relevant fragment of each Domain Object was
-clearly identified in each deployment unit.
-Jobmon is probably one component in its own right, as is
-QPID, UGE, and the organizational component described below.
+The Jobmon Domain objects are split between the deployment units. For example, there are the following Task classes:
 
 
-Components in Guppy
-===================
+- jobmon.client.task
+- jobmon.server.web.models.task
+- jobmon.server.web.routes.task
+- jobmon.server.web.fsm.task
+- jobmon.serializers::SerializeSwarmTask
 
-The Python packages are currently organized according to the deployment architecture,
-not by the major noun, although each deployment unit specializes in certain Domain Objects.
 
-Perhaps components make sense within a deployment unit,
-and this section should be repeated within each of the three deployment groups.
+Most of the network plumbing is provided by Flask and the tiangolo image. That image includes:
+
+- NGINX
+- uWSGI
+- Python 3.8
+- Flask
+
+For HTTP requests to the server, the client and worker_node both use the class jobmon.requestor
+The requestor uses the Python tenacity package for automatic retries to smooth over transient networking and
+load issues. The requestor distinguishes between 5xx errors (server errors) and 423 errors (retryable transactions).
+The latter can be caused by race conditions that were detected and raised by the database as deliberate design.
+
+Config
+======
+
+Jobmon takes configuration from four places, in order of priority:
+
+1. Values set in customer code and passed to calls to Jobmon
+#. Values set as environment variables
+#. Values set in configuration files
+#. Default values in code
+
+This logic is handled by the jobmon.configuration.JobmonConfig class
+
+
+Repositories
+============
+
+Choosing the correct number of repositories is tricky. Too many repositories create a complex and fragile
+build system, especially when a change must be applied synchronously to multiple repositories at the same time.
+The different forces acting are:
+
+* Entities that version separately should be in separate repositories
+* Testing must be easy
+* Version errors must be hard to make
+
+Jobmon-core is a repository. The pytests in that repository test the machinery of Jobmon using the dummy,
+sequential, and multiprocessor distributors.
+
+Each plugin is a repository:
+
+* Slurm
+* UGE
+
+The entire deployment of the assembly at IHME is controlled by a final repository – jobmon_IHME-TAD.
+TAD stands for "Test and Deploy." The repo contains version, test, and config information to create an
+installation containing the correct versions of jobmon-core, jobmon_slurm, and (until recently) jobmon_uge.
+The resulting assembly is automatically deployed to kubernetes and smoke-tested.
+
+Any other installation should have a similar repository. A future release will include a skeletal TAD repository.
+
+
