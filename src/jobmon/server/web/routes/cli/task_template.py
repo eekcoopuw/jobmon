@@ -327,7 +327,18 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-        # Arrays were introduced in 3.1.0, hence the outer-join for 3.0.* workflows
+        # We used to join all the tables to get all tasks, and then count for each status.
+        # A wf with huge number of tasks may encounter performance disaster.
+        # Break it into three query.
+        # 1. get the total task with each task template. This query can be further break down
+        #    to not join the task_tempate, but just task_tempate_version. However, to test with
+        #    a wf with 50K tasks, the performance looks ok. So leave it.
+        # 2. get the concurrency limit from the Array table. This is a one line query, so it's
+        #    much faster than join the array table in step 1.
+        # 3. then for each WF & TT, group the status to fill in the rest of the info for GUI
+        # I wonder in worst cases, say, a wf with 50k tt of 1 task each, this is slower,
+        # but I haven't seen that kind of wf
+
         query_filter = [
             Task.workflow_id == workflow_id,
             Task.node_id == Node.id,
@@ -384,12 +395,16 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
             query_filter = [
                 Task.workflow_id == workflow_id,
                 # technically we should use task_template_id, but it's 5 times slower
-                # so far in db, for each wf, tv id and tat id is one to one
+                # so far in db, for each wf, tv id and that id is one to one
                 # it should work
                 Node.task_template_version_id == int(r[2]),
                 Task.node_id == Node.id,
             ]
-            sql = select(func.count(), Task.status).where(*query_filter)
+            sql = (
+                select(func.count(), Task.status)
+                .where(*query_filter)
+                .group_by(Task.status)
+            )
             rows2 = session.execute(sql).all()
             session.commit()
         for rr in rows2:
