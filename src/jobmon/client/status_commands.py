@@ -152,9 +152,7 @@ def task_template_resources(
     return_code, response = requester.send_request(
         app_route=app_route, message=message, request_type="post"
     )
-    print("********************************************")
-    print(response)
-
+    
     def format_bytes(value: Any) -> Optional[str]:
         if value is not None:
             return str(value) + "B"
