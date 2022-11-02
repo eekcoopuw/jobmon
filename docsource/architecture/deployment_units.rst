@@ -4,11 +4,7 @@ Deployment View
 *Which pieces of code are deployed where.*
 
 Jobmon-core is one repository, but its code is deployed in several places around the cluster
-and supporting infrastructure. Be very aware of the difference between:
-
-1. Where the Jobmon services are deployed (kubernetes, docker, or as Linux process on a cluster node), and
-2. Where the Jobmon-controlled jobs are running.
-
+and supporting infrastructure.
 Sections of Jobmon are deployed in multiple places:
 
 - Python Client, in the same process as the Python control script
@@ -17,7 +13,7 @@ Sections of Jobmon are deployed in multiple places:
 - Server, as a Kubernetes service, defined below
 - Usage integrator, also a central Kubernetes Service
 
-Only one Python wheel is built. Therefore, the total codebase is deployed to each of the above locations,
+Only one Python wheel is built. Therefore, the total codebase is actually deployed to each of the above locations,
 but only the relevant section is active.
 
 
@@ -52,19 +48,19 @@ to build a simple wrapper around the Python client.
 The Python interpreter is dynamically loaded into the same process as the R interpreter.
 This allows a user to create and manipulate the necessary Jobmon
 objects without needing to write any Python.
-The code for the R client does not live in this repository, but in the SCIC/jobmonr
+The code for the R client does not live in this repository; it is in the SCIC/jobmonr
 repository.
 
 Because there is no self-contained execution logic in the R client,
 users do need to take a dependency on a Python client.
-This is done by setting the RETICULATE_PYTHON environment variable *prior* to loading the jobmonr library.
+This is done by setting the ``RETICULATE_PYTHON`` environment variable *prior* to loading the jobmonr library.
 This environment
 variable should be a file path to the Python executable within a conda environment that has Jobmon installed,
 generally ending with something like ``/miniconda3/bin/python``.
 If not set by a user, then the R client will default to a centrally
 installed conda environment that's managed by the Scicomp team.
 
-**Note**: A key limitation of any reticulate package is that you can only have one Python interpreter in memory.
+**A key limitation of any reticulate package is that you can only have one Python interpreter in memory.**
 This means that
 if you want to use another reticulate package in the same control script,
 you will need to install all dependencies needed for
@@ -118,7 +114,7 @@ The main advantages are:
 
 1. The Python client becomes stateless. Once the workflow is started, the client can disappear and
    the workflow will continue to run. It won't matter if the Operator forgot to use tmux or their session
-   dies for some other reason.
+   dies for some reason.
 2. The DAG traversal service will now have a publicly-known URL and can be cleanly controlled: stopped, paused etc
 3. The R-client-Reticulate linkage can be replaced by a thin R client that just uses S6-class and http
    to communicate with
@@ -135,7 +131,7 @@ Services
 ========
 
 The server package contains the kubernetes services, plus the model objects for communicating
-to the mysql database. THe server package is deployed as a Docker container on Kubernetes.
+to the mysql database. The server package is deployed as a Docker container on Kubernetes.
 Prior to 1.0.3 Jobmon, services were deployed using docker directly.
 The docker-only capability is likely to return
 as an optional "Bootable on a Laptop" deployment capability.
@@ -161,15 +157,14 @@ services:
 +-------------------+-----------------------------------------------------------------------+
 
 In earlier versions Jobmon had multiple types of python images, one for each
-major Domain object. However, it scaled inefficiently because many "half-pods" were wasted.
+major domain object. However, it scaled inefficiently because many "half-pods" were wasted.
 It is simpler and more efficient to have all the Python services in one container.
 
 .. The architecture diagrams are SVG, stored in separate files.
 .. SVG is renderable in browsers, and can be edited in inkscape or on draw.io
 .. image:: ./diagrams/deployment_and_message_flow.svg
 
-And the flow for monitoring
-
+And the flow for monitoring:
 
 .. image:: ./diagrams/k8s_monitoring_architecture.svg
 
@@ -183,7 +178,7 @@ That image is then used to build a series of Docker containers, which are groupe
 
 Since we often need to manage multiple versions of the Jobmon service at one time,
 the majority of deployment units are grouped together into a single **namespace**.
-The  Rancher screen show below shows two separate deployments of Jobmon (3.0.0 and 3.1.5)
+The  Rancher screenshot below shows two separate deployments of Jobmon (3.0.0 and 3.1.5)
 each running in completely separate namespaces.
 Within each namespace is also an Elastic monitoring stack,
 responsible for log aggregation and performance monitoring of the Jobmon service.
@@ -206,7 +201,8 @@ However, server-side updates with no client-facing changes often
 are "hot deployed" so that users can take advantage of server upgrades without needing to upgrade their clients.
 While this is fine for the service as the Jobmon service is stateless,
 the reaper is not - it depends on database state,
-so old reapers cannot be spun down and reinstantiated like the service deployment can.
+so old reapers cannot be spun down and reinstantiated like the service deployment can while
+any of their matching clients exit.
 
 The solution is to move the reapers to a separate namespace.
 The jobmon-reapers namespace exposes one service per k8s namespace, and
@@ -226,7 +222,6 @@ machine within the jobmon-server container. uWSGI not only carries the messages,
 scales the number of worker-threds, see below.
 In our architecture, uWSGI runs inside each of the docker containers created by Kubernetes [#f1]_ .
 uWSGI consists of a main process that manages a series of flask worker processes.
-
 
 
 Autoscaling Behavior
@@ -282,11 +277,11 @@ load balancing.
 
 Traefik
 =======
-Traefik (pronounced *tray-fick*) is an open-source edge router
+Traefik (pronounced *tray-fick*) is an open-source edge router.
 Traefik parses the
 incoming URL and routes the message to the appropriate back-end service.
 It also load-balances across the set of kubernetes instances for a service.
-For example, an incoming series of /server/* routes will be routed between each of the initial 5 jobmon-server pods.
+For example, an incoming series of /server/* routes will be routed between each of the initial five jobmon-server pods.
 However, the load handled by the Jobmon service is not always equal.
 If Kubernetes autoscales as decribed above, then Traefik automatically detects the new containers.
 It will then divert some incoming routes to the newly created containers in order
@@ -303,25 +298,21 @@ so the workflow can be retried.
 
 ``wfr.update_status("E")``
 
-1. The update_status function constructs the **/swarm/workflow_run/<workflow_run_id>/update_status** route,
-   which is sent by the ``requester`` Python package within the client to the configured IP address.
-2. Metallb  sends the request to Traefik
-3. The traefik controller routes the request to the next jobmon-server container
+1. The update_status function constructs a message to the route
+   route ``/swarm/workflow_run/<workflow_run_id>/update_status``
+#. The ``requester`` Python package within the client sends it to a configured IP address owned by Metallb.
+#. Metallb  sends the request to Traefik
+#. The Traefik controller routes the request to the next jobmon-server container
+#. Nginx within the container (part of the tiangolo base image) passes it to uWSGI
+#. uWSGI, running inside the container, assigns a worker-thread to handle the request.
+   a. The main process either assigns a worker to the request, or instantiates a new worker process to handle the request if load
+      is high within the container.
+#. The requested arrives at Python-Flask
+#. (Finally) Flask calls the actual Jobmon code to handle the request.
+#. The response data is sent back to the main process.
+#. The main process sends the returned data back to the client application.
 
-  a. If all containers are at high capacity, a new container is created (within a separate flow).
-
-4. Nginx within the container (part of the tiangolo base image) passes it to uWSGI
-
-
-5. uWSGI, running inside the container, assigns a worker-thread to handle the request.
-
-  a. The main process either assigns a worker to the request, or instantiates a new worker process to handle the request.
-
-6. The requested arrives at PythonFlask
-7. (FInally) Flask calls the actual Jobmon code to handle the request.
-8. the returned data is sent back to the main process.
-9. The main process sends the returned data back to the client application.
-
+Kubernetes is asynchronously scaling the number of pods up and down.
 
 Performance Monitoring
 ======================
