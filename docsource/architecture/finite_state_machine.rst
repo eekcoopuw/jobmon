@@ -127,7 +127,7 @@ to resource enforcement as follows:
    Task Instance state changes).
 #. The reconciler in the Python client moves the Task Instance
    into state A (Adjusting Resources) if the Task Instance has not reached its retry limit.
-#. **NEED HELP HERE **The Task Instance FSM retrieve Tasks queued for instantiation and
+#. **NEED HELP HERE** The Task Instance FSM retrieve Tasks queued for instantiation and
    jobs marked for Adjusting Resources. It adds a new row with adjusted
    resources to the executor parameters set table for that job, and mark
    those as the active resources for that job to use, then it will queue it
