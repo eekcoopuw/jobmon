@@ -116,6 +116,7 @@ class AppFactory:
     ) -> Flask:
         """Create a Flask app."""
         app = Flask(__name__)
+        app.config["CORS_HEADERS"] = "Content-Type"
         app.config.from_mapping(self.flask_config)
 
         if self.use_apm:
