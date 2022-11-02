@@ -55,7 +55,7 @@ class TaskStatus:
         "D": "DONE",
         "E": "ERROR_RECOVERABLE",
         "A": "ADJUSTING_RESOURCES",
-        "F": "ERROR_FATAL"
+        "F": "ERROR_FATAL",
     }
 
 

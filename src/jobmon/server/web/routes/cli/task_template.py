@@ -368,8 +368,10 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
 
         # fill in max concurrency limit
         with session.begin():
-            query_filter = [Array.workflow_id == workflow_id,
-                            Array.task_template_version_id == int(r[2])]
+            query_filter = [
+                Array.workflow_id == workflow_id,
+                Array.task_template_version_id == int(r[2]),
+            ]
             sql = select(Array.max_concurrently_running).where(*query_filter)
             rows1 = session.execute(sql).all()
             session.commit()
@@ -382,15 +384,12 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
             query_filter = [
                 Task.workflow_id == workflow_id,
                 # technically we should use task_template_id, but it's 5 times slower
-                # so far in db, for each wf, task_template_version_id and task_template_id is one to one
+                # so far in db, for each wf, tv id and tat id is one to one
                 # it should work
                 Node.task_template_version_id == int(r[2]),
                 Task.node_id == Node.id,
             ]
-            sql = select(
-                func.count(),
-                Task.status
-            ).where(*query_filter)
+            sql = select(func.count(), Task.status).where(*query_filter)
             rows2 = session.execute(sql).all()
             session.commit()
         for rr in rows2:

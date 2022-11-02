@@ -12,7 +12,6 @@ from jobmon.constants import TaskStatus as TStatus
 from jobmon.constants import WorkflowStatus as Statuses
 from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.task import Task
-from jobmon.server.web.models.task_status import TaskStatus
 from jobmon.server.web.models.task_template import TaskTemplate
 from jobmon.server.web.models.task_template_version import TaskTemplateVersion
 from jobmon.server.web.models.tool import Tool
