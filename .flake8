@@ -37,6 +37,7 @@ per-file-ignores =
     src/jobmon/server/web/routes/cli/__init__.py:F401, E402
     src/jobmon/server/web/routes/fsm/__init__.py:F401, E402, I202
     src/jobmon/server/web/routes/reaper/__init__.py:F401, E402
+    src/jobmon/client/distributor/api.py:F401
 max-line-length = 95
 
 # import order

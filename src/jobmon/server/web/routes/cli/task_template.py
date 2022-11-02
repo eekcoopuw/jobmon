@@ -4,6 +4,7 @@ import json
 from typing import Any, Dict, List
 
 from flask import jsonify, request
+from flask_cors import cross_origin
 import numpy as np
 import scipy.stats as st  # type:ignore
 from sqlalchemy import select
@@ -192,8 +193,14 @@ def get_most_popular_queue() -> Any:
 
 
 @blueprint.route("/task_template_resource_usage", methods=["POST"])
+@cross_origin()
 def get_task_template_resource_usage() -> Any:
-    """Return the aggregate resource usage for a give TaskTemplate."""
+    """Return the aggregate resource usage for a give TaskTemplate.
+
+    Need to use cross_origin decorator when using the GUI to call a post route.
+    This enables Cross Origin Resource Sharing (CORS) on the route. Default is
+    most permissive settings.
+    """
     data = request.get_json()
     try:
         task_template_version_id = data.pop("task_template_version_id")
@@ -270,17 +277,17 @@ def get_task_template_resource_usage() -> Any:
         min_runtime = int(np.min(runtimes))
         max_runtime = int(np.max(runtimes))
         mean_runtime = round(float(np.mean(runtimes)), 2)
-        median_mem = round(float(np.percentile(runtimes, 50)), 2)
-        median_runtime = round(float(np.percentile(mems, 50)), 2)
+        median_mem = round(float(np.percentile(mems, 50)), 2)
+        median_runtime = round(float(np.percentile(runtimes, 50)), 2)
 
         if ci is None:
-            ci_mem = [float("nan"), float("nan")]
-            ci_runtime = [float("nan"), float("nan")]
+            ci_mem = [None, None]
+            ci_runtime = [None, None]
         else:
             try:
                 ci = float(ci)
 
-                def _calculate_ci(d: List, ci: float) -> List[float]:
+                def _calculate_ci(d: List, ci: float) -> List[Any]:
                     interval = st.t.interval(
                         alpha=ci, df=len(d) - 1, loc=np.mean(d), scale=st.sem(d)
                     )
@@ -290,9 +297,9 @@ def get_task_template_resource_usage() -> Any:
                 ci_runtime = _calculate_ci(runtimes, ci)
 
             except ValueError:
-                logger.warn(f"Unable to convert {ci} to float. Use NaN.")
-                ci_mem = [float("nan"), float("nan")]
-                ci_runtime = [float("nan"), float("nan")]
+                logger.warn(f"Unable to convert {ci} to float. Use None.")
+                ci_mem = [None, None]
+                ci_runtime = [None, None]
 
         resource_usage = SerializeTaskTemplateResourceUsage.to_wire(
             num_tasks,
@@ -345,6 +352,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 Task.id,
                 Task.status,
                 Array.max_concurrently_running,
+                TaskTemplateVersion.id,
             )
             .select_from(join_table)
             .where(Task.workflow_id == workflow_id)
@@ -372,6 +380,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 "DONE": 0,
                 "FATAL": 0,
                 "MAXC": 0,
+                "task_template_version_id": int(r[5]),
             }
         return_dic[int(r[0])]["tasks"] += 1
         return_dic[int(r[0])][_cli_label_mapping[r[3]]] += 1
@@ -381,11 +390,11 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
     return resp
 
 
-@blueprint.route("/tt_error_log_viz/<tt_id>", methods=["GET"])
-def get_tt_error_log_viz(tt_id: int) -> Any:
+@blueprint.route("/tt_error_log_viz/<wf_id>/<tt_id>", methods=["GET"])
+def get_tt_error_log_viz(tt_id: int, wf_id: int) -> Any:
     """Get the error logs for a task template id for GUI."""
     # return DS
-    return_dic: Dict[int, Any] = dict()
+    return_list: List[Any] = []
 
     session = SessionLocal()
     with session.begin():
@@ -393,6 +402,7 @@ def get_tt_error_log_viz(tt_id: int) -> Any:
             TaskTemplateVersion.task_template_id == tt_id,
             Node.task_template_version_id == TaskTemplateVersion.id,
             Task.node_id == Node.id,
+            Task.workflow_id == wf_id,
             TaskInstance.task_id == Task.id,
             TaskInstanceErrorLog.task_instance_id == TaskInstance.id,
         ]
@@ -417,7 +427,15 @@ def get_tt_error_log_viz(tt_id: int) -> Any:
         session.commit()
     for r in rows:
         # dict: {<error log id>: [<tid>, <tiid>, <error time>, <error log>}
-        return_dic[int(r[2])] = [r[0], r[1], r[3], r[4]]
-    resp = jsonify(return_dic)
+        return_list.append(
+            {
+                "task_id": r[0],
+                "task_instance_id": r[1],
+                "task_instance_err_id": r[2],
+                "error_time": r[3],
+                "error": r[4],
+            }
+        )
+    resp = jsonify(return_list)
     resp.status_code = 200
     return resp

@@ -2,7 +2,7 @@
 import ast
 from datetime import datetime
 import json
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class SerializeDistributorTask:
@@ -386,8 +386,8 @@ class SerializeTaskTemplateResourceUsage:
         mean_runtime: Optional[float] = None,
         median_mem: Optional[float] = None,
         median_runtime: Optional[float] = None,
-        ci_mem: Optional[List[float]] = None,
-        ci_runtime: Optional[List[float]] = None,
+        ci_mem: Optional[List[Any]] = None,
+        ci_runtime: Optional[List[Any]] = None,
     ) -> tuple:
         """Submit the TaskTemplate resource usage information to the database."""
         return (

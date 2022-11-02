@@ -146,8 +146,8 @@ def test_tt_resource_usage(db_engine, client_env):
             "min_runtime": 10,
             "max_runtime": 30,
             "mean_runtime": 20.0,
-            "median_mem": "20.0B",
-            "median_runtime": 600.0,
+            "median_mem": "600.0B",
+            "median_runtime": 20.0,
             "ci_mem": [-145.24, 1345.24],
             "ci_runtime": [-4.84, 44.84],
         }
@@ -173,10 +173,10 @@ def test_tt_resource_usage(db_engine, client_env):
             used_task_template_resources["median_runtime"]
             == resources["median_runtime"]
         )
-        assert np.isnan(used_task_template_resources["ci_mem"][0])
-        assert np.isnan(used_task_template_resources["ci_mem"][1])
-        assert np.isnan(used_task_template_resources["ci_runtime"][0])
-        assert np.isnan(used_task_template_resources["ci_runtime"][1])
+        assert used_task_template_resources["ci_mem"][0] is None
+        assert used_task_template_resources["ci_mem"][1] is None
+        assert used_task_template_resources["ci_runtime"][0] is None
+        assert used_task_template_resources["ci_runtime"][1] is None
 
         # Check the aggregate resources for the first workflow
         used_task_template_resources = template.resource_usage(
@@ -190,8 +190,8 @@ def test_tt_resource_usage(db_engine, client_env):
             "min_runtime": 10,
             "max_runtime": 20,
             "mean_runtime": 15.0,
-            "median_mem": "15.0B",
-            "median_runtime": 450.0,
+            "median_mem": "450.0B",
+            "median_runtime": 15.0,
             "ci_mem": [-1455.93, 2355.93],
             "ci_runtime": [-48.53, 78.53],
         }
@@ -222,8 +222,8 @@ def test_tt_resource_usage(db_engine, client_env):
             "min_runtime": 10,
             "max_runtime": 30,
             "mean_runtime": 20.0,
-            "median_mem": "20.0B",
-            "median_runtime": 600.0,
+            "median_mem": "600.0B",
+            "median_runtime": 20.0,
             "ci_mem": [-145.24, 1345.24],
             "ci_runtime": [-4.84, 44.84],
         }
@@ -281,8 +281,8 @@ def test_tt_resource_usage(db_engine, client_env):
             "min_runtime": 10,
             "max_runtime": 30,
             "mean_runtime": 20.0,
-            "median_mem": "20.0B",
-            "median_runtime": 600.0,
+            "median_mem": "600.0B",
+            "median_runtime": 20.0,
             "ci_mem": [-3211.86, 4411.86],
             "ci_runtime": [-107.06, 147.06],
         }
@@ -314,8 +314,8 @@ def test_tt_resource_usage(db_engine, client_env):
             "min_runtime": 20,
             "max_runtime": 30,
             "mean_runtime": 25.0,
-            "median_mem": "25.0B",
-            "median_runtime": 750.0,
+            "median_mem": "750.0B",
+            "median_runtime": 25.0,
             "ci_mem": [-8798.51, 10298.51],
             "ci_runtime": [-293.28, 343.28],
         }
@@ -348,8 +348,8 @@ def test_tt_resource_usage(db_engine, client_env):
             "min_runtime": 30,
             "max_runtime": 30,
             "mean_runtime": 30.0,
-            "median_mem": "30.0B",
-            "median_runtime": 900.0,
+            "median_mem": "900.0B",
+            "median_runtime": 30.0,
         }
         assert used_task_template_resources["num_tasks"] == resources["num_tasks"]
         assert used_task_template_resources["min_mem"] == resources["min_mem"]
@@ -363,10 +363,10 @@ def test_tt_resource_usage(db_engine, client_env):
             used_task_template_resources["median_runtime"]
             == resources["median_runtime"]
         )
-        assert np.isnan(used_task_template_resources["ci_mem"][0])
-        assert np.isnan(used_task_template_resources["ci_mem"][1])
-        assert np.isnan(used_task_template_resources["ci_runtime"][0])
-        assert np.isnan(used_task_template_resources["ci_runtime"][1])
+        assert used_task_template_resources["ci_mem"][0] is None
+        assert used_task_template_resources["ci_mem"][1] is None
+        assert used_task_template_resources["ci_runtime"][0] is None
+        assert used_task_template_resources["ci_runtime"][1] is None
 
         node_args = '{"arg_3":["GrandTeton"]}'
         command_str = (
@@ -392,10 +392,10 @@ def test_tt_resource_usage(db_engine, client_env):
             used_task_template_resources["median_runtime"]
             == resources["median_runtime"]
         )
-        assert np.isnan(used_task_template_resources["ci_mem"][0])
-        assert np.isnan(used_task_template_resources["ci_mem"][1])
-        assert np.isnan(used_task_template_resources["ci_runtime"][0])
-        assert np.isnan(used_task_template_resources["ci_runtime"][1])
+        assert used_task_template_resources["ci_mem"][0] is None
+        assert used_task_template_resources["ci_mem"][1] is None
+        assert used_task_template_resources["ci_runtime"][0] is None
+        assert used_task_template_resources["ci_runtime"][1] is None
 
 
 def test_max_mem(db_engine, client_env):
