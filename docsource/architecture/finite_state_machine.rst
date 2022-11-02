@@ -29,7 +29,7 @@ signal for the next deployment unit to begin working, or 2. that an unrecoverabl
 has been encountered. The deployment unit flow is below; the signal state is listed on the
 arrow.
 
-.. image:: deployment_unit_fsm.svg
+.. image:: diagrams/deployment_unit_fsm.svg
 
 Universal Finite State Machine
 ##############################
@@ -60,7 +60,7 @@ below describe the universal finite state machine.
 - FAILED (F) = Encountered a fatal error or have hit maximum number of attempts.
 - HALTED (H) = Execution was stopped mid-run.
 
-.. image:: shared_fsm.svg
+.. image:: diagrams/shared_fsm.svg
 
 Detailed Task FSM
 *****************
@@ -68,7 +68,7 @@ Detailed Task FSM
 Each **-ing** state on a stateful deployment unit has a sub-machine. Filling in the
 sub-machine for TaskInstance gives the figure below.
 
-.. image:: task_instance_fsm.svg
+.. image:: diagrams/task_instance_fsm.svg
 
 Of note are the myriad of error states that can occur on the scheduler and worker node. Each
 results in a Triaging state in the universal FSM. Each unique state is driven by a different
@@ -94,7 +94,7 @@ Detailed Workflow FSM
 
 Filling in the sub-machine for Workflow Run give the figure below.
 
-.. image:: workflow_run_fsm.svg
+.. image:: diagrams/workflow_run_fsm.svg
 
 The key difference between the Workflow Run FSM and the Task Instance FSM is that the Workflow
 Run FSM mandates the worker node to signal back that the process has successfully halted

@@ -2,6 +2,14 @@
 Monitoring and Debugging
 ************************
 
+Graphical User Interface (GUI)
+##############################
+The Jobmon GUI allows users to see the status of their workflows.
+In general any status qwery in the CLI is also available in the GUI
+and should be easier to find.
+
+The GUI is at: `<http://jobmon-gui.ihme.washington.edu>`_
+
 .. _status-commands-label:
 
 Jobmon Command Line Interface (CLI) Status Commands
@@ -11,7 +19,7 @@ command line.
 
 To use the status commands:
     1. Open a new terminal window
-    2. SSH in to the cluster
+    2. SSH in to the cluster slogin node
     3. srun
     4. Activate the same conda environment that your tasks are running in
 
@@ -19,8 +27,8 @@ There are currently three supported commands:
 
 workflow_status
 ***************
-    Entering ``jobmon workflow_status`` in to the command line will show you
-    a table of how many tasks are in each state within that workflow. You
+    Entering ``jobmon workflow_status`` at the command line will show you
+    a table of the number of tasks that are in each state within that workflow. You
     can specify the workflow by user using the -u flag. For example:
     ``jobmon workflow_status -u {user}``. You can also specify the workflow
     using the -w flag. For example: ``jobmon workflow_status -w 9876``.
@@ -93,18 +101,7 @@ Running Queries
 If the command line status commands do not provide the information you need,
 you can query the Jobmon database.
 
-By default, your Workflow talks to our centrally-hosted Jobmon server
-(scicomp-maria-db-p01.db.ihme.washington.edu). You can access the
-Jobmon database from your favorite database browser (e.g. SequelPro, MySQL Workbench) using
-the credentials::
-
-    host: scicomp-maria-db-p01.db.ihme.washington.edu
-    port: 3306
-    user: read_only
-    pass: docker
-    database: docker
-
-To see previous database connections: https://hub.ihme.washington.edu/display/DataScience/Jobmon+Database+Connections
+.. include:: database-ihme.rst
 
 .. note::
     Jobmon has a persistent database. This means any time the client side of Jobmon is updated
@@ -298,29 +295,29 @@ Jobmon Statuses
 
 Task Instance
 *************
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |     | Status                          | Description                                                                     |
-    +=====+=================================+=================================================================================+
-    |  O  |  LAUNCHED                       | Task instance submitted normally.                                               |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  D  |  DONE                           | Task instance finishes normally.                                                |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  E  |  ERROR                          | Task instance has hit an application error.                                     |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  F  |  ERROR_FATAL                    | Task instance encountered a fatal error; it will not be retried.                |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  I  |  INSTANTIATED                   | Task instance is created.                                                       |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  K  |  KILL_SELF                      | Task instance has been ordered to kill itself if it is still alive.             |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  R  |  RUNNING                        | Task instance starts running normally.                                          |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  U  |  UNKNOWN_ERROR                  | Task instance stops reporting that it's alive and Jobmon can't figure out why.  |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  W  |  NO_DISTRIBUTOR_ID              | Task instance submission has hit a bug and did not receive a distributor_id.    |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  Z  |  RESOURCE_ERROR                 | Task instance died because of an insufficient resource request.                 |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
+    +-----+----------------------------------+---------------------------------------------------------------------------------+
+    |     | Status                           | Description                                                                     |
+    +=====+==================================+=================================================================================+
+    |  B  |  SUBMITTED_TO_BATCH_DISTRIBUTOR  | Task instance submitted to the cluster normally.                                |
+    +-----+----------------------------------+---------------------------------------------------------------------------------+
+    |  D  |  DONE                            | Task instance finishes normally.                                                |
+    +-----+----------------------------------+---------------------------------------------------------------------------------+
+    |  E  |  ERROR                           | Task instance has hit an application error.                                     |
+    +-----+----------------------------------+---------------------------------------------------------------------------------+
+    |  F  |  ERROR_FATAL                     | Task instance encountered a fatal error; it will not be retried.                |
+    +-----+----------------------------------+---------------------------------------------------------------------------------+
+    |  I  |  INSTANTIATED                    | Task instance is created within Jobmon.                                         |
+    +-----+----------------------------------+---------------------------------------------------------------------------------+
+    |  K  |  KILL_SELF                       | Task instance has been ordered to kill itself if it is still alive.             |
+    +-----+----------------------------------+---------------------------------------------------------------------------------+
+    |  R  |  RUNNING                         | Task instance has started running normally.                                     |
+    +-----+----------------------------------+---------------------------------------------------------------------------------+
+    |  U  |  UNKNOWN_ERROR                   | Task instance stops reporting that it's alive and Jobmon can't figure out why.  |
+    +-----+----------------------------------+---------------------------------------------------------------------------------+
+    |  W  |  NO_DISTRIBUTOR_ID               | Task instance submission has hit a bug and did not receive a distributor_id.    |
+    +-----+----------------------------------+---------------------------------------------------------------------------------+
+    |  Z  |  RESOURCE_ERROR                  | Task instance died because of an insufficient resource request.                 |
+    +-----+----------------------------------+---------------------------------------------------------------------------------+
 
 Task
 ****
@@ -400,8 +397,4 @@ Workflow
     |  R  |  RUNNING       | Workflow has a WorkflowRun that is running.                                                         |
     +-----+----------------+-----------------------------------------------------------------------------------------------------+
 
-Graphical User Interface (GUI)
-##############################
-There is a Jobmon GUI that allows users to see the status of their workflows.
 
-Users can access the GUI at: jobmon-gui.ihme.washington.edu
