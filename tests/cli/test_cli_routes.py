@@ -545,6 +545,12 @@ def test_get_workflow_status_viz(tool):
 
 
 def test_get_workflow_tt_status_viz(client_env, db_engine):
+    """This test case covers:
+    1. When the Array entry of wf is empty (older wfs)
+    2. When there are more than one wf using the same tt
+    3. When the wf contains multiple tt
+    4. When a tt in a wf contains tasks in more than one status
+    """
     from jobmon.client.api import Tool
 
     t = Tool(name="gui_tt_progress_test")
@@ -635,6 +641,28 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     assert msg[str(tt2._task_template_id)]["RUNNING"] == 0
     assert msg[str(tt1._task_template_id)]["MAXC"] == "NA"
     assert msg[str(tt2._task_template_id)]["name"] == "tt_2"
+
+    # cover two wf with same tt
+    wf2 = t.create_workflow(name=f"i_am_another_fake_wf")
+    t5 = tt1.create_task(
+        arg=5,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 2},
+    )
+    wf2.add_tasks([t5])
+    wf2.bind()
+    wf2._bind_tasks()
+    app_route = f"/workflow_tt_status_viz/{wf2.workflow_id}"
+    return_code, msg = wf.requester.send_request(
+        app_route=app_route, message={}, request_type="get"
+    )
+    assert msg[str(tt1._task_template_id)]["tasks"] == 1
+    assert msg[str(tt1._task_template_id)]["PENDING"] == 1
+    assert msg[str(tt1._task_template_id)]["DONE"] == 0
+    assert msg[str(tt1._task_template_id)]["FATAL"] == 0
+    assert msg[str(tt1._task_template_id)]["RUNNING"] == 0
+    assert msg[str(tt1._task_template_id)]["MAXC"] == 10000
+    assert msg[str(tt1._task_template_id)]["name"] == "tt_1"
 
 
 def test_get_tt_error_log_viz(client_env, db_engine):
