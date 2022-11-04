@@ -12,6 +12,7 @@ import structlog
 
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
 from jobmon.server.web.models.arg import Arg
+from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.node import Node
 from jobmon.server.web.models.node_arg import NodeArg
 from jobmon.server.web.models.queue import Queue
@@ -326,31 +327,48 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
+        # user subquery as the Array table has to be joined on two columns
+        sub_query = (
+            select(
+                Array.id, Array.task_template_version_id, Array.max_concurrently_running
+            ).where(Array.workflow_id == workflow_id)
+        ).subquery()
+        join_table = (
+            Task.__table__.join(Node, Task.node_id == Node.id)
+            .join(
+                TaskTemplateVersion,
+                Node.task_template_version_id == TaskTemplateVersion.id,
+            )
+            .join(
+                TaskTemplate,
+                TaskTemplateVersion.task_template_id == TaskTemplate.id,
+            )
+            # Arrays were introduced in 3.1.0, hence the outer-join for 3.0.* workflows
+            .join(
+                sub_query,
+                sub_query.c.task_template_version_id == TaskTemplateVersion.id,
+                isouter=True,
+            )
+        )
+
+        sql = (
+            select(
+                TaskTemplate.id,
+                TaskTemplate.name,
+                Task.id,
+                Task.status,
+                sub_query.c.max_concurrently_running,
+                TaskTemplateVersion.id,
+            )
+            .select_from(join_table)
+            .where(Task.workflow_id == workflow_id)
+            .order_by(Task.id)
+        )
         # For performance reasons, use STRAIGHT_JOIN to set the join order. If not set,
         # the optimizer may choose a suboptimal execution plan for large datasets.
         # Has to be conditional since not all database engines support STRAIGHT_JOIN.
-        straight_join = ""
         if SessionLocal.bind.dialect.name == "mysql":
-            straight_join = "STRAIGHT_JOIN"
-
-        # join on two columns does not seem to be supported by sqlalchemy
-        sql = f"""
-              SELECT {straight_join} task_template.id,
-                                   task_template.name,
-                                   task.id AS id_1,
-                                   task.status,
-                                   array.max_concurrently_running,
-                                   task_template_version.id AS id_2
-              FROM task INNER JOIN node ON task.node_id = node.id
-                   INNER JOIN task_template_version ON
-                         node.task_template_version_id = task_template_version.id
-                   INNER JOIN task_template ON
-                         task_template_version.task_template_id = task_template.id
-                   LEFT OUTER JOIN array ON
-                        (array.task_template_version_id = task_template_version.id
-                         AND array.workflow_id=task.workflow_id)
-              WHERE task.workflow_id = {workflow_id} ORDER BY task.id
-              """
+            sql = sql.prefix_with("STRAIGHT_JOIN")
         rows = session.execute(sql).all()
         session.commit()
 
