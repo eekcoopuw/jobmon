@@ -7,7 +7,7 @@ from flask import jsonify, request
 from flask_cors import cross_origin
 import numpy as np
 import scipy.stats as st  # type:ignore
-from sqlalchemy import func, select
+from sqlalchemy import select
 import structlog
 
 from jobmon.serializers import SerializeTaskTemplateResourceUsage
@@ -327,89 +327,70 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-        # We used to join all the tables to get all tasks, and then count for each status.
-        # A wf with huge number of tasks may encounter performance disaster.
-        # Break it into three query.
-        # 1. get the total task with each task template. This query can be further break down
-        #    to not join the task_tempate, but just task_tempate_version. However, to test with
-        #    a wf with 50K tasks, the performance looks ok. So leave it.
-        # 2. get the concurrency limit from the Array table. This is a one line query, so it's
-        #    much faster than join the array table in step 1.
-        # 3. then for each WF & TT, group the status to fill in the rest of the info for GUI
-        # I wonder in worst cases, say, a wf with 50k tt of 1 task each, this is slower,
-        # but I haven't seen that kind of wf
-
-        query_filter = [
-            Task.workflow_id == workflow_id,
-            Task.node_id == Node.id,
-            Node.task_template_version_id == TaskTemplateVersion.id,
-            TaskTemplateVersion.task_template_id == TaskTemplate.id,
-        ]
+        # user subquery as the Array table has to be joined on two columns
+        sub_query = (
+            select(
+                Array.id, Array.task_template_version_id, Array.max_concurrently_running
+            ).where(Array.workflow_id == workflow_id)
+        ).subquery()
+        join_table = (
+            Task.__table__.join(Node, Task.node_id == Node.id)
+            .join(
+                TaskTemplateVersion,
+                Node.task_template_version_id == TaskTemplateVersion.id,
+            )
+            .join(
+                TaskTemplate,
+                TaskTemplateVersion.task_template_id == TaskTemplate.id,
+            )
+            # Arrays were introduced in 3.1.0, hence the outer-join for 3.0.* workflows
+            .join(
+                sub_query,
+                sub_query.c.task_template_version_id == TaskTemplateVersion.id,
+                isouter=True,
+            )
+        )
 
         sql = (
             select(
-                func.count(),
                 TaskTemplate.id,
-                TaskTemplateVersion.id,
                 TaskTemplate.name,
+                Task.id,
+                Task.status,
+                sub_query.c.max_concurrently_running,
+                TaskTemplateVersion.id,
             )
-            .where(*query_filter)
-            .group_by(TaskTemplate.id)
+            .select_from(join_table)
+            .where(Task.workflow_id == workflow_id)
+            .order_by(Task.id)
         )
-        # r[0]: number of tasks
-        # r[1]: task template id
-        # r[2]: task template version id (latest)
-        # r[3]: task template name
+        # For performance reasons, use STRAIGHT_JOIN to set the join order. If not set,
+        # the optimizer may choose a suboptimal execution plan for large datasets.
+        # Has to be conditional since not all database engines support STRAIGHT_JOIN.
+        if SessionLocal.bind.dialect.name == "mysql":
+            sql = sql.prefix_with("STRAIGHT_JOIN")
         rows = session.execute(sql).all()
         session.commit()
 
     for r in rows:
-        return_dic[int(r[1])] = {
-            "id": int(r[1]),
-            "name": r[3],
-            "tasks": int(r[0]),
-            "PENDING": 0,
-            "SCHEDULED": 0,
-            "RUNNING": 0,
-            "DONE": 0,
-            "FATAL": 0,
-            "MAXC": "NA",
-            "task_template_version_id": int(r[2]),
-        }
-
-        # fill in max concurrency limit
-        with session.begin():
-            query_filter = [
-                Array.workflow_id == workflow_id,
-                Array.task_template_version_id == int(r[2]),
-            ]
-            sql = select(Array.max_concurrently_running).where(*query_filter)
-            rows1 = session.execute(sql).all()
-            session.commit()
-
-        if len(rows1) > 0:
-            return_dic[int(r[1])]["MAXC"] = rows1[0][0]
-
-        # fill in task number by status
-        with session.begin():
-            query_filter = [
-                Task.workflow_id == workflow_id,
-                # technically we should use task_template_id, but it's 5 times slower
-                # so far in db, for each wf, tv id and that id is one to one
-                # it should work
-                Node.task_template_version_id == int(r[2]),
-                Task.node_id == Node.id,
-            ]
-            sql = (
-                select(func.count(), Task.status)
-                .where(*query_filter)
-                .group_by(Task.status)
-            )
-            rows2 = session.execute(sql).all()
-            session.commit()
-        for rr in rows2:
-            return_dic[int(r[1])][_cli_label_mapping[rr[1]]] += int(rr[0])
-
+        if int(r[0]) in return_dic.keys():
+            pass
+        else:
+            return_dic[int(r[0])] = {
+                "id": int(r[0]),
+                "name": r[1],
+                "tasks": 0,
+                "PENDING": 0,
+                "SCHEDULED": 0,
+                "RUNNING": 0,
+                "DONE": 0,
+                "FATAL": 0,
+                "MAXC": 0,
+                "task_template_version_id": int(r[5]),
+            }
+        return_dic[int(r[0])]["tasks"] += 1
+        return_dic[int(r[0])][_cli_label_mapping[r[3]]] += 1
+        return_dic[int(r[0])]["MAXC"] = r[4] if r[4] is not None else "NA"
     resp = jsonify(return_dic)
     resp.status_code = 200
     return resp
