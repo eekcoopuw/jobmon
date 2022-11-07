@@ -305,8 +305,8 @@ so the workflow can be retried.
 #. The Traefik controller routes the request to the next jobmon-server container
 #. Nginx within the container (part of the tiangolo base image) passes it to uWSGI
 #. uWSGI, running inside the container, assigns a worker-thread to handle the request.
-   a. The main process either assigns a worker to the request, or instantiates a new worker process to handle the request if load
-      is high within the container.
+   The main process either assigns a worker to the request, or instantiates a
+   new worker process to handle the request if load is high within the container.
 #. The requested arrives at Python-Flask
 #. (Finally) Flask calls the actual Jobmon code to handle the request.
 #. The response data is sent back to the main process.
