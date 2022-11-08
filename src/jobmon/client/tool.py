@@ -243,6 +243,7 @@ class Tool:
         default_cluster_name: str = "",
         default_compute_resources_set: Optional[Dict] = None,
         default_resource_scales_set: Optional[Dict[str, float]] = None,
+        default_max_attempts: int = 3,
     ) -> Workflow:
         """Create a workflow object associated with the active tool version.
 
@@ -262,6 +263,7 @@ class Tool:
             default_resource_scales_set: dictionary of default resource_scales to adjust the
                 resources with. Can be overridden at task template or task level.
                 dict of {resource_name: scale_value}
+            default_max_attempts: the default max_attempts value to use when create wf
         """
         wf = Workflow(
             self.active_tool_version,
@@ -272,6 +274,7 @@ class Tool:
             max_concurrently_running,
             requester=self.requester,
             chunk_size=chunk_size,
+            default_max_attempts=default_max_attempts,
         )
 
         # set compute resource defaults

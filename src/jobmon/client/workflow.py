@@ -166,6 +166,7 @@ class Workflow(object):
         max_concurrently_running: int = 10_000,
         requester: Optional[Requester] = None,
         chunk_size: int = 500,  # TODO: should be in the config
+        default_max_attempts: int = 3,
     ) -> None:
         """Initialization of the client workflow.
 
@@ -179,6 +180,7 @@ class Workflow(object):
             max_concurrently_running: How many running jobs to allow in parallel
             requester: object to communicate with the flask services.
             chunk_size: how many tasks to bind in a single request
+            default_max_attempts: the default max attempts of the workflow for each array
         """
         self._tool_version = tool_version
         self.name = name
@@ -194,6 +196,7 @@ class Workflow(object):
         self.tasks: Dict[int, Task] = {}
         self.arrays: Dict[str, Array] = {}
         self._chunk_size: int = chunk_size
+        self._default_max_attempts = default_max_attempts
 
         if workflow_args:
             self.workflow_args = workflow_args
@@ -283,6 +286,11 @@ class Workflow(object):
             if task.final_status == TaskStatus.ERROR_FATAL
         }
 
+    @property
+    def default_max_attempts(self) -> int:
+        """Return the workflow default max attempts."""
+        return self._default_max_attempts
+
     def add_attributes(self, workflow_attributes: dict) -> None:
         """Users can call either to update values of existing attributes or add new attributes.
 
@@ -311,6 +319,8 @@ class Workflow(object):
         Args:
             task: single task to add.
         """
+        if task.max_attempts is None:
+            task.max_attempts = self._default_max_attempts
         logger.debug(f"Adding Task {task}")
         if hash(task) in self.tasks.keys():
             raise ValueError(
@@ -345,7 +355,8 @@ class Workflow(object):
             template_name = task.node.task_template_version.task_template.template_name
             if self.arrays[template_name] != task.array:
                 raise
-
+        # set array max_attempts
+        task.array.max_attempts = self._default_max_attempts
         # add node to task
         try:
             self._dag.add_node(task.node)

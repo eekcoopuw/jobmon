@@ -73,7 +73,7 @@ class Task:
         resource_scales: Optional[Dict[str, float]] = None,
         fallback_queues: Optional[List[str]] = None,
         name: Optional[str] = None,
-        max_attempts: int = 3,
+        max_attempts: Optional[int] = None,
         upstream_tasks: Optional[List[Task]] = None,
         task_attributes: Union[List, dict] = None,
         requester: Optional[Requester] = None,
@@ -161,7 +161,7 @@ class Task:
             )
 
         # mutable operational/cluster behaviour
-        self.max_attempts: int = max_attempts
+        self._max_attempts = max_attempts
         self._instance_cluster_name = cluster_name
         self._instance_compute_resources = (
             compute_resources if compute_resources is not None else {}
@@ -254,6 +254,16 @@ class Task:
                 "task_resources cannot be accessed before workflow is bound"
             )
         return self._original_task_resources
+
+    @property
+    def max_attempts(self) -> int:
+        """Return the task max_attemps for testing."""
+        return self._max_attempts
+
+    @max_attempts.setter
+    def max_attempts(self, value: int) -> None:
+        """The setter for max_attempts."""
+        self._max_attempts = value
 
     @original_task_resources.setter
     def original_task_resources(self, val: TaskResources) -> None:

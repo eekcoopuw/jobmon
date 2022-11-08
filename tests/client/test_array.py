@@ -246,3 +246,28 @@ def test_empty_array(client_env, tool):
 
     tasks = tt.create_tasks()
     assert not tasks
+
+
+def test_array_max_attempts(client_env, tool):
+    """Check the wf default_max_attempts pass down"""
+    tt = tool.get_task_template(
+        template_name="test_tt1",
+        command_template="true|| abc {arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    # test default
+    tasks1 = tt.create_tasks(arg=[1, 2])
+    wf1 = tool.create_workflow()
+    wf1.add_tasks(tasks1)
+    array1 = tasks1[0].array
+    assert array1.max_attempts == tasks1[0].max_attempts == tasks1[1].max_attempts == 3
+    # test wf pass down
+    tasks2 = tt.create_tasks(arg=[10, 20])
+    wf2 = tool.create_workflow(default_max_attempts=1000)
+    wf2.add_tasks(tasks2)
+    array2 = tasks2[0].array
+    assert (
+        array2.max_attempts == tasks2[0].max_attempts == tasks2[1].max_attempts == 1000
+    )

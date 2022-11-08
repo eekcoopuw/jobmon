@@ -510,7 +510,7 @@ class TaskTemplate:
         name: str = "",
         upstream_tasks: List[Task] = [],
         task_attributes: Union[List, dict] = {},
-        max_attempts: int = 3,
+        max_attempts: Optional[int] = None,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, Any]] = None,
@@ -592,7 +592,7 @@ class TaskTemplate:
 
     def create_tasks(
         self,
-        max_attempts: int = 3,
+        max_attempts: Optional[int] = None,
         upstream_tasks: Optional[List[Task]] = None,
         max_concurrently_running: int = 10_000,
         compute_resources: Optional[Dict[str, Any]] = None,
