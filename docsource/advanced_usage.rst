@@ -150,6 +150,10 @@ For example if your
 runtime for a task was set to 100 seconds and fails, Jobmon will automatically
 retry the Task with a max runtime set to 150 seconds. You can specify the percentage
 scaling factor.
+The scaling factor is applied each time, cumulatively.
+For example, if Jobmon is configured to increase memory 50% then when jobmon retries due to
+insufficient memory it increase by 50% of the original requested memory on each step.
+If 40GiB is the original request then the memory increases as 40 -> 60 -> 90.
 
 For example::
 
