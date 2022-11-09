@@ -31,7 +31,7 @@ SERVER_REQUIRES = [
 
 # pip install -e .[test]
 TEST_REQUIRES = [
-    "pytest",
+    "pytest==7.1.1",  #  https://github.com/pytest-dev/pytest/issues/10487
     "pytest-xdist",
     "pytest-cov",
     "mock",
