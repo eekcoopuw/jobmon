@@ -19,8 +19,8 @@ logger = logging.getLogger(__name__)
 
 
 def workflow_status(
-    workflow_id: List[int] = None,
-    user: List[str] = None,
+    workflow_id: Optional[List[int]] = None,
+    user: Optional[List[str]] = None,
     json: bool = False,
     limit: Optional[int] = 5,
     requester: Optional[Requester] = None,
@@ -70,7 +70,7 @@ def workflow_status(
 
 def workflow_tasks(
     workflow_id: int,
-    status: List[str] = None,
+    status: Optional[List[str]] = None,
     json: bool = False,
     limit: int = 5,
     requester: Optional[Requester] = None,
@@ -372,7 +372,7 @@ def validate_workflow(task_ids: List[int], requester: Requester) -> WorkflowStat
 
 
 def get_sub_task_tree(
-    task_ids: list, task_status: list = None, requester: Requester = None
+    task_ids: list, task_status: Optional[list] = None, requester: Optional[Requester] = None
 ) -> dict:
     """Get the sub_tree from tasks to ensure that they end up in the right states."""
     # This is to make the test case happy. Otherwise, requester should not be None.
@@ -543,9 +543,11 @@ def _get_yaml_data(
     return ttvis_dic
 
 
-def _create_yaml(data: Dict = None, clusters: List = []) -> str:
+def _create_yaml(data: Optional[Dict] = None, clusters: Optional[List] = None) -> str:
     yaml = "task_template_resources:\n"
-    if data is None or clusters is None or len(clusters) == 0:
+    if clusters is None:
+        clusters = []
+    if data is None or len(clusters) == 0:
         return yaml
     for ttv in data.keys():
         yaml += f"  {data[ttv][0]}:\n"  # name
