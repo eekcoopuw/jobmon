@@ -3,6 +3,7 @@ import logging.config
 import socket
 from typing import Any, Dict, MutableMapping, Optional
 
+from elasticapm.handlers.structlog import structlog_processor as elasticapm_processor
 from pythonjsonlogger import jsonlogger
 import structlog
 
@@ -136,6 +137,8 @@ def configure_logger(
             structlog.processors.format_exc_info,
             # Creates the necessary args, kwargs for log()
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
+            # Adds transaction.id, trace.id, span.id for APM visualizations
+            elasticapm_processor,
         ],
         # Our "event_dict" is explicitly a dict
         # There's also structlog.threadlocal.wrap_dict(dict) in some examples
