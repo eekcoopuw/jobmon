@@ -137,6 +137,8 @@ def configure_logger(
             # Include the exception when exc_info=True
             # e.g log.exception() or log.warning(exc_info=True)'s behavior
             structlog.processors.format_exc_info,
+            # change event -> message
+            structlog.processors.EventRenamer("message"),
             # Creates the necessary args, kwargs for log()
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
