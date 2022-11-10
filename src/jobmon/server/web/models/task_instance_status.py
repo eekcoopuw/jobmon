@@ -26,12 +26,13 @@ class TaskInstanceStatus(Base):
 
     id = Column(String(1), primary_key=True)
     label = Column(String(150))
+    description = Column(String(150))
 
 
 def add_task_instance_statuses(session: Session) -> None:
     """Populate the task_instance_status table in the database."""
     statuses = [
-        TaskInstanceStatus(id="Q", label="QUEUED"),
+        TaskInstanceStatus(id="Q", label="QUEUED", description=""),
         TaskInstanceStatus(id="I", label="INSTANTIATED"),
         TaskInstanceStatus(id="W", label="NO_DISTRIBUTOR_ID"),
         TaskInstanceStatus(id="O", label="LAUNCHED"),

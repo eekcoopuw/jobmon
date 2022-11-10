@@ -80,8 +80,8 @@ For more info about job arrays on a Slurm cluster, see here: https://slurm.sched
 Retries
 #######
 
-Ordinary
-********
+Ordinary Retry
+**************
 By default a Task will be retried up to three times if it fails. This helps to
 reduce the chance that random events on the cluster or landing on a bad node
 will cause your entire Task and Workflow to fail. If a TaskInstance fails, then Jobmon will
@@ -140,8 +140,8 @@ to be retried four times and it will fail up until the fourth time.::
 
 
 
-Resource
-********
+Resource Retry
+**************
 Sometimes you may not be able to accurately predict the runtime or memory usage
 of a task. Jobmon will detect when the task fails due to resource constraints and
 then retry that task with with more resources. The default resource
@@ -152,7 +152,7 @@ retry the Task with a max runtime set to 150 seconds. You can specify the percen
 scaling factor.
 The scaling factor is applied each time, cumulatively.
 For example, if Jobmon is configured to increase memory 50% then when jobmon retries due to
-insufficient memory it increase by 50% of the original requested memory on each step.
+insufficient memory it increase by 50% over the last requested memory request.
 If 40GiB is the original request then the memory increases as 40 -> 60 -> 90.
 
 For example::

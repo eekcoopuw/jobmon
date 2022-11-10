@@ -326,7 +326,7 @@ Task
     +=====+===========================+========================================================================================+
     |  A  |  ADJUSTING_RESOURCES      | Task has errored with a resource error, the resources will be adjusted before retrying.|
     +-----+---------------------------+----------------------------------------------------------------------------------------+
-    |  D  |  DONE                     | Task ran to completion; Task has a TaskInstance that has succesfully completed.        |
+    |  D  |  DONE                     | Task ran to completion; Task has a TaskInstance that has successfully completed.        |
     +-----+---------------------------+----------------------------------------------------------------------------------------+
     |  E  |  ERROR_RECOVERABLE        | Task has errored out but has more attempts so it will be retried.                      |
     +-----+---------------------------+----------------------------------------------------------------------------------------+
