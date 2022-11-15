@@ -48,6 +48,7 @@ class TaskTemplateVersion:
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
         self.default_resource_scales_set: Dict[str, Dict[str, float]] = {}
         self.default_cluster_name: str = ""
+        self.default_max_attempts: Optional[int] = None
 
         if requester is None:
             requester = Requester.from_defaults()
@@ -382,6 +383,14 @@ class TaskTemplateVersion:
                 dict of {resource_name: scale_value}
         """
         self.default_resource_scales_set[cluster_name] = resource_scales
+
+    def set_default_max_attempts(self, value: int) -> None:
+        """Set default max attempts at tool leve.
+
+        Args:
+            value: the default max attempts value.
+        """
+        self.default_max_attempts = value
 
     def __hash__(self) -> int:
         """Unique identifier for this object."""

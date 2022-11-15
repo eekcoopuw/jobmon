@@ -289,6 +289,11 @@ class Workflow(object):
     @property
     def default_max_attempts(self) -> int:
         """Return the workflow default max attempts."""
+        if self._default_max_attempts is None:
+            self._default_max_attempts = self.tool.defalut_max_attempts
+        # make sure workflow always has a default_max_attempts value
+        if self._default_max_attempts is None:
+            self._default_max_attempts = 3
         return self._default_max_attempts
 
     def add_attributes(self, workflow_attributes: dict) -> None:

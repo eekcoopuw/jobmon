@@ -109,6 +109,11 @@ class Tool:
         """Default cluster_name associated with active tool version."""
         return self.active_tool_version.default_cluster_name
 
+    @property
+    def defalut_max_attempts(self) -> Optional[int]:
+        """Default max attempts of the active tool version."""
+        return self.active_tool_version.default_max_attempt
+
     def set_active_tool_version_id(self, tool_version_id: Union[str, int]) -> None:
         """Tool version that is set as the active one (latest is default during instantiation).
 

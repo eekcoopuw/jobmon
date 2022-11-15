@@ -219,6 +219,15 @@ class TaskTemplate:
             cluster_name, **kwargs
         )
 
+    @property
+    def defalut_max_attempts(self) -> Optional[int]:
+        """Default max attempts of the active tool version."""
+        if self.active_task_template_version.default_max_attempts is None:
+            self.active_task_template_version.set_default_max_attempts(
+                self.tool_version.default_max_attempt
+            )
+        return self.active_task_template_version.default_max_attempts
+
     def update_default_resource_scales(self, cluster_name: str, **kwargs: Any) -> None:
         """Update default resource scales in place only overridding specified keys.
 
@@ -571,6 +580,10 @@ class TaskTemplate:
 
         # build node
         node = Node(self.active_task_template_version, node_args, self.requester)
+
+        # if max_attempts is None, use the tt default.
+        # if TT default is still None, use wf default when binding
+        max_attempts = max_attempts if max_attempts else self.defalut_max_attempts
 
         # build task
         task = Task(
