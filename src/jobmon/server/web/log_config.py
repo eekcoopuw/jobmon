@@ -132,7 +132,7 @@ def configure_logger(
             structlog.processors.TimeStamper(fmt="%Y-%m-%d %H:%M:%S"),
             # Include the stack when stack_info=True
             structlog.processors.StackInfoRenderer(),
-            # Adds transaction.id, trace.id, span.id for APM visualizations
+            # Adds transaction.id, trace.id, span.id for APM visualization
             elasticapm_processor,
             # Include the exception when exc_info=True
             # e.g log.exception() or log.warning(exc_info=True)'s behavior
