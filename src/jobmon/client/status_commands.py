@@ -372,7 +372,9 @@ def validate_workflow(task_ids: List[int], requester: Requester) -> WorkflowStat
 
 
 def get_sub_task_tree(
-    task_ids: list, task_status: Optional[list] = None, requester: Optional[Requester] = None
+    task_ids: list,
+    task_status: Optional[list] = None,
+    requester: Optional[Requester] = None,
 ) -> dict:
     """Get the sub_tree from tasks to ensure that they end up in the right states."""
     # This is to make the test case happy. Otherwise, requester should not be None.
