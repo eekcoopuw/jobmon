@@ -767,7 +767,12 @@ class Workflow(object):
                 task_args = [(task.task_id, arg_id, value)
                              for arg_id, value in task.mapped_task_args.items()]
                 task_arg_list.extend(task_args)
-            send_to_server()
+
+            self.requester.send_request(
+                app_route='/task/bind_task_args',
+                message={'task_args': task_arg_list},
+                request_type='put'
+            )
 
     def _bind_task_attributes(self, chunk_size: int = 500) -> None:
         remaining_task_hashes = list(self.tasks.keys())
@@ -777,11 +782,17 @@ class Workflow(object):
             task_hashes_chunk = remaining_task_hashes[:chunk_size]
             remaining_task_hashes = remaining_task_hashes[chunk_size:]
 
-            task_arg_dict = {}
+            attribute_dict = {}
             for task_hash in task_hashes_chunk:
                 task = self.tasks[task_hash]
-                task_arg_dict[task.task_id] = task.task_attributes
-            send_to_server()
+                attribute_dict[task.task_id] = task.task_attributes
+
+            # Send the request
+            self.requester.send_request(
+                app_route='/task/bind_task_attributes',
+                message={'task_attributes': attribute_dict},
+                request_type='put'
+            )
 
     def get_errors(
         self, limit: int = 1000
