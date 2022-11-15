@@ -678,8 +678,10 @@ class Workflow(object):
         reset_if_running: bool = True,
         chunk_size: int = 500,
     ) -> None:
-        app_route_trip_1 = "/task/bind_tasks_no_args"
-        app_route_trip_2 = "/task/bind_tasks_args"
+        # Bind tasks
+        # bind task args, needs task_id
+        # bind task attributes, needs task_id
+        app_route = "/task/bind_tasks_no_args"
         remaining_task_hashes = list(self.tasks.keys())
 
         while remaining_task_hashes:
@@ -697,8 +699,7 @@ class Workflow(object):
             # name(4), command(5), max_attempts(6)], reset_if_running(7), task_args(8),
             # task_attributes(9), resource_scales(10), fallback_queues(11)}
             # flat the data structure so that the server won't depend on the client
-            task_metadata_trip_1: Dict[int, List] = {}
-            task_metadata_trip_2: Dict[int, List] = {}
+            task_metadata: Dict[int, List] = {}
             for task_hash in task_hashes_chunk:
                 task = self.tasks[task_hash]
 
@@ -710,7 +711,7 @@ class Workflow(object):
                 # get task resources id
                 self._set_original_task_resources(task)
 
-                task_metadata_trip_1[task_hash] = [
+                task_metadata[task_hash] = [
                     task.node.node_id,
                     str(task.task_args_hash),
                     task.array.array_id,
@@ -722,37 +723,65 @@ class Workflow(object):
                     task.resource_scales,
                     task.fallback_queues,
                 ]
-                task_metadata_trip_2[task_hash] = [
-                    task.mapped_task_args,
-                    task.task_attributes,
-                ]
 
             parameters = {
                 "workflow_id": self.workflow_id,
-                "tasks": task_metadata_trip_1,
+                "tasks": task_metadata,
                 "mark_created": mark_created,
             }
             return_code, response = self.requester.send_request(
-                app_route=app_route_trip_1,
+                app_route=app_route,
                 message=parameters,
                 request_type="put",
             )
 
             # populate returned values onto task dict
-            trip2_dict: Dict[int, List] = {}
             return_tasks = response["tasks"]
             for k in return_tasks.keys():
                 task = self.tasks[int(k)]
                 task.task_id = return_tasks[k][0]
                 task.initial_status = return_tasks[k][1]
-                trip2_dict[return_tasks[k][0]] = task_metadata_trip_2[int(k)]
 
-            return_code, _ = self.requester.send_request(
-                app_route=app_route_trip_2,
-                message={"workflow_id": self.workflow_id, "task_attr_args": trip2_dict},
-                request_type="put",
-            )
-            logger.info(return_code)
+        # Bind task arguments and attributes as well
+        self._bind_task_args(chunk_size)
+        self._bind_task_attributes(chunk_size)
+
+    def _bind_task_args(self, chunk_size: int = 500) -> None:
+        """Bind all task args to the database.
+
+        Loop through our bound task dict in chunks in order to bind new args and arg types
+        to the database."""
+
+        # Insert all task arg types
+
+        remaining_task_hashes = list(self.tasks.keys())
+
+        while remaining_task_hashes:
+            # split off first chunk elements from queue.
+            task_hashes_chunk = remaining_task_hashes[:chunk_size]
+            remaining_task_hashes = remaining_task_hashes[chunk_size:]
+
+            task_arg_list = []
+            for task_hash in task_hashes_chunk:
+                task = self.tasks[task_hash]
+                task_args = [(task.task_id, arg_id, value)
+                             for arg_id, value in task.mapped_task_args.items()]
+                task_arg_list.extend(task_args)
+            send_to_server()
+
+    def _bind_task_attributes(self, chunk_size: int = 500) -> None:
+        remaining_task_hashes = list(self.tasks.keys())
+
+        while remaining_task_hashes:
+            # split off first chunk elements from queue.
+            task_hashes_chunk = remaining_task_hashes[:chunk_size]
+            remaining_task_hashes = remaining_task_hashes[chunk_size:]
+
+            task_arg_dict = {}
+            for task_hash in task_hashes_chunk:
+                task = self.tasks[task_hash]
+                task_arg_dict[task.task_id] = task.task_attributes
+            send_to_server()
 
     def get_errors(
         self, limit: int = 1000

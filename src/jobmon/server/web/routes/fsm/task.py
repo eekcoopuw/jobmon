@@ -163,6 +163,66 @@ def bind_tasks_no_args() -> Any:
     return resp
 
 
+@blueprint.route("/task/bind_task_args", methods=["PUT"])
+def bind_task_args() -> Any:
+    all_data = cast(Dict, request.get_json())
+    task_args = all_data["task_args"]
+    # Query for existing (task_id, arg_id) combos
+    all_keys = {(task_id, arg_id) for task_id, arg_id, _ in task_args}
+    select_stmt = select(
+        TaskArg.task_id, TaskArg.arg_id
+    ).where(
+        tuple_(
+            TaskArg.task_id, TaskArg.arg_id
+        ).in_(
+            all_keys
+        )
+    )
+    session = SessionLocal()
+    with session.begin():
+        existing_rows = session.execute(select_stmt)
+        existing_keys = {(row.task_id, row.arg_id) for row in existing_rows}
+
+    remaining_keys = all_keys - existing_keys
+
+    # Insert the remaining keys, guarantee uniqueness
+    remaining_values = [
+        {
+            'task_id': task_id,
+            'arg_id': arg_id,
+            'value': value
+        }
+        for task_id, arg_id, value
+        in task_args
+        if (task_id, arg_id) in remaining_keys
+    ]
+    if remaining_values:
+        try:
+            insert_stmt = insert(
+                TaskArg
+            ).values(
+                remaining_values
+            )
+            with session.begin():
+                session.execute(insert_stmt)
+        except (DataError, IntegrityError) as e:
+            # Args likely too long, message back
+            raise InvalidUsage(
+                "Task Args are constrained to 1000 characters, you may have values "
+                f"that are too long. Message: {str(e)}",
+                status_code=400,
+            ) from e
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
+@blueprint.route("/task/bind_task_attributes", methods=["PUT"])
+def bind_task_attributes() -> Any:
+    attributes = data.get('attributes')
+    attribute_names = {}
+
+
 @blueprint.route("/task/bind_tasks_args", methods=["PUT"])
 def bind_tasks_attr_args() -> Any:
     """Bind the task args to the database."""
@@ -289,17 +349,37 @@ def bind_tasks_attr_args() -> Any:
 def _add_or_get_attribute_type(
     names: Union[List[str], Set[str]], session: Session
 ) -> List[TaskAttributeType]:
-    attribute_types = [{"name": name} for name in names]
+
+    # Query for existing attribute types, to avoid integrity conflicts
+    names = set(names)
+
+    existing_rows_select = select(
+        TaskAttributeType
+    ).where(
+        TaskAttributeType.name.in_(names)
+    )
+    existing_rows = session.execute(existing_rows_select).scalars()
+
+    existing_names = {row.name for row in existing_rows}
+
+    # Insert the remaining names, found from the difference between old and new
+    new_names = names - existing_names
+    attribute_types = [{"name": name} for name in new_names]
     try:
         if SessionLocal.bind.dialect.name == "mysql":
             insert_stmt = (
-                insert(TaskAttributeType).values(attribute_types).prefix_with("IGNORE")
-            )
+                insert(TaskAttributeType).values(attribute_types)
+            ).prefix_with("IGNORE")
         elif SessionLocal.bind.dialect.name == "sqlite":
             insert_stmt = (
                 sqlite_insert(TaskAttributeType)
                 .values(attribute_types)
-                .on_conflict_do_nothing()
+            )
+        else:
+            raise InvalidUsage(
+                f"Unknown dialect name {SessionLocal.bind.dialect.name}, "
+                f"the Jobmon server only supports mysql,sqlite",
+                status_code=400
             )
         session.execute(insert_stmt, attribute_types)
     except DataError as e:
@@ -310,7 +390,7 @@ def _add_or_get_attribute_type(
         ) from e
 
     # Query the IDs
-    select_stmt = select(TaskAttributeType).where(TaskAttributeType.name.in_(names))
+    new_rows_select = select(TaskAttributeType).where(TaskAttributeType.name.in_(new_names))
     attribute_type_ids = session.execute(select_stmt).scalars().all()
     return attribute_type_ids
 
