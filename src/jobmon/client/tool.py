@@ -110,9 +110,13 @@ class Tool:
         return self.active_tool_version.default_cluster_name
 
     @property
-    def defalut_max_attempts(self) -> Optional[int]:
+    def default_max_attempts(self) -> Optional[int]:
         """Default max attempts of the active tool version."""
-        return self.active_tool_version.default_max_attempt
+        if self.active_tool_version.default_max_attempt:
+            return self.active_tool_version.default_max_attempt
+        else:
+            self.active_tool_version.set_default_max_attempts(3)
+            return self.active_tool_version.default_max_attempt
 
     def set_active_tool_version_id(self, tool_version_id: Union[str, int]) -> None:
         """Tool version that is set as the active one (latest is default during instantiation).
@@ -156,6 +160,7 @@ class Tool:
         default_compute_resources: Optional[Dict[str, Any]] = None,
         default_resource_scales: Optional[Dict[str, float]] = None,
         yaml_file: str = None,
+        max_attempts: Optional[int] = None,
     ) -> TaskTemplate:
         """Create or get task a task template.
 
@@ -182,6 +187,7 @@ class Tool:
                 resources with. Can be overridden at task level.
                 dict of {resource_name: scale_value}.
             yaml_file: path to YAML file that contains user-specified compute resources.
+            max_attempts: max_attempts for the tt
         """
         if node_args is None:
             node_args = []
@@ -225,6 +231,7 @@ class Tool:
             node_args,
             task_args,
             op_args,
+            default_max_attempts=max_attempts,
         )
         tt.default_cluster_name = default_cluster_name
         if default_compute_resources:
@@ -248,7 +255,7 @@ class Tool:
         default_cluster_name: str = "",
         default_compute_resources_set: Optional[Dict] = None,
         default_resource_scales_set: Optional[Dict[str, float]] = None,
-        default_max_attempts: int = 3,
+        default_max_attempts: Optional[int] = None,
     ) -> Workflow:
         """Create a workflow object associated with the active tool version.
 
@@ -279,8 +286,12 @@ class Tool:
             max_concurrently_running,
             requester=self.requester,
             chunk_size=chunk_size,
-            default_max_attempts=default_max_attempts,
         )
+
+        if default_max_attempts is None:
+            default_max_attempts = self.default_max_attempts
+        if default_max_attempts:
+            wf.set_default_max_attempts(default_max_attempts)
 
         # set compute resource defaults
         if default_cluster_name:
@@ -523,6 +534,22 @@ class Tool:
         )
 
     def set_default_cluster_name(self, cluster_name: str) -> None:
+        """Set default cluster.
+
+        Args:
+            cluster_name: name of cluster to set as default.
+        """
+        self.active_tool_version.default_cluster_name = cluster_name
+
+    def set_default_max_attempts(self, value: int) -> None:
+        """Set default max_attempts.
+
+        Args:
+            value: value of max_attempts.
+        """
+        self.active_tool_version.set_default_max_attempts(value)
+
+    def set_default_clu(self, cluster_name: str) -> None:
         """Set default cluster.
 
         Args:

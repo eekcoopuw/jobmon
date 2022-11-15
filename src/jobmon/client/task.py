@@ -161,7 +161,7 @@ class Task:
             )
 
         # mutable operational/cluster behaviour
-        self._max_attempts = max_attempts
+        self._instance_max_attempts = max_attempts
         self._instance_cluster_name = cluster_name
         self._instance_compute_resources = (
             compute_resources if compute_resources is not None else {}
@@ -228,6 +228,18 @@ class Task:
         return cluster_name
 
     @property
+    def max_attempts(self) -> int:
+        """Get the max_attempts."""
+        ma = self._instance_max_attempts
+        if not ma:
+            try:
+                ma = self.array.max_attempts
+            except AttributeError:
+                # max_attempts hasn't been inferred yet. safe to return empty string for now
+                pass
+        return ma
+
+    @property
     def compute_resources_callable(self) -> Optional[Callable]:
         """A callable that returns a compute resources dict."""
         compute_resources_callable = self._instance_compute_resources_callable
@@ -254,16 +266,6 @@ class Task:
                 "task_resources cannot be accessed before workflow is bound"
             )
         return self._original_task_resources
-
-    @property
-    def max_attempts(self) -> int:
-        """Return the task max_attemps for testing."""
-        return self._max_attempts
-
-    @max_attempts.setter
-    def max_attempts(self, value: int) -> None:
-        """The setter for max_attempts."""
-        self._max_attempts = value
 
     @original_task_resources.setter
     def original_task_resources(self, val: TaskResources) -> None:

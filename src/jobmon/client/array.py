@@ -70,7 +70,7 @@ class Array:
         self._instance_cluster_name = cluster_name
 
         # max_attempts
-        self._max_attempts = max_attempts
+        self._instance_max_attempts = max_attempts
 
         self._instance_compute_resource = (
             compute_resources if compute_resources is not None else {}
@@ -162,6 +162,19 @@ class Array:
         return cluster_name
 
     @property
+    def max_attempts(self) -> int:
+        """Get the max_attempts."""
+        ma = self._instance_max_attempts
+        if not ma:
+            try:
+                ma = self.workflow.default_max_attempts
+            except AttributeError:
+                raise ValueError(
+                    "max_attempts must be specified on workflow, task_template, or array"
+                )
+        return ma
+
+    @property
     def workflow(self) -> Workflow:
         """Get the workflow id if it has been bound to the db."""
         if not hasattr(self, "_workflow"):
@@ -175,16 +188,6 @@ class Array:
         """Set the workflow id."""
         self._workflow = val
 
-    @property
-    def max_attempts(self) -> int:
-        """Get the max_attempts."""
-        return self._max_attempts
-
-    @max_attempts.setter
-    def max_attempts(self, value: int) -> None:
-        """Set the max_attempts."""
-        self._max_attempts = value
-
     def add_task(self, task: Task) -> None:
         """Add a task to an array.
 
@@ -193,8 +196,6 @@ class Array:
         Args:
             task: single task to add.
         """
-        if task.max_attempts is None:
-            task.max_attempts = self._max_attempts
         if task.cluster_name and self.cluster_name != task.cluster_name:
             raise ValueError(
                 "Task assigned to different cluster than associated array. Task.cluster_name="

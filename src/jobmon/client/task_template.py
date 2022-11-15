@@ -194,6 +194,23 @@ class TaskTemplate:
         self.active_task_template_version.default_cluster_name = cluster_name
 
     @property
+    def default_max_attempts(self) -> Optional[int]:
+        """Default max attempts of the active tool version."""
+        if self.active_task_template_version.default_max_attempts is None:
+            self.active_task_template_version.set_default_max_attempts(
+                self.tool_version.default_max_attempt
+            )
+        return self.active_task_template_version.default_max_attempts
+
+    def set_default_max_attempts(self, value: int) -> None:
+        """Set default max_attempts.
+
+        Args:
+            value: value of max_attempts.
+        """
+        self.active_task_template_version.default_max_attempts = value
+
+    @property
     def default_compute_resources_set(self) -> Dict[str, Dict[str, Any]]:
         """Default compute resources associated with active tool version."""
         return self.active_task_template_version.default_compute_resources_set
@@ -218,15 +235,6 @@ class TaskTemplate:
         self.active_task_template_version.update_default_compute_resources(
             cluster_name, **kwargs
         )
-
-    @property
-    def defalut_max_attempts(self) -> Optional[int]:
-        """Default max attempts of the active tool version."""
-        if self.active_task_template_version.default_max_attempts is None:
-            self.active_task_template_version.set_default_max_attempts(
-                self.tool_version.default_max_attempt
-            )
-        return self.active_task_template_version.default_max_attempts
 
     def update_default_resource_scales(self, cluster_name: str, **kwargs: Any) -> None:
         """Update default resource scales in place only overridding specified keys.
@@ -454,6 +462,7 @@ class TaskTemplate:
         default_cluster_name: str = "",
         default_compute_resources: Optional[Dict[str, Any]] = None,
         default_resource_scales: Optional[Dict[str, float]] = None,
+        default_max_attempts: Optional[int] = None,
     ) -> TaskTemplateVersion:
         """Create a task template version instance. If it already exists, activate it.
 
@@ -478,6 +487,7 @@ class TaskTemplate:
             default_resource_scales: dictionary of default resource scales to adjust task
                 resources with. Can be overridden at task level.
                 dict of {resource_name: scale_value}.
+            default_max_attempts: default max_attempts associated with this template on.
         """
         if default_compute_resources is not None and not default_cluster_name:
             raise ValueError(
@@ -500,6 +510,7 @@ class TaskTemplate:
         )
         # set compute resources on the task template version if specified
         task_template_version.default_cluster_name = default_cluster_name
+        task_template_version.default_max_attempts = default_max_attempts
         if default_compute_resources:
             task_template_version.set_default_compute_resources_from_dict(
                 default_cluster_name, default_compute_resources
@@ -580,10 +591,6 @@ class TaskTemplate:
 
         # build node
         node = Node(self.active_task_template_version, node_args, self.requester)
-
-        # if max_attempts is None, use the tt default.
-        # if TT default is still None, use wf default when binding
-        max_attempts = max_attempts if max_attempts else self.defalut_max_attempts
 
         # build task
         task = Task(

@@ -166,7 +166,6 @@ class Workflow(object):
         max_concurrently_running: int = 10_000,
         requester: Optional[Requester] = None,
         chunk_size: int = 500,  # TODO: should be in the config
-        default_max_attempts: int = 3,
     ) -> None:
         """Initialization of the client workflow.
 
@@ -196,7 +195,6 @@ class Workflow(object):
         self.tasks: Dict[int, Task] = {}
         self.arrays: Dict[str, Array] = {}
         self._chunk_size: int = chunk_size
-        self._default_max_attempts = default_max_attempts
 
         if workflow_args:
             self.workflow_args = workflow_args
@@ -232,6 +230,7 @@ class Workflow(object):
         self._clusters: Dict[str, Cluster] = {}
         self._task_resources: Dict[int, TaskResources] = {}
         self.default_cluster_name: str = ""
+        self._default_max_attempts: Optional[int] = None
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
         self.default_resource_scales_set: Dict[str, Dict[str, float]] = {}
 
@@ -290,10 +289,7 @@ class Workflow(object):
     def default_max_attempts(self) -> int:
         """Return the workflow default max attempts."""
         if self._default_max_attempts is None:
-            self._default_max_attempts = self.tool.defalut_max_attempts
-        # make sure workflow always has a default_max_attempts value
-        if self._default_max_attempts is None:
-            self._default_max_attempts = 3
+            self._default_max_attempts = self.tool.default_max_attempts
         return self._default_max_attempts
 
     def add_attributes(self, workflow_attributes: dict) -> None:
@@ -324,8 +320,6 @@ class Workflow(object):
         Args:
             task: single task to add.
         """
-        if task.max_attempts is None:
-            task.max_attempts = self._default_max_attempts
         logger.debug(f"Adding Task {task}")
         if hash(task) in self.tasks.keys():
             raise ValueError(
@@ -361,7 +355,7 @@ class Workflow(object):
             if self.arrays[template_name] != task.array:
                 raise
         # set array max_attempts
-        task.array.max_attempts = self._default_max_attempts
+        # task.array.max_attempts = self._default_max_attempts
         # add node to task
         try:
             self._dag.add_node(task.node)
@@ -443,6 +437,14 @@ class Workflow(object):
             cluster_name: name of cluster to set as default.
         """
         self.default_cluster_name = cluster_name
+
+    def set_default_max_attempts(self, value: int) -> None:
+        """Set the max attempts.
+
+        Args:
+            value: value of max_attempts.
+        """
+        self._default_max_attempts = value
 
     def get_tasks_by_node_args(
         self, task_template_name: str, **kwargs: Any

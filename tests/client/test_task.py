@@ -387,6 +387,7 @@ def test_default_max_attemps(db_engine, client_env, tool):
         arg1="arg1_3",
         arg2="arg2_3",
     )
+    assert tt.default_max_attempts == 3
     wf2 = tool.create_workflow(default_max_attempts=1000)
     assert wf2.default_max_attempts == 1000
     wf2.add_task(task3)
@@ -399,7 +400,7 @@ def test_default_max_attemps(db_engine, client_env, tool):
         node_args=["arg1"],
         task_args=["arg2"],
     )
-    tt2.active_task_template_version.set_default_max_attempts(7)
+    tt2.set_default_max_attempts(7)
     task4 = tt2.create_task(
         name="task4",
         arg1="arg1_4",
@@ -408,30 +409,28 @@ def test_default_max_attemps(db_engine, client_env, tool):
     wf3 = tool.create_workflow()
     assert wf3.default_max_attempts == 3
     wf3.add_task(task4)
-    assert task4.max_attempts == 7
+    assert task4.max_attempts == 3
 
     # test tool level default
-    tool.active_tool_version.set_default_max_attempts(17)
-    assert tool.defalut_max_attempts == 17
+    tool.set_default_max_attempts(17)
+    assert tool.default_max_attempts == 17
     tt3 = tool.get_task_template(
         template_name="test_tt1",
         command_template="true|| ghi {arg1} {arg2}",
         node_args=["arg1"],
         task_args=["arg2"],
     )
-    assert tt3.defalut_max_attempts == 17
+    assert tt3.default_max_attempts == 17
     task5 = tt2.create_task(
         name="task5",
         arg1="arg1_5",
         arg2="arg2_5",
     )
     wf4 = tool.create_workflow()
-    assert wf4.default_max_attempts == 3
+    assert wf4.default_max_attempts == 17
     wf4.add_task(task5)
     assert task5.max_attempts == 17
 
     # test wf always have a default max attempts so existing code works
-    tool.active_tool_version.set_default_max_attempts(None)
-    assert tool.defalut_max_attempts is None
     wf5 = tool.create_workflow(default_max_attempts=None)
-    assert wf5.default_max_attempts == 3
+    assert wf5.default_max_attempts == tool.default_max_attempts is not None
