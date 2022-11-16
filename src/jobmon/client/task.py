@@ -75,7 +75,7 @@ class Task:
         name: Optional[str] = None,
         max_attempts: int = 3,
         upstream_tasks: Optional[List[Task]] = None,
-        task_attributes: Union[List, dict] = None,
+        task_attributes: Union[List, dict, None] = None,
         requester: Optional[Requester] = None,
     ) -> None:
         """Create a single executable object in the workflow, aka a Task.
