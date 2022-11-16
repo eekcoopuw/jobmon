@@ -1,5 +1,4 @@
 """Routes for Tasks."""
-from functools import reduce
 from http import HTTPStatus as StatusCodes
 import json
 from typing import Any, cast, Dict, List, Set, Union
@@ -166,14 +165,14 @@ def bind_tasks_no_args() -> Any:
 
 @blueprint.route("/task/bind_task_args", methods=["PUT"])
 def bind_task_args() -> Any:
+    """Add task args and associated task ids to the database."""
     all_data = cast(Dict, request.get_json())
     task_args = all_data["task_args"]
     if any(task_args):
         # Insert task args using INSERT IGNORE to handle conflicts
         task_arg_values = [
-            {'task_id': task_id, 'arg_id': arg_id, 'val': value}
-            for task_id, arg_id, value
-            in task_args
+            {"task_id": task_id, "arg_id": arg_id, "val": value}
+            for task_id, arg_id, value in task_args
         ]
         session = SessionLocal()
         try:
@@ -184,8 +183,8 @@ def bind_task_args() -> Any:
             elif SessionLocal.bind.dialect.name == "sqlite":
                 arg_insert_stmt = (
                     sqlite_insert(TaskArg)
-                        .values(task_arg_values)
-                        .on_conflict_do_nothing()
+                    .values(task_arg_values)
+                    .on_conflict_do_nothing()
                 )
             else:
                 raise ServerError(
@@ -208,6 +207,7 @@ def bind_task_args() -> Any:
 
 @blueprint.route("/task/bind_task_attributes", methods=["PUT"])
 def bind_task_attributes() -> Any:
+    """Add task attributes and associated attribute types to the database."""
     all_data = cast(Dict, request.get_json())
     attributes = all_data["task_attributes"]
 
@@ -219,15 +219,17 @@ def bind_task_attributes() -> Any:
     if any(all_attribute_names):
         session = SessionLocal()
         with session.begin():
-            attribute_type_ids = _add_or_get_attribute_types(all_attribute_names, session)
+            attribute_type_ids = _add_or_get_attribute_types(
+                all_attribute_names, session
+            )
             # Build our insert values. On conflicts, update the existing value
             insert_values = []
             for task_id, attribute_dict in attributes.items():
                 for attribute_name, attribute_val in attribute_dict.items():
                     insert_row = {
-                        'task_id': task_id,
-                        'task_attribute_type_id': attribute_type_ids[attribute_name],
-                        'value': attribute_val
+                        "task_id": task_id,
+                        "task_attribute_type_id": attribute_type_ids[attribute_name],
+                        "value": attribute_val,
                     }
                     insert_values.append(insert_row)
 
@@ -235,7 +237,9 @@ def bind_task_attributes() -> Any:
             if insert_values:
                 try:
                     if SessionLocal.bind.dialect.name == "mysql":
-                        attr_insert_stmt = mysql_insert(TaskAttribute).values(insert_values)
+                        attr_insert_stmt = mysql_insert(TaskAttribute).values(
+                            insert_values
+                        )
                         attr_insert_stmt = attr_insert_stmt.on_duplicate_key_update(
                             value=attr_insert_stmt.inserted.value
                         )
@@ -245,9 +249,12 @@ def bind_task_attributes() -> Any:
                         for attr_to_add in insert_values:
                             attr_insert_stmt = (
                                 sqlite_insert(TaskAttribute)
-                                    .values(attr_to_add)
-                                    .on_conflict_do_update(
-                                    index_elements=["task_id", "task_attribute_type_id"],
+                                .values(attr_to_add)
+                                .on_conflict_do_update(
+                                    index_elements=[
+                                        "task_id",
+                                        "task_attribute_type_id",
+                                    ],
                                     set_=dict(value=attr_to_add["value"]),
                                 )
                             )
@@ -260,8 +267,8 @@ def bind_task_attributes() -> Any:
                 except (DataError, IntegrityError) as e:
                     # Attributes too long, message back
                     raise InvalidUsage(
-                        "Task attributes are constrained to 255 characters, you may have values "
-                        f"that are too long. Message: {str(e)}",
+                        "Task attributes are constrained to 255 characters, "
+                        f"you may have values that are too long. Message: {str(e)}",
                         status_code=400,
                     ) from e
 
@@ -277,9 +284,7 @@ def _add_or_get_attribute_types(
     # Query for existing attribute types, to avoid integrity conflicts
     names = set(names)
 
-    existing_rows_select = select(
-        TaskAttributeType
-    ).where(
+    existing_rows_select = select(TaskAttributeType).where(
         TaskAttributeType.name.in_(names)
     )
     existing_rows = session.execute(existing_rows_select).scalars()
@@ -299,19 +304,15 @@ def _add_or_get_attribute_types(
         try:
             if SessionLocal.bind.dialect.name == "mysql":
                 insert_stmt = (
-                    insert(
-                        TaskAttributeType
-                    ).values(
-                        new_attribute_types
-                    ).prefix_with("IGNORE")
+                    insert(TaskAttributeType)
+                    .values(new_attribute_types)
+                    .prefix_with("IGNORE")
                 )
             elif SessionLocal.bind.dialect.name == "sqlite":
                 insert_stmt = (
-                    sqlite_insert(
-                        TaskAttributeType
-                    ).values(
-                        new_attribute_types
-                    ).on_conflict_do_nothing()
+                    sqlite_insert(TaskAttributeType)
+                    .values(new_attribute_types)
+                    .on_conflict_do_nothing()
                 )
             else:
                 raise ServerError(
@@ -322,7 +323,8 @@ def _add_or_get_attribute_types(
 
             # Query the IDs of the newly inserted rows
             new_rows_select = select(TaskAttributeType).where(
-                TaskAttributeType.name.in_(new_names))
+                TaskAttributeType.name.in_(new_names)
+            )
             new_attribute_type_ids = session.execute(new_rows_select).scalars().all()
         except DataError as e:
             raise InvalidUsage(
@@ -333,7 +335,8 @@ def _add_or_get_attribute_types(
 
         # Query the IDs of the newly inserted rows
         new_rows_select = select(TaskAttributeType).where(
-            TaskAttributeType.name.in_(new_names))
+            TaskAttributeType.name.in_(new_names)
+        )
         new_attribute_type_ids = session.execute(new_rows_select).scalars().all()
 
         # Update our return dict

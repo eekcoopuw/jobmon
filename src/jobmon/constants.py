@@ -18,6 +18,7 @@ class TaskResourcesType:
 
 class TaskInstanceStatus:
     """Statuses used for Task Instances."""
+
     DONE = "D"
     ERROR = "E"
     ERROR_FATAL = "F"

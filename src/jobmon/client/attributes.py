@@ -26,11 +26,9 @@ def add_task_attributes(
         )
 
     # add task id to the attribute dict
-    attr_dict['task_id'] = task_id
+    attr_dict["task_id"] = task_id
 
     requester = Requester.from_defaults()
     requester.send_request(
-        app_route=f"/task/bind_task_attributes",
-        message=attr_dict,
-        request_type="post"
+        app_route="/task/bind_task_attributes", message=attr_dict, request_type="post"
     )

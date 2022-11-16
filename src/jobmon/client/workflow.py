@@ -750,10 +750,8 @@ class Workflow(object):
         """Bind all task args to the database.
 
         Loop through our bound task dict in chunks in order to bind new args and arg types
-        to the database."""
-
-        # Insert all task arg types
-
+        to the database.
+        """
         remaining_task_hashes = list(self.tasks.keys())
 
         while remaining_task_hashes:
@@ -764,14 +762,16 @@ class Workflow(object):
             task_arg_list = []
             for task_hash in task_hashes_chunk:
                 task = self.tasks[task_hash]
-                task_args = [(task.task_id, arg_id, value)
-                             for arg_id, value in task.mapped_task_args.items()]
+                task_args = [
+                    (task.task_id, arg_id, value)
+                    for arg_id, value in task.mapped_task_args.items()
+                ]
                 task_arg_list.extend(task_args)
 
             self.requester.send_request(
-                app_route='/task/bind_task_args',
-                message={'task_args': task_arg_list},
-                request_type='put'
+                app_route="/task/bind_task_args",
+                message={"task_args": task_arg_list},
+                request_type="put",
             )
 
     def _bind_task_attributes(self, chunk_size: int = 500) -> None:
@@ -789,9 +789,9 @@ class Workflow(object):
 
             # Send the request
             self.requester.send_request(
-                app_route='/task/bind_task_attributes',
-                message={'task_attributes': attribute_dict},
-                request_type='put'
+                app_route="/task/bind_task_attributes",
+                message={"task_attributes": attribute_dict},
+                request_type="put",
             )
 
     def get_errors(
