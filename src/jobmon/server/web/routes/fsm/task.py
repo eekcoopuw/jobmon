@@ -321,11 +321,6 @@ def _add_or_get_attribute_types(
                 )
             session.execute(insert_stmt)
 
-            # Query the IDs of the newly inserted rows
-            new_rows_select = select(TaskAttributeType).where(
-                TaskAttributeType.name.in_(new_names)
-            )
-            new_attribute_type_ids = session.execute(new_rows_select).scalars().all()
         except DataError as e:
             raise InvalidUsage(
                 "Attribute types are constrained to 255 characters, your "
