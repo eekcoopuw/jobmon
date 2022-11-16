@@ -171,7 +171,7 @@ def bind_task_args() -> Any:
     if any(task_args):
         # Insert task args using INSERT IGNORE to handle conflicts
         task_arg_values = [
-            {'task_id': task_id, 'arg_id': arg_id, 'value': value}
+            {'task_id': task_id, 'arg_id': arg_id, 'val': value}
             for task_id, arg_id, value
             in task_args
         ]
@@ -214,55 +214,56 @@ def bind_task_attributes() -> Any:
     # Map attribute names to attribute_type_ids, insert if necessary
     all_attribute_names = set()
     for attribute in attributes.values():
-        all_attribute_names += set(attribute.keys())
-    session = SessionLocal()
-    with session.begin():
-        attribute_type_ids = _add_or_get_attribute_types(all_attribute_names, session)
-        attribute_type_ids = {attr_type.name: attr_type.id for attr_type in attribute_type_ids}
+        all_attribute_names |= set(attribute.keys())
 
-        # Build our insert values. On conflicts, update the existing value
-        insert_values = []
-        for task_id, attribute_dict in attributes.items():
-            for attribute_name, attribute_val in attribute_dict.items():
-                insert_row = {
-                    'task_id': task_id,
-                    'attribute_type_id': attribute_type_ids[attribute_name],
-                    'value': attribute_val
-                }
-                insert_values.append(insert_row)
+    if any(all_attribute_names):
+        session = SessionLocal()
+        with session.begin():
+            attribute_type_ids = _add_or_get_attribute_types(all_attribute_names, session)
+            # Build our insert values. On conflicts, update the existing value
+            insert_values = []
+            for task_id, attribute_dict in attributes.items():
+                for attribute_name, attribute_val in attribute_dict.items():
+                    insert_row = {
+                        'task_id': task_id,
+                        'task_attribute_type_id': attribute_type_ids[attribute_name],
+                        'value': attribute_val
+                    }
+                    insert_values.append(insert_row)
 
-        # Insert and handle the conflicts
-        if insert_values:
-            try:
-                if SessionLocal.bind.dialect.name == "mysql":
-                    attr_insert_stmt = mysql_insert(TaskAttribute).values(insert_values)
-                    attr_insert_stmt = attr_insert_stmt.on_duplicate_key_update(
-                        value=attr_insert_stmt.inserted.value
-                    )
-
-                elif SessionLocal.bind.dialect.name == "sqlite":
-                    for attr_to_add in insert_values:
-                        attr_insert_stmt = (
-                            sqlite_insert(TaskAttribute)
-                                .values(attr_to_add)
-                                .on_conflict_do_update(
-                                index_elements=["task_id", "task_attribute_type_id"],
-                                set_=dict(value=attr_to_add["value"]),
-                            )
+            # Insert and handle the conflicts
+            if insert_values:
+                try:
+                    if SessionLocal.bind.dialect.name == "mysql":
+                        attr_insert_stmt = mysql_insert(TaskAttribute).values(insert_values)
+                        attr_insert_stmt = attr_insert_stmt.on_duplicate_key_update(
+                            value=attr_insert_stmt.inserted.value
                         )
-                else:
-                    raise ServerError(
-                        "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
-                        + SessionLocal.bind.dialect.name
-                    )
-                session.execute(attr_insert_stmt)
-            except (DataError, IntegrityError) as e:
-                # Attributes too long, message back
-                raise InvalidUsage(
-                    "Task attributes are constrained to 255 characters, you may have values "
-                    f"that are too long. Message: {str(e)}",
-                    status_code=400,
-                ) from e
+                        session.execute(attr_insert_stmt)
+
+                    elif SessionLocal.bind.dialect.name == "sqlite":
+                        for attr_to_add in insert_values:
+                            attr_insert_stmt = (
+                                sqlite_insert(TaskAttribute)
+                                    .values(attr_to_add)
+                                    .on_conflict_do_update(
+                                    index_elements=["task_id", "task_attribute_type_id"],
+                                    set_=dict(value=attr_to_add["value"]),
+                                )
+                            )
+                            session.execute(attr_insert_stmt)
+                    else:
+                        raise ServerError(
+                            "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
+                            + SessionLocal.bind.dialect.name
+                        )
+                except (DataError, IntegrityError) as e:
+                    # Attributes too long, message back
+                    raise InvalidUsage(
+                        "Task attributes are constrained to 255 characters, you may have values "
+                        f"that are too long. Message: {str(e)}",
+                        status_code=400,
+                    ) from e
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
@@ -271,7 +272,7 @@ def bind_task_attributes() -> Any:
 
 def _add_or_get_attribute_types(
     names: Union[List[str], Set[str]], session: Session
-) -> List[TaskAttributeType]:
+) -> Dict[str, int]:
 
     # Query for existing attribute types, to avoid integrity conflicts
     names = set(names)
@@ -282,48 +283,64 @@ def _add_or_get_attribute_types(
         TaskAttributeType.name.in_(names)
     )
     existing_rows = session.execute(existing_rows_select).scalars()
+    existing_rows = {attr.name: attr.id for attr in existing_rows}
 
-    existing_names = {row.name for row in existing_rows}
+    existing_names = set(existing_rows.keys())
 
     # Insert the remaining names, found from the difference between old and new
     # Keep the IGNORE prefix in case other agents add attributes first, prevent errors
     # while trying to minimize collisions
     new_names = names - existing_names
-    new_attribute_types = [{"name": name} for name in new_names]
-    try:
-        if SessionLocal.bind.dialect.name == "mysql":
-            insert_stmt = (
-                insert(
-                    TaskAttributeType
-                ).values(
-                    new_attribute_types
-                ).prefix_with("IGNORE")
-            )
-        elif SessionLocal.bind.dialect.name == "sqlite":
-            insert_stmt = (
-                sqlite_insert(
-                    TaskAttributeType
-                ).values(
-                    new_attribute_types
-                ).on_conflict_do_nothing()
-            )
-        else:
-            raise ServerError(
-                "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
-                + SessionLocal.bind.dialect.name
-            )
-        session.execute(insert_stmt)
-    except DataError as e:
-        raise InvalidUsage(
-            "Attribute types are constrained to 255 characters, your "
-            f"attributes might be too long. Message: {str(e)}",
-            status_code=400,
-        ) from e
 
-    # Query the IDs
-    new_rows_select = select(TaskAttributeType).where(TaskAttributeType.name.in_(new_names))
-    attribute_type_ids = session.execute(new_rows_select).scalars().all()
-    return attribute_type_ids
+    # We'll eventually return the combination of existing + new attribute type ids
+    return_dict = existing_rows
+    if any(new_names):
+        new_attribute_types = [{"name": name} for name in new_names]
+        try:
+            if SessionLocal.bind.dialect.name == "mysql":
+                insert_stmt = (
+                    insert(
+                        TaskAttributeType
+                    ).values(
+                        new_attribute_types
+                    ).prefix_with("IGNORE")
+                )
+            elif SessionLocal.bind.dialect.name == "sqlite":
+                insert_stmt = (
+                    sqlite_insert(
+                        TaskAttributeType
+                    ).values(
+                        new_attribute_types
+                    ).on_conflict_do_nothing()
+                )
+            else:
+                raise ServerError(
+                    "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
+                    + SessionLocal.bind.dialect.name
+                )
+            session.execute(insert_stmt)
+
+            # Query the IDs of the newly inserted rows
+            new_rows_select = select(TaskAttributeType).where(
+                TaskAttributeType.name.in_(new_names))
+            new_attribute_type_ids = session.execute(new_rows_select).scalars().all()
+        except DataError as e:
+            raise InvalidUsage(
+                "Attribute types are constrained to 255 characters, your "
+                f"attributes might be too long. Message: {str(e)}",
+                status_code=400,
+            ) from e
+
+        # Query the IDs of the newly inserted rows
+        new_rows_select = select(TaskAttributeType).where(
+            TaskAttributeType.name.in_(new_names))
+        new_attribute_type_ids = session.execute(new_rows_select).scalars().all()
+
+        # Update our return dict
+        return_dict.update(
+            {attribute.name: attribute.id for attribute in new_attribute_type_ids}
+        )
+    return return_dict
 
 
 @blueprint.route("/task/bind_resources", methods=["POST"])

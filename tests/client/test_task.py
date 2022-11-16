@@ -92,7 +92,6 @@ def test_task_attribute(db_engine, tool):
     )
     workflow1.add_tasks([task1, task2, task3])
     workflow1.bind()
-    breakpoint()
     workflow1._bind_tasks()
     client_wfr = WorkflowRun(workflow1.workflow_id)
     client_wfr.bind()
@@ -339,7 +338,6 @@ def test_binding_tasks(db_engine, client_env, tool):
     wf = tool.create_workflow()
     wf.add_task(task1)
     wf.bind()
-    breakpoint()
     wf._bind_tasks()
     # verify the task is correctly bind, so are the args
     assert task1.task_id is not None
