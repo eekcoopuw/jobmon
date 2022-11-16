@@ -17,7 +17,7 @@ SET description = 'Workflow encountered an error before a WorkflowRun was create
 WHERE id ='A';
 
 UPDATE workflow_status
-SET description = 'Workflow is Done, it finished successfully.'
+SET description = 'Workflow has completed, it finished successfully.'
 WHERE id ='D';
 
 UPDATE workflow_status
@@ -72,7 +72,7 @@ SET description = 'WorkflowRun is Done, it successfully completed.'
 WHERE id ='D';
 
 UPDATE workflow_run_status
-SET description = 'WorkflowRun did not complete successfully, perhaps lost contact with services.'
+SET description = 'WorkflowRun did not complete successfully, either some Tasks failed or (rarely) an internal Jobmon error.'
 WHERE id ='E';
 
 UPDATE workflow_run_status
@@ -126,7 +126,7 @@ SET description = 'Task has errored out but has more attempts so it will be retr
 WHERE id ='E';
 
 UPDATE task_status
-SET description = 'Task errored out and has used all of the attempts, therefore has failed permanently. It cannot be retried.'
+SET description = 'Task errored out and has used all of the attempts, therefore has failed for this WorkflowRun. It can be resumed in a new WFR.'
 WHERE id ='F';
 
 UPDATE task_status
@@ -159,7 +159,7 @@ ADD COLUMN description VARCHAR(150) DEFAULT '' AFTER label;
 
 # Not 3.2.0
 UPDATE task_instance_status
-SET description = 'Task instance submitted to the cluster normally.'
+SET description = 'Task instance registered in the Jobmon database.'
 WHERE id ='B';
 
 UPDATE task_instance_status

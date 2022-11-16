@@ -36,7 +36,7 @@ def add_task_statuses(session: Session) -> None:
         TaskStatus(id="E", label="ERROR_RECOVERABLE",
                    description="Task has errored out but has more attempts so it will be retried."),
         TaskStatus(id="F", label="ERROR_FATAL",
-                   description="Task errored out and has used all of the attempts, therefore has failed permanently. It cannot be retried."),
+                   description="Task errored out and has used all of the attempts, therefore has failed for this WorkflowRun. It can be resumed in a new WFR."),
         TaskStatus(id="G", label="REGISTERING", description="Task is bound to the database."),
         TaskStatus(id="I", label="INSTANTIATING", description="Task is created within Jobmon."),
         TaskStatus(id="O", label="LAUNCHED",

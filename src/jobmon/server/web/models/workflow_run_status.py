@@ -40,7 +40,7 @@ def add_workflow_run_statuses(session: Session) -> None:
                           description="WorkflowRun is set to resume as soon all existing tasks are killed."),
         WorkflowRunStatus(id="D", label="DONE", description="WorkflowRun is Done, it successfully completed."),
         WorkflowRunStatus(id="E", label="ERROR",
-                          description="WorkflowRun did not complete successfully, perhaps lost contact with services."),
+                          description="WorkflowRun did not complete successfully, either some Tasks failed or (rarely) an internal Jobmon error."),
         WorkflowRunStatus(id="G", label="REGISTERED", description="WorkflowRun has been validated."),
         WorkflowRunStatus(id="H", label="HOT_RESUME",
                           description="WorkflowRun was set to hot-resume while tasks are still running, they will continue running."),

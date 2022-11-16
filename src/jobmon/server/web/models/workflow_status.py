@@ -31,7 +31,7 @@ def add_workflow_statuses(session: Session) -> None:
     statuses = [
         WorkflowStatus(id="A", label="ABORTED",
                        description="Workflow encountered an error before a WorkflowRun was created."),
-        WorkflowStatus(id="D", label="DONE", description="Workflow is Done, it finished successfully."),
+        WorkflowStatus(id="D", label="DONE", description="Workflow has completed, it finished successfully."),
         WorkflowStatus(id="F", label="FAILED",
                        description="Workflow unsuccessful in one or more WorkflowRuns, no runs finished successfully as DONE."),
         WorkflowStatus(id="G", label="REGISTERING", description="Workflow is being validated."),
