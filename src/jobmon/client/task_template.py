@@ -439,9 +439,9 @@ class TaskTemplate:
     def get_task_template_version(
         self,
         command_template: str,
-        node_args: List[str] = None,
-        task_args: List[str] = None,
-        op_args: List[str] = None,
+        node_args: Optional[List[str]] = None,
+        task_args: Optional[List[str]] = None,
+        op_args: Optional[List[str]] = None,
         default_cluster_name: str = "",
         default_compute_resources: Optional[Dict[str, Any]] = None,
         default_resource_scales: Optional[Dict[str, float]] = None,
@@ -676,9 +676,9 @@ class TaskTemplate:
 
     def resource_usage(
         self,
-        workflows: List[int] = None,
-        node_args: Dict[str, Any] = None,
-        ci: float = None,
+        workflows: Optional[List[int]] = None,
+        node_args: Optional[Dict[str, Any]] = None,
+        ci: Optional[float] = None,
     ) -> Optional[dict]:
         """Get the aggregate resource usage for a TaskTemplate."""
         message: Dict[Any, Any] = dict()

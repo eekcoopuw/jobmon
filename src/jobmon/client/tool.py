@@ -144,13 +144,13 @@ class Tool:
         self,
         template_name: str,
         command_template: str,
-        node_args: List[str] = None,
-        task_args: List[str] = None,
-        op_args: List[str] = None,
+        node_args: Optional[List[str]] = None,
+        task_args: Optional[List[str]] = None,
+        op_args: Optional[List[str]] = None,
         default_cluster_name: str = "",
         default_compute_resources: Optional[Dict[str, Any]] = None,
         default_resource_scales: Optional[Dict[str, float]] = None,
-        yaml_file: str = None,
+        yaml_file: str = "",
     ) -> TaskTemplate:
         """Create or get task a task template.
 
