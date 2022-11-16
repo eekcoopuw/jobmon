@@ -18,19 +18,19 @@ class TaskResourcesType:
 
 class TaskInstanceStatus:
     """Statuses used for Task Instances."""
-
-    QUEUED = "Q"
+    DONE = "D"
+    ERROR = "E"
+    ERROR_FATAL = "F"
     INSTANTIATED = "I"
-    NO_DISTRIBUTOR_ID = "W"
+    KILL_SELF = "K"
     LAUNCHED = "O"
+    QUEUED = "Q"
     RUNNING = "R"
     TRIAGING = "T"
-    RESOURCE_ERROR = "Z"
+
     UNKNOWN_ERROR = "U"
-    ERROR = "E"
-    DONE = "D"
-    KILL_SELF = "K"
-    ERROR_FATAL = "F"
+    NO_DISTRIBUTOR_ID = "W"
+    RESOURCE_ERROR = "Z"
 
 
 class TaskStatus:
