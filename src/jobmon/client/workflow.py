@@ -678,9 +678,6 @@ class Workflow(object):
         reset_if_running: bool = True,
         chunk_size: int = 500,
     ) -> None:
-        # Bind tasks
-        # bind task args, needs task_id
-        # bind task attributes, needs task_id
         app_route = "/task/bind_tasks_no_args"
         remaining_task_hashes = list(self.tasks.keys())
 
