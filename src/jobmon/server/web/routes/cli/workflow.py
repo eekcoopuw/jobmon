@@ -210,9 +210,10 @@ def reset_workflow(workflow_id: int) -> Any:
             .values(status="G", status_date=func.now())
         )
         session.execute(update_stmt)
+        update_filter = [Task.workflow_id == workflow_id, Task.status != "G"]
         update_stmt = (
             update(Task)
-            .where(Task.workflow_id == workflow_id)
+            .where(*update_filter)
             .values(status="G", status_date=func.now(), num_attempts=0)
         )
         session.execute(update_stmt)
