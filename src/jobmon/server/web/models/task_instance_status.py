@@ -38,27 +38,32 @@ def add_task_instance_statuses(session: Session) -> None:
         TaskInstanceStatus(
             id="E",
             label="ERROR",
-            description="Task instance stopped with an application error (non-zero return code).",
+            description="Task instance stopped with an application error "
+            "(non-zero return code).",
         ),
         TaskInstanceStatus(
             id="F",
             label="ERROR_FATAL",
-            description="Task instance killed itself as part of a cold workflow resume, and cannot be retried.",
+            description="Task instance killed itself as part of a cold workflow resume, "
+            "and cannot be retried.",
         ),
         TaskInstanceStatus(
             id="I",
             label="INSTANTIATED",
-            description="Task instance is created within Jobmon, but not queued for submission to the cluster.",
+            description="Task instance is created within Jobmon, but not queued for "
+            "submission to the cluster.",
         ),
         TaskInstanceStatus(
             id="K",
             label="KILL_SELF",
-            description="Task instance has been ordered to kill itself if it is still alive, as part of a cold workflow resume.",
+            description="Task instance has been ordered to kill itself if it is still alive, "
+            "as part of a cold workflow resume.",
         ),
         TaskInstanceStatus(
             id="O",
             label="QUEUED",
-            description="Task instance submitted to the cluster normally, part of a Job Array.",
+            description="Task instance submitted to the cluster normally, "
+            "part of a Job Array.",
         ),
         TaskInstanceStatus(
             id="Q",
@@ -73,22 +78,26 @@ def add_task_instance_statuses(session: Session) -> None:
         TaskInstanceStatus(
             id="T",
             label="TRIAGING",
-            description="Task instance has errored, Jobmon is determining the category of error.",
+            description="Task instance has errored, Jobmon "
+            "is determining the category of error.",
         ),
         TaskInstanceStatus(
             id="U",
             label="UNKNOWN_ERROR",
-            description="Task instance stopped reporting that it was alive for an unknown reason.",
+            description="Task instance stopped reporting that it was alive "
+            "for an unknown reason.",
         ),
         TaskInstanceStatus(
             id="W",
             label="NO_DISTRIBUTOR_ID",
-            description="Task instance submission within Jobmon failed – did not receive a distributor_id from the cluster.",
+            description="Task instance submission within Jobmon failed – "
+            "did not receive a distributor_id from the cluster.",
         ),
         TaskInstanceStatus(
             id="Z",
             label="RESOURCE_ERROR",
-            description="Task instance died because of insufficient resource request, i.e. insufficient memory or runtime.",
+            description="Task instance died because of insufficient resource request, "
+            "i.e. insufficient memory or runtime.",
         ),
     ]
     session.add_all(statuses)

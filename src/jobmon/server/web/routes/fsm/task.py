@@ -163,221 +163,182 @@ def bind_tasks_no_args() -> Any:
     return resp
 
 
-@blueprint.route("/task/bind_tasks_args", methods=["PUT"])
-def bind_tasks_attr_args() -> Any:
-    """Bind the task args to the database."""
+@blueprint.route("/task/bind_task_args", methods=["PUT"])
+def bind_task_args() -> Any:
+    """Add task args and associated task ids to the database."""
     all_data = cast(Dict, request.get_json())
-    tasks_attr_args = all_data["task_attr_args"]
-    workflow_id = int(all_data["workflow_id"])
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
-    logger.info("Binding task attributes and args")
-    args_to_add = []
-    attrs_to_add = []
-
-    session = SessionLocal()
-    with session.begin():
-        all_type_attr_maps: Dict[str, int] = dict()
-        for id in tasks_attr_args.keys():
-            task_id = int(id)
-            args, attrs = tasks_attr_args[id]
-
-            for key, val in args.items():
-                task_arg = {"task_id": task_id, "arg_id": int(key), "val": val}
-                args_to_add.append(task_arg)
-
-            attr_names = set([name for x in tasks_attr_args.values() for name in x[1]])
-            if attr_names:
-                # only send not mapped attrs to db
-                subset_attr = set()
-                for attr in attr_names:
-                    if attr in all_type_attr_maps.keys():
-                        pass
-                    else:
-                        subset_attr.add(attr)
-                if len(subset_attr) > 0:
-                    subset_task_attributes_types = _add_or_get_attribute_type(
-                        subset_attr, session
-                    )
-                    dict_subset_task_attributes_types = {
-                        ta.name: ta.id for ta in subset_task_attributes_types
-                    }
-                    all_type_attr_maps = {
-                        **all_type_attr_maps,
-                        **dict_subset_task_attributes_types,
-                    }
-
-                # Map name to ID from resultant list
-                task_attr_type_mapping = {
-                    attr: all_type_attr_maps[attr] for attr in all_type_attr_maps
-                }
+    task_args = all_data["task_args"]
+    if any(task_args):
+        # Insert task args using INSERT IGNORE to handle conflicts
+        task_arg_values = [
+            {"task_id": task_id, "arg_id": arg_id, "val": value}
+            for task_id, arg_id, value in task_args
+        ]
+        session = SessionLocal()
+        try:
+            if SessionLocal.bind.dialect.name == "mysql":
+                arg_insert_stmt = (
+                    insert(TaskArg).values(task_arg_values).prefix_with("IGNORE")
+                )
+            elif SessionLocal.bind.dialect.name == "sqlite":
+                arg_insert_stmt = (
+                    sqlite_insert(TaskArg)
+                    .values(task_arg_values)
+                    .on_conflict_do_nothing()
+                )
             else:
-                task_attr_type_mapping = {}
-
-            for name, val in attrs.items():
-                # An interesting bug: the attribute type names are inserted using the
-                # insert.prefix("IGNORE") syntax, which silently truncates names that are
-                # overly long. So this will raise a keyerror if the attribute name is >255
-                # characters. Don't imagine this is a serious issue but might be worth
-                # protecting
-                attr_type_id = task_attr_type_mapping[name]
-                insert_vals = {
-                    "task_id": task_id,
-                    "task_attribute_type_id": attr_type_id,
-                    "value": val,
-                }
-                attrs_to_add.append(insert_vals)
-
-        if args_to_add:
-            try:
-                if SessionLocal.bind.dialect.name == "mysql":
-                    arg_insert_stmt = (
-                        insert(TaskArg).values(args_to_add).prefix_with("IGNORE")
-                    )
-                elif SessionLocal.bind.dialect.name == "sqlite":
-                    arg_insert_stmt = (
-                        sqlite_insert(TaskArg)
-                        .values(args_to_add)
-                        .on_conflict_do_nothing()
-                    )
+                raise ServerError(
+                    "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
+                    + SessionLocal.bind.dialect.name
+                )
+            with session.begin():
                 session.execute(arg_insert_stmt)
-            except (DataError, IntegrityError) as e:
-                # Args likely too long, message back
-                raise InvalidUsage(
-                    "Task Args are constrained to 1000 characters, you may have values "
-                    f"that are too long. Message: {str(e)}",
-                    status_code=400,
-                ) from e
-
-        if attrs_to_add:
-            try:
-                if SessionLocal.bind.dialect.name == "mysql":
-                    attr_insert_stmt = mysql_insert(TaskAttribute).values(attrs_to_add)
-                    attr_insert_stmt = attr_insert_stmt.on_duplicate_key_update(
-                        value=attr_insert_stmt.inserted.value
-                    )
-                    session.execute(attr_insert_stmt)
-                elif SessionLocal.bind.dialect.name == "sqlite":
-                    for attr_to_add in attrs_to_add:
-                        attr_insert_stmt = (
-                            sqlite_insert(TaskAttribute)
-                            .values(attr_to_add)
-                            .on_conflict_do_update(
-                                index_elements=["task_id", "task_attribute_type_id"],
-                                set_=dict(value=attr_to_add["value"]),
-                            )
-                        )
-                        session.execute(attr_insert_stmt)
-                else:
-                    raise ServerError(
-                        "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
-                        + SessionLocal.bind.dialect.name
-                    )
-
-            except (DataError, IntegrityError) as e:
-                # Attributes too long, message back
-                raise InvalidUsage(
-                    "Task attributes are constrained to 255 characters, you may have values "
-                    f"that are too long. Message: {str(e)}",
-                    status_code=400,
-                ) from e
-
-        resp = jsonify()
-        resp.status_code = StatusCodes.OK
-        return resp
+        except (DataError, IntegrityError) as e:
+            # Args likely too long, message back
+            raise InvalidUsage(
+                "Task Args are constrained to 1000 characters, you may have values "
+                f"that are too long. Message: {str(e)}",
+                status_code=400,
+            ) from e
+    resp = jsonify()
+    resp.status_code = StatusCodes.OK
+    return resp
 
 
-def _add_or_get_attribute_type(
-    names: Union[List[str], Set[str]], session: Session
-) -> List[TaskAttributeType]:
-    attribute_types = [{"name": name} for name in names]
-    try:
-        if SessionLocal.bind.dialect.name == "mysql":
-            insert_stmt = (
-                insert(TaskAttributeType).values(attribute_types).prefix_with("IGNORE")
-            )
-        elif SessionLocal.bind.dialect.name == "sqlite":
-            insert_stmt = (
-                sqlite_insert(TaskAttributeType)
-                .values(attribute_types)
-                .on_conflict_do_nothing()
-            )
-        session.execute(insert_stmt, attribute_types)
-    except DataError as e:
-        raise InvalidUsage(
-            "Attribute types are constrained to 255 characters, your "
-            f"attributes might be too long. Message: {str(e)}",
-            status_code=400,
-        ) from e
+@blueprint.route("/task/bind_task_attributes", methods=["PUT"])
+def bind_task_attributes() -> Any:
+    """Add task attributes and associated attribute types to the database."""
+    all_data = cast(Dict, request.get_json())
+    attributes = all_data["task_attributes"]
 
-    # Query the IDs
-    select_stmt = select(TaskAttributeType).where(TaskAttributeType.name.in_(names))
-    attribute_type_ids = session.execute(select_stmt).scalars().all()
-    return attribute_type_ids
+    # Map attribute names to attribute_type_ids, insert if necessary
+    all_attribute_names = set()
+    for attribute in attributes.values():
+        all_attribute_names |= set(attribute.keys())
 
-
-@blueprint.route("/task/<task_id>/attributes", methods=["POST"])
-def add_task_attributes(task_id: str) -> Any:
-    """Route to add task attributes from the worker node."""
-    data = cast(Dict, request.get_json())
-    attrs_to_add = []
-
-    session = SessionLocal()
-    with session.begin():
-        task_attributes_types = _add_or_get_attribute_type(set(data.keys()), session)
-        task_attributes_types_lookup = {ta.name: ta.id for ta in task_attributes_types}
-
-        for name, val in data.items():
-            # An interesting bug: the attribute type names are inserted using the
-            # insert.prefix("IGNORE") syntax, which silently truncates names that are
-            # overly long. So this will raise a keyerror if the attribute name is >255
-            # characters. Don't imagine this is a serious issue but might be worth
-            # protecting
-            attr_type_id = task_attributes_types_lookup[name]
-            insert_vals = {
-                "task_id": task_id,
-                "task_attribute_type_id": attr_type_id,
-                "value": val,
-            }
-            attrs_to_add.append(insert_vals)
-
-    if attrs_to_add:
+    if any(all_attribute_names):
+        session = SessionLocal()
         with session.begin():
-            try:
-                if SessionLocal.bind.dialect.name == "mysql":
-                    attr_insert_stmt = mysql_insert(TaskAttribute).values(attrs_to_add)
-                    attr_insert_stmt = attr_insert_stmt.on_duplicate_key_update(
-                        value=attr_insert_stmt.inserted.value
-                    )
-                    session.execute(attr_insert_stmt)
-                elif SessionLocal.bind.dialect.name == "sqlite":
-                    for attr_to_add in attrs_to_add:
-                        attr_insert_stmt = (
-                            sqlite_insert(TaskAttribute)
-                            .values(attr_to_add)
-                            .on_conflict_do_update(
-                                index_elements=["task_id", "task_attribute_type_id"],
-                                set_=dict(value=attr_to_add["value"]),
-                            )
-                        )
-                        print(attr_insert_stmt)
-                        session.execute(attr_insert_stmt)
-                else:
-                    raise ServerError(
-                        "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
-                        + SessionLocal.bind.dialect.name
-                    )
+            attribute_type_ids = _add_or_get_attribute_types(
+                all_attribute_names, session
+            )
+            # Build our insert values. On conflicts, update the existing value
+            insert_values = []
+            for task_id, attribute_dict in attributes.items():
+                for attribute_name, attribute_val in attribute_dict.items():
+                    insert_row = {
+                        "task_id": task_id,
+                        "task_attribute_type_id": attribute_type_ids[attribute_name],
+                        "value": attribute_val,
+                    }
+                    insert_values.append(insert_row)
 
-            except (DataError, IntegrityError) as e:
-                # Attributes too long, message back
-                raise InvalidUsage(
-                    "Task attributes are constrained to 255 characters, you may have values "
-                    f"that are too long. Message: {str(e)}",
-                    status_code=400,
-                ) from e
+            # Insert and handle the conflicts
+            if insert_values:
+                try:
+                    if SessionLocal.bind.dialect.name == "mysql":
+                        attr_insert_stmt = mysql_insert(TaskAttribute).values(
+                            insert_values
+                        )
+                        attr_insert_stmt = attr_insert_stmt.on_duplicate_key_update(
+                            value=attr_insert_stmt.inserted.value
+                        )
+                        session.execute(attr_insert_stmt)
+
+                    elif SessionLocal.bind.dialect.name == "sqlite":
+                        for attr_to_add in insert_values:
+                            attr_insert_stmt = (
+                                sqlite_insert(TaskAttribute)
+                                .values(attr_to_add)
+                                .on_conflict_do_update(
+                                    index_elements=[
+                                        "task_id",
+                                        "task_attribute_type_id",
+                                    ],
+                                    set_=dict(value=attr_to_add["value"]),
+                                )
+                            )
+                            session.execute(attr_insert_stmt)
+                    else:
+                        raise ServerError(
+                            "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
+                            + SessionLocal.bind.dialect.name
+                        )
+                except (DataError, IntegrityError) as e:
+                    # Attributes too long, message back
+                    raise InvalidUsage(
+                        "Task attributes are constrained to 255 characters, "
+                        f"you may have values that are too long. Message: {str(e)}",
+                        status_code=400,
+                    ) from e
 
     resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp
+
+
+def _add_or_get_attribute_types(
+    names: Union[List[str], Set[str]], session: Session
+) -> Dict[str, int]:
+
+    # Query for existing attribute types, to avoid integrity conflicts
+    names = set(names)
+
+    existing_rows_select = select(TaskAttributeType).where(
+        TaskAttributeType.name.in_(names)
+    )
+    existing_rows = session.execute(existing_rows_select).scalars()
+    existing_rows = {attr.name: attr.id for attr in existing_rows}
+
+    existing_names = set(existing_rows.keys())
+
+    # Insert the remaining names, found from the difference between old and new
+    # Keep the IGNORE prefix in case other agents add attributes first, prevent errors
+    # while trying to minimize collisions
+    new_names = names - existing_names
+
+    # We'll eventually return the combination of existing + new attribute type ids
+    return_dict = existing_rows
+    if any(new_names):
+        new_attribute_types = [{"name": name} for name in new_names]
+        try:
+            if SessionLocal.bind.dialect.name == "mysql":
+                insert_stmt = (
+                    insert(TaskAttributeType)
+                    .values(new_attribute_types)
+                    .prefix_with("IGNORE")
+                )
+            elif SessionLocal.bind.dialect.name == "sqlite":
+                insert_stmt = (
+                    sqlite_insert(TaskAttributeType)
+                    .values(new_attribute_types)
+                    .on_conflict_do_nothing()
+                )
+            else:
+                raise ServerError(
+                    "invalid sql dialect. Only (mysql, sqlite) are supported. Got"
+                    + SessionLocal.bind.dialect.name
+                )
+            session.execute(insert_stmt)
+
+        except DataError as e:
+            raise InvalidUsage(
+                "Attribute types are constrained to 255 characters, your "
+                f"attributes might be too long. Message: {str(e)}",
+                status_code=400,
+            ) from e
+
+        # Query the IDs of the newly inserted rows
+        new_rows_select = select(TaskAttributeType).where(
+            TaskAttributeType.name.in_(new_names)
+        )
+        new_attribute_type_ids = session.execute(new_rows_select).scalars().all()
+
+        # Update our return dict
+        return_dict.update(
+            {attribute.name: attribute.id for attribute in new_attribute_type_ids}
+        )
+    return return_dict
 
 
 @blueprint.route("/task/bind_resources", methods=["POST"])

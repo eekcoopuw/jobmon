@@ -32,12 +32,14 @@ def add_task_statuses(session: Session) -> None:
         TaskStatus(
             id="A",
             label="ADJUSTING_RESOURCES",
-            description="Task errored with a resource error, the resources will be adjusted before retrying.",
+            description="Task errored with a resource error, the resources will be "
+            "adjusted before retrying.",
         ),
         TaskStatus(
             id="D",
             label="DONE",
-            description="Task is Done, it ran successfully to completion; it has a TaskInstance that successfully completed.",
+            description="Task is Done, it ran successfully to completion; "
+            "it has a TaskInstance that successfully completed.",
         ),
         TaskStatus(
             id="E",
@@ -47,7 +49,8 @@ def add_task_statuses(session: Session) -> None:
         TaskStatus(
             id="F",
             label="ERROR_FATAL",
-            description="Task errored out and has used all of the attempts, therefore has failed for this WorkflowRun. It can be resumed in a new WFR.",
+            description="Task errored out and has used all of the attempts, therefore has "
+            "failed for this WorkflowRun. It can be resumed in a new WFR.",
         ),
         TaskStatus(
             id="G", label="REGISTERING", description="Task is bound to the database."
@@ -58,12 +61,14 @@ def add_task_statuses(session: Session) -> None:
         TaskStatus(
             id="O",
             label="LAUNCHED",
-            description="'Task instance submitted to the cluster normally, part of a Job Array.",
+            description="Task instance submitted to the cluster normally, "
+            "part of a Job Array.",
         ),
         TaskStatus(
             id="Q",
             label="QUEUED",
-            description="Task's dependencies have successfully completed, task can be run when the scheduler is ready.",
+            description="Task's dependencies have successfully completed, task can be run "
+            "when the scheduler is ready.",
         ),
         TaskStatus(
             id="R",

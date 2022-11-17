@@ -56,7 +56,8 @@ def add_workflow_run_statuses(session: Session) -> None:
         WorkflowRunStatus(
             id="E",
             label="ERROR",
-            description="WorkflowRun did not complete successfully, either some Tasks failed or (rarely) an internal Jobmon error.",
+            description="WorkflowRun did not complete successfully, either some Tasks "
+            "failed or (rarely) an internal Jobmon error.",
         ),
         WorkflowRunStatus(
             id="G", label="REGISTERED", description="WorkflowRun has been validated."
@@ -64,7 +65,8 @@ def add_workflow_run_statuses(session: Session) -> None:
         WorkflowRunStatus(
             id="H",
             label="HOT_RESUME",
-            description="WorkflowRun was set to hot-resume while tasks are still running, they will continue running.",
+            description="WorkflowRun was set to hot-resume while tasks are still running, "
+            "they will continue running.",
         ),
         WorkflowRunStatus(
             id="I",
@@ -79,7 +81,8 @@ def add_workflow_run_statuses(session: Session) -> None:
         WorkflowRunStatus(
             id="O",
             label="LAUNCHED",
-            description="Instantiation complete. Distributor is controlling Tasks or waiting for scheduling loop.",
+            description="Instantiation complete. Distributor is controlling Tasks or waiting "
+            "for scheduling loop.",
         ),
         WorkflowRunStatus(
             id="R", label="RUNNING", description="WorkflowRun is currently running."
@@ -87,12 +90,14 @@ def add_workflow_run_statuses(session: Session) -> None:
         WorkflowRunStatus(
             id="S",
             label="STOPPED",
-            description="WorkflowRun was deliberately stopped, probably due to keyboard interrupt from user.",
+            description="WorkflowRun was deliberately stopped, probably due to keyboard "
+            "interrupt from user.",
         ),
         WorkflowRunStatus(
             id="T",
             label="TERMINATED",
-            description="This WorkflowRun is being replaced by a new WorkflowRun created to pick up remaining Tasks, this WFR is terminating.",
+            description="This WorkflowRun is being replaced by a new WorkflowRun created "
+            "to pick up remaining Tasks, this WFR is terminating.",
         ),
     ]
     session.add_all(statuses)

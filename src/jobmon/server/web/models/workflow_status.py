@@ -42,7 +42,8 @@ def add_workflow_statuses(session: Session) -> None:
         WorkflowStatus(
             id="F",
             label="FAILED",
-            description="Workflow unsuccessful in one or more WorkflowRuns, no runs finished successfully as DONE.",
+            description="Workflow unsuccessful in one or more WorkflowRuns, "
+            "no runs finished successfully as DONE.",
         ),
         WorkflowStatus(
             id="G", label="REGISTERING", description="Workflow is being validated."
@@ -50,7 +51,8 @@ def add_workflow_statuses(session: Session) -> None:
         WorkflowStatus(
             id="H",
             label="HALTED",
-            description="Resume was set and Workflow is shut down or the controller died and therefore Workflow was reaped.",
+            description="Resume was set and Workflow is shut down or the controller died "
+            "and therefore Workflow was reaped.",
         ),
         WorkflowStatus(
             id="I",
@@ -60,12 +62,14 @@ def add_workflow_statuses(session: Session) -> None:
         WorkflowStatus(
             id="O",
             label="LAUNCHED",
-            description="Workflow has been created. Distributor is now controlling tasks, or waiting for scheduling loop.",
+            description="Workflow has been created. Distributor is now controlling tasks, "
+            "or waiting for scheduling loop.",
         ),
         WorkflowStatus(
             id="Q",
             label="QUEUED",
-            description="Jobmon client has updated the Jobmon database, and signalled Scheduler to create Workflow.",
+            description="Jobmon client has updated the Jobmon database, "
+            "and signalled Scheduler to create Workflow.",
         ),
         WorkflowStatus(
             id="R",
