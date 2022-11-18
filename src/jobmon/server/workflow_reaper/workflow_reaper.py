@@ -109,8 +109,8 @@ class WorkflowReaper(object):
                 # to be able to clean the whole database every 12 hours, but also not lock
                 # the database.
                 for i in range(5):
-                    self._inconsistent_status(300)
-                    sleep(5)
+                    self._inconsistent_status(100)
+                    sleep(2)
                 sleep(self._poll_interval_seconds)
         except RuntimeError as e:
             logger.debug(f"Error in monitor_forever() in workflow reaper: {e}")
