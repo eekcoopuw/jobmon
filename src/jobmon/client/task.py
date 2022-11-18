@@ -237,6 +237,10 @@ class Task:
             except AttributeError:
                 # max_attempts hasn't been inferred yet. safe to return empty string for now
                 pass
+            finally:
+                if ma is None:
+                    ma = 3
+                    self._instance_max_attempts = ma
         return ma
 
     @property

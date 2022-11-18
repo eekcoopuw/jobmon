@@ -112,11 +112,7 @@ class Tool:
     @property
     def default_max_attempts(self) -> Optional[int]:
         """Default max attempts of the active tool version."""
-        if self.active_tool_version.default_max_attempt:
-            return self.active_tool_version.default_max_attempt
-        else:
-            self.active_tool_version.set_default_max_attempts(3)
-            return self.active_tool_version.default_max_attempt
+        return self.active_tool_version.default_max_attempt
 
     def set_active_tool_version_id(self, tool_version_id: Union[str, int]) -> None:
         """Tool version that is set as the active one (latest is default during instantiation).
