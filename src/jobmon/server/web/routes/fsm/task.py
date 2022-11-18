@@ -433,7 +433,8 @@ def set_task_resume_state(workflow_id: int) -> Any:
 
         # Logic: reset_if_running -> Reset all tasks not in "D" state
         # else, reset all tasks not in "D" or "R" state
-        excluded_states = [TaskStatus.DONE]
+        # for performance, also excclude TaskStatus.REGISTERING
+        excluded_states = [TaskStatus.DONE, TaskStatus.REGISTERING]
         if not reset_if_running:
             excluded_states.append(TaskStatus.RUNNING)
 
