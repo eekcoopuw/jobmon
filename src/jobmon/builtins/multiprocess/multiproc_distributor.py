@@ -26,7 +26,7 @@ class PickableTask:
         distributor_id: str,
         command: str,
         logfiles: Dict,
-        array_step_id: int = None,
+        array_step_id: Optional[int] = None,
     ) -> None:
         """Initialization of PickableTask.
 

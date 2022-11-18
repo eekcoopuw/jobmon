@@ -212,6 +212,7 @@ def get_task_template_resource_usage() -> Any:
     workflows = data.pop("workflows", None)
     node_args = data.pop("node_args", None)
     ci = data.pop("ci", None)
+    viz = bool(data.pop("viz", False))
 
     session = SessionLocal()
     with session.begin():
@@ -230,13 +231,11 @@ def get_task_template_resource_usage() -> Any:
                 Workflow.id.in_(workflows),
             ]
         sql = select(
-            TaskInstance.wallclock,
-            TaskInstance.maxrss,
-            Node.id,
+            TaskInstance.wallclock, TaskInstance.maxrss, Node.id, Task.id
         ).where(*query_filter)
         rows = session.execute(sql).all()
         session.commit()
-    column_names = ("r", "m", "node_id")
+    column_names = ("r", "m", "node_id", "task_id")
     rows = [dict(zip(column_names, ti)) for ti in rows]
     result = []
     if rows:
@@ -314,6 +313,10 @@ def get_task_template_resource_usage() -> Any:
             ci_mem,
             ci_runtime,
         )
+
+    if viz:
+        resource_usage += (result,)
+
     resp = jsonify(resource_usage)
     resp.status_code = StatusCodes.OK
     return resp

@@ -15,7 +15,7 @@ class _HelpAction(argparse._HelpAction):
         parser: Any,
         namespace: argparse.Namespace,
         values: Any,
-        option_string: str = None,
+        option_string: Optional[str] = None,
     ) -> None:
         """Add subparsers' help info when jobmon --help is called."""
         print(parser.format_help())

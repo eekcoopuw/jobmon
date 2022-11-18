@@ -326,6 +326,7 @@ class ClusterWorkerNode(Protocol):
         """Error and exit code info from the executor."""
         raise NotImplementedError
 
+    @property
     def array_step_id(self) -> Optional[int]:
         """The step id in each batch.
 
