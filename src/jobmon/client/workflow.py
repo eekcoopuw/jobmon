@@ -286,7 +286,7 @@ class Workflow(object):
         }
 
     @property
-    def default_max_attempts(self) -> int:
+    def default_max_attempts(self) -> Optional[int]:
         """Return the workflow default max attempts."""
         if self._default_max_attempts is None:
             self._default_max_attempts = self.tool.default_max_attempts

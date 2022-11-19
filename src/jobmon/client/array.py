@@ -162,7 +162,7 @@ class Array:
         return cluster_name
 
     @property
-    def max_attempts(self) -> int:
+    def max_attempts(self) -> Optional[int]:
         """Get the max_attempts."""
         ma = self._instance_max_attempts
         if not ma:

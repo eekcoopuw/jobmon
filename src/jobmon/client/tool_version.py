@@ -37,7 +37,7 @@ class ToolVersion:
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
         self.default_resource_scales_set: Dict[str, Dict[str, float]] = {}
         self.default_cluster_name: str = ""
-        self.default_max_attempt: Optional[int] = 3
+        self.default_max_attempt: Optional[int] = None
 
         if requester is None:
             requester = Requester.from_defaults()

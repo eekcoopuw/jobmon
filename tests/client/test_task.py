@@ -387,7 +387,7 @@ def test_default_max_attemps(db_engine, client_env, tool):
         arg1="arg1_3",
         arg2="arg2_3",
     )
-    assert tt.default_max_attempts == 3
+    assert tt.default_max_attempts == None
     wf2 = tool.create_workflow(default_max_attempts=1000)
     assert wf2.default_max_attempts == 1000
     wf2.add_task(task3)
@@ -407,7 +407,7 @@ def test_default_max_attemps(db_engine, client_env, tool):
         arg2="arg2_4",
     )
     wf3 = tool.create_workflow()
-    assert wf3.default_max_attempts == 3
+    assert wf3.default_max_attempts == None
     wf3.add_task(task4)
     assert task4.max_attempts == 3
 

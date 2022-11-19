@@ -197,9 +197,10 @@ class TaskTemplate:
     def default_max_attempts(self) -> Optional[int]:
         """Default max attempts of the active tool version."""
         if self.active_task_template_version.default_max_attempts is None:
-            self.active_task_template_version.set_default_max_attempts(
-                self.tool_version.default_max_attempt
-            )
+            if self.tool_version.default_max_attempt:
+                self.active_task_template_version.set_default_max_attempts(
+                    self.tool_version.default_max_attempt
+                )
         return self.active_task_template_version.default_max_attempts
 
     def set_default_max_attempts(self, value: int) -> None:
