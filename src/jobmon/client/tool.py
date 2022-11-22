@@ -155,8 +155,8 @@ class Tool:
         default_cluster_name: str = "",
         default_compute_resources: Optional[Dict[str, Any]] = None,
         default_resource_scales: Optional[Dict[str, float]] = None,
-        yaml_file: str = None,
-        max_attempts: int = None,
+        yaml_file: Optional[str] = None,
+        max_attempts: Optional[int] = None,
     ) -> TaskTemplate:
         """Create or get task a task template.
 
