@@ -193,7 +193,9 @@ def update_task_statuses() -> Any:
     with SessionLocal.begin():
 
         try:
-            update_stmt = update(Task).where(Task.id.in_(task_ids))
+            update_stmt = update(Task).where(
+                Task.id.in_(task_ids), Task.status != new_status
+            )
             vals = {"status": new_status}
             session.execute(update_stmt.values(**vals))
 
