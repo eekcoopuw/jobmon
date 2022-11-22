@@ -262,7 +262,7 @@ def test_array_max_attempts(client_env, tool):
     wf1 = tool.create_workflow()
     wf1.add_tasks(tasks1)
     array1 = tasks1[0].array
-    assert array1.max_attempts == None
+    assert array1.max_attempts is None
     assert tasks1[0].max_attempts == tasks1[1].max_attempts == 3
     # test wf pass down
     tasks2 = tt.create_tasks(arg=[10, 20])
