@@ -434,4 +434,3 @@ def test_default_max_attemps(db_engine, client_env, tool):
     # test wf always have a default max attempts so existing code works
     wf5 = tool.create_workflow(default_max_attempts=None)
     assert wf5.default_max_attempts == tool.default_max_attempts is not None
-
