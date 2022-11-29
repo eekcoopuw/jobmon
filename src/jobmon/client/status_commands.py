@@ -320,18 +320,16 @@ def update_task_status(
             f"for the update. Request denied."
         )
 
-    task_ids_chunked = _chunk_ids(task_ids)
-    for chunk in task_ids_chunked:
-        _, resp = requester.send_request(
-            app_route="/task/update_statuses",
-            message={
-                "task_ids": chunk,
-                "new_status": new_status,
-                "workflow_status": workflow_status,
-                "workflow_id": workflow_id,
-            },
-            request_type="put",
-        )
+    _, resp = requester.send_request(
+        app_route="/task/update_statuses",
+        message={
+            "task_ids": task_ids,
+            "new_status": new_status,
+            "workflow_status": workflow_status,
+            "workflow_id": workflow_id,
+        },
+        request_type="put",
+    )
 
     return resp
 
