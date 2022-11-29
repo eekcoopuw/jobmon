@@ -137,11 +137,6 @@ UPDATE task_status
 SET description = 'Task is created within Jobmon.'
 WHERE id ='I';
 
-# LAUNCHED in 3.2.0
-# Missing state O
-INSERT into task_instance_status(id, label, description)
-VALUES ('O', 'LAUNCHED', description = 'Task instance submitted to the cluster normally, part of a Job Array.' );
-
 UPDATE task_status
 SET description = 'Task''s dependencies have successfully completed, task can be run when the scheduler is ready.'
 WHERE id ='Q';
@@ -183,9 +178,9 @@ SET description = 'Task instance has been ordered to kill itself if it is still 
 WHERE id ='K';
 
 # LAUNCHED in 3.2.0
-UPDATE task_instance_status
-SET description = 'Task instance submitted to the cluster normally, part of a Job Array.'
-WHERE id ='O';
+# Missing state O
+INSERT into task_instance_status(id, label, description)
+VALUES ('O', 'LAUNCHED', 'Task instance submitted to the cluster normally, part of a Job Array.' );
 
 # Missing state Q
 INSERT into task_instance_status(id, label, description)
