@@ -62,9 +62,9 @@ create_task() instead of create_array()). Tasks that share the same task_templat
 compute_resources are grouped into arrays during workflow.run().
 To prevent overloading the Slurm cluster there is a maximum size for each array.
 Therefore an enormous TaskTemplate might launch as several Job Arrays.
-Jombon only adds Tasks to a JobArray when that Task is ready to run, i.e. that its upstreams
+Jobmon only adds Tasks to a JobArray when that Task is ready to run, i.e. that its upstreams
 have all successfully completed.
-This means that workflow wiht multiple phases then the task in each phase should
+This means that workflow with multiple phases then the task in each phase should
 belong to different task_templates.
 If a TaskInstance fails and the task needs to ve relaunched, then Jobmon adds that TaskInstance to
 a new Slurm Job Array.
