@@ -165,6 +165,7 @@ def transition_array_to_launched(array_id: int) -> Any:
             )
             .execution_options(synchronize_session=False)
         )
+
         task_ids = session.execute(task_ids_query).scalars()
 
         update_task_stmt = (
