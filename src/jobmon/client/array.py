@@ -39,6 +39,7 @@ class Array:
         resource_scales: Optional[Dict[str, float]] = None,
         name: Optional[str] = None,
         requester: Optional[Requester] = None,
+        max_attempts: Optional[int] = None,
     ) -> None:
         """Initialize the array object."""
         # task template attributes
@@ -67,6 +68,9 @@ class Array:
         if not cluster_name:
             cluster_name = self.task_template_version.default_cluster_name
         self._instance_cluster_name = cluster_name
+
+        # max_attempts
+        self._instance_max_attempts = max_attempts
 
         self._instance_compute_resource = (
             compute_resources if compute_resources is not None else {}
@@ -158,6 +162,19 @@ class Array:
         return cluster_name
 
     @property
+    def max_attempts(self) -> Optional[int]:
+        """Get the max_attempts."""
+        ma = self._instance_max_attempts
+        if not ma:
+            try:
+                ma = self.workflow.default_max_attempts
+            except AttributeError:
+                raise ValueError(
+                    "max_attempts must be specified on workflow, task_template, or array"
+                )
+        return ma
+
+    @property
     def workflow(self) -> Workflow:
         """Get the workflow id if it has been bound to the db."""
         if not hasattr(self, "_workflow"):
@@ -201,7 +218,7 @@ class Array:
         self,
         upstream_tasks: Optional[List[Task]] = None,
         task_attributes: Union[List, dict] = {},
-        max_attempts: int = 3,
+        max_attempts: Optional[int] = None,
         resource_scales: Optional[Dict[str, Any]] = None,
         **node_kwargs: Any,
     ) -> List[Task]:
@@ -211,7 +228,8 @@ class Array:
             upstream_tasks: Task objects that must be run prior to this one
             task_attributes (dict or list): attributes and their values or just the attributes
                 that will be given values later
-            max_attempts: Number of attempts to try this task before giving up. Default is 3.
+            max_attempts: Number of attempts to try this task before giving up.
+                Default is wf default.
             resource_scales: determines the scaling factor for how aggressive resource
                 adjustments will be scaled up
             **node_kwargs: values for each node argument specified in command_template

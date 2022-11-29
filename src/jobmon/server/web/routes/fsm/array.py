@@ -157,12 +157,15 @@ def transition_array_to_launched(array_id: int) -> Any:
     session = SessionLocal()
     with session.begin():
         # Acquire a lock and update tasks to launched
-        task_ids_query = select(
-            TaskInstance.task_id
-        ).where(
-            TaskInstance.array_id == array_id,
-            TaskInstance.array_batch_num == batch_num,
-        ).execution_options(synchronize_session=False)
+        task_ids_query = (
+            select(TaskInstance.task_id)
+            .where(
+                TaskInstance.array_id == array_id,
+                TaskInstance.array_batch_num == batch_num,
+            )
+            .execution_options(synchronize_session=False)
+        )
+
         task_ids = session.execute(task_ids_query).scalars()
 
         update_task_stmt = (

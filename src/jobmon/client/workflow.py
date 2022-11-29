@@ -179,6 +179,7 @@ class Workflow(object):
             max_concurrently_running: How many running jobs to allow in parallel
             requester: object to communicate with the flask services.
             chunk_size: how many tasks to bind in a single request
+            default_max_attempts: the default max attempts of the workflow for each array
         """
         self._tool_version = tool_version
         self.name = name
@@ -229,6 +230,7 @@ class Workflow(object):
         self._clusters: Dict[str, Cluster] = {}
         self._task_resources: Dict[int, TaskResources] = {}
         self.default_cluster_name: str = ""
+        self._default_max_attempts: Optional[int] = None
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
         self.default_resource_scales_set: Dict[str, Dict[str, float]] = {}
 
@@ -282,6 +284,13 @@ class Workflow(object):
             for task in self.tasks.values()
             if task.final_status == TaskStatus.ERROR_FATAL
         }
+
+    @property
+    def default_max_attempts(self) -> Optional[int]:
+        """Return the workflow default max attempts."""
+        if self._default_max_attempts is None:
+            self._default_max_attempts = self.tool.default_max_attempts
+        return self._default_max_attempts
 
     def add_attributes(self, workflow_attributes: dict) -> None:
         """Users can call either to update values of existing attributes or add new attributes.
@@ -345,7 +354,8 @@ class Workflow(object):
             template_name = task.node.task_template_version.task_template.template_name
             if self.arrays[template_name] != task.array:
                 raise
-
+        # set array max_attempts
+        # task.array.max_attempts = self._default_max_attempts
         # add node to task
         try:
             self._dag.add_node(task.node)
@@ -427,6 +437,14 @@ class Workflow(object):
             cluster_name: name of cluster to set as default.
         """
         self.default_cluster_name = cluster_name
+
+    def set_default_max_attempts(self, value: int) -> None:
+        """Set the max attempts.
+
+        Args:
+            value: value of max_attempts.
+        """
+        self._default_max_attempts = value
 
     def get_tasks_by_node_args(
         self, task_template_name: str, **kwargs: Any
