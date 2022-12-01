@@ -6,10 +6,8 @@ from itertools import product
 import logging
 from typing import Any, Callable, Dict, Iterator, List, Optional, TYPE_CHECKING, Union
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task import Task
-from jobmon.client.task_resources import TaskResources
 from jobmon.client.task_template_version import TaskTemplateVersion
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
@@ -26,6 +24,8 @@ class Array:
     Supports functionality to create tasks from the cross product of provided node_args.
     """
 
+    compute_resources_callable: Callable[..., Any] | None
+
     def __init__(
         self,
         task_template_version: TaskTemplateVersion,
@@ -33,21 +33,27 @@ class Array:
         op_args: Dict[str, Any],
         cluster_name: str,
         max_concurrently_running: int = 10_000,
-        max_attempts: int = 3,
-        threshold_to_submit: int = 100,
         upstream_tasks: Optional[List[Task]] = None,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
-        resource_scales: Optional[Dict[str, Any]] = None,
+        resource_scales: Optional[Dict[str, float]] = None,
+        name: Optional[str] = None,
         requester: Optional[Requester] = None,
+        max_attempts: Optional[int] = None,
     ) -> None:
         """Initialize the array object."""
         # task template attributes
         self.task_template_version = task_template_version
 
+        # array name
+        if name:
+            self._name = name
+        else:
+            self._name = task_template_version.task_template.template_name
+            self._name = self._name if len(self._name) < 255 else self._name[0:254]
+
         # array attributes
         self.max_concurrently_running = max_concurrently_running
-        self.threshold_to_submit = threshold_to_submit
 
         # task passthrough attributes
         self.task_args = task_args
@@ -63,17 +69,19 @@ class Array:
             cluster_name = self.task_template_version.default_cluster_name
         self._instance_cluster_name = cluster_name
 
+        # max_attempts
+        self._instance_max_attempts = max_attempts
+
         self._instance_compute_resource = (
             compute_resources if compute_resources is not None else {}
         )
         self.compute_resources_callable = compute_resources_callable
-        self.resource_scales = resource_scales
-        self.max_attempts = max_attempts
-        self._task_resources: Optional[TaskResources] = None  # Initialize to None
+        self._instance_resource_scales = (
+            resource_scales if resource_scales is not None else {}
+        )
 
         if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
+            requester = Requester.from_defaults()
         self.requester = requester
 
         self.tasks: Dict[int, Task] = {}  # Initialize to empty dict
@@ -96,32 +104,16 @@ class Array:
         self._array_id = val
 
     @property
-    def task_resources(self) -> TaskResources:
-        """Return the array's task resources."""
-        if self._task_resources is not None:
-            return self._task_resources
-        else:
-            raise AttributeError(
-                "Task resources cannot be accessed before it is assigned"
-            )
-
-    @task_resources.setter
-    def task_resources(self, task_resources: TaskResources) -> None:
-        """Set the task resources.
-
-        The task resources object must be bound to be set.
-        """
-        if not task_resources.is_bound:
-            raise AttributeError(
-                "Task resource must be bound and have an ID to be assigned to the array."
-            )
-        self._task_resources = task_resources
+    def name(self) -> str:
+        """Return the array name."""
+        return self._name
 
     @property
     def compute_resources(self) -> Dict[str, Any]:
         """A dictionary that includes the users requested resources for the current run.
 
-        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}"""
+        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
+        """
         try:
             resources = self.workflow.default_compute_resources_set.get(
                 self.cluster_name, {}
@@ -137,6 +129,26 @@ class Array:
         return resources
 
     @property
+    def resource_scales(self) -> Dict[str, float]:
+        """A dictionary that includes the users requested resource scales for the current run.
+
+        E.g. {memory: 0.6, runtime: 0.3}.
+        """
+        try:
+            scales = self.workflow.default_resource_scales_set.get(
+                self.cluster_name, {}
+            ).copy()
+        except AttributeError:
+            scales = {}
+        scales.update(
+            self.task_template_version.default_resource_scales_set.get(
+                self.cluster_name, {}
+            ).copy()
+        )
+        scales.update(self._instance_resource_scales.copy())
+        return scales
+
+    @property
     def cluster_name(self) -> str:
         """The name of the cluster the user wants to run their task on."""
         cluster_name = self._instance_cluster_name
@@ -148,6 +160,19 @@ class Array:
                     "cluster_name must be specified on workflow, task_template, or array"
                 )
         return cluster_name
+
+    @property
+    def max_attempts(self) -> Optional[int]:
+        """Get the max_attempts."""
+        ma = self._instance_max_attempts
+        if not ma:
+            try:
+                ma = self.workflow.default_max_attempts
+            except AttributeError:
+                raise ValueError(
+                    "max_attempts must be specified on workflow, task_template, or array"
+                )
+        return ma
 
     @property
     def workflow(self) -> Workflow:
@@ -163,7 +188,7 @@ class Array:
         """Set the workflow id."""
         self._workflow = val
 
-    def add_task(self, task: Task):
+    def add_task(self, task: Task) -> None:
         """Add a task to an array.
 
         Set semantics - add tasks once only, based on hash name.
@@ -184,16 +209,6 @@ class Array:
                 f" unique commands. Your command was: {task.command}"
             )
 
-        # check
-        dependent_tasks = task.upstream_tasks.union(task.downstream_tasks)
-        cyclical_tasks = dependent_tasks.intersection(set(self.tasks.values()))
-        if cyclical_tasks:
-            raise ValueError(
-                f"A task cannot depend on other tasks in the same TaskTemplate or Array. "
-                f"Task={task} has dependencies already added to {self}. Check for upstream and"
-                f" downstream tasks in array.tasks or workflow.tasks that have the following "
-                f"hashes. {[hash(task) for task in cyclical_tasks]}"
-            )
         self.tasks[task_hash] = task
 
         # populate backref
@@ -203,17 +218,18 @@ class Array:
         self,
         upstream_tasks: Optional[List[Task]] = None,
         task_attributes: Union[List, dict] = {},
-        max_attempts: int = 3,
+        max_attempts: Optional[int] = None,
         resource_scales: Optional[Dict[str, Any]] = None,
         **node_kwargs: Any,
     ) -> List[Task]:
-        """Create an task associated with the array.
+        """Create a task associated with the array.
 
         Args:
             upstream_tasks: Task objects that must be run prior to this one
             task_attributes (dict or list): attributes and their values or just the attributes
                 that will be given values later
-            max_attempts: Number of attempts to try this task before giving up. Default is 3.
+            max_attempts: Number of attempts to try this task before giving up.
+                Default is wf default.
             resource_scales: determines the scaling factor for how aggressive resource
                 adjustments will be scaled up
             **node_kwargs: values for each node argument specified in command_template
@@ -299,6 +315,10 @@ class Array:
 
         return tasks
 
+    def validate(self) -> None:
+        # check
+        pass
+
     def bind(self) -> None:
         """Add an array to the database."""
         app_route = "/array"
@@ -308,6 +328,7 @@ class Array:
                 "task_template_version_id": self.task_template_version.id,
                 "workflow_id": self.workflow.workflow_id,
                 "max_concurrently_running": self.max_concurrently_running,
+                "name": self.name,
             },
             request_type="post",
         )

@@ -2,25 +2,100 @@
 Advanced Usage
 **************
 
+Arrays
+######
+Jobs are launched on the Slurm cluster are launched as Job Arrays (or Array Jobs on UGE).
+The effect is that Jobmon uses one sbatch command to launch all the jobs in one TaskTemplate,
+rather than one sbatch command to launch a single job. This allows Jobmon to launch jobs
+faster. In a comparison load test, 3.0.5 took 1045.10 seconds (17.418 minutes) to submit
+10,000 tasks to the cluster, while 3.1.0 took 32.10 seconds to submit the same 10,000 tasks
+to IHME's cluster.
+
+Usage
+*****
+.. code-tabs::
+
+    .. code-tab:: python
+      :title: Python
+
+        example_task_template = tool.get_task_template(
+            template_name="my_example_task_template",
+            command_template="python model_script.py --loc_id {location_id}",
+            node_args=["location_id"],
+            default_cluster_name="slurm",
+            default_compute_resources={"queue": "all.q"},
+        )
+
+        example_tasks = example_task_template.create_tasks(
+            location_id=[1, 2, 3],
+        )
+
+        workflow = tool.create_workflow()
+        workflow.add_tasks(example_tasks)
+        workflow.run()
+
+    .. code-tab:: R
+      :title: R
+
+        library(jobmonr)
+
+        example_tool <- jobmonr::tool("example_project")
+
+        example_task_template <- jobmonr::task_template(
+            template_name="my_example_task_template",
+            command_template="python model_script.py --loc_id {location_id}",
+            node_args=c("location_id")
+        )
+
+        workflow <- jobmonr::workflow(example_tool)
+
+        example_tasks <- jobmonr::array_tasks(task_template=example_task_template, location_id=1:3)
+
+        jobmonr::add_tasks(workflow, example_tasks)
+
+        status <- jobmonr::run(workflow)
+
+Array Inference
+***************
+As mentioned above, Tasks are launched using Slurm Job Arrays (including tasks that were created using
+create_task() instead of create_array()). Tasks that share the same task_template and
+compute_resources are grouped into arrays during workflow.run().
+To prevent overloading the Slurm cluster there is a maximum size for each array.
+Therefore an enormous TaskTemplate might launch as several Job Arrays.
+Jombon only adds Tasks to a JobArray when that Task is ready to run, i.e. that its upstreams
+have all successfully completed.
+This means that workflow wiht multiple phases then the task in each phase should
+belong to different task_templates.
+If a TaskInstance fails and the task needs to ve relaunched, then Jobmon adds that TaskInstance to
+a new Slurm Job Array.
+
+Jobmon waits a short amount of time for more requests to arrive then submits
+the Slurm Job Array.
+
+
+Slurm Job Arrays
+****************
+For more info about job arrays on a Slurm cluster, see here: https://slurm.schedmd.com/job_array.html
+
 Retries
 #######
 
-Ordinary
-********
+Ordinary Retry
+**************
 By default a Task will be retried up to three times if it fails. This helps to
 reduce the chance that random events on the cluster or landing on a bad node
-will cause a user's entire Task and Workflow to fail. If a TaskInstance fails, then Jobmon will
+will cause your entire Task and Workflow to fail. If a TaskInstance fails, then Jobmon will
 run an exact copy as long as the max number of attempts hasn't be reached. The new TaskInstance
 will be created with the same resources and configurations as the first TaskInstance.
 
 In order to configure the number of times a Task can be retried, configure the
 max_attempts parameter in the Task that you create. If you are still debugging
-your code, please set the number of retries to zero so that it does not retry
+your code, set the number of retries to zero so that it does not retry
 code with a bug multiple times. When the code is debugged, and you are ready
 to run in production, set the retries to a non-zero value.
 
 The following example shows a configuration in which the user wants their Task
-to be retried 4 times and it will fail up until the fourth time.::
+to be retried four times and it will fail up until the fourth time.::
 
     import getpass
     from jobmon.client.tool import Tool
@@ -65,15 +140,20 @@ to be retried 4 times and it will fail up until the fourth time.::
 
 
 
-Resource
-********
-Sometimes a user may not be able to accurately predict the runtime or memory usage
+Resource Retry
+**************
+Sometimes you may not be able to accurately predict the runtime or memory usage
 of a task. Jobmon will detect when the task fails due to resource constraints and
-retry that task with with more resources. The default resource
-scaling factor is 50% for memory and runtime unless otherwise specified. For example if your
+then retry that task with with more resources. The default resource
+scaling factor is 50% for memory and runtime.
+For example if your
 runtime for a task was set to 100 seconds and fails, Jobmon will automatically
-retry the Task with a max runtime set to 150 seconds. Users can specify how they percentage
-they would like runtime and memory to scale by.
+retry the Task with a max runtime set to 150 seconds. You can specify the percentage
+scaling factor.
+The scaling factor is applied each time, cumulatively.
+For example, if Jobmon is configured to increase memory 50% then when jobmon retries due to
+insufficient memory it increase by 50% over the last requested memory request.
+If 40GiB is the original request then the memory increases as 40 -> 60 -> 90.
 
 For example::
 
@@ -120,46 +200,48 @@ For example::
 
 .. _jobmon-resume-label:
 
-Resumes
-#######
+Resuming a Workflow
+###################
 
-A Workflow allows for sophisticated tracking of how many times a DAG gets
-executed, who ran them and when.
+A Workflow tacks how many times a DAG was run, who ran them, and when.
 With a Workflow you can:
 
-#. Re-use a set of Tasks
-#. Stop a set of Tasks mid-run and resume it (either intentionally or unfortunately, as
-   a result of an adverse cluster event)
+#. Stop a set of Tasks mid-run and resume it (either intentionally because you need to
+   fix a bug, a result of an unfortunate cluster event)
 #. Re-attempt a set of Tasks that may have ERROR'd out in the middle (assuming you
    identified and fixed the source of the error)
-#. Set stderr, stdout, working_dir, and project qsub arguments from the top level
 
-When a workflow is resumed, Jobmon examines  it from the beginning and skips over
+When a workflow is resumed, Jobmon examines the Workflow from the beginning and skips over
 any tasks that are already Done. It will restart jobs that were in Error (maybe you fixed
 that bug!) or are Registered. As always it only starts a job when all its upstreams are Done.
-In other words, it starts from first failure, creating a new workflow run for an existing workflow.
+In other words, it starts from first failure. Jobmon creates a new workflow run for an existing workflow.
 
-To resume a Workflow, make sure that your previous workflow
-run process is dead (kill it using the pid from the workflow run table). Users for the
-most part will keep the same Jobmon code, only one line of code needs to change to resume. A
-user simply needs to add a resume parameter to the run() function to resume their Workflow.::
+There are two ways to resume a Woerkflow –by ID or be recreting the workflow with the same workflow args.
 
+To resume by ID, you can either use the CLI function:
+``jobmon workflow_resume -w <workflow_id> -c <cluster_name``
+or the following code fragment::
+
+    resume_factory = WorkflowRunFactory(workflow_id)
+    resume_factory.set_workflow_resume()
+    resume_factory.reset_task_statuses()
+    resume_wfr = resume_factory.create_workflow_run()
+
+To resume a Workflow programmatically, make sure that your previous workflow
+run process is dead (kill it using the Slurm scancel command).
+When creating a resumed workflow, the
+workflow_args provided to Tool.create_workflow() match the workflow they are attempting to resume. Additionally,
+users need to add a resume parameter to the run() function to resume their Workflow.::
+
+    workflow = Tool.create_workflow(workflow_args='previous_workflow_args')
     workflow.run(resume=True)
 
 That's it. If you don't set "resume=True", Jobmon will raise an error saying that the user is
 trying to create a Workflow that already exists.
 
-Behind the scenes, the Workflow will launch your Tasks as soon as each is
-ready to run (i.e. as soon as the Task's upstream dependencies are DONE). It
-will automatically restart Tasks that die due to cluster instability or other
-intermittent issues. If for some reason, your Workflow itself dies (or you need
-to kill it yourself), resuming the script at a later time will automatically pickup
-where you left off (i.e. use the '--resume' flag). A resumed run will not
-re-run any Tasks that completed successfully in prior runs.
-
 Note carefully the distinction between "restart" and "resume."
-Jobmon itself will restart individual Tasks, whereas a human operator can resume the
-entire Workflow.
+Jobmon itself will *restart* individual *Tasks,* whereas a human operator can *resume* the
+entire *Workflow.*
 
 For more examples, take a look at the `resume tests <https://stash.ihme.washington.edu/projects/SCIC/repos/jobmon/browse/tests/workflow/test_workflow_resume.py>`_.
 
@@ -183,6 +265,7 @@ database. When calling run() on this new Workflow, any progress through the
 Tasks that may have been made in previous Workflows will be ignored.
 
 For further configuration there are two types of resumes:
+
 Cold Resume
 ***********
 All Tasks are stopped and you are ok with resetting all running Tasks and killing any running
@@ -195,10 +278,20 @@ any TaskInstance that are currently running on the cluster will not be killed
 
 Fail Fast
 #########
-On occasion, a user might want to see how far a workflow can get before it fails,
-or want to immediately see where problem spots are. To do this, the user can just
-instantiate the workflow with fail_fast set to True. Then add tasks to the workflow
-as normal, and the workflow will fail on the first failure. The Workflow will **not** fail fast
+
+In “normal” mode, Jobmon will execute as many of the jobs as it can in the workflow.
+As jobs succeed, their downstreams are launched. If a job fails, then its downstreams
+are not launched, but other paths through the graph continue.
+That mode will do as much work as possible before Jobmon and exits with an error.
+This is the correct mode if your code is well debugged.
+You can fix what is probably a data error and resume from where it stopped.
+
+In “fail-fast” mode, Jobmon will stop launching jobs as soon as one job fails
+(but it won’t kill jobs that are currently running).
+This mode is suitable if your code is not well-debugged.
+A failure probably means you have a bug and therefore need to fix it,
+and start again from the beginning.
+A Workflow will **not** fail fast
 if a Task fails because of a resource error (e.g. over runtime or over memory).
 
 For example::
@@ -215,11 +308,14 @@ For example::
 
 Fallback Queues
 ###############
-Users are able to specify fallback queues in Jobmon. Scenario: a user has a Task that fails due
-to a resource error, Jobmon then scales that Tasks resources, but the newly scaled resources
-exceed the resources of the queue the Task is on. In this scenario the user could have
-specified a fallback queue(s), if this was specified Jobmon would run the Task with scaled
-resources to the next specified queue. If a user does not specify a fallback queue, the
+
+A "Fallback Queue" is a second queue that Jobmon will use if a Task is rescaled by
+resource retries such that it no longer fits on its original queue.
+Suppose that you have a Task that fails due
+to a resource error. Jobmon then scales that Tasks resources, but the newly scaled resources
+exceed the resources of the queue the Task is on. If you had specified
+a fallback queue then Jobmon would run the Task with scaled
+resources onto the next specified queue. If you do not specify a fallback queue, the
 resources will only scale to the maximum values of their originally specified queue.
 
 To set fallback queues, simply pass a list of queues to the  create_task() method. For example::
@@ -248,11 +344,12 @@ To set fallback queues, simply pass a list of queues to the  create_task() metho
 
 Dynamic Task Resources
 ######################
-It is possible to dynamically configure the resources needed to run a
-given task. For example, if an upstream Task may better inform the resources
+
+You can dynamically configure the resources needed to run a
+given task. For example, if an upstream Task can better inform the resources
 that a downstream Task needs, the resources will not be checked and bound until
 the downstream is about to run and all of it's upstream dependencies
-have completed. To do this, the user can provide a function that will be called
+have completed. To do this, you must provide a function that will be called
 at runtime and return a ComputeResources object with the resources needed.
 
 For example ::
@@ -541,11 +638,14 @@ downstream tasks depend on these jobs.
 
 Concurrency Limiting
 ####################
-Users can set the maximum number of tasks per workflow that are running at one time.
+You can set the maximum number of tasks per workflow that are running at one time.
 The value can be set statically (in the Jobmon code), or dynamically via the Jobmon CLI.
 One of the main use cases for concurrency limit is if an user needs to "throttle down" a
 workflow to make space on the cluster without killing their workflow. By default, Jobmon sets
-the limit to 10,000 tasks.
+the limit to 10,000 tasks. If the concurrency limit is reduced while the Workflow is running,
+Jobmon will let existing jobs finish but will not launch any more until the number
+running falls below the limit.
+Jobmon will not kill jobs to reduce the number running to the concurrency limit.
 
 To statically set concurrency limit, simply set the ``max_concurrently_running`` flag on the
 ``create_workflow()`` method.
@@ -560,6 +660,36 @@ To statically set concurrency limit, simply set the ``max_concurrently_running``
 
 To dynamically set the concurrency limit, see :ref:`concurrency-limit-label`.
 
+Users are also able to set concurrency limit at the TaskTemplate level. By default, Jobmon sets
+this limit to 10,000 tasks.
+
+To set concurrency limit on a TaskTemplate, simply call the ``set_task_template_max_concurrency_limit``
+method.
+
+.. code-block:: python
+
+  tool = Tool(name="example_concurrency_tt_tool")
+
+  task_template = tool.get_task_template(
+        template_name="concurrency_limit_task_template",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+  )
+  workflow = tool.create_workflow(
+      name=f"template_workflow",
+  )
+  tasks = []
+  for i in range(20):
+        task = task_template.create_task(arg=f"sleep {i}")
+        tasks.append(task)
+  workflow.add_tasks(tasks)
+  # Setting the concurrency limit it of the "concurrency_limit_task_template" to 2
+  workflow.set_task_template_max_concurrency_limit(task_template_name=task_template.template_name,
+                                                   limit=2)
+
+
 Jobmon Self-Service Commands
 ############################
 Jobmon has a suite of commands to not only visualize task statuses from the database, but to
@@ -570,25 +700,39 @@ invoked from the command line in the same way as the status commands, see :ref:`
 
 concurrency_limit
 *****************
-Entering ``jobmon concurrency_limit`` will allow the user to change the maximum running task
-instances allowed in their workflow. When a workflow is instantiated, the user can specify a
-maximum limit to the number of concurrent tasks in case a very wide workflow threatens to
-resource-throttle the cluster. While running, the user can use this command to change the
-maximum allowed concurrency as needed if cluster busyness starts to wax or wane.
+    Entering ``jobmon concurrency_limit`` changes the maximum running task
+    instances allowed in a workflow. When a workflow is instantiated, you can specify a
+    maximum limit to the number of concurrent tasks in case a very wide workflow threatens to
+    resource-throttle the cluster. While running, you can use this command to change the
+    maximum allowed concurrency as needed if cluster busyness starts to wax or wane.
 
 workflow_reset
 **************
-Entering ``jobmon workflow_reset`` will reset a Workflow to G state (REGISTERED). When a
-Workflow is reset, all of the Tasks associated with the Workflow will also be transitioned to
-G state. The usage of this command is ``jobmon workflow_reset -w [workflow_id]``.
+    Entering ``jobmon workflow_reset`` resets a Workflow to G state (REGISTERED). When a
+    Workflow is reset, all of the Tasks associated with the Workflow are also transitioned to
+    G state. The usage of this command is ``jobmon workflow_reset -w [workflow_id]``.
 
-To use this command the last WorkflowRun of the specified Workflow must be in E (ERROR) state.
-The last WorkflowRun must also have been started by the same user that is attempting to reset
-the Workflow.
+    To use this command the last WorkflowRun of the specified Workflow must be in E (ERROR) state.
+    The last WorkflowRun must also have been started by the same user that is attempting to reset
+    the Workflow.
+
+workflow_resume
+*****************
+
+    Jobmon's CLI allows you to resume a workflow you've already started running, but has since failed. The CLI
+    entrypoint is ``jobmon workflow_resume``. The following arguments are supported:
+
+        * ``-w``, ``--workflow_id`` - required, the workflow ID to resume.
+        * ``-c``, ``--cluster_name`` - required, the cluster name you'd like to resume on.
+        * ``--reset-running-jobs`` - default False. Whether to kill currently running jobs or let them finish
+
+    Example usages:
+        * ``jobmon workflow_resume -w 123 -c slurm`` - resume workflow ID 123 on the "slurm" cluster in the database.
+        * ``jobmon workflow_resume -w 123 -c dummy --reset-running-jobs`` - resume workflow ID 123 on the dummy cluster. Specify a cold resume so that currently running jobs are also terminated and therefore rerun.
 
 update_task_status
 ******************
-    Entering ``jobmon update_task_status`` allows the user to set the status of tasks in their
+    Entering ``jobmon update_task_status`` sets the status of tasks in a
     workflow. This is helpful for either rerunning portions of a workflow that have already
     completed, or allowing a workflow to progress past a blocking error. The usage is
     ``jobmon update_task_status -t [task_ids] -w [workflow_id] -s [status]``
@@ -613,7 +757,7 @@ update_task_status
 
 TaskTemplate Resource Prediction to YAML
 ****************************************
-    Entering ``jobmon task_template_resources`` will allow users to generate a task template
+    Entering ``jobmon task_template_resources`` generates a task template
     compute resources YAML file that can be used in Jobmon 3.0 and later.
 
     As an example, ``jobmon task_template_resources -w 1 -p f ~/temp/resource.yaml`` generates
@@ -651,7 +795,7 @@ Resource Usage
 ##############
 Task Resource Usage
 *******************
-    There is a method on the Task object that will return the resource usage for a Task. This
+    The ``task.resource_usage()`` method returns the resource usage for that Task. This
     method must be called after ``workflow.run()``. To use it simply call the method on your
     predefined Task object, ``task.resource_usage()``. This method will return a dictionary
     that includes: the memory usage (in bytes), the name of the node the task was run on, the
@@ -699,8 +843,8 @@ Error Logs
         To see the error log for a specific task users can call the ``task_status`` CLI
         command. For more information see :ref:`task_status-commands-label`.
 
-Logging
-#######
+Python Logging
+##############
 To attach Jobmon's simple formatted logger use the following code.
 
 For example::

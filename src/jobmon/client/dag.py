@@ -4,7 +4,6 @@ from http import HTTPStatus as StatusCodes
 import logging
 from typing import Dict, List, Optional, Set, Tuple, Union
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.exceptions import (
     DuplicateNodeArgsError,
@@ -34,8 +33,7 @@ class Dag(object):
         self.nodes: Set[Node] = set()
 
         if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
+            requester = Requester.from_defaults()
         self.requester = requester
 
     @property
@@ -49,7 +47,7 @@ class Dag(object):
         """Add a node to this dag.
 
         Args:
-            node (Node): Node to add to the dag
+            node (jobmon.client.node.Node): Node to add to the dag
         """
         # validate node has unique node args within this task template version
         if node in self.nodes:
@@ -77,7 +75,6 @@ class Dag(object):
             app_route="/dag",
             message={"dag_hash": dag_hash},
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise ValueError(
@@ -101,14 +98,16 @@ class Dag(object):
             for n in node.upstream_nodes:
                 if n not in nodes_in_dag:
                     raise NodeDependencyNotExistError(
-                        f"Upstream node, {hash(n)}, for node, {hash(node)},"
-                        "does not exist in the dag."
+                        f"Upstream node, {hash(n)}, for node, {hash(node)}, "
+                        "does not exist in the dag.Check that every task has been added to "
+                        "the workflow and is in the correct order."
                     )
             for n in node.downstream_nodes:
                 if n not in nodes_in_dag:
                     raise NodeDependencyNotExistError(
-                        f"Downstream node, {hash(n)}, for node, {hash(node)},"
-                        "does not exist in the dag."
+                        f"Downstream node, {hash(n)}, for node, {hash(node)}, "
+                        "does not exist in the dag.Check that every task has been added to "
+                        "the workflow and is in the correct order."
                     )
 
     def _bulk_bind_nodes(self, chunk_size: int) -> None:
@@ -141,7 +140,6 @@ class Dag(object):
                 app_route="/nodes",
                 message={"nodes": nodes_to_send},
                 request_type="post",
-                logger=logger,
             )
             if http_request_ok(rc) is False:
                 raise InvalidResponse(
@@ -157,7 +155,7 @@ class Dag(object):
         for node in nodes_in_dag:
             k = f"{node.task_template_version_id}:{node.node_args_hash}"
             if k in nodes_received.keys():
-                node._node_id = int(nodes_received[k])
+                node.node_id = int(nodes_received[k])
             else:
                 raise InvalidResponse(
                     f"Fail to find node_id in HTTP response for node_args_hash "
@@ -172,7 +170,6 @@ class Dag(object):
             app_route="/dag",
             message={"dag_hash": dag_hash},
             request_type="get",
-            logger=logger,
         )
         if return_code == StatusCodes.OK:
             return response["dag_id"]
@@ -217,7 +214,7 @@ class Dag(object):
 
             app_route = f"/dag/{dag_id}/edges"
             return_code, response = self.requester.send_request(
-                app_route=app_route, message=message, request_type="post", logger=logger
+                app_route=app_route, message=message, request_type="post"
             )
             if http_request_ok(return_code) is False:
                 raise ValueError(

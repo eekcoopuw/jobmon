@@ -2,7 +2,9 @@
 from functools import partial
 from io import TextIOBase
 import logging
+import logging.config
 import os
+from pathlib import Path
 from queue import Queue
 import signal
 import socket
@@ -12,12 +14,12 @@ from threading import Thread
 from time import sleep, time
 from typing import Dict, Optional, Union
 
-from jobmon.cluster import Cluster
+from jobmon.cluster_type import ClusterWorkerNode
+from jobmon.configuration import JobmonConfig
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse, ReturnCodes, TransitionError
 from jobmon.requester import http_request_ok, Requester
 from jobmon.serializers import SerializeTaskInstance
-from jobmon.worker_node.worker_node_config import WorkerNodeConfig
 
 logger = logging.getLogger(__name__)
 
@@ -27,13 +29,15 @@ class WorkerNodeTaskInstance:
 
     def __init__(
         self,
-        cluster_name: str,
-        task_instance_id: Optional[int] = None,
-        array_id: Optional[int] = None,
-        batch_number: Optional[int] = None,
-        heartbeat_interval: int = 90,
-        report_by_buffer: float = 3.1,
-        command_interrupt_timeout: int = 10,
+        cluster_interface: ClusterWorkerNode,
+        task_instance_id: int,
+        workflow_id: Optional[int] = None,
+        task_id: Optional[int] = None,
+        stdout: Optional[Path] = None,
+        stderr: Optional[Path] = None,
+        task_instance_heartbeat_interval: Optional[int] = None,
+        heartbeat_report_by_buffer: Optional[float] = None,
+        command_interrupt_timeout: Optional[int] = None,
         requester: Optional[Requester] = None,
     ) -> None:
         """A mechanism whereby a running task_instance can communicate back to the JSM.
@@ -41,59 +45,56 @@ class WorkerNodeTaskInstance:
          Logs its status, errors, usage details, etc.
 
         Args:
-            task_instance_id: the id of the task_instance that is reporting back.
-            cluster_name: the name of the cluster.
-            array_id: If this is an array job, the corresponding array ID
-            batch_number: If this is an array job, what is the batch?
-            heartbeat_interval: how ofter to log a report by with the db
-            report_by_buffer: multiplier for report by date in case we miss a few.
+            cluster_interface: interface that gathers executor info in the execution_wrapper.
+            task_instance_id: the id of the TaskInstance that is reporting back.
+            workflow_id: the id of the Workflow.
+            task_id: the id of the Task.
+            stdout: path to stdout.
+            stderr: path to stderr.
+            task_instance_heartbeat_interval: how ofter to log a report by with the db
+            heartbeat_report_by_buffer: multiplier for report by date in case we miss a few.
+            command_interrupt_timeout: the amount of time to wait for the child process to
+                terminate.
             requester: communicate with the flask services.
         """
         # identity attributes
         self._task_instance_id = task_instance_id
-        self._array_id = array_id
-        self._batch_number = batch_number
+        self._workflow_id = workflow_id
+        self._task_id = task_id
+        self.stdout = stdout
+        self.stderr = stderr
 
         # service API
         if requester is None:
-            requester = Requester(WorkerNodeConfig.from_defaults().url)
+            requester = Requester.from_defaults()
         self.requester = requester
 
         # cluster API
-        cluster = Cluster.get_cluster(cluster_name)
-        self.cluster_worker_node = cluster.cluster_worker_node_class()
+        self.cluster_interface = cluster_interface
 
         # get distributor id from executor
-        self._distributor_id = self.cluster_worker_node.distributor_id
-
-        # get task_instance_id for array task
-        if self._task_instance_id is None:
-            if self._array_id is None:
-                raise ValueError("Neither task_instance_id nor array_id were provided.")
-
-                # Always assumed to be a value in the range [1, len(array)]
-            array_step_id = self.cluster_worker_node.array_step_id
-
-            # Fetch from the database
-            app_route = (
-                f"/get_array_task_instance_id/"
-                f"{self._array_id}/{self._batch_number}/{array_step_id}"
-            )
-            rc, resp = self.requester.send_request(
-                app_route=app_route, message={}, request_type="get"
-            )
-            if http_request_ok(rc) is False:
-                raise InvalidResponse(
-                    f"Unexpected status code {rc} from POST "
-                    f"request through route {app_route}. Expected code "
-                    f"200. Response content: {rc}"
-                )
-            self._task_instance_id = resp["task_instance_id"]
+        self._distributor_id = self.cluster_interface.distributor_id
 
         # config
-        self.heartbeat_interval = heartbeat_interval
-        self.report_by_buffer = report_by_buffer
-        self.command_interrupt_timeout = command_interrupt_timeout
+        config = JobmonConfig()
+        if task_instance_heartbeat_interval is None:
+            self._task_instance_heartbeat_interval = config.get_int(
+                "heartbeat", "task_instance_interval"
+            )
+        else:
+            self._task_instance_heartbeat_interval = task_instance_heartbeat_interval
+        if heartbeat_report_by_buffer is None:
+            self._heartbeat_report_by_buffer = config.get_float(
+                "heartbeat", "report_by_buffer"
+            )
+        else:
+            self._heartbeat_report_by_buffer = heartbeat_report_by_buffer
+        if command_interrupt_timeout is None:
+            self._command_interrupt_timeout = config.get_int(
+                "worker_node", "command_interrupt_timeout"
+            )
+        else:
+            self._command_interrupt_timeout = command_interrupt_timeout
 
         # set last heartbeat
         self.last_heartbeat_time = time()
@@ -129,29 +130,67 @@ class WorkerNodeTaskInstance:
     def status(self) -> str:
         """Returns the last known status of the task instance."""
         if not hasattr(self, "_status"):
-            raise AttributeError("Cannot access status until log_running has been called.")
+            raise AttributeError(
+                "Cannot access status until log_running has been called."
+            )
         return self._status
 
     @property
     def command(self) -> str:
         """Returns the command this task instance will run."""
         if not hasattr(self, "_command"):
-            raise AttributeError("Cannot access command until log_running has been called.")
+            raise AttributeError(
+                "Cannot access command until log_running has been called."
+            )
         return self._command
 
     @property
     def command_return_code(self) -> int:
-        """Returns the exit code of the command that was run"""
+        """Returns the exit code of the command that was run."""
         if not hasattr(self, "_proc"):
-            raise AttributeError("Cannot access command_return_code until command has run.")
+            raise AttributeError(
+                "Cannot access command_return_code until command has run."
+            )
         return self._proc.returncode
 
     @property
-    def stderr(self) -> str:
+    def proc_stderr(self) -> str:
         """Returns the final 10k characters of the stderr from the command."""
         if not hasattr(self, "_proc"):
             raise AttributeError("Cannot access stderr until command has run.")
-        return self._stderr
+        return self._proc_stderr
+
+    def configure_logging(self) -> None:
+        """Setup logging for the worker node. INFO level goes to standard out."""
+        _DEFAULT_LOG_FORMAT = (
+            "%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s: %(message)s"
+        )
+        logging_config: Dict = {
+            "version": 1,
+            "disable_existing_loggers": True,
+            "formatters": {
+                "default": {
+                    "format": _DEFAULT_LOG_FORMAT,
+                    "datefmt": "%Y-%m-%d %H:%M:%S",
+                }
+            },
+            "handlers": {
+                "default": {
+                    "level": "INFO",
+                    "class": "logging.StreamHandler",
+                    "formatter": "default",
+                    "stream": sys.stdout,
+                },
+            },
+            "loggers": {
+                "jobmon.worker_node": {
+                    "handlers": ["default"],
+                    "propagate": False,
+                    "level": "INFO",
+                },
+            },
+        }
+        logging.config.dictConfig(logging_config)
 
     def log_done(self) -> None:
         """Tell the JobStateManager that this task_instance is done."""
@@ -160,14 +199,16 @@ class WorkerNodeTaskInstance:
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)
         else:
-            logger.debug("No executor id was found in the qsub env at this time")
+            logger.debug(
+                "No distributor id was found in the job submission env (e.g. sbatch, "
+                "qsub) at this time"
+            )
 
         app_route = f"/task_instance/{self.task_instance_id}/log_done"
         return_code, response = self.requester.send_request(
-            app_route=f"/task_instance/{self.task_instance_id}/log_done",
+            app_route=app_route,
             message=message,
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -194,14 +235,13 @@ class WorkerNodeTaskInstance:
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)
         else:
-            logger.debug("No distributor_id was found in the qsub env at this time")
+            logger.debug("No distributor_id was found in the sbatch env at this time")
 
         app_route = f"/task_instance/{self.task_instance_id}/log_error_worker_node"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message=message,
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -226,19 +266,25 @@ class WorkerNodeTaskInstance:
         message = {
             "nodename": self.nodename,
             "process_group_id": str(self.process_group_id),
-            "next_report_increment": (self.heartbeat_interval * self.report_by_buffer),
+            "next_report_increment": (
+                self._task_instance_heartbeat_interval
+                * self._heartbeat_report_by_buffer
+            ),
+            "stdout": str(self.stdout) if self.stdout is not None else None,
+            "stderr": str(self.stderr) if self.stderr is not None else None,
         }
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)
         else:
-            logger.info("No distributor_id was found in the worker_node env at this time.")
+            logger.info(
+                "No distributor_id was found in the worker_node env at this time."
+            )
 
         app_route = f"/task_instance/{self.task_instance_id}/log_running"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message=message,
             request_type="post",
-            logger=logger,
         )
 
         if http_request_ok(return_code) is False:
@@ -248,7 +294,9 @@ class WorkerNodeTaskInstance:
                 f"code 200. Response content: {response}"
             )
 
-        kwargs = SerializeTaskInstance.kwargs_from_wire_worker_node(response["task_instance"])
+        kwargs = SerializeTaskInstance.kwargs_from_wire_worker_node(
+            response["task_instance"]
+        )
         self._task_instance_id = kwargs["task_instance_id"]
         self._status = kwargs["status"]
         self._command = kwargs["command"]
@@ -264,19 +312,21 @@ class WorkerNodeTaskInstance:
         """Log the heartbeat to show that the task instance is still alive."""
         logger.debug(f"Logging heartbeat for task_instance {self.task_instance_id}")
         message: Dict = {
-            "next_report_increment": self.heartbeat_interval * self.report_by_buffer
+            "next_report_increment": (
+                self._task_instance_heartbeat_interval
+                * self._heartbeat_report_by_buffer
+            )
         }
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)
         else:
-            logger.debug("No distributor_id was found in the qsub env at this time")
+            logger.debug("No distributor_id was found in the sbatch env at this time")
 
         app_route = f"/task_instance/{self.task_instance_id}/log_report_by"
         return_code, response = self.requester.send_request(
             app_route=app_route,
             message=message,
             request_type="post",
-            logger=logger,
         )
 
         if http_request_ok(return_code) is False:
@@ -304,27 +354,32 @@ class WorkerNodeTaskInstance:
         self.log_running()
 
         try:
+            # Add task instance, workflow id, and task id attributes into the environment.
+            self.set_environment()
             self._proc = subprocess.Popen(
                 self.command,
                 env=os.environ.copy(),
                 stderr=subprocess.PIPE,
+                stdout=sys.stdout,
                 shell=True,
                 universal_newlines=True,
             )
 
             # open thread for reading stderr eagerly otherwise process will deadlock if the
             # pipe fills up
-            self._stderr = ""
+            self._proc_stderr = ""
             self._err_q: Queue = Queue()  # queues for returning stderr to main thread
-            err_thread = Thread(target=enqueue_stderr, args=(self._proc.stderr, self._err_q))
+            err_thread = Thread(
+                target=enqueue_stderr, args=(self._proc.stderr, self._err_q)
+            )
             err_thread.daemon = True  # thread dies with the program
             err_thread.start()
 
             is_done = False
             while not is_done:
-                # process any commands that we can in the time alotted
-                time_till_next_heartbeat = (
-                    self.heartbeat_interval - (time() - self.last_heartbeat_time)
+                # process any commands that we can in the time allotted
+                time_till_next_heartbeat = self._task_instance_heartbeat_interval - (
+                    time() - self.last_heartbeat_time
                 )
                 is_done = self._poll_subprocess(timeout=time_till_next_heartbeat)
 
@@ -333,8 +388,10 @@ class WorkerNodeTaskInstance:
 
         # some other deployment unit transitioned task instance out of R state
         except TransitionError as e:
-            msg = (f"TaskInstance is in status '{self.status}'. Expected status 'R'."
-                   f" Terminating command {self.command}.")
+            msg = (
+                f"TaskInstance is in status '{self.status}'. Expected status 'R'."
+                f" Terminating command {self.command}."
+            )
             logger.error(msg)
 
             # cleanup process
@@ -345,19 +402,19 @@ class WorkerNodeTaskInstance:
 
                 # if it doesn't die of natural causes raise TimeoutExpired
                 try:
-                    self._proc.wait(timeout=self.command_interrupt_timeout)
+                    self._proc.wait(timeout=self._command_interrupt_timeout)
                 except subprocess.TimeoutExpired:
                     self._proc.kill()
-                    self._proc.wait(timeout=self.command_interrupt_timeout)
+                    self._proc.wait(timeout=self._command_interrupt_timeout)
 
                 self._collect_stderr()
-                logger.info(f"Collected stderr after termination: {self.stderr}")
+                logger.info(f"Collected stderr after termination: {self.proc_stderr}")
 
             # log an error with db if we are in K state
             if self.status == TaskInstanceStatus.KILL_SELF:
                 msg = (
                     f"Command: {self.command} got KILL_SELF signal. Collected stderr after "
-                    f"interrupt.\n{self.stderr}"
+                    f"interrupt.\n{self.proc_stderr}"
                 )
                 error_state = TaskInstanceStatus.ERROR_FATAL
 
@@ -374,21 +431,30 @@ class WorkerNodeTaskInstance:
                 logger.info(f"Command: {self.command}. Finished Successfully.")
                 self.log_done()
             else:
-                logger.info(f"Command: {self.command}\n Failed with stderr:\n {self.stderr}")
-                error_state, msg = self.cluster_worker_node.get_exit_info(
-                    self.command_return_code, self.stderr
+                logger.info(
+                    f"Command: {self.command}\n Failed with stderr:\n {self.proc_stderr}"
+                )
+                error_state, msg = self.cluster_interface.get_exit_info(
+                    self.command_return_code, self.proc_stderr
                 )
                 self.log_error(error_state, msg)
 
+    def set_environment(self) -> None:
+        """Add task instance id, task id, and workflow id to the environment."""
+        os.environ["JOBMON_TASK_INSTANCE_ID"] = str(self.task_instance_id)
+        if self._task_id:
+            os.environ["JOBMON_TASK_ID"] = str(self._task_id)
+        if self._workflow_id:
+            os.environ["JOBMON_WORKFLOW_ID"] = str(self._workflow_id)
+
     def _poll_subprocess(self, timeout: Union[int, float] = -1) -> bool:
-        """poll subprocess until it is finished or timeout is reached.
+        """Poll subprocess until it is finished or timeout is reached.
 
         Args:
             timeout: time until we stop processing. -1 means process till no more work
 
         Returns: true if the  subprocess has exited
         """
-
         # this way we always process at least 1 command
         loop_start = time()
 
@@ -406,14 +472,14 @@ class WorkerNodeTaskInstance:
 
         return ret_code is not None
 
-    def _collect_stderr(self):
+    def _collect_stderr(self) -> None:
 
         # pull stderr off queue and clip at 10k to avoid mysql has gone away errors
         # when posting long messages and keep memory low
         while not self._err_q.empty():
-            self._stderr += self._err_q.get()
-        if len(self._stderr) >= 10000:
-            self._stderr = self._stderr[-10000:]
+            self._proc_stderr += self._err_q.get()
+        if len(self._proc_stderr) >= 10000:
+            self._proc_stderr = self._proc_stderr[-10000:]
 
 
 def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:

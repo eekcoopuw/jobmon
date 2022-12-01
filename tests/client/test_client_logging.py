@@ -2,10 +2,12 @@ import logging
 from datetime import date
 
 
-def test_client_logging_default_format(client_env, capsys):
-    from jobmon.client.client_logging import ClientLogging
+from jobmon.client.logging import JobmonLoggerConfig
 
-    ClientLogging().attach(logger_name="test.test")
+
+def test_client_logging_default_format(client_env, capsys):
+
+    JobmonLoggerConfig.attach_default_handler(logger_name="test.test")
     logger = logging.getLogger("test.test")
     logger.info("This is a test")
     captured = capsys.readouterr()
@@ -18,23 +20,3 @@ def test_client_logging_default_format(client_env, capsys):
             assert "test.test" in log
             assert "INFO" in log
             assert "This is a test" in log
-
-
-def test_client_logging_customized_handler(client_env, capsys):
-    from jobmon.client.client_logging import ClientLogging
-
-    h = logging.StreamHandler()  # stderr
-    # This formatter logs nothing but the fixed msg.
-    # Nobody would create a log like this; thus, it proves it's using my logger.
-    h.setFormatter("I log this instead of your message")
-    h.setLevel(logging.INFO)
-    ClientLogging().attach(logger_name="test.test", handler=h)
-    logger = logging.getLogger("test.test")
-    logger.info("This is a test")
-    captured = capsys.readouterr()
-    logs = captured.out.split("\n")
-    # should only contain two lines, one empty, one formatter text
-    for log in logs:
-        if log:
-            assert "I log this instead of your message" in log
-            assert "This is a test" not in log

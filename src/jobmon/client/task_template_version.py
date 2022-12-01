@@ -7,7 +7,6 @@ import logging
 from string import Formatter
 from typing import Any, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeClientTaskTemplateVersion
@@ -47,11 +46,12 @@ class TaskTemplateVersion:
         self._task_template: TaskTemplate
 
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
+        self.default_resource_scales_set: Dict[str, Dict[str, float]] = {}
         self.default_cluster_name: str = ""
+        self.default_max_attempts: Optional[int] = None
 
         if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
+            requester = Requester.from_defaults()
         self.requester = requester
 
     @classmethod
@@ -146,7 +146,6 @@ class TaskTemplateVersion:
                 "op_args": list(self.op_args),
             },
             request_type="post",
-            logger=logger,
         )
 
         if return_code != StatusCodes.OK:
@@ -265,7 +264,7 @@ class TaskTemplateVersion:
 
     @property
     def op_args(self) -> set:
-        """Return the the task template version OP args.
+        """Return the task template version OP args.
 
         Any named arguments in command_template that can change without changing the
         identity of the task. Generally these are things like the task executable location or
@@ -296,12 +295,13 @@ class TaskTemplateVersion:
     @property
     def arg_mapping_hash(self) -> int:
         """Hash args to identify unique task_template."""
-        hashable = "".join(
-            sorted(self.node_args) + sorted(self.task_args) + sorted(self.op_args)
-        )
+        node_args = "".join(sorted(self.node_args))
+        task_args = "".join(sorted(self.task_args))
+        op_args = "".join(sorted(self.op_args))
+        hashable = ",".join([node_args, task_args, op_args])
         return int(hashlib.sha1(hashable.encode("utf-8")).hexdigest(), 16)
 
-    def filter_kwargs(self, arg_type: str, **kwargs) -> Dict[str, Any]:
+    def filter_kwargs(self, arg_type: str, **kwargs: str) -> Dict[str, Any]:
         """Return the set of kwargs that are of arg_type.
 
         Args:
@@ -320,7 +320,7 @@ class TaskTemplateVersion:
                 result[key] = val
         return result
 
-    def convert_arg_names_to_ids(self, **kwargs) -> Dict[int, Any]:
+    def convert_arg_names_to_ids(self, **kwargs: str) -> Dict[int, Any]:
         """Map from names to ids."""
         return {self.id_name_map[k]: str(v) for k, v in kwargs.items()}
 
@@ -339,6 +339,19 @@ class TaskTemplateVersion:
         compute_resources = {cluster_name: kwargs}
         self.default_compute_resources_set.update(compute_resources)
 
+    def update_default_resource_scales(self, cluster_name: str, **kwargs: Any) -> None:
+        """Update resource scales in place only overridding specified keys.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to modify default values for.
+            **kwargs: any key/value pair you want to update specified as an argument.
+        """
+        resource_scales = {cluster_name: kwargs}
+        self.default_resource_scales_set.update(resource_scales)
+
     def set_default_compute_resources_from_dict(
         self, cluster_name: str, compute_resources: Dict[str, Any]
     ) -> None:
@@ -354,6 +367,30 @@ class TaskTemplateVersion:
                 dict of {resource_name: resource_value}
         """
         self.default_compute_resources_set[cluster_name] = compute_resources
+
+    def set_default_resource_scales_from_dict(
+        self, cluster_name: str, resource_scales: Dict[str, float]
+    ) -> None:
+        """Set compute resources and scales for a given cluster_name.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            resource_scales: dictionary of default resource scales to adjust task
+                resources with. Can be overridden at task level.
+                dict of {resource_name: scale_value}
+        """
+        self.default_resource_scales_set[cluster_name] = resource_scales
+
+    def set_default_max_attempts(self, value: int) -> None:
+        """Set default max attempts at tool leve.
+
+        Args:
+            value: the default max attempts value.
+        """
+        self.default_max_attempts = value
 
     def __hash__(self) -> int:
         """Unique identifier for this object."""

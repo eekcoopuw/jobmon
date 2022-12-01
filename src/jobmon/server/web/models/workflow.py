@@ -1,24 +1,23 @@
 """Workflow Database Table."""
-from functools import partial
 from typing import Tuple
 
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, VARCHAR
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from werkzeug.local import LocalProxy
+import structlog
 
 from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeDistributorWorkflow
-from jobmon.server.web.log_config import bind_to_logger, get_logger
-from jobmon.server.web.models import DB
+from jobmon.server.web.models import Base
 from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_run_status import WorkflowRunStatus
 from jobmon.server.web.models.workflow_status import WorkflowStatus
 
 
-# new structlog logger per flask request context. internally stored as flask.g.logger
-logger = LocalProxy(partial(get_logger, __name__))
+logger = structlog.get_logger(__name__)
 
 
-class Workflow(DB.Model):
+class Workflow(Base):
     """Workflow Database Table."""
 
     __tablename__ = "workflow"
@@ -27,29 +26,30 @@ class Workflow(DB.Model):
         """Serialize workflow object."""
         serialized = SerializeDistributorWorkflow.to_wire(
             workflow_id=self.id,
+            dag_id=self.dag_id,
             max_concurrently_running=self.max_concurrently_running,
         )
         return serialized
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    tool_version_id = DB.Column(DB.Integer, DB.ForeignKey("tool_version.id"))
-    dag_id = DB.Column(DB.Integer, DB.ForeignKey("dag.id"))
-    workflow_args_hash = DB.Column(DB.Integer)
-    task_hash = DB.Column(DB.Integer)
-    description = DB.Column(DB.Text(collation="utf8mb4_unicode_ci"))
-    name = DB.Column(DB.String(150))
-    workflow_args = DB.Column(DB.Text(collation="utf8mb4_unicode_ci"))
-    max_concurrently_running = DB.Column(DB.Integer)
-    status = DB.Column(
-        DB.String(1),
-        DB.ForeignKey("workflow_status.id"),
+    id = Column(Integer, primary_key=True)
+    tool_version_id = Column(Integer, ForeignKey("tool_version.id"))
+    dag_id = Column(Integer, ForeignKey("dag.id"))
+    workflow_args_hash = Column(VARCHAR(50), index=True)
+    task_hash = Column(VARCHAR(50), index=True)
+    description = Column(Text)
+    name = Column(String(150))
+    workflow_args = Column(Text)
+    max_concurrently_running = Column(Integer)
+    status = Column(
+        String(1),
+        ForeignKey("workflow_status.id"),
         default=WorkflowStatus.REGISTERING,
     )
-    created_date = DB.Column(DB.DateTime, default=func.now())
-    status_date = DB.Column(DB.DateTime, default=func.now())
+    created_date = Column(DateTime, default=None)
+    status_date = Column(DateTime, default=func.now())
 
-    dag = DB.relationship("Dag", back_populates="workflow", lazy=True)
-    workflow_runs = DB.relationship("WorkflowRun", back_populates="workflow", lazy=True)
+    dag = relationship("Dag", back_populates="workflow", lazy=True)
+    workflow_runs = relationship("WorkflowRun", back_populates="workflow", lazy=True)
 
     valid_transitions = [
         # normal progression from registered to a workflow run has been fully bound
@@ -76,6 +76,8 @@ class Workflow(DB.Model):
         (WorkflowStatus.LAUNCHED, WorkflowStatus.RUNNING),
         # workflow run was running and then got moved to a resume state
         (WorkflowStatus.RUNNING, WorkflowStatus.HALTED),
+        # workflow run was bound, and then got moved to a resume state
+        (WorkflowStatus.QUEUED, WorkflowStatus.HALTED),
         # workflow run was running and then completed successfully
         (WorkflowStatus.RUNNING, WorkflowStatus.DONE),
         # workflow run was running and then failed with an error
@@ -86,7 +88,7 @@ class Workflow(DB.Model):
 
     def transition(self, new_state: str) -> None:
         """Transition the state of the workflow."""
-        bind_to_logger(workflow_id=self.id)
+        # bind_to_logger(workflow_id=self.id)
         logger.info(f"Transitioning workflow_id from {self.status} to {new_state}")
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
@@ -110,11 +112,12 @@ class Workflow(DB.Model):
         self, workflow_run: WorkflowRun, next_report_increment: float
     ) -> Tuple:
         """Link a workflow run to this workflow."""
-        bind_to_logger(workflow_id=self.id)
+        # bind_to_logger(workflow_id=self.id)
         logger.info(f"Linking WorkflowRun {workflow_run.id} to Workflow")
         linked_wfr = [
             wfr.status == WorkflowRunStatus.LINKING for wfr in self.workflow_runs
         ]
+
         if not any(linked_wfr) and self.ready_to_link:
             workflow_run.heartbeat(next_report_increment, WorkflowRunStatus.LINKING)
             current_wfr = [(workflow_run.id, workflow_run.status)]
@@ -127,11 +130,15 @@ class Workflow(DB.Model):
         # currently linked workflow run
         else:
             current_wfr = [(wfr.id, wfr.status) for wfr in self.workflow_runs]
-        return current_wfr[0]
+
+        if current_wfr:
+            return current_wfr[0]
+        else:
+            return ()
 
     def resume(self, reset_running_jobs: bool) -> None:
         """Resume a workflow."""
-        bind_to_logger(workflow_id=self.id)
+        # bind_to_logger(workflow_id=self.id)
         logger.info("Resume workflow")
         for workflow_run in self.workflow_runs:
             if workflow_run.is_active:
@@ -144,13 +151,19 @@ class Workflow(DB.Model):
     @property
     def ready_to_link(self) -> bool:
         """Is this workflow able to link a new workflow run."""
-        return self.status not in [
-            WorkflowStatus.QUEUED,
-            WorkflowStatus.RUNNING,
-            WorkflowStatus.DONE,
-        ]
+        return (
+            self.status
+            not in [
+                WorkflowStatus.QUEUED,
+                WorkflowStatus.RUNNING,
+                WorkflowStatus.DONE,
+            ]
+            and self.is_resumable
+        )
 
     @property
     def is_resumable(self) -> bool:
         """Is this workflow resumable."""
-        return not any([wfr.is_alive for wfr in self.workflow_runs])
+        wfrs_active = any([wfr.is_alive for wfr in self.workflow_runs])
+        done_binding = self.created_date is not None
+        return done_binding and not wfrs_active

@@ -1,4 +1,7 @@
-def test_repr_strings(db_cfg, client_env, tool, task_template):
+from jobmon.client.workflow_run import WorkflowRun
+
+
+def test_repr_strings(tool, task_template):
     """Smoke tests to check the various client object repr strings."""
 
     task = task_template.create_task(arg="echo 1")
@@ -11,7 +14,9 @@ def test_repr_strings(db_cfg, client_env, tool, task_template):
 
     wf.add_task(task)
     wf.bind()
-    wfr = wf._create_workflow_run()
+    wf._bind_tasks()
+    wfr = WorkflowRun(wf.workflow_id)
+    wfr.bind()
 
     wfr.__repr__()
     wf._dag.__repr__()

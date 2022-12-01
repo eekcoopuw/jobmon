@@ -1,16 +1,18 @@
 """Task Attribute Type table."""
 from typing import Any, Dict
 
-from jobmon.server.web.models import DB
+from sqlalchemy import Column, Integer, String
+
+from jobmon.server.web.models import Base
 
 
-class TaskAttributeType(DB.Model):
+class TaskAttributeType(Base):
     """Task Attribute Type Table."""
 
     __tablename__ = "task_attribute_type"
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    name = DB.Column(DB.String(255))
+    id = Column(Integer, primary_key=True)
+    name = Column(String(255))
 
     @classmethod
     def from_wire(cls: Any, dct: Dict) -> Any:

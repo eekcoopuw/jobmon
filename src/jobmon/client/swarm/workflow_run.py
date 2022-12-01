@@ -1,24 +1,37 @@
-"""Workflow Run is an distributor instance of a declared workflow."""
+"""Workflow Run is a distributor instance of a declared workflow."""
 from __future__ import annotations
 
+import ast
+from collections import deque
 from datetime import datetime
 import logging
 import time
-from typing import Callable, Dict, Generator, List, Optional, Set, TYPE_CHECKING, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    List,
+    Optional,
+    Set,
+    TYPE_CHECKING,
+    Union,
+)
 
-from jobmon.client.client_config import ClientConfig
-from jobmon.client.swarm.swarm_task import SwarmTask
+from jobmon.client.array import Array
 from jobmon.client.swarm.swarm_array import SwarmArray
+from jobmon.client.swarm.swarm_task import SwarmTask
 from jobmon.client.task_resources import TaskResources
-from jobmon.constants import TaskStatus, WorkflowRunStatus, TaskResourcesType
+from jobmon.cluster import Cluster
+from jobmon.constants import TaskStatus, WorkflowRunStatus
 from jobmon.exceptions import (
     CallableReturnedInvalidObject,
     DistributorNotAlive,
+    EmptyWorkflowError,
     InvalidResponse,
+    TransitionError,
     WorkflowTestError,
-    TransitionError
 )
-
 from jobmon.requester import http_request_ok, Requester
 
 # avoid circular imports on backrefs
@@ -31,22 +44,20 @@ logger = logging.getLogger(__name__)
 
 class SwarmCommand:
     def __init__(
-        self,
-        func: Callable[..., None],
-        *args, **kwargs
-    ):
+        self, func: Callable[..., None], *args: List[SwarmTask], **kwargs: Any
+    ) -> None:
         """A command to be run by the distributor service.
 
         Args:
             func: a callable which does work and optionally modifies task instance state
             *args: positional args to be passed into func
-            **kwargs: kwargs to be to be passed into func
+            **kwargs: kwargs to be passed into func
         """
         self._func = func
         self._args = args
         self._kwargs = kwargs
 
-    def __call__(self):
+    def __call__(self) -> None:
         self._func(*self._args, **self._kwargs)
 
 
@@ -71,15 +82,22 @@ class WorkflowRun:
         fail_fast: bool = False,
         wedged_workflow_sync_interval: int = 600,
         fail_after_n_executions: int = 1_000_000_000,
+        status: Optional[str] = None,
         requester: Optional[Requester] = None,
     ) -> None:
         """Initialization of the swarm WorkflowRun."""
         self.workflow_run_id = workflow_run_id
 
         # state tracking
+        self._active_states = [
+            TaskStatus.QUEUED,
+            TaskStatus.INSTANTIATING,
+            TaskStatus.LAUNCHED,
+            TaskStatus.RUNNING,
+        ]
         self.tasks: Dict[int, SwarmTask] = {}
         self.arrays: Dict[int, SwarmArray] = {}
-        self.ready_to_run: List[SwarmTask] = []
+        self.ready_to_run: deque[SwarmTask] = deque()
         self._task_status_map: Dict[str, Set[SwarmTask]] = {
             TaskStatus.REGISTERING: set(),
             TaskStatus.QUEUED: set(),
@@ -95,7 +113,9 @@ class WorkflowRun:
         self._task_resources: Dict[int, TaskResources] = {}
 
         # workflow run attributes
-        self._status = WorkflowRunStatus.BOUND
+        if status is None:
+            status = WorkflowRunStatus.BOUND
+        self._status = status
         self._last_heartbeat_time = time.time()
 
         # flow control
@@ -110,14 +130,16 @@ class WorkflowRun:
         self._workflow_run_heartbeat_interval = workflow_run_heartbeat_interval
         self._heartbeat_report_by_buffer = heartbeat_report_by_buffer
         if requester is None:
-            requester = Requester(ClientConfig.from_defaults().url)
-        self._requester = requester
+            requester = Requester.from_defaults()
+        self.requester = requester
 
         # This signal is set if the workflow run receives a resume
         self._terminated = False
 
+        self.initialized = False  # Need to call from_workflow or from_workflow_id
+
     @property
-    def status(self) -> str:
+    def status(self) -> Optional[str]:
         """Status of the workflow run."""
         return self._status
 
@@ -133,32 +155,27 @@ class WorkflowRun:
     def active_tasks(self) -> bool:
         """Based on the task status map, does the workflow run have more work or not.
 
-        If there are no tasks in active states, the fringe is empty and
-        therefore we should error out.
+        If there are no tasks in active states, the fringe is empty, and therefore we should
+        error out.
         """
-
         # To prevent additional compute, return False immediately if set to an error state.
         # Likely done by fail fast or the max execution loops
         if self.status in (WorkflowRunStatus.ERROR, WorkflowRunStatus.TERMINATED):
             return False
 
-        active_task_states = [
-            TaskStatus.QUEUED,
-            TaskStatus.LAUNCHED,
-            TaskStatus.RUNNING,
-            TaskStatus.INSTANTIATING
-        ]
-        any_active_tasks = (
-            any([any(self._task_status_map[s]) for s in active_task_states])
-            or any(self.ready_to_run)
-        )
+        any_active_tasks = any(
+            [any(self._task_status_map[s]) for s in self._active_states]
+        ) or any(self.ready_to_run)
         return any_active_tasks
 
     def from_workflow(self, workflow: Workflow) -> None:
-        self.workflow_id = workflow.workflow_id
-        self.max_concurrently_running: int = workflow.max_concurrently_running
+
+        if self.initialized:
+            logger.warning("Swarm has already been initialized")
+            return
 
         # construct arrays
+        array: Array
         for array in workflow.arrays.values():
             swarm_array = SwarmArray(array.array_id, array.max_concurrently_running)
             self.arrays[array.array_id] = swarm_array
@@ -191,9 +208,7 @@ class WorkflowRun:
             swarm_task = self.tasks[task.task_id]
 
             # assign upstream and downstreams
-            swarm_task.upstream_swarm_tasks = set(
-                [self.tasks[t.task_id] for t in task.upstream_tasks]
-            )
+            swarm_task.num_upstreams = len(task.upstream_tasks)
             swarm_task.downstream_swarm_tasks = set(
                 [self.tasks[t.task_id] for t in task.downstream_tasks]
             )
@@ -212,9 +227,213 @@ class WorkflowRun:
 
         self.last_sync = self._get_current_time()
         self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
+        self.workflow_id = workflow.workflow_id
+        self.max_concurrently_running: int = workflow.max_concurrently_running
+        self.dag_id = workflow.dag_id
+        self.initialized = True
 
-    def run(self, distributor_alive_callable: Callable[..., bool],
-            seconds_until_timeout: int = 36000):
+    def from_workflow_id(self, workflow_id: int, edge_chunk_size: int = 500) -> None:
+        if self.initialized:
+            logger.warning("Swarm has already been initialized")
+            return
+        # Log heartbeat prior to starting work
+        self._log_heartbeat()
+        self.set_workflow_metadata(workflow_id)
+        self.set_tasks_from_db(chunk_size=edge_chunk_size)
+        self.set_downstreams_from_db(chunk_size=edge_chunk_size)
+        # Resumed workflow runs initialized in LINKING state, so update to bound here
+        # once tasks are all created and the DAG is in memory
+        self._update_status(WorkflowRunStatus.BOUND)
+        self.initialized = True
+
+    def set_workflow_metadata(self, workflow_id: int) -> None:
+        """Fetch the dag_id and max_concurrently_running parameters of this workflow."""
+        _, resp = self.requester.send_request(
+            app_route=f"/workflow/{workflow_id}/fetch_workflow_metadata",
+            message={},
+            request_type="get",
+        )
+
+        database_wf = resp["workflow"]
+        if not database_wf:
+            raise EmptyWorkflowError(f"No workflow found for workflow id {workflow_id}")
+
+        workflow_id, dag_id, max_concurrently_running = database_wf
+
+        self.last_sync = self._get_current_time()
+        self.num_previously_complete = len(self._task_status_map[TaskStatus.DONE])
+        self.workflow_id = workflow_id
+        self.max_concurrently_running = max_concurrently_running
+        self.dag_id = dag_id
+        logger.info(f"Initialized Swarm(workflow_id={workflow_id}, dag_id={dag_id})")
+
+    def set_tasks_from_db(self, chunk_size: int = 500) -> None:
+        """Pull the tasks that need to be run associated with this workflow.
+
+        I.e. all tasks that aren't in DONE state.
+        """
+        # Fetch metadata for all tasks
+        # Keep a cluster registry.
+        cluster_registry: Dict[str, Cluster] = {}
+        all_tasks_returned = False
+        max_task_id = 0
+        logger.info("Fetching tasks from the database")
+        while not all_tasks_returned:
+
+            # TODO: make this an asynchronous context manager, avoid duplicating code
+            if (
+                time.time() - self._last_heartbeat_time
+            ) > self._workflow_run_heartbeat_interval:
+                self._log_heartbeat()
+                logger.info(
+                    f"Still fetching tasks, {len(self.tasks)} collected so far..."
+                )
+
+            _, resp = self.requester.send_request(
+                app_route=f"/workflow/get_tasks/{self.workflow_id}",
+                message={"max_task_id": max_task_id, "chunk_size": chunk_size},
+                request_type="get",
+            )
+            task_dict = resp["tasks"]
+            # Case when no tasks are returned - happen to have 1000 tasks, for example, and
+            # 2 chunks of 500. No more work to be done
+            if not task_dict:
+                return
+            elif len(task_dict) < chunk_size:
+                # Last chunk has been returned, exit after task creation
+                all_tasks_returned = True
+
+            max_task_id = max(task_dict)
+
+            # populate tasks dict, and arrays registry
+            for task_id, metadata in task_dict.items():
+                (
+                    array_id,
+                    array_concurrency,
+                    status,
+                    max_attempts,
+                    resource_scales,
+                    fallback_queues,
+                    requested_resources,
+                    cluster_name,
+                    queue_name,
+                ) = metadata
+
+                # Convert datatypes as appropriate
+                task_id = int(task_id)
+                resource_scales = ast.literal_eval(resource_scales)
+                fallback_queues = ast.literal_eval(fallback_queues)
+                requested_resources = ast.literal_eval(requested_resources)
+                # Construct a queue, a cluster, and a task resources object
+                try:
+                    cluster = cluster_registry[cluster_name]
+                except KeyError:
+                    cluster = Cluster(
+                        cluster_name=cluster_name, requester=self.requester
+                    )
+                    cluster.bind()
+                    cluster_registry[cluster_name] = cluster
+
+                queue = cluster.get_queue(queue_name)
+                fallback_queues = [cluster.get_queue(q) for q in fallback_queues]
+
+                task_resources = TaskResources(
+                    requested_resources=requested_resources,
+                    queue=queue,
+                    requester=self.requester,
+                )
+
+                st = SwarmTask(
+                    task_id=task_id,
+                    array_id=array_id,
+                    status=status,
+                    max_attempts=max_attempts,
+                    task_resources=task_resources,
+                    cluster=cluster,
+                    resource_scales=resource_scales,
+                    fallback_queues=fallback_queues,
+                )
+                self.tasks[task_id] = st
+
+                # Also create arrays
+                if array_id not in self.arrays:
+                    array = SwarmArray(
+                        array_id=array_id, max_concurrently_running=array_concurrency
+                    )
+                    self.arrays[array_id] = array
+                self.arrays[array_id].add_task(st)
+
+                # Add to correct status queue
+                self._task_status_map[st.status].add(st)
+        logger.info("All tasks fetched")
+
+    def set_downstreams_from_db(self, chunk_size: int = 500) -> None:
+        """Pull downstream edges from the database associated with the workflow."""
+        # Get edges in a different route to prevent overload
+
+        # Create two maps: one to map node_id -> task_id
+        task_node_id_map: Dict[int, int] = {}
+        # one to map task_id -> Set(downstream node_ids)
+        task_edge_map: Dict[int, Set] = {}
+
+        start_idx, end_idx = 0, chunk_size
+        task_ids = list(self.tasks.keys())
+        logger.info("Setting dependencies on tasks")
+        while start_idx < len(task_ids):
+            # Log heartbeats if needed
+            if (
+                time.time() - self._last_heartbeat_time
+            ) > self._workflow_run_heartbeat_interval:
+                self._log_heartbeat()
+                logger.info("Still fetching edges from the database...")
+            task_id_chunk = task_ids[start_idx:end_idx]
+            start_idx = end_idx
+            end_idx += chunk_size
+
+            _, edge_resp = self.requester.send_request(
+                app_route="/task/get_downstream_tasks",
+                message={"task_ids": task_id_chunk, "dag_id": self.dag_id},
+                request_type="get",
+            )
+            downstream_tasks = edge_resp["downstream_tasks"]
+            # Format is {task_id: (node_id, '[downstream_node_ids]')}
+            for task_id, values in downstream_tasks.items():
+                node_id, downstream_node_ids = values
+                # Convert to Python datatypes
+                task_id = int(task_id)
+                if downstream_node_ids:
+                    downstream_node_ids = ast.literal_eval(downstream_node_ids)
+                # Assumption: every single node in the downstream edge is not in "D" state
+                # Shouldn't be possible to have a downstream node of a task not in "D" state
+                # that is complete. If it is, we'll raise unexpected KeyErrors here
+                task_node_id_map[node_id] = task_id
+                task_edge_map[task_id] = downstream_node_ids
+
+        # Create the dependency graph
+        # NOTE: only tasks that are not in status "DONE" are returned. This means the created
+        # dependency graph is not the full DAG, only a subset of the tasks that still need to
+        # complete.
+        logger.info("All edges fetched from the database, starting to build the graph")
+
+        for task_id, swarm_task in self.tasks.items():
+            downstream_edges = task_edge_map[task_id]
+            if downstream_edges:
+                for downstream_node_id in downstream_edges:
+                    # Select the appropriate task id
+                    downstream_task_id = task_node_id_map[downstream_node_id]
+                    # Select the swarm task and add it as a dependency
+                    downstream_swarm_task = self.tasks[downstream_task_id]
+                    swarm_task.downstream_swarm_tasks.add(downstream_swarm_task)
+                    downstream_swarm_task.num_upstreams += 1
+
+        logger.info("Task DAG fully constructed, swarm is ready to run")
+
+    def run(
+        self,
+        distributor_alive_callable: Callable[..., bool],
+        seconds_until_timeout: int = 36000,
+        initialize: bool = True,
+    ) -> None:
         """Take a concrete DAG and queue al the Tasks that are not DONE.
 
         Uses forward chaining from initial fringe, hence out-of-date is not
@@ -232,21 +451,23 @@ class WorkflowRun:
             rinse and repeat
 
         Args:
-            swarm: the workflow run associated with the swarm.
-            fail_fast: raise error on the first failed task.
+            distributor_alive_callable: callable that checks whether or not the distributor
+                service is still alive.
             seconds_until_timeout: how long to block while waiting for the next task to finish
                 before raising an error.
-            wedged_workflow_sync_interval: the time interval to sync a workflow that is wedged.
+            initialize: whether to initialize (update WorkflowRun to RUNNING and set fringe)
 
         Return:
-            workflow_run status
+            None
         """
         try:
-            logger.info(f"Executing Workflow Run {self.workflow_run_id}")
-            self._update_status(WorkflowRunStatus.RUNNING)
-            self.set_initial_fringe()
-            time_since_last_full_sync = 0.
-            total_elapsed_time = 0.
+            if initialize:
+                logger.info(f"Executing Workflow Run {self.workflow_run_id}")
+                self._update_status(WorkflowRunStatus.RUNNING)
+                self.set_initial_fringe()
+
+            time_since_last_full_sync = 0.0
+            total_elapsed_time = 0.0
             terminating_states = [
                 WorkflowRunStatus.COLD_RESUME,
                 WorkflowRunStatus.HOT_RESUME,
@@ -292,9 +513,8 @@ class WorkflowRun:
 
                 # process any commands that we can in the time allotted
                 loop_start = time.time()
-                time_till_next_heartbeat = (
-                    self._workflow_run_heartbeat_interval
-                    - (loop_start - self._last_heartbeat_time)
+                time_till_next_heartbeat = self._workflow_run_heartbeat_interval - (
+                    loop_start - self._last_heartbeat_time
                 )
                 if self.status == WorkflowRunStatus.RUNNING:
                     self.process_commands(timeout=time_till_next_heartbeat)
@@ -308,7 +528,7 @@ class WorkflowRun:
 
                 # then synchronize state
                 if time_since_last_full_sync > self.wedged_workflow_sync_interval:
-                    time_since_last_full_sync = 0.
+                    time_since_last_full_sync = 0.0
                     self.synchronize_state(full_sync=True)
                 else:
                     time_since_last_full_sync += loop_elapsed
@@ -321,11 +541,16 @@ class WorkflowRun:
             logger.warning("Keyboard interrupt raised")
             confirm = input("Are you sure you want to exit (y/n): ")
             confirm = confirm.lower().strip()
+
             if confirm == "y":
                 self._update_status(WorkflowRunStatus.STOPPED)
                 raise
             else:
                 logger.info("Continuing jobmon...")
+                seconds_until_timeout = int(seconds_until_timeout - loop_elapsed)
+                self.run(
+                    distributor_alive_callable, seconds_until_timeout, initialize=False
+                )
 
         # unexpected errors. raise
         except Exception as e:
@@ -348,27 +573,30 @@ class WorkflowRun:
                 else:
                     self._update_status(WorkflowRunStatus.ERROR)
 
-    def set_initial_fringe(self):
-        """set initial fringe"""
+    def set_initial_fringe(self) -> None:
+        """Set initial fringe."""
         for t in [t for t in self._task_status_map[TaskStatus.ADJUSTING_RESOURCES]]:
             self._set_adjusted_task_resources(t)
             self.ready_to_run.append(t)
-        for t in [task for task in self._task_status_map[TaskStatus.REGISTERING]
-                  if task.all_upstreams_done]:
+
+        for t in [
+            task
+            for task in self._task_status_map[TaskStatus.REGISTERING]
+            if task.all_upstreams_done
+        ]:
             self._set_validated_task_resources(t)
             self.ready_to_run.append(t)
 
     def get_swarm_commands(self) -> Generator[SwarmCommand, None, None]:
-        """Generator to get next chunk of work to be done. Must be idempotent"""
-
+        """Generator to get next chunk of work to be done. Must be idempotent."""
         # compute capacities. max - active
         active_tasks: Set[SwarmTask] = set()
-        for task_status in [TaskStatus.QUEUED, TaskStatus.INSTANTIATING, TaskStatus.LAUNCHED,
-                            TaskStatus.RUNNING]:
-            active_tasks.union(self._task_status_map[task_status])
+        for task_status in self._active_states:
+            active_tasks = active_tasks.union(self._task_status_map[task_status])
         workflow_capacity = self.max_concurrently_running - len(active_tasks)
         array_capacity_lookup: Dict[int, int] = {
-            aid: array.max_concurrently_running - len(active_tasks.intersection(array.tasks))
+            aid: array.max_concurrently_running
+            - len(active_tasks.intersection(array.tasks))
             for aid, array in self.arrays.items()
         }
 
@@ -376,7 +604,7 @@ class WorkflowRun:
             unscheduled_tasks: List[SwarmTask] = []
             while self.ready_to_run and workflow_capacity > 0:
                 # pop the next task off of the queue
-                next_task = self.ready_to_run.pop(0)
+                next_task = self.ready_to_run.popleft()
                 array_id = next_task.array_id
                 task_resources = next_task.current_task_resources
 
@@ -389,9 +617,10 @@ class WorkflowRun:
                     array_capacity -= 1
 
                     # we started a batch. let's try and add compatible tasks
-                    compatible_indices: List[int] = []
-                    for index, task in enumerate(self.ready_to_run):
-
+                    for _ in range(len(self.ready_to_run)):
+                        # Remove task from the front of the queue.
+                        # If compatible, expire from the ready to run queue
+                        task = self.ready_to_run.popleft()
                         # check for batch compatible tasks
                         if (
                             workflow_capacity > 0
@@ -400,14 +629,11 @@ class WorkflowRun:
                             and task.current_task_resources == task_resources
                         ):
                             current_batch.append(task)
-                            compatible_indices.append(index)
                             workflow_capacity -= 1
                             array_capacity -= 1
-
-                    # remove from original queue in reverse order so the indices don't move
-                    compatible_indices.reverse()
-                    for index in compatible_indices:
-                        task = self.ready_to_run.pop(index)
+                        else:
+                            # Put it back in the queue
+                            self.ready_to_run.append(task)
 
                     # set final array capacity
                     array_capacity_lookup[array_id] = array_capacity
@@ -420,15 +646,14 @@ class WorkflowRun:
 
         # make sure to put unscheduled back on queue, even when the generator is closed
         finally:
-            self.ready_to_run = unscheduled_tasks + self.ready_to_run
+            self.ready_to_run.extendleft(unscheduled_tasks)
 
-    def process_commands(self, timeout: Union[int, float] = -1):
+    def process_commands(self, timeout: Union[int, float] = -1) -> None:
         """Processes swarm commands until all work is done or timeout is reached.
 
         Args:
             timeout: time until we stop processing. -1 means process till no more work
         """
-
         swarm_commands = self.get_swarm_commands()
 
         # this way we always process at least 1 command
@@ -438,7 +663,6 @@ class WorkflowRun:
 
             # run commands
             try:
-
                 # use an iterator so we don't waste compute
                 swarm_command = next(swarm_commands)
                 swarm_command()
@@ -454,14 +678,8 @@ class WorkflowRun:
     def synchronize_state(self, full_sync: bool = False) -> None:
         self._set_status_for_triaging()
         self._log_heartbeat()
-
-        # TODO: should we be excluding DONE and ERROR_FATAL on full_sync?
-        if full_sync:
-            updated_tasks = self._get_task_status_updates(set(self.tasks.values()))
-
-        else:
-            updated_tasks = self._get_task_status_updates()
-        self._refresh_task_status_map(updated_tasks)
+        self._task_status_updates(full_sync=full_sync)
+        self._synchronize_max_concurrently_running()
 
     def _refresh_task_status_map(self, updated_tasks: Set[SwarmTask]) -> None:
         # remove these tasks from old mapping
@@ -497,7 +715,9 @@ class WorkflowRun:
 
             elif task.status == TaskStatus.ADJUSTING_RESOURCES:
                 self._set_adjusted_task_resources(task)
-                self.ready_to_run.append(task)
+
+                # put at front of queue since we already tried it once
+                self.ready_to_run.appendleft(task)
 
             else:
                 logger.debug(
@@ -518,12 +738,10 @@ class WorkflowRun:
         if num_newly_failed > 0:
             logger.warning(f"{num_newly_failed} newly failed tasks.")
 
-    def _set_status_for_triaging(self):
-        app_route = (
-            f"/workflow_run/{self.workflow_run_id}/set_status_for_triaging"
-        )
-        return_code, response = self._requester.send_request(
-            app_route=app_route, message={}, request_type="post", logger=logger
+    def _set_status_for_triaging(self) -> None:
+        app_route = f"/workflow_run/{self.workflow_run_id}/set_status_for_triaging"
+        return_code, response = self.requester.send_request(
+            app_route=app_route, message={}, request_type="post"
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -532,19 +750,18 @@ class WorkflowRun:
                 f"code 200. Response content: {response}"
             )
 
-    def _log_heartbeat(self):
+    def _log_heartbeat(self) -> None:
         next_report_increment = (
             self._workflow_run_heartbeat_interval * self._heartbeat_report_by_buffer
         )
         app_route = f"/workflow_run/{self.workflow_run_id}/log_heartbeat"
-        return_code, response = self._requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
                 "status": self._status,
                 "next_report_increment": next_report_increment,
             },
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -557,13 +774,11 @@ class WorkflowRun:
 
     def _update_status(self, status: str) -> None:
         """Update the status of the workflow_run with whatever status is passed."""
-
         app_route = f"/workflow_run/{self.workflow_run_id}/update_status"
-        return_code, response = self._requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route,
             message={"status": status},
             request_type="put",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -571,7 +786,7 @@ class WorkflowRun:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-        self._status = response['status']
+        self._status = response["status"]
         if self.status != status:
             raise TransitionError(
                 f"Cannot transition WFR {self.workflow_run_id} from current status "
@@ -581,8 +796,8 @@ class WorkflowRun:
     def _terminate_task_instances(self) -> None:
         """Terminate the workflow run."""
         app_route = f"/workflow_run/{self.workflow_run_id}/terminate_task_instances"
-        return_code, response = self._requester.send_request(
-            app_route=app_route, message={}, request_type="put", logger=logger
+        return_code, response = self.requester.send_request(
+            app_route=app_route, message={}, request_type="put"
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -605,8 +820,8 @@ class WorkflowRun:
 
     def _get_current_time(self) -> datetime:
         app_route = "/time"
-        return_code, response = self._requester.send_request(
-            app_route=app_route, message={}, request_type="get", logger=logger
+        return_code, response = self.requester.send_request(
+            app_route=app_route, message={}, request_type="get"
         )
 
         if http_request_ok(return_code) is False:
@@ -617,23 +832,21 @@ class WorkflowRun:
             )
         return response["time"]
 
-    def _get_task_status_updates(self, tasks: Set[SwarmTask] = None) -> Set[SwarmTask]:
+    def _task_status_updates(self, full_sync: bool = False) -> None:
         """Update internal state of tasks to match the database.
 
         If no tasks are specified, get all tasks.
         """
-        if tasks is None:
-            tasks = set()
-        task_tuples = [(t.task_id, t.status) for t in tasks]
+        if full_sync:
+            message = {}
+        else:
+            message = {"last_sync": str(self.last_sync)}
+
         app_route = f"/workflow/{self.workflow_id}/task_status_updates"
-        return_code, response = self._requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route,
-            message={
-                "last_sync": str(self.last_sync),
-                "swarm_tasks_tuples": task_tuples,
-            },
+            message=message,
             request_type="post",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -641,21 +854,30 @@ class WorkflowRun:
                 f"request through route {app_route}. Expected "
                 f"code 200. Response content: {response}"
             )
-
         self.last_sync = response["time"]
 
         new_status_tasks: Set[SwarmTask] = set()
-        for wire_tuple in response["task_dcts"]:
-            task_id = int(wire_tuple[0])
-            new_status = wire_tuple[1]
+        for current_status, task_ids in response["tasks_by_status"].items():
+            for task_id in task_ids:
+                task = self.tasks[task_id]
+                if current_status != task.status:
+                    task.status = current_status
+                    new_status_tasks.add(task)
+        self._refresh_task_status_map(new_status_tasks)
 
-            # mutate the task
-            task = self.tasks[task_id]
-            if new_status != task.status:
-                task.status = new_status
-                new_status_tasks.add(task)
+    def _synchronize_max_concurrently_running(self) -> None:
+        app_route = f"/workflow/{self.workflow_id}/get_max_concurrently_running"
+        return_code, response = self.requester.send_request(
+            app_route=app_route, message={}, request_type="get"
+        )
 
-        return new_status_tasks
+        if http_request_ok(return_code) is False:
+            raise InvalidResponse(
+                f"Unexpected status code {return_code} from GET "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {response}"
+            )
+        self.max_concurrently_running = response["max_concurrently_running"]
 
     def queue_task_batch(self, tasks: List[SwarmTask]) -> None:
         first_task = tasks[0]
@@ -664,7 +886,7 @@ class WorkflowRun:
             task_resources.bind()
 
         app_route = f"/array/{first_task.array_id}/queue_task_batch"
-        return_code, response = self._requester.send_request(
+        return_code, response = self.requester.send_request(
             app_route=app_route,
             message={
                 "task_ids": [task.task_id for task in tasks],
@@ -689,12 +911,10 @@ class WorkflowRun:
         self._refresh_task_status_map(updated_tasks)
 
     def _set_validated_task_resources(self, task: SwarmTask) -> None:
-        # get cluster and original params
-        cluster = task.cluster
-        resource_params = task.current_task_resources.concrete_resources.resources.copy()
-        queue = task.current_task_resources.concrete_resources.queue
+        # original resources
+        task_resources = task.current_task_resources
 
-        # update with extra params
+        # update with dynamic params
         if task.compute_resources_callable is not None:
             dynamic_compute_resources = task.compute_resources_callable()
             if not isinstance(dynamic_compute_resources, dict):
@@ -703,32 +923,25 @@ class WorkflowRun:
                     f"task_id={task.task_id} returned an invalid type. Must return dict. got "
                     f"{type(dynamic_compute_resources)}."
                 )
-            resource_params.update(dynamic_compute_resources)
+            requested_resources = task.current_task_resources.requested_resources.copy()
+            requested_resources.update(dynamic_compute_resources)
             task.compute_resources_callable = None
+            task_resources = TaskResources(
+                requested_resources, task.current_task_resources.queue
+            )
 
-        (
-            _,
-            _,
-            concrete_resource,
-        ) = cluster.concrete_resource_class.validate_and_create_concrete_resource(
-            queue, resource_params
-        )
+        # now check if we need to coerce them to valid values
+        validated_task_resources = task_resources.coerce_resources()
 
-        # if validated concrete resources are different than original. get new resource object
-        validated_resource_hash = hash(concrete_resource)
-        if validated_resource_hash != hash(task.current_task_resources.concrete_resources):
-            try:
-                task_resources = self._task_resources[hash(concrete_resource)]
-            except KeyError:
-                task_resources = TaskResources(
-                    concrete_resources=concrete_resource,
-                    task_resources_type_id=TaskResourcesType.VALIDATED,
-                )
-                self._task_resources[hash(task_resources)] = task_resources
-        else:
-            task_resources = task.current_task_resources
-            self._task_resources[validated_resource_hash] = task_resources
-        task.current_task_resources = task_resources
+        # check for a cached version
+        validated_resource_hash = hash(validated_task_resources)
+        try:
+            validated_task_resources = self._task_resources[validated_resource_hash]
+        except KeyError:
+            self._task_resources[validated_resource_hash] = validated_task_resources
+
+        # now set as current
+        task.current_task_resources = validated_task_resources
 
     def _set_adjusted_task_resources(self, task: SwarmTask) -> None:
         """Adjust the swarm task's parameters.
@@ -736,23 +949,14 @@ class WorkflowRun:
         Use the cluster API to generate the new resources, then bind to input swarmtask.
         """
         # current resources
-        resource_params = task.current_task_resources.concrete_resources.resources.copy()
-
-        concrete_resource = (
-            task.cluster.concrete_resource_class.adjust_and_create_concrete_resource(
-                existing_resources=resource_params,
-                resource_scales=task.resource_scales,
-                expected_queue=task.current_task_resources.queue,
-                fallback_queues=task.fallback_queues,
-            )
+        task_resources = task.current_task_resources.adjust_resources(
+            resource_scales=task.resource_scales,
+            fallback_queues=task.fallback_queues,
         )
 
+        resource_hash = hash(task_resources)
         try:
-            task_resources = self._task_resources[hash(concrete_resource)]
+            task_resources = self._task_resources[resource_hash]
         except KeyError:
-            task_resources = TaskResources(
-                concrete_resources=concrete_resource,
-                task_resources_type_id=TaskResourcesType.ADJUSTED,
-            )
-            self._task_resources[hash(task_resources)] = task_resources
+            self._task_resources[resource_hash] = task_resources
         task.current_task_resources = task_resources

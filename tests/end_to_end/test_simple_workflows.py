@@ -2,13 +2,13 @@ import os
 import sys
 
 from jobmon.constants import TaskStatus, WorkflowRunStatus
+from jobmon.client.tool import Tool
 
 import pytest
 
 
 @pytest.fixture
-def tool(db_cfg, client_env):
-    from jobmon.client.tool import Tool
+def tool(client_env):
 
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
@@ -212,7 +212,7 @@ def test_fork_and_join_tasks_with_fatal_error(tool, tmpdir):
         script=remote_sleep_and_write,
         sleep_secs=1,
         output_file_path=os.path.join(str(tmpdir), "a.out"),
-        fail_always=""
+        fail_always="",
     )
     workflow.add_task(task_a)
 
@@ -305,7 +305,7 @@ def test_fork_and_join_tasks_with_retryable_error(tool, tmpdir):
         script=remote_sleep_and_write,
         sleep_secs=1,
         output_file_path=os.path.join(str(tmpdir), "a.out"),
-        fail_always=""
+        fail_always="",
     )
     workflow.add_task(task_a)
 
@@ -378,7 +378,6 @@ def test_fork_and_join_tasks_with_retryable_error(tool, tmpdir):
     assert workflow.tasks[hash(task_d)].final_status == TaskStatus.DONE
 
 
-@pytest.mark.qsubs_jobs
 def test_bushy_real_dag(tool, tmpdir):
     """
     Similar to the a small fork and join real_dag but with connections between
@@ -402,7 +401,7 @@ def test_bushy_real_dag(tool, tmpdir):
         script=remote_sleep_and_write,
         sleep_secs=1,
         output_file_path=os.path.join(str(tmpdir), "a.out"),
-        fail_always=""
+        fail_always="",
     )
     workflow.add_task(task_a)
 
@@ -462,11 +461,8 @@ def test_bushy_real_dag(tool, tmpdir):
 
     workflow_run_status = workflow.run()
 
-    # TODO: How to check that nothing was started before its upstream were
-    # done?
-    # Could we read database? Unfortunately not - submitted_date is initial
-    # creation, not qsub status_date is date of last change.
-    # Could we listen to job-instance state transitions?
+    # TODO: How to check that nothing was started before its upstream were done? Could we
+    # listen to job-instance state transitions?
 
     assert workflow_run_status == WorkflowRunStatus.DONE
     assert workflow._num_newly_completed == 1 + 3 + 3 + 1

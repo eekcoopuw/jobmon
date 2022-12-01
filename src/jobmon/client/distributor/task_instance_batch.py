@@ -3,12 +3,11 @@ from __future__ import annotations
 import ast
 import hashlib
 import logging
-from typing import Dict, Set, TYPE_CHECKING
+from typing import Any, Dict, Set, TYPE_CHECKING
 
 from jobmon.constants import TaskInstanceStatus
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import http_request_ok, Requester
-from jobmon.serializers import SerializeTaskResources
 
 if TYPE_CHECKING:
     from jobmon.client.distributor.distributor_task_instance import (
@@ -23,39 +22,44 @@ class TaskInstanceBatch:
     def __init__(
         self,
         array_id: int,
+        array_name: str,
         array_batch_num: int,
         task_resources_id: int,
         requester: Requester,
-    ):
+    ) -> None:
+        """Initialization of the TaskInstanceBatch object."""
         self.array_id = array_id
+        self.array_name = array_name
         self.batch_number = array_batch_num
         self.task_resources_id = task_resources_id
         self.task_instances: Set[DistributorTaskInstance] = set()
-
-        self._requested_resources: Dict = {}
-
         self.requester = requester
 
-        # TODO: array class should have a name in the client model GBDSCI-4184
-        self.name = "foo"
+    @property
+    def submission_name(self) -> str:
+        return f"{self.array_name}-{self.batch_number}"
+
+    @property
+    def logfile_name(self) -> str:
+        return f"{self.array_id}-{self.batch_number}"
 
     @property
     def requested_resources(self) -> Dict:
-        if not self._requested_resources:
+        if not hasattr(self, "_requested_resources"):
             raise AttributeError(
                 "Requested Resources cannot be accessed before the array batch is prepared for"
                 " launch."
             )
         return self._requested_resources
 
-    def add_task(self, task: DistributorTaskInstance) -> None:
-        self.task_instances.add(task)
-        task.batch = self
+    def add_task_instance(self, task_instsance: DistributorTaskInstance) -> None:
+        self.task_instances.add(task_instsance)
+        task_instsance.batch = self
 
     def load_requested_resources(self) -> None:
         app_route = f"/task_resources/{self.task_resources_id}"
         return_code, response = self.requester.send_request(
-            app_route=app_route, message={}, request_type="get", logger=logger
+            app_route=app_route, message={}, request_type="post"
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -64,8 +68,10 @@ class TaskInstanceBatch:
                 f"code 200. Response content: {response}"
             )
 
-        task_resources = SerializeTaskResources.kwargs_from_wire(response["task_resources"])
-        self._requested_resources = ast.literal_eval(task_resources["requested_resources"])
+        self._requested_resources: Dict[str, Any] = ast.literal_eval(
+            str(response["requested_resources"])
+        )
+        self._requested_resources["queue"] = response["queue_name"]
 
     def prepare_task_instance_batch_for_launch(self) -> None:
         """Add the current batch number to the current set of registered task instance ids."""
@@ -76,26 +82,23 @@ class TaskInstanceBatch:
 
         self.load_requested_resources()
 
-    def transition_to_launched(
-            self, next_report_by: float
-    ) -> None:
+    def transition_to_launched(self, next_report_by: float) -> None:
         """Transition all associated task instances to LAUNCHED state."""
-
         # Assertion that all bound task instances are indeed instantiated
         for ti in self.task_instances:
             if ti.status != TaskInstanceStatus.INSTANTIATED:
-                raise ValueError(f"{ti} is not in INSTANTIATED state, prior to launching.")
+                raise ValueError(
+                    f"{ti} is not in INSTANTIATED state, prior to launching."
+                )
 
-        app_route = f'/array/{self.array_id}/transition_to_launched'
+        app_route = f"/array/{self.array_id}/transition_to_launched"
         data = {
-            'batch_number': self.batch_number,
-            'next_report_increment': next_report_by
+            "batch_number": self.batch_number,
+            "next_report_increment": next_report_by,
         }
 
         rc, resp = self.requester.send_request(
-            app_route=app_route,
-            message=data,
-            request_type='post'
+            app_route=app_route, message=data, request_type="post"
         )
 
         if not http_request_ok(rc):
@@ -105,12 +108,16 @@ class TaskInstanceBatch:
                 f"code 200. Response content: {resp}"
             )
 
-    def log_distributor_ids(self, distributor_id_map: Dict, chunk_size: int = 1000):
-        """Log the distributor ID in the database for all task instances in the batch.
+    def log_distributor_ids(
+        self, distributor_id_map: Dict, chunk_size: int = 1000
+    ) -> None:
+        """Log the distributor ID and the output/error path in the database.
+
+        Done for all task instances in the batch.
 
         Send data to the server in chunks, so that we don't hold a lock for more than a few
-        milliseconds."""
-
+        milliseconds.
+        """
         app_route = f"/array/{self.array_id}/log_distributor_id"
 
         task_instance_list = list(self.task_instances)
@@ -123,18 +130,17 @@ class TaskInstanceBatch:
 
             chunk_id_map = {}
             for task_instance in ti_chunk:
-                chunk_id_map[task_instance.array_step_id] = \
-                    distributor_id_map[task_instance.array_step_id]
+                chunk_id_map[task_instance.array_step_id] = distributor_id_map[
+                    task_instance.array_step_id
+                ]
 
             data = {
-                'array_batch_num': self.batch_number,
-                'distributor_id_map': chunk_id_map
+                "array_batch_num": self.batch_number,
+                "distributor_id_map": chunk_id_map,
             }
 
             rc, resp = self.requester.send_request(
-                app_route=app_route,
-                message=data,
-                request_type='post'
+                app_route=app_route, message=data, request_type="post"
             )
 
             # If 500 is returned the entire distributor service will exit, so I don't think
@@ -149,7 +155,7 @@ class TaskInstanceBatch:
                 )
 
             # append the return values to the ID map
-            ti_distributor_id_map.update(resp['task_instance_map'])
+            ti_distributor_id_map.update(resp["task_instance_map"])
 
         # Update status and distributor id in memory for all task instances
         # Since task instances are added to the batch by reference, modifying attributes here

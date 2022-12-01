@@ -11,11 +11,20 @@
 select = ANN,B,B9,BLK,I,C,D,DAR,E,F,W
 max-complexity = 10
 ignore =
-    ANN101, # Missing type annotation for self
-    C901,   # Function is too complex, this will eventually go away
-    D100,   # Missing docstring in public module
-    D104,   # Missing docstring in public package
-    W503    # Line break before binary operator, ignore 503 and use 504
+    # Missing type annotation for self
+    ANN101,
+    # Dynamically typed expressions (typing.Any) are disallowed
+    ANN401,
+    # Function is too complex, this will eventually go away
+    C901,
+    # Missing docstring in public module
+    D100,
+    # Missing docstring in public package
+    D104,
+    # Line break before binary operator, ignore 503 and use 504
+    W503,
+    D101,
+    D102
 extend-ignore =
     # See https://github.com/PyCQA/pycodestyle/issues/373
     E203
@@ -25,6 +34,10 @@ per-file-ignores =
     src/jobmon/client/api.py:F401
     src/jobmon/server/web/models/task_resources.py:F811
     src/jobmon/_version.py:BLK100
+    src/jobmon/server/web/routes/cli/__init__.py:F401, E402
+    src/jobmon/server/web/routes/fsm/__init__.py:F401, E402, I202
+    src/jobmon/server/web/routes/reaper/__init__.py:F401, E402
+    src/jobmon/client/distributor/api.py:F401
 max-line-length = 95
 
 # import order

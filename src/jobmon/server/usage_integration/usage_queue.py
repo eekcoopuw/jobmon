@@ -29,14 +29,14 @@ class UsageQ:
         """Put execution id in the queue."""
         if len(UsageQ._q) < UsageQ._maxsize:
             queued_ti.age = age
-            UsageQ._q.append(queued_ti)  # type: ignore
+            UsageQ._q.append(queued_ti)
         else:
             logger.warning("Queue is full")
 
     @staticmethod
     def get_size() -> int:
         """Get the size of the queue."""
-        return len(UsageQ._q)  # type: ignore
+        return len(UsageQ._q)
 
     @staticmethod
     def empty_q() -> None:

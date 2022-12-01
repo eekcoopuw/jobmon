@@ -1,6 +1,13 @@
 """Constants declared for different statuses, types and codes throughout Jobmon."""
 
 
+class ArgType:
+
+    NODE_ARG = 1
+    TASK_ARG = 2
+    OP_ARG = 3
+
+
 class TaskResourcesType:
     """Constant Types for Task Resources."""
 
@@ -12,18 +19,19 @@ class TaskResourcesType:
 class TaskInstanceStatus:
     """Statuses used for Task Instances."""
 
-    QUEUED = "Q"
+    DONE = "D"
+    ERROR = "E"
+    ERROR_FATAL = "F"
     INSTANTIATED = "I"
-    NO_DISTRIBUTOR_ID = "W"
+    KILL_SELF = "K"
     LAUNCHED = "O"
+    QUEUED = "Q"
     RUNNING = "R"
     TRIAGING = "T"
-    RESOURCE_ERROR = "Z"
+
     UNKNOWN_ERROR = "U"
-    ERROR = "E"
-    DONE = "D"
-    KILL_SELF = "K"
-    ERROR_FATAL = "F"
+    NO_DISTRIBUTOR_ID = "W"
+    RESOURCE_ERROR = "Z"
 
 
 class TaskStatus:
@@ -38,6 +46,18 @@ class TaskStatus:
     ERROR_RECOVERABLE = "E"
     ADJUSTING_RESOURCES = "A"
     ERROR_FATAL = "F"
+
+    LABEL_DICT = {
+        "G": "REGISTERING",
+        "Q": "QUEUED",
+        "I": "INSTANTIATING",
+        "O": "LAUNCHED",
+        "R": "RUNNING",
+        "D": "DONE",
+        "E": "ERROR_RECOVERABLE",
+        "A": "ADJUSTING_RESOURCES",
+        "F": "ERROR_FATAL",
+    }
 
 
 class WorkflowRunStatus:
@@ -70,12 +90,6 @@ class WorkflowStatus:
     DONE = "D"
     HALTED = "H"
     FAILED = "F"
-
-
-class QsubAttribute:
-    """SGE exit codes that Jobmon will detect and handle in a special way."""
-
-    ERROR_CODE_SET_KILLED_FOR_INSUFFICIENT_RESOURCES = (137, 247, -9)
 
 
 class Direction:

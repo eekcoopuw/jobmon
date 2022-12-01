@@ -1,9 +1,11 @@
-def test_arg_name_collation(db_cfg, ephemera):
+from sqlalchemy.orm import Session
+
+
+def test_arg_name_collation(web_server_in_memory):
     """test both lowercase and uppercase have no conflict."""
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        result = DB.session.execute(
+    app, engine = web_server_in_memory
+    with Session(bind=engine) as session:
+        result = session.execute(
             """
             INSERT INTO arg(name)
             VALUES
@@ -13,5 +15,5 @@ def test_arg_name_collation(db_cfg, ephemera):
                 ('TEST_CASE');
             """
         )
-        DB.session.commit()
+        session.commit()
         assert result.rowcount == 4

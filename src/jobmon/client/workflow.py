@@ -1,22 +1,27 @@
 """The overarching framework to create tasks and dependencies within."""
+from __future__ import annotations
+
 import hashlib
 import logging
-import psutil
-from subprocess import Popen, PIPE, TimeoutExpired
+import logging.config
+import os
+from subprocess import PIPE, Popen, TimeoutExpired
 import sys
-import time
-from typing import Any, Dict, List, Optional, Sequence, Union
+from types import TracebackType
+from typing import Any, Dict, List, Optional, Sequence, TYPE_CHECKING, Union
 import uuid
 
+import psutil
+
 from jobmon.client.array import Array
-from jobmon.client.client_config import ClientConfig
-from jobmon.client.client_logging import ClientLogging
-from jobmon.cluster import Cluster
 from jobmon.client.dag import Dag
+from jobmon.client.logging import JobmonLoggerConfig
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.task import Task
+from jobmon.client.task_resources import TaskResources
 from jobmon.client.tool_version import ToolVersion
-from jobmon.client.workflow_run import WorkflowRun as ClientWorkflowRun
+from jobmon.client.workflow_run import WorkflowRunFactory
+from jobmon.cluster import Cluster
 from jobmon.constants import (
     TaskStatus,
     WorkflowRunStatus,
@@ -28,22 +33,32 @@ from jobmon.exceptions import (
     InvalidResponse,
     WorkflowAlreadyComplete,
     WorkflowAlreadyExists,
-    WorkflowNotResumable,
 )
 from jobmon.requester import http_request_ok, Requester
+
+if TYPE_CHECKING:
+    from jobmon.client.tool import Tool
 
 
 logger = logging.getLogger(__name__)
 
 
 class DistributorContext:
-    def __init__(self, cluster_name: str, workflow_run_id: int, timeout: int):
+    def __init__(self, cluster_name: str, workflow_run_id: int, timeout: int) -> None:
+        """Initialization of the DistributorContext."""
         self._cluster_name = cluster_name
         self._workflow_run_id = workflow_run_id
         self._timeout = timeout
 
-    def __enter__(self):
+    def __enter__(self) -> DistributorContext:
+        """Starts the Distributor Process."""
         logger.info("Starting Distributor Process")
+
+        # construct env
+        env = os.environ.copy()
+        entry_point = self.derive_jobmon_command_from_env()
+        if entry_point is not None:
+            env["JOBMON__DISTRIBUTOR__WORKER_NODE_ENTRY_POINT"] = f'"{entry_point}"'
 
         # Start the distributor. Write stderr to a file.
         cmd = [
@@ -56,7 +71,12 @@ class DistributorContext:
             "--workflow_run_id",
             str(self._workflow_run_id),
         ]
-        self.process = Popen(cmd, stderr=PIPE, universal_newlines=True)
+        self.process = Popen(
+            cmd,
+            stderr=PIPE,
+            universal_newlines=True,
+            env=env,
+        )
 
         # check if stderr contains "ALIVE"
         assert self.process.stderr is not None  # keep mypy happy on optional type
@@ -64,12 +84,17 @@ class DistributorContext:
         if stderr_val != "ALIVE":
             err = self._shutdown()
             raise DistributorStartupTimeout(
-                "Distributor process did not start within the alloted timeout "
-                f"t={self._timeout}s. stderr={err}"
+                f"Distributor process did not start, stderr='{err}'"
             )
         return self
 
-    def __exit__(self, exc_type, exc_value, exc_traceback):
+    def __exit__(
+        self,
+        exc_type: Optional[BaseException],
+        exc_value: Optional[BaseException],
+        exc_traceback: Optional[TracebackType],
+    ) -> None:
+        """Stops the Distributor Process."""
         logger.info("Stopping Distributor Process")
         err = self._shutdown()
         logger.info(f"Got {err} from Distributor Process")
@@ -96,6 +121,14 @@ class DistributorContext:
             self.process.wait()
 
         return err
+
+    @staticmethod
+    def derive_jobmon_command_from_env() -> Optional[str]:
+        """If a singularity path is provided, use it when running the worker node."""
+        singularity_img_path = os.environ.get("IMGPATH", None)
+        if singularity_img_path:
+            return f"singularity run --app jobmon_command {singularity_img_path}"
+        return None
 
 
 class Workflow(object):
@@ -146,15 +179,15 @@ class Workflow(object):
             max_concurrently_running: How many running jobs to allow in parallel
             requester: object to communicate with the flask services.
             chunk_size: how many tasks to bind in a single request
+            default_max_attempts: the default max attempts of the workflow for each array
         """
         self._tool_version = tool_version
         self.name = name
         self.description = description
-        self.max_concurrently_running = max_concurrently_running
+        self.max_concurrently_running: int = max_concurrently_running
 
         if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
+            requester = Requester.from_defaults()
         self.requester = requester
 
         self._dag = Dag(requester)
@@ -193,12 +226,21 @@ class Workflow(object):
                     "dictionary of attributes and their values"
                 )
 
-        # Cache for clusters
+        # Cache for clusters and task resources
         self._clusters: Dict[str, Cluster] = {}
+        self._task_resources: Dict[int, TaskResources] = {}
         self.default_cluster_name: str = ""
+        self._default_max_attempts: Optional[int] = None
         self.default_compute_resources_set: Dict[str, Dict[str, Any]] = {}
+        self.default_resource_scales_set: Dict[str, Dict[str, float]] = {}
 
         self._fail_after_n_executions = 1_000_000_000
+        self.last_workflow_run_id: Optional[int] = None
+
+    @property
+    def tool(self) -> Tool:
+        """Returns the associated tool to this workflow."""
+        return self._tool_version.tool
 
     @property
     def is_bound(self) -> bool:
@@ -243,6 +285,13 @@ class Workflow(object):
             if task.final_status == TaskStatus.ERROR_FATAL
         }
 
+    @property
+    def default_max_attempts(self) -> Optional[int]:
+        """Return the workflow default max attempts."""
+        if self._default_max_attempts is None:
+            self._default_max_attempts = self.tool.default_max_attempts
+        return self._default_max_attempts
+
     def add_attributes(self, workflow_attributes: dict) -> None:
         """Users can call either to update values of existing attributes or add new attributes.
 
@@ -255,7 +304,6 @@ class Workflow(object):
             app_route=app_route,
             message={"workflow_attributes": workflow_attributes},
             request_type="put",
-            logger=logger,
         )
         if http_request_ok(return_code) is False:
             raise InvalidResponse(
@@ -280,10 +328,11 @@ class Workflow(object):
                 f"commands. Your command was: {task.command}"
             )
 
-        # infer array if not already assigned
         try:
-            task.array
+            # link array
+            self._link_array_and_workflow(task.array)
         except AttributeError:
+            # or infer if not already created
             template_name = task.node.task_template_version.task_template.template_name
             try:
                 array = self.arrays[template_name]
@@ -294,12 +343,19 @@ class Workflow(object):
                     task_args=task.task_args,
                     op_args=task.op_args,
                     cluster_name=task.cluster_name,
+                    requester=self.requester,
                 )
                 self._link_array_and_workflow(array)
 
             # add task to inferred array
             array.add_task(task)
-
+        except ValueError:
+            # check if current task array is the same as the one attached to the workflow
+            template_name = task.node.task_template_version.task_template.template_name
+            if self.arrays[template_name] != task.array:
+                raise
+        # set array max_attempts
+        # task.array.max_attempts = self._default_max_attempts
         # add node to task
         try:
             self._dag.add_node(task.node)
@@ -318,23 +374,22 @@ class Workflow(object):
 
         return task
 
+    def _link_array_and_workflow(self, array: Array) -> None:
+        template_name = array.task_template_version.task_template.template_name
+        if template_name in self.arrays.keys():
+            raise ValueError(
+                f"An array for template_name={template_name} already exists on this workflow."
+                f" You can only call TaskTemplate.create_tasks once per task template."
+            )
+        # add the references
+        self.arrays[template_name] = array
+        array.workflow = self
+
     def add_tasks(self, tasks: Sequence[Task]) -> None:
         """Add a list of task to the workflow to be executed."""
         for task in tasks:
             # add the task
             self.add_task(task)
-
-    def add_array(self, array: Array) -> None:
-        """Add an array and its tasks to the workflow."""
-        if len(array.tasks) == 0:
-            raise ValueError("Cannot bind an array with no tasks.")
-        self._link_array_and_workflow(array)
-        self.add_tasks(list(array.tasks.values()))
-
-    def add_arrays(self, arrays: List[Array]) -> None:
-        """Add multiple arrays to the workflow."""
-        for array in arrays:
-            self.add_array(array)
 
     def set_default_compute_resources_from_yaml(
         self, cluster_name: str, yaml_file: str
@@ -362,6 +417,19 @@ class Workflow(object):
         # TODO: Do we need to handle the scenario where no cluster name is specified?
         self.default_compute_resources_set[cluster_name] = dictionary
 
+    def set_default_resource_scales_from_dict(
+        self, cluster_name: str, dictionary: Dict[str, float]
+    ) -> None:
+        """Set default resource scales for a given cluster_name.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            dictionary: dictionary of default resource scales to adjust task
+                resources with. Can be overridden at task template or task level.
+        """
+        # TODO: Do we need to handle the scenario where no cluster name is specified?
+        self.default_resource_scales_set[cluster_name] = dictionary
+
     def set_default_cluster_name(self, cluster_name: str) -> None:
         """Set the default cluster.
 
@@ -369,6 +437,14 @@ class Workflow(object):
             cluster_name: name of cluster to set as default.
         """
         self.default_cluster_name = cluster_name
+
+    def set_default_max_attempts(self, value: int) -> None:
+        """Set the max attempts.
+
+        Args:
+            value: value of max_attempts.
+        """
+        self._default_max_attempts = value
 
     def get_tasks_by_node_args(
         self, task_template_name: str, **kwargs: Any
@@ -384,6 +460,11 @@ class Workflow(object):
         tasks = array.get_tasks_by_node_args(**kwargs)
         return tasks
 
+    def set_max_concurrently_running(
+        self, task_template_name: str, max_concurrently_running: int
+    ) -> None:
+        pass
+
     def run(
         self,
         fail_fast: bool = False,
@@ -392,15 +473,14 @@ class Workflow(object):
         reset_running_jobs: bool = True,
         distributor_startup_timeout: int = 180,
         resume_timeout: int = 300,
-        setup_logging: bool = True
-    ) -> str:
+        configure_logging: bool = False,
+    ) -> Optional[str]:
         """Run the workflow.
 
         Traverse the dag and submitting new tasks when their tasks have completed successfully.
 
         Args:
-            fail_fast: whether or not to break out of distributor on
-                first failure
+            fail_fast: whether to break out of distributor on first failure.
             seconds_until_timeout: amount of time (in seconds) to wait
                 until the whole workflow times out. Submitted jobs will
                 continue
@@ -411,24 +491,59 @@ class Workflow(object):
             distributor_startup_timeout: amount of time to wait for the distributor process to
                 start up
             resume_timeout: seconds to wait for a workflow to become resumable before giving up
-            setup_logging: whether to setup the default streamhandler for jobmon logging
+            configure_logging: setup jobmon logging. If False, no logging will be configured.
+                If True, default logging will be configured.
 
         Returns:
             str of WorkflowRunStatus
         """
-        if setup_logging:
-            ClientLogging().attach("jobmon.client")
-            client_logger = logging.getLogger("jobmon.client")
-            client_logger.setLevel(logging.INFO)
+        if configure_logging is True:
+            JobmonLoggerConfig.attach_default_handler(
+                logger_name="jobmon", log_level=logging.INFO
+            )
 
         # bind to database
         logger.info("Adding Workflow metadata to database")
         self.bind()
         logger.info(f"Workflow ID {self.workflow_id} assigned")
 
+        # Check if this workflow is already complete and is runnable
+        if self._status == WorkflowStatus.DONE:
+            raise WorkflowAlreadyComplete(
+                f"Workflow ({self.workflow_id}) is already in done state and cannot be resumed"
+            )
+
+        if not self._newly_created and not resume:
+            raise WorkflowAlreadyExists(
+                "This workflow already exists. If you are trying to resume a workflow, "
+                "please set the resume flag. If you are not trying to resume a workflow, make "
+                "sure the workflow args are unique or the tasks are unique"
+            )
+        if self._newly_created and resume:
+            logger.warning(
+                "The resume flag has been set but no previous workflow_args exist."
+                "Note that the workflow will execute as a new workflow."
+            )
+
+        # Bind tasks
+        logger.info("Adding task metadata to database")
+        # Need to wait for resume signal to be sent before resetting tasks, in case of a resume
+        factory = WorkflowRunFactory(self.workflow_id)
+        if resume:
+            factory.set_workflow_resume(
+                reset_running_jobs=reset_running_jobs, resume_timeout=resume_timeout
+            )
+
+        self._bind_tasks(
+            reset_if_running=reset_running_jobs, chunk_size=self._chunk_size
+        )
+
         # create workflow_run
         logger.info("Adding WorkflowRun metadata to database")
-        wfr = self._create_workflow_run(resume, reset_running_jobs, resume_timeout)
+        wfr = factory.create_workflow_run()
+        # Update the workflowrun to BOUND state immediately in this API. All metadata already
+        # bound, so the swarm can start immediately.
+        wfr._update_status(WorkflowRunStatus.BOUND)
         logger.info(f"WorkflowRun ID {wfr.workflow_run_id} assigned")
 
         # start distributor
@@ -443,6 +558,7 @@ class Workflow(object):
                 fail_after_n_executions=self._fail_after_n_executions,
                 requester=self.requester,
                 fail_fast=fail_fast,
+                status=wfr.status,
             )
             swarm.from_workflow(self)
             self._num_previously_completed = swarm.num_previously_complete
@@ -468,9 +584,23 @@ class Workflow(object):
                     task.final_status = swarm.tasks[task.task_id].status
                 self._num_newly_completed = num_new_completed
 
+        self.last_workflow_run_id = wfr.workflow_run_id
+
         return swarm.status
 
-    def validate(self, fail: bool = True) -> None:
+    def set_task_template_max_concurrency_limit(
+        self, task_template_name: str, limit: int
+    ) -> None:
+        try:
+            array = self.arrays[task_template_name]
+        except Exception:
+            raise KeyError(
+                f"There is no task_template named '{task_template_name}' "
+                f"associated with this workflow. Workflow name: {self.name}"
+            )
+        array.max_concurrently_running = limit
+
+    def validate(self, strict: bool = True, raise_on_error: bool = False) -> None:
         """Confirm that the tasks in this workflow are valid.
 
         This method will access the database to confirm the requested resources are valid for
@@ -484,30 +614,35 @@ class Workflow(object):
 
             # not dynamic resource request. Construct TaskResources
             if task.compute_resources_callable is None:
-                resource_params = task.compute_resources
                 try:
-                    queue_name: str = resource_params["queue"]
-                except KeyError:
-                    queue_msg = (
-                        "A queue name must be provided in the specified compute resources. Got"
-                        f" compute_resources={resource_params}"
-                    )
-                    if fail:
-                        raise ValueError(queue_msg)
+                    queue = cluster.get_queue(task.queue_name)
+                except ValueError as e:
+                    if raise_on_error:
+                        raise e
                     else:
-                        print(queue_msg)
+                        logger.info(e)
                         continue
 
                 # validate the constructed resources
-                queue = cluster.get_queue(queue_name)
-                is_valid, msg, valid_resources = queue.validate_resources(
-                    **resource_params
+                task_resources = TaskResources(
+                    requested_resources=task.requested_resources, queue=queue
                 )
-                if fail and not is_valid:
-                    raise ValueError(f"Failed validation, reasons: {msg}")
-                elif not is_valid:
-                    logger.warning(f"Failed validation, reasons: {msg}")
 
+                is_valid, msg = task_resources.validate_resources(strict)
+                if not is_valid:
+                    if raise_on_error:
+                        raise ValueError(f"Failed validation, reasons: {msg}")
+                    else:
+                        logger.info(f"Failed validation, reasons: {msg}")
+
+        for array in self.arrays.values():
+            try:
+                array.validate()
+            except ValueError as e:
+                if raise_on_error:
+                    raise
+                else:
+                    logger.info(e)
         try:
             cluster_names = list(self._clusters.keys())
             if len(list(self._clusters.keys())) > 1:
@@ -518,19 +653,18 @@ class Workflow(object):
             self._dag.validate()
             self._matching_wf_args_diff_hash()
         except Exception as e:
-            if fail:
+            if raise_on_error:
                 raise
             else:
-                logger.warning(e)
+                logger.info(e)
 
     def bind(self) -> None:
         """Get a workflow_id."""
         if self.is_bound:
             return
 
-        self.validate(fail=False)
-        self._dag.validate()
-        self._matching_wf_args_diff_hash()
+        # strict = False means we can coerce. obviously we need to raise at this point
+        self.validate(strict=False, raise_on_error=True)
 
         # bind dag
         self._dag.bind(self._chunk_size)
@@ -551,17 +685,129 @@ class Workflow(object):
                 "workflow_attributes": self.workflow_attributes,
             },
             request_type="post",
-            logger=logger,
         )
-        if http_request_ok(return_code) is False:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from POST request through route "
-                f"{app_route}. Expected code 200. Response content: {response}"
-            )
 
         self._workflow_id = response["workflow_id"]
         self._status = response["status"]
         self._newly_created = response["newly_created"]
+
+    def _bind_tasks(
+        self,
+        reset_if_running: bool = True,
+        chunk_size: int = 500,
+    ) -> None:
+        app_route = "/task/bind_tasks_no_args"
+        remaining_task_hashes = list(self.tasks.keys())
+
+        while remaining_task_hashes:
+
+            # split off first chunk elements from queue.
+            task_hashes_chunk = remaining_task_hashes[:chunk_size]
+            remaining_task_hashes = remaining_task_hashes[chunk_size:]
+
+            # If this is the last chunk, mark the created_date field in the
+            # database.
+            mark_created = len(remaining_task_hashes) == 0
+
+            # send to server in a format of:
+            # {<hash>:[workflow_id(0), node_id(1), task_args_hash(2), array_id(3),
+            # name(4), command(5), max_attempts(6)], reset_if_running(7), task_args(8),
+            # task_attributes(9), resource_scales(10), fallback_queues(11)}
+            # flat the data structure so that the server won't depend on the client
+            task_metadata: Dict[int, List] = {}
+            for task_hash in task_hashes_chunk:
+                task = self.tasks[task_hash]
+
+                # get array id
+                array = task.array
+                if not array.is_bound:
+                    array.bind()
+
+                # get task resources id
+                self._set_original_task_resources(task)
+
+                task_metadata[task_hash] = [
+                    task.node.node_id,
+                    str(task.task_args_hash),
+                    task.array.array_id,
+                    task.original_task_resources.id,
+                    task.name,
+                    task.command,
+                    task.max_attempts,
+                    reset_if_running,
+                    task.resource_scales,
+                    task.fallback_queues,
+                ]
+
+            parameters = {
+                "workflow_id": self.workflow_id,
+                "tasks": task_metadata,
+                "mark_created": mark_created,
+            }
+            return_code, response = self.requester.send_request(
+                app_route=app_route,
+                message=parameters,
+                request_type="put",
+            )
+
+            # populate returned values onto task dict
+            return_tasks = response["tasks"]
+            for k in return_tasks.keys():
+                task = self.tasks[int(k)]
+                task.task_id = return_tasks[k][0]
+                task.initial_status = return_tasks[k][1]
+
+        # Bind task arguments and attributes as well
+        self._bind_task_args(chunk_size)
+        self._bind_task_attributes(chunk_size)
+
+    def _bind_task_args(self, chunk_size: int = 500) -> None:
+        """Bind all task args to the database.
+
+        Loop through our bound task dict in chunks in order to bind new args and arg types
+        to the database.
+        """
+        remaining_task_hashes = list(self.tasks.keys())
+
+        while remaining_task_hashes:
+            # split off first chunk elements from queue.
+            task_hashes_chunk = remaining_task_hashes[:chunk_size]
+            remaining_task_hashes = remaining_task_hashes[chunk_size:]
+
+            task_arg_list = []
+            for task_hash in task_hashes_chunk:
+                task = self.tasks[task_hash]
+                task_args = [
+                    (task.task_id, arg_id, value)
+                    for arg_id, value in task.mapped_task_args.items()
+                ]
+                task_arg_list.extend(task_args)
+
+            self.requester.send_request(
+                app_route="/task/bind_task_args",
+                message={"task_args": task_arg_list},
+                request_type="put",
+            )
+
+    def _bind_task_attributes(self, chunk_size: int = 500) -> None:
+        remaining_task_hashes = list(self.tasks.keys())
+
+        while remaining_task_hashes:
+            # split off first chunk elements from queue.
+            task_hashes_chunk = remaining_task_hashes[:chunk_size]
+            remaining_task_hashes = remaining_task_hashes[chunk_size:]
+
+            attribute_dict = {}
+            for task_hash in task_hashes_chunk:
+                task = self.tasks[task_hash]
+                attribute_dict[task.task_id] = task.task_attributes
+
+            # Send the request
+            self.requester.send_request(
+                app_route="/task/bind_task_attributes",
+                message={"task_attributes": attribute_dict},
+                request_type="put",
+            )
 
     def get_errors(
         self, limit: int = 1000
@@ -600,44 +846,20 @@ class Workflow(object):
             self._clusters[cluster_name] = cluster
         return cluster
 
-    def _link_array_and_workflow(self, array: Array) -> None:
-        template_name = array.task_template_version.task_template.template_name
-        if template_name in self.arrays.keys():
-            raise ValueError(
-                f"An array for template_name={template_name} already exists on this workflow."
-            )
-        # add the references
-        self.arrays[template_name] = array
-        array.workflow = self
+    def _set_original_task_resources(self, task: Task) -> None:
+        cluster = self.get_cluster_by_name(task.cluster_name)
+        queue = cluster.get_queue(task.queue_name)
+        task_resources = TaskResources(
+            requested_resources=task.requested_resources, queue=queue
+        )
 
-    def _create_workflow_run(
-        self,
-        resume: bool = False,
-        reset_running_jobs: bool = True,
-        resume_timeout: int = 300,
-    ) -> ClientWorkflowRun:
-        # raise error if workflow exists and is done
-        if self._status == WorkflowStatus.DONE:
-            raise WorkflowAlreadyComplete(
-                f"Workflow ({self.workflow_id}) is already in done state and cannot be resumed"
-            )
+        try:
+            task_resources = self._task_resources[hash(task_resources)]
+        except KeyError:
+            task_resources.bind()
+            self._task_resources[hash(task_resources)] = task_resources
 
-        if not self._newly_created and not resume:
-            raise WorkflowAlreadyExists(
-                "This workflow already exists. If you are trying to resume a workflow, "
-                "please set the resume flag. If you are not trying to resume a workflow, make "
-                "sure the workflow args are unique or the tasks are unique"
-            )
-        elif not self._newly_created and resume:
-            self._set_workflow_resume(reset_running_jobs)
-            self._workflow_is_resumable(resume_timeout)
-
-        # create workflow run
-        client_wfr = ClientWorkflowRun(workflow=self, requester=self.requester)
-        client_wfr.bind(reset_running_jobs, self._chunk_size)
-        self._status = WorkflowStatus.QUEUED
-
-        return client_wfr
+        task.original_task_resources = task_resources
 
     def _matching_wf_args_diff_hash(self) -> None:
         """Check that that an existing workflow does not contain different tasks.
@@ -649,7 +871,6 @@ class Workflow(object):
             app_route=f"/workflow/{str(self.workflow_args_hash)}",
             message={},
             request_type="get",
-            logger=logger,
         )
         bound_workflow_hashes = response["matching_workflows"]
         for task_hash, tool_version_id, dag_hash in bound_workflow_hashes:
@@ -664,57 +885,6 @@ class Workflow(object):
                     "are unique for this set of tasks, or make sure your tasks"
                     " match the workflow you are trying to resume"
                 )
-
-    def _set_workflow_resume(self, reset_running_jobs: bool = True) -> None:
-        app_route = f"/workflow/{self.workflow_id}/set_resume"
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={
-                "reset_running_jobs": reset_running_jobs,
-                "description": self.description,
-                "name": self.name,
-                "max_concurrently_running": self.max_concurrently_running,
-                "workflow_attributes": self.workflow_attributes,
-            },
-            request_type="post",
-            logger=logger,
-        )
-        if http_request_ok(return_code) is False:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from POST "
-                f"request through route {app_route}. Expected "
-                f"code 200. Response content: {response}"
-            )
-
-    def _workflow_is_resumable(self, resume_timeout: int = 300) -> None:
-        # previous workflow exists but is resumable. we will wait till it terminates
-        wait_start = time.time()
-        workflow_is_resumable = False
-        while not workflow_is_resumable:
-            logger.info(
-                f"Waiting for resume. "
-                f"Timeout in {round(resume_timeout - (time.time() - wait_start), 1)}"
-            )
-            app_route = f"/workflow/{self.workflow_id}/is_resumable"
-            return_code, response = self.requester.send_request(
-                app_route=app_route, message={}, request_type="get", logger=logger
-            )
-            if http_request_ok(return_code) is False:
-                raise InvalidResponse(
-                    f"Unexpected status code {return_code} from POST "
-                    f"request through route {app_route}. Expected "
-                    f"code 200. Response content: {response}"
-                )
-
-            workflow_is_resumable = response.get("workflow_is_resumable")
-            if (time.time() - wait_start) > resume_timeout:
-                raise WorkflowNotResumable(
-                    "workflow_run timed out waiting for previous "
-                    "workflow_run to exit. Try again in a few minutes."
-                )
-            else:
-                sleep_time = round(float(resume_timeout) / 10.0, 1)
-                time.sleep(sleep_time)
 
     def __hash__(self) -> int:
         """Hash to encompass tool version id, workflow args, tasks and dag."""

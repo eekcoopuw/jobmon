@@ -1,12 +1,18 @@
 """Requester object to make HTTP requests to the Jobmon Flask services."""
+from __future__ import annotations
+
 import json
 import logging
-from typing import Any, Dict, Tuple
+from typing import Any, Dict, Tuple, Type
 
 import requests
 import tenacity
 
-default_logger = logging.getLogger(__name__)
+from jobmon import __version__
+from jobmon.configuration import JobmonConfig
+from jobmon.exceptions import InvalidResponse
+
+logger = logging.getLogger(__name__)
 
 
 def http_request_ok(status_code: int) -> bool:
@@ -31,6 +37,16 @@ class Requester(object):
         self.stop_after_delay = stop_after_delay
         self.server_structlog_context: Dict[str, str] = {}
 
+    @classmethod
+    def from_defaults(cls: Type[Requester]) -> Requester:
+        """Instantiate a requester from default config values."""
+        config = JobmonConfig()
+        service_url = config.get("http", "service_url")
+        max_retries = config.get_int("http", "max_retries")
+        stop_after_delay = config.get_int("http", "stop_after_delay")
+
+        return cls(service_url, max_retries, stop_after_delay)
+
     def add_server_structlog_context(self, **kwargs: Any) -> None:
         """Add the structlogging context if it has been provided."""
         for key, value in kwargs.items():
@@ -41,7 +57,6 @@ class Requester(object):
         app_route: str,
         message: dict,
         request_type: str,
-        logger: logging.Logger = default_logger,
         tenacious: bool = True,
     ) -> Tuple[int, Any]:
         """Send request to server.
@@ -55,7 +70,6 @@ class Requester(object):
                 interact. The app_route must always start with a slash ('/') and
                 must match one of the function decorations of @jsm.route or
                 @jqs.route on the server side.
-
             message: The message dict to be sent to the server.
                 Must contain any arguments the JSM/JQS route needs to operate.
                 If the request is a 'GET', the value of the message dict will
@@ -70,9 +84,6 @@ class Requester(object):
                      'dag_hash': 'my_dag_hash'}
 
             request_type: The type of request desired, either 'get', 'post, or 'put'
-
-            logger: which logging context to use for message and response logging
-
             tenacious: use tenacity for retries
 
 
@@ -84,9 +95,17 @@ class Requester(object):
 
         """
         if tenacious:
-            res = self._tenacious_send_request(app_route, message, request_type, logger)
+            res = self._tenacious_send_request(app_route, message, request_type)
         else:
-            res = self._send_request(app_route, message, request_type, logger)
+            res = self._send_request(app_route, message, request_type)
+
+        if not http_request_ok(res[0]):
+            raise InvalidResponse(
+                f"Unexpected status code {res[0]} from POST "
+                f"request through route {app_route}. Expected "
+                f"code 200. Response content: {res[1]}"
+            )
+
         return res
 
     def _tenacious_send_request(
@@ -94,18 +113,33 @@ class Requester(object):
         app_route: str,
         message: dict,
         request_type: str,
-        logger: logging.Logger = default_logger,
     ) -> Tuple[int, Any]:
         """Use tenacity to retry requests if they get an unsatisfactory return code."""
 
         def is_5XX(result: Tuple[int, dict]) -> bool:
             """Return True if get_content result has 5XX status."""
             status = result[0]
-            is_bad = status > 499 and status < 600
+            is_bad = 499 < status < 600
             if is_bad:
-                logger.warning(f"is_5XX? status: {status}")
-            else:
-                logger.debug(f"is_5XX? status: {status}")
+                logger.warning(
+                    f"Got HTTP status_code={status} from server. app_route: {app_route}."
+                    f" message: {message}"
+                )
+            return is_bad
+
+        def is_423(result: Tuple[int, dict]) -> bool:
+            """Return True if get_content result has 423 status.
+
+            Indicates a retryable transaction on the server.
+            """
+            status = result[0]
+            is_bad = status == 423
+            if is_bad:
+                logger.info(
+                    f"Got HTTP status_code=423 from server. app_route: {app_route}. "
+                    f"Retrying as per design."
+                    f" message: {message}"
+                )
             return is_bad
 
         def raise_if_exceed_retry(retry_state: tenacity.RetryCallState) -> None:
@@ -123,13 +157,14 @@ class Requester(object):
             wait=tenacity.wait_exponential(self.max_retries),
             retry=(
                 tenacity.retry_if_result(is_5XX)
+                | tenacity.retry_if_result(is_423)
                 | tenacity.retry_if_exception_type(requests.ConnectionError)
             ),
             retry_error_callback=raise_if_exceed_retry,
         )
 
         return self._retry.__call__(
-            self._send_request, app_route, message, request_type, logger
+            self._send_request, app_route, message, request_type
         )
 
     def _send_request(
@@ -137,7 +172,6 @@ class Requester(object):
         app_route: str,
         message: dict,
         request_type: str,
-        logger: logging.Logger = default_logger,
     ) -> Tuple[int, Any]:
         # construct url
         route = self.url + app_route
@@ -150,19 +184,29 @@ class Requester(object):
 
         # send request to server
         if request_type == "post":
+            params = {"client_jobmon_version": __version__}
             response = requests.post(
-                route, json=message, headers={"Content-Type": "application/json"}
+                route,
+                params=params,
+                json=message,
+                headers={"Content-Type": "application/json"},
             )
         elif request_type == "get":
+            params = message.copy()
+            params["client_jobmon_version"] = __version__
             response = requests.get(
                 route,
-                params=message,
+                params=params,
                 data=json.dumps(self.server_structlog_context),
                 headers={"Content-Type": "application/json"},
             )
         elif request_type == "put":
+            params = {"client_jobmon_version": __version__}
             response = requests.put(
-                route, json=message, headers={"Content-Type": "application/json"}
+                route,
+                params=params,
+                json=message,
+                headers={"Content-Type": "application/json"},
             )
         else:
             raise ValueError(

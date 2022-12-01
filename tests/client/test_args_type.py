@@ -6,7 +6,7 @@ from jobmon.constants import WorkflowRunStatus
 
 
 @pytest.fixture
-def tool(db_cfg, client_env):
+def tool(client_env):
     from jobmon.client.api import Tool
 
     tool = Tool()
@@ -34,22 +34,27 @@ def test_script():
         (np.int_(1), "1"),  # numpy int
     ],
 )
-def test_node_args(db_cfg, tool, test_script, input, expect):
+def test_node_args(tool, test_script, input, expect):
     tt = tool.get_task_template(
         template_name="arg_template",
-        command_template="python {script} {arg1} {arg2}",
-        node_args=["script", "arg1", "arg2"],
+        command_template="python {script} {arg1} {arg2} {arg3}",
+        node_args=["script", "arg1", "arg2", "arg3"],
         task_args=[],
         op_args=[],
     )
+    arg3_val = "A" * 2048
     workflow1 = tool.create_workflow(name="node_arg_test")
     t1 = tt.create_task(
-        name="a_task", max_attempts=1, script=test_script, arg1=input, arg2=expect
+        name="a_task",
+        max_attempts=1,
+        script=test_script,
+        arg1=input,
+        arg2=expect,
+        arg3=arg3_val,
     )
     workflow1.add_tasks([t1])
     workflow1.bind()
-    wfr = workflow1._create_workflow_run()
-    assert wfr.status == WorkflowRunStatus.BOUND
+    workflow1._bind_tasks()
 
 
 @pytest.mark.parametrize(
@@ -61,22 +66,27 @@ def test_node_args(db_cfg, tool, test_script, input, expect):
         (np.int_(1), "1"),  # numpy int
     ],
 )
-def test_task_args(db_cfg, tool, test_script, input, expect):
+def test_task_args(tool, test_script, input, expect):
     tt = tool.get_task_template(
         template_name="arg_template",
-        command_template="python {script} {arg1} {arg2}",
+        command_template="python {script} {arg1} {arg2} {arg3}",
         node_args=[],
-        task_args=["script", "arg1", "arg2"],
+        task_args=["script", "arg1", "arg2", "arg3"],
         op_args=[],
     )
+    arg3_val = "A" * 2048
     workflow1 = tool.create_workflow(name="node_arg_test")
     t1 = tt.create_task(
-        name="a_task", max_attempts=1, script=test_script, arg1=input, arg2=expect
+        name="a_task",
+        max_attempts=1,
+        script=test_script,
+        arg1=input,
+        arg2=expect,
+        arg3=arg3_val,
     )
     workflow1.add_tasks([t1])
     workflow1.bind()
-    wfr = workflow1._create_workflow_run()
-    assert wfr.status == WorkflowRunStatus.BOUND
+    workflow1._bind_tasks()
 
 
 @pytest.mark.parametrize(
@@ -88,7 +98,7 @@ def test_task_args(db_cfg, tool, test_script, input, expect):
         (np.int_(1), "1"),  # numpy int
     ],
 )
-def test_op_args(db_cfg, tool, test_script, input, expect):
+def test_op_args(tool, test_script, input, expect):
     tt = tool.get_task_template(
         template_name="arg_template",
         command_template="python {script} {arg1} {arg2}",
@@ -102,5 +112,4 @@ def test_op_args(db_cfg, tool, test_script, input, expect):
     )
     workflow1.add_tasks([t1])
     workflow1.bind()
-    wfr = workflow1._create_workflow_run()
-    assert wfr.status == WorkflowRunStatus.BOUND
+    workflow1._bind_tasks()

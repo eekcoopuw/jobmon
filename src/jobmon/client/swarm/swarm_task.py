@@ -6,8 +6,7 @@ from typing import Callable, Dict, List, Optional, Set
 
 from jobmon.client.task_resources import TaskResources
 from jobmon.cluster import Cluster
-from jobmon.cluster_type.base import ClusterQueue
-from jobmon.constants import TaskStatus
+from jobmon.cluster_type import ClusterQueue
 
 
 logger = logging.getLogger(__name__)
@@ -34,21 +33,20 @@ class SwarmTask(object):
             task_id: id of task object from db auto increment.
             array_id: id of associated array object.
             status: status of task object.
-            cluster: The name of the cluster that the user wants to run their tasks on.
+            max_attempts: maximum number of task_instances before failure.
             task_resources: callable to be executed when Task is ready to be run and
                 resources can be assigned.
+            cluster: The name of the cluster that the user wants to run their tasks on.
             resource_scales: The rate at which a user wants to scale their requested resources
                 after failure.
-            max_attempts: maximum number of task_instances before failure.
             fallback_queues: A list of queues that users want to try if their original queue
                 isn't able to handle their adjusted resources.
-            requester: Requester object to communicate with the flask services.
+            compute_resources_callable: callable compute resources.
         """
         self.task_id = task_id
         self.array_id = array_id
         self.status = status
 
-        self.upstream_swarm_tasks: Set[SwarmTask] = set()
         self.downstream_swarm_tasks: Set[SwarmTask] = set()
 
         self.current_task_resources = task_resources
@@ -58,14 +56,18 @@ class SwarmTask(object):
         self.cluster = cluster
 
         self.max_attempts = max_attempts
+        self.num_upstreams: int = 0
         self.num_upstreams_done: int = 0
 
     @property
     def all_upstreams_done(self) -> bool:
         """Return a bool of if upstreams are done or not."""
-        if self.num_upstreams_done >= len(self.upstream_tasks):
-            logger.debug(f"task id: {self.task_id} is checking all upstream tasks")
-            return all([u.status == TaskStatus.DONE for u in self.upstream_tasks])
+        if self.num_upstreams_done == self.num_upstreams:
+            return True
+        elif self.num_upstreams_done > self.num_upstreams:
+            raise RuntimeError(
+                "Error in dependency management. More upstream tasks done than exist in DAG."
+            )
         else:
             return False
 
@@ -74,12 +76,8 @@ class SwarmTask(object):
         """Return list of downstream tasks."""
         return list(self.downstream_swarm_tasks)
 
-    @property
-    def upstream_tasks(self) -> List[SwarmTask]:
-        """Return a list of upstream tasks."""
-        return list(self.upstream_swarm_tasks)
-
-    def __hash__(self):
+    def __hash__(self) -> int:
+        """Returns the ID of the task."""
         return self.task_id
 
     def __eq__(self, other: object) -> bool:

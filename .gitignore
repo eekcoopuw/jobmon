@@ -13,9 +13,7 @@ src/jobmon.egg-info/*
 src/jobmon/_version.py
 /build
 /dist
-requirements.txt
 .eggs/
-.jobmon.ini
 
 # Ignore coverage reports
 .coverage
@@ -53,3 +51,6 @@ deployment/jobmon_installer_ihme/setup.cfg
 deployment/jobmon_installer_ihme/build/*
 deployment/jobmon_installer_ihme/dist/*
 deployment/jobmon_installer_ihme/src/jobmon_installer_ihme.egg-info/*
+
+# If testing the integrator, read/write secrets from this file but DO NOT COMMIT
+tests/usage_integration/integrator_secrets.json

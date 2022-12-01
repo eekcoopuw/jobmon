@@ -1,8 +1,12 @@
+from sqlalchemy.orm import Session
 
-def test_swarmtask_resources_integration(tool, task_template, db_cfg):
+from jobmon.constants import WorkflowRunStatus
+from jobmon.client.workflow_run import WorkflowRunFactory
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+
+
+def test_swarmtask_resources_integration(tool, task_template, db_engine):
     """Check that taskresources defined in task are passed to swarmtask appropriately"""
-    from jobmon.constants import TaskResourcesType, WorkflowRunStatus
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     workflow = tool.create_workflow(default_cluster_name="multiprocess")
 
@@ -17,7 +21,10 @@ def test_swarmtask_resources_integration(tool, task_template, db_cfg):
     # Add to workflow, bind and create wfr
     workflow.add_task(task)
     workflow.bind()
-    wfr = workflow._create_workflow_run()
+    workflow._bind_tasks()
+    factory = WorkflowRunFactory(workflow.workflow_id)
+    wfr = factory.create_workflow_run()
+    wfr._update_status(WorkflowRunStatus.BOUND)
 
     # Move workflow and wfr through Instantiating -> Launched
     wfr._update_status(WorkflowRunStatus.INSTANTIATED)
@@ -32,39 +39,29 @@ def test_swarmtask_resources_integration(tool, task_template, db_cfg):
     # Check swarmtask resources
     swarmtask = swarm.tasks[task.task_id]
     initial_resources = swarmtask.current_task_resources
-    assert initial_resources.concrete_resources.resources == {
+    assert initial_resources.requested_resources == {
         "cores": 10,
-        "queue": "null.q",
     }
-    assert initial_resources.task_resources_type_id == TaskResourcesType.ORIGINAL
 
     # Queue the task. TRs should then be validated
     swarm._set_validated_task_resources(swarmtask)
     # No change in resource values, so type id stays the same
-    assert swarmtask.current_task_resources.task_resources_type_id == \
-        TaskResourcesType.ORIGINAL
     assert id(swarmtask.current_task_resources) == id(initial_resources)
 
     # Move task to adjusting
-    app, DB = db_cfg['app'], db_cfg['DB']
-
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         sql = """
             UPDATE task
             SET status = :status
             WHERE id = :id
         """
-        DB.session.execute(sql, {'status': 'A', 'id': swarmtask.task_id})
-        DB.session.commit()
+        session.execute(sql, {"status": "A", "id": swarmtask.task_id})
+        session.commit()
 
-    # Call adjust. Multiprocess doesn't implement adjust, but the path should work
-    # and adjust task resources
+    # Call adjust.
     swarm._set_adjusted_task_resources(swarmtask)
     scaled_params = swarmtask.current_task_resources
-    # No change in resource values, so type id stays the same
-    assert scaled_params.task_resources_type_id == TaskResourcesType.ORIGINAL
-    assert id(scaled_params) == id(initial_resources)
-    assert scaled_params.concrete_resources.resources == {
-        "cores": 10,
-        "queue": "null.q",
-    }  # No scaling implemented
+    assert id(scaled_params) != id(initial_resources)
+    assert scaled_params.requested_resources == {
+        "cores": 15,
+    }

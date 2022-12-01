@@ -2,6 +2,14 @@
 Monitoring and Debugging
 ************************
 
+Graphical User Interface (GUI)
+##############################
+The Jobmon GUI allows users to see the status of their workflows.
+In general any status qwery in the CLI is also available in the GUI
+and should be easier to find.
+
+The GUI is at: `<http://jobmon-gui.ihme.washington.edu>`_
+
 .. _status-commands-label:
 
 Jobmon Command Line Interface (CLI) Status Commands
@@ -11,7 +19,7 @@ command line.
 
 To use the status commands:
     1. Open a new terminal window
-    2. SSH in to the cluster
+    2. SSH in to the cluster slogin node
     3. srun
     4. Activate the same conda environment that your tasks are running in
 
@@ -19,8 +27,8 @@ There are currently three supported commands:
 
 workflow_status
 ***************
-    Entering ``jobmon workflow_status`` in to the command line will show you
-    a table of how many tasks are in each state within that workflow. You
+    Entering ``jobmon workflow_status`` at the command line will show you
+    a table of the number of tasks that are in each state within that workflow. You
     can specify the workflow by user using the -u flag. For example:
     ``jobmon workflow_status -u {user}``. You can also specify the workflow
     using the -w flag. For example: ``jobmon workflow_status -w 9876``.
@@ -75,6 +83,16 @@ task_dependencies
            3               D
            4               D
 
+get_filepaths
+*************
+
+Due to the introduction of array task submission in Jobmon 3.1, sometimes the structure of the output filepaths isn't
+intuitive to human operators. Jobmon provides a ``jobmon get_filepaths`` CLI tool to retrieve a more useful representation
+of the location of your log files based on the provided compute_resources.
+
+You can filter the results by workflow ID, array name, or job name using the -w, -a, -j flags respectively.
+By default the query returns 5 results but you can always increase the limit using the -l flag.
+
 Jobmon Database
 ###############
 
@@ -83,18 +101,7 @@ Running Queries
 If the command line status commands do not provide the information you need,
 you can query the Jobmon database.
 
-By default, your Workflow talks to our centrally-hosted Jobmon server
-(scicomp-maria-db-p01.db.ihme.washington.edu). You can access the
-Jobmon database from your favorite database browser (e.g. SequelPro, MySQL Workbench) using
-the credentials::
-
-    host: scicomp-maria-db-p01.db.ihme.washington.edu
-    port: 3306
-    user: read_only
-    pass: docker
-    database: docker
-
-To see previous database connections: https://hub.ihme.washington.edu/display/DataScience/Jobmon+Database+Connections
+.. include:: database-ihme.rst
 
 .. note::
     Jobmon has a persistent database. This means any time the client side of Jobmon is updated
@@ -155,7 +162,7 @@ cluster
 cluster_type
 ************
     A list of cluster types that Jobmon can run jobs on. Currently includes dummy, sequential,
-    multiprocess, UGE, and slurm.
+    multiprocess, UGE and Slurm.
 
 dag
 ***
@@ -286,110 +293,9 @@ workflow_status
 Jobmon Statuses
 ###############
 
-Task Instance
-*************
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |     | Status                          | Description                                                                     |
-    +=====+=================================+=================================================================================+
-    |  O  |  LAUNCHED                       | Task instance submitted normally.                                               |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  D  |  DONE                           | Task instance finishes normally.                                                |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  E  |  ERROR                          | Task instance has hit an application error.                                     |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  F  |  ERROR_FATAL                    | Task instance encountered a fatal error; it will not be retried.                |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  I  |  INSTANTIATED                   | Task instance is created.                                                       |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  K  |  KILL_SELF                      | Task instance has been ordered to kill itself if it is still alive.             |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  R  |  RUNNING                        | Task instance starts running normally.                                          |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  U  |  UNKNOWN_ERROR                  | Task instance stops reporting that it's alive and Jobmon can't figure out why.  |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  W  |  NO_DISTRIBUTOR_ID              | Task instance submission has hit a bug and did not receive a distributor_id.    |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
-    |  Z  |  RESOURCE_ERROR                 | Task instance died because of an insufficient resource request.                 |
-    +-----+---------------------------------+---------------------------------------------------------------------------------+
+The status codes and descriptions are in the following tables in the databse:
 
-Task
-****
-    +-----+---------------------------+----------------------------------------------------------------------------------------+
-    |     | Status                    | Description                                                                            |
-    +=====+===========================+========================================================================================+
-    |  A  |  ADJUSTING_RESOURCES      | Task has errored with a resource error, the resources will be adjusted before retrying.|
-    +-----+---------------------------+----------------------------------------------------------------------------------------+
-    |  D  |  DONE                     | Task ran to completion; Task has a TaskInstance that has succesfully completed.        |
-    +-----+---------------------------+----------------------------------------------------------------------------------------+
-    |  E  |  ERROR_RECOVERABLE        | Task has errored out but has more attempts so it will be retried.                      |
-    +-----+---------------------------+----------------------------------------------------------------------------------------+
-    |  F  |  ERROR_FATAL              | Task has errored out and has used all of the attempts. It cannot be retried.           |
-    +-----+---------------------------+----------------------------------------------------------------------------------------+
-    |  G  |  REGISTERED               | Task has been bound to the database.                                                   |
-    +-----+---------------------------+----------------------------------------------------------------------------------------+
-    |  I  |  INSTANTIATED             | Task has had a Task Instance created that will be submitted to the distributor.        |
-    +-----+---------------------------+----------------------------------------------------------------------------------------+
-    |  Q  |  QUEUED_FOR_INSTANTIATION | Task's dependencies have been met, task can be run when the scheduler is ready.        |
-    +-----+---------------------------+----------------------------------------------------------------------------------------+
-    |  R  |  RUNNING                  | Task is running on the specified distributor.                                          |
-    +-----+---------------------------+----------------------------------------------------------------------------------------+
-
-Workflow Run
-************
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-    |     | Status        | Description                                                                                            |
-    +=====+===============+========================================================================================================+
-    |  A  |  ABORTED      | WorkflowRun encountered problems while binding so it stopped.                                          |
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-    |  B  |  BOUND        | WorkflowRun has been bound to the database.                                                            |
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-    |  C  |  COLD_RESUME  | WorkflowRun was set to resume once all tasks were stopped.                                             |
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-    |  D  |  DONE         | WorkflowRun has run to completion.                                                                     |
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-    |  E  |  ERROR        | WorkflowRun has not completed successfully, may have lost contact with services.                       |
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-    |  G  |  REGISTERED   | WorkflowRun has been validated.                                                                        |
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-    |  H  |  HOT RESUME   | WorkflowRun was set to resume while tasks are still running, they will continue running.               |
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-    |  I  |  INSTANTIATED | Scheduler is instantiating an instance on the distributor.                                             |
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-    |  L  |  LINKING      | WorkflowRun was completed succesfully, connecting it to Workflow.                                      |
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-    |  O  |  LAUNCHED     | Instantiation complete. Distributor control for tasks or waiting for scheduling loop for workflows.    |
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-    |  R  |  RUNNING      | WorkflowRun is currently running.                                                                      |
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-    |  S  |  STOPPED      | WorkflowRun has been stopped, probably due to keyboard interrupt from user.                            |
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-    |  T  |  TERMINATED   | WorkflowRun was in resume, new WorkflowRun created to pick up remaining Tasks, so this one terminated. |
-    +-----+---------------+--------------------------------------------------------------------------------------------------------+
-
-Workflow
-********
-    +-----+----------------+-----------------------------------------------------------------------------------------------------+
-    |     | Status         | Description                                                                                         |
-    +=====+================+=====================================================================================================+
-    |  A  |  ABORTED       | Workflow encountered an error before a WorkflowRun was created.                                     |
-    +-----+----------------+-----------------------------------------------------------------------------------------------------+
-    |  D  |  DONE          | Workflow finished successfully.                                                                     |
-    +-----+----------------+-----------------------------------------------------------------------------------------------------+
-    |  F  |  FAILED        | Workflow unsuccessful in one or more WorkflowRuns, no runs finished as DONE.                        |
-    +-----+----------------+-----------------------------------------------------------------------------------------------------+
-    |  G  |  REGISTERING   | Workflow is being validated.                                                                        |
-    +-----+----------------+-----------------------------------------------------------------------------------------------------+
-    |  H  |  HALTED        | Resume was set and wf shut down or the controller died and wf was reaped.                           |
-    +-----+----------------+-----------------------------------------------------------------------------------------------------+
-    |  I  |  INSTANTIATING | Scheduler is instantiating an instance on the distributor.                                          |
-    +-----+----------------+-----------------------------------------------------------------------------------------------------+
-    |  O  |  LAUNCHED      | Instantiation complete. Distributor control for tasks or waiting for scheduling loop for workflows. |
-    +-----+----------------+-----------------------------------------------------------------------------------------------------+
-    |  Q  |  QUEUED        | Client has added all necessary metadata, signal to scheduler to instantiate.                        |
-    +-----+----------------+-----------------------------------------------------------------------------------------------------+
-    |  R  |  RUNNING       | Workflow has a WorkflowRun that is running.                                                         |
-    +-----+----------------+-----------------------------------------------------------------------------------------------------+
-
-Graphical User Interface (GUI)
-##############################
-Coming soon - a read-only GUI that will allow users to see the status of their workflows.
+1. workflow_status
+#. workflow_run_status
+#. task_status
+#. task_instance_status

@@ -7,12 +7,11 @@ from __future__ import annotations
 import hashlib
 from http import HTTPStatus as StatusCodes
 import logging
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, TYPE_CHECKING, Union
+from typing import Any, Callable, Dict, List, Optional, Set, TYPE_CHECKING, Union
 
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task_resources import TaskResources
-from jobmon.constants import SpecialChars, TaskStatus
+from jobmon.constants import SpecialChars
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import SerializeTaskInstanceErrorLog, SerializeTaskResourceUsage
@@ -31,7 +30,7 @@ class Task:
     """
 
     @staticmethod
-    def is_valid_job_name(name: str):
+    def is_valid_job_name(name: str) -> bool:
         """If the name is invalid it will raises an exception.
 
         Primarily based on the restrictions SGE places on job names. The list of illegal
@@ -74,9 +73,9 @@ class Task:
         resource_scales: Optional[Dict[str, float]] = None,
         fallback_queues: Optional[List[str]] = None,
         name: Optional[str] = None,
-        max_attempts: int = 3,
+        max_attempts: Optional[int] = None,
         upstream_tasks: Optional[List[Task]] = None,
-        task_attributes: Union[List, dict] = None,
+        task_attributes: Union[List, dict, None] = None,
         requester: Optional[Requester] = None,
     ) -> None:
         """Create a single executable object in the workflow, aka a Task.
@@ -85,14 +84,12 @@ class Task:
         context of your workflow.
 
         Args:
-            command: the unique command for this Task, also readable by humans. Should
-                include all parameters. Two Tasks are equal (__eq__) iff they have the same
-                command.
             node: Node this task is associated with.
             task_args: Task arguments that make the command unique across workflows
                 usually pertaining to data flowing through the task.
-            task_args: Task arguments that can change across runs of the same workflow.
+            op_args: Task arguments that can change across runs of the same workflow.
                 usually pertaining to trivial things like log level or code location.
+            array: the array that the task is associated with.
             cluster_name: the name of the cluster the user wants to run their task on.
             compute_resources: A dictionary that includes the users requested resources
                 for the current run. E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
@@ -101,7 +98,8 @@ class Task:
                 the initial request fails.
             fallback_queues: a list of queues that a user wants to try if their original
                 queue is unable to accommodate their requested resources.
-            name: name that will be visible in qstat for this job
+            name: name that will be visible in the job status information (e.g. squeue or
+                qstat) for this job.
             max_attempts: number of attempts to allow the cluster to try before giving
                 up. Default is 3.
             upstream_tasks: Task objects that must be run prior to this
@@ -114,8 +112,7 @@ class Task:
                 is_valid_job_name
         """
         if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
+            requester = Requester.from_defaults()
         self.requester = requester
 
         # pre bind hash defining attributes
@@ -164,17 +161,16 @@ class Task:
             )
 
         # mutable operational/cluster behaviour
-        self.max_attempts: int = max_attempts
+        self._instance_max_attempts = max_attempts
         self._instance_cluster_name = cluster_name
         self._instance_compute_resources = (
             compute_resources if compute_resources is not None else {}
         )
         self._instance_compute_resources_callable = compute_resources_callable
-        self.resource_scales: Dict[str, float] = (
-            resource_scales
-            if resource_scales is not None
-            else {"memory": 0.5, "runtime": 0.5}
+        self._instance_resource_scales = (
+            resource_scales if resource_scales is not None else {}
         )
+
         self.fallback_queues: List[str] = (
             fallback_queues if fallback_queues is not None else []
         )
@@ -186,15 +182,38 @@ class Task:
 
     @property
     def compute_resources(self) -> Dict[str, Any]:
-        """A dictionary that includes the users requested resources for the current run.
-
-        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}"""
         try:
             resources = self.array.compute_resources
         except AttributeError:
             resources = {}
         resources.update(self._instance_compute_resources.copy())
         return resources
+
+    @property
+    def requested_resources(self) -> Dict[str, Any]:
+        """A dictionary that includes the users requested resources for the current run.
+
+        E.g. {cores: 1, mem: 1, runtime: 60, queue: all.q}.
+        """
+        resources = self.compute_resources
+        try:
+            resources.pop("queue")
+        except KeyError:
+            pass
+        return resources
+
+    @property
+    def resource_scales(self) -> Dict[str, float]:
+        """A dictionary that includes the users requested resource scales for the current run.
+
+        E.g. {memory: 0.1, runtime: 0.7}.
+        """
+        try:
+            scales = self.array.resource_scales
+        except AttributeError:
+            scales = {}
+        scales.update(self._instance_resource_scales.copy())
+        return scales if scales else {"memory": 0.5, "runtime": 0.5}
 
     @property
     def cluster_name(self) -> str:
@@ -209,6 +228,22 @@ class Task:
         return cluster_name
 
     @property
+    def max_attempts(self) -> int:
+        """Get the max_attempts."""
+        ma = self._instance_max_attempts
+        if not ma:
+            try:
+                ma = self.array.max_attempts
+            except AttributeError:
+                # max_attempts hasn't been inferred yet. safe to return empty string for now
+                pass
+            finally:
+                if ma is None:
+                    ma = 3
+                    self._instance_max_attempts = ma
+        return ma
+
+    @property
     def compute_resources_callable(self) -> Optional[Callable]:
         """A callable that returns a compute resources dict."""
         compute_resources_callable = self._instance_compute_resources_callable
@@ -217,10 +252,23 @@ class Task:
         return compute_resources_callable
 
     @property
+    def queue_name(self) -> str:
+        resources = self.compute_resources
+        try:
+            queue_name = resources.pop("queue")
+        except KeyError:
+            raise ValueError(
+                "A queue name must be provided in the specified compute resources."
+            )
+        return queue_name
+
+    @property
     def original_task_resources(self) -> TaskResources:
         """Get the id of the task if it has been bound to the db otherwise raise an error."""
         if not hasattr(self, "_original_task_resources"):
-            raise AttributeError("task_resources cannot be accessed before workflow is bound")
+            raise AttributeError(
+                "task_resources cannot be accessed before workflow is bound"
+            )
         return self._original_task_resources
 
     @original_task_resources.setter
@@ -297,21 +345,6 @@ class Task:
     def workflow(self, val: Workflow) -> None:
         self._workflow = val
 
-    def bind(self, reset_if_running: bool = True) -> int:
-        """Bind tasks to the db if they have not been bound already.
-
-        Otherwise make sure their ExecutorParameters are up to date.
-        """
-        task_id, status = self._get_task_id_and_status()
-        if task_id is None:
-            task_id = self._add_task()
-            status = TaskStatus.REGISTERING
-        else:
-            status = self._update_task_parameters(task_id, reset_if_running)
-        self._task_id = task_id
-        self._initial_status = status
-        return task_id
-
     def add_upstream(self, ancestor: Task) -> None:
         """Add an upstream (ancestor) Task.
 
@@ -323,8 +356,13 @@ class Task:
 
         self.node.add_upstream_node(ancestor.node)
 
+    def add_upstreams(self, tasks: List[Task]) -> None:
+        """Add all Tasks in user provided list as upstreams."""
+        for task in tasks:
+            self.add_upstream(task)
+
     def add_downstream(self, descendent: Task) -> None:
-        """Add an downstream (ancestor) Task.
+        """Add a downstream (ancestor) Task.
 
         This has Set semantics, a downstream task will only be added once. Symmetrically,
         this method also adds this Task as an upstream on the ancestor.
@@ -334,32 +372,14 @@ class Task:
 
         self.node.add_downstream_node(descendent.node)
 
-    def add_attributes(self, task_attributes: dict) -> None:
-        """Update or add attributes.
-
-        Function that users can call either to update values of existing attributes or add
-        new attributes.
-        """
-        app_route = f"/task/{self.task_id}/task_attributes"
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={"task_attributes": task_attributes},
-            request_type="put",
-            logger=logger,
-        )
-        if return_code != StatusCodes.OK:
-            raise ValueError(
-                f"Unexpected status code {return_code} from PUT request through "
-                f"route {app_route}. Expected code 200. Response content: "
-                f"{response}"
-            )
+    def add_downstreams(self, tasks: List[Task]) -> None:
+        """Add all Tasks in user provided list as downstreams."""
+        for task in tasks:
+            self.add_downstream(task)
 
     def add_attribute(self, attribute: str, value: str) -> None:
         """Function that users can call to add a single attribute for a task."""
         self.task_attributes[str(attribute)] = str(value)
-        # if the task has already been bound, bind the attributes
-        if self._task_id:
-            self.add_attributes({str(attribute): str(value)})
 
     def get_errors(
         self,
@@ -374,7 +394,6 @@ class Task:
                 app_route=f"/task/{self._task_id}/most_recent_ti_error",
                 message={},
                 request_type="get",
-                logger=logger,
             )
             if return_code == StatusCodes.OK:
                 task_instance_id = response["task_instance_id"]
@@ -413,6 +432,10 @@ class Task:
         """Function that allows users to update their compute resources."""
         self.compute_resources.update(kwargs)
 
+    def update_resource_scales(self, **kwargs: Any) -> None:
+        """Function that allows users to update their resource scales."""
+        self.resource_scales.update(kwargs)
+
     def _hash_task_args(self) -> int:
         """A hash of the encoded result of the args and values concatenated together."""
         arg_ids = list(self.mapped_task_args.keys())
@@ -427,78 +450,6 @@ class Task:
         )
         return hash_value
 
-    def _get_task_id_and_status(self) -> Tuple[Optional[int], Optional[str]]:
-        """Get the id and status for a task from the db."""
-        app_route = "/task"
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={
-                "workflow_id": self.workflow.workflow_id,
-                "node_id": self.node.node_id,
-                "task_args_hash": self.task_args_hash,
-            },
-            request_type="get",
-            logger=logger,
-        )
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from GET "
-                f"request through route {app_route}. Expected code "
-                f"200. Response content: {response}"
-            )
-        return response["task_id"], response["task_status"]
-
-    def _update_task_parameters(self, task_id: int, reset_if_running: bool) -> str:
-        """Update the executor parameters in the db for a task."""
-        app_route = f"/task/{task_id}/update_parameters"
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={
-                "name": self.name,
-                "command": self.command,
-                "max_attempts": self.max_attempts,
-                "reset_if_running": reset_if_running,
-                "task_attributes": self.task_attributes,
-            },
-            request_type="put",
-            logger=logger,
-        )
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from PUT request through route "
-                f"{app_route}. Expected code 200. Response content: {response}"
-            )
-        return response["task_status"]
-
-    def _add_task(self) -> int:
-        """Bind a task to the db with the node, and workflow ids that have been established."""
-        tasks = [
-            {
-                "workflow_id": self.workflow.workflow_id,
-                "node_id": self.node.node_id,
-                "array_id": self.array.array_id,
-                "task_args_hash": self.task_args_hash,
-                "name": self.name,
-                "command": self.command,
-                "max_attempts": self.max_attempts,
-                "task_args": self.mapped_task_args,
-                "task_attributes": self.task_attributes,
-            }
-        ]
-        app_route = "/task"
-        return_code, response = self.requester.send_request(
-            app_route=app_route,
-            message={"tasks": tasks},
-            request_type="post",
-            logger=logger,
-        )
-        if return_code != StatusCodes.OK:
-            raise InvalidResponse(
-                f"Unexpected status code {return_code} from POST request through route "
-                f"{app_route}. Expected code 200. Response content: {response}"
-            )
-        return list(response["tasks"].values())[0]
-
     def __eq__(self, other: object) -> bool:
         """Check if the hashes of two tasks are equivalent."""
         if not isinstance(other, Task):
@@ -512,10 +463,12 @@ class Task:
 
     def __hash__(self) -> int:
         """Create the hash for a task to determine if it is unique within a dag."""
-        hash_value = hashlib.sha1()
-        hash_value.update(bytes(str(hash(self.node)).encode("utf-8")))
-        hash_value.update(bytes(str(self.task_args_hash).encode("utf-8")))
-        return int(hash_value.hexdigest(), 16)
+        if not hasattr(self, "_hash_val"):
+            hash_value = hashlib.sha1()
+            hash_value.update(bytes(str(hash(self.node)).encode("utf-8")))
+            hash_value.update(bytes(str(self.task_args_hash).encode("utf-8")))
+            self._hash_val = int(hash_value.hexdigest(), 16)
+        return self._hash_val
 
     def __repr__(self) -> str:
         """A representation string for a Task instance."""
@@ -538,7 +491,6 @@ class Task:
             app_route=app_route,
             message={"task_id": self.task_id},
             request_type="get",
-            logger=logger,
         )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(

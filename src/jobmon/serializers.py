@@ -1,7 +1,8 @@
 """Serializing data when going to and from the database."""
 import ast
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple, Union
+import json
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 
 class SerializeDistributorTask:
@@ -315,12 +316,15 @@ class SerializeCluster:
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Get the Cluster information from the database."""
+        connection_parameters = (
+            json.loads(wire_tuple[4]) if wire_tuple[4] is not None else {}
+        )
         return {
             "id": int(wire_tuple[0]),
             "name": str(wire_tuple[1]),
             "cluster_type_name": str(wire_tuple[2]),
             "package_location": str(wire_tuple[3]),
-            "connection_parameters": str(wire_tuple[4]),
+            "connection_parameters": connection_parameters,
         }
 
 
@@ -382,8 +386,8 @@ class SerializeTaskTemplateResourceUsage:
         mean_runtime: Optional[float] = None,
         median_mem: Optional[float] = None,
         median_runtime: Optional[float] = None,
-        ci_mem: Optional[List[float]] = None,
-        ci_runtime: Optional[List[float]] = None,
+        ci_mem: Optional[List[Any]] = None,
+        ci_runtime: Optional[List[Any]] = None,
     ) -> tuple:
         """Submit the TaskTemplate resource usage information to the database."""
         return (
@@ -419,52 +423,55 @@ class SerializeTaskTemplateResourceUsage:
 
 
 class SerializeDistributorArray:
-    """"""
+    """Serialize the data to and from the database for DistributorArray."""
 
     @staticmethod
-    def to_wire(array_id: int, max_concurrently_running: int) -> tuple:
+    def to_wire(array_id: int, max_concurrently_running: int, name: str) -> tuple:
         """Submit the TaskTemplate resource usage information to the database."""
-        return array_id, max_concurrently_running
+        return array_id, max_concurrently_running, name
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """Get the TaskTemplate resource usage information from the database."""
-        return {"array_id": wire_tuple[0], "max_concurrently_running": wire_tuple[1]}
+        return {
+            "array_id": wire_tuple[0],
+            "max_concurrently_running": wire_tuple[1],
+            "name": wire_tuple[2],
+        }
 
 
 class SerializeDistributorWorkflow:
-    """"""
+    """Serialize the data to and from the database for DistributorWorkflow."""
 
     @staticmethod
-    def to_wire(workflow_id: int, max_concurrently_running: int) -> tuple:
+    def to_wire(workflow_id: int, dag_id: int, max_concurrently_running: int) -> tuple:
         """"""
         return (
             workflow_id,
+            dag_id,
             max_concurrently_running,
         )
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
         """"""
-        return {
-            "workflow_id": wire_tuple[0],
-            "max_concurrently_running": wire_tuple[1]
-        }
+        return {"workflow_id": wire_tuple[0], "max_concurrently_running": wire_tuple[1]}
 
 
 class SerializeTaskResources:
-    """"""
+    """Serialize the data to and from the database for Task resources."""
+
     @staticmethod
     def to_wire(
         task_resources_id: int,
-        queue_id: int,
+        queue_name: str,
         task_resources_type_id: str,
-        requested_resources: str
+        requested_resources: str,
     ) -> tuple:
         """"""
         return (
             task_resources_id,
-            queue_id,
+            queue_name,
             task_resources_type_id,
             requested_resources,
         )
@@ -474,25 +481,27 @@ class SerializeTaskResources:
         """"""
         return {
             "task_resources_id": wire_tuple[0],
-            "queue_id": wire_tuple[1],
+            "queue_name": wire_tuple[1],
             "task_resources_type_id": wire_tuple[2],
-            "requested_resources": wire_tuple[3]
+            "requested_resources": wire_tuple[3],
         }
 
 
 class SerializeTaskInstanceBatch:
-    """"""
+    """Serialize the data to and from the database for TaskInstance batch."""
 
     @staticmethod
     def to_wire(
         array_id: int,
+        array_name: str,
         array_batch_num: int,
         task_resources_id: int,
-        task_instance_ids: List[int]
+        task_instance_ids: List[int],
     ) -> tuple:
         """"""
         return (
             array_id,
+            array_name,
             array_batch_num,
             task_resources_id,
             task_instance_ids,
@@ -503,7 +512,8 @@ class SerializeTaskInstanceBatch:
         """"""
         return {
             "array_id": wire_tuple[0],
-            "array_batch_num": wire_tuple[1],
-            "task_resources_id": wire_tuple[2],
-            "task_instance_ids": wire_tuple[3]
+            "array_name": wire_tuple[1],
+            "array_batch_num": wire_tuple[2],
+            "task_resources_id": wire_tuple[3],
+            "task_instance_ids": wire_tuple[4],
         }

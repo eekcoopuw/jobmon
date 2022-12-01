@@ -1,11 +1,14 @@
 import logging
 
+import pytest
+
 from jobmon.client.api import Tool
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.workflow import DistributorContext
 from jobmon.requester import Requester
 
 
+@pytest.mark.skip()
 def test_scheduler_logging(client_env, caplog):
     """Test to check that scheduler logs are sent to stdout properly."""
 
@@ -27,16 +30,13 @@ def test_scheduler_logging(client_env, caplog):
     wfr = workflow._create_workflow_run()
     requester = Requester(client_env)
 
-    with DistributorContext(
-        'sequential', wfr.workflow_run_id, 180
-    ) as distributor:
+    with DistributorContext("sequential", wfr.workflow_run_id, 180) as distributor:
 
         assert "Starting Distributor Process" in caplog.text
         caplog.clear()
 
         swarm = SwarmWorkflowRun(
-            workflow_run_id=wfr.workflow_run_id,
-            requester=requester
+            workflow_run_id=wfr.workflow_run_id, requester=requester
         )
         swarm.from_workflow(workflow)
         swarm.run(distributor.alive)

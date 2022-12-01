@@ -1,7 +1,10 @@
 import logging
 
 import pytest
+from sqlalchemy.orm import Session
 
+from jobmon.client.tool import Tool
+from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.constants import WorkflowRunStatus
 from jobmon.exceptions import (
     WorkflowAlreadyComplete,
@@ -18,22 +21,32 @@ def test_wfargs_update(tool):
 
     # Create identical dags
     t1 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
-    t2 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t1])
-    t3 = tool.active_task_templates["phase_3"].create_task(arg="sleep 3", upstream_tasks=[t2])
+    t2 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 2", upstream_tasks=[t1]
+    )
+    t3 = tool.active_task_templates["phase_3"].create_task(
+        arg="sleep 3", upstream_tasks=[t2]
+    )
 
     t4 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
-    t5 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t4])
-    t6 = tool.active_task_templates["phase_3"].create_task(arg="sleep 3", upstream_tasks=[t5])
+    t5 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 2", upstream_tasks=[t4]
+    )
+    t6 = tool.active_task_templates["phase_3"].create_task(
+        arg="sleep 3", upstream_tasks=[t5]
+    )
 
     wfa1 = "v1"
     wf1 = tool.create_workflow(wfa1)
     wf1.add_tasks([t1, t2, t3])
     wf1.bind()
+    wf1._bind_tasks()
 
     wfa2 = "v2"
     wf2 = tool.create_workflow(wfa2)
     wf2.add_tasks([t4, t5, t6])
     wf2.bind()
+    wf2._bind_tasks()
 
     # Make sure the second Workflow has a distinct Workflow ID & WorkflowRun ID
     assert wf1.workflow_id != wf2.workflow_id
@@ -42,9 +55,9 @@ def test_wfargs_update(tool):
     assert hash(wf1) != hash(wf2)
 
     # Make sure the second Workflow has a distinct set of Tasks
-    wfr1 = WorkflowRun(wf1)
+    wfr1 = WorkflowRun(wf1.workflow_id)
     wfr1.bind()
-    wfr2 = WorkflowRun(wf2)
+    wfr2 = WorkflowRun(wf2.workflow_id)
     wfr2.bind()
     assert not (
         set([t.task_id for _, t in wf1.tasks.items()])
@@ -60,7 +73,9 @@ def test_attempt_resume_on_complete_workflow(tool):
 
     # Create identical dags
     t1 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
-    t2 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t1])
+    t2 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 2", upstream_tasks=[t1]
+    )
 
     # initial workflow should run to completion
     wf1 = tool.create_workflow(name="attempt_resume_on_completed")
@@ -68,8 +83,10 @@ def test_attempt_resume_on_complete_workflow(tool):
 
     # bind workflow to db and move to done state
     wf1.bind()
-    wfr1 = WorkflowRun(wf1)
+    wf1._bind_tasks()
+    wfr1 = WorkflowRun(wf1.workflow_id)
     wfr1.bind()
+    wfr1._update_status(WorkflowRunStatus.BOUND)
     wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr1._update_status(WorkflowRunStatus.LAUNCHED)
     wfr1._update_status(WorkflowRunStatus.RUNNING)
@@ -77,7 +94,9 @@ def test_attempt_resume_on_complete_workflow(tool):
 
     # second workflow shouldn't be able to start
     t1 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
-    t2 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t1])
+    t2 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 2", upstream_tasks=[t1]
+    )
 
     # initial workflow should run to completion
     workflow2 = tool.create_workflow(
@@ -86,19 +105,20 @@ def test_attempt_resume_on_complete_workflow(tool):
     workflow2.add_tasks([t1, t2])
 
     # bind workflow to db and move to done state
-    workflow2.bind()
     with pytest.raises(WorkflowAlreadyComplete):
-        workflow2._create_workflow_run()
+        workflow2.run()
 
 
-def test_resume_with_old_and_new_workflow_attributes(db_cfg, tool):
+def test_resume_with_old_and_new_workflow_attributes(tool, db_engine):
     """Should allow a resume, and should not fail on duplicate workflow_attribute keys"""
     from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
     from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
 
     # Create identical dags
     t1 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
-    t2 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t1])
+    t2 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 2", upstream_tasks=[t1]
+    )
 
     # initial workflow should run to completion
     wf1 = tool.create_workflow(
@@ -109,7 +129,10 @@ def test_resume_with_old_and_new_workflow_attributes(db_cfg, tool):
 
     # bind workflow to db and move to ERROR state
     wf1.bind()
-    wfr1 = wf1._create_workflow_run()
+    wf1._bind_tasks()
+    factory1 = WorkflowRunFactory(wf1.workflow_id)
+    wfr1 = factory1.create_workflow_run()
+    wfr1._update_status(WorkflowRunStatus.BOUND)
     wfr1._update_status(WorkflowRunStatus.INSTANTIATED)
     wfr1._update_status(WorkflowRunStatus.LAUNCHED)
     wfr1._update_status(WorkflowRunStatus.RUNNING)
@@ -117,7 +140,9 @@ def test_resume_with_old_and_new_workflow_attributes(db_cfg, tool):
 
     # second workflow
     t1 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
-    t2 = tool.active_task_templates["phase_2"].create_task(arg="sleep 2", upstream_tasks=[t1])
+    t2 = tool.active_task_templates["phase_2"].create_task(
+        arg="sleep 2", upstream_tasks=[t1]
+    )
 
     workflow2 = tool.create_workflow(
         wf1.workflow_args,
@@ -128,14 +153,14 @@ def test_resume_with_old_and_new_workflow_attributes(db_cfg, tool):
 
     # bind workflow to db and run resume
     workflow2.bind()
-    workflow2._create_workflow_run(resume=True)
+    workflow2._bind_tasks()
+    fact2 = WorkflowRunFactory(workflow2.workflow_id)
+    fact2.create_workflow_run()
 
     # check database entries are populated correctly
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         wf_attributes = (
-            DB.session.query(WorkflowAttributeType.name, WorkflowAttribute.value)
+            session.query(WorkflowAttributeType.name, WorkflowAttribute.value)
             .join(
                 WorkflowAttribute,
                 WorkflowAttribute.workflow_attribute_type_id
@@ -144,30 +169,7 @@ def test_resume_with_old_and_new_workflow_attributes(db_cfg, tool):
             .filter(WorkflowAttribute.workflow_id == wf1.workflow_id)
             .all()
         )
-    assert set(wf_attributes) == set(
-        [("location_id", "5"), ("year", "2022"), ("sex", "F")]
-    )
-
-
-def test_multiple_active_race_condition(tool, task_template):
-    """test that we cannot create 2 workflow runs simultaneously"""
-
-    # create initial workflow
-    t1 = task_template.create_task(arg="sleep 1")
-    workflow1 = tool.create_workflow(name="created_race_condition")
-    workflow1.add_tasks([t1])
-    workflow1.bind()
-    workflow1._create_workflow_run()
-
-    # create identical workflow
-    t2 = task_template.create_task(arg="sleep 1")
-    workflow2 = tool.create_workflow(
-        name=workflow1.name, workflow_args=workflow1.workflow_args
-    )
-    workflow2.add_tasks([t2])
-    workflow2.bind()
-    with pytest.raises(WorkflowNotResumable):
-        workflow2._create_workflow_run(resume=True, resume_timeout=1)
+    assert set(wf_attributes) == {("location_id", "5"), ("year", "2022"), ("sex", "F")}
 
 
 def test_workflow_identical_args(tool, task_template):
@@ -179,19 +181,18 @@ def test_workflow_identical_args(tool, task_template):
     task = task_template.create_task(arg="sleep 1")
     wf1.add_task(task)
     wf1.bind()
-    wf1._create_workflow_run()
+    wf1._bind_tasks()
+    WorkflowRunFactory(wf1.workflow_id).create_workflow_run()
 
     # tries to create an identical workflow without the restart flag
     wf2 = tool.create_workflow(workflow_args="same")
     task = task_template.create_task(arg="sleep 1")
     wf2.add_task(task)
     with pytest.raises(WorkflowAlreadyExists):
-        wf2.bind()
-        wf2._create_workflow_run()
+        wf2.run()
 
 
 def test_add_same_node_args_twice(client_env):
-    from jobmon.client.tool import Tool
 
     tool = Tool()
     tt = tool.get_task_template(
@@ -210,7 +211,7 @@ def test_add_same_node_args_twice(client_env):
         workflow.add_task(b)
 
 
-def test_numpy_array_node_args(tool):
+def test_non_serializable_node_args(tool):
     """Test passing an object (set) that is not JSON serializable to node and task args."""
     workflow = tool.create_workflow(name="numpy_test_wf")
     template = tool.get_task_template(
@@ -238,35 +239,53 @@ def test_empty_workflow(tool):
 
 
 @pytest.mark.skip()
-def test_compute_resources(db_cfg, client_env):
+def test_compute_resources(client_env, db_engine):
     """Test user passed cluster_resources. Need to test: 1. task with compute resources,
     no workflow resources 2. task with no compute resources, workflow resources 3. tasks with
     less resources than workflow"""
     from jobmon.client.tool import Tool
+
     tool = Tool(name="cluster_resource_test")
-    wf_compute_resources = {"sequential": {"num_cores": 2, "mem": "2G",
-                                            "max_runtime_seconds": 10, "queue": "null.q",
-                                            "resource_scales": {"runtime": 0.7}},
-                             "buster": {"mem": "5G"}}
-    workflow_1 = tool.create_workflow(name="compute_resource_1",
-                                      compute_resources=wf_compute_resources)
+    wf_compute_resources = {
+        "sequential": {
+            "num_cores": 2,
+            "mem": "2G",
+            "max_runtime_seconds": 10,
+            "queue": "null.q",
+            "resource_scales": {"runtime": 0.7},
+        },
+        "buster": {"mem": "5G"},
+    }
+    workflow_1 = tool.create_workflow(
+        name="compute_resource_1", compute_resources=wf_compute_resources
+    )
     template = tool.get_task_template(
         template_name="my_template",
         command_template="echo {node_arg}",
-        node_args=["node_arg"]
+        node_args=["node_arg"],
     )
-    task_compute_resource = {"sequential": {"num_cores": 1, "mem": "1G",
-                                            "max_runtime_seconds": 1, "queue": "null.q",
-                                            "resource_scales": {"runtime": 0.5}},
-                             "buster": {"mem": "5G"}}
+    task_compute_resource = {
+        "sequential": {
+            "num_cores": 1,
+            "mem": "1G",
+            "max_runtime_seconds": 1,
+            "queue": "null.q",
+            "resource_scales": {"runtime": 0.5},
+        },
+        "buster": {"mem": "5G"},
+    }
     # Use case: Task compute resources, no workflow resources
-    task_1 = template.create_task(name="task_1", node_arg={1},
-                                  compute_resources=task_compute_resource,
-                                  cluster_name="sequential")
+    task_1 = template.create_task(
+        name="task_1",
+        node_arg={1},
+        compute_resources=task_compute_resource,
+        cluster_name="sequential",
+    )
 
     # Use case: No Task compute resources, inherit from workflow compute resources
-    task_2 = template.create_task(name="task_2", node_arg={2},
-                                  cluster_name="sequential")
+    task_2 = template.create_task(
+        name="task_2", node_arg={2}, cluster_name="sequential"
+    )
 
     # TODO: Add test case when we implement partial compute resource dicts
     # Use case: No Task compute resources, inherit from workflow compute resources
@@ -279,23 +298,19 @@ def test_compute_resources(db_cfg, client_env):
     workflow_1.bind()
 
     client_wfr = ClientWorkflowRun(
-        workflow_id=workflow_1.workflow_id,
-        executor_class="Sequential"
+        workflow_id=workflow_1.workflow_id, executor_class="Sequential"
     )
     client_wfr.bind(workflow_1.tasks, False, workflow_1._chunk_size)
 
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
-        query = "SELECT requested_resources " \
-                "FROM task_resources "
-        res = DB.session.execute(query).fetchall()
+    with Session(bind=db_engine) as session:
+        query = "SELECT requested_resources " "FROM task_resources "
+        res = session.execute(query).fetchall()
         DB.session.commit()
     assert res[0][0] == f"{task_compute_resource['sequential']}"
     assert res[1][0] == f"{wf_compute_resources['sequential']}"
 
 
-def test_workflow_attribute(db_cfg, tool, client_env, task_template):
+def test_workflow_attribute(db_engine, tool, client_env, task_template):
     """Test the workflow attributes feature"""
     from jobmon.server.web.models.workflow_attribute import WorkflowAttribute
     from jobmon.server.web.models.workflow_attribute_type import WorkflowAttributeType
@@ -305,16 +320,17 @@ def test_workflow_attribute(db_cfg, tool, client_env, task_template):
         workflow_attributes={"location_id": 5, "year": 2019, "sex": 1},
     )
 
+    # Check the workflow has a tool property
+    assert wf1.tool == tool
+
     t1 = task_template.create_task(arg="exit -0")
     wf1.add_task(t1)
     wf1.bind()
 
     # check database entries are populated correctly
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         wf_attributes = (
-            DB.session.query(WorkflowAttributeType.name, WorkflowAttribute.value)
+            session.query(WorkflowAttributeType.name, WorkflowAttribute.value)
             .join(
                 WorkflowAttribute,
                 WorkflowAttribute.workflow_attribute_type_id
@@ -323,16 +339,14 @@ def test_workflow_attribute(db_cfg, tool, client_env, task_template):
             .filter(WorkflowAttribute.workflow_id == wf1.workflow_id)
             .all()
         )
-    assert set(wf_attributes) == set(
-        [("location_id", "5"), ("year", "2019"), ("sex", "1")]
-    )
+    assert set(wf_attributes) == {("location_id", "5"), ("year", "2019"), ("sex", "1")}
 
     # Add and update attributes
     wf1.add_attributes({"age_group_id": 1, "sex": 2})
 
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         wf_attributes = (
-            DB.session.query(WorkflowAttributeType.name, WorkflowAttribute.value)
+            session.query(WorkflowAttributeType.name, WorkflowAttribute.value)
             .join(
                 WorkflowAttribute,
                 WorkflowAttribute.workflow_attribute_type_id
@@ -341,9 +355,12 @@ def test_workflow_attribute(db_cfg, tool, client_env, task_template):
             .filter(WorkflowAttribute.workflow_id == wf1.workflow_id)
             .all()
         )
-    assert set(wf_attributes) == set(
-        [("location_id", "5"), ("year", "2019"), ("sex", "2"), ("age_group_id", "1")]
-    )
+    assert set(wf_attributes) == {
+        ("location_id", "5"),
+        ("year", "2019"),
+        ("sex", "2"),
+        ("age_group_id", "1"),
+    }
 
     # Test workflow w/o attributes
     wf2 = tool.create_workflow(
@@ -354,9 +371,9 @@ def test_workflow_attribute(db_cfg, tool, client_env, task_template):
     wf2.add_task(t1)
     wf2.bind()
 
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         wf_attributes = (
-            DB.session.query(WorkflowAttribute)
+            session.query(WorkflowAttribute)
             .filter_by(workflow_id=wf2.workflow_id)
             .all()
         )
@@ -364,7 +381,7 @@ def test_workflow_attribute(db_cfg, tool, client_env, task_template):
     assert wf_attributes == []
 
 
-def test_chunk_size(db_cfg, tool, client_env, task_template):
+def test_chunk_size(tool, client_env, task_template):
 
     wf_a = tool.create_workflow(name="test_wf_chunks_a", chunk_size=3)
 
@@ -381,7 +398,7 @@ def test_chunk_size(db_cfg, tool, client_env, task_template):
     assert wf_b._chunk_size == 10
 
 
-def test_add_tasks_dependencynotexist(db_cfg, tool, client_env, task_template):
+def test_add_tasks_dependencynotexist(tool, client_env, task_template):
 
     t1 = task_template.create_task(arg="echo 1")
     t2 = task_template.create_task(arg="echo 2")
@@ -420,21 +437,27 @@ def test_workflow_validation(tool, task_template, caplog):
     wf1.add_task(t1)
 
     with pytest.raises(ValueError):
-        wf1.validate()  # Max cores on multiprocess null.q is 20. Should fail
+        wf1.validate(
+            raise_on_error=True
+        )  # Max cores on multiprocess null.q is 20. Should fail
 
     # Without fail set, validate and check coercion
     caplog.clear()
-    with caplog.at_level(logging.WARNING):
-        wf1.validate(fail=False)
-        assert ("Failed validation, reasons: ResourceError: provided cores 1000"
-                in caplog.records[-1].message)
+    with caplog.at_level(logging.INFO, logger="jobmon.client"):
+        wf1.validate(strict=True)
+        assert (
+            "Failed validation, reasons: ResourceError: provided cores 1000 exceeds queue"
+            in caplog.records[-1].message
+        )
 
     # Try again for idempotency
     caplog.clear()
-    with caplog.at_level(logging.WARNING):
-        wf1.validate(fail=False)
-        assert ("Failed validation, reasons: ResourceError: provided cores 1000"
-                in caplog.records[-1].message)
+    with caplog.at_level(logging.INFO, logger="jobmon.client"):
+        wf1.validate(strict=True)
+        assert (
+            "Failed validation, reasons: ResourceError: provided cores 1000 exceeds queue"
+            in caplog.records[-1].message
+        )
 
     # Try with valid resources
     t2 = task_template.create_task(
@@ -444,8 +467,19 @@ def test_workflow_validation(tool, task_template, caplog):
     wf2.add_task(t2)
     wf2.validate()
 
+    # Test that a validate call fails if a different DAG is bound.
+    # Bind wf1, and create a new workflow with the same args but a different DAG.
+    wf1.bind()
+    wf3 = tool.create_workflow(workflow_args=wf1.workflow_args)
+    t3 = task_template.create_task(arg="echo 3")
+    wf3.add_task(t3)
+    with pytest.raises(WorkflowAlreadyExists):
+        wf3._matching_wf_args_diff_hash()
+    with pytest.raises(WorkflowAlreadyExists):
+        wf3.bind()
 
-def test_workflow_get_errors(tool, task_template, db_cfg):
+
+def test_workflow_get_errors(tool, task_template, db_engine):
     """test that num attempts gets reset on a resume."""
 
     from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
@@ -461,17 +495,16 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
 
     # add workflow to database
     workflow1.bind()
-    wfr_1 = workflow1._create_workflow_run()
+    workflow1._bind_tasks()
+    wfr_1 = WorkflowRunFactory(workflow1.workflow_id).create_workflow_run()
 
     # for an just initialized task, get_errors() should be None
     assert task_a.get_errors() is None
 
     # now set everything to error fail
-    app = db_cfg["app"]
-    DB = db_cfg["DB"]
-    with app.app_context():
+    with Session(bind=db_engine) as session:
         # fake workflow run
-        DB.session.execute(
+        session.execute(
             """
             UPDATE workflow_run
             SET status ='{s}'
@@ -479,7 +512,7 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
                 s=WorkflowRunStatus.RUNNING, wfr_id=wfr_1.workflow_run_id
             )
         )
-        DB.session.execute(
+        session.execute(
             """
             INSERT INTO task_instance (workflow_run_id, task_id, status)
             VALUES ({wfr_id}, {t_id}, '{s}')""".format(
@@ -488,11 +521,11 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
                 s=TaskInstanceStatus.LAUNCHED,
             )
         )
-        ti = DB.session.execute(
+        ti = session.execute(
             "SELECT id from task_instance where task_id={}".format(task_a.task_id)
         ).fetchone()
         ti_id_a = ti[0]
-        DB.session.execute(
+        session.execute(
             """
             UPDATE task
             SET status ='{s}'
@@ -500,7 +533,7 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
                 s=TaskStatus.INSTANTIATING, t_id=task_a.task_id
             )
         )
-        DB.session.execute(
+        session.execute(
             """
             INSERT INTO task_instance (workflow_run_id, task_id, status)
             VALUES ({wfr_id}, {t_id}, '{s}')""".format(
@@ -509,11 +542,11 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
                 s=TaskInstanceStatus.LAUNCHED,
             )
         )
-        ti = DB.session.execute(
+        ti = session.execute(
             "SELECT id from task_instance where task_id={}".format(task_b.task_id)
         ).fetchone()
         ti_id_b = ti[0]
-        DB.session.execute(
+        session.execute(
             """
             UPDATE task
             SET status ='{s}'
@@ -521,7 +554,7 @@ def test_workflow_get_errors(tool, task_template, db_cfg):
                 s=TaskStatus.INSTANTIATING, t_id=task_b.task_id
             )
         )
-        DB.session.commit()
+        session.commit()
 
     # log task_instance fatal error for task_a
     app_route = f"/task_instance/{ti_id_a}/log_error_worker_node"

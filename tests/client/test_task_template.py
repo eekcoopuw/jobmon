@@ -2,17 +2,18 @@ import os
 import pytest
 import uuid
 
+from jobmon.client.tool import Tool
+from jobmon.client.task_template import TaskTemplate
+from jobmon.client.task_template_version import TaskTemplateVersion
+
 
 @pytest.fixture(scope="function")
 def tool(client_env):
-    from jobmon.client.tool import Tool
 
     return Tool(name=str(uuid.uuid4()))
 
 
-def test_task_template(db_cfg, client_env, tool):
-    from jobmon.client.task_template import TaskTemplate
-    from jobmon.client.task_template_version import TaskTemplateVersion
+def test_task_template(tool):
 
     tool.get_new_tool_version()
 
@@ -41,7 +42,7 @@ def test_task_template(db_cfg, client_env, tool):
     assert tt.active_task_template_version.id == ttv.id
 
 
-def test_create_and_get_task_template(db_cfg, client_env, tool):
+def test_create_and_get_task_template(tool):
     """test that a task template gets added to the db appropriately. test that
     if a new one gets created with the same params it has the same id"""
     tt1 = tool.get_task_template(
@@ -64,7 +65,7 @@ def test_create_and_get_task_template(db_cfg, client_env, tool):
     assert tt1.active_task_template_version.id == tt2.active_task_template_version.id
 
 
-def test_create_new_task_template_version(db_cfg, client_env, tool):
+def test_create_new_task_template_version(tool):
     """test that a new task template version gets created when the arguments
     that define it change. confirm that reused arguments have the same id"""
     tt1 = tool.get_task_template(
@@ -93,7 +94,7 @@ def test_create_new_task_template_version(db_cfg, client_env, tool):
     assert arg_id1 == arg_id2
 
 
-def test_invalid_args(db_cfg, client_env, tool):
+def test_invalid_args(tool):
     """test that arguments that don't appear in the command template raise a
     ValueError"""
 
@@ -107,9 +108,8 @@ def test_invalid_args(db_cfg, client_env, tool):
         )
 
 
-def test_task_template_resources(db_cfg, client_env, tool):
+def test_task_template_resources(tool):
     """Test task/task template compute resources hierarchy."""
-    from jobmon.client.workflow_run import WorkflowRun
 
     workflow1 = tool.create_workflow(name="test_template_resources")
     tt_resources = {"queue": "null.q", "cores": 1, "max_runtime_seconds": 3}
@@ -130,26 +130,26 @@ def test_task_template_resources(db_cfg, client_env, tool):
     task3 = task_template.create_task(arg="sleep 3")
     workflow1.add_tasks([task1, task2, task3])
     workflow1.bind()
-    workflow1._create_workflow_run()
+    workflow1._bind_tasks()
 
-    assert task1.original_task_resources._requested_resources == {
+    assert task1.original_task_resources.requested_resources == {
         "cores": 1,
         "max_runtime_seconds": 2,
-        "queue": "null.q",
     }
-    assert task2.original_task_resources._requested_resources == {
+    assert task1.original_task_resources.queue.queue_name == "null.q"
+    assert task2.original_task_resources.requested_resources == {
         "cores": 1,
         "max_runtime_seconds": 3,
-        "queue": "null.q",
     }
-    assert task3.original_task_resources._requested_resources == {
+    assert task2.original_task_resources.queue.queue_name == "null.q"
+    assert task3.original_task_resources.requested_resources == {
         "cores": 1,
         "max_runtime_seconds": 3,
-        "queue": "null.q",
     }
+    assert task3.original_task_resources.queue.queue_name == "null.q"
 
 
-def test_task_template_resources_yaml(client_env, db_cfg, tool):
+def test_task_template_resources_yaml(tool):
     """Test users ability to set task template compute resources via YAML."""
     thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
     yaml_file = os.path.join(thisdir, "cluster_resources.yaml")
@@ -208,3 +208,34 @@ def test_task_template_resources_yaml(client_env, db_cfg, tool):
         "max_runtime_seconds": "(60 * 60 * 24)",
         "queue": "null.q",
     }
+
+
+def test_task_template_hash_unique(tool):
+    """Test task_template arg_mapping hash logic. Part of GBDSCI-4593"""
+    task_template = tool.get_task_template(
+        template_name="task_template_unique_hash",
+        command_template="echo {apple} {banana} {cherry} {durian} {elderberry}",
+        node_args=["apple", "banana", "cherry"],
+        task_args=["durian", "elderberry"],
+    )
+    tool.get_task_template(
+        template_name="task_template_unique_hash",
+        command_template="echo {apple} {banana} {cherry} {durian} {elderberry}",
+        node_args=["apple", "banana"],
+        task_args=["cherry", "durian", "elderberry"],
+    )
+    tool.get_task_template(
+        template_name="task_template_unique_hash",
+        command_template="echo {apple} {banana} {cherry} {durian} {elderberry}",
+        node_args=["apple", "cherry"],
+        task_args=["banana", "durian", "elderberry"],
+    )
+
+    # Check that three unique task template versions were created
+    assert len(task_template.task_template_versions) == 3
+
+    # Check that there are three unique arg mapping hash values
+    arg_mapping_set = set()
+    for tt_version in task_template.task_template_versions:
+        arg_mapping_set.add(tt_version.arg_mapping_hash)
+    assert len(arg_mapping_set) == 3

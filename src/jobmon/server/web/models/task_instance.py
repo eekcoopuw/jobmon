@@ -1,23 +1,23 @@
 """Task Instance Database Table."""
-from functools import partial
 from typing import Tuple
 
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
-from werkzeug.local import LocalProxy
+import structlog
 
 from jobmon.exceptions import InvalidStateTransition
 from jobmon.serializers import SerializeTaskInstance
-from jobmon.server.web.log_config import bind_to_logger, get_logger
-from jobmon.server.web.models import DB
+from jobmon.server.web.models import Base
 from jobmon.server.web.models.task_instance_status import TaskInstanceStatus
 from jobmon.server.web.models.task_status import TaskStatus
 
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
-logger = LocalProxy(partial(get_logger, __name__))
+logger = structlog.get_logger(__name__)
 
 
-class TaskInstance(DB.Model):
+class TaskInstance(Base):
     """Task Instance Database Table."""
 
     __tablename__ = "task_instance"
@@ -41,45 +41,55 @@ class TaskInstance(DB.Model):
     def to_wire_as_worker_node_task_instance(self) -> Tuple:
         """Serialize task instance object."""
         return SerializeTaskInstance.to_wire_worker_node(
-            self.id,
-            self.task.command,
-            self.status
+            self.id, self.task.command, self.status
         )
 
-    id = DB.Column(DB.Integer, primary_key=True)
-    workflow_run_id = DB.Column(DB.Integer)
-    array_id = DB.Column(DB.Integer, DB.ForeignKey("array.id"), default=None)
-    cluster_id = DB.Column(DB.Integer, DB.ForeignKey("cluster.id"))
-    distributor_id = DB.Column(DB.Integer, index=True)
-    task_id = DB.Column(DB.Integer, DB.ForeignKey("task.id"))
-    task_resources_id = DB.Column(DB.Integer, DB.ForeignKey("task_resources.id"))
-    array_batch_num = DB.Column(DB.Integer)
-    array_step_id = DB.Column(DB.Integer)
+    id = Column(Integer, primary_key=True)
+    workflow_run_id = Column(Integer, ForeignKey("workflow_run.id"))
+    array_id = Column(Integer, ForeignKey("array.id"), default=None)
+    task_id = Column(Integer, ForeignKey("task.id"))
+    task_resources_id = Column(Integer, ForeignKey("task_resources.id"), index=True)
+    array_batch_num = Column(Integer, index=True)
+    array_step_id = Column(Integer, index=True)
+
+    distributor_id = Column(String(20), index=True)
 
     # usage
-    nodename = DB.Column(DB.String(150))
-    process_group_id = DB.Column(DB.Integer)
-    usage_str = DB.Column(DB.String(250))
-    wallclock = DB.Column(DB.String(50))
-    maxrss = DB.Column(DB.String(50))
-    maxpss = DB.Column(DB.String(50))
-    cpu = DB.Column(DB.String(50))
-    io = DB.Column(DB.String(50))
+    nodename = Column(String(150))
+    process_group_id = Column(Integer)
+    usage_str = Column(String(250))
+    wallclock = Column(String(50))
+    maxrss = Column(String(50))
+    maxpss = Column(String(50))
+    cpu = Column(String(50))
+    io = Column(String(50))
+    stdout = Column(String(2048))
+    stderr = Column(String(2048))
 
     # status/state
-    status = DB.Column(
-        DB.String(1),
-        DB.ForeignKey("task_instance_status.id"),
+    status = Column(
+        String(1),
+        ForeignKey("task_instance_status.id"),
         default=TaskInstanceStatus.QUEUED,
     )
-    submitted_date = DB.Column(DB.DateTime)
-    status_date = DB.Column(DB.DateTime, default=func.now())
-    report_by_date = DB.Column(DB.DateTime)
+    submitted_date = Column(DateTime)
+    status_date = Column(DateTime, default=func.now())
+    report_by_date = Column(DateTime)
 
     # ORM relationships
-    task = DB.relationship("Task", back_populates="task_instances")
-    errors = DB.relationship("TaskInstanceErrorLog", back_populates="task_instance")
-    task_resources = DB.relationship("TaskResources")
+    task = relationship("Task", back_populates="task_instances")
+    errors = relationship("TaskInstanceErrorLog", back_populates="task_instance")
+    task_resources = relationship("TaskResources")
+
+    __table_args__ = (
+        Index(
+            "ix_array_batch_index",
+            "array_id",
+            "array_batch_num",
+            "array_step_id",
+        ),
+        Index("ix_status_status_date", "status", "status_date"),
+    )
 
     # finite state machine transition information
     valid_transitions = [
@@ -194,11 +204,11 @@ class TaskInstance(DB.Model):
     def transition(self, new_state: str) -> None:
         """Transition the TaskInstance status."""
         # if the transition is timely, move to new state. Otherwise do nothing
-        bind_to_logger(
-            workflow_run_id=self.workflow_run_id,
-            task_id=self.task_id,
-            task_instance_id=self.id,
-        )
+        # bind_to_logger(
+        #     workflow_run_id=self.workflow_run_id,
+        #     task_id=self.task_id,
+        #     task_instance_id=self.id,
+        # )
         if self._is_timely_transition(new_state):
             self._validate_transition(new_state)
             logger.info(
@@ -226,12 +236,16 @@ class TaskInstance(DB.Model):
     def _validate_transition(self, new_state: str) -> None:
         """Ensure the TaskInstance status transition is valid."""
         if (self.status, new_state) not in self.__class__.valid_transitions:
-            raise InvalidStateTransition("TaskInstance", self.id, self.status, new_state)
+            raise InvalidStateTransition(
+                "TaskInstance", self.id, self.status, new_state
+            )
 
     def _is_timely_transition(self, new_state: str) -> bool:
         """Check if the transition is invalid due to a race condition."""
         if (self.status, new_state) in self.__class__.untimely_transitions:
-            msg = str(InvalidStateTransition("TaskInstance", self.id, self.status, new_state))
+            msg = str(
+                InvalidStateTransition("TaskInstance", self.id, self.status, new_state)
+            )
             msg += (
                 ". This is an untimely transition likely caused by a race "
                 " condition between the distributor_service and the worker_node."

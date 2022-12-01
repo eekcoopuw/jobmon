@@ -12,14 +12,13 @@ from typing import (
     Optional,
     Tuple,
     Type,
-    Union,
     TYPE_CHECKING,
+    Union,
 )
 
 import yaml
 
 from jobmon.client.array import Array
-from jobmon.client.client_config import ClientConfig
 from jobmon.client.node import Node
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
@@ -65,8 +64,7 @@ class TaskTemplate:
         self._active_task_template_version: TaskTemplateVersion
 
         if requester is None:
-            requester_url = ClientConfig.from_defaults().url
-            requester = Requester(requester_url)
+            requester = Requester.from_defaults()
         self.requester = requester
 
     @classmethod
@@ -130,7 +128,6 @@ class TaskTemplate:
                 "task_template_name": self.template_name,
             },
             request_type="post",
-            logger=logger,
         )
 
         if return_code != StatusCodes.OK:
@@ -197,9 +194,32 @@ class TaskTemplate:
         self.active_task_template_version.default_cluster_name = cluster_name
 
     @property
+    def default_max_attempts(self) -> Optional[int]:
+        """Default max attempts of the active tool version."""
+        if self.active_task_template_version.default_max_attempts is None:
+            if self.tool_version.default_max_attempt:
+                self.active_task_template_version.set_default_max_attempts(
+                    self.tool_version.default_max_attempt
+                )
+        return self.active_task_template_version.default_max_attempts
+
+    def set_default_max_attempts(self, value: int) -> None:
+        """Set default max_attempts.
+
+        Args:
+            value: value of max_attempts.
+        """
+        self.active_task_template_version.default_max_attempts = value
+
+    @property
     def default_compute_resources_set(self) -> Dict[str, Dict[str, Any]]:
         """Default compute resources associated with active tool version."""
         return self.active_task_template_version.default_compute_resources_set
+
+    @property
+    def default_resource_scales_set(self) -> Dict[str, Dict[str, float]]:
+        """Default resource scales associated with active tool version."""
+        return self.active_task_template_version.default_resource_scales_set
 
     def update_default_compute_resources(
         self, cluster_name: str, **kwargs: Any
@@ -214,6 +234,20 @@ class TaskTemplate:
             **kwargs: any key/value pair you want to update specified as an argument.
         """
         self.active_task_template_version.update_default_compute_resources(
+            cluster_name, **kwargs
+        )
+
+    def update_default_resource_scales(self, cluster_name: str, **kwargs: Any) -> None:
+        """Update default resource scales in place only overridding specified keys.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to modify default values for.
+            **kwargs: any key/value pair you want to update specified as an argument.
+        """
+        self.active_task_template_version.update_default_resource_scales(
             cluster_name, **kwargs
         )
 
@@ -255,6 +289,44 @@ class TaskTemplate:
             ),
         )
 
+    def set_default_resource_scales_from_yaml(
+        self, yaml_file: str, default_cluster_name: str = ""
+    ) -> None:
+        """Set default Resource Scales from a user provided yaml file for task template level.
+
+        Args:
+            default_cluster_name: name of cluster to set default values for.
+            yaml_file: the yaml file that is providing the compute resource values.
+        """
+        if self.default_cluster_name is None and default_cluster_name is None:
+            raise ValueError(
+                "Must specify default_cluster_name when using default_resource_scales "
+                "option. Set in tool.get_task_template() or "
+                "set_default_resource_scales_from_yaml"
+            )
+
+        # Take passed-in default_cluster_name over task_template.default_cluster_name
+        elif not default_cluster_name:
+            default_cluster_name = self.default_cluster_name
+
+        # Read in resource scales from YAML
+        with open(yaml_file, "r") as stream:
+            try:
+                resource_scales = yaml.safe_load(stream)
+            except yaml.YAMLError as exc:
+                raise ValueError(
+                    f"Unable to read compute resources from {yaml_file}."
+                ) from exc
+
+        self.active_task_template_version.set_default_resource_scales_from_dict(
+            self.default_cluster_name,
+            (
+                resource_scales["task_template_scales"][self.template_name][
+                    default_cluster_name
+                ]
+            ),
+        )
+
     def set_default_compute_resources_from_dict(
         self, cluster_name: str, compute_resources: Dict[str, Any]
     ) -> None:
@@ -268,8 +340,27 @@ class TaskTemplate:
             compute_resources: dictionary of default compute resources to run tasks
                 with. Can be overridden at task level. dict of {resource_name: resource_value}
         """
+        self.default_cluster_name = cluster_name
         self.active_task_template_version.set_default_compute_resources_from_dict(
             cluster_name, compute_resources
+        )
+
+    def set_default_resource_scales_from_dict(
+        self, cluster_name: str, resource_scales: Dict[str, float]
+    ) -> None:
+        """Set default resource scales for a given cluster_name.
+
+        If no default cluster is specified when this method is called, cluster_name will
+        become the default cluster.
+
+        Args:
+            cluster_name: name of cluster to set default values for.
+            resource_scales: dictionary of default resource scales to adjust task
+                resources with. Can be overridden at task level.
+        """
+        self.default_cluster_name = cluster_name
+        self.active_task_template_version.set_default_resource_scales_from_dict(
+            cluster_name, resource_scales
         )
 
     def set_active_task_template_version_id(
@@ -344,7 +435,7 @@ class TaskTemplate:
         """Load task template versions associated with this task template from the database."""
         app_route = f"/task_template/{self.id}/versions"
         return_code, response = self.requester.send_request(
-            app_route=app_route, message={}, request_type="get", logger=logger
+            app_route=app_route, message={}, request_type="get"
         )
 
         if return_code != StatusCodes.OK:
@@ -366,11 +457,13 @@ class TaskTemplate:
     def get_task_template_version(
         self,
         command_template: str,
-        node_args: List[str] = None,
-        task_args: List[str] = None,
-        op_args: List[str] = None,
+        node_args: Optional[List[str]] = None,
+        task_args: Optional[List[str]] = None,
+        op_args: Optional[List[str]] = None,
         default_cluster_name: str = "",
         default_compute_resources: Optional[Dict[str, Any]] = None,
+        default_resource_scales: Optional[Dict[str, float]] = None,
+        default_max_attempts: Optional[int] = None,
     ) -> TaskTemplateVersion:
         """Create a task template version instance. If it already exists, activate it.
 
@@ -392,6 +485,10 @@ class TaskTemplate:
             default_compute_resources: dictionary of default compute resources to run tasks
                 with. Can be overridden at task level. dict of {resource_name: resource_value}.
                 Must specify default_cluster_name when this option is used.
+            default_resource_scales: dictionary of default resource scales to adjust task
+                resources with. Can be overridden at task level.
+                dict of {resource_name: scale_value}.
+            default_max_attempts: default max_attempts associated with this template on.
         """
         if default_compute_resources is not None and not default_cluster_name:
             raise ValueError(
@@ -414,9 +511,14 @@ class TaskTemplate:
         )
         # set compute resources on the task template version if specified
         task_template_version.default_cluster_name = default_cluster_name
+        task_template_version.default_max_attempts = default_max_attempts
         if default_compute_resources:
             task_template_version.set_default_compute_resources_from_dict(
                 default_cluster_name, default_compute_resources
+            )
+        if default_resource_scales:
+            task_template_version.set_default_resource_scales_from_dict(
+                default_cluster_name, default_resource_scales
             )
 
         # now activate it
@@ -429,7 +531,7 @@ class TaskTemplate:
         name: str = "",
         upstream_tasks: List[Task] = [],
         task_attributes: Union[List, dict] = {},
-        max_attempts: int = 3,
+        max_attempts: Optional[int] = None,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, Any]] = None,
@@ -509,18 +611,19 @@ class TaskTemplate:
         )
         return task
 
-    def create_array(
+    def create_tasks(
         self,
-        max_attempts: int = 3,
+        max_attempts: Optional[int] = None,
         upstream_tasks: Optional[List[Task]] = None,
         max_concurrently_running: int = 10_000,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, Any]] = None,
         cluster_name: str = "",
+        name: Optional[str] = None,
         **kwargs: Any,
-    ) -> Array:
-        """Creates a client side array expectation.
+    ) -> List[Task]:
+        """Creates a set of tasks equal to the cross product of all node args.
 
         Args:
             max_attempts: the max number of attempts a task in the array can be retried
@@ -535,8 +638,8 @@ class TaskTemplate:
             cluster_name: The cluster the array will run on
             **kwargs: task, node, and op_args as defined in the command template. If you
                 provide node_args as an iterable, they will be expanded.
+            name: the name of the array.
         """
-
         if upstream_tasks is None:
             upstream_tasks = []
 
@@ -569,22 +672,21 @@ class TaskTemplate:
             op_args=op_args,
             cluster_name=cluster_name,
             max_concurrently_running=max_concurrently_running,
-            max_attempts=max_attempts,
             upstream_tasks=upstream_tasks,
             compute_resources=compute_resources,
             compute_resources_callable=compute_resources_callable,
             resource_scales=resource_scales,
+            name=name,
         )
 
         # Create tasks on the array
-        if node_args:
-            array.create_tasks(
-                upstream_tasks=upstream_tasks,
-                max_attempts=max_attempts,
-                resource_scales=resource_scales,
-                **node_args,
-            )
-        return array
+        tasks = array.create_tasks(
+            upstream_tasks=upstream_tasks,
+            max_attempts=max_attempts,
+            resource_scales=resource_scales,
+            **node_args,
+        )
+        return tasks
 
     def __hash__(self) -> int:
         """A hash of the TaskTemplate name and tool version concatenated together."""
@@ -595,9 +697,9 @@ class TaskTemplate:
 
     def resource_usage(
         self,
-        workflows: List[int] = None,
-        node_args: Dict[str, Any] = None,
-        ci: float = None,
+        workflows: Optional[List[int]] = None,
+        node_args: Optional[Dict[str, Any]] = None,
+        ci: Optional[float] = None,
     ) -> Optional[dict]:
         """Get the aggregate resource usage for a TaskTemplate."""
         message: Dict[Any, Any] = dict()
@@ -622,7 +724,7 @@ class TaskTemplate:
             message["ci"] = ci
         app_route = "/task_template_resource_usage"
         return_code, response = self.requester.send_request(
-            app_route=app_route, message=message, request_type="post", logger=logger
+            app_route=app_route, message=message, request_type="post"
         )
         if return_code != StatusCodes.OK:
             raise InvalidResponse(
@@ -660,7 +762,7 @@ class TaskTemplate:
         )
 
         try:
-            repr_string += f", tool_version_id={self.tool_version_id}"
+            repr_string += f", tool_version_id={self.tool_version.id}"
             repr_string += f", id={self.id})"
         except AttributeError:
             # Bind somehow not called, so terminate the repr string

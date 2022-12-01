@@ -53,10 +53,10 @@ For users
         Nodes are the object representing a Task within a DAG.
 
     Distributor
-        Where the Tasks will be run. At IHME you will usually the UGE Distributor or Slurm
-        Distributor. However Jobs can be run locally using Multiprocessing Distributor, or
-        Sequential Distributor. If the user wants to set up the Jobmon Workflow and test it
-        without risking actually running the commands, they can use the Dummy Distributor which
+        Where the Tasks will be run. At IHME you will usually run on the Slurm Distributor.
+        However, jobs can be run locally using Multiprocessing Distributor or Sequential
+        Distributor. If the user wants to set up the Jobmon Workflow and test it without
+        risking actually running the commands, they can use the Dummy Distributor which
         imitates job submission.
 
     Workflow Attributes

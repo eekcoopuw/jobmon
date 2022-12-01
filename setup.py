@@ -9,31 +9,29 @@ INSTALL_REQUIRES = [
     'numpy',
     'pandas',
     'psutil',
-    'python_json_logger',
     'pyyaml',
     'requests',
-    'scipy',
-    'structlog',
     'tabulate',
     'tenacity',
-    'tblib',
-    'typing_extensions'
+    'typing_extensions'  # TODO: remove when we no longer support 3.7
 ]
 
 SERVER_REQUIRES = [
     'flask',
     'flask_cors',
-    'Flask-SQLAlchemy',
     'elastic-apm[flask]',
     'pymysql',  # install MySQLdb/mysqlclient for more performance
     'python-logstash-async',
     'slurm_rest',  # TODO: when the integrator is split out, remove this dependency
     'sqlalchemy',
+    'python_json_logger',
+    'structlog',
+    'scipy==1.8.1',  # Pinned because scipy 1.9.0 is not compatible with uwsgi for some reason.
 ]
 
 # pip install -e .[test]
 TEST_REQUIRES = [
-    "pytest",
+    "pytest",  
     "pytest-xdist",
     "pytest-cov",
     "mock",
@@ -88,11 +86,8 @@ setup(
     packages=find_packages('src'),
     package_dir={'': 'src'},
     py_modules=[os.path.splitext(os.path.basename(path))[0] for path in glob('src/*.py')],
-    include_package_data=True,
-    zip_safe=False,
-    package_data={"jobmon": ["py.typed"]},
+    package_data={"jobmon": ["py.typed", "defaults.ini"]},
 
-    setup_requires=["setuptools_scm"],
     use_scm_version={'local_scheme': 'no-local-version',
                      'write_to': 'src/jobmon/_version.py',
                      'fallback_version': '0.0.0',
@@ -101,7 +96,7 @@ setup(
     entry_points={
         'console_scripts': [
             'jobmon=jobmon.client.cli:main',
-            'jobmon_config=jobmon.cli:main',
+            'jobmon_config=jobmon.configuration:main',
             'jobmon_distributor=jobmon.client.distributor.cli:main',
             'jobmon_server=jobmon.server.cli:main [server]',
             'worker_node_entry_point=jobmon.worker_node.cli:run'
