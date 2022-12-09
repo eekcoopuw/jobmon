@@ -538,3 +538,35 @@ def task_details_by_wf_id(workflow_id: int) -> Any:
     res = jsonify(tasks=result)
     res.return_code = StatusCodes.OK
     return res
+
+
+@blueprint.route("/workflow_details_viz/<workflow_id>", methods=["GET"])
+def wf_details_by_wf_id(workflow_id: int) -> Any:
+    """Fetch name, args, dates, tool for a Workflow provided WF ID."""
+    session = SessionLocal()
+    with session.begin():
+        sql = select(
+            Workflow.name,
+            Workflow.workflow_args,
+            Workflow.created_date,
+            Workflow.status_date,
+            Tool.name,
+        ).where(
+            Workflow.id == workflow_id,
+            Workflow.tool_version_id == ToolVersion.id,
+            ToolVersion.tool_id == Tool.id,
+        )
+        rows = session.execute(sql).all()
+        
+    column_names = (
+        "wf_name",
+        "wf_args",
+        "wf_created_date",
+        "wf_status_date",
+        "tool_name",
+    )
+
+    result = [dict(zip(column_names, row)) for row in rows]
+    resp = jsonify(result)
+    resp.status_code = 200
+    return resp
