@@ -41,7 +41,7 @@ extensions = [
     'sphinx_autodoc_typehints',
     'sphinx.ext.graphviz',
     'sphinx.ext.autosectionlabel',
-    'sphinx_code_tabs',
+    'sphinx_tabs.tabs',
     'webservice',
 ]
 

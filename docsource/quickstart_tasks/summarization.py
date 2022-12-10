@@ -6,6 +6,10 @@ from typing import Dict
 
 def get_args():
     parser = argparse.ArgumentParser()
+    parser.add_argument('-r', '--root_data_dir',
+                        required=False,
+                        action='store',
+                        help='root_data_dir')
     parser.add_argument('-v', '--log_level',
                         required=False,
                         action='store',
@@ -15,8 +19,7 @@ def get_args():
 
 
 def write_dummy_data(args: Dict) -> None:
-    user = getpass.getuser()
-    output_path = f'/ihme/scratch/users/{user}/jobmon_quickstart_example/'
+    output_path = f'{args.root_data_dir}/jobmon_quickstart_example/'
     if not os.path.exists(output_path):
         os.makedirs(output_path)
 

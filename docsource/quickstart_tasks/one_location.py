@@ -6,10 +6,14 @@ from typing import Dict
 
 def get_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-l', '--location_set_id',
+    parser.add_argument('-l', '--location_id',
                         required=False,
                         action='store',
-                        help='location_set_id')
+                        help='location_id')
+    parser.add_argument('-r', '--root_data_dir',
+                        required=False,
+                        action='store',
+                        help='root_data_dir')
     parser.add_argument('-v', '--log_level',
                         required=False,
                         action='store',
@@ -19,14 +23,11 @@ def get_args():
 
 
 def write_dummy_data(args: Dict) -> None:
-    user = getpass.getuser()
-    output_path = f'/ihme/scratch/users/{user}/jobmon_quickstart_example/'
+    output_path = f'{args.root_data_dir}/jobmon_quickstart_example'
     if not os.path.exists(output_path):
         os.makedirs(output_path)
-    location_ids = list(range(args.location_set_id))
-    for loc_id in location_ids:
-        with open(f'{output_path}/data_shard_{loc_id}.txt', 'w') as f:
-            f.write(f'location_id: {loc_id}, log_level: {args.log_level}')
+    with open(f'{output_path}/location_result_{args.location_id}.txt', 'w') as f:
+        f.write(f'intermediate result, location_id: {args.location_id}, log_level: {args.log_level}')
 
 
 def main():
