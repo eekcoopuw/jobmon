@@ -36,9 +36,9 @@ To install both at once via pip::
 
     pip install jobmon[ihme]
 
-Then issue the following command to configure the web service and port:
+Then issue the following command to configure the web service and port::
 
-    .. webservicedir::
+    jobmon_config update --web_service_fqdn jobmon.scicomp.ihme.washington.edu --web_service_port 80
 
 .. note::
     If you get the error **"Could not find a version that satisfies the requirement jobmon (from version: )"** then create (or append) the following to your ``~/.pip/pip.conf``::
