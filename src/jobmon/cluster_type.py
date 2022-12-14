@@ -71,7 +71,11 @@ class ClusterType:
     def package_location(self) -> str:
         if not self._package_location:
             raise AttributeError("package_location not set.")
-        return self._package_location
+        # GBDSCI-5171
+        if self._package_location == "jobmon_slurm":
+            return "jobmon_slurm.plugin"
+        else:
+            return self._package_location
 
     @package_location.setter
     def package_location(self, val: str) -> None:

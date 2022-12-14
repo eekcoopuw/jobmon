@@ -73,7 +73,7 @@ class Task:
         resource_scales: Optional[Dict[str, float]] = None,
         fallback_queues: Optional[List[str]] = None,
         name: Optional[str] = None,
-        max_attempts: int = 3,
+        max_attempts: Optional[int] = None,
         upstream_tasks: Optional[List[Task]] = None,
         task_attributes: Union[List, dict, None] = None,
         requester: Optional[Requester] = None,
@@ -161,7 +161,7 @@ class Task:
             )
 
         # mutable operational/cluster behaviour
-        self.max_attempts: int = max_attempts
+        self._instance_max_attempts = max_attempts
         self._instance_cluster_name = cluster_name
         self._instance_compute_resources = (
             compute_resources if compute_resources is not None else {}
@@ -226,6 +226,22 @@ class Task:
                 # array hasn't been inferred yet. safe to return empty string for now
                 pass
         return cluster_name
+
+    @property
+    def max_attempts(self) -> int:
+        """Get the max_attempts."""
+        ma = self._instance_max_attempts
+        if not ma:
+            try:
+                ma = self.array.max_attempts
+            except AttributeError:
+                # max_attempts hasn't been inferred yet. safe to return empty string for now
+                pass
+            finally:
+                if ma is None:
+                    ma = 3
+                    self._instance_max_attempts = ma
+        return ma
 
     @property
     def compute_resources_callable(self) -> Optional[Callable]:

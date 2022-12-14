@@ -353,7 +353,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 isouter=True,
             )
         )
-
+        # Order by the task submitted date in each task template
         sql = (
             select(
                 TaskTemplate.id,
@@ -365,7 +365,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
             )
             .select_from(join_table)
             .where(Task.workflow_id == workflow_id)
-            .order_by(Task.id)
+            .order_by(Task.submitted_date)
         )
         # For performance reasons, use STRAIGHT_JOIN to set the join order. If not set,
         # the optimizer may choose a suboptimal execution plan for large datasets.

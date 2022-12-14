@@ -31,7 +31,7 @@ SERVER_REQUIRES = [
 
 # pip install -e .[test]
 TEST_REQUIRES = [
-    "pytest",
+    "pytest",  
     "pytest-xdist",
     "pytest-cov",
     "mock",
