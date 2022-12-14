@@ -353,7 +353,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 isouter=True,
             )
         )
-
+        # Order by the task submitted date in each task template
         sql = (
             select(
                 TaskTemplate.id,
