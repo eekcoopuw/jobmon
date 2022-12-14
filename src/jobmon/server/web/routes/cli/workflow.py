@@ -557,7 +557,7 @@ def wf_details_by_wf_id(workflow_id: int) -> Any:
             ToolVersion.tool_id == Tool.id,
         )
         rows = session.execute(sql).all()
-    # lint is not happy with this line
+
     column_names = (
         "wf_name",
         "wf_args",
