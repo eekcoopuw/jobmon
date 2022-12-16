@@ -41,25 +41,41 @@ class WebServerProcess:
         """Starts the web service process."""
         # jobmon_cli string
         database_uri = f"sqlite:///{self.filepath}"
-        argstr = f"web_service --port {self.web_port} --sqlalchemy_database_uri {database_uri}"
 
-        def run_server_with_handler(argstr: str) -> None:
+        def run_server_with_handler() -> None:
             def sigterm_handler(_signo: int, _stack_frame: Any) -> None:
                 # catch SIGTERM and shut down with 0 so pycov finalizers are run
                 # Raises SystemExit(0):
                 sys.exit(0)
+            signal.signal(signal.SIGTERM, sigterm_handler)
 
-            from jobmon.server.cli import main
+            from jobmon.server.web.api import get_app, JobmonConfig, configure_logging
             from jobmon.server.web.models import init_db
             from sqlalchemy import create_engine
 
             init_db(create_engine(database_uri))
 
-            signal.signal(signal.SIGTERM, sigterm_handler)
-            main(argstr)
+            config = JobmonConfig(
+                dict_config={"db": {"sqlalchemy_database_uri": database_uri}}
+            )
+            configure_logging(
+                loggers_dict={
+                    "jobmon.server.web": {
+                        "handlers": ["console_text"],
+                        "level": "INFO",
+                    },
+                    # enable SQL debug
+                    # 'sqlalchemy.engine': {
+                    #     'level': 'INFO',
+                    # }
+                }
+            )
+            app = get_app(config)
+            with app.app_context():
+                app.run(host="0.0.0.0", port=self.web_port)
 
         ctx = mp.get_context("fork")
-        self.p1 = ctx.Process(target=run_server_with_handler, args=(argstr,))
+        self.p1 = ctx.Process(target=run_server_with_handler)
         self.p1.start()
 
         # Wait for it to be up

@@ -18,23 +18,10 @@ class ServerCLI(CLI):
         self._subparsers = self.parser.add_subparsers(dest="sub_command")
 
         # now add specific sub parsers
-        self._add_web_service_subparser()
         self._add_workflow_reaper_subparser()
         self._add_integrator_subparser()
         self._add_init_db_subparser()
         self._add_terminate_db_subparser()
-
-    def web_service(self, args: argparse.Namespace) -> None:
-        """Web service entrypoint logic."""
-        from jobmon.server.web.api import AppFactory, log_config
-
-        app_factory = AppFactory(sqlalchemy_database_uri=args.sqlalchemy_database_uri)
-        log_config.configure_logger(
-            "jobmon.server.web", app_factory.logstash_handler_config
-        )
-        app = app_factory.get_app()
-        with app.app_context():
-            app.run(host="0.0.0.0", port=args.port)
 
     def workflow_reaper(self, args: argparse.Namespace) -> None:
         """Workflow reaper entrypoint logic."""
@@ -95,23 +82,6 @@ class ServerCLI(CLI):
             sqlalchemy_database_uri = config.get("db", "sqlalchemy_database_uri")
         engine = sqlalchemy.create_engine(sqlalchemy_database_uri)
         terminate_db(engine)
-
-    def _add_web_service_subparser(self) -> None:
-        web_service_parser = self._subparsers.add_parser("web_service")
-        web_service_parser.set_defaults(func=self.web_service)
-        web_service_parser.add_argument(
-            "--port",
-            type=int,
-            help="port that web service is listening on",
-            required=True,
-        )
-        web_service_parser.add_argument(
-            "--sqlalchemy_database_uri",
-            type=str,
-            help="The connection string for sqlalchemy to use when running the server.",
-            required=False,
-            default="",
-        )
 
     def _add_workflow_reaper_subparser(self) -> None:
         reaper_parser = self._subparsers.add_parser("workflow_reaper")
