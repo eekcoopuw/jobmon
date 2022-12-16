@@ -59,13 +59,13 @@ def configure_structlog() -> None:
 
 default_formatters: Dict = {
     # copied formatter from here: https://github.com/hynek/structlog/issues/235
-    "text_formatter": {
+    "text": {
         "()": structlog.stdlib.ProcessorFormatter,
         "processor": structlog.dev.ConsoleRenderer(),
         "keep_exc_info": True,
         "keep_stack_info": True,
     },
-    "json_formatter": {
+    "json": {
         "()": structlog.stdlib.ProcessorFormatter,
         "processor": structlog.processors.JSONRenderer(),
     }
@@ -74,12 +74,12 @@ default_handlers: Dict = {
     "console_text": {
         "level": "INFO",
         "class": "logging.StreamHandler",
-        "formatter": "text_formatter",
+        "formatter": "text",
     },
     "console_json": {
         "level": "INFO",
         "class": "logging.StreamHandler",
-        "formatter": "json_formatter",
+        "formatter": "json",
     },
 }
 default_loggers: Dict = {
