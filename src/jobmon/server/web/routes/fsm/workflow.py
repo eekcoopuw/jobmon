@@ -454,7 +454,7 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
 
         # get the queue and cluster
         for queue_id in queue_map.keys():
-            queue = Queue.get(queue_id)
+            queue = session.get(Queue, queue_id)
             queue_name = queue.name
             cluster_name = queue.cluster.name
             for task_id in queue_map[queue_id]:
