@@ -443,9 +443,10 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
         queue_map: Dict[int, List[int]] = {}
         resp_dict = {}
         for row in res:
+            logger.info(row)
             task_id = row[0]
             queue_id = row[8]
-            row_metadata = row[1:7]
+            row_metadata = row[1:8]
 
             resp_dict[task_id] = list(row_metadata)
             if queue_id not in queue_map:

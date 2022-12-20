@@ -311,11 +311,9 @@ class WorkflowRun:
                     array_id,
                     array_concurrency,
                     status,
-
                     max_attempts,
                     resource_scales,
                     fallback_queues,
-
                     requested_resources,
                     cluster_name,
                     queue_name,
