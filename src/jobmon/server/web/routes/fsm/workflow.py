@@ -410,17 +410,14 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
         query = (
             select(
                 Task.id,
-
                 Task.array_id,
                 Array.max_concurrently_running,
                 Task.status,
-
                 Task.max_attempts,
                 Task.resource_scales,
                 Task.fallback_queues,
-
                 TaskResources.requested_resources,
-                TaskResources.queue_id
+                TaskResources.queue_id,
             )
             .join_from(
                 Task, Array, Task.array_id == Array.id
@@ -447,8 +444,8 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
         resp_dict = {}
         for row in res:
             task_id = row[0]
-            queue_id = row[9]
-            row_metadata = row[1:8]
+            queue_id = row[8]
+            row_metadata = row[1:7]
 
             resp_dict[task_id] = list(row_metadata)
             if queue_id not in queue_map:
