@@ -1,6 +1,6 @@
 """Routes for Workflows."""
 from http import HTTPStatus as StatusCodes
-from typing import Any, cast, Dict, Tuple
+from typing import Any, cast, Dict, List, Tuple
 
 from flask import jsonify, request
 import sqlalchemy
@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 import structlog
 
 from jobmon.server.web.models.array import Array
-from jobmon.server.web.models.cluster import Cluster
 from jobmon.server.web.models.dag import Dag
 from jobmon.server.web.models.queue import Queue
 from jobmon.server.web.models.task import Task
@@ -440,13 +439,26 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
             .limit(chunk_size)
         )
         res = session.execute(query).all()
-        resp_dict = {row[0]: row[1:] for row in res}
+
+        queue_map: Dict[int, List[int]] = {}
+        resp_dict = {}
+        for row in res:
+            task_id = row[0]
+            queue_id = row[8]
+            row_metadata = row[1:7]
+
+            resp_dict[task_id] = list(row_metadata)
+            if queue_id not in queue_map:
+                queue_map[queue_id] = []
+            queue_map[queue_id].append(task_id)
 
         # get the queue and cluster
-        queue_id = resp_dict.pop('queue_id')
-        queue = Queue.get(queue_id)
-        resp_dict["queue_name"] = queue.name
-        resp_dict["cluster_name"] = queue.cluster.name
+        for queue_id in queue_map.keys():
+            queue = Queue.get(queue_id)
+            queue_name = queue.name
+            cluster_name = queue.cluster.name
+            for task_id in queue_map[queue_id]:
+                resp_dict[task_id].extend([cluster_name, queue_name])
 
     resp = jsonify(tasks=resp_dict)
     resp.status_code = StatusCodes.OK
