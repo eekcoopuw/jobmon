@@ -421,17 +421,25 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
                 Cluster.name,
                 Queue.name,
             )
+            .join_from(
+                Task, Array, Task.array_id == Array.id
+            )
+            .join_from(
+                Task, TaskResources, Task.task_resources_id == TaskResources.id
+            )
+            .join_from(
+                TaskResources, Queue, TaskResources.queue_id == Queue.id
+            )
+            .join_from(
+                Queue, Cluster, Queue.cluster_id == Cluster.id
+            )
             .where(
                 Task.workflow_id == workflow_id,
-                Task.task_resources_id == TaskResources.id,
-                TaskResources.queue_id == Queue.id,
-                Queue.cluster_id == Cluster.id,
                 # Note: because of this status != "DONE" filter, only the portion of the DAG
                 # that is not complete is returned. Assumes that all tasks in a workflow
                 # correspond to nodes that belong in the same DAG, and that no downstream
                 # nodes can be in DONE for any unfinished task
                 Task.status != TaskStatus.DONE,
-                Task.array_id == Array.id,
                 # Greater than set by the input max_task_id
                 Task.id > max_task_id,
             )
