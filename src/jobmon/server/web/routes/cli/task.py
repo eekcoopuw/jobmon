@@ -467,11 +467,13 @@ def _get_tasks_from_nodes(
     return task_dict
 
 
-@blueprint.route("/task/get_downstream_tasks", methods=["GET"])
+@blueprint.route("/task/get_downstream_tasks", methods=["POST"])
 def get_downstream_tasks() -> Any:
     """Get only the direct downstreams of a task."""
-    task_ids = request.args.getlist("task_ids")
-    dag_id = request.args.get("dag_id")
+    data = cast(Dict, request.get_json())
+
+    task_ids = data["task_ids"]
+    dag_id = data["dag_id"]
     session = SessionLocal()
     with session.begin():
 

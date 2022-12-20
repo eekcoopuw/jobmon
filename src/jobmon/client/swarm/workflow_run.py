@@ -393,7 +393,7 @@ class WorkflowRun:
             _, edge_resp = self.requester.send_request(
                 app_route="/task/get_downstream_tasks",
                 message={"task_ids": task_id_chunk, "dag_id": self.dag_id},
-                request_type="get",
+                request_type="post",
             )
             downstream_tasks = edge_resp["downstream_tasks"]
             # Format is {task_id: (node_id, '[downstream_node_ids]')}
