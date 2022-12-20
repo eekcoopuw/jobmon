@@ -418,20 +418,13 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
                 Task.resource_scales,
                 Task.fallback_queues,
                 TaskResources.requested_resources,
-                Cluster.name,
-                Queue.name,
+                TaskResources.queue_id
             )
             .join_from(
                 Task, Array, Task.array_id == Array.id
             )
             .join_from(
                 Task, TaskResources, Task.task_resources_id == TaskResources.id
-            )
-            .join_from(
-                TaskResources, Queue, TaskResources.queue_id == Queue.id
-            )
-            .join_from(
-                Queue, Cluster, Queue.cluster_id == Cluster.id
             )
             .where(
                 Task.workflow_id == workflow_id,
@@ -448,6 +441,12 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
         )
         res = session.execute(query).all()
         resp_dict = {row[0]: row[1:] for row in res}
+
+        # get the queue and cluster
+        queue_id = resp_dict.pop('queue_id')
+        queue = Queue.get(queue_id)
+        resp_dict["queue_name"] = queue.name
+        resp_dict["cluster_name"] = queue.cluster.name
 
     resp = jsonify(tasks=resp_dict)
     resp.status_code = StatusCodes.OK
