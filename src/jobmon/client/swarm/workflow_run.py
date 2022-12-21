@@ -309,7 +309,6 @@ class WorkflowRun:
             for task_id, metadata in task_dict.items():
                 (
                     array_id,
-                    array_concurrency,
                     status,
                     max_attempts,
                     resource_scales,
@@ -317,6 +316,7 @@ class WorkflowRun:
                     requested_resources,
                     cluster_name,
                     queue_name,
+                    array_concurrency,
                 ) = metadata
 
                 # Convert datatypes as appropriate

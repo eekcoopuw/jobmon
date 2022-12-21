@@ -411,7 +411,6 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
             select(
                 Task.id,
                 Task.array_id,
-                Array.max_concurrently_running,
                 Task.status,
                 Task.max_attempts,
                 Task.resource_scales,
@@ -441,16 +440,21 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
         res = session.execute(query).all()
 
         queue_map: Dict[int, List[int]] = {}
+        array_map: Dict[int, List[int]] = {}
         resp_dict = {}
         for row in res:
             task_id = row[0]
-            queue_id = row[8]
-            row_metadata = row[1:8]
+            array_id = row[1]
+            queue_id = row[7]
+            row_metadata = row[2:7]
 
             resp_dict[task_id] = list(row_metadata)
             if queue_id not in queue_map:
                 queue_map[queue_id] = []
             queue_map[queue_id].append(task_id)
+            if array_id not in array_map:
+                array_map[array_id] = []
+            array_map[array_id].append(task_id)
 
         # get the queue and cluster
         for queue_id in queue_map.keys():
@@ -459,6 +463,13 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
             cluster_name = queue.cluster.name
             for task_id in queue_map[queue_id]:
                 resp_dict[task_id].extend([cluster_name, queue_name])
+
+        # get the max concurrency
+        for array_id in array_map.keys():
+            array = session.get(Array, array_id)
+            max_concurrently_running = array.max_concurrently_running
+            for task_id in array_map[array_id]:
+                resp_dict[task_id].append(max_concurrently_running)
 
     resp = jsonify(tasks=resp_dict)
     resp.status_code = StatusCodes.OK
