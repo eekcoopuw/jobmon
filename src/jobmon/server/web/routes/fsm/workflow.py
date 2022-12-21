@@ -446,7 +446,7 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
             task_id = row[0]
             array_id = row[1]
             queue_id = row[7]
-            row_metadata = row[2:7]
+            row_metadata = row[1:7]
 
             resp_dict[task_id] = list(row_metadata)
             if queue_id not in queue_map:
