@@ -595,11 +595,8 @@ class WorkflowRun:
             active_tasks = active_tasks.union(self._task_status_map[task_status])
         workflow_capacity = self.max_concurrently_running - len(active_tasks)
         array_capacity_lookup: Dict[int, int] = {
-            aid: min(
-                # limit to batches of 10_000 for db performance
-                array.max_concurrently_running - len(active_tasks.intersection(array.tasks)),
-                10_000
-            ) for aid, array in self.arrays.items()
+            aid: array.max_concurrently_running - len(active_tasks.intersection(array.tasks))
+            for aid, array in self.arrays.items()
         }
 
         try:
@@ -615,6 +612,7 @@ class WorkflowRun:
                 array_capacity = array_capacity_lookup[array_id]
                 if array_capacity > 0:
                     current_batch.append(next_task)
+                    current_batch_size = 1
                     workflow_capacity -= 1
                     array_capacity -= 1
 
@@ -629,8 +627,10 @@ class WorkflowRun:
                             and array_capacity > 0
                             and task.array_id == array_id
                             and task.current_task_resources == task_resources
+                            and current_batch_size < 10_000
                         ):
                             current_batch.append(task)
+                            current_batch_size += 1
                             workflow_capacity -= 1
                             array_capacity -= 1
                         else:
