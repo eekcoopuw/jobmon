@@ -5,7 +5,7 @@ from setuptools import setup
 from setuptools import find_packages
 
 INSTALL_REQUIRES = [
-    'configargparse',
+    'configparser',
     'numpy',
     'pandas',
     'psutil',
@@ -21,12 +21,9 @@ SERVER_REQUIRES = [
     'flask_cors',
     'elastic-apm[flask]',
     'pymysql',  # install MySQLdb/mysqlclient for more performance
-    'python-logstash-async',
-    'slurm_rest',  # TODO: when the integrator is split out, remove this dependency
     'sqlalchemy',
-    'python_json_logger',
     'structlog',
-    'scipy==1.8.1',  # Pinned because scipy 1.9.0 is not compatible with uwsgi for some reason.
+    'scipy',
 ]
 
 # pip install -e .[test]
