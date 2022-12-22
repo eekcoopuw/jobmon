@@ -51,7 +51,7 @@ def add_tool() -> Any:
 def get_tool_versions(tool_id: int) -> Any:
     """Get the Tool Version."""
     # check input variable
-    structlog.threadlocal.bind_threadlocal(tool_id=tool_id)
+    structlog.contextvars.bind_contextvars(tool_id=tool_id)
     logger.info(f"Getting available tool versions for tool_id {tool_id}")
     try:
         tool_id = int(tool_id)

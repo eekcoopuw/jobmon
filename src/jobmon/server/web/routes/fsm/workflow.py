@@ -31,7 +31,7 @@ def _add_workflow_attributes(
     workflow_id: int, workflow_attributes: Dict[str, str], session: Session
 ) -> None:
     # add attribute
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
     logger.info(f"Add Attributes: {workflow_attributes}")
     wf_attributes_list = []
     with session.begin_nested():
@@ -67,7 +67,7 @@ def bind_workflow() -> Any:
             f"{str(e)} in request to {request.path}", status_code=400
         ) from e
 
-    structlog.threadlocal.bind_threadlocal(
+    structlog.contextvars.bind_contextvars(
         dag_id=dag_id,
         tool_version_id=tv_id,
         workflow_args_hash=str(whash),
@@ -141,7 +141,7 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: str) -> Any:
             f"{str(e)} in request to {request.path}", status_code=400
         ) from e
 
-    structlog.threadlocal.bind_threadlocal(workflow_args_hash=str(workflow_args_hash))
+    structlog.contextvars.bind_contextvars(workflow_args_hash=str(workflow_args_hash))
     logger.info(f"Looking for wf with hash {workflow_args_hash}")
 
     session = SessionLocal()
@@ -211,7 +211,7 @@ def _upsert_wf_attribute(
 @blueprint.route("/workflow/<workflow_id>/workflow_attributes", methods=["PUT"])
 def update_workflow_attribute(workflow_id: int) -> Any:
     """Update the attributes for a given workflow."""
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
     try:
         workflow_id = int(workflow_id)
     except Exception as e:
@@ -237,7 +237,7 @@ def update_workflow_attribute(workflow_id: int) -> Any:
 @blueprint.route("/workflow/<workflow_id>/set_resume", methods=["POST"])
 def set_resume(workflow_id: int) -> Any:
     """Set resume on a workflow."""
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
     try:
         data = cast(Dict, request.get_json())
         logger.info("Set resume for workflow")
@@ -265,7 +265,7 @@ def set_resume(workflow_id: int) -> Any:
 @blueprint.route("/workflow/<workflow_id>/is_resumable", methods=["GET"])
 def workflow_is_resumable(workflow_id: int) -> Any:
     """Check if a workflow is in a resumable state."""
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
 
     session = SessionLocal()
     with session.begin():
@@ -283,7 +283,7 @@ def workflow_is_resumable(workflow_id: int) -> Any:
 )
 def get_max_concurrently_running(workflow_id: int) -> Any:
     """Return the maximum concurrency of this workflow."""
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
 
     session = SessionLocal()
     with session.begin():
@@ -301,7 +301,7 @@ def get_max_concurrently_running(workflow_id: int) -> Any:
 def update_max_running(workflow_id: int) -> Any:
     """Update the number of tasks that can be running concurrently for a given workflow."""
     data = cast(Dict, request.get_json())
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
     logger.debug("Update workflow max concurrently running")
 
     try:
@@ -342,7 +342,7 @@ def task_status_updates(workflow_id: int) -> Any:
     Args:
         workflow_id (int): the ID of the workflow.
     """
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
     data = cast(Dict, request.get_json())
     logger.info("Get task by status")
 

@@ -30,7 +30,7 @@ def add_dag() -> Any:
 
     # add dag
     dag_hash = data.pop("dag_hash")
-    structlog.threadlocal.bind_threadlocal(dag_hash=str(dag_hash))
+    structlog.contextvars.bind_contextvars(dag_hash=str(dag_hash))
     logger.info(f"Add dag:{dag_hash}")
 
     session = SessionLocal()
@@ -54,7 +54,7 @@ def add_dag() -> Any:
 @blueprint.route("/dag/<dag_id>/edges", methods=["POST"])
 def add_edges(dag_id: int) -> Any:
     """Add edges to the edge table."""
-    structlog.threadlocal.bind_threadlocal(dag_id=dag_id)
+    structlog.contextvars.bind_contextvars(dag_id=dag_id)
     logger.info(f"Add edges for dag {dag_id}")
     try:
         data = cast(Dict, request.get_json())

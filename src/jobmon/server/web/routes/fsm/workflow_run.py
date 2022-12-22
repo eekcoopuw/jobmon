@@ -31,7 +31,7 @@ def add_workflow_run() -> Any:
         jobmon_version = data["jobmon_version"]
         next_heartbeat = float(data["next_report_increment"])
 
-        structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+        structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
     except Exception as e:
         raise InvalidUsage(
             f"{str(e)} in request to {request.path}", status_code=400
@@ -96,7 +96,7 @@ def add_workflow_run() -> Any:
 )
 def terminate_workflow_run(workflow_run_id: int) -> Any:
     """Terminate a workflow run and get its tasks in order."""
-    structlog.threadlocal.bind_threadlocal(workflow_run_id=workflow_run_id)
+    structlog.contextvars.bind_contextvars(workflow_run_id=workflow_run_id)
     logger.info("Terminate workflow_run")
     try:
         workflow_run_id = int(workflow_run_id)
@@ -163,7 +163,7 @@ def terminate_workflow_run(workflow_run_id: int) -> Any:
 @blueprint.route("/workflow_run/<workflow_run_id>/log_heartbeat", methods=["POST"])
 def log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
     """Log a heartbeat for the workflow run to show that the client side is still alive."""
-    structlog.threadlocal.bind_threadlocal(workflow_run_id=workflow_run_id)
+    structlog.contextvars.bind_contextvars(workflow_run_id=workflow_run_id)
     try:
         workflow_run_id = int(workflow_run_id)
         data = cast(Dict, request.get_json())
@@ -195,7 +195,7 @@ def log_workflow_run_heartbeat(workflow_run_id: int) -> Any:
 @blueprint.route("/workflow_run/<workflow_run_id>/update_status", methods=["PUT"])
 def log_workflow_run_status_update(workflow_run_id: int) -> Any:
     """Update the status of the workflow run."""
-    structlog.threadlocal.bind_threadlocal(workflow_run_id=workflow_run_id)
+    structlog.contextvars.bind_contextvars(workflow_run_id=workflow_run_id)
     try:
         workflow_run_id = int(workflow_run_id)
         data = cast(Dict, request.get_json())
@@ -228,7 +228,7 @@ def log_workflow_run_status_update(workflow_run_id: int) -> Any:
 @blueprint.route("/workflow_run/<workflow_run_id>/sync_status", methods=["POST"])
 def task_instances_status_check(workflow_run_id: int) -> Any:
     """Sync status of given task intance IDs."""
-    structlog.threadlocal.bind_threadlocal(workflow_run_id=workflow_run_id)
+    structlog.contextvars.bind_contextvars(workflow_run_id=workflow_run_id)
     try:
         workflow_run_id = int(workflow_run_id)
         data = cast(Dict, request.get_json())
@@ -289,7 +289,7 @@ def set_status_for_triaging(workflow_run_id: int) -> Any:
     reported as alive in the allocated time, and set them for Triaging(from Running)
     and Kill_self(from Launched).
     """
-    structlog.threadlocal.bind_threadlocal(workflow_run_id=workflow_run_id)
+    structlog.contextvars.bind_contextvars(workflow_run_id=workflow_run_id)
     try:
         workflow_run_id = int(workflow_run_id)
     except Exception as e:

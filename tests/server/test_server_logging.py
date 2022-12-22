@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from jobmon.server.web.log_config import configure_logging
 from jobmon.requester import Requester
 from jobmon.server.web import routes
+from jobmon.server.web.api import configure_logging
 
 
 @pytest.fixture(scope="function")
@@ -17,7 +17,7 @@ def log_config(web_server_in_memory, tmp_path):
     handler_config = {
         "file_handler": {
             "class": "logging.FileHandler",
-            "formatter": "json_formatter",
+            "formatter": "json",
             "filename": filepath,
         }
     }

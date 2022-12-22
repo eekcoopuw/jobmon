@@ -138,7 +138,7 @@ def reap_workflow_run(workflow_run_id: int) -> Any:
     checks tasks from a different WorkflowRun with the same workflow id. Avoid setting
     while waiting for a resume (when workflow is in suspended state).
     """
-    structlog.threadlocal.bind_threadlocal(workflow_run_id=workflow_run_id)
+    structlog.contextvars.bind_contextvars(workflow_run_id=workflow_run_id)
     logger.info(f"Reap wfr: {workflow_run_id}")
 
     session = SessionLocal()

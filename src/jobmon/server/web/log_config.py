@@ -20,7 +20,7 @@ def configure_structlog() -> None:
     structlog.configure(
         processors=[
             # bring in threadlocal context
-            structlog.threadlocal.merge_threadlocal,
+            structlog.contextvars.merge_contextvars,
             # This performs the initial filtering, so we don't
             # evaluate e.g. DEBUG when unnecessary
             structlog.stdlib.filter_by_level,
@@ -45,8 +45,6 @@ def configure_structlog() -> None:
             structlog.stdlib.ProcessorFormatter.wrap_for_formatter,
         ],
         # Our "event_dict" is explicitly a dict
-        # There's also structlog.threadlocal.wrap_dict(dict) in some examples
-        # which keeps global context as well as thread locals
         context_class=dict,
         # Provides the logging.Logger for the underlaying log call
         logger_factory=structlog.stdlib.LoggerFactory(),

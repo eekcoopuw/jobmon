@@ -51,7 +51,7 @@ def add_tool_version() -> Any:
 def get_task_templates(tool_version_id: int) -> Any:
     """Get the Tool Version."""
     # check input variable
-    structlog.threadlocal.bind_threadlocal(tool_version_id=tool_version_id)
+    structlog.contextvars.bind_contextvars(tool_version_id=tool_version_id)
     logger.info("Getting available task_templates")
 
     session = SessionLocal()
