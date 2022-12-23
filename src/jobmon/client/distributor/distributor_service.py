@@ -483,7 +483,7 @@ class DistributorService:
         queued_task_instances = list(
             self._task_instance_status_map[TaskInstanceStatus.QUEUED]
         )
-        chunk_size = 10_000
+        chunk_size = 500
         while queued_task_instances:
             ti_list = queued_task_instances[:chunk_size]
             queued_task_instances = queued_task_instances[chunk_size:]

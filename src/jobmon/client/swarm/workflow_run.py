@@ -627,7 +627,7 @@ class WorkflowRun:
                             and array_capacity > 0
                             and task.array_id == array_id
                             and task.current_task_resources == task_resources
-                            and current_batch_size < 10_000
+                            and current_batch_size < 500
                         ):
                             current_batch.append(task)
                             current_batch_size += 1
