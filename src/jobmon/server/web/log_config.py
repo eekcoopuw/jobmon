@@ -66,7 +66,7 @@ default_formatters: Dict = {
     "json": {
         "()": structlog.stdlib.ProcessorFormatter,
         "processor": structlog.processors.JSONRenderer(),
-    }
+    },
 }
 default_handlers: Dict = {
     "console_text": {
@@ -106,6 +106,7 @@ def configure_logging(
     handlers_dict: Optional[Dict] = None,
     formatters_dict: Optional[Dict] = None,
 ) -> None:
+    """Setup logging with default handlers."""
     if formatters_dict is None:
         formatters_dict = default_formatters
     if handlers_dict is None:

@@ -47,6 +47,7 @@ class WebServerProcess:
                 # catch SIGTERM and shut down with 0 so pycov finalizers are run
                 # Raises SystemExit(0):
                 sys.exit(0)
+
             signal.signal(signal.SIGTERM, sigterm_handler)
 
             from jobmon.server.web.api import get_app, JobmonConfig, configure_logging

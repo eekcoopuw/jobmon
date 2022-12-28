@@ -1,5 +1,6 @@
-"""The subpackages jobmon_* are deployed as individual services in kubernetes."""
+"""Web API subpackage."""
 from sqlalchemy import orm
+
 from jobmon.server.web.log_config import configure_structlog
 
 configure_structlog()

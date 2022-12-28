@@ -19,7 +19,6 @@ class ServerCLI(CLI):
 
         # now add specific sub parsers
         self._add_workflow_reaper_subparser()
-        self._add_integrator_subparser()
         self._add_init_db_subparser()
         self._add_terminate_db_subparser()
 
@@ -36,18 +35,6 @@ class ServerCLI(CLI):
                 slack_channel_default=args.slack_channel_default,
                 poll_interval_minutes=args.poll_interval_minutes,
             )
-        else:
-            raise ValueError(
-                "Invalid command choice. Options are (start), got " f"({args.command})"
-            )
-
-    def integration(self, args: argparse.Namespace) -> None:
-        """Integration service entrypoint logic."""
-        # TODO: need dependency injection into squid integration
-        from jobmon.server.usage_integration.api import start_usage_integration
-
-        if args.command == "start":
-            start_usage_integration()
         else:
             raise ValueError(
                 "Invalid command choice. Options are (start), got " f"({args.command})"
@@ -129,19 +116,6 @@ class ServerCLI(CLI):
             help="Duration in minutes to sleep between reaper loops",
             required=False,
             default=None,
-        )
-
-    def _add_integrator_subparser(self) -> None:
-        integrator_parser = self._subparsers.add_parser("integration")
-        integrator_parser.set_defaults(func=self.integration)
-        integrator_parser.add_argument(
-            "command",
-            type=str,
-            choices=["start"],
-            help=(
-                "The integrator sub-command to run: (start). Start command runs "
-                "usage_integration.maxrss_forever()."
-            ),
         )
 
     def _add_init_db_subparser(self) -> None:

@@ -209,7 +209,9 @@ class JobmonConfig:
             filepath: the location to write the config to.
         """
         if not filepath:
-            filepath = str(CONFIG_FILE)
+            filepath = str(self._filepath)
+        if not filepath:
+            filepath = str(DEFAULTS_FILE)
         with open(filepath, "w") as configfile:
             self._ini_config.write(configfile)
 

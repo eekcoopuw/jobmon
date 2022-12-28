@@ -418,12 +418,8 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
                 TaskResources.requested_resources,
                 TaskResources.queue_id,
             )
-            .join_from(
-                Task, Array, Task.array_id == Array.id
-            )
-            .join_from(
-                Task, TaskResources, Task.task_resources_id == TaskResources.id
-            )
+            .join_from(Task, Array, Task.array_id == Array.id)
+            .join_from(Task, TaskResources, Task.task_resources_id == TaskResources.id)
             .where(
                 Task.workflow_id == workflow_id,
                 # Note: because of this status != "DONE" filter, only the portion of the DAG

@@ -595,7 +595,8 @@ class WorkflowRun:
             active_tasks = active_tasks.union(self._task_status_map[task_status])
         workflow_capacity = self.max_concurrently_running - len(active_tasks)
         array_capacity_lookup: Dict[int, int] = {
-            aid: array.max_concurrently_running - len(active_tasks.intersection(array.tasks))
+            aid: array.max_concurrently_running
+            - len(active_tasks.intersection(array.tasks))
             for aid, array in self.arrays.items()
         }
 
