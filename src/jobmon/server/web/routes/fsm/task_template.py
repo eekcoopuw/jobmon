@@ -34,7 +34,7 @@ def get_task_template() -> Any:
             f"{str(e)} in request to {request.path}", status_code=400
         ) from e
 
-    structlog.threadlocal.bind_threadlocal(tool_version_id=tool_version_id)
+    structlog.contextvars.bind_contextvars(tool_version_id=tool_version_id)
     logger.info(f"Add task tamplate for tool_version_id {tool_version_id} ")
 
     # add to DB
@@ -60,7 +60,7 @@ def get_task_template() -> Any:
 def get_task_template_versions(task_template_id: int) -> Any:
     """Get the task_template_version."""
     # get task template version object
-    structlog.threadlocal.bind_threadlocal(task_template_id=task_template_id)
+    structlog.contextvars.bind_contextvars(task_template_id=task_template_id)
     logger.info(f"Getting task template version for task template: {task_template_id}")
 
     session = SessionLocal()
@@ -92,7 +92,7 @@ def _add_or_get_arg(name: str, session: Session) -> Arg:
 def add_task_template_version(task_template_id: int) -> Any:
     """Add a tool to the database."""
     # check input variables
-    structlog.threadlocal.bind_threadlocal(task_template_id=task_template_id)
+    structlog.contextvars.bind_contextvars(task_template_id=task_template_id)
     data = cast(Dict, request.get_json())
     try:
         task_template_id = int(task_template_id)

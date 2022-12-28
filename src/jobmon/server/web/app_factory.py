@@ -7,53 +7,29 @@ from flask import Flask
 import sqlalchemy
 
 from jobmon.configuration import JobmonConfig
-from jobmon.server.web import log_config, session_factory
+from jobmon.server.web import session_factory
 from jobmon.server.web.hooks_and_handlers import add_hooks_and_handlers
 
 
 class AppFactory:
     def __init__(
         self,
+        config: Optional[JobmonConfig] = None,
         sqlalchemy_database_uri: str = "",
-        use_logstash: Optional[bool] = None,
-        logstash_host: str = "",
-        logstash_port: Optional[int] = None,
-        logstash_protocol: str = "",
-        logstash_log_level: str = "",
         use_apm: Optional[bool] = None,
         apm_server_url: str = "",
         apm_server_name: str = "",
         apm_server_port: Optional[int] = None,
     ) -> None:
         """Initialization of the App Factory."""
-        config = JobmonConfig()
+        if config is None:
+            config = JobmonConfig()
         # configuration for sqlalchemy
         if not sqlalchemy_database_uri:
             sqlalchemy_database_uri = config.get("db", "sqlalchemy_database_uri")
         self.engine = sqlalchemy.create_engine(
             sqlalchemy_database_uri, pool_recycle=200, future=True
         )
-
-        # configuration for logstash
-        if use_logstash is None:
-            use_logstash = config.get_boolean("web", "use_logstash")
-        self.use_logstash = use_logstash
-
-        if self.use_logstash and not logstash_host:
-            logstash_host = config.get("web", "logstash_host")
-        self.logstash_host = logstash_host
-
-        if self.use_logstash and logstash_port is None:
-            logstash_port = config.get_int("web", "logstash_port")
-        self.logstash_port = logstash_port
-
-        if self.use_logstash and not logstash_protocol:
-            logstash_protocol = config.get("web", "logstash_protocol")
-        self.logstash_protocol = logstash_protocol
-
-        if self.use_logstash and not logstash_log_level:
-            logstash_log_level = config.get("web", "logstash_log_level")
-        self.logstash_log_level = logstash_log_level
 
         if use_apm is None:
             use_apm = config.get_boolean("web", "use_apm")
@@ -95,21 +71,6 @@ class AppFactory:
                 "DEBUG": True,
             }
         return flask_config
-
-    @property
-    def logstash_handler_config(self) -> Optional[Dict[str, Any]]:
-        if self.use_logstash:
-            logstash_handler_config: Optional[
-                Dict
-            ] = log_config.get_logstash_handler_config(
-                logstash_host=self.logstash_host,
-                logstash_port=self.logstash_port,
-                logstash_protocol=self.logstash_protocol,
-                logstash_log_level=self.logstash_log_level,
-            )
-        else:
-            logstash_handler_config = None
-        return logstash_handler_config
 
     def get_app(
         self, blueprints: List = ["fsm", "cli", "reaper"], url_prefix: str = "/"

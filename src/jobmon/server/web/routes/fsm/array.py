@@ -29,7 +29,7 @@ def add_array() -> Any:
     workflow_id = int(data["workflow_id"])
     task_template_version_id = int(data["task_template_version_id"])
 
-    structlog.threadlocal.bind_threadlocal(
+    structlog.contextvars.bind_contextvars(
         task_template_version_id=task_template_version_id,
         workflow_id=workflow_id,
     )
@@ -148,7 +148,7 @@ def record_array_batch_num(array_id: int) -> Any:
 @blueprint.route("/array/<array_id>/transition_to_launched", methods=["POST"])
 def transition_array_to_launched(array_id: int) -> Any:
     """Transition TIs associated with an array_id and batch_num to launched."""
-    structlog.threadlocal.bind_threadlocal(array_id=array_id)
+    structlog.contextvars.bind_contextvars(array_id=array_id)
 
     data = cast(Dict, request.get_json())
     batch_num = data["batch_number"]

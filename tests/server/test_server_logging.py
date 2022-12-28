@@ -2,9 +2,9 @@ import json
 
 import pytest
 
-from jobmon.server.web.log_config import configure_logger
 from jobmon.requester import Requester
 from jobmon.server.web import routes
+from jobmon.server.web.api import configure_logging
 
 
 @pytest.fixture(scope="function")
@@ -14,16 +14,22 @@ def log_config(web_server_in_memory, tmp_path):
     filepath = str(tmp_path) + ".log"
 
     # override base config
-    add_handler = {
-        "default": {
+    handler_config = {
+        "file_handler": {
             "class": "logging.FileHandler",
             "formatter": "json",
             "filename": filepath,
         }
     }
-    configure_logger("jobmon.server.web", add_handler)
+    logger_config = {
+        "jobmon.server.web": {
+            "handlers": ["file_handler"],
+            "level": "INFO",
+        },
+    }
+    configure_logging(loggers_dict=logger_config, handlers_dict=handler_config)
     yield filepath
-    configure_logger("jobmon.server.web")
+    configure_logging()
 
 
 def test_add_structlog_context(requester_in_memory, log_config):

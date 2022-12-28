@@ -16,7 +16,7 @@ logger = structlog.get_logger(__name__)
 @blueprint.route("/task_resources/<task_resources_id>", methods=["POST"])
 def get_task_resources(task_resources_id: int) -> Any:
     """Return an task_resources."""
-    structlog.threadlocal.bind_threadlocal(task_resources_id=task_resources_id)
+    structlog.contextvars.bind_contextvars(task_resources_id=task_resources_id)
     data = cast(Dict, request.get_json())
 
     session = SessionLocal()

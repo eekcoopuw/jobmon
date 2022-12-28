@@ -38,7 +38,7 @@ def get_logfile_template(task_instance_id: int, template_type: str) -> Any:
         task_instance_id: id of the task_instance
         template_type: submission type of the task instance. job, array, both
     """
-    structlog.threadlocal.bind_threadlocal(
+    structlog.contextvars.bind_contextvars(
         task_instance_id=task_instance_id, template_type=template_type
     )
 
@@ -73,7 +73,7 @@ def log_running(task_instance_id: int) -> Any:
     Args:
         task_instance_id: id of the task_instance to log as running
     """
-    structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
+    structlog.contextvars.bind_contextvars(task_instance_id=task_instance_id)
     data = cast(Dict, request.get_json())
 
     session = SessionLocal()
@@ -119,7 +119,7 @@ def log_ti_report_by(task_instance_id: int) -> Any:
     Args:
         task_instance_id: id of the task_instance to log
     """
-    structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
+    structlog.contextvars.bind_contextvars(task_instance_id=task_instance_id)
     data = cast(Dict, request.get_json())
 
     session = SessionLocal()
@@ -187,7 +187,7 @@ def log_done(task_instance_id: int) -> Any:
     Args:
         task_instance_id: id of the task_instance to log done
     """
-    structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
+    structlog.contextvars.bind_contextvars(task_instance_id=task_instance_id)
     data = cast(Dict, request.get_json())
 
     session = SessionLocal()
@@ -224,7 +224,7 @@ def log_error_worker_node(task_instance_id: int) -> Any:
         task_instance_id (str): id of the task_instance to log done
         error_message (str): message to log as error
     """
-    structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
+    structlog.contextvars.bind_contextvars(task_instance_id=task_instance_id)
     data = cast(Dict, request.get_json())
     error_state = data["error_state"]
     error_msg = data["error_message"].encode("latin1", "replace").decode("utf-8")
@@ -272,7 +272,7 @@ def get_task_instance_error_log(task_instance_id: int) -> Any:
     Return:
         jsonified task_instance_error_log result set
     """
-    structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
+    structlog.contextvars.bind_contextvars(task_instance_id=task_instance_id)
     logger.info(f"Getting task instance error log for ti {task_instance_id}")
 
     session = SessionLocal()
@@ -299,7 +299,7 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> A
     Task instance IDs that are associated with the array are ordered, and selected by index.
     This route will be called once per array task instance worker node, so must be scalable.
     """
-    structlog.threadlocal.bind_threadlocal(array_id=array_id)
+    structlog.contextvars.bind_contextvars(array_id=array_id)
 
     session = SessionLocal()
     with session.begin():
@@ -329,7 +329,7 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> A
 )
 def log_no_distributor_id(task_instance_id: int) -> Any:
     """Log a task_instance_id that did not get an distributor_id upon submission."""
-    structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
+    structlog.contextvars.bind_contextvars(task_instance_id=task_instance_id)
     logger.info(
         f"Logging ti {task_instance_id} did not get distributor id upon submission"
     )
@@ -363,7 +363,7 @@ def log_distributor_id(task_instance_id: int) -> Any:
     Args:
         task_instance_id: id of the task_instance to log
     """
-    structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
+    structlog.contextvars.bind_contextvars(task_instance_id=task_instance_id)
     data = cast(Dict, request.get_json())
     session = SessionLocal()
     with session.begin():
@@ -388,7 +388,7 @@ def log_known_error(task_instance_id: int) -> Any:
     Args:
         task_instance_id (int): id for task instance.
     """
-    structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
+    structlog.contextvars.bind_contextvars(task_instance_id=task_instance_id)
     data = cast(Dict, request.get_json())
     error_state = data["error_state"]
     error_message = data["error_message"]
@@ -431,7 +431,7 @@ def log_unknown_error(task_instance_id: int) -> Any:
     Args:
         task_instance_id (int): id for task instance
     """
-    structlog.threadlocal.bind_threadlocal(task_instance_id=task_instance_id)
+    structlog.contextvars.bind_contextvars(task_instance_id=task_instance_id)
     data = cast(Dict, request.get_json())
     error_state = data["error_state"]
     error_message = data["error_message"]

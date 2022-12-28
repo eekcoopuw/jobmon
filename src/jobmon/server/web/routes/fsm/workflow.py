@@ -1,6 +1,6 @@
 """Routes for Workflows."""
 from http import HTTPStatus as StatusCodes
-from typing import Any, cast, Dict, Tuple
+from typing import Any, cast, Dict, List, Tuple
 
 from flask import jsonify, request
 import sqlalchemy
@@ -11,7 +11,6 @@ from sqlalchemy.orm import Session
 import structlog
 
 from jobmon.server.web.models.array import Array
-from jobmon.server.web.models.cluster import Cluster
 from jobmon.server.web.models.dag import Dag
 from jobmon.server.web.models.queue import Queue
 from jobmon.server.web.models.task import Task
@@ -32,7 +31,7 @@ def _add_workflow_attributes(
     workflow_id: int, workflow_attributes: Dict[str, str], session: Session
 ) -> None:
     # add attribute
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
     logger.info(f"Add Attributes: {workflow_attributes}")
     wf_attributes_list = []
     with session.begin_nested():
@@ -68,7 +67,7 @@ def bind_workflow() -> Any:
             f"{str(e)} in request to {request.path}", status_code=400
         ) from e
 
-    structlog.threadlocal.bind_threadlocal(
+    structlog.contextvars.bind_contextvars(
         dag_id=dag_id,
         tool_version_id=tv_id,
         workflow_args_hash=str(whash),
@@ -142,7 +141,7 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: str) -> Any:
             f"{str(e)} in request to {request.path}", status_code=400
         ) from e
 
-    structlog.threadlocal.bind_threadlocal(workflow_args_hash=str(workflow_args_hash))
+    structlog.contextvars.bind_contextvars(workflow_args_hash=str(workflow_args_hash))
     logger.info(f"Looking for wf with hash {workflow_args_hash}")
 
     session = SessionLocal()
@@ -212,7 +211,7 @@ def _upsert_wf_attribute(
 @blueprint.route("/workflow/<workflow_id>/workflow_attributes", methods=["PUT"])
 def update_workflow_attribute(workflow_id: int) -> Any:
     """Update the attributes for a given workflow."""
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
     try:
         workflow_id = int(workflow_id)
     except Exception as e:
@@ -238,7 +237,7 @@ def update_workflow_attribute(workflow_id: int) -> Any:
 @blueprint.route("/workflow/<workflow_id>/set_resume", methods=["POST"])
 def set_resume(workflow_id: int) -> Any:
     """Set resume on a workflow."""
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
     try:
         data = cast(Dict, request.get_json())
         logger.info("Set resume for workflow")
@@ -266,7 +265,7 @@ def set_resume(workflow_id: int) -> Any:
 @blueprint.route("/workflow/<workflow_id>/is_resumable", methods=["GET"])
 def workflow_is_resumable(workflow_id: int) -> Any:
     """Check if a workflow is in a resumable state."""
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
 
     session = SessionLocal()
     with session.begin():
@@ -284,7 +283,7 @@ def workflow_is_resumable(workflow_id: int) -> Any:
 )
 def get_max_concurrently_running(workflow_id: int) -> Any:
     """Return the maximum concurrency of this workflow."""
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
 
     session = SessionLocal()
     with session.begin():
@@ -302,7 +301,7 @@ def get_max_concurrently_running(workflow_id: int) -> Any:
 def update_max_running(workflow_id: int) -> Any:
     """Update the number of tasks that can be running concurrently for a given workflow."""
     data = cast(Dict, request.get_json())
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
     logger.debug("Update workflow max concurrently running")
 
     try:
@@ -343,7 +342,7 @@ def task_status_updates(workflow_id: int) -> Any:
     Args:
         workflow_id (int): the ID of the workflow.
     """
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
     data = cast(Dict, request.get_json())
     logger.info("Get task by status")
 
@@ -412,26 +411,22 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
             select(
                 Task.id,
                 Task.array_id,
-                Array.max_concurrently_running,
                 Task.status,
                 Task.max_attempts,
                 Task.resource_scales,
                 Task.fallback_queues,
                 TaskResources.requested_resources,
-                Cluster.name,
-                Queue.name,
+                TaskResources.queue_id,
             )
+            .join_from(Task, Array, Task.array_id == Array.id)
+            .join_from(Task, TaskResources, Task.task_resources_id == TaskResources.id)
             .where(
                 Task.workflow_id == workflow_id,
-                Task.task_resources_id == TaskResources.id,
-                TaskResources.queue_id == Queue.id,
-                Queue.cluster_id == Cluster.id,
                 # Note: because of this status != "DONE" filter, only the portion of the DAG
                 # that is not complete is returned. Assumes that all tasks in a workflow
                 # correspond to nodes that belong in the same DAG, and that no downstream
                 # nodes can be in DONE for any unfinished task
                 Task.status != TaskStatus.DONE,
-                Task.array_id == Array.id,
                 # Greater than set by the input max_task_id
                 Task.id > max_task_id,
             )
@@ -439,7 +434,38 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
             .limit(chunk_size)
         )
         res = session.execute(query).all()
-        resp_dict = {row[0]: row[1:] for row in res}
+
+        queue_map: Dict[int, List[int]] = {}
+        array_map: Dict[int, List[int]] = {}
+        resp_dict = {}
+        for row in res:
+            task_id = row[0]
+            array_id = row[1]
+            queue_id = row[7]
+            row_metadata = row[1:7]
+
+            resp_dict[task_id] = list(row_metadata)
+            if queue_id not in queue_map:
+                queue_map[queue_id] = []
+            queue_map[queue_id].append(task_id)
+            if array_id not in array_map:
+                array_map[array_id] = []
+            array_map[array_id].append(task_id)
+
+        # get the queue and cluster
+        for queue_id in queue_map.keys():
+            queue = session.get(Queue, queue_id)
+            queue_name = queue.name
+            cluster_name = queue.cluster.name
+            for task_id in queue_map[queue_id]:
+                resp_dict[task_id].extend([cluster_name, queue_name])
+
+        # get the max concurrency
+        for array_id in array_map.keys():
+            array = session.get(Array, array_id)
+            max_concurrently_running = array.max_concurrently_running
+            for task_id in array_map[array_id]:
+                resp_dict[task_id].append(max_concurrently_running)
 
     resp = jsonify(tasks=resp_dict)
     resp.status_code = StatusCodes.OK

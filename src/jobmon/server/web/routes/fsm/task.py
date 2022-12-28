@@ -37,7 +37,7 @@ def bind_tasks_no_args() -> Any:
     tasks = all_data["tasks"]
     workflow_id = int(all_data["workflow_id"])
     mark_created = bool(all_data["mark_created"])
-    structlog.threadlocal.bind_threadlocal(workflow_id=workflow_id)
+    structlog.contextvars.bind_contextvars(workflow_id=workflow_id)
     logger.info("Binding tasks")
     # receive from client the tasks in a format of:
     # {<hash>:[node_id(1), task_args_hash(2), array_id(3), task_resources_id(4), name(5),
@@ -371,7 +371,7 @@ def get_most_recent_ti_error(task_id: int) -> Any:
     Return:
         error message
     """
-    structlog.threadlocal.bind_threadlocal(task_id=task_id)
+    structlog.contextvars.bind_contextvars(task_id=task_id)
     logger.info(f"Getting most recent ji error for ti {task_id}")
 
     session = SessionLocal()

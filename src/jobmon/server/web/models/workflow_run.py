@@ -131,7 +131,7 @@ class WorkflowRun(Base):
 
     def reap(self) -> None:
         """Transition dead workflow runs to a terminal state."""
-        structlog.threadlocal.bind_threadlocal(
+        structlog.contextvars.bind_contextvars(
             workflow_run_id=self.id, workflow_id=self.workflow_id
         )
         logger.info("Dead workflow_run will be reaped.")
@@ -148,7 +148,7 @@ class WorkflowRun(Base):
 
     def transition(self, new_state: str) -> None:
         """Transition the Workflow Run's state."""
-        structlog.threadlocal.bind_threadlocal(
+        structlog.contextvars.bind_contextvars(
             workflow_run_id=self.id, workflow_id=self.workflow_id
         )
         logger.info(f"Transitioning workflow_run from {self.status} to {new_state}")
@@ -177,7 +177,7 @@ class WorkflowRun(Base):
 
     def hot_reset(self) -> None:
         """Set Workflow Run to Hot Resume."""
-        structlog.threadlocal.bind_threadlocal(
+        structlog.contextvars.bind_contextvars(
             workflow_run_id=self.id, workflow_id=self.workflow_id
         )
         logger.info("Transitioning workflow_run to HOT_RESUME.")
@@ -185,7 +185,7 @@ class WorkflowRun(Base):
 
     def cold_reset(self) -> None:
         """Set Workflow Run to Cold Resume."""
-        structlog.threadlocal.bind_threadlocal(
+        structlog.contextvars.bind_contextvars(
             workflow_run_id=self.id, workflow_id=self.workflow_id
         )
         logger.info("Transitioning workflow_run to COLD_RESUME.")
@@ -198,7 +198,7 @@ class WorkflowRun(Base):
 
     def _is_timely_transition(self, new_state: str) -> bool:
         """Check if the transition is invalid due to a race condition."""
-        structlog.threadlocal.bind_threadlocal(
+        structlog.contextvars.bind_contextvars(
             workflow_run_id=self.id, workflow_id=self.workflow_id
         )
         if (self.status, new_state) in self.untimely_transitions:

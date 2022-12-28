@@ -77,7 +77,7 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
     @app.before_request
     def add_requester_context() -> None:
         # get a clean threadlocal structlog context for this request
-        structlog.threadlocal.clear_threadlocal()
+        structlog.contextvars.clear_contextvars()
 
         server_structlog_context = None
 
@@ -93,7 +93,7 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         if request.method in ["POST", "PUT"]:
             server_structlog_context = data.pop("server_structlog_context", {})
         if server_structlog_context:
-            structlog.threadlocal.bind_threadlocal(
+            structlog.contextvars.bind_contextvars(
                 path=request.path, **server_structlog_context
             )
 

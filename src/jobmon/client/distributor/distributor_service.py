@@ -480,11 +480,13 @@ class DistributorService:
                         continue
 
     def _check_queued_for_work(self) -> Generator[DistributorCommand, None, None]:
-        queued_task_instances = self._task_instance_status_map[
-            TaskInstanceStatus.QUEUED
-        ]
-        if queued_task_instances:
-            ti_list = list(queued_task_instances)
+        queued_task_instances = list(
+            self._task_instance_status_map[TaskInstanceStatus.QUEUED]
+        )
+        chunk_size = 500
+        while queued_task_instances:
+            ti_list = queued_task_instances[:chunk_size]
+            queued_task_instances = queued_task_instances[chunk_size:]
             yield DistributorCommand(self.instantiate_task_instances, ti_list)
 
     def _check_instantiated_for_work(self) -> Generator[DistributorCommand, None, None]:

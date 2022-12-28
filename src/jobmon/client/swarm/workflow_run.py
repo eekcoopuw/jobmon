@@ -309,7 +309,6 @@ class WorkflowRun:
             for task_id, metadata in task_dict.items():
                 (
                     array_id,
-                    array_concurrency,
                     status,
                     max_attempts,
                     resource_scales,
@@ -317,6 +316,7 @@ class WorkflowRun:
                     requested_resources,
                     cluster_name,
                     queue_name,
+                    array_concurrency,
                 ) = metadata
 
                 # Convert datatypes as appropriate
@@ -393,7 +393,7 @@ class WorkflowRun:
             _, edge_resp = self.requester.send_request(
                 app_route="/task/get_downstream_tasks",
                 message={"task_ids": task_id_chunk, "dag_id": self.dag_id},
-                request_type="get",
+                request_type="post",
             )
             downstream_tasks = edge_resp["downstream_tasks"]
             # Format is {task_id: (node_id, '[downstream_node_ids]')}
@@ -613,6 +613,7 @@ class WorkflowRun:
                 array_capacity = array_capacity_lookup[array_id]
                 if array_capacity > 0:
                     current_batch.append(next_task)
+                    current_batch_size = 1
                     workflow_capacity -= 1
                     array_capacity -= 1
 
@@ -627,8 +628,10 @@ class WorkflowRun:
                             and array_capacity > 0
                             and task.array_id == array_id
                             and task.current_task_resources == task_resources
+                            and current_batch_size < 500
                         ):
                             current_batch.append(task)
+                            current_batch_size += 1
                             workflow_capacity -= 1
                             array_capacity -= 1
                         else:

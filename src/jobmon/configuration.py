@@ -5,13 +5,13 @@ import importlib
 import os
 from pathlib import Path
 import pkgutil
-from typing import Mapping, MutableMapping, Optional
+from typing import Dict, Mapping, MutableMapping, Optional
 
 from jobmon.cli import CLI
 from jobmon.exceptions import ConfigError
 
-CONFIG_FILE_NAME = "defaults.ini"
-CONFIG_FILE = Path(__file__).parent / CONFIG_FILE_NAME
+DEFAULTS_FILE_NAME = "defaults.ini"
+DEFAULTS_FILE = Path(__file__).parent / DEFAULTS_FILE_NAME
 ENV_VAR_PREFIX = "JOBMON__"
 
 
@@ -34,17 +34,23 @@ class EnvInterpolation(configparser.BasicInterpolation):
 class JobmonConfig:
     """Default config setup."""
 
-    def __init__(self, filepath: str = "") -> None:
+    def __init__(self, filepath: str = "", dict_config: Optional[Dict] = None) -> None:
         """Jobmon config class.
 
         Args:
             filepath: where to read defaults from.
+            dict_config: dictionary of values to override
         """
-        if not filepath:
-            filepath = str(CONFIG_FILE)
-        self._filepath = filepath
+        if filepath:
+            self._filepath = filepath
+        else:
+            self._filepath = os.getenv("JOBMON__CONFIG_FILE", "")
         self._ini_config = configparser.ConfigParser(interpolation=EnvInterpolation())
-        self._ini_config.read(filepath)
+        self._ini_config.read(str(DEFAULTS_FILE))
+        if self._filepath:
+            self._ini_config.read(self._filepath)
+        if dict_config is not None:
+            self._ini_config.read_dict(dict_config)
 
     def _get_env_var_name(self, section: str, key: str) -> str:
         return f"{ENV_VAR_PREFIX}{section.upper()}__{key.upper()}"
@@ -203,7 +209,9 @@ class JobmonConfig:
             filepath: the location to write the config to.
         """
         if not filepath:
-            filepath = str(CONFIG_FILE)
+            filepath = str(self._filepath)
+        if not filepath:
+            filepath = str(DEFAULTS_FILE)
         with open(filepath, "w") as configfile:
             self._ini_config.write(configfile)
 
