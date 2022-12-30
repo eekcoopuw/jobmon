@@ -1,6 +1,6 @@
 """Routes for Workflow."""
 from http import HTTPStatus as StatusCodes
-from typing import Any, Dict
+from typing import Any, Dict, Optional
 
 from flask import jsonify, request
 from flask_cors import cross_origin
@@ -21,6 +21,7 @@ from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.models.workflow_status import WorkflowStatus
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.cli import blueprint
+
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
 logger = structlog.get_logger(__name__)
@@ -414,9 +415,38 @@ def get_workflow_status_viz() -> Any:
     return resp
 
 
-@blueprint.route("/workflow_status_viz/<username>", methods=["GET"])
-def workflow_status_by_user(username: str) -> Any:
+@blueprint.route("/workflow_overview_viz", methods=["GET"])
+def workflows_by_user_form() -> Any:
     """Fetch associated workflows and workflow runs by username."""
+    arguments = request.args
+    clean_args: Dict[str, Optional[str]] = {}
+    for key, value in arguments.items():
+        if value is None or value == "undefined" or value == "":
+            clean_args[key] = None
+        else:
+            clean_args[key] = value
+    user = arguments.get("user")
+    tool = arguments.get("tool")
+    wf_name = arguments.get("wf_name")
+    wf_args = arguments.get("wf_args")
+    date_submitted = arguments.get("date_submitted")
+    if user is None and tool is None:
+        limit = 1000
+    else:
+        limit = None
+
+    filter_criteria = []
+    if user:
+        filter_criteria.append(WorkflowRun.user == user)
+    if tool:
+        filter_criteria.append(Tool.name == tool)
+    if wf_name:
+        filter_criteria.append(Workflow.name == wf_name)
+    if wf_args:
+        filter_criteria.append(Workflow.workflow_args == wf_args)
+    if date_submitted:
+        filter_criteria.append(Workflow.created_date >= date_submitted)
+
     session = SessionLocal()
     with session.begin():
 
@@ -440,7 +470,20 @@ def workflow_status_by_user(username: str) -> Any:
                 WorkflowRun.workflow_id == subquery.c.workflow_id,
                 WorkflowRun.status_date == subquery.c.MaxStatusDate,
             )
-            .where(WorkflowRun.user == username)
+            .join(
+                Workflow,
+                WorkflowRun.workflow_id == Workflow.id,
+            )
+            .join(
+                ToolVersion,
+                Workflow.tool_version_id == ToolVersion.id,
+            )
+            .join(
+                Tool,
+                ToolVersion.tool_id == Tool.id,
+            )
+            .where(*filter_criteria)
+            .limit(limit)
         )
 
         rows = session.execute(query).all()
