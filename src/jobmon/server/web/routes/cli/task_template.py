@@ -269,21 +269,29 @@ def get_task_template_resource_usage() -> Any:
         for row in result:
             runtimes.append(int(row["r"]))
             mems.append(max(0, 0 if row["m"] is None else int(row["m"])))
+        # set 0 to NaN; thus, numpy ignores them
+        mems = [i if i != 0 else np.nan for i in mems]
+        runtimes = [i if i != 0 else np.nan for i in runtimes]
         num_tasks = len(runtimes)
-        min_mem = int(np.min(mems))
-        max_mem = int(np.max(mems))
-        mean_mem = round(float(np.mean(mems)), 2)
-        min_runtime = int(np.min(runtimes))
-        max_runtime = int(np.max(runtimes))
-        mean_runtime = round(float(np.mean(runtimes)), 2)
-        median_mem = round(float(np.percentile(mems, 50)), 2)
-        median_runtime = round(float(np.percentile(runtimes, 50)), 2)
+        min_mem = int(np.nanmin(mems))
+        max_mem = int(np.nanmax(mems))
+        mean_mem = round(float(np.nanmean(mems)), 2)
+        min_runtime = int(np.nanmin(runtimes))
+        max_runtime = int(np.nanmax(runtimes))
+        mean_runtime = round(float(np.nanmean(runtimes)), 2)
+        median_mem = round(float(np.nanpercentile(mems, 50)), 2)
+        median_runtime = round(float(np.nanpercentile(runtimes, 50)), 2)
 
         if ci is None:
             ci_mem = [None, None]
             ci_runtime = [None, None]
         else:
             try:
+                # remove NaN to calculate confidence interval
+                if mems and np.nan in mems:
+                    mems.remove(np.nan)
+                if runtimes and np.nan in runtimes:
+                    runtimes.remove(np.nan)
                 ci = float(ci)
 
                 def _calculate_ci(d: List, ci: float) -> List[Any]:
@@ -295,8 +303,8 @@ def get_task_template_resource_usage() -> Any:
                 ci_mem = _calculate_ci(mems, ci)
                 ci_runtime = _calculate_ci(runtimes, ci)
 
-            except ValueError:
-                logger.warn(f"Unable to convert {ci} to float. Use None.")
+            except ValueError as e:
+                logger.warn(f"Unable to convert {ci} to float. Use None. Exception: {str(e)}")
                 ci_mem = [None, None]
                 ci_runtime = [None, None]
 

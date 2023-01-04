@@ -398,6 +398,80 @@ def test_tt_resource_usage(db_engine, client_env):
         assert used_task_template_resources["ci_runtime"][1] is None
 
 
+def test_tt_resource_usage_with_0(db_engine, client_env):
+    """Test TaskTemplate resource usage method."""
+
+    tool = Tool("i_am_a_new_tool")
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="sequential", compute_resources={"queue": "null.q"}
+    )
+
+    workflow_1 = tool.create_workflow(name="task_template_resource_usage_test_wf_1")
+    workflow_2 = tool.create_workflow(name="task_template_resource_usage_test_wf_2")
+    template = tool.get_task_template(
+        template_name="I_have_to_be_new",
+        command_template="echo {arg} --foo {arg_2} --bar {task_arg_1} --baz {arg_3}",
+        node_args=["arg", "arg_2", "arg_3"],
+        task_args=["task_arg_1"],
+        op_args=[],
+    )
+    template_2 = tool.get_task_template(
+        template_name="I_have_to_be_new_2",
+        command_template="{arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    task_1 = template.create_task(
+        arg="Acadia",
+        arg_2="DeathValley",
+        task_arg_1="NorthCascades",
+        arg_3="Yellowstone",
+        compute_resources={"max_runtime_seconds": 30},
+    )
+    task_2 = template.create_task(
+        arg="Zion",
+        arg_2="JoshuaTree",
+        task_arg_1="Olympic",
+        arg_3="GrandTeton",
+        compute_resources={"max_runtime_seconds": 30},
+    )
+    task_3 = template.create_task(
+        arg="Rainier",
+        arg_2="Badlands",
+        task_arg_1="CraterLake",
+        arg_3="GrandTeton",
+        compute_resources={"max_runtime_seconds": 30},
+    )
+
+    workflow_1.add_tasks([task_1, task_2])
+    workflow_1.run()
+    workflow_2.add_tasks([task_3])
+    workflow_2.run()
+
+    # Add fake resource usage to the TaskInstances
+    with Session(bind=db_engine) as session:
+        query_1 = f"""
+        UPDATE task_instance
+        SET wallclock = 10, maxrss = 300
+        WHERE task_id = {task_1.task_id}"""
+        session.execute(query_1)
+
+        query_2 = f"""
+        UPDATE task_instance
+        SET wallclock = 0, maxrss = 0
+        WHERE task_id = {task_2.task_id}"""
+        session.execute(query_2)
+
+        query_3 = f"""
+        UPDATE task_instance
+        SET wallclock = 30, maxrss = 900
+        WHERE task_id = {task_3.task_id}"""
+        session.execute(query_3)
+        session.commit()
+
+
+
 def test_max_mem(db_engine, client_env):
     from jobmon.client.tool import Tool
 
