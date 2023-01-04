@@ -407,7 +407,6 @@ def test_tt_resource_usage_with_0(db_engine, client_env):
     )
 
     workflow_1 = tool.create_workflow(name="task_template_resource_usage_test_wf_1")
-    workflow_2 = tool.create_workflow(name="task_template_resource_usage_test_wf_2")
     template = tool.get_task_template(
         template_name="I_have_to_be_new",
         command_template="echo {arg} --foo {arg_2} --bar {task_arg_1} --baz {arg_3}",
@@ -415,13 +414,7 @@ def test_tt_resource_usage_with_0(db_engine, client_env):
         task_args=["task_arg_1"],
         op_args=[],
     )
-    template_2 = tool.get_task_template(
-        template_name="I_have_to_be_new_2",
-        command_template="{arg}",
-        node_args=["arg"],
-        task_args=[],
-        op_args=[],
-    )
+
     task_1 = template.create_task(
         arg="Acadia",
         arg_2="DeathValley",
@@ -444,16 +437,15 @@ def test_tt_resource_usage_with_0(db_engine, client_env):
         compute_resources={"max_runtime_seconds": 30},
     )
 
-    workflow_1.add_tasks([task_1, task_2])
+    workflow_1.add_tasks([task_1, task_2, task_3])
     workflow_1.run()
-    workflow_2.add_tasks([task_3])
-    workflow_2.run()
+
 
     # Add fake resource usage to the TaskInstances
     with Session(bind=db_engine) as session:
         query_1 = f"""
         UPDATE task_instance
-        SET wallclock = 10, maxrss = 300
+        SET wallclock = 10, maxrss = 100
         WHERE task_id = {task_1.task_id}"""
         session.execute(query_1)
 
@@ -465,11 +457,34 @@ def test_tt_resource_usage_with_0(db_engine, client_env):
 
         query_3 = f"""
         UPDATE task_instance
-        SET wallclock = 30, maxrss = 900
+        SET wallclock = 20, maxrss = 200
         WHERE task_id = {task_3.task_id}"""
         session.execute(query_3)
         session.commit()
 
+    with patch(
+        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+    ) as f:
+        f.return_value = set()  # no execlude tt
+
+        # Check the aggregate resources for all workflows
+        used_task_template_resources = template.resource_usage(ci=0.95)
+       
+        resources = {
+            "num_tasks": 3,
+            "min_mem": "100B",
+            "max_mem": "200B",
+            "mean_mem": "150.0B",
+            "min_runtime": 10,
+            "max_runtime": 20,
+            "mean_runtime": 15.0,
+            "median_mem": "150.0B",
+            "median_runtime": 15.0,
+            "ci_mem": [-485.31, 785.31],
+            "ci_runtime": [-48.53, 78.53],
+        }
+
+        assert used_task_template_resources == resources
 
 
 def test_max_mem(db_engine, client_env):
