@@ -16,7 +16,7 @@ GIT_DESCRIBE_COMMAND = [
     "--tags",
     "--long",
     "--match",
-    "python-[0-9]*",  # only match on jobmon_slurm_plugin tags
+    "python-[0-9]*",  # only match on python tags
 ]
 
 INSTALL_REQUIRES = [
