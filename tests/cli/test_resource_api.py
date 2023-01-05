@@ -440,7 +440,6 @@ def test_tt_resource_usage_with_0(db_engine, client_env):
     workflow_1.add_tasks([task_1, task_2, task_3])
     workflow_1.run()
 
-
     # Add fake resource usage to the TaskInstances
     with Session(bind=db_engine) as session:
         query_1 = f"""
@@ -469,7 +468,7 @@ def test_tt_resource_usage_with_0(db_engine, client_env):
 
         # Check the aggregate resources for all workflows
         used_task_template_resources = template.resource_usage(ci=0.95)
-       
+
         resources = {
             "num_tasks": 3,
             "min_mem": "100B",

@@ -1,7 +1,7 @@
 """Routes for TaskTemplate."""
 from http import HTTPStatus as StatusCodes
 import json
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from flask import jsonify, request
 from flask_cors import cross_origin
@@ -264,8 +264,8 @@ def get_task_template_resource_usage() -> Any:
             None, None, None, None, None, None, None, None, None, None, None
         )
     else:
-        runtimes = []
-        mems = []
+        runtimes: List[Union[int, float]] = []
+        mems: List[Union[int, float]] = []
         for row in result:
             runtimes.append(int(row["r"]))
             mems.append(max(0, 0 if row["m"] is None else int(row["m"])))
@@ -304,7 +304,9 @@ def get_task_template_resource_usage() -> Any:
                 ci_runtime = _calculate_ci(runtimes, ci)
 
             except ValueError as e:
-                logger.warn(f"Unable to convert {ci} to float. Use None. Exception: {str(e)}")
+                logger.warn(
+                    f"Unable to convert {ci} to float. Use None. Exception: {str(e)}"
+                )
                 ci_mem = [None, None]
                 ci_runtime = [None, None]
 
