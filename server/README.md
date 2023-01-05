@@ -1,8 +1,8 @@
-# Jobmon
+# Jobmon Server
 
 - Author: SciComp
 - Email: gphipps@uw.edu
-- Description: A centralized logging and management utility for batch jobs
+- Description: Web Service and Database Model for jobmon
 
 # Documentation
 
