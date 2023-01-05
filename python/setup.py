@@ -95,6 +95,7 @@ setup(
     ],
     package_data={"jobmon": ["py.typed", "defaults.ini"]},
 
+    setup_requires=["setuptools_scm"],
     use_scm_version={
         'root': '..',
         'local_scheme': 'no-local-version',
