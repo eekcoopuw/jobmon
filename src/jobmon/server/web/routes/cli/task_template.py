@@ -1,7 +1,7 @@
 """Routes for TaskTemplate."""
 from http import HTTPStatus as StatusCodes
 import json
-from typing import Any, Dict, List, Union
+from typing import Any, Dict, List
 
 from flask import jsonify, request
 from flask_cors import cross_origin
@@ -264,34 +264,44 @@ def get_task_template_resource_usage() -> Any:
             None, None, None, None, None, None, None, None, None, None, None
         )
     else:
-        runtimes: List[Union[int, float]] = []
-        mems: List[Union[int, float]] = []
+        runtimes = []
+        mems = []
         for row in result:
             runtimes.append(int(row["r"]))
             mems.append(max(0, 0 if row["m"] is None else int(row["m"])))
-        # set 0 to NaN; thus, numpy ignores them
-        mems = [i if i != 0 else np.nan for i in mems]
-        runtimes = [i if i != 0 else np.nan for i in runtimes]
+
         num_tasks = len(runtimes)
-        min_mem = int(np.nanmin(mems))
-        max_mem = int(np.nanmax(mems))
-        mean_mem = round(float(np.nanmean(mems)), 2)
-        min_runtime = int(np.nanmin(runtimes))
-        max_runtime = int(np.nanmax(runtimes))
-        mean_runtime = round(float(np.nanmean(runtimes)), 2)
-        median_mem = round(float(np.nanpercentile(mems, 50)), 2)
-        median_runtime = round(float(np.nanpercentile(runtimes, 50)), 2)
+        # set 0 to NaN; thus, numpy ignores them
+        if 0 in mems:
+            mems.remove(0)
+        if 0 in runtimes:
+            runtimes.remove(0)
+        if len(mems) > 0:
+            min_mem = int(np.min(mems))
+            max_mem = int(np.max(mems))
+            mean_mem = round(float(np.mean(mems)), 2)
+            median_mem = round(float(np.percentile(mems, 50)), 2)
+        else:
+            min_mem = 0
+            max_mem = 0
+            mean_mem = 0
+            median_mem = 0
+        if len(runtimes) > 0:
+            min_runtime = int(np.min(runtimes))
+            max_runtime = int(np.max(runtimes))
+            mean_runtime = round(float(np.mean(runtimes)), 2)
+            median_runtime = round(float(np.percentile(runtimes, 50)), 2)
+        else:
+            min_runtime = 0
+            max_runtime = 0
+            mean_runtime = 0
+            median_runtime = 0
 
         if ci is None:
             ci_mem = [None, None]
             ci_runtime = [None, None]
         else:
             try:
-                # remove NaN to calculate confidence interval
-                if mems and np.nan in mems:
-                    mems.remove(np.nan)
-                if runtimes and np.nan in runtimes:
-                    runtimes.remove(np.nan)
                 ci = float(ci)
 
                 def _calculate_ci(d: List, ci: float) -> List[Any]:
@@ -300,8 +310,14 @@ def get_task_template_resource_usage() -> Any:
                     )
                     return [round(float(interval[0]), 2), round(float(interval[1]), 2)]
 
-                ci_mem = _calculate_ci(mems, ci)
-                ci_runtime = _calculate_ci(runtimes, ci)
+                if len(mems) > 0:
+                    ci_mem = _calculate_ci(mems, ci)
+                else:
+                    ci_mem = [None, None]
+                if len(runtimes) > 0:
+                    ci_runtime = _calculate_ci(runtimes, ci)
+                else:
+                    ci_runtime = [None, None]
 
             except ValueError as e:
                 logger.warn(

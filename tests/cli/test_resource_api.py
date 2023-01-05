@@ -408,7 +408,7 @@ def test_tt_resource_usage_with_0(db_engine, client_env):
 
     workflow_1 = tool.create_workflow(name="task_template_resource_usage_test_wf_1")
     template = tool.get_task_template(
-        template_name="I_have_to_be_new",
+        template_name="I_have_to_be_new_2",
         command_template="echo {arg} --foo {arg_2} --bar {task_arg_1} --baz {arg_3}",
         node_args=["arg", "arg_2", "arg_3"],
         task_args=["task_arg_1"],
