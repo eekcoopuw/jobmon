@@ -74,6 +74,7 @@ setup(
     ],
     package_data={"jobmon/server": ["py.typed"]},
 
+    setup_requires=["setuptools_scm"],
     use_scm_version={
         'root': '..',
         'local_scheme': 'no-local-version',
