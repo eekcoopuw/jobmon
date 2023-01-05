@@ -445,7 +445,7 @@ class SerializeDistributorWorkflow:
 
     @staticmethod
     def to_wire(workflow_id: int, dag_id: int, max_concurrently_running: int) -> tuple:
-        """"""
+        """Submit the Workflow information."""
         return (
             workflow_id,
             dag_id,
@@ -454,7 +454,7 @@ class SerializeDistributorWorkflow:
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
-        """"""
+        """Get the Workflow information."""
         return {"workflow_id": wire_tuple[0], "max_concurrently_running": wire_tuple[1]}
 
 
@@ -468,7 +468,7 @@ class SerializeTaskResources:
         task_resources_type_id: str,
         requested_resources: str,
     ) -> tuple:
-        """"""
+        """Submit the TaskResource information."""
         return (
             task_resources_id,
             queue_name,
@@ -478,7 +478,7 @@ class SerializeTaskResources:
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
-        """"""
+        """Get the TaskResource information."""
         return {
             "task_resources_id": wire_tuple[0],
             "queue_name": wire_tuple[1],
@@ -498,7 +498,7 @@ class SerializeTaskInstanceBatch:
         task_resources_id: int,
         task_instance_ids: List[int],
     ) -> tuple:
-        """"""
+        """Submit the TaskInstanceBatch information."""
         return (
             array_id,
             array_name,
@@ -509,7 +509,7 @@ class SerializeTaskInstanceBatch:
 
     @staticmethod
     def kwargs_from_wire(wire_tuple: tuple) -> dict:
-        """"""
+        """Get the TaskInstanceBatch information."""
         return {
             "array_id": wire_tuple[0],
             "array_name": wire_tuple[1],

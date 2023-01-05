@@ -269,15 +269,33 @@ def get_task_template_resource_usage() -> Any:
         for row in result:
             runtimes.append(int(row["r"]))
             mems.append(max(0, 0 if row["m"] is None else int(row["m"])))
+
         num_tasks = len(runtimes)
-        min_mem = int(np.min(mems))
-        max_mem = int(np.max(mems))
-        mean_mem = round(float(np.mean(mems)), 2)
-        min_runtime = int(np.min(runtimes))
-        max_runtime = int(np.max(runtimes))
-        mean_runtime = round(float(np.mean(runtimes)), 2)
-        median_mem = round(float(np.percentile(mems, 50)), 2)
-        median_runtime = round(float(np.percentile(runtimes, 50)), 2)
+        # set 0 to NaN; thus, numpy ignores them
+        if 0 in mems:
+            mems.remove(0)
+        if 0 in runtimes:
+            runtimes.remove(0)
+        if len(mems) > 0:
+            min_mem = int(np.min(mems))
+            max_mem = int(np.max(mems))
+            mean_mem = round(float(np.mean(mems)), 2)
+            median_mem = round(float(np.percentile(mems, 50)), 2)
+        else:
+            min_mem = 0
+            max_mem = 0
+            mean_mem = 0
+            median_mem = 0
+        if len(runtimes) > 0:
+            min_runtime = int(np.min(runtimes))
+            max_runtime = int(np.max(runtimes))
+            mean_runtime = round(float(np.mean(runtimes)), 2)
+            median_runtime = round(float(np.percentile(runtimes, 50)), 2)
+        else:
+            min_runtime = 0
+            max_runtime = 0
+            mean_runtime = 0
+            median_runtime = 0
 
         if ci is None:
             ci_mem = [None, None]
@@ -292,11 +310,19 @@ def get_task_template_resource_usage() -> Any:
                     )
                     return [round(float(interval[0]), 2), round(float(interval[1]), 2)]
 
-                ci_mem = _calculate_ci(mems, ci)
-                ci_runtime = _calculate_ci(runtimes, ci)
+                if len(mems) > 0:
+                    ci_mem = _calculate_ci(mems, ci)
+                else:
+                    ci_mem = [None, None]
+                if len(runtimes) > 0:
+                    ci_runtime = _calculate_ci(runtimes, ci)
+                else:
+                    ci_runtime = [None, None]
 
-            except ValueError:
-                logger.warn(f"Unable to convert {ci} to float. Use None.")
+            except ValueError as e:
+                logger.warn(
+                    f"Unable to convert {ci} to float. Use None. Exception: {str(e)}"
+                )
                 ci_mem = [None, None]
                 ci_runtime = [None, None]
 
