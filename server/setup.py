@@ -74,7 +74,6 @@ setup(
     ],
     package_data={"jobmon/server": ["py.typed"]},
 
-    setup_requires=["setuptools_scm"],
     use_scm_version={
         'root': '..',
         'local_scheme': 'no-local-version',
@@ -83,4 +82,9 @@ setup(
         'git_describe_command': GIT_DESCRIBE_COMMAND
     },
 
+    entry_points={
+        'console_scripts': [
+            'jobmon_server=jobmon.server.cli:main [server]',
+        ]
+    }
 )

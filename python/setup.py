@@ -4,6 +4,21 @@ import os
 from setuptools import setup
 from setuptools import find_packages
 
+thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
+
+
+GIT_DESCRIBE_COMMAND = [
+    "git",
+    "--git-dir",
+    os.path.join(thisdir, "..", ".git"),
+    "describe",
+    "--dirty",
+    "--tags",
+    "--long",
+    "--match",
+    "python-[0-9]*",  # only match on jobmon_slurm_plugin tags
+]
+
 INSTALL_REQUIRES = [
     'configparser',
     'numpy',
@@ -17,13 +32,7 @@ INSTALL_REQUIRES = [
 ]
 
 SERVER_REQUIRES = [
-    'flask',
-    'flask_cors',
-    'elastic-apm[flask]',
-    'pymysql',  # install MySQLdb/mysqlclient for more performance
-    'sqlalchemy',
-    'structlog',
-    'scipy',
+    'jobmon_server'
 ]
 
 # pip install -e .[test]
@@ -54,8 +63,6 @@ def read(read_file: str):
     return open(os.path.join(os.path.dirname(__file__), read_file)).read()
 
 
-# TODO: consider splitting into 3 builds: jobmon_server, jobmon_client, jobmon.
-# Subclass install to accept parameters https://stackoverflow.com/questions/18725137/how-to-obtain-arguments-passed-to-setup-py-from-pip-with-install-option
 setup(
     name='jobmon',
     maintainer='IHME SciComp',
@@ -82,20 +89,25 @@ setup(
 
     packages=find_packages('src'),
     package_dir={'': 'src'},
-    py_modules=[os.path.splitext(os.path.basename(path))[0] for path in glob('src/*.py')],
+    py_modules=[
+        os.path.splitext(os.path.basename(path))[0]
+        for path in glob('python/src/*.py')
+    ],
     package_data={"jobmon": ["py.typed", "defaults.ini"]},
 
-    use_scm_version={'local_scheme': 'no-local-version',
-                     'write_to': 'src/jobmon/_version.py',
-                     'fallback_version': '0.0.0',
-                     'version_scheme': 'release-branch-semver'},
+    use_scm_version={
+        'root': '..',
+        'local_scheme': 'no-local-version',
+        'write_to': os.path.join(thisdir, 'src/jobmon/_version.py'),
+        'version_scheme': 'release-branch-semver',
+        'git_describe_command': GIT_DESCRIBE_COMMAND
+    },
 
     entry_points={
         'console_scripts': [
             'jobmon=jobmon.client.cli:main',
             'jobmon_config=jobmon.configuration:main',
             'jobmon_distributor=jobmon.client.distributor.cli:main',
-            'jobmon_server=jobmon.server.cli:main [server]',
             'worker_node_entry_point=jobmon.worker_node.cli:run'
         ]
     }
