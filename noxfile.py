@@ -15,40 +15,14 @@ python = "3.8"
 @nox.session(python=python, venv_backend="conda")
 def tests(session: Session) -> None:
     """Run the test suite."""
+    session.install("pytest", "pytest-xdist", "mock", "filelock")
+    session.install("-e", "./jobmon_core")
+    session.install("-e", "./jobmon_client")
+    session.install("-e", "./jobmon_server")
+
     args = session.posargs or test_locations
 
-    session.install("-e", ".[test,server]")
-
-    # pytest skips. performance tests are a separate nox target, so are integrator tests
-    extra_args = ['-m', "not performance_tests and not usage_integrator"]
-
-    # pytest mproc
-    os.environ["SQLALCHEMY_WARN_20"] = "1"
-    session.run("pytest", *args, *extra_args)
-
-
-@nox.session(python=python, venv_backend="conda")
-def performance(session: Session) -> None:
-    """Run performance tests that take a while."""
-    args = session.posargs or test_locations
-
-    session.conda_install("mysqlclient", "openssl")
-    session.install("-e", ".[test,server]")
-
-    extra_args = ["-m", "performance_tests"]
-    session.run("pytest", *args, *extra_args)
-
-
-@nox.session(python=python, venv_backend="conda")
-def test_integrator(session: Session) -> None:
-    """Run the integrator tests that connect to the production accounting database."""
-    args = session.posargs or test_locations
-
-    session.conda_install("mysqlclient", "openssl")
-    session.install("-e", ".[test,server]")
-
-    extra_args = ["-m", "usage_integrator"]
-    session.run("pytest", *args, *extra_args)
+    session.run("pytest", *args, env={"SQLALCHEMY_WARN_20": "1"})
 
 
 @nox.session(python=python, venv_backend="conda")
@@ -94,6 +68,14 @@ def typecheck(session: Session) -> None:
 @nox.session(python=python, venv_backend="conda")
 def docs(session: Session) -> None:
     """Build the documentation."""
+
+    # docs = [
+    #     "sphinx",
+    #     "sphinx-autodoc-typehints",
+    #     "sphinx_rtd_theme",
+    #     "graphviz",
+    #     "sphinx_tabs",
+    # ]
 
     # environment variables used in build script
     web_service_fqdn = \
