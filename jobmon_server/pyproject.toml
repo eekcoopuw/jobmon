@@ -34,7 +34,6 @@ where = ["src"]
 
 [tool.setuptools_scm]
 root = ".."
-write_to = "jobmon_server/src/jobmon/server/_version.py"
 local_scheme = "no-local-version"
 version_scheme = "release-branch-semver"
 git_describe_command = [

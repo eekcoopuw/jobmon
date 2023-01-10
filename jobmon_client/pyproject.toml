@@ -32,7 +32,6 @@ license-files = ["../LICENSE"]
 
 [tool.setuptools_scm]
 root = ".."
-write_to = "jobmon_client/src/jobmon/client/_version.py"
 local_scheme = "no-local-version"
 version_scheme = "release-branch-semver"
 git_describe_command = [

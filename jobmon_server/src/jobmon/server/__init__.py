@@ -1,1 +1,2 @@
-from jobmon.server._version import version as __version__  # noqa F401
+import pkg_resources
+__version__ = pkg_resources.get_distribution('jobmon_server').version

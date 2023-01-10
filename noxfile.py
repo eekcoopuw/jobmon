@@ -1,7 +1,10 @@
 """Nox Configuration for Jobmon."""
+from contextlib import contextmanager
 import glob
 import os
+from pathlib import Path
 import shutil
+
 
 import nox
 from nox.sessions import Session
@@ -11,6 +14,25 @@ src_locations = glob.glob("jobmon_*/src")
 test_locations = ["tests"]
 
 python = "3.8"
+
+
+@contextmanager
+def set_directory(path: Path):
+    """Sets the cwd within the context
+
+    Args:
+        path (Path): The path to the cwd
+
+    Yields:
+        None
+    """
+
+    origin = Path().absolute()
+    try:
+        os.chdir(path)
+        yield
+    finally:
+        os.chdir(origin)
 
 
 @nox.session(python=python, venv_backend="conda")
@@ -117,21 +139,13 @@ def docs(session: Session) -> None:
 
 
 @nox.session(python=python, venv_backend="conda")
-def build_core(session: Session) -> None:
+def build(session: Session) -> None:
+    args = session.posargs or src_locations
     session.install("build")
-    session.run("python", "-m", "build", "./jobmon_core")
 
-
-@nox.session(python=python, venv_backend="conda")
-def build_client(session: Session) -> None:
-    session.install("build")
-    session.run("python", "-m", "build", "./jobmon_client")
-
-
-@nox.session(python=python, venv_backend="conda")
-def build_server(session: Session) -> None:
-    session.install("build")
-    session.run("python", "-m", "build", "./jobmon_server")
+    for src_dir in args:
+        namespace_dir = str(Path(src_dir).parent)
+        session.run("python", "-m", "build", "--outdir", "dist", namespace_dir)
 
 
 @nox.session(python=python, venv_backend="conda")
