@@ -32,7 +32,7 @@ def test_resource_usage(db_engine, client_env):
         session.execute(sql, {"task_id": task.task_id})
         session.commit()
     with patch(
-        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.core.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
         f.return_value = set()  # no exclude tt
         used_task_resources = task.resource_usage()
@@ -117,7 +117,7 @@ def test_tt_resource_usage(db_engine, client_env):
         session.commit()
 
     with patch(
-        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.core.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
         f.return_value = {
             template.active_task_template_version.id,
@@ -128,7 +128,7 @@ def test_tt_resource_usage(db_engine, client_env):
         assert used_task_template_resources is None
 
     with patch(
-        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.core.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
         f.return_value = set()  # no execlude tt
 

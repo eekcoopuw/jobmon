@@ -6,3 +6,6 @@ omit =
   */setup.py
   */__init__.py
 concurrency = multiprocessing
+
+[html]
+directory = out/html

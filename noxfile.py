@@ -26,7 +26,13 @@ def tests(session: Session) -> None:
     args = session.posargs or test_locations
     extra_args = ['-m', "not performance_tests"]
 
-    session.run("pytest", *args, *extra_args, env={"SQLALCHEMY_WARN_20": "1"})
+    session.run(
+        "pytest",
+        "--cov=jobmon",
+        "--cov-report=html",
+        *args, *extra_args,
+        env={"SQLALCHEMY_WARN_20": "1"}
+    )
 
 
 @nox.session(python=python, venv_backend="conda")
@@ -43,11 +49,13 @@ def lint(session: Session) -> None:
     # TODO: work these in over time?
     # "darglint",
     # "flake8-bandit"
-    session.install("flake8",
-                    "flake8-annotations",
-                    "flake8-import-order",
-                    "flake8-docstrings",
-                    "flake8-black")
+    session.install(
+        "flake8",
+        "flake8-annotations",
+        "flake8-import-order",
+        "flake8-docstrings",
+        "flake8-black"
+    )
     session.run("flake8", *args)
 
 
@@ -130,7 +138,7 @@ def build(session: Session) -> None:
 
 @nox.session(python=python, venv_backend="conda")
 def clean(session: Session) -> None:
-    dirs_to_remove = ['out', 'jobmon_coverage_html_report', 'dist', 'build', ".eggs",
+    dirs_to_remove = ['out', 'dist', 'build', ".eggs",
                       '.pytest_cache', 'docsource/api', '.mypy_cache']
     egg_info = glob.glob("jobmon_*/src/*.egg-info")
     dirs_to_remove.extend(egg_info)

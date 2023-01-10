@@ -13,32 +13,24 @@
 /jobmon_*/build/*
 /jobmon_*/dist/*
 /jobmon_*/LICENSE
-/dist/*
+dist
 
-# Ignore coverage reports
+# Ignore test artifacts
 .coverage
 .coverage.*
-jobmon_coverage_html_report
-test_report.xml
+out
 
 # ignore cache directories
-__pycache__
+*__pycache__*
 .pytest_cache
 .mypy_cache
-
-# Ignore build artifacts
-.idea
 
 # Ignore mac files
 ._*
 .DS_Store
-
-# Ignore pytest cache files
-.pytest_*
 
 # ignore nox envs
 .nox/
 
 # ignore auto generated docs
 docsource/api
-/out
