@@ -491,3 +491,37 @@ def get_downstream_tasks() -> Any:
     resp = jsonify(downstream_tasks=result)
     resp.status_code = StatusCodes.OK
     return resp
+
+
+@blueprint.route("/task/get_task_details_viz/<task_id>", methods=["GET"])
+def get_task_details(task_id: int) -> Any:
+    """Get information about TaskInstances associated with specific Task ID."""
+    session = SessionLocal()
+    with session.begin():
+        query = select(
+            TaskInstance.id,
+            TaskInstance.status,
+            TaskInstance.stdout,
+            TaskInstance.stderr,
+            TaskInstance.distributor_id,
+            TaskInstance.nodename,
+            TaskInstanceErrorLog.description,
+        ).where(
+            TaskInstance.id == TaskInstanceErrorLog.task_instance_id,
+            TaskInstance.task_id == task_id,
+        )
+        rows = session.execute(query).all()
+
+    column_names = (
+        "ti_id",
+        "ti_status",
+        "ti_stdout",
+        "ti_stderr",
+        "ti_distributor_id",
+        "ti_nodename",
+        "ti_error_log_description",
+    )
+    result = [dict(zip(column_names, row)) for row in rows]
+    resp = jsonify(taskinstances=result)
+    resp.status_code = 200
+    return resp
