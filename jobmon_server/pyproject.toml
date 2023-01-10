@@ -5,7 +5,6 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jobmon_server"
 description="Web Service and Model for Jobmon"
-readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
     "Programming Language :: Python :: 3.9",
@@ -13,7 +12,7 @@ classifiers = [
     "Programming Language :: Python :: 3.7",
 ]
 dependencies = [
-    'jobmon',
+    'jobmon_core',
     'flask',
     'flask_cors',
     'elastic-apm[flask]',
@@ -35,7 +34,7 @@ where = ["src"]
 
 [tool.setuptools_scm]
 root = ".."
-write_to = "jobmon_server/src/jobmon/_server_version.py"
+write_to = "jobmon_server/src/jobmon/server/_version.py"
 local_scheme = "no-local-version"
 version_scheme = "release-branch-semver"
 git_describe_command = [

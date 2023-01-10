@@ -60,13 +60,15 @@ def black(session):
 def typecheck(session: Session) -> None:
     """Type check code."""
     args = session.posargs or src_locations
-    session.install("-e", "./jobmon_core")
-    session.install("-e", "./jobmon_client")
-    session.install("-e", "./jobmon_server")
     session.install("mypy", "types-Flask", "types-requests", "types-PyMySQL", "types-filelock",
                     "types-PyYAML", "types-tabulate", "types-psutil",
                     "types-Flask-Cors")
-    session.run("mypy", *args)
+
+    session.install("-e", "./jobmon_core")
+    session.install("-e", "./jobmon_client")
+    session.install("-e", "./jobmon_server")
+
+    session.run("mypy", "--explicit-package-bases", *args)
 
 
 @nox.session(python=python, venv_backend="conda")
@@ -115,15 +117,32 @@ def docs(session: Session) -> None:
 
 
 @nox.session(python=python, venv_backend="conda")
-def build(session: Session) -> None:
+def build_core(session: Session) -> None:
     session.install("build")
-    session.run("python", "-m", "build")
+    session.run("python", "-m", "build", "./jobmon_core")
+
+
+@nox.session(python=python, venv_backend="conda")
+def build_client(session: Session) -> None:
+    session.install("build")
+    session.run("python", "-m", "build", "./jobmon_client")
+
+
+@nox.session(python=python, venv_backend="conda")
+def build_server(session: Session) -> None:
+    session.install("build")
+    session.run("python", "-m", "build", "./jobmon_server")
 
 
 @nox.session(python=python, venv_backend="conda")
 def clean(session: Session) -> None:
-    dirs_to_remove = ['out', 'jobmon_coverage_html_report', 'dist', 'build', '.eggs',
+    dirs_to_remove = ['out', 'jobmon_coverage_html_report', 'dist', 'build', ".eggs",
                       '.pytest_cache', 'docsource/api', '.mypy_cache']
+    egg_info = glob.glob("jobmon_*/src/*.egg-info")
+    dirs_to_remove.extend(egg_info)
+    builds = glob.glob("jobmon_*/build")
+    dirs_to_remove.extend(builds)
+
     for path in dirs_to_remove:
         if os.path.exists(path):
             shutil.rmtree(path)

@@ -5,7 +5,6 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jobmon_core"
 description="Shared functionality for Jobmon Namespace Packages"
-readme = "../README.md"
 requires-python = ">=3.7"
 classifiers = [
     "Programming Language :: Python :: 3.9",
@@ -34,7 +33,7 @@ where = ["src"]
 
 [tool.setuptools_scm]
 root = ".."
-write_to = "jobmon_core/src/jobmon/_core_version.py"
+write_to = "jobmon_core/src/jobmon/core/_version.py"
 local_scheme = "no-local-version"
 version_scheme = "release-branch-semver"
 git_describe_command = [

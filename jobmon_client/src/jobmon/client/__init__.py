@@ -1,1 +1,1 @@
-from jobmon._client_version import version as __version__  # noqa F401
+from jobmon.client._version import version as __version__  # noqa F401

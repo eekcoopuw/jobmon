@@ -10,7 +10,7 @@ try:
 except ImportError:
     from typing_extensions import Protocol  # type: ignore
 
-from jobmon._core_version import version as __version__
+from jobmon.core import __version__
 from jobmon.core.exceptions import RemoteExitInfoNotAvailable
 
 

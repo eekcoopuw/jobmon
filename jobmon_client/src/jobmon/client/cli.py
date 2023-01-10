@@ -185,9 +185,8 @@ class ClientCLI(CLI):
     @staticmethod
     def jobmon_version(args: argparse.Namespace) -> None:
         """Return the jobmon version."""
-        from jobmon import _version
-
-        print(_version.version)
+        from jobmon.client import __version__
+        print(__version__)
 
     @staticmethod
     def resource_yaml(args: argparse.Namespace) -> None:
