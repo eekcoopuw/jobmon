@@ -10,10 +10,10 @@
 # Python egg metadata, regenerated from source files by setuptools.
 # and other build artifacts
 */*/*.egg-info/*
-jobmon_*/src/jobmon/*/_version.py
 /jobmon_*/build/*
-/dist
-.eggs/
+/jobmon_*/dist/*
+/jobmon_*/LICENSE
+/dist/*
 
 # Ignore coverage reports
 .coverage
@@ -42,15 +42,3 @@ __pycache__
 # ignore auto generated docs
 docsource/api
 /out
-
-# ignore conda build
-conda_build_output/*
-
-# ignore ihme_installer build
-deployment/jobmon_installer_ihme/setup.cfg
-deployment/jobmon_installer_ihme/build/*
-deployment/jobmon_installer_ihme/dist/*
-deployment/jobmon_installer_ihme/src/jobmon_installer_ihme.egg-info/*
-
-# If testing the integrator, read/write secrets from this file but DO NOT COMMIT
-tests/usage_integration/integrator_secrets.json
