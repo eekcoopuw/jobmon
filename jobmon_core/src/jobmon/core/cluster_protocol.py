@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from abc import abstractmethod
-
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
 # the following try-except is to accommodate Python versions on both >=3.8 and 3.7.
@@ -11,7 +10,7 @@ try:
 except ImportError:
     from typing_extensions import Protocol  # type: ignore
 
-from jobmon._core_version import version as __version__  # noqa F401
+from jobmon._core_version import version as __version__
 from jobmon.core.exceptions import RemoteExitInfoNotAvailable
 
 

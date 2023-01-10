@@ -72,15 +72,6 @@ def typecheck(session: Session) -> None:
 @nox.session(python=python, venv_backend="conda")
 def docs(session: Session) -> None:
     """Build the documentation."""
-
-    # docs = [
-    #     "sphinx",
-    #     "sphinx-autodoc-typehints",
-    #     "sphinx_rtd_theme",
-    #     "graphviz",
-    #     "sphinx_tabs",
-    # ]
-
     # environment variables used in build script
     web_service_fqdn = \
         os.environ.get("WEB_SERVICE_FQDN") if "WEB_SERVICE_FQDN" in os.environ else "TBD"

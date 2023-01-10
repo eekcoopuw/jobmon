@@ -9,7 +9,12 @@ from jobmon.client.logging import JobmonLoggerConfig
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.workflow import DistributorContext
 from jobmon.client.workflow_run import WorkflowRunFactory
-from jobmon.core.constants import ExecludeTTVs, TaskStatus, WorkflowRunStatus, WorkflowStatus
+from jobmon.core.constants import (
+    ExecludeTTVs,
+    TaskStatus,
+    WorkflowRunStatus,
+    WorkflowStatus,
+)
 from jobmon.core.exceptions import InvalidResponse, WorkflowRunStateError
 from jobmon.core.requester import http_request_ok, Requester
 from jobmon.core.serializers import SerializeTaskTemplateResourceUsage

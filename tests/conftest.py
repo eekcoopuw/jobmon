@@ -68,10 +68,10 @@ class WebServerProcess:
                         "level": "INFO",
                     },
                     # enable SQL debug
-                    'sqlalchemy': {
+                    "sqlalchemy": {
                         "handlers": ["console_text"],
-                        'level': 'WARNING',
-                    }
+                        "level": "WARNING",
+                    },
                 }
             )
             app = get_app(config)

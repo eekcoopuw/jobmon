@@ -3,8 +3,8 @@ import argparse
 import json
 from typing import Any, Optional
 
-from jobmon.core.cli import CLI
 from jobmon.client.status_commands import get_task_dependencies
+from jobmon.core.cli import CLI
 
 
 class _HelpAction(argparse._HelpAction):

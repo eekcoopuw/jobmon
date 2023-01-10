@@ -14,7 +14,10 @@ from jobmon.client.task_resources import TaskResources
 from jobmon.core.constants import SpecialChars
 from jobmon.core.exceptions import InvalidResponse
 from jobmon.core.requester import Requester
-from jobmon.core.serializers import SerializeTaskInstanceErrorLog, SerializeTaskResourceUsage
+from jobmon.core.serializers import (
+    SerializeTaskInstanceErrorLog,
+    SerializeTaskResourceUsage,
+)
 
 if TYPE_CHECKING:
     from jobmon.client.array import Array

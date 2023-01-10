@@ -11,9 +11,9 @@ from typing import Any, Dict, List, Optional, Set, Tuple
 
 import psutil
 
-from jobmon.core.exceptions import RemoteExitInfoNotAvailable
 from jobmon.core.cluster_protocol import ClusterDistributor, ClusterWorkerNode
 from jobmon.core.constants import TaskInstanceStatus
+from jobmon.core.exceptions import RemoteExitInfoNotAvailable
 
 logger = logging.getLogger(__name__)
 

@@ -7,16 +7,16 @@ import sys
 import time
 from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Set, Union
 
-from jobmon.distributor.distributor_command import DistributorCommand
-from jobmon.distributor.distributor_task_instance import DistributorTaskInstance
-from jobmon.distributor.distributor_workflow_run import DistributorWorkflowRun
-from jobmon.distributor.task_instance_batch import TaskInstanceBatch
 from jobmon.core.cluster_protocol import ClusterDistributor
 from jobmon.core.configuration import JobmonConfig
 from jobmon.core.constants import TaskInstanceStatus
 from jobmon.core.exceptions import DistributorInterruptedError, InvalidResponse
 from jobmon.core.requester import http_request_ok, Requester
 from jobmon.core.serializers import SerializeTaskInstanceBatch
+from jobmon.distributor.distributor_command import DistributorCommand
+from jobmon.distributor.distributor_task_instance import DistributorTaskInstance
+from jobmon.distributor.distributor_workflow_run import DistributorWorkflowRun
+from jobmon.distributor.task_instance_batch import TaskInstanceBatch
 
 
 logger = logging.getLogger(__name__)
