@@ -6,7 +6,7 @@ import os
 import shutil
 from typing import Any, Dict, List, Optional, Set, Tuple, Union
 
-from jobmon.core.plugins import ClusterDistributor, ClusterWorkerNode
+from jobmon.core.cluster_protocol import ClusterDistributor, ClusterWorkerNode
 from jobmon.core.constants import TaskInstanceStatus
 from jobmon.core.exceptions import RemoteExitInfoNotAvailable, ReturnCodes
 from jobmon.worker_node.cli import WorkerNodeCLI

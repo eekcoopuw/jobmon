@@ -2,15 +2,16 @@ import os
 import sys
 import time
 
-from jobmon.constants import WorkflowRunStatus, TaskInstanceStatus
-from jobmon.exceptions import WorkflowAlreadyExists, WorkflowNotResumable
-from jobmon.plugins.multiprocess.multiproc_distributor import MultiprocessDistributor
+from mock import patch
+import pytest
+
 from jobmon.client.tool import Tool
 from jobmon.client.workflow_run import WorkflowRunFactory
-
-from mock import patch
-
-import pytest
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+from jobmon.core.constants import WorkflowRunStatus, TaskInstanceStatus
+from jobmon.core.exceptions import WorkflowAlreadyExists, WorkflowNotResumable
+from jobmon.distributor.distributor_service import DistributorService
+from jobmon.plugins.multiprocess.multiproc_distributor import MultiprocessDistributor
 
 
 @pytest.fixture
@@ -144,9 +145,6 @@ class MockDistributorProc:
 
 def test_cold_resume(tool):
     """"""
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-
     # prepare first workflow
     workflow1 = tool.create_workflow(name="cold_resume")
     workflow1.add_tasks(get_two_wave_tasks(tool))
@@ -226,9 +224,6 @@ def test_cold_resume(tool):
 
 
 def test_hot_resume(tool, task_template):
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-
     workflow1 = tool.create_workflow(name="hot_resume")
     tasks = []
     for i in range(6):

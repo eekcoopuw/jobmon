@@ -1,10 +1,10 @@
-from jobmon.exceptions import InvalidResponse
-from jobmon.requester import Requester
+"""This is the test the HTTP 400 errors.
+"""
 
 import pytest
 
-"""This is the test the HTTP 400 errors.
-"""
+from jobmon.core.exceptions import InvalidResponse
+from jobmon.core.requester import Requester
 
 
 def test_add_tool(client_env):

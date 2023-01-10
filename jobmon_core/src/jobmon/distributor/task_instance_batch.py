@@ -10,7 +10,7 @@ from jobmon.core.exceptions import InvalidResponse
 from jobmon.core.requester import http_request_ok, Requester
 
 if TYPE_CHECKING:
-    from jobmon.client.distributor.distributor_task_instance import (
+    from jobmon.distributor.distributor_task_instance import (
         DistributorTaskInstance,
     )
 

@@ -2,6 +2,7 @@ from datetime import datetime, timedelta
 
 from sqlalchemy.orm import Session
 
+from jobmon.core.constants import TaskStatus, TaskInstanceStatus
 from jobmon.server.web.models import load_model
 
 load_model()
@@ -10,7 +11,6 @@ load_model()
 def test_array_launch_transition(web_server_in_memory):
     from jobmon.server.web.models.task import Task
     from jobmon.server.web.models.task_instance import TaskInstance
-    from jobmon.constants import TaskStatus, TaskInstanceStatus
 
     # Make up some tasks and task instances in I state
     app, db_engine = web_server_in_memory

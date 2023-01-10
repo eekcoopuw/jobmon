@@ -14,12 +14,12 @@ from threading import Thread
 from time import sleep, time
 from typing import Dict, Optional, Union
 
+from jobmon.core.cluster_protocol import ClusterWorkerNode
 from jobmon.core.configuration import JobmonConfig
 from jobmon.core.constants import TaskInstanceStatus
 from jobmon.core.exceptions import InvalidResponse, ReturnCodes, TransitionError
 from jobmon.core.requester import http_request_ok, Requester
 from jobmon.core.serializers import SerializeTaskInstance
-from jobmon.plugins import ClusterWorkerNode
 
 logger = logging.getLogger(__name__)
 

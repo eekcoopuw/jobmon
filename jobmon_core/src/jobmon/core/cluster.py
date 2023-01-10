@@ -4,11 +4,11 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Optional
 
+from jobmon.core.cluster_protocol import ClusterDistributor, ClusterQueue, ClusterWorkerNode
 from jobmon.core.cluster_type import ClusterType
 from jobmon.core.exceptions import InvalidResponse
 from jobmon.core.requester import http_request_ok, Requester
 from jobmon.core.serializers import SerializeCluster, SerializeQueue
-from jobmon.plugins import ClusterDistributor, ClusterQueue, ClusterWorkerNode
 
 
 logger = logging.getLogger(__name__)

@@ -2,10 +2,10 @@ import pytest
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from jobmon.constants import WorkflowRunStatus, TaskStatus, TaskInstanceStatus
 from jobmon.client.task import Task
 from jobmon.client.workflow_run import WorkflowRun
-from jobmon.exceptions import InvalidResponse
+from jobmon.core.constants import WorkflowRunStatus, TaskStatus, TaskInstanceStatus
+from jobmon.core.exceptions import InvalidResponse
 from jobmon.server.web.models import load_model
 from jobmon.server.web.models import task
 from jobmon.server.web.models.task_attribute import TaskAttribute

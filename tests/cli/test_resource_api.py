@@ -1,13 +1,10 @@
 from unittest.mock import patch, PropertyMock
 
-import numpy as np
-
 from sqlalchemy.orm import Session
 
 from jobmon.client.tool import Tool
 from jobmon.client.cli import ClientCLI as CLI
 from jobmon.client.status_commands import task_template_resources
-from jobmon.client.tool import Tool
 
 
 def test_resource_usage(db_engine, client_env):
@@ -399,8 +396,6 @@ def test_tt_resource_usage(db_engine, client_env):
 
 
 def test_max_mem(db_engine, client_env):
-    from jobmon.client.tool import Tool
-
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}

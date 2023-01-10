@@ -1,7 +1,7 @@
 """The client for the Multiprocess executor."""
 from typing import Dict, List, Tuple, Union
 
-from jobmon.plugins import ClusterQueue
+from jobmon.core.cluster_protocol import ClusterQueue
 
 
 class MultiprocessQueue(ClusterQueue):

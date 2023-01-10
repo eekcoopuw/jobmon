@@ -9,7 +9,7 @@ from jobmon.core.exceptions import InvalidResponse
 from jobmon.core.requester import http_request_ok, Requester
 
 if TYPE_CHECKING:
-    from jobmon.client.distributor.task_instance_batch import TaskInstanceBatch
+    from jobmon.distributor.task_instance_batch import TaskInstanceBatch
 
 
 logger = logging.getLogger(__name__)

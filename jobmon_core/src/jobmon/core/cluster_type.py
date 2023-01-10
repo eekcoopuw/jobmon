@@ -5,6 +5,7 @@ import pkgutil
 
 from typing import Any, Type, Dict
 
+from jobmon.core.cluster_protocol import ClusterDistributor, ClusterQueue, ClusterWorkerNode
 import jobmon.plugins
 
 
@@ -72,13 +73,13 @@ class ClusterType:
         return self.get_plugin(self.cluster_type_name)
 
     @property
-    def cluster_queue_class(self) -> Type[jobmon.plugins.ClusterQueue]:
+    def cluster_queue_class(self) -> Type[ClusterQueue]:
         return self.plugin.get_cluster_queue_class()
 
     @property
-    def cluster_distributor_class(self) -> Type[jobmon.plugins.ClusterDistributor]:
+    def cluster_distributor_class(self) -> Type[ClusterDistributor]:
         return self.plugin.get_cluster_distributor_class()
 
     @property
-    def cluster_worker_node_class(self) -> Type[jobmon.plugins.ClusterWorkerNode]:
+    def cluster_worker_node_class(self) -> Type[ClusterWorkerNode]:
         return self.plugin.get_cluster_worker_node_class()

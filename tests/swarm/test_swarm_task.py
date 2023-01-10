@@ -1,6 +1,6 @@
 from sqlalchemy.orm import Session
 
-from jobmon.constants import WorkflowRunStatus
+from jobmon.core.constants import WorkflowRunStatus
 from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 

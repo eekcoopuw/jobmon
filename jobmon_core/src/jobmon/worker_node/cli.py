@@ -24,8 +24,8 @@ class WorkerNodeCLI(CLI):
 
     def run_task_instance_job(self, args: argparse.Namespace) -> Union[int, str]:
         """Configuration for the jobmon worker node."""
-        from jobmon.client import __version__
-        from jobmon.exceptions import ReturnCodes
+        from jobmon.core.exceptions import ReturnCodes
+        from jobmon.worker_node import __version__
         from jobmon.worker_node.worker_node_factory import WorkerNodeFactory
 
         if __version__ != args.expected_jobmon_version:
@@ -51,8 +51,8 @@ class WorkerNodeCLI(CLI):
 
     def run_task_instance_array(self, args: argparse.Namespace) -> int:
         """Configuration for the jobmon worker node."""
-        from jobmon.client import __version__
-        from jobmon.exceptions import ReturnCodes
+        from jobmon.core.exceptions import ReturnCodes
+        from jobmon.worker_node import __version__
         from jobmon.worker_node.worker_node_factory import WorkerNodeFactory
 
         if __version__ != args.expected_jobmon_version:

@@ -6,7 +6,7 @@ import os
 import random
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
-from jobmon.plugins import (
+from jobmon.core.cluster_protocol import (
     ClusterDistributor,
     ClusterQueue,
     ClusterWorkerNode,

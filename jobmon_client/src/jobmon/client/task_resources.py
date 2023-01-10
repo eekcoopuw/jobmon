@@ -11,9 +11,9 @@ import re
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 from jobmon.client.units import MemUnit, TimeUnit
+from jobmon.core.cluster_protocol import ClusterQueue
 from jobmon.core.exceptions import InvalidResponse
 from jobmon.core.requester import Requester
-from jobmon.plugins import ClusterQueue
 
 
 logger = logging.getLogger(__name__)

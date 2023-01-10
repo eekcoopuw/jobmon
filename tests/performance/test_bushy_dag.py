@@ -5,7 +5,7 @@ import uuid
 
 # for monkey patch
 # from jobmon.client.swarm.swarm_task import SwarmTask
-from jobmon.constants import TaskStatus, WorkflowRunStatus
+from jobmon.core.constants import TaskStatus, WorkflowRunStatus
 
 import pytest
 

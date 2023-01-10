@@ -1,6 +1,7 @@
 import pytest
 
 from jobmon.client.units import MemUnit, TimeUnit
+from jobmon.core.exceptions import InvalidMemoryFormat, InvalidMemoryUnit
 
 tu_test_data = [
     (1, 0, 0, (1, 0.02, 0.0, "0:00:01")),
@@ -43,7 +44,6 @@ def test_memunit_convert(i, t, e):
 
 @pytest.mark.parametrize("input", ["a", "10 M", "1g1M"])
 def test_memunit_wrong_input(input):
-    from jobmon.exceptions import InvalidMemoryFormat
 
     with pytest.raises(InvalidMemoryFormat):
         MemUnit.convert(input)
@@ -51,7 +51,6 @@ def test_memunit_wrong_input(input):
 
 @pytest.mark.parametrize("to", ["a", "gg", "1g1M"])
 def test_memunit_unit(to):
-    from jobmon.exceptions import InvalidMemoryUnit
 
     with pytest.raises(InvalidMemoryUnit):
         MemUnit.convert(100, to)

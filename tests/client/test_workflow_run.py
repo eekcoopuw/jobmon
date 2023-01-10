@@ -1,11 +1,9 @@
 import pytest
 
-from sqlalchemy.orm import Session
-
-from jobmon.constants import WorkflowRunStatus, WorkflowStatus
 from jobmon.client.api import Tool
 from jobmon.client.workflow_run import WorkflowRunFactory, WorkflowRun
-from jobmon.exceptions import WorkflowNotResumable
+from jobmon.core.constants import WorkflowRunStatus
+from jobmon.core.exceptions import WorkflowNotResumable
 
 
 @pytest.fixture

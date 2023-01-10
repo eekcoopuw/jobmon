@@ -2,9 +2,9 @@
 import argparse
 from typing import Optional
 
-from jobmon.client.distributor.api import DistributorService
 from jobmon.core.cli import CLI
 from jobmon.core.cluster import Cluster
+from jobmon.distributor.api import DistributorService
 
 
 class DistributorCLI(CLI):

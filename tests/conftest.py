@@ -68,9 +68,10 @@ class WebServerProcess:
                         "level": "INFO",
                     },
                     # enable SQL debug
-                    # 'sqlalchemy.engine': {
-                    #     'level': 'INFO',
-                    # }
+                    'sqlalchemy': {
+                        "handlers": ["console_text"],
+                        'level': 'WARNING',
+                    }
                 }
             )
             app = get_app(config)

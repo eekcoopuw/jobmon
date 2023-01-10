@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "jobmon_core"
 description="Shared functionality for Jobmon Namespace Packages"
-# readme = "README.md"
+readme = "../README.md"
 requires-python = ">=3.7"
 classifiers = [
     "Programming Language :: Python :: 3.9",
@@ -23,6 +23,8 @@ dynamic = ["version"]
 
 [project.scripts]
 jobmon_config = "jobmon.configuration:main"
+jobmon_distributor = "jobmon.client.distributor.cli:main"
+worker_node_entry_point = "jobmon.worker_node.cli:run"
 
 [tool.setuptools]
 license-files = ["../LICENSE"]

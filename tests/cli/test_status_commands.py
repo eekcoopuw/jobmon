@@ -1,6 +1,7 @@
 import argparse
 import ast
 from contextlib import redirect_stdout
+import datetime
 import getpass
 from io import StringIO
 import logging
@@ -8,13 +9,29 @@ import pandas as pd
 
 import pytest
 from unittest.mock import patch, PropertyMock
-from sqlalchemy import func, select, update
+from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
-from jobmon.constants import TaskStatus, WorkflowStatus, WorkflowRunStatus
+
+from jobmon.client.cli import ClientCLI as CLI
+from jobmon.client.status_commands import (
+    _create_yaml,
+    get_filepaths,
+    get_sub_task_tree,
+    task_status,
+    resume_workflow_from_id,
+    workflow_status,
+    workflow_tasks,
+    update_task_status,
+    validate_username,
+    validate_workflow,
+)
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.workflow import DistributorContext
 from jobmon.client.workflow_run import WorkflowRunFactory
-from jobmon.exceptions import InvalidResponse
+from jobmon.core.constants import TaskStatus, WorkflowStatus, WorkflowRunStatus
+from jobmon.core.exceptions import InvalidResponse, ConfigError
+from jobmon.core.requester import Requester
 from jobmon.server.web.models import load_model
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task import Task
@@ -36,8 +53,6 @@ def get_task_template(tool, template_name="my_template"):
 
 @pytest.fixture
 def cli(client_env):
-    from jobmon.client.cli import ClientCLI as CLI
-
     return CLI()
 
 
@@ -108,10 +123,6 @@ def df_from_stdout(function, arguments):
 
 
 def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
-    from jobmon.client.tool import Tool
-    from jobmon.client.status_commands import workflow_status
-    import datetime
-
     monkeypatch.setattr(getpass, "getuser", mock_getuser)
     user = getpass.getuser()
 
@@ -289,8 +300,6 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
 
 
 def test_workflow_tasks(db_engine, tool, client_env, cli):
-    from jobmon.client.status_commands import workflow_tasks
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     workflow = tool.create_workflow(
         default_cluster_name="sequential",
@@ -397,7 +406,6 @@ def test_workflow_tasks(db_engine, tool, client_env, cli):
 
 
 def test_task_status(db_engine, client_env, tool, cli):
-    from jobmon.client.status_commands import task_status
 
     task_template = get_task_template(tool)
     t1 = task_template.create_task(arg="exit -9", max_attempts=2)
@@ -444,9 +452,6 @@ def test_task_status(db_engine, client_env, tool, cli):
 
 
 def test_task_reset(db_engine, client_env, tool, monkeypatch):
-    from jobmon.requester import Requester
-    from jobmon.client.status_commands import validate_username
-
     monkeypatch.setattr(getpass, "getuser", mock_getuser)
 
     workflow = tool.create_workflow()
@@ -467,9 +472,6 @@ def test_task_reset(db_engine, client_env, tool, monkeypatch):
 
 
 def test_task_reset_wf_validation(db_engine, client_env, tool, cli):
-    from jobmon.requester import Requester
-    from jobmon.client.status_commands import update_task_status, validate_workflow
-
     workflow1 = tool.create_workflow()
     workflow2 = tool.create_workflow()
     task_template = get_task_template(tool)
@@ -502,8 +504,6 @@ def test_task_reset_wf_validation(db_engine, client_env, tool, cli):
 
 
 def test_sub_dag(db_engine, client_env, tool):
-    from jobmon.client.status_commands import get_sub_task_tree
-
     """
     Dag:
                 t1             t2             t3
@@ -586,8 +586,6 @@ def test_dynamic_concurrency_limiting_cli(db_engine, client_env, cli):
 
     This test checks the logic of the CLI only
     """
-    from jobmon.exceptions import ConfigError
-
     # Check that a valid ask returns error free
 
     good_command = "concurrency_limit -w 5 -m 10"
@@ -606,8 +604,6 @@ def test_dynamic_concurrency_limiting_cli(db_engine, client_env, cli):
 
 
 def test_update_task_status(db_engine, client_env, tool, cli):
-    from jobmon.client.status_commands import update_task_status
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 
     # Create a 5 task DAG. Tasks 1-3 should finish, 4 should error out and block 5
     def generate_workflow_and_tasks(tool):
@@ -682,8 +678,6 @@ def test_update_task_status(db_engine, client_env, tool, cli):
 
 
 def test_400_cli_route(db_engine, client_env):
-    from jobmon.requester import Requester
-
     requester = Requester(client_env)
     with pytest.raises(InvalidResponse) as exc:
         requester.send_request(app_route="/task_status", message={}, request_type="get")
@@ -691,8 +685,6 @@ def test_400_cli_route(db_engine, client_env):
 
 
 def test_bad_put_route(db_engine, client_env):
-    from jobmon.requester import Requester
-
     requester = Requester(client_env)
     with pytest.raises(InvalidResponse) as exc:
         requester.send_request(
@@ -702,8 +694,6 @@ def test_bad_put_route(db_engine, client_env):
 
 
 def test_get_yaml_data(db_engine, client_env):
-    from jobmon.client.tool import Tool
-
     t = Tool(name="test_get_yaml_data_tool")
     wf = t.create_workflow(name="i_am_a_fake_wf")
     tt1 = t.get_task_template(
@@ -848,7 +838,6 @@ def test_create_yaml():
       runtime: 20
       queue: "long.q"
 """
-    from jobmon.client.status_commands import _create_yaml
 
     input = {1: ["tt1", 1, 400, 10, "all.q"], 2: ["tt2", 1, 600, 20, "long.q"]}
     result = _create_yaml(input, ["ihme_slurm", "sequential"])
@@ -856,9 +845,7 @@ def test_create_yaml():
 
 
 def test_get_filepaths(db_engine, tool):
-
     from jobmon.server.web.models.task_instance import TaskInstance
-    from jobmon.client.status_commands import get_filepaths
 
     tt = tool.get_task_template(
         template_name="dummy_template",
@@ -940,8 +927,6 @@ def test_get_filepaths(db_engine, tool):
 
 
 def test_resume_workflow_from_cli(tool, task_template, db_engine, cli):
-    from jobmon.client.status_commands import resume_workflow_from_id
-
     workflow = tool.create_workflow()
 
     # Create a small example DAG.

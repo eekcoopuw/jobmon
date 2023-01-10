@@ -1,8 +1,8 @@
 from jobmon.client.workflow_run import WorkflowRunFactory
+from jobmon.client.workflow import DistributorContext
 
 
 def test_distributor_context(tool, task_template, client_env):
-    from jobmon.client.workflow import DistributorContext
 
     t1 = task_template.create_task(arg="echo 1", cluster_name="sequential")
     workflow = tool.create_workflow(name="test_instantiate_queued_jobs")

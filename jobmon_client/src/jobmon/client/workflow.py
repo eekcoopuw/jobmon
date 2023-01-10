@@ -64,7 +64,7 @@ class DistributorContext:
         cmd = [
             sys.executable,
             "-m",  # safest way to find the entrypoint
-            "jobmon.client.distributor.cli",
+            "jobmon.distributor.cli",
             "start",
             "--cluster_name",
             self._cluster_name,

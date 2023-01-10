@@ -1,4 +1,5 @@
 """Nox Configuration for Jobmon."""
+import glob
 import os
 import shutil
 
@@ -6,7 +7,7 @@ import nox
 from nox.sessions import Session
 
 
-src_locations = ["src/jobmon"]
+src_locations = glob.glob("jobmon_*/src")
 test_locations = ["tests"]
 
 python = "3.8"
@@ -21,8 +22,9 @@ def tests(session: Session) -> None:
     session.install("-e", "./jobmon_server")
 
     args = session.posargs or test_locations
+    extra_args = ['-m', "not performance_tests"]
 
-    session.run("pytest", *args, env={"SQLALCHEMY_WARN_20": "1"})
+    session.run("pytest", *args, *extra_args, env={"SQLALCHEMY_WARN_20": "1"})
 
 
 @nox.session(python=python, venv_backend="conda")
@@ -58,9 +60,11 @@ def black(session):
 def typecheck(session: Session) -> None:
     """Type check code."""
     args = session.posargs or src_locations
-    session.install("-e", ".")
+    session.install("-e", "./jobmon_core")
+    session.install("-e", "./jobmon_client")
+    session.install("-e", "./jobmon_server")
     session.install("mypy", "types-Flask", "types-requests", "types-PyMySQL", "types-filelock",
-                    "types-PyYAML", "types-setuptools", "types-tabulate", "types-psutil",
+                    "types-PyYAML", "types-tabulate", "types-psutil",
                     "types-Flask-Cors")
     session.run("mypy", *args)
 
@@ -83,23 +87,28 @@ def docs(session: Session) -> None:
     web_service_port = \
         os.environ.get("WEB_SERVICE_PORT") if "WEB_SERVICE_PORT" in os.environ else "TBD"
 
-    session.conda_install("graphviz")
-
-    session.install("-e", ".[docs,server]")
+    session.conda_install(
+        "sphinx",
+        "sphinx-autodoc-typehints",
+        "sphinx_rtd_theme",
+        "graphviz",
+        "sphinx_tabs",
+    )
+    session.install("-e", "./jobmon_core")
+    session.install("-e", "./jobmon_client")
+    session.install("-e", "./jobmon_server")
 
     autodoc_output = 'docsource/api'
     if os.path.exists(autodoc_output):
         shutil.rmtree(autodoc_output)
-    session.run(
-        'sphinx-apidoc',
-        # output dir
-        '-o', autodoc_output,
-        # source dir
-        'src/jobmon',
-        # exclude from autodoc
-        'src/jobmon/server/squid_integration',
-        'src/jobmon/server/web/main.py'
-    )
+    for src_dir in src_locations:
+        session.run(
+            'sphinx-apidoc',
+            # output dir
+            '-o', autodoc_output,
+            # source dir
+            f'{src_dir}/jobmon',
+        )
 
     # Always delete the output to prevent weird image caching bugs
     html_output = "out/_html"
@@ -123,9 +132,7 @@ def build(session: Session) -> None:
 @nox.session(python=python, venv_backend="conda")
 def clean(session: Session) -> None:
     dirs_to_remove = ['out', 'jobmon_coverage_html_report', 'dist', 'build', '.eggs',
-                      '.pytest_cache', 'docsource/api', '.mypy_cache', 'conda_build_output',
-                      './deployment/jobmon_installer_ihme/build',
-                      "./deployment/jobmon_installer_ihme/dist"]
+                      '.pytest_cache', 'docsource/api', '.mypy_cache']
     for path in dirs_to_remove:
         if os.path.exists(path):
             shutil.rmtree(path)
