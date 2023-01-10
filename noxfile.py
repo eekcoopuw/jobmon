@@ -1,5 +1,4 @@
 """Nox Configuration for Jobmon."""
-from contextlib import contextmanager
 import glob
 import os
 from pathlib import Path
@@ -14,25 +13,6 @@ src_locations = glob.glob("jobmon_*/src")
 test_locations = ["tests"]
 
 python = "3.8"
-
-
-@contextmanager
-def set_directory(path: Path):
-    """Sets the cwd within the context
-
-    Args:
-        path (Path): The path to the cwd
-
-    Yields:
-        None
-    """
-
-    origin = Path().absolute()
-    try:
-        os.chdir(path)
-        yield
-    finally:
-        os.chdir(origin)
 
 
 @nox.session(python=python, venv_backend="conda")
