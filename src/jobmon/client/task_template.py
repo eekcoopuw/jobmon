@@ -22,7 +22,7 @@ from jobmon.client.array import Array
 from jobmon.client.node import Node
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
-from jobmon.constants import ExecludeTTVs
+from jobmon.constants import ExecludeTTVs, MaxConcurrentlyRunning
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 from jobmon.serializers import (
@@ -615,7 +615,7 @@ class TaskTemplate:
         self,
         max_attempts: Optional[int] = None,
         upstream_tasks: Optional[List[Task]] = None,
-        max_concurrently_running: int = 10_000,
+        max_concurrently_running: int = MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
         resource_scales: Optional[Dict[str, Any]] = None,

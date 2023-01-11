@@ -9,6 +9,7 @@ from typing import Any, Callable, Dict, Iterator, List, Optional, TYPE_CHECKING,
 from jobmon.client.node import Node
 from jobmon.client.task import Task
 from jobmon.client.task_template_version import TaskTemplateVersion
+from jobmon.constants import MaxConcurrentlyRunning
 from jobmon.exceptions import InvalidResponse
 from jobmon.requester import Requester
 
@@ -32,7 +33,7 @@ class Array:
         task_args: Dict[str, Any],
         op_args: Dict[str, Any],
         cluster_name: str,
-        max_concurrently_running: int = 10_000,
+        max_concurrently_running: int = MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING,
         upstream_tasks: Optional[List[Task]] = None,
         compute_resources: Optional[Dict[str, Any]] = None,
         compute_resources_callable: Optional[Callable] = None,
