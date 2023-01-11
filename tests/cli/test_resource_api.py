@@ -459,7 +459,7 @@ def test_tt_resource_usage_with_0(db_engine, client_env):
         session.commit()
 
     with patch(
-        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.core.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
         f.return_value = set()  # no execlude tt
 

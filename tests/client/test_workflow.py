@@ -5,13 +5,12 @@ from sqlalchemy.orm import Session
 
 from jobmon.client.tool import Tool
 from jobmon.client.workflow_run import WorkflowRun, WorkflowRunFactory
-from jobmon.core.constants import WorkflowRunStatus
+from jobmon.core.constants import MaxConcurrentlyRunning, WorkflowRunStatus
 from jobmon.core.exceptions import (
     WorkflowAlreadyComplete,
     DuplicateNodeArgsError,
     WorkflowAlreadyExists,
     NodeDependencyNotExistError,
-    WorkflowNotResumable,
 )
 
 
@@ -597,8 +596,6 @@ def test_workflow_get_errors(tool, task_template, db_engine):
 
 def test_currency_limit(client_env, db_engine):
     """The max_concurrently_running should be the biggest of wf and its arrays' size."""
-    from jobmon.client.tool import Tool
-    from jobmon.constants import MaxConcurrentlyRunning
 
     # no array
     # should be the default value MaxConcurrentlyRunning
