@@ -1,7 +1,7 @@
 import logging
 from threading import Thread
 
-from jobmon.requester import Requester
+from jobmon.core.requester import Requester
 
 import pytest
 

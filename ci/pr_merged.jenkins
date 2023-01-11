@@ -136,7 +136,7 @@ pipeline {
               }
               else {
                 sh "export PATH=/opt/singularity/bin:$PATH"
-                sh "${ACTIVATE} && nox --session tests -- tests/ -n 3"
+                sh "${ACTIVATE} && nox --session tests -- tests/ -n 4"
               } // End If-Else
             } // End script
           } // End step

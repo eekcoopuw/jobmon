@@ -30,14 +30,16 @@ extend-ignore =
     E203
 
 per-file-ignores =
-    src/jobmon/server/workflow_reaper/api.py:F401
-    src/jobmon/client/api.py:F401
-    src/jobmon/server/web/models/task_resources.py:F811
-    src/jobmon/_version.py:BLK100
-    src/jobmon/server/web/routes/cli/__init__.py:F401, E402
-    src/jobmon/server/web/routes/fsm/__init__.py:F401, E402, I202
-    src/jobmon/server/web/routes/reaper/__init__.py:F401, E402
-    src/jobmon/client/distributor/api.py:F401
+    jobmon_client/src/jobmon/_client_version.py:BLK100
+    jobmon_client/src/jobmon/client/api.py:F401
+    jobmon_core/src/jobmon/_core_version.py:BLK100
+    jobmon_core/src/jobmon/distributor/api.py:F401
+    jobmon_server/src/jobmon/_server_version.py:BLK100
+    jobmon_server/src/jobmon/server/workflow_reaper/api.py:F401
+    jobmon_server/src/jobmon/server/web/routes/cli/__init__.py:F401, E402
+    jobmon_server/src/jobmon/server/web/routes/fsm/__init__.py:F401, E402, I202
+    jobmon_server/src/jobmon/server/web/routes/reaper/__init__.py:F401, E402
+
 max-line-length = 95
 
 # import order

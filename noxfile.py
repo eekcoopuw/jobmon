@@ -1,12 +1,15 @@
 """Nox Configuration for Jobmon."""
+import glob
 import os
+from pathlib import Path
 import shutil
+
 
 import nox
 from nox.sessions import Session
 
 
-src_locations = ["src/jobmon"]
+src_locations = glob.glob("jobmon_*/src")
 test_locations = ["tests"]
 
 python = "3.8"
@@ -15,40 +18,21 @@ python = "3.8"
 @nox.session(python=python, venv_backend="conda")
 def tests(session: Session) -> None:
     """Run the test suite."""
+    session.install("pytest", "pytest-xdist", "pytest-cov", "mock", "filelock")
+    session.install("-e", "./jobmon_core")
+    session.install("-e", "./jobmon_client")
+    session.install("-e", "./jobmon_server")
+
     args = session.posargs or test_locations
+    extra_args = ['-m', "not performance_tests"]
 
-    session.install("-e", ".[test,server]")
-
-    # pytest skips. performance tests are a separate nox target, so are integrator tests
-    extra_args = ['-m', "not performance_tests and not usage_integrator"]
-
-    # pytest mproc
-    os.environ["SQLALCHEMY_WARN_20"] = "1"
-    session.run("pytest", *args, *extra_args)
-
-
-@nox.session(python=python, venv_backend="conda")
-def performance(session: Session) -> None:
-    """Run performance tests that take a while."""
-    args = session.posargs or test_locations
-
-    session.conda_install("mysqlclient", "openssl")
-    session.install("-e", ".[test,server]")
-
-    extra_args = ["-m", "performance_tests"]
-    session.run("pytest", *args, *extra_args)
-
-
-@nox.session(python=python, venv_backend="conda")
-def test_integrator(session: Session) -> None:
-    """Run the integrator tests that connect to the production accounting database."""
-    args = session.posargs or test_locations
-
-    session.conda_install("mysqlclient", "openssl")
-    session.install("-e", ".[test,server]")
-
-    extra_args = ["-m", "usage_integrator"]
-    session.run("pytest", *args, *extra_args)
+    session.run(
+        "pytest",
+        "--cov=jobmon",
+        "--cov-report=html",
+        *args, *extra_args,
+        env={"SQLALCHEMY_WARN_20": "1"}
+    )
 
 
 @nox.session(python=python, venv_backend="conda")
@@ -65,11 +49,13 @@ def lint(session: Session) -> None:
     # TODO: work these in over time?
     # "darglint",
     # "flake8-bandit"
-    session.install("flake8",
-                    "flake8-annotations",
-                    "flake8-import-order",
-                    "flake8-docstrings",
-                    "flake8-black")
+    session.install(
+        "flake8",
+        "flake8-annotations",
+        "flake8-import-order",
+        "flake8-docstrings",
+        "flake8-black"
+    )
     session.run("flake8", *args)
 
 
@@ -84,17 +70,20 @@ def black(session):
 def typecheck(session: Session) -> None:
     """Type check code."""
     args = session.posargs or src_locations
-    session.install("-e", ".")
     session.install("mypy", "types-Flask", "types-requests", "types-PyMySQL", "types-filelock",
-                    "types-PyYAML", "types-setuptools", "types-tabulate", "types-psutil",
-                    "types-Flask-Cors")
-    session.run("mypy", *args)
+                    "types-PyYAML", "types-tabulate", "types-psutil",
+                    "types-Flask-Cors", "types-pkg-resources")
+
+    session.install("-e", "./jobmon_core")
+    session.install("-e", "./jobmon_client")
+    session.install("-e", "./jobmon_server")
+
+    session.run("mypy", "--explicit-package-bases", *args)
 
 
 @nox.session(python=python, venv_backend="conda")
 def docs(session: Session) -> None:
     """Build the documentation."""
-
     # environment variables used in build script
     web_service_fqdn = \
         os.environ.get("WEB_SERVICE_FQDN") if "WEB_SERVICE_FQDN" in os.environ else "TBD"
@@ -102,9 +91,26 @@ def docs(session: Session) -> None:
         os.environ.get("WEB_SERVICE_PORT") if "WEB_SERVICE_PORT" in os.environ else "TBD"
 
     session.conda_install("graphviz")
+    session.install(
+        "sphinx",
+        "sphinx-autodoc-typehints",
+        "sphinx_rtd_theme",
+        "sphinx_tabs",
+    )
 
-    session.install("-e", ".[docs,server]")
+    # combine source into one directory by installing
+    session.install("./jobmon_core")
+    session.install("./jobmon_client")
+    session.install("./jobmon_server")
+    install_path = (
+        Path(session.virtualenv.location)
+        / "lib"
+        / f"python{session.python}"
+        / "site-packages"
+        / "jobmon"
+    )
 
+    # generate api docs
     autodoc_output = 'docsource/api'
     if os.path.exists(autodoc_output):
         shutil.rmtree(autodoc_output)
@@ -112,14 +118,12 @@ def docs(session: Session) -> None:
         'sphinx-apidoc',
         # output dir
         '-o', autodoc_output,
+        "--implicit-namespaces",
         # source dir
-        'src/jobmon',
-        # exclude from autodoc
-        'src/jobmon/server/squid_integration',
-        'src/jobmon/server/web/main.py'
+        str(install_path),
     )
 
-    # Always delete the output to prevent weird image caching bugs
+    # generate html
     html_output = "out/_html"
     if os.path.exists(html_output):
         shutil.rmtree(html_output)
@@ -134,16 +138,23 @@ def docs(session: Session) -> None:
 
 @nox.session(python=python, venv_backend="conda")
 def build(session: Session) -> None:
+    args = session.posargs or src_locations
     session.install("build")
-    session.run("python", "-m", "build")
+
+    for src_dir in args:
+        namespace_dir = str(Path(src_dir).parent)
+        session.run("python", "-m", "build", "--outdir", "dist", namespace_dir)
 
 
 @nox.session(python=python, venv_backend="conda")
 def clean(session: Session) -> None:
-    dirs_to_remove = ['out', 'jobmon_coverage_html_report', 'dist', 'build', '.eggs',
-                      '.pytest_cache', 'docsource/api', '.mypy_cache', 'conda_build_output',
-                      './deployment/jobmon_installer_ihme/build',
-                      "./deployment/jobmon_installer_ihme/dist"]
+    dirs_to_remove = ['out', 'dist', 'build', ".eggs",
+                      '.pytest_cache', 'docsource/api', '.mypy_cache']
+    egg_info = glob.glob("jobmon_*/src/*.egg-info")
+    dirs_to_remove.extend(egg_info)
+    builds = glob.glob("jobmon_*/build")
+    dirs_to_remove.extend(builds)
+
     for path in dirs_to_remove:
         if os.path.exists(path):
             shutil.rmtree(path)

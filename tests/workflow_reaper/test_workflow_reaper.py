@@ -7,8 +7,8 @@ from jobmon.server.web.models.workflow import Workflow
 from jobmon.server.web.models.workflow_run import WorkflowRun as WFR
 from mock import patch, PropertyMock
 
-from jobmon.constants import WorkflowRunStatus, WorkflowStatus
-from jobmon import __version__
+from jobmon.core.constants import WorkflowRunStatus, WorkflowStatus
+from jobmon.server import __version__
 
 load_model()
 

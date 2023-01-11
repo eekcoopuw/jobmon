@@ -1,10 +1,10 @@
-import pytest
 from sqlalchemy.orm import Session
 import getpass
 import pandas as pd
 
-from jobmon.constants import MaxConcurrentlyRunning, WorkflowRunStatus
+from jobmon.client.api import Tool
 from jobmon.client.workflow_run import WorkflowRunFactory
+from jobmon.core.constants import MaxConcurrentlyRunning, WorkflowRunStatus
 from jobmon.server.web.models import load_model
 
 load_model()
@@ -551,8 +551,6 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     3. When the wf contains multiple tt
     4. When a tt in a wf contains tasks in more than one status
     """
-    from jobmon.client.api import Tool
-
     t = Tool(name="gui_tt_progress_test")
     wf = t.create_workflow(name=f"i_am_a_fake_wf")
     tt1 = t.get_task_template(
@@ -666,8 +664,6 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
 
 
 def test_get_tt_error_log_viz(client_env, db_engine):
-    from jobmon.client.api import Tool
-
     t = Tool(name="gui_tt_error_log")
 
     # test no error
@@ -711,8 +707,6 @@ def test_get_tt_error_log_viz(client_env, db_engine):
 
 
 def test_task_details_by_wf_id(client_env, db_engine):
-    from jobmon.client.api import Tool
-
     t = Tool(name="task_detail_tool")
     wfids = []
     wf = t.create_workflow(name="i_am_a_fake_wf_vv")

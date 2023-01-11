@@ -4,21 +4,18 @@ import pytest
 from sqlalchemy.orm import Session
 
 from jobmon.client.tool import Tool
-from jobmon.client.workflow_run import WorkflowRunFactory
-from jobmon.constants import WorkflowRunStatus
-from jobmon.exceptions import (
+from jobmon.client.workflow_run import WorkflowRun, WorkflowRunFactory
+from jobmon.core.constants import MaxConcurrentlyRunning, WorkflowRunStatus
+from jobmon.core.exceptions import (
     WorkflowAlreadyComplete,
     DuplicateNodeArgsError,
     WorkflowAlreadyExists,
     NodeDependencyNotExistError,
-    WorkflowNotResumable,
 )
 
 
 def test_wfargs_update(tool):
     """test that 2 workflows with different names, have different ids and tasks"""
-    from jobmon.client.workflow_run import WorkflowRun
-
     # Create identical dags
     t1 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
     t2 = tool.active_task_templates["phase_2"].create_task(
@@ -69,8 +66,6 @@ def test_attempt_resume_on_complete_workflow(tool):
     """Should not allow a resume, but should prompt user to create a new
     workflow by modifying the WorkflowArgs (e.g. new version #)
     """
-    from jobmon.client.workflow_run import WorkflowRun
-
     # Create identical dags
     t1 = tool.active_task_templates["phase_1"].create_task(arg="sleep 1")
     t2 = tool.active_task_templates["phase_2"].create_task(
@@ -243,8 +238,6 @@ def test_compute_resources(client_env, db_engine):
     """Test user passed cluster_resources. Need to test: 1. task with compute resources,
     no workflow resources 2. task with no compute resources, workflow resources 3. tasks with
     less resources than workflow"""
-    from jobmon.client.tool import Tool
-
     tool = Tool(name="cluster_resource_test")
     wf_compute_resources = {
         "sequential": {
@@ -603,8 +596,6 @@ def test_workflow_get_errors(tool, task_template, db_engine):
 
 def test_currency_limit(client_env, db_engine):
     """The max_concurrently_running should be the biggest of wf and its arrays' size."""
-    from jobmon.client.tool import Tool
-    from jobmon.constants import MaxConcurrentlyRunning
 
     # no array
     # should be the default value MaxConcurrentlyRunning

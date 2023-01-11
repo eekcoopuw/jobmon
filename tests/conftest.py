@@ -14,7 +14,13 @@ from typing import Any, Optional
 import pytest
 import sqlalchemy
 from sqlalchemy.engine import Engine
+from sqlalchemy import create_engine
 
+from jobmon.client.api import Tool
+from jobmon.core import requester
+from jobmon.core.requester import Requester
+from jobmon.server.web.api import get_app, JobmonConfig, configure_logging
+from jobmon.server.web.models import init_db
 
 logger = logging.getLogger(__name__)
 
@@ -50,10 +56,6 @@ class WebServerProcess:
 
             signal.signal(signal.SIGTERM, sigterm_handler)
 
-            from jobmon.server.web.api import get_app, JobmonConfig, configure_logging
-            from jobmon.server.web.models import init_db
-            from sqlalchemy import create_engine
-
             init_db(create_engine(database_uri))
 
             config = JobmonConfig(
@@ -66,9 +68,10 @@ class WebServerProcess:
                         "level": "INFO",
                     },
                     # enable SQL debug
-                    # 'sqlalchemy.engine': {
-                    #     'level': 'INFO',
-                    # }
+                    "sqlalchemy": {
+                        "handlers": ["console_text"],
+                        "level": "WARNING",
+                    },
                 }
             )
             app = get_app(config)
@@ -147,8 +150,6 @@ def db_engine(sqlite_file) -> Engine:
 
 @pytest.fixture(scope="function")
 def client_env(web_server_process, monkeypatch):
-    from jobmon.requester import Requester
-
     monkeypatch.setenv(
         "JOBMON__HTTP__SERVICE_URL",
         f'http://{web_server_process["JOBMON_HOST"]}:{web_server_process["JOBMON_PORT"]}',
@@ -163,8 +164,6 @@ def client_env(web_server_process, monkeypatch):
 
 @pytest.fixture(scope="function")
 def requester_no_retry(client_env):
-    from jobmon.requester import Requester
-
     return Requester(client_env, max_retries=0)
 
 
@@ -205,8 +204,6 @@ def requester_in_memory(monkeypatch, web_server_in_memory):
     """This function monkeypatches the requests library to use the
     test_client
     """
-    import requests
-    from jobmon import requester
 
     monkeypatch.setenv("JOBMON__HTTP__SERVICE_URL", "1")
 
@@ -243,7 +240,6 @@ def get_task_template(tool, template_name):
 # TODO: This tool and the subsequent fixtures should probably be session scoped
 @pytest.fixture
 def tool(client_env):
-    from jobmon.client.api import Tool
 
     tool = Tool()
     tool.set_default_compute_resources_from_dict(

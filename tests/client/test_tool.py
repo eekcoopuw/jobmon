@@ -1,11 +1,12 @@
 import os
 import pytest
 
+from jobmon.client.tool import Tool
+
 
 def test_create_tool(client_env):
     """test that we can create a tool and recreate it with identical params and
     get the same ID"""
-    from jobmon.client.tool import Tool
 
     t1 = Tool(name="foo")
     assert t1.name == "foo"
@@ -22,7 +23,6 @@ def test_create_tool(client_env):
 
 def test_create_tool_version(client_env):
     """test that we create a new tool version"""
-    from jobmon.client.tool import Tool
 
     t1 = Tool(name="bar")
     orig_tool_version = t1.active_tool_version.id
@@ -49,7 +49,6 @@ def test_create_tool_version(client_env):
 
 def test_yaml_compute_resources_and_scales(client_env):
     """Test that we can set Tool ComputeResources via YAML file."""
-    from jobmon.client.tool import Tool
 
     thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
     tool = Tool(name="test_resources_scales")

@@ -1,9 +1,15 @@
 import pytest
 from sqlalchemy.orm import Session
 from sqlalchemy import select, update
+from unittest import mock
 
-from jobmon.constants import TaskInstanceStatus
+from jobmon.core.constants import TaskInstanceStatus
 from jobmon.client.workflow_run import WorkflowRunFactory
+from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
+from jobmon.distributor.distributor_service import DistributorService
+from jobmon.plugins.multiprocess.multiproc_distributor import (
+    MultiprocessDistributor,
+)
 from jobmon.server.web._compat import subtract_time
 from jobmon.server.web import session_factory
 from jobmon.server.web.models import load_model
@@ -37,11 +43,6 @@ def task_template(tool):
 
 def test_set_status_for_triaging(tool, db_engine, task_template):
     """tests that a task can be triaged and log as unknown error"""
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.builtins.multiprocess.multiproc_distributor import (
-        MultiprocessDistributor,
-    )
     from jobmon.server.web.models.task_instance import TaskInstance
 
     session_factory.configure(bind=db_engine)
@@ -136,12 +137,6 @@ def test_triaging_to_specific_error(
     tool, db_engine, task_template, error_state, error_message
 ):
     """tests that a task can be triaged and log as unknown error"""
-    from unittest import mock
-    from jobmon.client.distributor.distributor_service import DistributorService
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.builtins.multiprocess.multiproc_distributor import (
-        MultiprocessDistributor,
-    )
     from jobmon.server.web.models.task_instance import TaskInstance
 
     session_factory.configure(bind=db_engine)
@@ -198,7 +193,7 @@ def test_triaging_to_specific_error(
     # distributor_service._check_for_work(TaskInstanceStatus.TRIAGING)
 
     with mock.patch(
-        "jobmon.builtins.multiprocess.multiproc_distributor."
+        "jobmon.plugins.multiprocess.multiproc_distributor."
         "MultiprocessDistributor.get_remote_exit_info",
         return_value=(error_state, error_message),
     ):

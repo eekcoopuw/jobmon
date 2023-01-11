@@ -2,13 +2,12 @@ import pytest
 import os
 import numpy as np
 
-from jobmon.constants import WorkflowRunStatus
+from jobmon.core.constants import WorkflowRunStatus
+from jobmon.client.api import Tool
 
 
 @pytest.fixture
 def tool(client_env):
-    from jobmon.client.api import Tool
-
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}

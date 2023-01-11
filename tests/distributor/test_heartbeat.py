@@ -1,11 +1,11 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from jobmon.constants import TaskInstanceStatus
-from jobmon.client.distributor.distributor_service import DistributorService
+from jobmon.core.constants import TaskInstanceStatus
 from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-from jobmon.builtins.multiprocess.multiproc_distributor import MultiprocessDistributor
+from jobmon.distributor.distributor_service import DistributorService
+from jobmon.plugins.multiprocess.multiproc_distributor import MultiprocessDistributor
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models import load_model
 

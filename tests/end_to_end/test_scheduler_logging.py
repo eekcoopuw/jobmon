@@ -5,7 +5,7 @@ import pytest
 from jobmon.client.api import Tool
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
 from jobmon.client.workflow import DistributorContext
-from jobmon.requester import Requester
+from jobmon.core.requester import Requester
 
 
 @pytest.mark.skip()

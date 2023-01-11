@@ -8,14 +8,14 @@ from unittest.mock import patch
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from jobmon.constants import TaskInstanceStatus, WorkflowRunStatus
-from jobmon.client.distributor.distributor_service import DistributorService
 from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-from jobmon.cluster import Cluster
-from jobmon.builtins.dummy import DummyDistributor
-from jobmon.builtins.multiprocess.multiproc_distributor import MultiprocessDistributor
-from jobmon.builtins.sequential.seq_distributor import SequentialDistributor
+from jobmon.core.cluster import Cluster
+from jobmon.core.constants import TaskInstanceStatus, WorkflowRunStatus
+from jobmon.distributor.distributor_service import DistributorService
+from jobmon.plugins.dummy import DummyDistributor
+from jobmon.plugins.multiprocess.multiproc_distributor import MultiprocessDistributor
+from jobmon.plugins.sequential.seq_distributor import SequentialDistributor
 from jobmon.server.web.models import load_model
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.worker_node.worker_node_task_instance import WorkerNodeTaskInstance
@@ -54,8 +54,6 @@ class DoNothingArrayDistributor(MultiprocessDistributor):
 def test_task_instance(db_engine, tool):
     """should try to log a report by date after being set to the U or K state
     and fail"""
-    from jobmon.client.swarm.workflow_run import WorkflowRun as SwarmWorkflowRun
-    from jobmon.client.distributor.distributor_service import DistributorService
 
     workflow = tool.create_workflow(name="test_ti_kill_self_state")
     task_a = tool.active_task_templates["simple_template"].create_task(arg="echo 1")

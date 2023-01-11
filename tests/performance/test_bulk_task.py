@@ -1,6 +1,6 @@
 import logging
 
-from jobmon.requester import Requester
+from jobmon.core.requester import Requester
 
 import pytest
 

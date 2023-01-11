@@ -1,13 +1,10 @@
 from unittest.mock import patch, PropertyMock
 
-import numpy as np
-
 from sqlalchemy.orm import Session
 
 from jobmon.client.tool import Tool
 from jobmon.client.cli import ClientCLI as CLI
 from jobmon.client.status_commands import task_template_resources
-from jobmon.client.tool import Tool
 
 
 def test_resource_usage(db_engine, client_env):
@@ -35,7 +32,7 @@ def test_resource_usage(db_engine, client_env):
         session.execute(sql, {"task_id": task.task_id})
         session.commit()
     with patch(
-        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.core.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
         f.return_value = set()  # no exclude tt
         used_task_resources = task.resource_usage()
@@ -120,7 +117,7 @@ def test_tt_resource_usage(db_engine, client_env):
         session.commit()
 
     with patch(
-        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.core.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
         f.return_value = {
             template.active_task_template_version.id,
@@ -131,7 +128,7 @@ def test_tt_resource_usage(db_engine, client_env):
         assert used_task_template_resources is None
 
     with patch(
-        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.core.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
         f.return_value = set()  # no execlude tt
 
@@ -462,7 +459,7 @@ def test_tt_resource_usage_with_0(db_engine, client_env):
         session.commit()
 
     with patch(
-        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.core.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
         f.return_value = set()  # no execlude tt
 
@@ -487,8 +484,6 @@ def test_tt_resource_usage_with_0(db_engine, client_env):
 
 
 def test_max_mem(db_engine, client_env):
-    from jobmon.client.tool import Tool
-
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}

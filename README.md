@@ -2,7 +2,7 @@
 
 - Author: SciComp
 - Email: gphipps@uw.edu
-- Description: A centralized logging and management utility for a batch of SGE jobs
+- Description: A centralized logging and management utility for batch jobs
 
 # Documentation
 

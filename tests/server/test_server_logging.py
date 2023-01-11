@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from jobmon.requester import Requester
+from jobmon.core.requester import Requester
 from jobmon.server.web import routes
 from jobmon.server.web.api import configure_logging
 

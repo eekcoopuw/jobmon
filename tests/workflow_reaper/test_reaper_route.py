@@ -1,6 +1,6 @@
 import pytest
 
-from jobmon.constants import WorkflowRunStatus
+from jobmon.core.constants import WorkflowRunStatus
 from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.server.web.models import load_model
 

@@ -1,7 +1,7 @@
 import os
 import sys
 
-from jobmon.constants import TaskStatus, WorkflowRunStatus
+from jobmon.core.constants import TaskStatus, WorkflowRunStatus
 from jobmon.client.tool import Tool
 
 import pytest
