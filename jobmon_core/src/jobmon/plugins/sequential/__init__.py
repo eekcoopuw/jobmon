@@ -1,5 +1,6 @@
 """jobmon_uge."""
 from typing import Type
+
 import pkg_resources
 
 from jobmon.core.cluster_protocol import (

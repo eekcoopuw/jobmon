@@ -3,9 +3,10 @@ from __future__ import annotations
 
 import logging
 import os
-import pkg_resources
 import random
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
+
+import pkg_resources
 
 from jobmon.core.cluster_protocol import (
     ClusterDistributor,
