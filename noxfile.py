@@ -18,7 +18,7 @@ python = "3.8"
 @nox.session(python=python, venv_backend="conda")
 def tests(session: Session) -> None:
     """Run the test suite."""
-    session.install("pytest", "pytest-xdist", "mock", "filelock")
+    session.install("pytest", "pytest-xdist", "pytest-cov", "mock", "filelock")
     session.install("-e", "./jobmon_core")
     session.install("-e", "./jobmon_client")
     session.install("-e", "./jobmon_server")
@@ -72,7 +72,7 @@ def typecheck(session: Session) -> None:
     args = session.posargs or src_locations
     session.install("mypy", "types-Flask", "types-requests", "types-PyMySQL", "types-filelock",
                     "types-PyYAML", "types-tabulate", "types-psutil",
-                    "types-Flask-Cors")
+                    "types-Flask-Cors", "types-pkg-resources")
 
     session.install("-e", "./jobmon_core")
     session.install("-e", "./jobmon_client")
@@ -90,30 +90,40 @@ def docs(session: Session) -> None:
     web_service_port = \
         os.environ.get("WEB_SERVICE_PORT") if "WEB_SERVICE_PORT" in os.environ else "TBD"
 
-    session.conda_install(
+    session.conda_install("graphviz")
+    session.install(
         "sphinx",
         "sphinx-autodoc-typehints",
         "sphinx_rtd_theme",
-        "graphviz",
         "sphinx_tabs",
     )
-    session.install("-e", "./jobmon_core")
-    session.install("-e", "./jobmon_client")
-    session.install("-e", "./jobmon_server")
 
+    # combine source into one directory by installing
+    session.install("./jobmon_core")
+    session.install("./jobmon_client")
+    session.install("./jobmon_server")
+    install_path = (
+        Path(session.virtualenv.location)
+        / "lib"
+        / f"python{session.python}"
+        / "site-packages"
+        / "jobmon"
+    )
+
+    # generate api docs
     autodoc_output = 'docsource/api'
     if os.path.exists(autodoc_output):
         shutil.rmtree(autodoc_output)
-    for src_dir in src_locations:
-        session.run(
-            'sphinx-apidoc',
-            # output dir
-            '-o', autodoc_output,
-            # source dir
-            f'{src_dir}/jobmon',
-        )
+    session.run(
+        'sphinx-apidoc',
+        # output dir
+        '-o', autodoc_output,
+        "--implicit-namespaces",
+        # source dir
+        str(install_path),
+    )
 
-    # Always delete the output to prevent weird image caching bugs
+    # generate html
     html_output = "out/_html"
     if os.path.exists(html_output):
         shutil.rmtree(html_output)

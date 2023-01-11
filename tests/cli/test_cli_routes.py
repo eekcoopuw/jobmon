@@ -4,7 +4,7 @@ import pandas as pd
 
 from jobmon.client.api import Tool
 from jobmon.client.workflow_run import WorkflowRunFactory
-from jobmon.core.constants import WorkflowRunStatus
+from jobmon.core.constants import MaxConcurrentlyRunning, WorkflowRunStatus
 from jobmon.server.web.models import load_model
 
 load_model()
@@ -541,7 +541,7 @@ def test_get_workflow_status_viz(tool):
         assert msg[str(wfid)]["RUNNING"] == 0
         assert msg[str(wfid)]["FATAL"] == 0
         assert msg[str(wfid)]["DONE"] == 0
-        assert msg[str(wfid)]["MAXC"] == 10000
+        assert msg[str(wfid)]["MAXC"] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
 
 
 def test_get_workflow_tt_status_viz(client_env, db_engine):
@@ -601,7 +601,7 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     assert msg[str(tt1._task_template_id)]["DONE"] == 0
     assert msg[str(tt1._task_template_id)]["FATAL"] == 1
     assert msg[str(tt1._task_template_id)]["RUNNING"] == 0
-    assert msg[str(tt1._task_template_id)]["MAXC"] == 10000
+    assert msg[str(tt1._task_template_id)]["MAXC"] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
     assert msg[str(tt1._task_template_id)]["name"] == "tt_1"
 
     assert msg[str(tt2._task_template_id)]["tasks"] == 1
@@ -609,7 +609,7 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     assert msg[str(tt2._task_template_id)]["DONE"] == 0
     assert msg[str(tt2._task_template_id)]["FATAL"] == 0
     assert msg[str(tt2._task_template_id)]["RUNNING"] == 0
-    assert msg[str(tt1._task_template_id)]["MAXC"] == 10000
+    assert msg[str(tt1._task_template_id)]["MAXC"] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
     assert msg[str(tt2._task_template_id)]["name"] == "tt_2"
 
     # test two wf with same tt
@@ -631,7 +631,7 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     assert msg[str(tt1._task_template_id)]["DONE"] == 0
     assert msg[str(tt1._task_template_id)]["FATAL"] == 0
     assert msg[str(tt1._task_template_id)]["RUNNING"] == 0
-    assert msg[str(tt1._task_template_id)]["MAXC"] == 10000
+    assert msg[str(tt1._task_template_id)]["MAXC"] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
     assert msg[str(tt1._task_template_id)]["name"] == "tt_1"
 
     # test 3.0 records
