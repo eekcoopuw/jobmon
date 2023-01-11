@@ -500,7 +500,7 @@ class Workflow(object):
         """
         if configure_logging is True:
             JobmonLoggerConfig.attach_default_handler(
-                logger_name="jobmon", log_level=logging.INFO
+                logger_name="jobmon.client", log_level=logging.INFO
             )
 
         # bind to database

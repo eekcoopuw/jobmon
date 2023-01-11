@@ -1,11 +1,14 @@
 """jobmon built-in."""
 from typing import Type
+import pkg_resources
 
 from jobmon.core.cluster_protocol import (
     ClusterDistributor,
     ClusterQueue,
     ClusterWorkerNode,
 )
+
+__version__ = pkg_resources.get_distribution("jobmon_core").version
 
 
 def get_cluster_queue_class() -> Type[ClusterQueue]:
