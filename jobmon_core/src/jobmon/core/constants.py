@@ -1,4 +1,5 @@
 """Constants declared for different statuses, types and codes throughout Jobmon."""
+from enum import Enum
 
 
 class ArgType:
@@ -92,7 +93,7 @@ class WorkflowStatus:
     FAILED = "F"
 
 
-class Direction:
+class Direction(Enum):
     """A generic utility class.
 
     Used to represent one-dimensional direction,

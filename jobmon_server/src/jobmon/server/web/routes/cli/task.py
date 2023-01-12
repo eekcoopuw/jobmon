@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 import structlog
 
 from jobmon.core import constants
+from jobmon.core.constants import Direction
 from jobmon.core.serializers import SerializeTaskResourceUsage
 from jobmon.server.web.models.edge import Edge
 from jobmon.server.web.models.task import Task
@@ -21,10 +22,8 @@ from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.cli import blueprint
 from jobmon.server.web.server_side_exception import InvalidUsage
 
-
 # new structlog logger per flask request context. internally stored as flask.g.logger
 logger = structlog.get_logger(__name__)
-
 
 _task_instance_label_mapping = {
     "Q": "PENDING",
@@ -241,11 +240,12 @@ def update_task_statuses() -> Any:
 
 @blueprint.route("/task_dependencies/<task_id>", methods=["GET"])
 def get_task_dependencies(task_id: int) -> Any:
-    """Get task's downstream and upsteam tasks and their status."""
-    with SessionLocal.begin() as session:
+    """Get task's downstream and upstream tasks and their status."""
+    session = SessionLocal()
+    with session.begin():
         dag_id, workflow_id, node_id = _get_dag_and_wf_id(task_id, session)
-        up_nodes = _get_node_uptream({node_id}, dag_id, session)
-        down_nodes = _get_node_downstream({node_id}, dag_id, session)
+        up_nodes = _get_node_dependencies({node_id}, dag_id, session, Direction.UP)
+        down_nodes = _get_node_dependencies({node_id}, dag_id, session, Direction.DOWN)
         up_task_dict = _get_tasks_from_nodes(workflow_id, list(up_nodes), [], session)
         down_task_dict = _get_tasks_from_nodes(
             workflow_id, list(down_nodes), [], session
@@ -279,7 +279,8 @@ def get_tasks_recursive(direction: str) -> Any:
     task_ids = set(data.get("task_ids", []))
 
     try:
-        with SessionLocal.begin() as session:
+        session = SessionLocal()
+        with session.begin():
             tasks_recursive = _get_tasks_recursive(task_ids, direct, session)
         resp = jsonify({"task_ids": list(tasks_recursive)})
         resp.status_code = 200
@@ -327,7 +328,9 @@ def get_task_resource_usage() -> Any:
     return resp
 
 
-def _get_tasks_recursive(task_ids: Set[int], direction: str, session: Session) -> set:
+def _get_tasks_recursive(
+    task_ids: Set[int], direction: Direction, session: Session
+) -> set:
     """Get all input task_ids'.
 
     Either downstream or upsteam tasks based on direction;
@@ -339,9 +342,9 @@ def _get_tasks_recursive(task_ids: Set[int], direction: str, session: Session) -
     for task_id in task_ids:
         dag_id, workflow_id, node_id = _get_dag_and_wf_id(task_id, session)
         next_nodes_sub = (
-            _get_node_downstream({node_id}, dag_id, session)
+            _get_node_dependencies({node_id}, dag_id, session, Direction.DOWN)
             if direction == constants.Direction.DOWN
-            else _get_node_uptream({node_id}, dag_id, session)
+            else _get_node_dependencies({node_id}, dag_id, session, Direction.UP)
         )
         if _workflow_id_first is None:
             workflow_id_first = workflow_id
@@ -381,40 +384,32 @@ def _get_dag_and_wf_id(task_id: int, session: Session) -> tuple:
     return int(row.dag_id), int(row["workflow_id"]), int(row["node_id"])
 
 
-def _get_node_downstream(nodes: set, dag_id: int, session: Session) -> Set[int]:
-    """Get all downstream nodes of a node.
+def _get_node_dependencies(
+    nodes: set, dag_id: int, session: Session, direction: Direction
+) -> Set[int]:
+    """Get all upstream nodes of a node.
 
     Args:
         nodes (set): set of nodes
         dag_id (int): ID of DAG
         session (Session): SQLAlchemy session
+        direction (Direction): either up or down
     """
-    select_stmt = select(Edge.downstream_node_ids).where(
-        Edge.dag_id == dag_id, Edge.node_id.in_(list(nodes))
-    )
+    if direction == Direction.UP:
+        select_stmt = select(Edge.upstream_node_ids).where(
+            Edge.dag_id == dag_id, Edge.node_id.in_(list(nodes))
+        )
+    elif direction == Direction.DOWN:
+        select_stmt = select(Edge.downstream_node_ids).where(
+            Edge.dag_id == dag_id, Edge.node_id.in_(list(nodes))
+        )
+    else:
+        raise ValueError(f"Invalid direction type. Expected one of: {Direction}")
     result = session.execute(select_stmt).all()
     node_ids: Set[int] = set()
     for r in result:
         if r[0] is not None:
             ids = json.loads(r[0])
-            node_ids = node_ids.union(set(ids))
-    return node_ids
-
-
-def _get_node_uptream(nodes: set, dag_id: int, session: Session) -> Set[int]:
-    """Get all downstream nodes of a node.
-
-    :param node_id:
-    :return: a list of node_id
-    """
-    select_stmt = select(Edge.upstream_node_ids).where(
-        Edge.dag_id == dag_id, Edge.node_id.in_(list(nodes))
-    )
-    result = session.execute(select_stmt).scalars().all()
-    node_ids: Set[int] = set()
-    for node in result:
-        if node.upstream_node_ids is not None:
-            ids = json.loads(node.upstream_node_ids)
             node_ids = node_ids.union(set(ids))
     return node_ids
 
@@ -432,7 +427,9 @@ def _get_subdag(node_ids: list, dag_id: int, session: Session) -> list:
     node_set = set(node_ids)
     node_descendants = node_set
     while len(node_descendants) > 0:
-        node_descendants = _get_node_downstream(node_descendants, dag_id, session)
+        node_descendants = _get_node_dependencies(
+            node_descendants, dag_id, session, Direction.DOWN
+        )
         node_set = node_set.union(node_descendants)
     return list(node_set)
 
@@ -476,7 +473,6 @@ def get_downstream_tasks() -> Any:
     dag_id = data["dag_id"]
     session = SessionLocal()
     with session.begin():
-
         tasks_and_edges = session.execute(
             select(Task.id, Task.node_id, Edge.downstream_node_ids).where(
                 Task.id.in_(task_ids),

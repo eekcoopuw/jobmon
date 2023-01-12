@@ -505,6 +505,49 @@ def test_get_task_template_resource_usage(db_engine, tool):
     assert msg[0] is None
 
 
+def test_node_dependencies(tool):
+    t = tool
+    wf_1 = tool.create_workflow(name="some_random_workflow_1")
+    tt1 = t.get_task_template(
+        template_name="random_1", command_template="echo {arg}", node_args=["arg"]
+    )
+    tt2 = t.get_task_template(
+        template_name="random_2", command_template="sleep {arg}", node_args=["arg"]
+    )
+    tt3 = t.get_task_template(
+        template_name="random_3", command_template="echo hello {arg}", node_args=["arg"]
+    )
+    t1 = tt1.create_task(
+        arg="hello world",
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 4},
+    )
+    t2 = tt2.create_task(
+        arg=5,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 4},
+        upstream_tasks=[t1],
+    )
+    t3 = tt3.create_task(
+        arg="random",
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 4},
+        upstream_tasks=[t2],
+    )
+    wf_1.add_tasks([t1, t2, t3])
+    wf_1.bind()
+    wf_1._bind_tasks()
+    app_route = f"/task_dependencies/{t2.task_id}"
+    return_code, msg = wf_1.requester.send_request(
+        app_route=app_route,
+        message={},
+        request_type="get",
+    )
+    assert return_code == 200
+    assert msg["down"][0]["id"] == t3.task_id
+    assert msg["up"][0]["id"] == t1.task_id
+
+
 def test_get_workflow_status_viz(tool):
     t = tool
     wfids = []
