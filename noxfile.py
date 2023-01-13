@@ -9,7 +9,7 @@ import nox
 from nox.sessions import Session
 
 
-src_locations = glob.glob("jobmon_*/src")
+src_locations = ["jobmon_client/src", "jobmon_core/src", "jobmon_server/src"]
 test_locations = ["tests"]
 
 python = "3.8"
