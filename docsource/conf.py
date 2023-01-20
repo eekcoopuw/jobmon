@@ -42,7 +42,6 @@ extensions = [
     'sphinx.ext.graphviz',
     'sphinx.ext.autosectionlabel',
     'sphinx_tabs.tabs',
-    'webservice',
 ]
 
 # Add any paths that contain templates here, relative to this directory.
