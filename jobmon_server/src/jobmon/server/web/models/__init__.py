@@ -6,9 +6,10 @@ from typing import Any
 
 from sqlalchemy import CheckConstraint, create_engine, event, func, String, text
 from sqlalchemy.engine import Engine
-from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm.decl_api import DeclarativeMeta
+from sqlalchemy_utils import create_database, database_exists, drop_database
+
 import structlog
 
 
@@ -55,19 +56,15 @@ def init_db(engine: Engine) -> None:
         if not engine.url.database:
             raise ValueError("Engine url must include database when calling init_db.")
 
-        # create schema if not exists
-        try:
-            # will fail to connect if database doesn't exist, raising OperationalError
-            with engine.connect() as conn:
-                emit_ddl = False
-        except OperationalError:
-            # strip database
-            no_schema_engine = create_engine(
-                str(engine.url).replace(engine.url.database, "")
-            )
-            create_db_query = f"CREATE DATABASE {engine.url.database}"
-            with no_schema_engine.connect() as conn:
-                conn.execute(text(create_db_query))
+        if not database_exists(engine.url):
+            no_db_url = engine.url._replace(database=None)
+            no_db_engine = create_engine(no_db_url)
+            query = f"CREATE DATABASE {engine.url.database} CHARACTER SET = 'utf8'"
+
+            with no_db_engine.begin() as connection:
+                connection.execute(text(query))
+        else:
+            emit_ddl = False
 
     if emit_ddl:
         load_model()
@@ -113,7 +110,6 @@ def init_db(engine: Engine) -> None:
 def terminate_db(engine: Engine) -> None:
     """Terminate/drop a dev database."""
     # dialect specific init logic
-    if engine.dialect.name == "mysql":
-        with engine.connect() as conn:
-            drop_db_query = f"DROP DATABASE {engine.url.database}"
-            conn.execute(text(drop_db_query))
+
+    if database_exists(engine.url):
+        drop_database(engine.url)
