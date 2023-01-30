@@ -163,3 +163,13 @@ def clean(session: Session) -> None:
     for file in files_to_remove:
         if os.path.exists(file):
             os.remove(file)
+
+
+@nox.session(python=python, venv_backend="conda")
+def launch_gui_test_server(session: Session) -> None:
+    if os.path.exists("/tmp/tests.sqlite"):
+        os.remove("/tmp/tests.sqlite")
+    session.install("-e", "./jobmon_core")
+    session.install("-e", "./jobmon_client")
+    session.install("-e", "./jobmon_server")
+    session.run("python", "jobmon_gui/local_testing/jobmon_gui/testing_servers/_create_sqlite_db.py")
