@@ -9,10 +9,10 @@ export default function NodeLists({ upstreamTasks, downstreamTasks }) {
             <h2>Dependencies</h2>
             <div className="card-columns d-flex justify-content-center">
                 <div className="card dependency-list-scroll">
-                    <div className="card-header">Downstream Tasks</div>
+                    <div className="card-header">Upstream Task IDs</div>
                     <ul className="list-group list-group-flush">
                         {
-                            downstreamTasks.map(d => (
+                            upstreamTasks.map(d => (
                                 <li className="list-group-item">
                                     <Link
                                         to={{ pathname: `/task_details/${d["id"]}` }}
@@ -24,10 +24,10 @@ export default function NodeLists({ upstreamTasks, downstreamTasks }) {
                     </ul>
                 </div>
                 <div className="card dependency-list-scroll">
-                    <div className="card-header">Upstream Tasks</div>
+                    <div className="card-header">Downstream Task IDs</div>
                     <ul className="list-group list-group-flush">
                         {
-                            upstreamTasks.map(d => (
+                            downstreamTasks.map(d => (
                                 <li className="list-group-item">
                                     <Link
                                         to={{ pathname: `/task_details/${d["id"]}` }}

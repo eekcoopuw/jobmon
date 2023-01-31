@@ -644,7 +644,10 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     assert msg[str(tt1._task_template_id)]["DONE"] == 0
     assert msg[str(tt1._task_template_id)]["FATAL"] == 1
     assert msg[str(tt1._task_template_id)]["RUNNING"] == 0
-    assert msg[str(tt1._task_template_id)]["MAXC"] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+    assert (
+        msg[str(tt1._task_template_id)]["MAXC"]
+        == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+    )
     assert msg[str(tt1._task_template_id)]["name"] == "tt_1"
 
     assert msg[str(tt2._task_template_id)]["tasks"] == 1
@@ -652,7 +655,10 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     assert msg[str(tt2._task_template_id)]["DONE"] == 0
     assert msg[str(tt2._task_template_id)]["FATAL"] == 0
     assert msg[str(tt2._task_template_id)]["RUNNING"] == 0
-    assert msg[str(tt1._task_template_id)]["MAXC"] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+    assert (
+        msg[str(tt1._task_template_id)]["MAXC"]
+        == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+    )
     assert msg[str(tt2._task_template_id)]["name"] == "tt_2"
 
     # test two wf with same tt
@@ -674,7 +680,10 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     assert msg[str(tt1._task_template_id)]["DONE"] == 0
     assert msg[str(tt1._task_template_id)]["FATAL"] == 0
     assert msg[str(tt1._task_template_id)]["RUNNING"] == 0
-    assert msg[str(tt1._task_template_id)]["MAXC"] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+    assert (
+        msg[str(tt1._task_template_id)]["MAXC"]
+        == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+    )
     assert msg[str(tt1._task_template_id)]["name"] == "tt_1"
 
     # test 3.0 records

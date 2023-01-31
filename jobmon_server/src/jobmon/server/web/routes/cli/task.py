@@ -521,3 +521,18 @@ def get_task_details(task_id: int) -> Any:
     resp = jsonify(taskinstances=result)
     resp.status_code = 200
     return resp
+
+
+@blueprint.route("/task/get_task_status_viz/<task_id>", methods=["GET"])
+def get_task_status_viz(task_id: int) -> Any:
+    """Get status of Task from Task ID."""
+    session = SessionLocal()
+    with session.begin():
+        query = select(Task.status,).where(
+            Task.id == task_id,
+        )
+        result = session.execute(query).one()[0]
+
+    resp = jsonify({"task_status": result})
+    resp.status_code = 200
+    return resp
