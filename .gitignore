@@ -10,8 +10,8 @@
 # Python egg metadata, regenerated from source files by setuptools.
 # and other build artifacts
 */*/*.egg-info/*
-/jobmon_*/build/*
-/jobmon_*/dist/*
+/jobmon_*/build
+/dist
 /jobmon_*/LICENSE
 /dist/*
 

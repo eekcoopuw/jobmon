@@ -8,8 +8,7 @@ from sqlalchemy import CheckConstraint, create_engine, event, func, String, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import declarative_base
 from sqlalchemy.orm.decl_api import DeclarativeMeta
-from sqlalchemy_utils import create_database, database_exists, drop_database
-
+from sqlalchemy_utils import database_exists, drop_database
 import structlog
 
 

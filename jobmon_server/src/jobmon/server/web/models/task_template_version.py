@@ -66,5 +66,7 @@ class TaskTemplateVersion(Base):
             unique=True,
         ),
         Index("ix_task_template_id", "task_template_id"),
-        ForeignKeyConstraint(["task_template_id"], ["task_template.id"], use_alter=True)
+        ForeignKeyConstraint(
+            ["task_template_id"], ["task_template.id"], use_alter=True
+        ),
     )
