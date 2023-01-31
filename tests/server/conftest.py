@@ -39,7 +39,7 @@ def requester_in_memory(monkeypatch, web_server_in_memory):
     test_client
     """
     import requests
-    from jobmon import requester
+    from jobmon.core import requester
 
     monkeypatch.setenv("JOBMON__HTTP__SERVICE_URL", "1")
 

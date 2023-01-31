@@ -6,6 +6,8 @@ import os
 import random
 from typing import Any, Dict, List, Optional, Set, Tuple, Type, Union
 
+import pkg_resources
+
 from jobmon.core.cluster_protocol import (
     ClusterDistributor,
     ClusterQueue,
@@ -18,6 +20,7 @@ from jobmon.worker_node.worker_node_factory import WorkerNodeFactory
 
 
 logger = logging.getLogger(__name__)
+__version__ = pkg_resources.get_distribution("jobmon_core").version
 
 
 class DummyQueue(ClusterQueue):

@@ -9,7 +9,7 @@ import nox
 from nox.sessions import Session
 
 
-src_locations = glob.glob("jobmon_*/src")
+src_locations = ["jobmon_client/src", "jobmon_core/src", "jobmon_server/src"]
 test_locations = ["tests"]
 
 python = "3.8"
@@ -18,7 +18,7 @@ python = "3.8"
 @nox.session(python=python, venv_backend="conda")
 def tests(session: Session) -> None:
     """Run the test suite."""
-    session.install("pytest", "pytest-xdist", "mock", "filelock")
+    session.install("pytest", "pytest-xdist", "pytest-cov", "mock", "filelock")
     session.install("-e", "./jobmon_core")
     session.install("-e", "./jobmon_client")
     session.install("-e", "./jobmon_server")
@@ -26,7 +26,13 @@ def tests(session: Session) -> None:
     args = session.posargs or test_locations
     extra_args = ['-m', "not performance_tests"]
 
-    session.run("pytest", *args, *extra_args, env={"SQLALCHEMY_WARN_20": "1"})
+    session.run(
+        "pytest",
+        "--cov=jobmon",
+        "--cov-report=html",
+        *args, *extra_args,
+        env={"SQLALCHEMY_WARN_20": "1"}
+    )
 
 
 @nox.session(python=python, venv_backend="conda")
@@ -43,11 +49,13 @@ def lint(session: Session) -> None:
     # TODO: work these in over time?
     # "darglint",
     # "flake8-bandit"
-    session.install("flake8",
-                    "flake8-annotations",
-                    "flake8-import-order",
-                    "flake8-docstrings",
-                    "flake8-black")
+    session.install(
+        "flake8",
+        "flake8-annotations",
+        "flake8-import-order",
+        "flake8-docstrings",
+        "flake8-black"
+    )
     session.run("flake8", *args)
 
 
@@ -64,7 +72,7 @@ def typecheck(session: Session) -> None:
     args = session.posargs or src_locations
     session.install("mypy", "types-Flask", "types-requests", "types-PyMySQL", "types-filelock",
                     "types-PyYAML", "types-tabulate", "types-psutil", "types-Flask-Cors",
-                    "types-sqlalchemy-utils")
+                    "types-sqlalchemy-utils", "types-pkg-resources")
 
     session.install("-e", "./jobmon_core")
     session.install("-e", "./jobmon_client")
@@ -82,30 +90,40 @@ def docs(session: Session) -> None:
     web_service_port = \
         os.environ.get("WEB_SERVICE_PORT") if "WEB_SERVICE_PORT" in os.environ else "TBD"
 
-    session.conda_install(
+    session.conda_install("graphviz")
+    session.install(
         "sphinx",
         "sphinx-autodoc-typehints",
         "sphinx_rtd_theme",
-        "graphviz",
         "sphinx_tabs",
     )
-    session.install("-e", "./jobmon_core")
-    session.install("-e", "./jobmon_client")
-    session.install("-e", "./jobmon_server")
 
+    # combine source into one directory by installing
+    session.install("./jobmon_core")
+    session.install("./jobmon_client")
+    session.install("./jobmon_server")
+    install_path = (
+        Path(session.virtualenv.location)
+        / "lib"
+        / f"python{session.python}"
+        / "site-packages"
+        / "jobmon"
+    )
+
+    # generate api docs
     autodoc_output = 'docsource/api'
     if os.path.exists(autodoc_output):
         shutil.rmtree(autodoc_output)
-    for src_dir in src_locations:
-        session.run(
-            'sphinx-apidoc',
-            # output dir
-            '-o', autodoc_output,
-            # source dir
-            f'{src_dir}/jobmon',
-        )
+    session.run(
+        'sphinx-apidoc',
+        # output dir
+        '-o', autodoc_output,
+        "--implicit-namespaces",
+        # source dir
+        str(install_path),
+    )
 
-    # Always delete the output to prevent weird image caching bugs
+    # generate html
     html_output = "out/_html"
     if os.path.exists(html_output):
         shutil.rmtree(html_output)
@@ -130,7 +148,7 @@ def build(session: Session) -> None:
 
 @nox.session(python=python, venv_backend="conda")
 def clean(session: Session) -> None:
-    dirs_to_remove = ['out', 'jobmon_coverage_html_report', 'dist', 'build', ".eggs",
+    dirs_to_remove = ['out', 'dist', 'build', ".eggs",
                       '.pytest_cache', 'docsource/api', '.mypy_cache']
     egg_info = glob.glob("jobmon_*/src/*.egg-info")
     dirs_to_remove.extend(egg_info)
@@ -145,3 +163,13 @@ def clean(session: Session) -> None:
     for file in files_to_remove:
         if os.path.exists(file):
             os.remove(file)
+
+
+@nox.session(python=python, venv_backend="conda")
+def launch_gui_test_server(session: Session) -> None:
+    if os.path.exists("/tmp/tests.sqlite"):
+        os.remove("/tmp/tests.sqlite")
+    session.install("-e", "./jobmon_core")
+    session.install("-e", "./jobmon_client")
+    session.install("-e", "./jobmon_server")
+    session.run("python", "jobmon_gui/local_testing/jobmon_gui/testing_servers/_create_sqlite_db.py")

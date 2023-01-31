@@ -14,6 +14,7 @@ import yaml
 from jobmon.client.task_template import TaskTemplate
 from jobmon.client.tool_version import ToolVersion
 from jobmon.client.workflow import Workflow
+from jobmon.core.constants import MaxConcurrentlyRunning
 from jobmon.core.exceptions import InvalidResponse
 from jobmon.core.requester import Requester
 from jobmon.core.serializers import SerializeClientTool
@@ -246,7 +247,7 @@ class Tool:
         name: str = "",
         description: str = "",
         workflow_attributes: Optional[Union[List, dict]] = None,
-        max_concurrently_running: int = 10_000,
+        max_concurrently_running: int = MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING,
         chunk_size: int = 500,
         default_cluster_name: str = "",
         default_compute_resources_set: Optional[Dict] = None,

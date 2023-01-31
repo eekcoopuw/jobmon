@@ -1,4 +1,5 @@
 """Constants declared for different statuses, types and codes throughout Jobmon."""
+from enum import Enum
 
 
 class ArgType:
@@ -92,7 +93,7 @@ class WorkflowStatus:
     FAILED = "F"
 
 
-class Direction:
+class Direction(Enum):
     """A generic utility class.
 
     Used to represent one-dimensional direction,
@@ -119,3 +120,14 @@ class ExecludeTTVs:
     """
 
     EXECLUDE_TTVS = {1}  # bashtask
+
+
+class MaxConcurrentlyRunning:
+    """A hard limit of array concurrency.
+
+    Currently set to max int, but can change as INFRA requests.
+    """
+
+    import sys
+
+    MAXCONCURRENTLYRUNNING = 2_147_483_647  # mysql int(11) max

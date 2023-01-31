@@ -4,7 +4,7 @@ import pandas as pd
 
 from jobmon.client.api import Tool
 from jobmon.client.workflow_run import WorkflowRunFactory
-from jobmon.core.constants import WorkflowRunStatus
+from jobmon.core.constants import MaxConcurrentlyRunning, WorkflowRunStatus
 from jobmon.server.web.models import load_model
 
 load_model()
@@ -505,6 +505,49 @@ def test_get_task_template_resource_usage(db_engine, tool):
     assert msg[0] is None
 
 
+def test_node_dependencies(tool):
+    t = tool
+    wf_1 = tool.create_workflow(name="some_random_workflow_1")
+    tt1 = t.get_task_template(
+        template_name="random_1", command_template="echo {arg}", node_args=["arg"]
+    )
+    tt2 = t.get_task_template(
+        template_name="random_2", command_template="sleep {arg}", node_args=["arg"]
+    )
+    tt3 = t.get_task_template(
+        template_name="random_3", command_template="echo hello {arg}", node_args=["arg"]
+    )
+    t1 = tt1.create_task(
+        arg="hello world",
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 4},
+    )
+    t2 = tt2.create_task(
+        arg=5,
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 4},
+        upstream_tasks=[t1],
+    )
+    t3 = tt3.create_task(
+        arg="random",
+        cluster_name="sequential",
+        compute_resources={"queue": "null.q", "num_cores": 4},
+        upstream_tasks=[t2],
+    )
+    wf_1.add_tasks([t1, t2, t3])
+    wf_1.bind()
+    wf_1._bind_tasks()
+    app_route = f"/task_dependencies/{t2.task_id}"
+    return_code, msg = wf_1.requester.send_request(
+        app_route=app_route,
+        message={},
+        request_type="get",
+    )
+    assert return_code == 200
+    assert msg["down"][0]["id"] == t3.task_id
+    assert msg["up"][0]["id"] == t1.task_id
+
+
 def test_get_workflow_status_viz(tool):
     t = tool
     wfids = []
@@ -541,7 +584,7 @@ def test_get_workflow_status_viz(tool):
         assert msg[str(wfid)]["RUNNING"] == 0
         assert msg[str(wfid)]["FATAL"] == 0
         assert msg[str(wfid)]["DONE"] == 0
-        assert msg[str(wfid)]["MAXC"] == 10000
+        assert msg[str(wfid)]["MAXC"] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
 
 
 def test_get_workflow_tt_status_viz(client_env, db_engine):
@@ -601,7 +644,7 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     assert msg[str(tt1._task_template_id)]["DONE"] == 0
     assert msg[str(tt1._task_template_id)]["FATAL"] == 1
     assert msg[str(tt1._task_template_id)]["RUNNING"] == 0
-    assert msg[str(tt1._task_template_id)]["MAXC"] == 10000
+    assert msg[str(tt1._task_template_id)]["MAXC"] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
     assert msg[str(tt1._task_template_id)]["name"] == "tt_1"
 
     assert msg[str(tt2._task_template_id)]["tasks"] == 1
@@ -609,7 +652,7 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     assert msg[str(tt2._task_template_id)]["DONE"] == 0
     assert msg[str(tt2._task_template_id)]["FATAL"] == 0
     assert msg[str(tt2._task_template_id)]["RUNNING"] == 0
-    assert msg[str(tt1._task_template_id)]["MAXC"] == 10000
+    assert msg[str(tt1._task_template_id)]["MAXC"] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
     assert msg[str(tt2._task_template_id)]["name"] == "tt_2"
 
     # test two wf with same tt
@@ -631,7 +674,7 @@ def test_get_workflow_tt_status_viz(client_env, db_engine):
     assert msg[str(tt1._task_template_id)]["DONE"] == 0
     assert msg[str(tt1._task_template_id)]["FATAL"] == 0
     assert msg[str(tt1._task_template_id)]["RUNNING"] == 0
-    assert msg[str(tt1._task_template_id)]["MAXC"] == 10000
+    assert msg[str(tt1._task_template_id)]["MAXC"] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
     assert msg[str(tt1._task_template_id)]["name"] == "tt_1"
 
     # test 3.0 records

@@ -23,6 +23,7 @@ from jobmon.client.tool_version import ToolVersion
 from jobmon.client.workflow_run import WorkflowRunFactory
 from jobmon.core.cluster import Cluster
 from jobmon.core.constants import (
+    MaxConcurrentlyRunning,
     TaskStatus,
     WorkflowRunStatus,
     WorkflowStatus,
@@ -163,7 +164,7 @@ class Workflow(object):
         name: str = "",
         description: str = "",
         workflow_attributes: Optional[Union[List, dict]] = None,
-        max_concurrently_running: int = 10_000,
+        max_concurrently_running: int = MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING,
         requester: Optional[Requester] = None,
         chunk_size: int = 500,  # TODO: should be in the config
     ) -> None:
@@ -499,7 +500,7 @@ class Workflow(object):
         """
         if configure_logging is True:
             JobmonLoggerConfig.attach_default_handler(
-                logger_name="jobmon", log_level=logging.INFO
+                logger_name="jobmon.client", log_level=logging.INFO
             )
 
         # bind to database

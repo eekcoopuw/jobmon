@@ -41,5 +41,5 @@ git_describe_command = [
     '--tags',
     '--long',
     '--match',
-    'python-[0-9]*',  # only match on tags prefixed with this subdirectory tags
+    'client-[0-9]*',  # only match on tags prefixed with this subdirectory tags
 ]

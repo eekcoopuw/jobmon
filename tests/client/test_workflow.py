@@ -5,13 +5,12 @@ from sqlalchemy.orm import Session
 
 from jobmon.client.tool import Tool
 from jobmon.client.workflow_run import WorkflowRun, WorkflowRunFactory
-from jobmon.core.constants import WorkflowRunStatus
+from jobmon.core.constants import MaxConcurrentlyRunning, WorkflowRunStatus
 from jobmon.core.exceptions import (
     WorkflowAlreadyComplete,
     DuplicateNodeArgsError,
     WorkflowAlreadyExists,
     NodeDependencyNotExistError,
-    WorkflowNotResumable,
 )
 
 
@@ -593,3 +592,166 @@ def test_workflow_get_errors(tool, task_template, db_engine):
     err_1st_b = error_log_b[0]
     assert type(err_1st_b) == dict
     assert err_1st_b["description"] == "cla cla cla"
+
+
+def test_currency_limit(client_env, db_engine):
+    """The max_concurrently_running should be the biggest of wf and its arrays' size."""
+
+    # no array
+    # should be the default value MaxConcurrentlyRunning
+    tool = Tool("i_am_a_new_tool")
+    tool.set_default_compute_resources_from_dict(
+        cluster_name="dummy", compute_resources={"queue": "null.q"}
+    )
+    tt = tool.get_task_template(
+        template_name="tt",
+        command_template="echo {arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    workflow1 = tool.create_workflow(name="test_1")
+    assert (
+        workflow1.max_concurrently_running
+        == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+    )
+    task = tt.create_task(arg="no", max_attempts=1)
+    workflow1.add_task(task)
+    workflow1.bind()
+    workflow1._bind_tasks()
+    assert (
+        workflow1.max_concurrently_running
+        == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+    )
+    # verify server side
+    with Session(bind=db_engine) as session:
+        sql = f"""
+        SELECT max_concurrently_running 
+        FROM workflow
+        WHERE id={workflow1.workflow_id}"""
+        r = session.execute(sql).fetchone()
+        assert r[0] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+        sql = f"""
+        SELECT max_concurrently_running 
+        FROM array 
+        WHERE workflow_id={workflow1.workflow_id}"""
+        r = session.execute(sql).fetchone()
+        assert r[0] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+
+    # array
+    # the array max_concurrently_running
+    workflow2 = tool.create_workflow(name="test_2")
+    assert (
+        workflow2.max_concurrently_running
+        == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+    )
+    tt2 = tool.get_task_template(
+        template_name="tt",
+        command_template="echoo {arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    temp_args = [f"array1-{i}" for i in range(19)]
+    tasks2 = tt2.create_tasks(arg=temp_args)
+    workflow2.add_tasks(tasks2)
+    workflow2.bind()
+    workflow2._bind_tasks()
+    assert (
+        workflow2.max_concurrently_running
+        == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+    )
+    # verify server side
+    with Session(bind=db_engine) as session:
+        sql = f"""
+            SELECT max_concurrently_running 
+            FROM workflow
+            WHERE id={workflow2.workflow_id}"""
+        r = session.execute(sql).fetchone()
+        assert r[0] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+        sql = f"""
+                SELECT max_concurrently_running 
+                FROM array 
+                WHERE workflow_id={workflow2.workflow_id}"""
+        r = session.execute(sql).fetchone()
+        assert r[0] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+
+    # array level user setting
+    workflow3 = tool.create_workflow(name="test_3")
+    assert (
+        workflow3.max_concurrently_running
+        == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+    )
+    tt31 = tool.get_task_template(
+        template_name="tt",
+        command_template="a {arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    tt32 = tool.get_task_template(
+        template_name="tt2",
+        command_template="b {arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    temp_args = [f"array2-{i}" for i in range(20)]
+    tasks3_1 = tt31.create_tasks(arg=temp_args, max_concurrently_running=20)
+    workflow3.add_tasks(tasks3_1)
+    temp_args = [f"array3-{i}" for i in range(40)]
+    tasks3_2 = tt32.create_tasks(arg=temp_args, max_concurrently_running=40)
+    workflow3.add_tasks(tasks3_2)
+    workflow3.bind()
+    workflow3._bind_tasks()
+    assert (
+        workflow3.max_concurrently_running
+        == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+    )
+    # verify server side
+    with Session(bind=db_engine) as session:
+        sql = f"""
+                SELECT max_concurrently_running 
+                FROM workflow
+                WHERE id={workflow3.workflow_id}"""
+        r = session.execute(sql).fetchone()
+        assert r[0] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+        sql = f"""
+                        SELECT max_concurrently_running 
+                        FROM array 
+                        WHERE workflow_id={workflow3.workflow_id}"""
+        rows = session.execute(sql).fetchall()
+        for r in rows:
+            assert r[0] in [20, 40]
+
+    # workflow level max_concurrently_running
+    # the workflow max_concurrently_running should not be overwrite
+    workflow4 = tool.create_workflow(name="test_4", max_concurrently_running=23)
+    assert workflow4.max_concurrently_running == 23
+    tt4 = tool.get_task_template(
+        template_name="tt",
+        command_template="c {arg}",
+        node_args=["arg"],
+        task_args=[],
+        op_args=[],
+    )
+    temp_args = [f"array4-{i}" for i in range(46)]
+    tasks4 = tt4.create_tasks(arg=temp_args)
+    workflow4.add_tasks(tasks4)
+    workflow4.bind()
+    workflow4._bind_tasks()
+    assert workflow4.max_concurrently_running == 23
+    # verify server side
+    with Session(bind=db_engine) as session:
+        sql = f"""
+                SELECT max_concurrently_running 
+                FROM workflow
+                WHERE id={workflow4.workflow_id}"""
+        r = session.execute(sql).fetchone()
+        assert r[0] == 23
+        sql = f"""
+                        SELECT max_concurrently_running 
+                        FROM array 
+                        WHERE workflow_id={workflow4.workflow_id}"""
+        r = session.execute(sql).fetchone()
+        assert r[0] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING

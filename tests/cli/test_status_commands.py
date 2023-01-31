@@ -13,6 +13,7 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 
+from jobmon.client.api import Tool
 from jobmon.client.cli import ClientCLI as CLI
 from jobmon.client.status_commands import (
     _create_yaml,
@@ -728,7 +729,7 @@ def test_get_yaml_data(db_engine, client_env):
         session.commit()
 
     with patch(
-        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.core.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
         # no execlude tt
         f.return_value = set()
@@ -754,7 +755,7 @@ def test_get_yaml_data(db_engine, client_env):
         ]
 
     with patch(
-        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.core.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
         # execlude tt1
         f.return_value = {tt1.active_task_template_version.id}
@@ -782,7 +783,7 @@ def test_get_yaml_data(db_engine, client_env):
         ]
 
     with patch(
-        "jobmon.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
+        "jobmon.core.constants.ExecludeTTVs.EXECLUDE_TTVS", new_callable=PropertyMock
     ) as f:
         # execlude both
         f.return_value = {
@@ -845,8 +846,6 @@ def test_create_yaml():
 
 
 def test_get_filepaths(db_engine, tool):
-    from jobmon.server.web.models.task_instance import TaskInstance
-
     tt = tool.get_task_template(
         template_name="dummy_template",
         command_template="echo {arg1} {arg2}",
