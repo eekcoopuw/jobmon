@@ -71,8 +71,8 @@ def typecheck(session: Session) -> None:
     """Type check code."""
     args = session.posargs or src_locations
     session.install("mypy", "types-Flask", "types-requests", "types-PyMySQL", "types-filelock",
-                    "types-PyYAML", "types-tabulate", "types-psutil",
-                    "types-Flask-Cors", "types-pkg-resources")
+                    "types-PyYAML", "types-tabulate", "types-psutil", "types-Flask-Cors",
+                    "types-sqlalchemy-utils", "types-pkg-resources")
 
     session.install("-e", "./jobmon_core")
     session.install("-e", "./jobmon_client")
