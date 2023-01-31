@@ -18,6 +18,7 @@ dependencies = [
     'elastic-apm[flask]',
     'pymysql',  # install MySQLdb/mysqlclient for more performance
     'sqlalchemy<2',
+    'sqlalchemy_utils',
     'structlog',
     'scipy',
 ]
