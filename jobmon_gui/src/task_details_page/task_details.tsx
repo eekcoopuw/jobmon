@@ -5,6 +5,15 @@ import TaskInstanceTable from './task_instance_table';
 import NodeLists from './node_list';
 import TaskFSM from './task_fsm';
 
+function getTaskStatus(setTaskStatus, taskId) {
+    const url = process.env.REACT_APP_BASE_URL + "/task/get_task_status_viz/" + taskId;
+    const fetchData = async () => {
+        const result: any = await axios.get(url);
+        setTaskStatus(result.data.task_status)
+    };
+    return fetchData
+}
+
 function getTaskDetail(setTaskDetails, taskId) {
     const url = process.env.REACT_APP_BASE_URL + "/task/get_task_details_viz/" + taskId;
     const fetchData = async () => {
@@ -32,12 +41,14 @@ function TaskDetails() {
     const [task_details, setTaskDetails] = useState([])
     const [upstream_tasks, setUpstreamTasks] = useState([])
     const [downtream_tasks, setDownstreamTasks] = useState([])
+    const [task_status, setTaskStatus] = useState([])
 
 
     //***********************hooks******************************
     useEffect(() => {
         getTaskDetail(setTaskDetails, taskId)();
         getTaskDependencies(setUpstreamTasks, setDownstreamTasks, taskId)();
+        getTaskStatus(setTaskStatus, taskId)();
     }, [taskId]);
 
     return (
@@ -48,7 +59,7 @@ function TaskDetails() {
                 </header>
             </div>
             <div className="div-level-2">
-                <TaskFSM taskStatus={"RUNNING"} />
+                <TaskFSM taskStatus={task_status}/>
             </div>
             <div className="div-level-2">
                 <NodeLists upstreamTasks={upstream_tasks} downstreamTasks={downtream_tasks}/>
