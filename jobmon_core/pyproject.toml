@@ -21,8 +21,8 @@ dependencies = [
 dynamic = ["version"]
 
 [project.scripts]
-jobmon_config = "jobmon.configuration:main"
-jobmon_distributor = "jobmon.client.distributor.cli:main"
+jobmon_config = "jobmon.core.configuration:main"
+jobmon_distributor = "jobmon.distributor.cli:main"
 worker_node_entry_point = "jobmon.worker_node.cli:run"
 
 [tool.setuptools]
