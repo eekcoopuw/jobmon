@@ -1,3 +1,5 @@
+from contextlib import nullcontext
+import pytest
 from sqlalchemy.orm import Session
 
 from jobmon.client.task_resources import TaskResources
@@ -133,3 +135,19 @@ def test_defaults_pass_down_and_overrides(tool, task_template):
     assert t2.resource_scales["runtime"] == 0.2
     assert t2.resource_scales["cores"] == 0.22
     assert t2.resource_scales["memory"] == 0.222
+
+
+@pytest.mark.parametrize(
+    "time_str,expected,exception", [
+        ("24:30:10", 24*3600 + 30*60 + 10, nullcontext()),
+        ("10:00:00", 10*3600, nullcontext()),
+        ("1h", 1*3600, nullcontext()),
+        ("30m", 30 * 60, nullcontext()),
+        ("25s", 25, nullcontext()),
+        (30, 30, nullcontext()),
+        ("10h30m", None, pytest.raises(ValueError))
+    ]
+)
+def test_timeunit_convert(time_str, expected, exception):
+    with exception:
+        assert TaskResources.convert_runtime_to_s(time_str) == expected

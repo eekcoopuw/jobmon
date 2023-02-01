@@ -13,7 +13,7 @@ tu_test_data = [
 
 
 @pytest.mark.parametrize("s, m, h, e", tu_test_data)
-def test_timeunit_convert(s, m, h, e):
+def test_timeunit_init(s, m, h, e):
     tu = TimeUnit(sec=s, min=m, hour=h)
     assert tu.seconds == e[0]
     assert tu.minutes == e[1]

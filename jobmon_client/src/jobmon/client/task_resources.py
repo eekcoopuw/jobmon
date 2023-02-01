@@ -1,7 +1,6 @@
 """The client Task Resources with the resources initiation and binding to Task ID."""
 from __future__ import annotations
 
-from datetime import datetime
 import hashlib
 from http import HTTPStatus as StatusCodes
 import json
@@ -167,36 +166,35 @@ class TaskResources:
 
             # convert to seconds if its datetime with a supported format
             try:
-                time_object = datetime.strptime(time_str, "%H:%M:%S")
+                hours, minutes, seconds = time_str.split(":")
                 time_seconds = (
-                    time_object.hour * 60 * 60
-                    + time_object.minute * 60
-                    + time_object.second
+                    TimeUnit.hour_to_sec(int(hours))
+                    + TimeUnit.min_to_sec(int(minutes))
+                    + int(seconds)
                 )
-                time_str = str(time_seconds) + "s"
-            except Exception:
-                pass
-
-            try:
-                raw_value, unit = re.findall(r"[A-Za-z]+|\d+", time_str)
+                return time_seconds
             except ValueError:
-                # Raised if there are not exactly 2 values to unpack from above regex
-                raise ValueError(
-                    "The provided runtime request must be in a format of numbers "
-                    "followed by one or two characters indicating the unit. "
-                    "E.g. 1h, 60m, 3600s."
-                )
 
-            if "h" in unit:
-                # Hours provided
-                return TimeUnit.hour_to_sec(int(raw_value))
-            elif "m" in unit:
-                # Minutes provided
-                return TimeUnit.min_to_sec(int(raw_value))
-            elif "s" in unit:
-                return int(raw_value)
-            else:
-                raise ValueError("Expected one of h, m, s as the suffixed unit.")
+                try:
+                    raw_value, unit = re.findall(r"[A-Za-z]+|\d+", time_str)
+                except ValueError:
+                    # Raised if there are not exactly 2 values to unpack from above regex
+                    raise ValueError(
+                        "The provided runtime request must be in a format of numbers "
+                        "followed by one or two characters indicating the unit. "
+                        "E.g. 1h, 60m, 3600s."
+                    )
+
+                if "h" in unit:
+                    # Hours provided
+                    return TimeUnit.hour_to_sec(int(raw_value))
+                elif "m" in unit:
+                    # Minutes provided
+                    return TimeUnit.min_to_sec(int(raw_value))
+                elif "s" in unit:
+                    return int(raw_value)
+                else:
+                    raise ValueError("Expected one of h, m, s as the suffixed unit.")
 
     @staticmethod
     def scale_val(val: int, scaling_factor: float) -> float:
