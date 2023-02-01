@@ -24,13 +24,12 @@ def tests(session: Session) -> None:
     session.install("-e", "./jobmon_server")
 
     args = session.posargs or test_locations
-    extra_args = ['-m', "not performance_tests"]
 
     session.run(
         "pytest",
         "--cov=jobmon",
         "--cov-report=html",
-        *args, *extra_args,
+        *args,
         env={"SQLALCHEMY_WARN_20": "1"}
     )
 

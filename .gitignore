@@ -34,3 +34,6 @@ out
 
 # ignore auto generated docs
 docsource/api
+
+# ignore ide settings
+.idea/
