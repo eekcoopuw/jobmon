@@ -49,9 +49,13 @@ export const get_rum_transaction = (name) => {
 }
 
 export const init_apm = (pageloadname) => {
+    let server_url = process.env.REACT_APP_RUM_URL_DEV;
+    if (window.location.origin === process.env.REACT_APP_PROD_URL) {
+        server_url = process.env.REACT_APP_RUM_URL;
+    }
     apm.init({
         serviceName: "rum jobmon-gui",
-        serverUrl: process.env.REACT_APP_RUM_URL,
+        serverUrl: server_url,
         active: true,
         pageLoadTransactionName: pageloadname,
     })
