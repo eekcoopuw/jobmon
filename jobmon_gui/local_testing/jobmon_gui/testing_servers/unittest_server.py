@@ -106,64 +106,64 @@ def get_workflow_tt_status_viz(workflow_id):
     counter = C2().getCounter()
     if counter == 1:
         result = {
-                   '5': {'DONE': 0, 'FATAL': 0, 'PENDING': 10, "SCHEDULED": 10, 'RUNNING': 0, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5},
-                   '6': {'DONE': 0, 'FATAL': 0, 'PENDING': 10, "SCHEDULED": 10, 'RUNNING': 0, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6},
-                   '7': {'DONE': 0, 'FATAL': 0, 'PENDING': 5, "SCHEDULED": 5, 'RUNNING': 0, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7}
+                   '5': {'DONE': 0, 'FATAL': 0, 'PENDING': 10, "SCHEDULED": 10, 'RUNNING': 0, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+                   '6': {'DONE': 0, 'FATAL': 0, 'PENDING': 10, "SCHEDULED": 10, 'RUNNING': 0, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+                   '7': {'DONE': 0, 'FATAL': 0, 'PENDING': 5, "SCHEDULED": 5, 'RUNNING': 0, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2}
                   }
 
     elif counter == 2:
         result = {
-            '5': {'DONE': 0, 'FATAL': 0, 'PENDING': 10, "SCHEDULED": 10, 'RUNNING': 0, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5},
-            '6': {'DONE': 0, 'FATAL': 0, 'PENDING': 10, "SCHEDULED": 10, 'RUNNING': 0, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6},
-            '7': {'DONE': 0, 'FATAL': 0, 'PENDING': 9, "SCHEDULED": 0, 'RUNNING': 1, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7}
+            '5': {'DONE': 0, 'FATAL': 0, 'PENDING': 10, "SCHEDULED": 10, 'RUNNING': 0, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '6': {'DONE': 0, 'FATAL': 0, 'PENDING': 10, "SCHEDULED": 10, 'RUNNING': 0, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '7': {'DONE': 0, 'FATAL': 0, 'PENDING': 9, "SCHEDULED": 0, 'RUNNING': 1, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2}
         }
     elif counter == 3:
         result = {
-            '5': {'DONE': 0, 'FATAL': 0, 'PENDING': 12, "SCHEDULED": 6, 'RUNNING': 2, 'id': 5, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5},
-            '6': {'DONE': 0, 'FATAL': 0, 'PENDING': 12, "SCHEDULED": 6, 'RUNNING': 2, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6},
-            '7': {'DONE': 1, 'FATAL': 0, 'PENDING': 5, "SCHEDULED": 1,  'RUNNING': 3, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7}
+            '5': {'DONE': 0, 'FATAL': 0, 'PENDING': 12, "SCHEDULED": 6, 'RUNNING': 2, 'id': 5, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '6': {'DONE': 0, 'FATAL': 0, 'PENDING': 12, "SCHEDULED": 6, 'RUNNING': 2, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '7': {'DONE': 1, 'FATAL': 0, 'PENDING': 5, "SCHEDULED": 1,  'RUNNING': 3, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2}
         }
     elif counter == 4:
         result = {
-            '5': {'DONE': 2, 'FATAL': 0, 'PENDING': 14, "SCHEDULED": 4, 'RUNNING': 0, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5},
-            '6': {'DONE': 2, 'FATAL': 0, 'PENDING': 14, "SCHEDULED": 4, 'RUNNING': 0, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6},
-            '7': {'DONE': 1, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 1,  'RUNNING': 8, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7}
+            '5': {'DONE': 2, 'FATAL': 0, 'PENDING': 14, "SCHEDULED": 4, 'RUNNING': 0, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '6': {'DONE': 2, 'FATAL': 0, 'PENDING': 14, "SCHEDULED": 4, 'RUNNING': 0, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '7': {'DONE': 1, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 1,  'RUNNING': 8, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2}
         }
     elif counter == 5:
         result = {
-            '5': {'DONE': 2, 'FATAL': 0, 'PENDING': 5, "SCHEDULED": 5, 'RUNNING': 8, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5},
-            '6': {'DONE': 2, 'FATAL': 0, 'PENDING': 5, "SCHEDULED": 5,  'RUNNING': 8, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6},
-            '7': {'DONE': 2, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 0,  'RUNNING': 8, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7}
+            '5': {'DONE': 2, 'FATAL': 0, 'PENDING': 5, "SCHEDULED": 5, 'RUNNING': 8, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '6': {'DONE': 2, 'FATAL': 0, 'PENDING': 5, "SCHEDULED": 5,  'RUNNING': 8, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '7': {'DONE': 2, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 0,  'RUNNING': 8, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2}
         }
     elif counter == 6:
         result = {
-            '5': {'DONE': 4, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 5, 'RUNNING': 11, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5},
-            '6': {'DONE': 4, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 5, 'RUNNING': 11, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6},
-            '7': {'DONE': 5, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 0, 'RUNNING': 5, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7}
+            '5': {'DONE': 4, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 5, 'RUNNING': 11, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '6': {'DONE': 4, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 5, 'RUNNING': 11, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '7': {'DONE': 5, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 0, 'RUNNING': 5, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2}
         }
     elif counter == 7:
         result = {
-            '5': {'DONE': 4, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 5, 'RUNNING': 11, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5},
-            '6': {'DONE': 4, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 5, 'RUNNING': 11, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6},
-            '7': {'DONE': 6, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 0, 'RUNNING': 4, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7}
+            '5': {'DONE': 4, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 5, 'RUNNING': 11, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '6': {'DONE': 4, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 5, 'RUNNING': 11, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '7': {'DONE': 6, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 0, 'RUNNING': 4, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2}
         }
     elif counter == 8:
         result = {
-            '5': {'DONE': 8, 'FATAL': 1, 'PENDING': 0, "SCHEDULED": 2, 'RUNNING': 11, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5},
-            '6': {'DONE': 8, 'FATAL': 1, 'PENDING': 0, "SCHEDULED": 2,  'RUNNING': 11, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6},
-            '7': {'DONE': 7, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 0, 'RUNNING': 3, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7}
+            '5': {'DONE': 8, 'FATAL': 1, 'PENDING': 0, "SCHEDULED": 2, 'RUNNING': 11, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '6': {'DONE': 8, 'FATAL': 1, 'PENDING': 0, "SCHEDULED": 2,  'RUNNING': 11, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '7': {'DONE': 7, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 0, 'RUNNING': 3, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2}
         }
     elif counter == 9:
         result = {
-            '5': {'DONE': 12, 'FATAL': 1, 'PENDING': 0, "SCHEDULED": 1, 'RUNNING': 6, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5},
-            '6': {'DONE': 12, 'FATAL': 1, 'PENDING': 0, "SCHEDULED": 1, 'RUNNING': 6, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6},
-            '7': {'DONE': 9, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 0,  'RUNNING': 1, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7}
+            '5': {'DONE': 12, 'FATAL': 1, 'PENDING': 0, "SCHEDULED": 1, 'RUNNING': 6, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '6': {'DONE': 12, 'FATAL': 1, 'PENDING': 0, "SCHEDULED": 1, 'RUNNING': 6, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '7': {'DONE': 9, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 0,  'RUNNING': 1, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2}
         }
     else:
         result = {
-            '5': {'DONE': 19, 'FATAL': 1, 'PENDING': 0, "SCHEDULED": 0, 'RUNNING': 0, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5},
-            '6': {'DONE': 19, 'FATAL': 1, 'PENDING': 0, "SCHEDULED": 0,  'RUNNING': 0, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6},
-            '7': {'DONE': 10, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 0, 'RUNNING': 0, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7}
+            '5': {'DONE': 19, 'FATAL': 1, 'PENDING': 0, "SCHEDULED": 0, 'RUNNING': 0, 'id': 5, 'name': 'tt0', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 5, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '6': {'DONE': 19, 'FATAL': 1, 'PENDING': 0, "SCHEDULED": 0,  'RUNNING': 0, 'id': 6, 'name': 'tt1', 'tasks': 20, 'MAXC': 10000, "task_template_version_id": 6, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2},
+            '7': {'DONE': 10, 'FATAL': 0, 'PENDING': 0, "SCHEDULED": 0, 'RUNNING': 0, 'id': 7, 'name': 'tt2', 'tasks': 10, 'MAXC': "NA", "task_template_version_id": 7, "num_attempts_avg": 1.5, "num_attempts_min": 1, "num_attempts_max": 2}
         }
     print(result)
     resp = jsonify(result)
