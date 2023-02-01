@@ -5,7 +5,7 @@ import Popover from 'react-bootstrap/Popover';
 
 import './jobmon_gui.css';
 
-export default function JobmonProgressBar({tasks, pending, scheduled, running, done, fatal, maxc, placement, style="striped"}) {
+export default function JobmonProgressBar({tasks, pending, scheduled, running, done, fatal, num_attempts_avg, num_attempts_min, num_attempts_max, maxc, placement, style="striped"}) {
     // style can be striped or animated; others will be treated as default
     if (style === "striped") {
         return (
@@ -14,7 +14,15 @@ export default function JobmonProgressBar({tasks, pending, scheduled, running, d
                             trigger={["hover", "focus"]}
                             overlay={(
                                 <Popover id="task_count">
-                                    Total: {tasks}; Pending: {pending}; Scheduled: {scheduled}; Running: {running}; Done: {done}; Fatal: {fatal}
+                                    Total: {tasks};
+                                    Pending: {pending};
+                                    Scheduled: {scheduled};
+                                    <br />
+                                    Running: {running};
+                                    Done: {done};
+                                    Fatal: {fatal};
+                                    <br />
+                                    # Attempts: {num_attempts_avg} ({num_attempts_min} - {num_attempts_max})
                                     <br /><br />
                                     Concurrency Limit: {maxc}
                                 </Popover>
@@ -38,7 +46,15 @@ export default function JobmonProgressBar({tasks, pending, scheduled, running, d
                             trigger={["hover", "focus"]}
                             overlay={(
                                 <Popover id="task_count">
-                                    Total: {tasks}; Pending: {pending}; Scheduled: {scheduled}; Running: {running}; Done: {done}; Fatal: {fatal}
+                                    Total: {tasks};
+                                    Pending: {pending};
+                                    Scheduled: {scheduled};
+                                    <br />
+                                    Running: {running};
+                                    Done: {done};
+                                    Fatal: {fatal};
+                                    <br />
+                                    # Attempts: {num_attempts_avg} ({num_attempts_min} - {num_attempts_max})
                                     <br /><br />
                                     Concurrency Limit: {maxc}
                                 </Popover>
@@ -62,7 +78,15 @@ export default function JobmonProgressBar({tasks, pending, scheduled, running, d
                             trigger={["hover", "focus"]}
                             overlay={(
                                 <Popover id="task_count">
-                                    Total: {tasks}; Pending: {pending}; Scheduled: {scheduled}; Running: {running}; Done: {done}; Fatal: {fatal}
+                                    Total: {tasks};
+                                    Pending: {pending};
+                                    Scheduled: {scheduled};
+                                    <br />
+                                    Running: {running};
+                                    Done: {done};
+                                    Fatal: {fatal};
+                                    <br />
+                                    # Attempts: {num_attempts_avg} ({num_attempts_min} - {num_attempts_max})
                                     <br /><br />
                                     Concurrency Limit: {maxc}
                                 </Popover>
