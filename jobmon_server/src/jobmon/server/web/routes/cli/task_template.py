@@ -415,6 +415,9 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 "DONE": 0,
                 "FATAL": 0,
                 "MAXC": 0,
+                "num_attempts_avg": 1.5,
+                "num_attempts_min": 1,
+                "num_attempts_max": 2,
                 "task_template_version_id": int(r[5]),
             }
         return_dic[int(r[0])]["tasks"] += 1
