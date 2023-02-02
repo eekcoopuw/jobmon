@@ -7,6 +7,10 @@ import ReactFlow, {
     Node,
     Position
 } from 'reactflow';
+import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
+import { OverlayTrigger } from "react-bootstrap";
+import Popover from 'react-bootstrap/Popover';
+import { faLightbulb } from '@fortawesome/free-solid-svg-icons';
 
 import 'reactflow/dist/style.css';
 
@@ -19,7 +23,7 @@ function TaskFSM({ taskStatus }) {
             type: 'input',
             position: { x: 100, y: 150 },
             sourcePosition: Position.Right,
-            ...(task_status === "G" ? {style: { backgroundColor: '#26AADF' }} : null)
+            ...(task_status === "G" ? { style: { backgroundColor: '#26AADF' } } : null)
         },
         {
             id: 'queued',
@@ -27,7 +31,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 275, y: 150 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "Q" ? {style: { backgroundColor: '#26AADF' }} : null)
+            ...(task_status === "Q" ? { style: { backgroundColor: '#26AADF' } } : null)
         },
         {
             id: 'instantiate',
@@ -35,7 +39,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 450, y: 150 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "I" ? {style: { backgroundColor: '#26AADF' }} : null)
+            ...(task_status === "I" ? { style: { backgroundColor: '#26AADF' } } : null)
         },
         {
             id: 'launched',
@@ -43,7 +47,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 625, y: 150 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "O" ? {style: { backgroundColor: '#26AADF' }} : null)
+            ...(task_status === "O" ? { style: { backgroundColor: '#26AADF' } } : null)
         },
         {
             id: 'running',
@@ -51,7 +55,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 800, y: 150 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "R" ? {style: { backgroundColor: '#26AADF' }} : null)
+            ...(task_status === "R" ? { style: { backgroundColor: '#26AADF' } } : null)
         },
         {
             id: 'done',
@@ -59,7 +63,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 1000, y: 200 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "D" ? {style: { backgroundColor: '#04CA22' }} : null)
+            ...(task_status === "D" ? { style: { backgroundColor: '#04CA22' } } : null)
         },
         {
             id: 'recoverable',
@@ -67,7 +71,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 1000, y: 100 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "E" ? {style: { backgroundColor: '#FFC300' }} : null)
+            ...(task_status === "E" ? { style: { backgroundColor: '#FFC300' } } : null)
         },
         {
             id: 'fatal',
@@ -75,7 +79,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 1200, y: 150 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "F" ? {style: { backgroundColor: '#ED3333' }} : null)
+            ...(task_status === "F" ? { style: { backgroundColor: '#ED3333' } } : null)
         },
         {
             id: 'adjusting',
@@ -83,10 +87,10 @@ function TaskFSM({ taskStatus }) {
             position: { x: 1200, y: 50 },
             sourcePosition: Position.Top,
             targetPosition: Position.Left,
-            ...(task_status === "A" ? {style: { backgroundColor: '#FFC300' }} : null)
+            ...(task_status === "A" ? { style: { backgroundColor: '#FFC300' } } : null)
         },
     ];
-    
+
     const edges = [
         {
             id: 'register-queued',
@@ -178,11 +182,37 @@ function TaskFSM({ taskStatus }) {
                 type: MarkerType.ArrowClosed,
             }
         },
-    
+
     ];
     return (
         <div>
-            <h2>Task Finite State Machine</h2>
+            <div style={{ display: "flex" }}>
+                <header className="header-1">
+                    <p>
+                        Task Finite State Machine&nbsp;
+                        <OverlayTrigger
+                            placement="right"
+                            trigger={["hover", "focus"]}
+                            overlay={(
+                                <Popover id="task_count">
+                                    <p><b>Registering:</b> Task is bound to the database.</p>
+                                    <p><b>Queued:</b> Task's dependencies have successfully completed, task can be run when the scheduler is ready.</p>
+                                    <p><b>Instantiating:</b> A task instance is preparing to be launched/submitted.</p>
+                                    <p><b>Launched:</b> Task instance submitted to the cluster normally.</p>
+                                    <p><b>Running:</b> Task is running on the specified distributor.</p>
+                                    <p><b>Error Recoverable:</b> Task has errored out but has more attempts so it will be retried.</p>
+                                    <p><b>Adjusting Resources:</b> Task errored with a resource error, the resources will be adjusted before retrying.</p>
+                                    <p><b>Error Fatal:</b> Task errored out and has used all of the attempts, therefore has failed for this WorkflowRun. It can be resumed in a new WFR.</p>
+                                    <p><b>Done:</b> Task ran successfully to completion; it has a TaskInstance that successfully completed.</p>
+                                </Popover>
+                            )}
+                        >
+                            <span><FontAwesomeIcon icon={faLightbulb} /></span>
+                        </OverlayTrigger>
+                    </p>
+                </header>
+            </div>
+
             <div style={{ height: 400 }}>
                 <ReactFlow nodes={nodes} edges={edges}>
                     <Background />

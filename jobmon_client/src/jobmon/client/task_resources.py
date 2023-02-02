@@ -161,7 +161,6 @@ class TaskResources:
             # If a numeric is provided, assumed to be in seconds
             return int(time_str)
         except ValueError:
-
             time_str = str(time_str).lower()
 
             # convert to seconds if its datetime with a supported format
@@ -174,7 +173,6 @@ class TaskResources:
                 )
                 return time_seconds
             except ValueError:
-
                 try:
                     raw_value, unit = re.findall(r"[A-Za-z]+|\d+", time_str)
                 except ValueError:

@@ -104,7 +104,6 @@ def test_array_bind(db_engine, client_env, task_template_dummy, tool):
 
 
 def test_node_args_expansion():
-
     node_args = {"location_id": [1, 2, 3], "sex": ["m", "f"]}
 
     expected_expansion = [
@@ -127,7 +126,6 @@ def test_node_args_expansion():
 
 
 def test_create_tasks(db_engine, client_env, tool):
-
     rich_task_template = tool.get_task_template(
         template_name="simple_template",
         command_template="{command} {task_arg} {narg1} {narg2} {op_arg}",
@@ -163,7 +161,6 @@ def test_create_tasks(db_engine, client_env, tool):
     wf._bind_tasks()
 
     with Session(bind=db_engine) as session:
-
         # Check narg1 and narg2 are represented in node_arg
         q = """
         SELECT * 

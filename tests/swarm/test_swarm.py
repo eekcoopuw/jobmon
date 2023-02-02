@@ -132,7 +132,6 @@ def test_wedged_dag(db_engine, tool, task_template, requester_no_retry):
     the workflow tasks which resolves the wedge"""
 
     class WedgedDistributor(DummyDistributor):
-
         wedged_task_id = None
 
         def submit_to_batch_distributor(
@@ -153,11 +152,9 @@ def test_wedged_dag(db_engine, tool, task_template, requester_no_retry):
                 task_id = int(task_instance.task.id)
 
             if task_id == self.wedged_task_id:
-
                 session_factory.configure(bind=db_engine)
 
                 with Session(bind=db_engine) as session:
-
                     logger.info(
                         f"task instance is {self.wedged_task_id}, entering"
                         " first if statement"

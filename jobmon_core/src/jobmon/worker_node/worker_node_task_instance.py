@@ -426,7 +426,6 @@ class WorkerNodeTaskInstance:
 
         # normal happy path
         else:
-
             if self.command_return_code == ReturnCodes.OK:
                 logger.info(f"Command: {self.command}. Finished Successfully.")
                 self.log_done()
@@ -473,7 +472,6 @@ class WorkerNodeTaskInstance:
         return ret_code is not None
 
     def _collect_stderr(self) -> None:
-
         # pull stderr off queue and clip at 10k to avoid mysql has gone away errors
         # when posting long messages and keep memory low
         while not self._err_q.empty():
@@ -496,7 +494,6 @@ def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
     logger.debug("enqueue_stderr")
     block_reader = partial(stderr.read, 100)
     for new_block in iter(block_reader, ""):
-
         # push the block we just read to stderr and onto the queue that's
         # communicating w/ the main thread
         sys.stderr.write(new_block)

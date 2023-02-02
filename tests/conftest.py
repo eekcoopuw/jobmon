@@ -240,7 +240,6 @@ def get_task_template(tool, template_name):
 # TODO: This tool and the subsequent fixtures should probably be session scoped
 @pytest.fixture
 def tool(client_env):
-
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources={"queue": "null.q"}

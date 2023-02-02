@@ -9,12 +9,10 @@ from jobmon.client.task_template_version import TaskTemplateVersion
 
 @pytest.fixture(scope="function")
 def tool(client_env):
-
     return Tool(name=str(uuid.uuid4()))
 
 
 def test_task_template(tool):
-
     tool.get_new_tool_version()
 
     tt = TaskTemplate("my_template")

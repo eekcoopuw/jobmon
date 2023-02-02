@@ -223,7 +223,6 @@ def test_get_errors(db_engine, tool):
 
     # Validate that the database indicates the Dag and its Jobs are complete
     with Session(bind=db_engine) as session:
-
         t = session.get(task.Task, task_a.task_id)
         assert t.status == TaskStatus.ERROR_FATAL
 

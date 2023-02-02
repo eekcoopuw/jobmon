@@ -3,7 +3,6 @@ from enum import Enum
 
 
 class ArgType:
-
     NODE_ARG = 1
     TASK_ARG = 2
     OP_ARG = 3

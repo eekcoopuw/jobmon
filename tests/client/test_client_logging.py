@@ -6,7 +6,6 @@ from jobmon.client.logging import JobmonLoggerConfig
 
 
 def test_client_logging_default_format(client_env, capsys):
-
     JobmonLoggerConfig.attach_default_handler(logger_name="test.test")
     logger = logging.getLogger("test.test")
     logger.info("This is a test")

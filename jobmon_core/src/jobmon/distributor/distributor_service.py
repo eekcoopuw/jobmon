@@ -128,7 +128,6 @@ class DistributorService:
                 TaskInstanceStatus.KILL_SELF,
             ]
             while True:
-
                 # loop through all statuses and do as much work as we can till the heartbeat
                 time_till_next_heartbeat = self._workflow_run_heartbeat_interval - (
                     time.time() - self._last_heartbeat_time
@@ -201,10 +200,8 @@ class DistributorService:
         # this way we always process at least 1 command
         keep_iterating = True
         while keep_iterating:
-
             # run commands
             try:
-
                 # get next command
                 distributor_command = next(self._distributor_commands)
                 distributor_command(self.raise_on_error)

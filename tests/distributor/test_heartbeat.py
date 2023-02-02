@@ -13,7 +13,6 @@ load_model()
 
 
 def test_heartbeat_on_launched(tool, db_engine, task_template):
-
     # create the workflow and bind to database
     t1 = tool.active_task_templates["simple_template"].create_task(arg="sleep 10")
     t2 = tool.active_task_templates["simple_template"].create_task(arg="sleep 11")

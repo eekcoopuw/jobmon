@@ -449,7 +449,6 @@ def workflows_by_user_form() -> Any:
 
     session = SessionLocal()
     with session.begin():
-
         # Get latest WFR ID associated with each Workflow for all Workflows associated with a
         # user.
         subquery = (
@@ -542,7 +541,6 @@ def task_details_by_wf_id(workflow_id: int) -> Any:
     task_template_name = request.args.get("tt_name")
     session = SessionLocal()
     with session.begin():
-
         sql = (
             select(
                 Task.id,

@@ -50,7 +50,6 @@ def test_add_structlog_context(requester_in_memory, log_config):
 
 
 def test_error_handling(requester_in_memory, log_config, monkeypatch):
-
     msg = "bad luck buddy"
 
     def raise_error():

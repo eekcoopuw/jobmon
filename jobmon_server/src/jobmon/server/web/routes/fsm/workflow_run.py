@@ -241,7 +241,6 @@ def task_instances_status_check(workflow_run_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-
         # get time from db
         db_time = session.execute(select(func.now())).scalar()
         str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")

@@ -137,7 +137,6 @@ class SequentialDistributor(ClusterDistributor):
             logfiles: Dict[str, Optional[str]] = {}
             redirect_io = {"stderr": redirect_stderr, "stdout": redirect_stdout}
             with ExitStack() as stack:
-
                 # redirect error and output to files or null
                 for io_type, redirect_manager in redirect_io.items():
                     try:

@@ -148,7 +148,6 @@ def test_array_task_instance(tool, db_engine, client_env, array_template, monkey
         assert stderr == "/bar"
 
     for distributor_id, array_batch_num, *_ in distributor_ids:
-
         job_id, step_id = distributor_id.split("_")
         monkeypatch.setenv("JOB_ID", job_id)
         monkeypatch.setenv("ARRAY_STEP_ID", step_id)
@@ -241,7 +240,6 @@ def test_ti_kill_self_state(db_engine, tool):
 
 
 def test_limited_error_log(tool, db_engine):
-
     thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
     wf = tool.create_workflow(name="random_workflow")
@@ -338,7 +336,6 @@ def test_worker_node_environment(client_env):
 
 
 def test_worker_node_add_attributes(tool, db_engine):
-
     thisdir = os.path.dirname(os.path.realpath(os.path.expanduser(__file__)))
 
     wf = tool.create_workflow(name="random_workflow")

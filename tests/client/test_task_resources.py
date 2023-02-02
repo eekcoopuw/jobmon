@@ -41,7 +41,6 @@ def test_task_resources_hash(client_env):
 
 
 def test_task_resource_bind(db_engine, tool, task_template):
-
     resources = {"queue": "null.q"}
     task_template.set_default_compute_resources_from_dict(
         cluster_name="sequential", compute_resources=resources
@@ -138,15 +137,16 @@ def test_defaults_pass_down_and_overrides(tool, task_template):
 
 
 @pytest.mark.parametrize(
-    "time_str,expected,exception", [
-        ("24:30:10", 24*3600 + 30*60 + 10, nullcontext()),
-        ("10:00:00", 10*3600, nullcontext()),
-        ("1h", 1*3600, nullcontext()),
+    "time_str,expected,exception",
+    [
+        ("24:30:10", 24 * 3600 + 30 * 60 + 10, nullcontext()),
+        ("10:00:00", 10 * 3600, nullcontext()),
+        ("1h", 1 * 3600, nullcontext()),
         ("30m", 30 * 60, nullcontext()),
         ("25s", 25, nullcontext()),
         (30, 30, nullcontext()),
-        ("10h30m", None, pytest.raises(ValueError))
-    ]
+        ("10h30m", None, pytest.raises(ValueError)),
+    ],
 )
 def test_timeunit_convert(time_str, expected, exception):
     with exception:

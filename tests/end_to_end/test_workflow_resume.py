@@ -16,7 +16,6 @@ from jobmon.plugins.multiprocess.multiproc_distributor import MultiprocessDistri
 
 @pytest.fixture
 def tool(client_env):
-
     tool = Tool()
     tool.set_default_compute_resources_from_dict(
         cluster_name="multiprocess", compute_resources={"queue": "null.q"}

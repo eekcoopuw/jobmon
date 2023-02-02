@@ -301,7 +301,6 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
 
 
 def test_workflow_tasks(db_engine, tool, client_env, cli):
-
     workflow = tool.create_workflow(
         default_cluster_name="sequential",
         default_compute_resources_set={"sequential": {"queue": "null.q"}},
@@ -407,7 +406,6 @@ def test_workflow_tasks(db_engine, tool, client_env, cli):
 
 
 def test_task_status(db_engine, client_env, tool, cli):
-
     task_template = get_task_template(tool)
     t1 = task_template.create_task(arg="exit -9", max_attempts=2)
     t2 = task_template.create_task(arg="exit -0")
@@ -605,10 +603,8 @@ def test_dynamic_concurrency_limiting_cli(db_engine, client_env, cli):
 
 
 def test_update_task_status(db_engine, client_env, tool, cli):
-
     # Create a 5 task DAG. Tasks 1-3 should finish, 4 should error out and block 5
     def generate_workflow_and_tasks(tool):
-
         wf = tool.create_workflow(workflow_args="test_cli_update_workflow")
         tasks = []
         echo_str = "echo {}"

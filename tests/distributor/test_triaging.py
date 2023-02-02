@@ -178,7 +178,6 @@ def test_triaging_to_specific_error(
 
     # stage all the task instances as triaging
     with Session(bind=db_engine) as session:
-
         update_stmt = (
             update(TaskInstance)
             .where(TaskInstance.task_id.in_([tis[x].task_id for x in range(len(tis))]))
@@ -197,7 +196,6 @@ def test_triaging_to_specific_error(
         "MultiprocessDistributor.get_remote_exit_info",
         return_value=(error_state, error_message),
     ):
-
         # code logic to test
         distributor_service.refresh_status_from_db(TaskInstanceStatus.TRIAGING)
         distributor_service.process_status(TaskInstanceStatus.TRIAGING)

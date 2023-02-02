@@ -188,7 +188,6 @@ def test_workflow_identical_args(tool, task_template):
 
 
 def test_add_same_node_args_twice(client_env):
-
     tool = Tool()
     tt = tool.get_task_template(
         template_name="my_template",
@@ -305,7 +304,6 @@ def test_workflow_attribute(db_engine, tool, client_env, task_template):
 
 
 def test_chunk_size(tool, client_env, task_template):
-
     wf_a = tool.create_workflow(name="test_wf_chunks_a", chunk_size=3)
 
     task_a = task_template.create_task(arg="echo a", upstream_tasks=[])  # To be clear
@@ -322,7 +320,6 @@ def test_chunk_size(tool, client_env, task_template):
 
 
 def test_add_tasks_dependencynotexist(tool, client_env, task_template):
-
     t1 = task_template.create_task(arg="echo 1")
     t2 = task_template.create_task(arg="echo 2")
     t3 = task_template.create_task(arg="echo 3")

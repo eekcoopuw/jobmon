@@ -44,13 +44,11 @@ def test_memunit_convert(i, t, e):
 
 @pytest.mark.parametrize("input", ["a", "10 M", "1g1M"])
 def test_memunit_wrong_input(input):
-
     with pytest.raises(InvalidMemoryFormat):
         MemUnit.convert(input)
 
 
 @pytest.mark.parametrize("to", ["a", "gg", "1g1M"])
 def test_memunit_unit(to):
-
     with pytest.raises(InvalidMemoryUnit):
         MemUnit.convert(100, to)

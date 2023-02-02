@@ -31,7 +31,6 @@ def test_scheduler_logging(client_env, caplog):
     requester = Requester(client_env)
 
     with DistributorContext("sequential", wfr.workflow_run_id, 180) as distributor:
-
         assert "Starting Distributor Process" in caplog.text
         caplog.clear()
 
