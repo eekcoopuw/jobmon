@@ -137,12 +137,8 @@ def test_task_attribute(db_engine, tool):
         assert len(num_cores_set) == 1
 
 
-def test_executor_parameter_copy(tool, task_template):
-    """test that 1 executorparameters object passed to multiple tasks are distinct objects,
-    and scaling 1 task does not scale the others"""
-
-    # Use SGEExecutor for adjust methods, but the executor is never called
-    # Therefore, not an SGEIntegration test
+def test_compute_resource_copy(tool, task_template):
+    """test that 1 compute resources object passed to multiple tasks are distinct objects."""
     compute_resources = {
         "m_mem_free": "1G",
         "max_runtime_seconds": 60,
