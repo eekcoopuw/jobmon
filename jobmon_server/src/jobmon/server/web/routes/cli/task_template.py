@@ -7,7 +7,8 @@ from flask import jsonify, request
 from flask_cors import cross_origin
 import numpy as np
 import scipy.stats as st  # type:ignore
-from sqlalchemy import select
+from sqlalchemy import select, and_
+from sqlalchemy.sql  import func
 import structlog
 
 from jobmon.core.serializers import SerializeTaskTemplateResourceUsage
@@ -405,6 +406,34 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
         if int(r[0]) in return_dic.keys():
             pass
         else:
+            with session.begin():
+                join_table = (
+                    Task.__table__.join(Node, Task.node_id == Node.id)
+                    .join(
+                        TaskTemplateVersion,
+                        Node.task_template_version_id == TaskTemplateVersion.id,
+                    )
+                    .join(
+                        TaskTemplate,
+                        TaskTemplateVersion.task_template_id == TaskTemplate.id,
+                    )
+                )
+                sql = (
+                    select(
+                        func.min(Task.num_attempts).label("min"),
+                        func.max(Task.num_attempts).label("max"),
+                        func.avg(Task.num_attempts).label("mean")
+                    )
+                    .select_from(join_table)
+                    .where(
+                        and_(TaskTemplate.id == int(r[0]), Task.workflow_id == workflow_id)
+                    )
+                )
+                if SessionLocal.bind.dialect.name == "mysql":
+                    sql = sql.prefix_with("STRAIGHT_JOIN")
+                row = session.execute(sql).all()
+                session.commit()
+
             return_dic[int(r[0])] = {
                 "id": int(r[0]),
                 "name": r[1],
@@ -415,9 +444,9 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 "DONE": 0,
                 "FATAL": 0,
                 "MAXC": 0,
-                "num_attempts_avg": 1.5,
-                "num_attempts_min": 1,
-                "num_attempts_max": 2,
+                "num_attempts_avg": row[0]['mean'],
+                "num_attempts_min": row[0]['min'],
+                "num_attempts_max": row[0]['max'],
                 "task_template_version_id": int(r[5]),
             }
         return_dic[int(r[0])]["tasks"] += 1
