@@ -397,19 +397,27 @@ def get_workflow_status_viz() -> Any:
             "DONE": 0,
             "FATAL": 0,
             "MAXC": 0,
+            "num_attempts_avg": 0,
+            "num_attempts_min": 1000000000,
+            "num_attempts_max": 0
         }
 
     session = SessionLocal()
     with session.begin():
         query_filter = [Task.workflow_id.in_(wf_ids), Task.workflow_id == Workflow.id]
         sql = select(
-            Task.workflow_id, Task.status, Workflow.max_concurrently_running
+            Task.workflow_id, Task.status, Workflow.max_concurrently_running, func.min(Task.num_attempts), func.max(Task.num_attempts), func.avg(Task.num_attempts)
         ).where(*query_filter)
         rows = session.execute(sql).all()
-    for row in rows:
+    for row in rows: 
         return_dic[row[0]]["tasks"] += 1
         return_dic[row[0]][_cli_label_mapping[row[1]]] += 1
         return_dic[row[0]]["MAXC"] = row[2]
+        return_dic[row[0]]["num_attempts_min"] = row[3]
+        return_dic[row[0]]["num_attempts_max"] = row[4]
+        return_dic[row[0]]["num_attempts_avg"] = row[5]
+
+        
     resp = jsonify(return_dic)
     resp.status_code = 200
     return resp
