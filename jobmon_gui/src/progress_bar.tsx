@@ -6,6 +6,7 @@ import Popover from 'react-bootstrap/Popover';
 import './jobmon_gui.css';
 
 export default function JobmonProgressBar({tasks, pending, scheduled, running, done, fatal, num_attempts_avg, num_attempts_min, num_attempts_max, maxc, placement, style="striped"}) {
+    num_attempts_avg = num_attempts_avg.toFixed(1);
     // style can be striped or animated; others will be treated as default
     if (style === "striped") {
         return (
