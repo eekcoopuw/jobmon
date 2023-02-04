@@ -12,7 +12,7 @@ export default function NodeLists({ upstreamTasks, downstreamTasks }) {
                     <div className="card-header">Upstream Task IDs</div>
                     <ul className="list-group list-group-flush">
                         {
-                            upstreamTasks.map(d => (
+                            upstreamTasks.flat(1).map(d => (
                                 <li className="list-group-item">
                                     <Link
                                         to={{ pathname: `/task_details/${d["id"]}` }}
@@ -27,7 +27,7 @@ export default function NodeLists({ upstreamTasks, downstreamTasks }) {
                     <div className="card-header">Downstream Task IDs</div>
                     <ul className="list-group list-group-flush">
                         {
-                            downstreamTasks.map(d => (
+                            downstreamTasks.flat(1).map(d => (
                                 <li className="list-group-item">
                                     <Link
                                         to={{ pathname: `/task_details/${d["id"]}` }}

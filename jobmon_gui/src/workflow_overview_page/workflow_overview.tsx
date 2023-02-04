@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useForm } from "react-hook-form";
 import { useSearchParams, useNavigate} from "react-router-dom";
 import Button from 'react-bootstrap/Button';
@@ -53,8 +53,13 @@ function App() {
     }
   }, []);
 
+  const firstUpdate = useRef(true);
   //user change hook
   useEffect(() => {
+    if (firstUpdate.current) {
+      firstUpdate.current = false;
+      return;
+    }
     const rum_s1: any = apm.startSpan("landing_page", "external.http");
     rum_s1.addLabels({ "user": user });
     const params = new URLSearchParams();

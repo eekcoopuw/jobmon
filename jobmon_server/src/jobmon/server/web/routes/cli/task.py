@@ -253,12 +253,12 @@ def get_task_dependencies(task_id: int) -> Any:
     up = (
         []
         if up_task_dict is None or len(up_task_dict) == 0
-        else [[{"id": k, "status": up_task_dict[k]}] for k in up_task_dict][0]
+        else [[{"id": k, "status": up_task_dict[k]}] for k in up_task_dict]
     )
     down = (
         []
         if down_task_dict is None or len(down_task_dict) == 0
-        else [[{"id": k, "status": down_task_dict[k]}] for k in down_task_dict][0]
+        else [[{"id": k, "status": down_task_dict[k]}] for k in down_task_dict]
     )
     resp = jsonify({"up": up, "down": down})
     resp.status_code = 200
@@ -493,17 +493,24 @@ def get_task_details(task_id: int) -> Any:
     """Get information about TaskInstances associated with specific Task ID."""
     session = SessionLocal()
     with session.begin():
-        query = select(
-            TaskInstance.id,
-            TaskInstance.status,
-            TaskInstance.stdout,
-            TaskInstance.stderr,
-            TaskInstance.distributor_id,
-            TaskInstance.nodename,
-            TaskInstanceErrorLog.description,
-        ).where(
-            TaskInstance.id == TaskInstanceErrorLog.task_instance_id,
-            TaskInstance.task_id == task_id,
+        query = (
+            select(
+                TaskInstance.id,
+                TaskInstance.status,
+                TaskInstance.stdout,
+                TaskInstance.stderr,
+                TaskInstance.distributor_id,
+                TaskInstance.nodename,
+                TaskInstanceErrorLog.description,
+            )
+            .outerjoin_from(
+                TaskInstance,
+                TaskInstanceErrorLog,
+                TaskInstance.id == TaskInstanceErrorLog.task_instance_id,
+            )
+            .where(
+                TaskInstance.task_id == task_id,
+            )
         )
         rows = session.execute(query).all()
 

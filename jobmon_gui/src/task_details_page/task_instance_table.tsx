@@ -1,12 +1,12 @@
 import React from 'react';
 import "react-bootstrap-table-next/dist/react-bootstrap-table2.min.css"
-import BootstrapTable from "react-bootstrap-table-next";
+import BootstrapTable, { ColumnDescription } from "react-bootstrap-table-next";
 import paginationFactory from "react-bootstrap-table2-paginator";
 
 
 export default function TaskInstanceTable({ taskInstanceData }) {
 
-    const columns = [
+    const columns: Array<ColumnDescription> = [
         {
             dataField: "ti_id",
             text: "ID",
@@ -21,11 +21,13 @@ export default function TaskInstanceTable({ taskInstanceData }) {
             dataField: "ti_stdout",
             text: "Stdout Path",
             sort: true,
+            style: { overflowWrap: 'break-word' },
         },
         {
             dataField: "ti_stderr",
             text: "Stderr Path",
             sort: true,
+            style: { overflowWrap: 'break-word' },
         },
         {
             dataField: "ti_distributor_id",
@@ -36,11 +38,13 @@ export default function TaskInstanceTable({ taskInstanceData }) {
             dataField: "ti_nodename",
             text: "Node Name",
             sort: true,
+            style: { overflowWrap: 'break-word' },
         },
         {
             dataField: "ti_error_log_description",
             text: "Error Log",
             sort: true,
+            style: { overflowWrap: 'break-word' },
         }
     ]
 
