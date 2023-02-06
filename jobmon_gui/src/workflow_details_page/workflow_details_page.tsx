@@ -9,6 +9,7 @@ import { OverlayTrigger } from "react-bootstrap";
 import Popover from 'react-bootstrap/Popover';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLightbulb } from '@fortawesome/free-solid-svg-icons';
+import $ from 'jquery';
 
 
 // @ts-ignore
@@ -41,6 +42,7 @@ function getWorkflowAttributes(wf_id: string, setWFTool, setWFName, setWFArgs, s
     };
     return fetchData
 }
+
 function getAsyncTTdetail(setTTDict, wf_id: string, setTTLoaded) {
     const url = process.env.REACT_APP_BASE_URL + "/workflow_tt_status_viz/" + wf_id;
     const fetchData = async () => {
@@ -173,10 +175,24 @@ function WorkflowDetails({ subpage }) {
         setTaskTemplateName(d["task_template_name"]);
     });
     //TaskTemplate link click function
+    function highlightTaskTemplate(tt_id) {
+        // Reset previous highlight
+        //const tt_containers = $('#tt_progress ul li');
+        const tt_containers = $('#tt_progress .tt-container');
+        tt_containers.removeClass('selected');
+
+        // Highlight selected container
+        //const selected_tt_container = $('#' + String(tt_id)).parent().parent().parent();
+        const selected_tt_container = $('#' + String(tt_id));
+        selected_tt_container.addClass('selected');
+
+    }
+
     function clickTaskTemplate(name, tt_id, tt_version_id) {
-        setTaskTemplateName(name)
+        setTaskTemplateName(name);
         setTTID(tt_id);
-        setTaskTemplateVersionId(tt_version_id)
+        setTaskTemplateVersionId(tt_version_id);
+        highlightTaskTemplate(tt_id);
     }
 
     //********************html page*************************************
@@ -246,9 +262,13 @@ function WorkflowDetails({ subpage }) {
                     <ul>
                         {
                             ttDict.map(d => (
-                                <div className="div-level-3">
+                                <li
+                                    className="tt-container"
+                                    id={d["id"]}
+                                    onClick={() => clickTaskTemplate(d["name"], d["id"], d["task_template_version_id"])}
+                                >
                                     <div className="div_floatleft">
-                                        <p className="p-underline"><li id={d["id"]} value={d["name"]} onClick={() => clickTaskTemplate(d["name"], d["id"], d["task_template_version_id"])}>{d["name"]}</li></p>
+                                        <span className="tt-name">{d["name"]}</span>
                                     </div>
                                     <div className="div_floatright">
                                         <JobmonProgressBar
@@ -269,7 +289,7 @@ function WorkflowDetails({ subpage }) {
                                     </div>
                                     <br />
                                     <hr className="hr-dot" />
-                                </div>
+                                </li>
                             ))
                         }
                     </ul>
