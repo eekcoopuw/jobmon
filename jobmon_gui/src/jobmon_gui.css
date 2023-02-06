@@ -117,10 +117,6 @@
     padding: 15px 2px 2px 2px;
 }
 
-.tt-container::marker {
-    margin-top: -4px;
-}
-
 .tt-container:hover {
     cursor: pointer;
     border: 1px dotted green;
