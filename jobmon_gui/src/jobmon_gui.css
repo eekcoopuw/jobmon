@@ -344,3 +344,20 @@
     max-height: 300px;
     overflow-y: auto;
 }
+
+#task-count {
+   margin: 2px;
+   padding: 4px;
+   border: 1px solid gray;
+}
+
+#tt-stats {
+   /*border: 1px solid gray;*/
+}
+
+#tt-stats th, td {
+   padding: 2px;
+}
+#tt-stats td.tt-stats-spacer {
+   width: 20px;
+}

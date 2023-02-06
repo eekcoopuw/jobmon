@@ -7,8 +7,8 @@ from flask import jsonify, request
 from flask_cors import cross_origin
 import numpy as np
 import scipy.stats as st  # type:ignore
-from sqlalchemy import select, and_
-from sqlalchemy.sql  import func
+from sqlalchemy import and_, select
+from sqlalchemy.sql import func
 import structlog
 
 from jobmon.core.serializers import SerializeTaskTemplateResourceUsage
