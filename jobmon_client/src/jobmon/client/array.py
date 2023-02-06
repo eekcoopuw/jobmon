@@ -255,7 +255,6 @@ class Array:
         # build tasks over node_args
         tasks = []
         for node_args in node_args_expanded:
-
             # build node
             node = Node(self.task_template_version, node_args, self.requester)
 

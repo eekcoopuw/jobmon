@@ -169,7 +169,6 @@ class WorkflowRun:
         return any_active_tasks
 
     def from_workflow(self, workflow: Workflow) -> None:
-
         if self.initialized:
             logger.warning("Swarm has already been initialized")
             return
@@ -182,7 +181,6 @@ class WorkflowRun:
 
         # construct SwarmTasks from Client Tasks and populate registry
         for task in workflow.tasks.values():
-
             cluster = workflow.get_cluster_by_name(task.cluster_name)
             fallback_queues = []
             for queue in task.fallback_queues:
@@ -279,7 +277,6 @@ class WorkflowRun:
         max_task_id = 0
         logger.info("Fetching tasks from the database")
         while not all_tasks_returned:
-
             # TODO: make this an asynchronous context manager, avoid duplicating code
             if (
                 time.time() - self._last_heartbeat_time
@@ -474,7 +471,6 @@ class WorkflowRun:
             ]
 
             while self.active_tasks:
-
                 # Expire the swarm after the requested number of seconds
                 if total_elapsed_time > seconds_until_timeout:
                     raise RuntimeError(
@@ -663,7 +659,6 @@ class WorkflowRun:
         loop_start = time.time()
         keep_processing = True
         while keep_processing:
-
             # run commands
             try:
                 # use an iterator so we don't waste compute
@@ -694,7 +689,6 @@ class WorkflowRun:
         num_newly_completed = 0
         num_newly_failed = 0
         for task in updated_tasks:
-
             # assign each task to the correct set
             self._task_status_map[task.status].add(task)
 

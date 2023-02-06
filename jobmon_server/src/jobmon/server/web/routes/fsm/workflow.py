@@ -76,7 +76,6 @@ def bind_workflow() -> Any:
     logger.info("Bind workflow")
     session = SessionLocal()
     with session.begin():
-
         select_stmt = select(Workflow).where(
             Workflow.tool_version_id == tv_id,
             Workflow.dag_id == dag_id,
@@ -146,7 +145,6 @@ def get_matching_workflows_by_workflow_args(workflow_args_hash: str) -> Any:
 
     session = SessionLocal()
     with session.begin():
-
         select_stmt = (
             select(Workflow.task_hash, Workflow.tool_version_id, Dag.hash)
             .join_from(Workflow, Dag, Workflow.dag_id == Dag.id)
@@ -357,7 +355,6 @@ def task_status_updates(workflow_id: int) -> Any:
     # get time from db
     session = SessionLocal()
     with session.begin():
-
         db_time = session.execute(select(func.now())).scalar()
         str_time = db_time.strftime("%Y-%m-%d %H:%M:%S")
 
@@ -405,7 +402,6 @@ def get_tasks_from_workflow(workflow_id: int) -> Any:
     session = SessionLocal()
 
     with session.begin():
-
         # Query task table
         query = (
             select(

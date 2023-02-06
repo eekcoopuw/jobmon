@@ -70,7 +70,6 @@ def add_nodes() -> Any:
 
         node_args_list = []
         for node_id_tuple, arg in node_args.items():
-
             node_id = node_id_dict[node_id_tuple]
             local_logger = logger.bind(node_id=node_id)
 

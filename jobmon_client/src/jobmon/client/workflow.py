@@ -552,7 +552,6 @@ class Workflow(object):
         with DistributorContext(
             cluster_name, wfr.workflow_run_id, distributor_startup_timeout
         ) as distributor:
-
             # set up swarm and initial DAG
             swarm = SwarmWorkflowRun(
                 workflow_run_id=wfr.workflow_run_id,
@@ -701,7 +700,6 @@ class Workflow(object):
         remaining_task_hashes = list(self.tasks.keys())
 
         while remaining_task_hashes:
-
             # split off first chunk elements from queue.
             task_hashes_chunk = remaining_task_hashes[:chunk_size]
             remaining_task_hashes = remaining_task_hashes[chunk_size:]

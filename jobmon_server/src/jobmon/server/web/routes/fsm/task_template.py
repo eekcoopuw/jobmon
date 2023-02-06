@@ -129,7 +129,6 @@ def add_task_template_version(task_template_id: int) -> Any:
 
     try:
         with session.begin():
-
             ttv = TaskTemplateVersion(
                 task_template_id=task_template_id,
                 command_template=command_template,

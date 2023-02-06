@@ -65,7 +65,6 @@ def bind_tasks_no_args() -> Any:
         # Dict mapping input tasks to the corresponding args/attributes
         task_hash_lookup = {}  # Reverse dictionary of inputs, maps hash back to values
         for hashval, items in tasks.items():
-
             (
                 node_id,
                 arg_hash,
@@ -113,7 +112,6 @@ def bind_tasks_no_args() -> Any:
 
         # Update existing tasks
         if present_tasks:
-
             # ORM task objects already updated in task.reset, flush the changes
             session.flush()
 
@@ -280,7 +278,6 @@ def bind_task_attributes() -> Any:
 def _add_or_get_attribute_types(
     names: Union[List[str], Set[str]], session: Session
 ) -> Dict[str, int]:
-
     # Query for existing attribute types, to avoid integrity conflicts
     names = set(names)
 
@@ -348,7 +345,6 @@ def bind_task_resources() -> Any:
 
     session = SessionLocal()
     with session.begin():
-
         new_resources = TaskResources(
             queue_id=data["queue_id"],
             task_resources_type_id=data.get("task_resources_type_id", None),
@@ -376,7 +372,6 @@ def get_most_recent_ti_error(task_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-
         select_stmt = (
             select(TaskInstanceErrorLog)
             .join_from(
