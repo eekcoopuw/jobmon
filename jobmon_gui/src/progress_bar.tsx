@@ -15,38 +15,41 @@ export default function JobmonProgressBar({tasks, pending, scheduled, running, d
                             trigger={["hover", "focus"]}
                             overlay={(
                                 <Popover id="task_count">
-                                    <table id="tt-stats">
+                                    <table id="tt-tasks">
                                         <tr>
-                                            <th> Total:</th>
-                                            <td>{tasks}</td>
-                                            <td className="tt-stats-spacer">&nbsp;</td>
-                                            <th> Pending:</th>
+                                            <th className="scheduled">Scheduled:</th>
+                                            <td>{scheduled}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="pending"> Pending:</th>
                                             <td>{pending}</td>
                                         </tr>
                                         <tr>
-                                            <th> Scheduled:</th>
-                                            <td>{scheduled}</td>
-                                            <td className="tt-stats-spacer">&nbsp;</td>
-                                            <th> Running:</th>
+                                            <th className="running">Running:</th>
                                             <td>{running}</td>
                                         </tr>
                                         <tr>
-                                            <th> Done:</th>
+                                            <th className="done">Done:</th>
                                             <td>{done}</td>
-                                            <td className="tt-stats-spacer">&nbsp;</td>
-                                            <th> Fatal:</th>
+                                        </tr>
+                                        <tr>
+                                            <th className="fatal">Fatal:</th>
                                             <td>{fatal}</td>
                                         </tr>
                                         <tr>
-                                            <td colSpan={5}><hr/></td>
+                                            <th> Total:</th>
+                                            <td>{tasks}</td>
+                                        </tr>
+                                    </table>
+                                    <hr />
+                                    <table id="tt-stats">
+                                        <tr>
+                                            <th># Attempts:</th>
+                                            <td>{num_attempts_avg} ({num_attempts_min} - {num_attempts_max})</td>
                                         </tr>
                                         <tr>
-                                            <th colSpan={3}># Attempts:</th>
-                                            <td colSpan={2}>{num_attempts_avg} ({num_attempts_min} - {num_attempts_max})</td>
-                                        </tr>
-                                        <tr>
-                                            <th colSpan={3}>Concurrency Limit:</th>
-                                            <td colSpan={2}>{maxc}</td>
+                                            <th>Concurrency Limit:</th>
+                                            <td>{maxc.toLocaleString()}</td>
                                         </tr>
                                     </table>
                                 </Popover>
@@ -70,38 +73,41 @@ export default function JobmonProgressBar({tasks, pending, scheduled, running, d
                             trigger={["hover", "focus"]}
                             overlay={(
                                 <Popover id="task_count">
-                                    <table id="tt-stats">
+                                    <table id="tt-tasks">
                                         <tr>
-                                            <th> Total:</th>
-                                            <td>{tasks}</td>
-                                            <td className="tt-stats-spacer">&nbsp;</td>
-                                            <th> Pending:</th>
+                                            <th className="scheduled">Scheduled:</th>
+                                            <td>{scheduled}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="pending"> Pending:</th>
                                             <td>{pending}</td>
                                         </tr>
                                         <tr>
-                                            <th> Scheduled:</th>
-                                            <td>{scheduled}</td>
-                                            <td className="tt-stats-spacer">&nbsp;</td>
-                                            <th> Running:</th>
+                                            <th className="running">Running:</th>
                                             <td>{running}</td>
                                         </tr>
                                         <tr>
-                                            <th> Done:</th>
+                                            <th className="done">Done:</th>
                                             <td>{done}</td>
-                                            <td className="tt-stats-spacer">&nbsp;</td>
-                                            <th> Fatal:</th>
+                                        </tr>
+                                        <tr>
+                                            <th className="fatal">Fatal:</th>
                                             <td>{fatal}</td>
                                         </tr>
                                         <tr>
-                                            <td colSpan={5}><hr/></td>
+                                            <th> Total:</th>
+                                            <td>{tasks}</td>
+                                        </tr>
+                                    </table>
+                                    <hr />
+                                    <table id="tt-stats">
+                                        <tr>
+                                            <th># Attempts:</th>
+                                            <td>{num_attempts_avg} ({num_attempts_min} - {num_attempts_max})</td>
                                         </tr>
                                         <tr>
-                                            <th colSpan={3}># Attempts:</th>
-                                            <td colSpan={2}>{num_attempts_avg} ({num_attempts_min} - {num_attempts_max})</td>
-                                        </tr>
-                                        <tr>
-                                            <th colSpan={3}>Concurrency Limit:</th>
-                                            <td colSpan={2}>{maxc}</td>
+                                            <th>Concurrency Limit:</th>
+                                            <td>{maxc.toLocaleString()}</td>
                                         </tr>
                                     </table>
                                 </Popover>
@@ -125,38 +131,41 @@ export default function JobmonProgressBar({tasks, pending, scheduled, running, d
                             trigger={["hover", "focus"]}
                             overlay={(
                                 <Popover id="task-count">
-                                    <table id="tt-stats">
+                                    <table id="tt-tasks">
                                         <tr>
-                                            <th> Total:</th>
-                                            <td>{tasks}</td>
-                                            <td className="tt-stats-spacer">&nbsp;</td>
-                                            <th> Pending:</th>
+                                            <th className="scheduled">Scheduled:</th>
+                                            <td>{scheduled}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="pending"> Pending:</th>
                                             <td>{pending}</td>
                                         </tr>
                                         <tr>
-                                            <th> Scheduled:</th>
-                                            <td>{scheduled}</td>
-                                            <td className="tt-stats-spacer">&nbsp;</td>
-                                            <th> Running:</th>
+                                            <th className="running">Running:</th>
                                             <td>{running}</td>
                                         </tr>
                                         <tr>
-                                            <th> Done:</th>
+                                            <th className="done">Done:</th>
                                             <td>{done}</td>
-                                            <td className="tt-stats-spacer">&nbsp;</td>
-                                            <th> Fatal:</th>
+                                        </tr>
+                                        <tr>
+                                            <th className="fatal">Fatal:</th>
                                             <td>{fatal}</td>
                                         </tr>
                                         <tr>
-                                            <td colSpan={5}><hr/></td>
+                                            <th> Total:</th>
+                                            <td>{tasks}</td>
+                                        </tr>
+                                    </table>
+                                    <hr />
+                                    <table id="tt-stats">
+                                        <tr>
+                                            <th># Attempts:</th>
+                                            <td>{num_attempts_avg} ({num_attempts_min} - {num_attempts_max})</td>
                                         </tr>
                                         <tr>
-                                            <th colSpan={3}># Attempts:</th>
-                                            <td colSpan={2}>{num_attempts_avg} ({num_attempts_min} - {num_attempts_max})</td>
-                                        </tr>
-                                        <tr>
-                                            <th colSpan={3}>Concurrency Limit:</th>
-                                            <td colSpan={2}>{maxc}</td>
+                                            <th>Concurrency Limit:</th>
+                                            <td>{maxc.toLocaleString()}</td>
                                         </tr>
                                     </table>
                                 </Popover>
