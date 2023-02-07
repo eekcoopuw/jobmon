@@ -447,9 +447,9 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 "DONE": 0,
                 "FATAL": 0,
                 "MAXC": 0,
-                "num_attempts_avg": row[0]["mean"],
-                "num_attempts_min": row[0]["min"],
-                "num_attempts_max": row[0]["max"],
+                "num_attempts_avg": float(row[0]["mean"]),
+                "num_attempts_min": int(row[0]["min"]),
+                "num_attempts_max": int(row[0]["max"]),
                 "task_template_version_id": int(r[5]),
             }
         return_dic[int(r[0])]["tasks"] += 1
