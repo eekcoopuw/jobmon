@@ -44,7 +44,6 @@ def get_logfile_template(task_instance_id: int, template_type: str) -> Any:
 
     session = SessionLocal()
     with session.begin():
-
         select_stmt = (
             select(TaskInstance.task_resources_id, Task.name)
             .join_from(TaskInstance, Task, TaskInstance.task_id == Task.id)
@@ -192,7 +191,6 @@ def log_done(task_instance_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
 
@@ -234,7 +232,6 @@ def log_error_worker_node(task_instance_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
 
@@ -277,7 +274,6 @@ def get_task_instance_error_log(task_instance_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-
         select_stmt = (
             select(TaskInstanceErrorLog)
             .where(TaskInstanceErrorLog.task_instance_id == task_instance_id)
@@ -303,7 +299,6 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> A
 
     session = SessionLocal()
     with session.begin():
-
         select_stmt = select(
             TaskInstance.id, WorkflowRun.workflow_id, TaskInstance.task_id
         ).where(
@@ -367,7 +362,6 @@ def log_distributor_id(task_instance_id: int) -> Any:
     data = cast(Dict, request.get_json())
     session = SessionLocal()
     with session.begin():
-
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
         msg = _update_task_instance_state(
@@ -485,7 +479,6 @@ def instantiate_task_instances() -> Any:
 
     session = SessionLocal()
     with session.begin():
-
         # update the task table where FSM allows it
         task_update = (
             update(Task)

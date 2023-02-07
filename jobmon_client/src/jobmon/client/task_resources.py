@@ -162,7 +162,6 @@ class TaskResources:
             # If a numeric is provided, assumed to be in seconds
             return int(time_str)
         except ValueError:
-
             time_str = str(time_str).lower()
 
             # convert to seconds if its datetime with a supported format

@@ -96,7 +96,6 @@ class Task(Base):
         """Reset status and number of attempts on a Task."""
         # only reset undone tasks
         if self.status != TaskStatus.DONE:
-
             # only reset if the task is not currently running or if we are
             # resetting running tasks
             if self.status != TaskStatus.RUNNING or reset_if_running:

@@ -77,7 +77,6 @@ def record_array_batch_num(array_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-
         # update task status to acquire lock
         update_stmt = (
             update(Task)
@@ -218,7 +217,6 @@ def log_array_distributor_id(array_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-
         # Acquire a lock and update the task instance table
         # Using bindparam only issues one query; unfortunately, the MariaDB optimizer actually
         # performs this operation iteratively. The update is fairly slow despite the fact that

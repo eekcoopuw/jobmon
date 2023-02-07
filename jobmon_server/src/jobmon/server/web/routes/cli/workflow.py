@@ -399,7 +399,7 @@ def get_workflow_status_viz() -> Any:
             "MAXC": 0,
             "num_attempts_avg": 0,
             "num_attempts_min": 1000000000,
-            "num_attempts_max": 0
+            "num_attempts_max": 0,
         }
 
     session = SessionLocal()
@@ -411,7 +411,7 @@ def get_workflow_status_viz() -> Any:
             Workflow.max_concurrently_running,
             func.min(Task.num_attempts),
             func.max(Task.num_attempts),
-            func.avg(Task.num_attempts)
+            func.avg(Task.num_attempts),
         ).where(*query_filter)
         rows = session.execute(sql).all()
     for row in rows:
@@ -461,7 +461,6 @@ def workflows_by_user_form() -> Any:
 
     session = SessionLocal()
     with session.begin():
-
         # Get latest WFR ID associated with each Workflow for all Workflows associated with a
         # user.
         subquery = (
@@ -554,7 +553,6 @@ def task_details_by_wf_id(workflow_id: int) -> Any:
     task_template_name = request.args.get("tt_name")
     session = SessionLocal()
     with session.begin():
-
         sql = (
             select(
                 Task.id,

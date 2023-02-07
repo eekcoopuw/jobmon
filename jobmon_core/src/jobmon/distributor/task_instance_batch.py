@@ -124,7 +124,6 @@ class TaskInstanceBatch:
         ti_distributor_id_map = {}
 
         while task_instance_list:
-
             ti_chunk = task_instance_list[:chunk_size]
             task_instance_list = task_instance_list[chunk_size:]
 
