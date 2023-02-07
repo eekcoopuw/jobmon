@@ -276,7 +276,7 @@
 }
 
 /* Change running progress bar to Bang Wong palette for color blindness */
-.running-progress-bar { 
+.running-progress-bar {
     background-color: var(--color-running);
 }
 
@@ -287,6 +287,36 @@
 
 /* Change fatal progress bar to Bang Wong palette for color blindness */
 .fatal-progress-bar {
+    background-color: var(--color-fatal);
+}
+
+/* Popover colors */
+#tt-tasks .pending,
+#tt-tasks .scheduled,
+#tt-tasks .running,
+#tt-tasks .done,
+#tt-tasks .fatal {
+   color: #222222;
+   font-weight: normal;
+}
+
+#tt-tasks .pending {
+    background-color: var(--color-pending);
+}
+
+#tt-tasks .scheduled {
+    background-color: var(--color-scheduled);
+}
+
+#tt-tasks .running {
+    background-color: var(--color-running);
+}
+
+#tt-tasks .done {
+    background-color: var(--color-done);
+}
+
+#tt-tasks .fatal {
     background-color: var(--color-fatal);
 }
 
@@ -355,9 +385,10 @@
    /*border: 1px solid gray;*/
 }
 
+#tt-tasks th, td,
 #tt-stats th, td {
    padding: 2px;
 }
-#tt-stats td.tt-stats-spacer {
+#tt-tasks td.tt-stats-spacer {
    width: 20px;
 }
