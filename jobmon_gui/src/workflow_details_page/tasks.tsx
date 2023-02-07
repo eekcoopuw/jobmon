@@ -4,7 +4,11 @@ import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import TaskTable from './task_table';
 
 export default function Tasks({ tasks, onSubmit, register, loading, apm }) {
-    const s: any = apm.startSpan("tasks", "custom");
+    try{
+        const s: any = apm.startSpan("tasks", "custom");
+    }catch(error){
+        console.log(error);
+    }
     return (
         <div>
             <br></br>
@@ -18,5 +22,5 @@ export default function Tasks({ tasks, onSubmit, register, loading, apm }) {
             <TaskTable taskData={tasks} loading={loading} />
         </div>
     )
-    s.end();
+
 }

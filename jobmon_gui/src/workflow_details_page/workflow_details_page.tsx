@@ -68,7 +68,6 @@ function getAsyncErrorLogs(setErrorLogs, wf_id: string, setErrorLoading, tt_id?:
 
 function WorkflowDetails({ subpage }) {
     const apm = init_apm("wf_detail_page");
-    let rum_t: any = apm.getCurrentTransaction();
     let params = useParams();
     let workflowId = params.workflowId;
     const [task_template_name, setTaskTemplateName] = useState('');
@@ -99,7 +98,12 @@ function WorkflowDetails({ subpage }) {
         if (typeof params.workflowId !== 'undefined') {
             getAsyncWFdetail(setWFDict, params.workflowId)();
             getAsyncTTdetail(setTTDict, params.workflowId, setTTLoaded)();
-            rum_t.addLabels({"wf_id": params.workflowId});
+            try{
+                let rum_t: any = apm.getCurrentTransaction();
+                rum_t.addLabels({"wf_id": params.workflowId});
+            }catch(error){
+                 console.error();
+            }
         }
     }, []);
     // Update the progress bar every 60 seconds

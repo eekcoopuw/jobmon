@@ -8,7 +8,11 @@ import '../jobmon_gui.css';
 import { convertDate } from '../functions'
 
 export default function Errors({ errorLogs, tt_name, loading, apm }) {
-    const s: any = apm.startSpan("errors", "custom");
+    try{
+        const s: any = apm.startSpan("errors", "custom");
+    }catch(error){
+        console.log(error);
+    }
 
     const [errorDetail, setErrorDetail] = useState({'error': '', 'error_time': '', 'task_id': '',
           'task_instance_err_id': '', 'task_instance_id': '', 'time_since': ''});
@@ -173,5 +177,4 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
             }
         </div>
     )
-    s.end();
 }
