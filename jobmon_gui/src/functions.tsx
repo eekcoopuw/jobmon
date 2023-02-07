@@ -49,21 +49,15 @@ export const get_rum_transaction = (name) => {
 }
 
 export const init_apm = (pageloadname) => {
-    try{
-        let server_url = process.env.REACT_APP_RUM_URL_DEV;
-        if (window.location.origin === process.env.REACT_APP_PROD_URL) {
-            server_url = process.env.REACT_APP_RUM_URL;
-        }
-        apm.init({
-            serviceName: "rum jobmon-gui",
-            serverUrl: server_url,
-            active: true,
-            pageLoadTransactionName: pageloadname,
-        })
-        return apm;
-    }catch(error){
-        console.log("Fail to initiate apm");
-        console.log(error);
-        return apm;
+    let server_url = process.env.REACT_APP_RUM_URL_DEV;
+    if (window.location.origin === process.env.REACT_APP_PROD_URL) {
+        server_url = process.env.REACT_APP_RUM_URL;
     }
+    apm.init({
+        serviceName: "rum jobmon-gui",
+        serverUrl: server_url,
+        active: true,
+        pageLoadTransactionName: pageloadname,
+    })
+    return apm;
 }

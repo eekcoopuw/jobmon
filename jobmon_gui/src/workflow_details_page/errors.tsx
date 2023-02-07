@@ -7,13 +7,7 @@ import { sanitize } from 'dompurify';
 import '../jobmon_gui.css';
 import { convertDate } from '../functions'
 
-export default function Errors({ errorLogs, tt_name, loading, apm }) {
-    try{
-        const s: any = apm.startSpan("errors", "custom");
-    }catch(error){
-        console.log(error);
-    }
-
+export default function Errors({ errorLogs, tt_name, loading }) {
     const [errorDetail, setErrorDetail] = useState({'error': '', 'error_time': '', 'task_id': '',
           'task_instance_err_id': '', 'task_instance_id': '', 'time_since': ''});
     const [helper, setHelper] = useState("");

@@ -3,12 +3,7 @@ import { faSearch } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import TaskTable from './task_table';
 
-export default function Tasks({ tasks, onSubmit, register, loading, apm }) {
-    try{
-        const s: any = apm.startSpan("tasks", "custom");
-    }catch(error){
-        console.log(error);
-    }
+export default function Tasks({ tasks, onSubmit, register, loading }) {
     return (
         <div>
             <br></br>

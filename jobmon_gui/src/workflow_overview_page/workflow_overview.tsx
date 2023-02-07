@@ -12,15 +12,8 @@ import axios from 'axios';
 // @ts-ignore
 import JobmonWFTable from './wf_table.tsx';
 import '../jobmon_gui.css';
-import { init_apm } from '../functions';
 
 function App() {
-  const apm = init_apm("landing_page");
-  try{
-      let rum_t: any = apm.getCurrentTransaction();
-  }catch(error){
-      console.log(error);
-  }
   const [user, setUser] = useState('');
   const [tool, setTool] = useState('');
   const [wf_name, setWFName] = useState('');
@@ -63,12 +56,6 @@ function App() {
     if (firstUpdate.current) {
       firstUpdate.current = false;
       return;
-    }
-    try{
-        const rum_s1: any = apm.startSpan("landing_page", "external.http");
-        rum_s1.addLabels({ "user": user });
-    }catch(error){
-        console.log(error);
     }
     const params = new URLSearchParams();
     params.append("user", user)

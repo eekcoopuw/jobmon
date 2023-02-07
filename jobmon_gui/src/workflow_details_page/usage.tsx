@@ -4,9 +4,7 @@ import RuntimeHistogram from './runtime_histogram';
 import { formatBytes, formatNumber, bytes_to_gib } from '../functions'
 
 
-export default function Usage({ taskTemplateName, taskTemplateVersionId, usageInfo, apm}) {
-    const s: any = apm.startSpan("resource_usage", "custom");
-
+export default function Usage({ taskTemplateName, taskTemplateVersionId, usageInfo}) {
     var runtime: any = []
     var memory: any = []
     var run_mem = usageInfo[11]
@@ -68,5 +66,5 @@ export default function Usage({ taskTemplateName, taskTemplateVersionId, usageIn
             </div>
         </div >
     )
-    s.end();
+
 }

@@ -16,7 +16,7 @@ import JobmonProgressBar from '../progress_bar.tsx';
 import Tasks from './tasks';
 import Usage from './usage';
 import Errors from './errors';
-import { init_apm, convertDatePST } from '../functions';
+import { convertDatePST } from '../functions';
 
 function getAsyncWFdetail(setWFDict, wf_id: string) {
     const url = process.env.REACT_APP_BASE_URL + "/workflow_status_viz";
@@ -67,7 +67,6 @@ function getAsyncErrorLogs(setErrorLogs, wf_id: string, setErrorLoading, tt_id?:
 }
 
 function WorkflowDetails({ subpage }) {
-    const apm = init_apm("wf_detail_page");
     let params = useParams();
     let workflowId = params.workflowId;
     const [task_template_name, setTaskTemplateName] = useState('');
@@ -98,12 +97,6 @@ function WorkflowDetails({ subpage }) {
         if (typeof params.workflowId !== 'undefined') {
             getAsyncWFdetail(setWFDict, params.workflowId)();
             getAsyncTTdetail(setTTDict, params.workflowId, setTTLoaded)();
-            try{
-                let rum_t: any = apm.getCurrentTransaction();
-                rum_t.addLabels({"wf_id": params.workflowId});
-            }catch(error){
-                 console.error();
-            }
         }
     }, []);
     // Update the progress bar every 60 seconds
@@ -287,9 +280,9 @@ function WorkflowDetails({ subpage }) {
                     <Outlet />
                 </div>
 
-                {(subpage === "tasks") && <Tasks tasks={tasks} onSubmit={onSubmit} register= {register} loading={task_loading} apm={apm}/>}
-                {(subpage === "usage") && <Usage taskTemplateName={task_template_name} taskTemplateVersionId={task_template_version_id} usageInfo={usage_info} apm={apm}/>}
-                {(subpage === "errors") && <Errors errorLogs={errorLogs} tt_name={task_template_name} loading={error_loading} apm={apm}/>}
+                {(subpage === "tasks") && <Tasks tasks={tasks} onSubmit={onSubmit} register= {register} loading={task_loading}/>}
+                {(subpage === "usage") && <Usage taskTemplateName={task_template_name} taskTemplateVersionId={task_template_version_id} usageInfo={usage_info} />}
+                {(subpage === "errors") && <Errors errorLogs={errorLogs} tt_name={task_template_name} loading={error_loading} />}
 
             </div>
 
