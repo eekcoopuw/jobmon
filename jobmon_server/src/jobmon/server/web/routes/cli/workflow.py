@@ -406,9 +406,9 @@ def get_workflow_status_viz() -> Any:
             "DONE": 0,
             "FATAL": 0,
             "MAXC": 0,
-            "num_attempts_avg": attempts[0]["mean"],
-            "num_attempts_min": attempts[0]["min"],
-            "num_attempts_max": attempts[0]["max"],
+            "num_attempts_avg": float(attempts[0]["mean"]),
+            "num_attempts_min": int(attempts[0]["min"]),
+            "num_attempts_max": int(attempts[0]["max"]),
         }
 
     with session.begin():
