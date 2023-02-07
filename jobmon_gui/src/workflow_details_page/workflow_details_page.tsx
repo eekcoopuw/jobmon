@@ -9,7 +9,6 @@ import { OverlayTrigger } from "react-bootstrap";
 import Popover from 'react-bootstrap/Popover';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLightbulb } from '@fortawesome/free-solid-svg-icons';
-import $ from 'jquery';
 
 
 // @ts-ignore
@@ -175,24 +174,10 @@ function WorkflowDetails({ subpage }) {
         setTaskTemplateName(d["task_template_name"]);
     });
     //TaskTemplate link click function
-    function highlightTaskTemplate(tt_id) {
-        // Reset previous highlight
-        //const tt_containers = $('#tt_progress ul li');
-        const tt_containers = $('#tt_progress .tt-container');
-        tt_containers.removeClass('selected');
-
-        // Highlight selected container
-        //const selected_tt_container = $('#' + String(tt_id)).parent().parent().parent();
-        const selected_tt_container = $('#' + String(tt_id));
-        selected_tt_container.addClass('selected');
-
-    }
-
     function clickTaskTemplate(name, tt_id, tt_version_id) {
         setTaskTemplateName(name);
         setTTID(tt_id);
         setTaskTemplateVersionId(tt_version_id);
-        highlightTaskTemplate(tt_id);
     }
 
     //********************html page*************************************
@@ -263,7 +248,7 @@ function WorkflowDetails({ subpage }) {
                         {
                             ttDict.map(d => (
                                 <li
-                                    className="tt-container"
+                                    className={`tt-container ${tt_id === d["id"] ? "selected" : ""}`}
                                     id={d["id"]}
                                     onClick={() => clickTaskTemplate(d["name"], d["id"], d["task_template_version_id"])}
                                 >
@@ -305,7 +290,7 @@ function WorkflowDetails({ subpage }) {
                 <ul className="nav nav-tabs">
                         <li className="nav-item">
                             <Link
-                                className="nav-link"
+                                className={`nav-link ${subpage === "tasks" ? "active" : ""}`}
                                 aria-current="page"
                                 to={`/workflow/${workflowId}/tasks`}
                                 replace={true}>
@@ -314,7 +299,7 @@ function WorkflowDetails({ subpage }) {
                         </li>
                         <li className="nav-item">
                             <Link
-                                className="nav-link"
+                                className={`nav-link ${subpage === "usage" ? "active" : ""}`}
                                 to={`/workflow/${workflowId}/usage`}
                                 replace={true}>
                                 Resource Usage
@@ -322,7 +307,7 @@ function WorkflowDetails({ subpage }) {
                         </li>
                         <li className="nav-item">
                             <Link
-                                className="nav-link"
+                                className={`nav-link ${subpage === "errors" ? "active" : ""}`}
                                 to={`/workflow/${workflowId}/errors`}
                                 replace={true}>
                                 Errors
