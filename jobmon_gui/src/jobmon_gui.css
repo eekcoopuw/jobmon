@@ -381,14 +381,17 @@
    border: 1px solid gray;
 }
 
-#tt-stats {
-   /*border: 1px solid gray;*/
-}
-
 #tt-tasks th, td,
 #tt-stats th, td {
    padding: 2px;
 }
 #tt-tasks td.tt-stats-spacer {
    width: 20px;
+}
+
+#task_count table td {
+   text-align: right;
+}
+#tt-tasks td, #tt-stats td {
+   text-align: right;
 }
