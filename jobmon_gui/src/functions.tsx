@@ -49,15 +49,50 @@ export const get_rum_transaction = (name) => {
 }
 
 export const init_apm = (pageloadname) => {
-    let server_url = process.env.REACT_APP_RUM_URL_DEV;
-    if (window.location.origin === process.env.REACT_APP_PROD_URL) {
-        server_url = process.env.REACT_APP_RUM_URL;
+     try{
+        let server_url = process.env.REACT_APP_RUM_URL_DEV;
+        if (window.location.origin === process.env.REACT_APP_PROD_URL) {
+            server_url = process.env.REACT_APP_RUM_URL;
+        }
+        apm.init({
+            serviceName: "rum jobmon-gui",
+            serverUrl: server_url,
+            active: true,
+            pageLoadTransactionName: pageloadname,
+        })
+        return apm;
+    }catch(error){
+        console.log("Fail to initiate apm");
+        console.log(error);
+        return null;
     }
-    apm.init({
-        serviceName: "rum jobmon-gui",
-        serverUrl: server_url,
-        active: true,
-        pageLoadTransactionName: pageloadname,
-    })
-    return apm;
+}
+
+export const safe_rum_transaction = (apm) => {
+    if (apm !== null && apm != undefined){
+        return apm.getCurrentTransaction();
+    }
+    else {
+        return null;
+    }
+}
+
+export const safe_rum_add_label = (rum_obj, key, value) => {
+    if (rum_obj !== null && rum_obj !== undefined){
+        rum_obj.addLabels({key: value});
+    }
+}
+
+export const safe_rum_start_span = (apm, name, type) => {
+    if (apm !== null && apm != undefined){
+        return apm.startSpan(name, type);
+    }else{
+        return null;
+    }
+}
+
+export const safe_rum_unit_end = (rum_obj) => {
+    if (rum_obj != null && rum_obj != undefined){
+        return rum_obj.end();
+    }
 }
