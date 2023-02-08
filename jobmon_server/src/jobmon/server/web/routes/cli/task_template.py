@@ -8,7 +8,7 @@ from flask_cors import cross_origin
 import numpy as np
 import scipy.stats as st  # type:ignore
 from sqlalchemy import select
-from sqlalchemy.sql  import func
+from sqlalchemy.sql import func
 import structlog
 
 from jobmon.core.serializers import SerializeTaskTemplateResourceUsage
@@ -421,7 +421,7 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 TaskTemplate.name.label("task_template_name"),
                 func.min(Task.num_attempts).label("min"),
                 func.max(Task.num_attempts).label("max"),
-                func.avg(Task.num_attempts).label("mean")
+                func.avg(Task.num_attempts).label("mean"),
             )
             .select_from(join_table)
             .where(Task.workflow_id == workflow_id)
@@ -431,16 +431,15 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
             sql = sql.prefix_with("STRAIGHT_JOIN")
         attempts = session.execute(sql).all()
 
-    attempts = {attempt[0]:attempt for attempt in attempts}
-
+    attempts = {attempt[0]: attempt for attempt in attempts}
 
     for r in rows:
         # Avoiding magic numbers
-        task_template_id:str = r[0]
-        task_template_name:str = r[1]
-        task_status:str = r[3]
+        task_template_id: str = r[0]
+        task_template_name: str = r[1]
+        task_status: str = r[3]
         max_concurrently = r[4]
-        task_template_version_id:int = int(r[5])
+        task_template_version_id: int = int(r[5])
 
         if int(task_template_id) in return_dic.keys():
             pass
@@ -465,7 +464,9 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
             }
         return_dic[int(task_template_id)]["tasks"] += 1
         return_dic[int(task_template_id)][_cli_label_mapping[task_status]] += 1
-        return_dic[int(task_template_id)]["MAXC"] = max_concurrently if max_concurrently is not None else "NA"
+        return_dic[int(task_template_id)]["MAXC"] = (
+            max_concurrently if max_concurrently is not None else "NA"
+        )
     resp = jsonify(return_dic)
     resp.status_code = 200
     return resp
