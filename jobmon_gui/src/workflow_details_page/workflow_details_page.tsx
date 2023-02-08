@@ -41,6 +41,7 @@ function getWorkflowAttributes(wf_id: string, setWFTool, setWFName, setWFArgs, s
     };
     return fetchData
 }
+
 function getAsyncTTdetail(setTTDict, wf_id: string, setTTLoaded) {
     const url = process.env.REACT_APP_BASE_URL + "/workflow_tt_status_viz/" + wf_id;
     const fetchData = async () => {
@@ -174,9 +175,9 @@ function WorkflowDetails({ subpage }) {
     });
     //TaskTemplate link click function
     function clickTaskTemplate(name, tt_id, tt_version_id) {
-        setTaskTemplateName(name)
+        setTaskTemplateName(name);
         setTTID(tt_id);
-        setTaskTemplateVersionId(tt_version_id)
+        setTaskTemplateVersionId(tt_version_id);
     }
 
     //********************html page*************************************
@@ -246,9 +247,13 @@ function WorkflowDetails({ subpage }) {
                     <ul>
                         {
                             ttDict.map(d => (
-                                <div className="div-level-3">
+                                <li
+                                    className={`tt-container ${tt_id === d["id"] ? "selected" : ""}`}
+                                    id={d["id"]}
+                                    onClick={() => clickTaskTemplate(d["name"], d["id"], d["task_template_version_id"])}
+                                >
                                     <div className="div_floatleft">
-                                        <p className="p-underline"><li id={d["id"]} value={d["name"]} onClick={() => clickTaskTemplate(d["name"], d["id"], d["task_template_version_id"])}>{d["name"]}</li></p>
+                                        <span className="tt-name">{d["name"]}</span>
                                     </div>
                                     <div className="div_floatright">
                                         <JobmonProgressBar
@@ -269,7 +274,7 @@ function WorkflowDetails({ subpage }) {
                                     </div>
                                     <br />
                                     <hr className="hr-dot" />
-                                </div>
+                                </li>
                             ))
                         }
                     </ul>
@@ -285,7 +290,7 @@ function WorkflowDetails({ subpage }) {
                 <ul className="nav nav-tabs">
                         <li className="nav-item">
                             <Link
-                                className="nav-link"
+                                className={`nav-link ${subpage === "tasks" ? "active" : ""}`}
                                 aria-current="page"
                                 to={`/workflow/${workflowId}/tasks`}
                                 replace={true}>
@@ -294,7 +299,7 @@ function WorkflowDetails({ subpage }) {
                         </li>
                         <li className="nav-item">
                             <Link
-                                className="nav-link"
+                                className={`nav-link ${subpage === "usage" ? "active" : ""}`}
                                 to={`/workflow/${workflowId}/usage`}
                                 replace={true}>
                                 Resource Usage
@@ -302,7 +307,7 @@ function WorkflowDetails({ subpage }) {
                         </li>
                         <li className="nav-item">
                             <Link
-                                className="nav-link"
+                                className={`nav-link ${subpage === "errors" ? "active" : ""}`}
                                 to={`/workflow/${workflowId}/errors`}
                                 replace={true}>
                                 Errors
