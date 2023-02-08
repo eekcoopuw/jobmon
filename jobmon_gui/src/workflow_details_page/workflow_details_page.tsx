@@ -76,7 +76,10 @@ function WorkflowDetails({ subpage }) {
     const [task_template_version_id, setTaskTemplateVersionId] = useState('');
     const [usage_info, setUsageInfo] = useState([]);
     const [tasks, setTasks] = useState([]);
-    const [wfDict, setWFDict] = useState({ 'tasks': 0, 'PENDING': 0, 'SCHEDULED': 0, 'RUNNING': 0, 'DONE': 0, 'FATAL': 0, 'MAXC': 0 });
+    const [wfDict, setWFDict] = useState({
+        'tasks': 0, 'PENDING': 0, 'SCHEDULED': 0, 'RUNNING': 0, 'DONE': 0, 'FATAL': 0,
+        'num_attempts_avg': 0, 'num_attempts_min': 0, 'num_attempts_max':0, 'MAXC': 0
+    });
     const [ttDict, setTTDict] = useState([]);
     const [errorLogs, setErrorLogs] = useState([]);
     const [error_loading, setErrorLoading] = useState(false);
@@ -196,7 +199,19 @@ function WorkflowDetails({ subpage }) {
                 </div>
             </div>
             <div id="wf_progress" className="div-level-2">
-                <JobmonProgressBar tasks={wfDict.tasks} pending={wfDict.PENDING} scheduled={wfDict.SCHEDULED} running={wfDict.RUNNING} done={wfDict.DONE} fatal={wfDict.FATAL} maxc={wfDict.MAXC} placement="bottom" />
+                <JobmonProgressBar
+                    tasks={wfDict.tasks}
+                    pending={wfDict.PENDING}
+                    scheduled={wfDict.SCHEDULED}
+                    running={wfDict.RUNNING}
+                    done={wfDict.DONE}
+                    fatal={wfDict.FATAL}
+                    num_attempts_avg={wfDict.num_attempts_avg}
+                    num_attempts_min={wfDict.num_attempts_min}
+                    num_attempts_max={wfDict.num_attempts_max}
+                    maxc={wfDict.MAXC}
+                    placement="bottom"
+                />
                 <hr className="hr-1" />
             </div>
 
@@ -236,7 +251,21 @@ function WorkflowDetails({ subpage }) {
                                         <p className="p-underline"><li id={d["id"]} value={d["name"]} onClick={() => clickTaskTemplate(d["name"], d["id"], d["task_template_version_id"])}>{d["name"]}</li></p>
                                     </div>
                                     <div className="div_floatright">
-                                        <JobmonProgressBar id={d["id"]} tasks={d["tasks"]} pending={d["PENDING"]} scheduled={d["SCHEDULED"]} running={d["RUNNING"]} done={d["DONE"]} fatal={d["FATAL"]} maxc={d["MAXC"]} placement="left" style="none" />
+                                        <JobmonProgressBar
+                                            id={d["id"]}
+                                            tasks={d["tasks"]}
+                                            pending={d["PENDING"]}
+                                            scheduled={d["SCHEDULED"]}
+                                            running={d["RUNNING"]}
+                                            done={d["DONE"]}
+                                            fatal={d["FATAL"]}
+                                            num_attempts_avg={d["num_attempts_avg"]}
+                                            num_attempts_min={d["num_attempts_min"]}
+                                            num_attempts_max={d["num_attempts_max"]}
+                                            maxc={d["MAXC"]}
+                                            placement="left"
+                                            style="none"
+                                        />
                                     </div>
                                     <br />
                                     <hr className="hr-dot" />

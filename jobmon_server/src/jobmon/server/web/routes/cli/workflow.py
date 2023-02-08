@@ -384,10 +384,19 @@ def get_workflow_status() -> Any:
 @blueprint.route("/workflow_status_viz", methods=["GET"])
 def get_workflow_status_viz() -> Any:
     """Get the status of the workflows for GUI."""
+    session = SessionLocal()
     wf_ids = request.args.getlist("workflow_ids[]")
     # return DS
     return_dic: Dict[int, Any] = dict()
     for wf_id in wf_ids:
+        with session.begin():
+            sql = select(
+                func.min(Task.num_attempts).label("min"),
+                func.max(Task.num_attempts).label("max"),
+                func.avg(Task.num_attempts).label("mean"),
+            ).where(Task.workflow_id == wf_id)
+            attempts = session.execute(sql).all()
+
         return_dic[int(wf_id)] = {
             "id": int(wf_id),
             "tasks": 0,
@@ -397,19 +406,23 @@ def get_workflow_status_viz() -> Any:
             "DONE": 0,
             "FATAL": 0,
             "MAXC": 0,
+            "num_attempts_avg": float(attempts[0]["mean"]),
+            "num_attempts_min": int(attempts[0]["min"]),
+            "num_attempts_max": int(attempts[0]["max"]),
         }
 
-    session = SessionLocal()
     with session.begin():
         query_filter = [Task.workflow_id.in_(wf_ids), Task.workflow_id == Workflow.id]
         sql = select(
             Task.workflow_id, Task.status, Workflow.max_concurrently_running
         ).where(*query_filter)
         rows = session.execute(sql).all()
+
     for row in rows:
         return_dic[row[0]]["tasks"] += 1
         return_dic[row[0]][_cli_label_mapping[row[1]]] += 1
         return_dic[row[0]]["MAXC"] = row[2]
+
     resp = jsonify(return_dic)
     resp.status_code = 200
     return resp

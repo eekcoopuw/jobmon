@@ -110,10 +110,36 @@
 }
 
 /* Size and position of the progress bar. */
-.div-level-3 {
+.tt-container {
     width: 98%;
-    margin-left: 0%;
-    margin-right: 2%;
+    height: 55px;
+    margin: 4px;
+    padding: 15px 2px 2px 2px;
+}
+
+.tt-container::marker {
+    margin-top: -4px;
+}
+
+.tt-container:hover {
+    cursor: pointer;
+    border: 1px dotted green;
+    border-radius: 8px;
+    background-color: #f8f8f8;
+}
+
+#tt_progress .tt-container.selected {
+    border: 1px solid green;
+    border-radius: 8px;
+    background-color: #eeeeee;
+}
+
+#tt_progress ul {
+   margin-block-end: 6px;
+}
+
+#tt_progress .tt-name {
+   color: #007bff;
 }
 
 /* flex div */
@@ -160,6 +186,7 @@
    float: right;
    width: 67%;
    text-align: right;
+   margin-top: 4px;
 }
 
 /* Take the right 2/3 of the display align left*/
@@ -168,7 +195,6 @@
    width: 67%;
    text-align: left;
 }
-
 /* Line beneath "Jobmon GUI" title. */
 .hr-1 {
     height:4px;
@@ -254,7 +280,7 @@
 }
 
 /* Change running progress bar to Bang Wong palette for color blindness */
-.running-progress-bar { 
+.running-progress-bar {
     background-color: var(--color-running);
 }
 
@@ -265,6 +291,36 @@
 
 /* Change fatal progress bar to Bang Wong palette for color blindness */
 .fatal-progress-bar {
+    background-color: var(--color-fatal);
+}
+
+/* Popover colors */
+#tt-tasks .pending,
+#tt-tasks .scheduled,
+#tt-tasks .running,
+#tt-tasks .done,
+#tt-tasks .fatal {
+   color: #222222;
+   font-weight: normal;
+}
+
+#tt-tasks .pending {
+    background-color: var(--color-pending);
+}
+
+#tt-tasks .scheduled {
+    background-color: var(--color-scheduled);
+}
+
+#tt-tasks .running {
+    background-color: var(--color-running);
+}
+
+#tt-tasks .done {
+    background-color: var(--color-done);
+}
+
+#tt-tasks .fatal {
     background-color: var(--color-fatal);
 }
 
@@ -321,4 +377,22 @@
 .dependency-list-scroll{
     max-height: 300px;
     overflow-y: auto;
+}
+
+#task-count, #task_count {
+   margin: 2px;
+   padding: 4px;
+   border: 1px solid gray;
+}
+
+#tt-stats {
+   /*border: 1px solid gray;*/
+}
+
+#tt-tasks th, td,
+#tt-stats th, td {
+   padding: 2px;
+}
+#tt-tasks td.tt-stats-spacer {
+   width: 20px;
 }
