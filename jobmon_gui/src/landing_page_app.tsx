@@ -12,11 +12,8 @@ import axios from 'axios';
 // @ts-ignore
 import JobmonWFTable from './wf_table.tsx';
 import './jobmon_gui.css';
-import { init_apm } from './functions';
 
 function App() {
-  const apm = init_apm("landing_page");
-  let rum_t: any = apm.getCurrentTransaction();
   const [user, setUser] = useState('');
   const [tool, setTool] = useState('');
   const [wf_name, setWFName] = useState('');
@@ -55,8 +52,6 @@ function App() {
 
   //user change hook
   useEffect(() => {
-    const rum_s1: any = apm.startSpan("landing_page", "external.http");
-    rum_s1.addLabels({ "user": user });
     const params = new URLSearchParams();
     params.append("user", user)
     params.append("tool", tool)
@@ -76,7 +71,7 @@ function App() {
       setWorkflows(wfs);
     };
     fetchData();
-    rum_s1.end()
+
   }, [user, tool, wf_name, wf_args, date_submitted]);
 
   //*******************event handling****************************

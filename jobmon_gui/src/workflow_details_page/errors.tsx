@@ -5,10 +5,10 @@ import filterFactory, { textFilter } from 'react-bootstrap-table2-filter';
 import { sanitize } from 'dompurify';
 
 import '../jobmon_gui.css';
-import { convertDate } from '../functions'
+import { convertDate, safe_rum_start_span, safe_rum_unit_end } from '../functions';
 
 export default function Errors({ errorLogs, tt_name, loading, apm }) {
-    const s: any = apm.startSpan("errors", "custom");
+    const s: any = safe_rum_start_span(apm, "errors", "custom");
 
     const [errorDetail, setErrorDetail] = useState({'error': '', 'error_time': '', 'task_id': '',
           'task_instance_err_id': '', 'task_instance_id': '', 'time_since': ''});
@@ -173,5 +173,5 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
             }
         </div>
     )
-    s.end();
+    safe_rum_unit_end(s);
 }

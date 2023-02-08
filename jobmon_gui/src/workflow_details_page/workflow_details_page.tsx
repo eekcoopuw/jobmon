@@ -16,7 +16,7 @@ import JobmonProgressBar from '../progress_bar.tsx';
 import Tasks from './tasks';
 import Usage from './usage';
 import Errors from './errors';
-import { init_apm, convertDatePST } from '../functions';
+import { init_apm, convertDatePST, safe_rum_add_label, safe_rum_transaction } from '../functions';
 
 function getAsyncWFdetail(setWFDict, wf_id: string) {
     const url = process.env.REACT_APP_BASE_URL + "/workflow_status_viz";
@@ -68,7 +68,7 @@ function getAsyncErrorLogs(setErrorLogs, wf_id: string, setErrorLoading, tt_id?:
 
 function WorkflowDetails({ subpage }) {
     const apm = init_apm("wf_detail_page");
-    let rum_t: any = apm.getCurrentTransaction();
+    let rum_t: any = safe_rum_transaction(apm);
     let params = useParams();
     let workflowId = params.workflowId;
     const [task_template_name, setTaskTemplateName] = useState('');
@@ -99,7 +99,7 @@ function WorkflowDetails({ subpage }) {
         if (typeof params.workflowId !== 'undefined') {
             getAsyncWFdetail(setWFDict, params.workflowId)();
             getAsyncTTdetail(setTTDict, params.workflowId, setTTLoaded)();
-            rum_t.addLabels({"wf_id": params.workflowId});
+            safe_rum_add_label(rum_t, "wf_id", params.workflowId);
         }
     }, []);
     // Update the progress bar every 60 seconds

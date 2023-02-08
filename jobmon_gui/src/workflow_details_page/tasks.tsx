@@ -3,8 +3,10 @@ import { faSearch } from '@fortawesome/free-solid-svg-icons';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import TaskTable from './task_table';
 
+import { safe_rum_start_span, safe_rum_unit_end } from '../functions'
+
 export default function Tasks({ tasks, onSubmit, register, loading, apm }) {
-    const s: any = apm.startSpan("tasks", "custom");
+    const s: any = safe_rum_start_span(apm, "tasks", "custom");
     return (
         <div>
             <br></br>
@@ -18,5 +20,5 @@ export default function Tasks({ tasks, onSubmit, register, loading, apm }) {
             <TaskTable taskData={tasks} loading={loading} />
         </div>
     )
-    s.end();
+    safe_rum_unit_end(s);
 }

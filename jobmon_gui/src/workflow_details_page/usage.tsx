@@ -3,9 +3,10 @@ import MemoryHistogram from './memory_histogram';
 import RuntimeHistogram from './runtime_histogram';
 import { formatBytes, formatNumber, bytes_to_gib } from '../functions'
 
+import { safe_rum_start_span, safe_rum_unit_end } from '../functions'
 
 export default function Usage({ taskTemplateName, taskTemplateVersionId, usageInfo, apm}) {
-    const s: any = apm.startSpan("resource_usage", "custom");
+    const s: any = safe_rum_start_span(apm, "resource_usage", "custom");
 
     var runtime: any = []
     var memory: any = []
@@ -68,5 +69,5 @@ export default function Usage({ taskTemplateName, taskTemplateVersionId, usageIn
             </div>
         </div >
     )
-    s.end();
+    safe_rum_unit_end(s);
 }

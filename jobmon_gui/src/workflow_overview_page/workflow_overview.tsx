@@ -12,11 +12,11 @@ import axios from 'axios';
 // @ts-ignore
 import JobmonWFTable from './wf_table.tsx';
 import '../jobmon_gui.css';
-import { init_apm } from '../functions';
+import { init_apm, safe_rum_add_label, safe_rum_transaction, safe_rum_start_span, safe_rum_unit_end } from '../functions';
 
 function App() {
-  const apm = init_apm("landing_page");
-  let rum_t: any = apm.getCurrentTransaction();
+  const apm: any = init_apm("workflow_overview_page");
+  let rum_t: any = safe_rum_transaction(apm);
   const [user, setUser] = useState('');
   const [tool, setTool] = useState('');
   const [wf_name, setWFName] = useState('');
@@ -60,8 +60,8 @@ function App() {
       firstUpdate.current = false;
       return;
     }
-    const rum_s1: any = apm.startSpan("landing_page", "external.http");
-    rum_s1.addLabels({ "user": user });
+    const rum_s1: any = safe_rum_start_span(apm, "landing_page", "external.http");
+    safe_rum_add_label(rum_s1, "user", user);
     const params = new URLSearchParams();
     params.append("user", user)
     params.append("tool", tool)
@@ -81,7 +81,7 @@ function App() {
       setWorkflows(wfs);
     };
     fetchData();
-    rum_s1.end()
+    safe_rum_unit_end(rum_s1);
   }, [user, tool, wf_name, wf_args, date_submitted]);
 
 

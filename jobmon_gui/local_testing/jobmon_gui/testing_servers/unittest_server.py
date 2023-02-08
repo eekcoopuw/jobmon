@@ -171,8 +171,8 @@ def get_workflow_tt_status_viz(workflow_id):
     return resp
 
 
-@app.route("/workflow_status_viz/<user>", methods=['GET'])
-def worflows(user):
+@app.route("/workflow_overview_viz", methods=["GET"])
+def worflows():
     workflows =[{"wf_tool": "tool_1", "DONE":0,"FATAL":0,"PENDING":3,"RUNNING":0,"wf_id":3,"wf_name":"i_am_fake_wf_2","wf_status":"RUNNING","wf_submitted_date":"Fri, 24 Jun 2022 19:10:12 GMT","wf_tool":"unknown-limingxu","wfr_id":30,"wfr_status":"RUNNING"},
                 {"wf_tool": "tool_1", "DONE":2,"FATAL":0,"PENDING":0,"RUNNING":0,"wf_id":2,"wf_name":"i_am_fake_wf_1","wf_status":"DONE","wf_submitted_date":"Fri, 24 Jun 2022 19:08:41 GMT","wf_tool":"unknown-limingxu","wfr_id":20,"wfr_status":"DONE"},
                 {"wf_tool": "tool_1", "DONE":1,"FATAL":0,"PENDING":0,"RUNNING":0,"wf_id":1,"wf_name":"i_am_fake_wf_0","wf_status":"DONE","wf_submitted_date":"Fri, 24 Jun 2022 19:07:09 GMT","wf_tool":"unknown-limingxu","wfr_id":10,"wfr_status":"DONE"}]
