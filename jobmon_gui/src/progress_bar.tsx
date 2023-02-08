@@ -8,6 +8,7 @@ import './jobmon_gui.css';
 export default function JobmonProgressBar({tasks, pending, scheduled, running, done, fatal, num_attempts_avg, num_attempts_min, num_attempts_max, maxc, placement, style="striped"}) {
     num_attempts_avg = num_attempts_avg.toFixed(1);
     // style can be striped or animated; others will be treated as default
+    // FIXME: reduce code duplication through better use of variables with flow control
     if (style === "striped") {
         return (
             <OverlayTrigger
