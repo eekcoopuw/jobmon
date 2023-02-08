@@ -379,7 +379,7 @@
     overflow-y: auto;
 }
 
-#task-count {
+#task-count, #task_count {
    margin: 2px;
    padding: 4px;
    border: 1px solid gray;
