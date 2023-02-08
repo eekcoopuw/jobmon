@@ -7,7 +7,7 @@ from flask import jsonify, request
 from flask_cors import cross_origin
 import numpy as np
 import scipy.stats as st  # type:ignore
-from sqlalchemy import and_, select
+from sqlalchemy import select
 from sqlalchemy.sql import func
 import structlog
 
@@ -402,44 +402,54 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
         rows = session.execute(sql).all()
         session.commit()
 
+    # Get min, max, avg for each task template in `workflow_id`
+    with session.begin():
+        join_table = (
+            Task.__table__.join(Node, Task.node_id == Node.id)
+            .join(
+                TaskTemplateVersion,
+                Node.task_template_version_id == TaskTemplateVersion.id,
+            )
+            .join(
+                TaskTemplate,
+                TaskTemplateVersion.task_template_id == TaskTemplate.id,
+            )
+        )
+        sql = (
+            select(
+                TaskTemplate.id.label("task_template_id"),
+                TaskTemplate.name.label("task_template_name"),
+                func.min(Task.num_attempts).label("min"),
+                func.max(Task.num_attempts).label("max"),
+                func.avg(Task.num_attempts).label("mean"),
+            )
+            .select_from(join_table)
+            .where(Task.workflow_id == workflow_id)
+            .group_by(TaskTemplate.id)
+        )
+        if SessionLocal.bind.dialect.name == "mysql":
+            sql = sql.prefix_with("STRAIGHT_JOIN")
+        attempts = session.execute(sql).all()
+
+    attempts = {attempt[0]: attempt for attempt in attempts}
+
     for r in rows:
-        if int(r[0]) in return_dic.keys():
+        # Avoiding magic numbers
+        task_template_id: str = r[0]
+        task_template_name: str = r[1]
+        task_status: str = r[3]
+        max_concurrently = r[4]
+        task_template_version_id: int = int(r[5])
+
+        if int(task_template_id) in return_dic.keys():
             pass
         else:
-            with session.begin():
-                join_table = (
-                    Task.__table__.join(Node, Task.node_id == Node.id)
-                    .join(
-                        TaskTemplateVersion,
-                        Node.task_template_version_id == TaskTemplateVersion.id,
-                    )
-                    .join(
-                        TaskTemplate,
-                        TaskTemplateVersion.task_template_id == TaskTemplate.id,
-                    )
-                )
-                sql = (
-                    select(
-                        func.min(Task.num_attempts).label("min"),
-                        func.max(Task.num_attempts).label("max"),
-                        func.avg(Task.num_attempts).label("mean"),
-                    )
-                    .select_from(join_table)
-                    .where(
-                        and_(
-                            TaskTemplate.id == int(r[0]),
-                            Task.workflow_id == workflow_id,
-                        )
-                    )
-                )
-                if SessionLocal.bind.dialect.name == "mysql":
-                    sql = sql.prefix_with("STRAIGHT_JOIN")
-                row = session.execute(sql).all()
-                session.commit()
+            attempt = attempts.get(task_template_id)
+            *_, min_, max_, mean = attempt
 
-            return_dic[int(r[0])] = {
-                "id": int(r[0]),
-                "name": r[1],
+            return_dic[int(task_template_id)] = {
+                "id": int(task_template_id),
+                "name": task_template_name,
                 "tasks": 0,
                 "PENDING": 0,
                 "SCHEDULED": 0,
@@ -447,14 +457,16 @@ def get_workflow_tt_status_viz(workflow_id: int) -> Any:
                 "DONE": 0,
                 "FATAL": 0,
                 "MAXC": 0,
-                "num_attempts_avg": float(row[0]["mean"]),
-                "num_attempts_min": int(row[0]["min"]),
-                "num_attempts_max": int(row[0]["max"]),
-                "task_template_version_id": int(r[5]),
+                "num_attempts_min": min_,
+                "num_attempts_max": max_,
+                "num_attempts_avg": mean,
+                "task_template_version_id": task_template_version_id,
             }
-        return_dic[int(r[0])]["tasks"] += 1
-        return_dic[int(r[0])][_cli_label_mapping[r[3]]] += 1
-        return_dic[int(r[0])]["MAXC"] = r[4] if r[4] is not None else "NA"
+        return_dic[int(task_template_id)]["tasks"] += 1
+        return_dic[int(task_template_id)][_cli_label_mapping[task_status]] += 1
+        return_dic[int(task_template_id)]["MAXC"] = (
+            max_concurrently if max_concurrently is not None else "NA"
+        )
     resp = jsonify(return_dic)
     resp.status_code = 200
     return resp
