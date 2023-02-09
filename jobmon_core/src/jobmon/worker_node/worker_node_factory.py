@@ -43,6 +43,7 @@ class WorkerNodeFactory:
             initial_logfile = Path(
                 template.format(
                     name=job_name,
+                    subdir=job_name,
                     distributor_id=self._worker_node_interface.distributor_id,
                 )
             )
