@@ -93,18 +93,16 @@ class WebServerProcess:
                 count += 1
                 r = requests.get(f"http://{self.web_host}:{self.web_port}/health")
                 status = r.status_code
-            except Exception:
+            except Exception as e:
                 # Connection failures land here
                 # Safe to catch all because there is a max retry
-                pass
+                if count >= max_tries:
+                    raise TimeoutError(
+                        f"Out-of-process jobmon services did not answer after "
+                        f"{count} attempts, probably failed to start."
+                    ) from e
             # sleep outside of try block!
             sleep(3)
-
-        if count >= max_tries:
-            raise TimeoutError(
-                f"Out-of-process jobmon services did not answer after "
-                f"{count} attempts, probably failed to start."
-            )
 
         return self
 
