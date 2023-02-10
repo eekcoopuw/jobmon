@@ -270,6 +270,8 @@ def test_workflow_status(db_engine, tool, client_env, monkeypatch, cli):
     parsed_args = cli.parse_args(command_str)
     df = df_from_stdout(cli.workflow_status, parsed_args)
     assert len(df) == 2
+    # Assert the most recent 2 workflows appear
+    assert set(map(int, df.WF_ID)) == {workflow3.workflow_id, workflow4.workflow_id}
 
     # check default
     command_str = f"workflow_status -u {user}"

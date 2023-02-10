@@ -255,6 +255,7 @@ def get_workflow_status() -> Any:
                 sql = (
                     (select(WorkflowRun.workflow_id).where(*query_filter))
                     .distinct()
+                    .order_by(WorkflowRun.workflow_id.desc())
                     .limit(limit)
                 )
                 rows = session.execute(sql).all()
