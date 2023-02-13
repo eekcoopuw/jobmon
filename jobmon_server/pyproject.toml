@@ -21,7 +21,8 @@ dependencies = [
     'sqlalchemy_utils',
     'structlog',
     'scipy',
-    'pandas'
+    'pandas',
+    'polars',
 ]
 dynamic = ["version"]
 
