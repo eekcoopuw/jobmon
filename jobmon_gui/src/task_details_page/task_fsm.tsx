@@ -23,7 +23,7 @@ function TaskFSM({ taskStatus }) {
             type: 'input',
             position: { x: 100, y: 150 },
             sourcePosition: Position.Right,
-            ...(task_status === "G" ? { style: { backgroundColor: '#26AADF' } } : null)
+            ...(task_status === "G" ? { style: { backgroundColor: '#0072b2' } } : null)
         },
         {
             id: 'queued',
@@ -31,7 +31,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 275, y: 150 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "Q" ? { style: { backgroundColor: '#26AADF' } } : null)
+            ...(task_status === "Q" ? { style: { backgroundColor: '#0072b2' } } : null)
         },
         {
             id: 'instantiate',
@@ -39,7 +39,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 450, y: 150 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "I" ? { style: { backgroundColor: '#26AADF' } } : null)
+            ...(task_status === "I" ? { style: { backgroundColor: '#0072b2' } } : null)
         },
         {
             id: 'launched',
@@ -47,7 +47,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 625, y: 150 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "O" ? { style: { backgroundColor: '#26AADF' } } : null)
+            ...(task_status === "O" ? { style: { backgroundColor: '#0072b2' } } : null)
         },
         {
             id: 'running',
@@ -55,7 +55,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 800, y: 150 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "R" ? { style: { backgroundColor: '#26AADF' } } : null)
+            ...(task_status === "R" ? { style: { backgroundColor: '#0072b2' } } : null)
         },
         {
             id: 'done',
@@ -63,7 +63,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 1000, y: 200 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "D" ? { style: { backgroundColor: '#04CA22' } } : null)
+            ...(task_status === "D" ? { style: { backgroundColor: '#009e73' } } : null)
         },
         {
             id: 'recoverable',
@@ -71,7 +71,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 1000, y: 100 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "E" ? { style: { backgroundColor: '#FFC300' } } : null)
+            ...(task_status === "E" ? { style: { backgroundColor: '#e69f00' } } : null)
         },
         {
             id: 'fatal',
@@ -79,7 +79,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 1200, y: 150 },
             sourcePosition: Position.Right,
             targetPosition: Position.Left,
-            ...(task_status === "F" ? { style: { backgroundColor: '#ED3333' } } : null)
+            ...(task_status === "F" ? { style: { backgroundColor: '#d55e00' } } : null)
         },
         {
             id: 'adjusting',
@@ -87,7 +87,7 @@ function TaskFSM({ taskStatus }) {
             position: { x: 1200, y: 50 },
             sourcePosition: Position.Top,
             targetPosition: Position.Left,
-            ...(task_status === "A" ? { style: { backgroundColor: '#FFC300' } } : null)
+            ...(task_status === "A" ? { style: { backgroundColor: '#e69f00' } } : null)
         },
     ];
 

@@ -444,6 +444,7 @@ def workflows_by_user_form() -> Any:
     wf_name = arguments.get("wf_name")
     wf_args = arguments.get("wf_args")
     date_submitted = arguments.get("date_submitted")
+    status = arguments.get("status")
     if user is None and tool is None:
         limit = 1000
     else:
@@ -460,6 +461,8 @@ def workflows_by_user_form() -> Any:
         filter_criteria.append(Workflow.workflow_args == wf_args)
     if date_submitted:
         filter_criteria.append(Workflow.created_date >= date_submitted)
+    if status:
+        filter_criteria.append(Workflow.status == status)
 
     session = SessionLocal()
     with session.begin():
