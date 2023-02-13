@@ -534,7 +534,9 @@ def get_task_status_viz(task_id: int) -> Any:
     """Get status of Task from Task ID."""
     session = SessionLocal()
     with session.begin():
-        query = select(Task.status,).where(
+        query = select(
+            Task.status,
+        ).where(
             Task.id == task_id,
         )
         result = session.execute(query).one()[0]
