@@ -496,7 +496,7 @@ def get_task_details(task_id: int) -> Any:
         query = (
             select(
                 TaskInstance.id,
-                TaskInstance.status,
+                TaskInstanceStatus.label,
                 TaskInstance.stdout,
                 TaskInstance.stderr,
                 TaskInstance.distributor_id,
@@ -510,6 +510,7 @@ def get_task_details(task_id: int) -> Any:
             )
             .where(
                 TaskInstance.task_id == task_id,
+                TaskInstance.status == TaskInstanceStatus.id,
             )
         )
         rows = session.execute(query).all()
