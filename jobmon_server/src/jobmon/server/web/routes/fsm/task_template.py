@@ -99,8 +99,8 @@ def add_task_template_version(task_template_id: int) -> Any:
         node_args = data["node_args"]
         task_args = data["task_args"]
         op_args = data["op_args"]
-        command_template = data["command_template"]
-        arg_mapping_hash = str(data["arg_mapping_hash"])
+        command_template = data["command_template"].strip()
+        arg_mapping_hash = str(data["arg_mapping_hash"]).strip()
     except Exception as e:
         raise InvalidUsage(
             f"{str(e)} in request to {request.path}", status_code=400
