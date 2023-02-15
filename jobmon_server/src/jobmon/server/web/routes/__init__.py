@@ -1,5 +1,4 @@
 """Routes used by task instances on worker nodes."""
-from datetime import datetime, timedelta
 from http import HTTPStatus as StatusCodes
 import os
 from typing import Any
@@ -16,9 +15,6 @@ SessionLocal = orm.scoped_session(session_factory)
 
 
 logger = get_logger(__name__)
-
-__CONNECTION_POOL_RESET__: datetime = None
-__RESET_SKIP_SECONDS = 5
 
 
 # ############################ SHARED LANDING ROUTES ##########################################
@@ -59,28 +55,14 @@ def health() -> Any:
 
 def reset_connection_pool() -> Any:
     """Reset the engine's connection pool (primarily for db hot cutover)."""
-    global __CONNECTION_POOL_RESET__
-    if (
-        __CONNECTION_POOL_RESET__ is None
-        or datetime.now()
-        > __CONNECTION_POOL_RESET__ + timedelta(seconds=__RESET_SKIP_SECONDS)
-    ):
-        engine = SessionLocal().get_bind()
-        # A new connection pool is created immediately after the old one has been disposed
-        engine.dispose()
-        __CONNECTION_POOL_RESET__ = datetime.now()
-        logger.info(
-            f"{os.getpid()}: {current_app.__class__.__name__} "
-            f"reset the engine's connection pool at {__CONNECTION_POOL_RESET__}"
-        )
-        resp = jsonify(
-            msg=f"Engine's connection pool has been reset "
-            f"at {__CONNECTION_POOL_RESET__}"
-        )
-    else:
-        resp = jsonify(
-            msg=f"Engine's connection pool reset skipped " f"at {datetime.now()}"
-        )
+    engine = SessionLocal().get_bind()
+    # A new connection pool is created immediately after the old one has been disposed
+    engine.dispose()
+    logger.info(
+        f"{os.getpid()}: {current_app.__class__.__name__} "
+        f"reset the engine's connection pool"
+    )
+    resp = jsonify(msg="Engine's connection pool has been reset")
     resp.status_code = StatusCodes.OK
     return resp
 
