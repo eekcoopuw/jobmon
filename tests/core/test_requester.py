@@ -85,6 +85,21 @@ def test_connection_retry(client_env):
     assert retrier.statistics["attempt_number"] > 1
 
 
+def test_reset_connection_pool(client_env):
+    """
+    GBDSCI-5263
+
+    We should be able to reset_connection_pool.
+    """
+
+    reset_requester = Requester(client_env)
+    rc, resp = reset_requester.send_request(
+        "/reset_connection_pool", {}, "get"
+    )
+    assert rc == 200
+    assert "Engine's connection pool has been reset" == resp["msg"]
+
+
 def test_fail_fast(client_env):
     """
     Use the client-env requestor that has max-retries == 0.

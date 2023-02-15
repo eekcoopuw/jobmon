@@ -53,6 +53,20 @@ def health() -> Any:
     return resp
 
 
+def reset_connection_pool() -> Any:
+    """Reset the engine's connection pool (primarily for db hot cutover)."""
+    engine = SessionLocal().get_bind()
+    # A new connection pool is created immediately after the old one has been disposed
+    engine.dispose()
+    logger.info(
+        f"{os.getpid()}: {current_app.__class__.__name__} "
+        f"reset the engine's connection pool"
+    )
+    resp = jsonify(msg="Engine's connection pool has been reset")
+    resp.status_code = StatusCodes.OK
+    return resp
+
+
 # ############################ TESTING ROUTES ################################################
 def test_route() -> None:
     """Test route to force a 500 error."""

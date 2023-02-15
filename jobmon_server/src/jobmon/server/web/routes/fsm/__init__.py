@@ -11,6 +11,9 @@ blueprint.add_url_rule("/", view_func=routes.is_alive, methods=["GET"])
 blueprint.add_url_rule("/time", view_func=routes.get_pst_now, methods=["GET"])
 blueprint.add_url_rule("/health", view_func=routes.health, methods=["GET"])
 blueprint.add_url_rule(
+    "/reset_connection_pool", view_func=routes.reset_connection_pool, methods=["GET"]
+)
+blueprint.add_url_rule(
     "/test_bad", view_func=routes.test_route, methods=["GET"]  # type: ignore
 )
 
