@@ -291,7 +291,7 @@ To set fallback queues, simply pass a list of queues to the  create_task() metho
 
     # In this example Jobmon will run the Task on all.q. Hypothetically, if it scaled the resources
     # past the all.q limits, it would then try to run the Task on long.q. If that also failed,
-    # it would then try to run the Task on i.q.
+    # it would then try to run the Task on d.q.
 
     workflow = tool.create_workflow(name="test_fallback_queue", workflow_args="fallback")
     fallback_task = fallback_tt.create_task(
@@ -304,7 +304,7 @@ To set fallback queues, simply pass a list of queues to the  create_task() metho
                             'queue': 'all.q',
                             'project': 'proj_scicomp'},
                         cluster_name="slurm",
-                        fallback_queues=["long.q", "i.q"]
+                        fallback_queues=["long.q", "d.q"]
                     )
     workflow.add_tasks([task])
 
