@@ -119,20 +119,12 @@ class Requester(object):
         def is_5XX(result: Tuple[int, dict]) -> bool:
             """Return True if get_content result has 5XX status."""
             status = result[0]
-            content = str(result[1])
             is_bad = 499 < status < 600
             if is_bad:
                 logger.warning(
                     f"Got HTTP status_code={status} from server. app_route: {app_route}."
                     f" message: {message}"
                 )
-                if (
-                    status == 500
-                    and "(MySQLdb.OperationalError)" in content
-                    and "2013" in content
-                    and "Lost connection to MySQL server during query" in content
-                ):
-                    self._send_request("/reset_connection_pool", {}, "get")
             return is_bad
 
         def is_423(result: Tuple[int, dict]) -> bool:

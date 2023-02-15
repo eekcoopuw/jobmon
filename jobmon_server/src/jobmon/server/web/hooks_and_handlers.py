@@ -6,7 +6,7 @@ from flask import Flask, jsonify, request
 import structlog
 from werkzeug.exceptions import BadRequest
 
-
+from jobmon.server.web.routes import reset_connection_pool
 from jobmon.server.web.server_side_exception import InvalidUsage, ServerError
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
@@ -69,6 +69,10 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         if apm is not None:
             apm.capture_exception(exc_info=(type(error), error, error.__traceback__))
         response_dict = {"type": str(type(error)), "exception_message": str(error)}
+        if str(error).startswith(
+            "(MySQLdb.OperationalError) (2013, 'Lost connection to MySQL server during query')"
+        ) or str(error).startswith("(MySQLdb.OperationalError) (1290"):
+            reset_connection_pool()
         response = jsonify(error=response_dict)
         response.content_type = "application/json"
         response.status_code = error.status_code
