@@ -1,4 +1,5 @@
 """Routes used by task instances on worker nodes."""
+from datetime import datetime
 from http import HTTPStatus as StatusCodes
 import os
 from typing import Any
@@ -62,7 +63,7 @@ def reset_connection_pool() -> Any:
         f"{os.getpid()}: {current_app.__class__.__name__} "
         f"reset the engine's connection pool"
     )
-    resp = jsonify(msg="Engine's connection pool has been reset")
+    resp = jsonify(msg=f"Engine's connection pool has been reset {datetime.now()}")
     resp.status_code = StatusCodes.OK
     return resp
 
