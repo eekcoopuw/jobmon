@@ -17,6 +17,9 @@ SessionLocal = orm.scoped_session(session_factory)
 
 logger = get_logger(__name__)
 
+__CONNECTION_POOL_RESET__: datetime = None
+__RESET_SKIP_SECONDS = 5
+
 
 # ############################ SHARED LANDING ROUTES ##########################################
 def is_alive() -> Any:
@@ -52,10 +55,6 @@ def health() -> Any:
     resp = jsonify(status="OK")
     resp.status_code = StatusCodes.OK
     return resp
-
-
-__CONNECTION_POOL_RESET__: datetime = None
-__RESET_SKIP_SECONDS = 5
 
 
 def reset_connection_pool() -> Any:
