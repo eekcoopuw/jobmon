@@ -7,6 +7,7 @@ from requests import ConnectionError
 
 from jobmon.core.exceptions import InvalidResponse
 from jobmon.core.requester import Requester
+from jobmon.server.web.routes import __RESET_SKIP_SECONDS
 
 
 def test_server_502(client_env):
@@ -92,12 +93,17 @@ def test_reset_connection_pool(client_env):
     We should be able to reset_connection_pool.
     """
 
-    reset_requester = Requester(client_env)
-    rc, resp = reset_requester.send_request(
-        "/reset_connection_pool", {}, "get"
-    )
-    assert rc == 200
-    assert "Engine's connection pool has been reset" == resp["msg"]
+    for i in range(__RESET_SKIP_SECONDS + 2):
+        reset_requester = Requester(client_env)
+        rc, resp = reset_requester.send_request(
+            "/reset_connection_pool", {}, "get"
+        )
+        assert rc == 200
+        if i in [0, __RESET_SKIP_SECONDS]:
+            assert str(resp["msg"]).startswith("Engine's connection pool has been reset")
+        else:
+            assert str(resp["msg"]).startswith("Engine's connection pool reset skipped")
+        time.sleep(1.1)
 
 
 def test_fail_fast(client_env):
