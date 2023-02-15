@@ -61,9 +61,11 @@ __RESET_SKIP_SECONDS = 5
 def reset_connection_pool() -> Any:
     """Reset the engine's connection pool (primarily for db hot cutover)."""
     global __CONNECTION_POOL_RESET__
-    if __CONNECTION_POOL_RESET__ is None \
-            or datetime.now() > __CONNECTION_POOL_RESET__ \
-            + timedelta(seconds=__RESET_SKIP_SECONDS):
+    if (
+        __CONNECTION_POOL_RESET__ is None
+        or datetime.now()
+        > __CONNECTION_POOL_RESET__ + timedelta(seconds=__RESET_SKIP_SECONDS)
+    ):
         engine = SessionLocal().get_bind()
         # A new connection pool is created immediately after the old one has been disposed
         engine.dispose()
@@ -72,11 +74,14 @@ def reset_connection_pool() -> Any:
             f"{os.getpid()}: {current_app.__class__.__name__} "
             f"reset the engine's connection pool at {__CONNECTION_POOL_RESET__}"
         )
-        resp = jsonify(msg=f"Engine's connection pool has been reset "
-                           f"at {__CONNECTION_POOL_RESET__}")
+        resp = jsonify(
+            msg=f"Engine's connection pool has been reset "
+            f"at {__CONNECTION_POOL_RESET__}"
+        )
     else:
-        resp = jsonify(msg=f"Engine's connection pool reset skipped "
-                           f"at {datetime.now()}")
+        resp = jsonify(
+            msg=f"Engine's connection pool reset skipped " f"at {datetime.now()}"
+        )
     resp.status_code = StatusCodes.OK
     return resp
 

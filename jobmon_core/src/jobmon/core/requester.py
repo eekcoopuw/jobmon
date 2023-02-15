@@ -126,9 +126,12 @@ class Requester(object):
                     f"Got HTTP status_code={status} from server. app_route: {app_route}."
                     f" message: {message}"
                 )
-                if status == 500 and "(MySQLdb.OperationalError)" in content \
-                        and ("2013" in content
-                             and "Lost connection to MySQL server during query" in content):
+                if (
+                    status == 500
+                    and "(MySQLdb.OperationalError)" in content
+                    and "2013" in content
+                    and "Lost connection to MySQL server during query" in content
+                ):
                     self._send_request("/reset_connection_pool", {}, "get")
             return is_bad
 
