@@ -71,7 +71,7 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         response_dict = {"type": str(type(error)), "exception_message": str(error)}
         if str(error).startswith(
             "(MySQLdb.OperationalError) (2013, 'Lost connection to MySQL server during query')"
-        ) or str(error).startswith("(MySQLdb.OperationalError) (1290"):
+        ):
             reset_connection_pool()
         response = jsonify(error=response_dict)
         response.content_type = "application/json"
