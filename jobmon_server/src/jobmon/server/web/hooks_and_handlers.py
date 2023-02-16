@@ -2,12 +2,15 @@
 from typing import Any, cast, Dict, Optional
 
 from elasticapm.contrib.flask import ElasticAPM
-from flask import Flask, jsonify, request
+from flask import Flask, jsonify, request, Response
+from MySQLdb import OperationalError
 import structlog
 from werkzeug.exceptions import BadRequest
 
-from jobmon.server.web.routes import reset_connection_pool
+
+from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.server_side_exception import InvalidUsage, ServerError
+
 
 # new structlog logger per flask request context. internally stored as flask.g.logger
 logger = structlog.get_logger(__name__)
@@ -69,14 +72,24 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         if apm is not None:
             apm.capture_exception(exc_info=(type(error), error, error.__traceback__))
         response_dict = {"type": str(type(error)), "exception_message": str(error)}
-        if str(error).startswith(
-            "(MySQLdb.OperationalError) (2013, 'Lost connection to MySQL server during query')"
-        ):
-            reset_connection_pool()
         response = jsonify(error=response_dict)
         response.content_type = "application/json"
         response.status_code = error.status_code
         return response
+
+    # error handling
+    @app.errorhandler(OperationalError)
+    def handle_mysql_gone_away(error: OperationalError) -> Any:
+        if "2013, 'Lost connection to MySQL server during query'" in str(error):
+            engine = SessionLocal().get_bind()
+            # A new connection pool is created immediately after the old one has been disposed
+            engine.dispose()
+            msg = (
+                "A 'Lost connection to MySQL server' event occurred, "
+                "for which a new db connection pool has been created "
+                "(usually due to a routine db hot cutover operation)"
+            )
+            return Response(status=500, response=msg, content_type="text/plain")
 
     @app.before_request
     def add_requester_context() -> None:

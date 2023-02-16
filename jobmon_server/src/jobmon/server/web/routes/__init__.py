@@ -1,5 +1,4 @@
 """Routes used by task instances on worker nodes."""
-from datetime import datetime
 from http import HTTPStatus as StatusCodes
 import os
 from typing import Any
@@ -50,20 +49,6 @@ def health() -> Any:
     """
     _get_time()
     resp = jsonify(status="OK")
-    resp.status_code = StatusCodes.OK
-    return resp
-
-
-def reset_connection_pool() -> Any:
-    """Reset the engine's connection pool (primarily for db hot cutover)."""
-    engine = SessionLocal().get_bind()
-    # A new connection pool is created immediately after the old one has been disposed
-    engine.dispose()
-    logger.info(
-        f"{os.getpid()}: {current_app.__class__.__name__} "
-        f"reset the engine's connection pool"
-    )
-    resp = jsonify(msg=f"Engine's connection pool has been reset {datetime.now()}")
     resp.status_code = StatusCodes.OK
     return resp
 
