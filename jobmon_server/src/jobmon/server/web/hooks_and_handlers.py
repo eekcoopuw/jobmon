@@ -2,8 +2,7 @@
 from typing import Any, cast, Dict, Optional
 
 from elasticapm.contrib.flask import ElasticAPM
-from flask import Flask, jsonify, request, Response
-from MySQLdb import OperationalError
+from flask import Flask, jsonify, request
 import structlog
 from werkzeug.exceptions import BadRequest
 
@@ -72,14 +71,6 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         if apm is not None:
             apm.capture_exception(exc_info=(type(error), error, error.__traceback__))
         response_dict = {"type": str(type(error)), "exception_message": str(error)}
-        response = jsonify(error=response_dict)
-        response.content_type = "application/json"
-        response.status_code = error.status_code
-        return response
-
-    # error handling
-    @app.errorhandler(OperationalError)
-    def handle_mysql_gone_away(error: OperationalError) -> Any:
         if "2013, 'Lost connection to MySQL server during query'" in str(error):
             engine = SessionLocal().get_bind()
             # A new connection pool is created immediately after the old one has been disposed
@@ -89,7 +80,12 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
                 "for which a new db connection pool has been created "
                 "(usually due to a routine db hot cutover operation)"
             )
-            return Response(status=500, response=msg, content_type="text/plain")
+            response = jsonify(error=msg)
+        else:
+            response = jsonify(error=response_dict)
+        response.content_type = "application/json"
+        response.status_code = error.status_code
+        return response
 
     @app.before_request
     def add_requester_context() -> None:
