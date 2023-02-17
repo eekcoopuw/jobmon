@@ -17,8 +17,9 @@ def test_task_template(tool):
 
     tt = TaskTemplate("my_template")
     tt.bind(tool.active_tool_version)
+    command_template = "{op1} {node1} --foo {task1}"
     tt.get_task_template_version(
-        command_template="{op1} {node1} --foo {task1}",
+        command_template=command_template,
         node_args=["node1"],
         task_args=["task1"],
         op_args=["op1"],
@@ -27,7 +28,7 @@ def test_task_template(tool):
 
     # make sure both methods get same result
     ttv = TaskTemplateVersion(
-        command_template="{op1} {node1} --foo {task1}",
+        command_template=command_template,
         node_args=["node1"],
         task_args=["task1"],
         op_args=["op1"],
@@ -38,6 +39,16 @@ def test_task_template(tool):
     tt.active_task_template_version.bind(tt)
     ttv.bind(tt)
     assert tt.active_task_template_version.id == ttv.id
+
+    # Check that whitespace doesn't change the ID
+    ttv2 = TaskTemplateVersion(
+        command_template=command_template + "   ",
+        node_args=["node1"],
+        task_args=["task1"],
+        op_args=["op1"],
+    )
+    ttv2.bind(tt)
+    assert ttv2.id == ttv.id
 
 
 def test_create_and_get_task_template(tool):
