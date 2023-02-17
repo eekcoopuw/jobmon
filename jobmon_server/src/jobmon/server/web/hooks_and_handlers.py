@@ -70,7 +70,6 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         )
         if apm is not None:
             apm.capture_exception(exc_info=(type(error), error, error.__traceback__))
-        response_dict = {"type": str(type(error)), "exception_message": str(error)}
         if "2013, 'Lost connection to MySQL server during query'" in str(error):
             engine = SessionLocal().get_bind()
             # A new connection pool is created immediately after the old one has been disposed
@@ -80,9 +79,10 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
                 "for which a new db connection pool has been created "
                 "(usually due to a routine db hot cutover operation)"
             )
-            response = jsonify(error=msg)
+            response_dict = {"type": str(type(error)), "exception_message": msg}
         else:
-            response = jsonify(error=response_dict)
+            response_dict = {"type": str(type(error)), "exception_message": str(error)}
+        response = jsonify(error=response_dict)
         response.content_type = "application/json"
         response.status_code = error.status_code
         return response
