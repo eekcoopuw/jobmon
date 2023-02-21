@@ -508,25 +508,31 @@ class WorkerNodeTaskInstance:
                 # create heartbeat loop
                 heartbeat_task = asyncio.Task(self._process_poller(process))
                 await asyncio.gather(stdout_task, stderr_task, heartbeat_task)
-
-            except Exception:
+            except Exception as e:
                 try:
                     # attempt a graceful shutdown
                     process.send_signal(signal.SIGINT)
                     await asyncio.wait_for(
                         process.wait(), timeout=self._command_interrupt_timeout
                     )
-
                 except asyncio.TimeoutError:
                     # otherwise violent death
                     process.kill()
                     await process.wait()
-
+                if process.returncode is None:
+                    raise RuntimeError(
+                        "process.returncode is None after awaiting shutdown"
+                    ) from e
+                else:
+                    returncode = process.returncode
                 raise
+
+            else:
+                returncode = heartbeat_task.result()
 
             finally:
                 self.set_command_output(
-                    returncode=heartbeat_task.result(),
+                    returncode=returncode,
                     stdout=stdout_task.result(),
                     stderr=stderr_task.result(),
                 )
