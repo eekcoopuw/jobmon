@@ -135,7 +135,7 @@ def test_wedged_dag(db_engine, tool, task_template, requester_no_retry):
         wedged_task_id = None
 
         def submit_to_batch_distributor(
-            self, command: str, name: str, logfile_name: str, requested_resources
+            self, command: str, name: str, requested_resources
         ) -> str:
             logger.info("Now entering WedgedExecutor execute")
 
@@ -177,7 +177,7 @@ def test_wedged_dag(db_engine, tool, task_template, requester_no_retry):
                     exec_id = str(123456789)
             else:
                 exec_id = super().submit_to_batch_distributor(
-                    command, name, logfile_name, requested_resources
+                    command, name, requested_resources
                 )
 
             return exec_id

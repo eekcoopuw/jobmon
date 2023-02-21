@@ -1,6 +1,5 @@
 """Sequential distributor that runs one task at a time."""
 from collections import OrderedDict
-from contextlib import ExitStack, redirect_stderr, redirect_stdout
 import logging
 import os
 import shutil
@@ -123,9 +122,8 @@ class SequentialDistributor(ClusterDistributor):
         self,
         command: str,
         name: str,
-        logfile_name: str,
         requested_resources: Dict[str, Any],
-    ) -> Tuple[str, Optional[str], Optional[str]]:
+    ) -> str:
         """Execute sequentially."""
         # add an executor id to the environment
         os.environ["JOB_ID"] = str(self._next_distributor_id)
@@ -134,27 +132,11 @@ class SequentialDistributor(ClusterDistributor):
 
         # run the job and log the exit code
         try:
-            logfiles: Dict[str, Optional[str]] = {}
-            redirect_io = {"stderr": redirect_stderr, "stdout": redirect_stdout}
-            with ExitStack() as stack:
-                # redirect error and output to files or null
-                for io_type, redirect_manager in redirect_io.items():
-                    try:
-                        fname = requested_resources[io_type]["job"].format(
-                            name=logfile_name,
-                            type=io_type,
-                            distributor_id=distributor_id,
-                        )
-                        logfiles[io_type] = fname
-                        f = stack.enter_context(open(fname, "w"))
-                        stack.enter_context(redirect_manager(f))
-                    except KeyError:
-                        logfiles[io_type] = None
 
-                # run command
-                cli = WorkerNodeCLI()
-                args = cli.parse_args(command)
-                exit_code = cli.run_task_instance_job(args)
+            # run command
+            cli = WorkerNodeCLI()
+            args = cli.parse_args(command)
+            exit_code = cli.run_task_instance_job(args)
 
         except SystemExit as e:
             if e.code == ReturnCodes.WORKER_NODE_CLI_FAILURE:
@@ -163,7 +145,7 @@ class SequentialDistributor(ClusterDistributor):
                 raise
 
         self._exit_info[distributor_id] = exit_code
-        return str(distributor_id), logfiles["stdout"], logfiles["stderr"]
+        return str(distributor_id)
 
 
 class SequentialWorkerNode(ClusterWorkerNode):
@@ -172,6 +154,10 @@ class SequentialWorkerNode(ClusterWorkerNode):
     def __init__(self) -> None:
         """Initialization of the sequential executor worker node."""
         self._distributor_id: Optional[str] = None
+        self._logfile_template = {
+            "stdout": "{root}/{name}.o{job_id}",
+            "stderr": "{root}/{name}.e{job_id}",
+        }
 
     @property
     def distributor_id(self) -> Optional[str]:
@@ -181,6 +167,15 @@ class SequentialWorkerNode(ClusterWorkerNode):
             if jid:
                 self._distributor_id = jid
         return self._distributor_id
+
+    def initialize_logfile(self, log_type: str, log_dir: str, name: str) -> str:
+        if log_dir:
+            logpath = self._logfile_template[log_type].format(
+                root=log_dir, name=name, job_id=self.distributor_id
+            )
+        else:
+            logpath = "/dev/null"
+        return logpath
 
     @staticmethod
     def get_exit_info(exit_code: int, error_msg: str) -> Tuple[str, str]:

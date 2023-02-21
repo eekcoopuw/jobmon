@@ -40,10 +40,6 @@ class TaskInstanceBatch:
         return f"{self.array_name}-{self.batch_number}"
 
     @property
-    def logfile_name(self) -> str:
-        return f"{self.array_id}-{self.batch_number}"
-
-    @property
     def requested_resources(self) -> Dict:
         if not hasattr(self, "_requested_resources"):
             raise AttributeError(

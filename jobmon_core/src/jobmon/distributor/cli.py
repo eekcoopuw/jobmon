@@ -22,6 +22,44 @@ class DistributorCLI(CLI):
     @staticmethod
     def run_distributor(args: argparse.Namespace) -> None:
         """Configuration for the jobmon worker node."""
+        import sys
+        from logging import config
+
+        _DEFAULT_LOG_FORMAT = (
+            "%(asctime)s [%(name)-12s] %(module)s %(levelname)-8s: %(message)s"
+        )
+        logging_config = {
+            "version": 1,
+            "disable_existing_loggers": True,
+            "formatters": {
+                "default": {
+                    "format": _DEFAULT_LOG_FORMAT,
+                    "datefmt": "%Y-%m-%d %H:%M:%S",
+                }
+            },
+            "handlers": {
+                "default": {
+                    "level": "INFO",
+                    "class": "logging.StreamHandler",
+                    "formatter": "default",
+                    "stream": sys.stdout,
+                },
+            },
+            "loggers": {
+                "jobmon.distributor": {
+                    "handlers": ["default"],
+                    "propagate": False,
+                    "level": "INFO",
+                },
+                "jobmon.plugins": {
+                    "handlers": ["default"],
+                    "propagate": False,
+                    "level": "INFO",
+                },
+            },
+        }
+        config.dictConfig(logging_config)
+
         cluster = Cluster.get_cluster(args.cluster_name)
         cluster_interface = cluster.get_distributor()
         distributor_service = DistributorService(cluster_interface)

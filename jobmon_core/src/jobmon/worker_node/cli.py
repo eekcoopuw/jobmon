@@ -38,7 +38,7 @@ class WorkerNodeCLI(CLI):
 
         worker_node_factory = WorkerNodeFactory(cluster_name=args.cluster_name)
         worker_node_task_instance = worker_node_factory.get_job_task_instance(
-            task_instance_id=args.task_instance_id, initialize_logfiles=True
+            task_instance_id=args.task_instance_id
         )
         worker_node_task_instance.configure_logging()
         try:
@@ -47,7 +47,7 @@ class WorkerNodeCLI(CLI):
             logger.error(e)
             sys.exit(ReturnCodes.WORKER_NODE_CLI_FAILURE)
 
-        return worker_node_task_instance.command_return_code
+        return worker_node_task_instance.command_returncode
 
     def run_task_instance_array(self, args: argparse.Namespace) -> int:
         """Configuration for the jobmon worker node."""
@@ -67,7 +67,6 @@ class WorkerNodeCLI(CLI):
         worker_node_task_instance = worker_node_factory.get_array_task_instance(
             array_id=args.array_id,
             batch_number=args.batch_number,
-            initialize_logfiles=True,
         )
         worker_node_task_instance.configure_logging()
 
@@ -77,7 +76,7 @@ class WorkerNodeCLI(CLI):
             logger.error(e)
             sys.exit(ReturnCodes.WORKER_NODE_CLI_FAILURE)
 
-        return worker_node_task_instance.command_return_code
+        return worker_node_task_instance.command_returncode
 
     def _add_worker_node_job_parser(self) -> None:
         job_parser = self._subparsers.add_parser("worker_node_job")

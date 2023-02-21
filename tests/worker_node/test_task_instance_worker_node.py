@@ -1,8 +1,8 @@
+import asyncio
 import os
 import random
-import subprocess
 import time
-from typing import Dict, Tuple
+from typing import Dict
 
 from unittest.mock import patch
 from sqlalchemy import select
@@ -27,26 +27,26 @@ load_model()
 
 class DoNothingDistributor(DummyDistributor):
     def submit_to_batch_distributor(
-        self, command: str, name: str, logfile_name: str, requested_resources
-    ) -> Tuple[str, str, str]:
+        self, command: str, name: str, requested_resources
+    ) -> str:
         distributor_id = random.randint(1, int(1e7))
-        return str(distributor_id), "/foo", "/bar"
+        return str(distributor_id)
 
 
 class DoNothingArrayDistributor(MultiprocessDistributor):
+
     def submit_array_to_batch_distributor(
         self,
         command: str,
         name: str,
-        logfile_name: str,
         requested_resources,
         array_length: int,
-    ) -> Dict[int, Tuple[str, str, str]]:
+    ) -> Dict[int, str]:
         job_id = random.randint(1, int(1e7))
-        mapping: Dict[int, Tuple[str, str, str]] = {}
+        mapping: Dict[int, str] = {}
         for array_step_id in range(0, array_length):
             distributor_id = self._get_subtask_id(job_id, array_step_id)
-            mapping[array_step_id] = distributor_id, "/foo", "/bar"
+            mapping[array_step_id] = distributor_id
 
         return mapping
 
@@ -95,14 +95,20 @@ def test_task_instance(db_engine, tool):
     )
     worker_node_task_instance.run()
     assert worker_node_task_instance.status == TaskInstanceStatus.DONE
-    assert worker_node_task_instance.command_return_code == 0
+    assert worker_node_task_instance.command_returncode == 0
 
 
-def test_array_task_instance(tool, db_engine, client_env, array_template, monkeypatch):
+def test_array_task_instance(tool, db_engine, client_env, array_template, monkeypatch, tmpdir):
     """Tests that the worker node is compatible with array task instances."""
-
+    tmpdir = str(tmpdir)
     tasks = array_template.create_tasks(
-        arg=[1, 2, 3], cluster_name="sequential", compute_resources={"queue": "null.q"}
+        arg=[1, 2, 3],
+        cluster_name="sequential",
+        compute_resources={
+            "queue": "null.q",
+            "stdout": tmpdir,
+            "stderr": tmpdir
+        }
     )
     workflow = tool.create_workflow(name="test_array_ti_selection")
     workflow.add_tasks(tasks)
@@ -136,18 +142,11 @@ def test_array_task_instance(tool, db_engine, client_env, array_template, monkey
     with Session(bind=db_engine) as session:
         task_instance_id_query = select(
             TaskInstance.distributor_id,
-            TaskInstance.array_batch_num,
-            TaskInstance.stdout,
-            TaskInstance.stderr,
+            TaskInstance.array_batch_num
         ).where(TaskInstance.array_id == array1.array_id)
         distributor_ids = session.execute(task_instance_id_query).all()
 
-    # Check the filepaths are logged correctly
-    for *_, stdout, stderr in distributor_ids:
-        assert stdout == "/foo"
-        assert stderr == "/bar"
-
-    for distributor_id, array_batch_num, *_ in distributor_ids:
+    for distributor_id, array_batch_num in distributor_ids:
         job_id, step_id = distributor_id.split("_")
         monkeypatch.setenv("JOB_ID", job_id)
         monkeypatch.setenv("ARRAY_STEP_ID", step_id)
@@ -160,8 +159,9 @@ def test_array_task_instance(tool, db_engine, client_env, array_template, monkey
         )
         wnti.run()
 
+        assert tmpdir in wnti._stdout
         assert wnti.status == TaskInstanceStatus.DONE
-        assert wnti.command_return_code == 0
+        assert wnti.command_returncode == 0
 
 
 def test_ti_kill_self_state(db_engine, tool):
@@ -302,37 +302,30 @@ def test_limited_error_log(tool, db_engine):
 
 
 def test_worker_node_environment(client_env):
-    class MockTaskInstance(WorkerNodeTaskInstance):
-        def run(self):
-            """Override run method to only check the subprocess call."""
-            self.set_environment()
-            proc = subprocess.Popen(
-                self._command,
-                env=os.environ.copy(),
-                stdout=subprocess.PIPE,
-                shell=True,
-                universal_newlines=True,
-            )
-            out, err = proc.communicate()
-            return out, err
 
     cluster = Cluster.get_cluster("sequential")
     worker_node = cluster.get_worker_node()
-    ti: MockTaskInstance = MockTaskInstance(
+    ti = WorkerNodeTaskInstance(
         cluster_interface=worker_node,
-        task_instance_id=100,
-        workflow_id=200,
-        task_id=300,
+        task_instance_id=100
     )
     ti._command = (
         "echo $JOBMON_WORKFLOW_ID; "
         "echo $JOBMON_TASK_ID; "
         "echo $JOBMON_TASK_INSTANCE_ID;"
     )
+    ti._command_add_env = {
+        "JOBMON_WORKFLOW_ID": "200",
+        "JOBMON_TASK_ID": "300",
+        "JOBMON_TASK_INSTANCE_ID": "100"
+    }
+    ti._stdout = "/dev/null"
+    ti._stderr = "/dev/null"
 
-    out, err = ti.run()
+    asyncio.run(ti._run_cmd())
+
     # We printed out environment variables in 3 lines. Check that equality
-    assert out == "\n".join(["200", "300", "100"]) + "\n"
+    assert ti.command_stdout == "\n".join(["200", "300", "100"]) + "\n"
 
 
 def test_worker_node_add_attributes(tool, db_engine):
