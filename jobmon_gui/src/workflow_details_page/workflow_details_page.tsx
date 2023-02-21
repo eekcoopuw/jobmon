@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import '../jobmon_gui.css';
-import { useParams, Link, Outlet, useLocation } from 'react-router-dom';
+import { useParams, Link, Outlet } from 'react-router-dom';
 import { useForm } from "react-hook-form";
 import axios from 'axios';
 import DropdownButton from 'react-bootstrap/DropdownButton';
 import Dropdown from 'react-bootstrap/Dropdown';
+import Breadcrumb from 'react-bootstrap/Breadcrumb';
 import { OverlayTrigger } from "react-bootstrap";
 import Popover from 'react-bootstrap/Popover';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -79,7 +80,7 @@ function WorkflowDetails({ subpage }) {
     const [tasks, setTasks] = useState([]);
     const [wfDict, setWFDict] = useState({
         'tasks': 0, 'PENDING': 0, 'SCHEDULED': 0, 'RUNNING': 0, 'DONE': 0, 'FATAL': 0,
-        'num_attempts_avg': 0, 'num_attempts_min': 0, 'num_attempts_max':0, 'MAXC': 0
+        'num_attempts_avg': 0, 'num_attempts_min': 0, 'num_attempts_max': 0, 'MAXC': 0
     });
     const [ttDict, setTTDict] = useState([]);
     const [errorLogs, setErrorLogs] = useState([]);
@@ -183,6 +184,10 @@ function WorkflowDetails({ subpage }) {
     //********************html page*************************************
     return (
         <div>
+            <Breadcrumb>
+                <Breadcrumb.Item><Link to="/">Home</Link></Breadcrumb.Item>
+                <Breadcrumb.Item active>Workflow ID {workflowId} </Breadcrumb.Item>
+            </Breadcrumb>
             <div style={{ display: "flex" }}>
                 <header className="App-header">
                     <p>Workflow ID: {workflowId} </p>
@@ -229,7 +234,7 @@ function WorkflowDetails({ subpage }) {
                                 </Popover>
                             )}
                         >
-                        <span><FontAwesomeIcon icon={faLightbulb}  /></span>
+                            <span><FontAwesomeIcon icon={faLightbulb} /></span>
                         </OverlayTrigger>
                     </p>
                     {tt_id === "" &&
@@ -287,7 +292,7 @@ function WorkflowDetails({ subpage }) {
             <div id="tt_search" className="div-level-2">
                 <hr className="hr-2" />
                 <div className="div-full">
-                <ul className="nav nav-tabs">
+                    <ul className="nav nav-tabs">
                         <li className="nav-item">
                             <Link
                                 className={`nav-link ${subpage === "tasks" ? "active" : ""}`}
@@ -317,9 +322,9 @@ function WorkflowDetails({ subpage }) {
                     <Outlet />
                 </div>
 
-                {(subpage === "tasks") && <Tasks tasks={tasks} onSubmit={onSubmit} register= {register} loading={task_loading} apm={apm}/>}
-                {(subpage === "usage") && <Usage taskTemplateName={task_template_name} taskTemplateVersionId={task_template_version_id} usageInfo={usage_info} apm={apm}/>}
-                {(subpage === "errors") && <Errors errorLogs={errorLogs} tt_name={task_template_name} loading={error_loading} apm={apm}/>}
+                {(subpage === "tasks") && <Tasks tasks={tasks} onSubmit={onSubmit} register={register} loading={task_loading} apm={apm} />}
+                {(subpage === "usage") && <Usage taskTemplateName={task_template_name} taskTemplateVersionId={task_template_version_id} usageInfo={usage_info} apm={apm} />}
+                {(subpage === "errors") && <Errors errorLogs={errorLogs} tt_name={task_template_name} loading={error_loading} apm={apm} />}
 
             </div>
 

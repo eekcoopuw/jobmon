@@ -1,6 +1,9 @@
 import React from 'react';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { Link } from "react-router-dom";
+import Card from 'react-bootstrap/Card';
+import ListGroup from 'react-bootstrap/ListGroup';
+import { ListGroupItem } from 'react-bootstrap';
 
 
 export default function NodeLists({ upstreamTasks, downstreamTasks }) {
@@ -8,37 +11,37 @@ export default function NodeLists({ upstreamTasks, downstreamTasks }) {
         <div>
             <h2>Dependencies</h2>
             <div className="card-columns d-flex justify-content-center">
-                <div className="card dependency-list-scroll">
-                    <div className="card-header">Upstream Task IDs</div>
-                    <ul className="list-group list-group-flush">
+                <Card className="dependency-list-scroll">
+                    <Card.Header className="dependency-header">Upstream Task IDs</Card.Header>
+                    <ListGroup variant="flush">
                         {
                             upstreamTasks.flat(1).map(d => (
-                                <li className="list-group-item">
+                                <ListGroup.Item className="dependency-list-group-item">
                                     <Link
                                         to={{ pathname: `/task_details/${d["id"]}` }}
                                         key={d["id"]}>{d["id"]}
                                     </Link>
-                                </li>
+                                </ListGroup.Item>
                             ))
                         }
-                    </ul>
-                </div>
-                <div className="card dependency-list-scroll">
-                    <div className="card-header">Downstream Task IDs</div>
-                    <ul className="list-group list-group-flush">
+                    </ListGroup>
+                </Card>
+                <Card className="dependency-list-scroll">
+                    <Card.Header className="dependency-header">Downstream Task IDs</Card.Header>
+                    <ListGroup variant="flush">
                         {
                             downstreamTasks.flat(1).map(d => (
-                                <li className="list-group-item">
+                                <ListGroup.Item className="dependency-list-group-item">
                                     <Link
                                         to={{ pathname: `/task_details/${d["id"]}` }}
                                         key={d["id"]}>{d["id"]}
                                     </Link>
-                                </li>
+                                </ListGroup.Item>
                             ))
                         }
-                    </ul>
-                </div>
+                    </ListGroup>
+                </Card>
             </div>
-        </div>
+        </div >
     );
 }
