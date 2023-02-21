@@ -140,7 +140,7 @@ class SequentialDistributor(ClusterDistributor):
 
         except SystemExit as e:
             if e.code == ReturnCodes.WORKER_NODE_CLI_FAILURE:
-                exit_code = e.code
+                exit_code = ReturnCodes.WORKER_NODE_CLI_FAILURE
             else:
                 raise
 

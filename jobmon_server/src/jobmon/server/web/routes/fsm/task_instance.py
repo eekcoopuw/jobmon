@@ -17,7 +17,6 @@ from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
-from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.fsm import blueprint
 from jobmon.server.web.routes.fsm._common import _get_logfile_template
@@ -194,7 +193,12 @@ def log_done(task_instance_id: int) -> Any:
         task_instance = session.execute(select_stmt).scalars().one()
 
         optional_vals = [
-            "distributor_id", "stdout_log", "stderr_log", "nodename", "stdout", "stderr"
+            "distributor_id",
+            "stdout_log",
+            "stderr_log",
+            "nodename",
+            "stdout",
+            "stderr",
         ]
         for optional_val in optional_vals:
             val = data.get(optional_val, None)
@@ -235,7 +239,12 @@ def log_error_worker_node(task_instance_id: int) -> Any:
         task_instance = session.execute(select_stmt).scalars().one()
 
         optional_vals = [
-            "distributor_id", "stdout_log", "stderr_log", "nodename", "stdout", "stderr"
+            "distributor_id",
+            "stdout_log",
+            "stderr_log",
+            "nodename",
+            "stdout",
+            "stderr",
         ]
         for optional_val in optional_vals:
             val = data.get(optional_val, None)
@@ -305,9 +314,7 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> A
 
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            TaskInstance.id
-        ).where(
+        select_stmt = select(TaskInstance.id).where(
             TaskInstance.array_id == array_id,
             TaskInstance.array_batch_num == batch_num,
             TaskInstance.array_step_id == step_id,

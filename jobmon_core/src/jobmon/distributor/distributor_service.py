@@ -353,7 +353,9 @@ class DistributorService:
 
         else:
             # move from register queue to launch queue
-            task_instance.transition_to_launched(distributor_id, self._next_report_increment)
+            task_instance.transition_to_launched(
+                distributor_id, self._next_report_increment
+            )
 
     def triage_error(self, task_instance: DistributorTaskInstance) -> None:
         r_value, r_msg = self.cluster_interface.get_remote_exit_info(

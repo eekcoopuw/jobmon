@@ -24,14 +24,12 @@ class WorkerNodeFactory:
         """Set up and return WorkerNodeTaskInstance object."""
         worker_node_task_instance = WorkerNodeTaskInstance(
             cluster_interface=self._worker_node_interface,
-            task_instance_id=task_instance_id
+            task_instance_id=task_instance_id,
         )
         return worker_node_task_instance
 
     def get_array_task_instance(
-        self,
-        array_id: int,
-        batch_number: int
+        self, array_id: int, batch_number: int
     ) -> WorkerNodeTaskInstance:
         """Set up and return WorkerNodeTaskInstance object."""
         requester = Requester.from_defaults()
@@ -56,6 +54,6 @@ class WorkerNodeFactory:
 
         worker_node_task_instance = WorkerNodeTaskInstance(
             cluster_interface=self._worker_node_interface,
-            task_instance_id=task_instance_id
+            task_instance_id=task_instance_id,
         )
         return worker_node_task_instance

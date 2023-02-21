@@ -84,11 +84,7 @@ class Consumer(Process):
                     else:
                         env["JOB_ID"] = task.distributor_id
 
-                    proc = subprocess.Popen(
-                        task.command,
-                        env=env,
-                        shell=True
-                    )
+                    proc = subprocess.Popen(task.command, env=env, shell=True)
 
                     # log the pid with the distributor class
                     self.response_queue.put((task.distributor_id, proc.pid))
@@ -292,9 +288,7 @@ class MultiprocessDistributor(ClusterDistributor):
         self._next_job_id += 1
 
         task = PickableTask(
-            distributor_id,
-            self.worker_node_entry_point + " " + command,
-            "job"
+            distributor_id, self.worker_node_entry_point + " " + command, "job"
         )
         self.task_queue.put(task)
         self._running_or_submitted.update({distributor_id: None})
@@ -320,9 +314,7 @@ class MultiprocessDistributor(ClusterDistributor):
             mapping[array_step_id] = distributor_id
 
             task = PickableTask(
-                distributor_id,
-                self.worker_node_entry_point + " " + command,
-                "array"
+                distributor_id, self.worker_node_entry_point + " " + command, "array"
             )
             self.task_queue.put(task)
             self._running_or_submitted.update({distributor_id: None})

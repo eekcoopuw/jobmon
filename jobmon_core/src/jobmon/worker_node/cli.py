@@ -2,7 +2,7 @@
 import argparse
 import logging
 import sys
-from typing import Optional, Union
+from typing import Optional
 
 from jobmon.core.cli import CLI
 
@@ -22,7 +22,7 @@ class WorkerNodeCLI(CLI):
         self._add_worker_node_job_parser()
         self._add_worker_node_array_parser()
 
-    def run_task_instance_job(self, args: argparse.Namespace) -> Union[int, str]:
+    def run_task_instance_job(self, args: argparse.Namespace) -> int:
         """Configuration for the jobmon worker node."""
         from jobmon.core.exceptions import ReturnCodes
         from jobmon.worker_node import __version__

@@ -34,7 +34,6 @@ class DoNothingDistributor(DummyDistributor):
 
 
 class DoNothingArrayDistributor(MultiprocessDistributor):
-
     def submit_array_to_batch_distributor(
         self,
         command: str,
@@ -98,17 +97,15 @@ def test_task_instance(db_engine, tool):
     assert worker_node_task_instance.command_returncode == 0
 
 
-def test_array_task_instance(tool, db_engine, client_env, array_template, monkeypatch, tmpdir):
+def test_array_task_instance(
+    tool, db_engine, client_env, array_template, monkeypatch, tmpdir
+):
     """Tests that the worker node is compatible with array task instances."""
     tmpdir = str(tmpdir)
     tasks = array_template.create_tasks(
         arg=[1, 2, 3],
         cluster_name="sequential",
-        compute_resources={
-            "queue": "null.q",
-            "stdout": tmpdir,
-            "stderr": tmpdir
-        }
+        compute_resources={"queue": "null.q", "stdout": tmpdir, "stderr": tmpdir},
     )
     workflow = tool.create_workflow(name="test_array_ti_selection")
     workflow.add_tasks(tasks)
@@ -141,8 +138,7 @@ def test_array_task_instance(tool, db_engine, client_env, array_template, monkey
 
     with Session(bind=db_engine) as session:
         task_instance_id_query = select(
-            TaskInstance.distributor_id,
-            TaskInstance.array_batch_num
+            TaskInstance.distributor_id, TaskInstance.array_batch_num
         ).where(TaskInstance.array_id == array1.array_id)
         distributor_ids = session.execute(task_instance_id_query).all()
 
@@ -305,10 +301,7 @@ def test_worker_node_environment(client_env):
 
     cluster = Cluster.get_cluster("sequential")
     worker_node = cluster.get_worker_node()
-    ti = WorkerNodeTaskInstance(
-        cluster_interface=worker_node,
-        task_instance_id=100
-    )
+    ti = WorkerNodeTaskInstance(cluster_interface=worker_node, task_instance_id=100)
     ti._command = (
         "echo $JOBMON_WORKFLOW_ID; "
         "echo $JOBMON_TASK_ID; "
@@ -317,7 +310,7 @@ def test_worker_node_environment(client_env):
     ti._command_add_env = {
         "JOBMON_WORKFLOW_ID": "200",
         "JOBMON_TASK_ID": "300",
-        "JOBMON_TASK_INSTANCE_ID": "100"
+        "JOBMON_TASK_INSTANCE_ID": "100",
     }
     ti._stdout = "/dev/null"
     ti._stderr = "/dev/null"

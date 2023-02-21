@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import List, Set, Tuple, TYPE_CHECKING
 
 from jobmon.core.constants import TaskInstanceStatus
 from jobmon.core.exceptions import InvalidResponse
@@ -70,9 +70,7 @@ class DistributorTaskInstance:
         self._array_step_id = val
 
     def transition_to_launched(
-        self,
-        distributor_id: str,
-        next_report_increment: float
+        self, distributor_id: str, next_report_increment: float
     ) -> None:
         """Register the submission of a new task instance to a cluster.
 
