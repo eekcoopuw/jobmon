@@ -18,6 +18,7 @@ python = "3.8"
 @nox.session(python=python, venv_backend="conda")
 def tests(session: Session) -> None:
     """Run the test suite."""
+    session.conda_install("mysqlclient")
     session.install("pytest", "pytest-xdist", "pytest-cov", "mock", "filelock")
     session.install("-e", "./jobmon_core")
     session.install("-e", "./jobmon_client")
@@ -71,7 +72,7 @@ def typecheck(session: Session) -> None:
     args = session.posargs or src_locations
     session.install("mypy", "types-Flask", "types-requests", "types-PyMySQL", "types-filelock",
                     "types-PyYAML", "types-tabulate", "types-psutil", "types-Flask-Cors",
-                    "types-sqlalchemy-utils", "types-pkg-resources")
+                    "types-sqlalchemy-utils", "types-pkg-resources", "types-mysqlclient")
 
     session.install("-e", "./jobmon_core")
     session.install("-e", "./jobmon_client")

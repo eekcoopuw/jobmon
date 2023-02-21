@@ -3,6 +3,7 @@ from typing import Any, cast, Dict, Optional
 
 from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask, jsonify, request
+from MySQLdb import OperationalError
 import structlog
 from werkzeug.exceptions import BadRequest
 
@@ -77,8 +78,8 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         return response
 
     # error handling
-    @app.errorhandler(ServerError)
-    def handle_mysql_gone_away(error: ServerError) -> Any:
+    @app.errorhandler(OperationalError)
+    def handle_mysql_gone_away(error: OperationalError) -> Any:
         if "2013, 'Lost connection to MySQL server during query'" in str(error):
             engine = SessionLocal().get_bind()
             # A new connection pool is created immediately after the old one has been disposed
