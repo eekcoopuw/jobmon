@@ -123,9 +123,8 @@ class ClusterDistributor(Protocol):
         self,
         command: str,
         name: str,
-        logfile_name: str,
         requested_resources: Dict[str, Any],
-    ) -> Tuple[str, Optional[str], Optional[str]]:
+    ) -> str:
         """Submit the command on the cluster technology and return a distributor_id.
 
         The distributor_id can be used to identify the associated TaskInstance, terminate
@@ -136,7 +135,6 @@ class ClusterDistributor(Protocol):
         Args:
             command: command to be run
             name: name of task
-            logfile_name: the initial filepaths logs will be written to
             requested_resources: resource requests sent to distributor API
 
         Returns:
@@ -149,10 +147,9 @@ class ClusterDistributor(Protocol):
         self,
         command: str,
         name: str,
-        logfile_name: str,
         requested_resources: Dict[str, Any],
         array_length: int,
-    ) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
+    ) -> Dict[int, str]:
         """Submit an array task to the underlying distributor and return a distributor_id.
 
         The distributor ID represents the ID of the overall array job, sub-tasks will have
@@ -161,7 +158,6 @@ class ClusterDistributor(Protocol):
         Args:
             command: the array worker node command to run
             name: name of the array
-            logfile_name: parent name of the initial filepath logs will be written to.
             requested_resources: resources with which to run the array
             array_length: how many tasks associated with the array
         Return:
@@ -241,6 +237,11 @@ class ClusterWorkerNode(Protocol):
 
     @abstractmethod
     def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
+        """Error and exit code info from the executor."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def initialize_logfile(self, log_type: str, log_dir: str, name: str) -> str:
         """Error and exit code info from the executor."""
         raise NotImplementedError
 

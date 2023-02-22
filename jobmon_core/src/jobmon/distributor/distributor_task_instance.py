@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import logging
-from typing import List, Optional, Set, Tuple, TYPE_CHECKING
+from typing import List, Set, Tuple, TYPE_CHECKING
 
 from jobmon.core.constants import TaskInstanceStatus
 from jobmon.core.exceptions import InvalidResponse
@@ -51,10 +51,6 @@ class DistributorTaskInstance:
             return str(self.task_instance_id)
 
     @property
-    def logfile_name(self) -> str:
-        return str(self.task_instance_id)
-
-    @property
     def batch(self) -> TaskInstanceBatch:
         """Returns the batch the DistributorTaskInstance is in."""
         return self._batch
@@ -74,11 +70,7 @@ class DistributorTaskInstance:
         self._array_step_id = val
 
     def transition_to_launched(
-        self,
-        distributor_id: str,
-        next_report_increment: float,
-        stdout_path: Optional[str] = None,
-        stderr_path: Optional[str] = None,
+        self, distributor_id: str, next_report_increment: float
     ) -> None:
         """Register the submission of a new task instance to a cluster.
 
@@ -92,8 +84,6 @@ class DistributorTaskInstance:
             message={
                 "distributor_id": str(distributor_id),
                 "next_report_increment": next_report_increment,
-                "stdout_path": stdout_path,
-                "stderr_path": stderr_path,
             },
             request_type="post",
         )

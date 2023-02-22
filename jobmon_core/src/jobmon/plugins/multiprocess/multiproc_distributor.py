@@ -1,6 +1,4 @@
 """Multiprocess executes tasks in parallel if multiple threads are available."""
-from contextlib import ExitStack
-import json
 import logging
 from multiprocessing import JoinableQueue, Process, Queue
 import os
@@ -25,8 +23,7 @@ class PickableTask:
         self,
         distributor_id: str,
         command: str,
-        logfiles: Dict,
-        array_step_id: Optional[int] = None,
+        task_type: str = "array",
     ) -> None:
         """Initialization of PickableTask.
 
@@ -34,12 +31,7 @@ class PickableTask:
         """
         self.distributor_id = distributor_id
         self.command = command
-        self._logfiles = json.dumps(logfiles)
-        self.array_step_id = array_step_id
-
-    @property
-    def logfiles(self) -> Dict:
-        return json.loads(self._logfiles)
+        self.task_type = task_type
 
 
 class Consumer(Process):
@@ -80,33 +72,27 @@ class Consumer(Process):
                     break
 
                 else:
-                    logger.debug(f"consumer received {task.command}")
+                    logger.info(f"consumer received {task.command}")
 
                     # run the job
                     env = os.environ.copy()
-                    env["JOB_ID"] = str(task.distributor_id)
-                    if task.array_step_id is not None:
-                        env["ARRAY_STEP_ID"] = str(task.array_step_id)
 
-                    with ExitStack() as stack:
-                        log_kwargs: Dict = {}
-                        for io_type, fname in task.logfiles.items():
-                            f = stack.enter_context(open(fname, "w"))
-                            log_kwargs[io_type] = f
+                    if task.task_type == "array":
+                        job_id, array_step_id = task.distributor_id.split("_")
+                        env["JOB_ID"] = job_id
+                        env["ARRAY_STEP_ID"] = array_step_id
+                    else:
+                        env["JOB_ID"] = task.distributor_id
 
-                        proc = subprocess.Popen(
-                            task.command,
-                            env=env,
-                            shell=True,
-                            stdout=log_kwargs.get("stdout"),
-                            stderr=log_kwargs.get("stderr"),
-                        )
+                    proc = subprocess.Popen(task.command, env=env, shell=True)
 
-                        # log the pid with the distributor class
-                        self.response_queue.put((task.distributor_id, proc.pid))
+                    # log the pid with the distributor class
+                    self.response_queue.put((task.distributor_id, proc.pid))
 
-                        # wait till the process finishes
-                        proc.communicate()
+                    # wait till the process finishes
+                    proc.communicate()
+
+                    logger.info(f"consumer finished processing {task.distributor_id}")
 
                     # tell the queue this job is done so it can be shut down
                     # someday
@@ -115,6 +101,8 @@ class Consumer(Process):
 
             except queue.Empty:
                 pass
+            except Exception as e:
+                logger.exception(e)
 
 
 class MultiprocessDistributor(ClusterDistributor):
@@ -294,43 +282,25 @@ class MultiprocessDistributor(ClusterDistributor):
         self,
         command: str,
         name: str,
-        logfile_name: str,
         requested_resources: Dict[str, Any],
-    ) -> Tuple[str, Optional[str], Optional[str]]:
+    ) -> str:
         distributor_id = str(self._next_job_id)
         self._next_job_id += 1
 
-        logfiles: Dict = {}
-        for io_type in ["stdout", "stderr"]:
-            try:
-                fname = requested_resources[io_type]["job"].format(
-                    name=logfile_name, type=io_type, distributor_id=distributor_id
-                )
-                logfiles[io_type] = fname
-            except KeyError:
-                pass
-
         task = PickableTask(
-            distributor_id,
-            self.worker_node_entry_point + " " + command,
-            logfiles,
+            distributor_id, self.worker_node_entry_point + " " + command, "job"
         )
         self.task_queue.put(task)
         self._running_or_submitted.update({distributor_id: None})
-        return (
-            distributor_id,
-            logfiles.get("stdout", None),
-            logfiles.get("stderr", None),
-        )
+        return distributor_id
 
     def submit_array_to_batch_distributor(
         self,
         command: str,
         name: str,
-        logfile_name: str,
         requested_resources: Dict[str, Any],
         array_length: int,
-    ) -> Dict[int, Tuple[str, Optional[str], Optional[str]]]:
+    ) -> Dict[int, str]:
         """Submit an array task to the multiprocess cluster.
 
         Return: a mapping of array_step_id to distributor_id, output path, and error path
@@ -338,29 +308,13 @@ class MultiprocessDistributor(ClusterDistributor):
         job_id = self._next_job_id
         self._next_job_id += 1
 
-        mapping: Dict[int, Tuple[str, Optional[str], Optional[str]]] = {}
+        mapping: Dict[int, str] = {}
         for array_step_id in range(0, array_length):
             distributor_id = self._get_subtask_id(job_id, array_step_id)
-            logfiles: Dict = {}
-            for io_type in ["stdout", "stderr"]:
-                try:
-                    fname = requested_resources[io_type]["array"].format(
-                        name=logfile_name, type=io_type, distributor_id=distributor_id
-                    )
-                    logfiles[io_type] = fname
-                except KeyError:
-                    pass
-            mapping[array_step_id] = (
-                distributor_id,
-                logfiles.get("stdout", None),
-                logfiles.get("stderr", None),
-            )
+            mapping[array_step_id] = distributor_id
 
             task = PickableTask(
-                distributor_id,
-                self.worker_node_entry_point + " " + command,
-                logfiles,
-                array_step_id,
+                distributor_id, self.worker_node_entry_point + " " + command, "array"
             )
             self.task_queue.put(task)
             self._running_or_submitted.update({distributor_id: None})
@@ -384,6 +338,10 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
         self._distributor_id: Optional[str] = None
         self._array_step_id: Optional[int] = None
         self._subtask_id: Optional[str] = None
+        self._logfile_template = {
+            "stdout": "{root}/{name}.o{job_id}",
+            "stderr": "{root}/{name}.e{job_id}",
+        }
 
     @property
     def distributor_id(self) -> Optional[str]:
@@ -391,7 +349,7 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
         if self._distributor_id is None:
             jid = os.environ.get("JOB_ID")
             if jid:
-                self._distributor_id = jid
+                self._distributor_id = f"{jid}_{self.array_step_id}"
         return self._distributor_id
 
     def get_exit_info(self, exit_code: int, error_msg: str) -> Tuple[str, str]:
@@ -402,6 +360,15 @@ class MultiprocessWorkerNode(ClusterWorkerNode):
     def get_usage_stats(self) -> Dict:
         """Usage information specific to the distributor."""
         return {}
+
+    def initialize_logfile(self, log_type: str, log_dir: str, name: str) -> str:
+        if log_dir:
+            logpath = self._logfile_template[log_type].format(
+                root=log_dir, name=name, job_id=self.distributor_id
+            )
+        else:
+            logpath = "/dev/null"
+        return logpath
 
     @property
     def array_step_id(self) -> Optional[int]:

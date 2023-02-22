@@ -482,7 +482,7 @@ def test_workflow_get_errors(tool, task_template, db_engine):
         app_route=app_route,
         message={
             "error_state": TaskInstanceStatus.ERROR,
-            "error_message": "bla bla bla",
+            "error_description": "bla bla bla",
         },
         request_type="post",
     )
@@ -492,7 +492,7 @@ def test_workflow_get_errors(tool, task_template, db_engine):
     app_route = f"/task_instance/{ti_id_a}/log_error_worker_node"
     return_code, _ = workflow1.requester.send_request(
         app_route=app_route,
-        message={"error_state": "F", "error_message": "ble ble ble"},
+        message={"error_state": "F", "error_description": "ble ble ble"},
         request_type="post",
     )
     assert return_code == 200
@@ -501,7 +501,7 @@ def test_workflow_get_errors(tool, task_template, db_engine):
     app_route = f"/task_instance/{ti_id_b}/log_error_worker_node"
     return_code, _ = workflow1.requester.send_request(
         app_route=app_route,
-        message={"error_state": "F", "error_message": "cla cla cla"},
+        message={"error_state": "F", "error_description": "cla cla cla"},
         request_type="post",
     )
     assert return_code == 200

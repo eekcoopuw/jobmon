@@ -3,7 +3,7 @@ from http import HTTPStatus as StatusCodes
 from typing import Any, cast, Dict
 
 from flask import jsonify, request
-from sqlalchemy import bindparam, case, func, insert, literal_column, select, update
+from sqlalchemy import bindparam, func, insert, literal_column, select, update
 import structlog
 
 from jobmon.core.constants import TaskInstanceStatus
@@ -211,7 +211,7 @@ def log_array_distributor_id(array_id: int) -> Any:
 
     # Create a list of dicts out of the distributor id map.
     params = [
-        {"step_id": key, "distributor_id": val[0], "stdout": val[1], "stderr": val[2]}
+        {"step_id": key, "distributor_id": val}
         for key, val in distributor_id_map.items()
     ]
 
@@ -228,17 +228,7 @@ def log_array_distributor_id(array_id: int) -> Any:
                 TaskInstance.array_id == array_id,
                 TaskInstance.array_step_id == bindparam("step_id"),
             )
-            .values(
-                distributor_id=bindparam("distributor_id"),
-                stdout=case(
-                    [TaskInstance.stdout.is_(None), bindparam("stdout")],
-                    [TaskInstance.stdout.is_not(None), TaskInstance.stdout],
-                ),
-                stderr=case(
-                    [TaskInstance.stderr.is_(None), bindparam("stderr")],
-                    [TaskInstance.stderr.is_not(None), TaskInstance.stderr],
-                ),
-            )
+            .values(distributor_id=bindparam("distributor_id"))
             .execution_options(synchronize_session=False)
         )
         session.connection().execute(update_stmt, params)

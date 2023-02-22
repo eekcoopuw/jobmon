@@ -174,7 +174,9 @@ class DistributorService:
 
         except DistributorInterruptedError:
             logger.info("Interrupt received!")
-
+        except Exception as e:
+            logger.exception(e)
+            raise
         finally:
             # stop distributor
             self.cluster_interface.stop()
@@ -280,7 +282,6 @@ class DistributorService:
                 self.cluster_interface.submit_array_to_batch_distributor(
                     command=command,
                     name=task_instance_batch.submission_name,
-                    logfile_name=task_instance_batch.logfile_name,
                     requested_resources=task_instance_batch.requested_resources,
                     array_length=len(task_instance_batch.task_instances),
                 )
@@ -297,7 +298,7 @@ class DistributorService:
 
         except Exception as e:
             # if other error, transition to No ID status
-            logger.error(str(e))
+            logger.exception(e)
             for task_instance in task_instance_batch.task_instances:
                 distributor_command = DistributorCommand(
                     task_instance.transition_to_no_distributor_id, no_id_err_msg=str(e)
@@ -341,21 +342,19 @@ class DistributorService:
 
         # Submit to batch distributor
         try:
-            resp = self.cluster_interface.submit_to_batch_distributor(
+            distributor_id = self.cluster_interface.submit_to_batch_distributor(
                 command=command,
                 name=task_instance.submission_name,
-                logfile_name=task_instance.logfile_name,
                 requested_resources=requested_resources,
             )
-            distributor_id, output_path, error_path = resp  # unpack response tuple
         except Exception as e:
-            logger.error(str(e))
+            logger.exception(e)
             task_instance.transition_to_no_distributor_id(no_id_err_msg=str(e))
 
         else:
             # move from register queue to launch queue
             task_instance.transition_to_launched(
-                distributor_id, self._next_report_increment, output_path, error_path
+                distributor_id, self._next_report_increment
             )
 
     def triage_error(self, task_instance: DistributorTaskInstance) -> None:
@@ -375,7 +374,6 @@ class DistributorService:
         task_instances_launched = self._task_instance_status_map[
             TaskInstanceStatus.LAUNCHED
         ]
-
         submitted_or_running = self.cluster_interface.get_submitted_or_running(
             [x.distributor_id for x in task_instances_launched]
         )
