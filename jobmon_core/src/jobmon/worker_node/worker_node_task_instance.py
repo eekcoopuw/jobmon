@@ -162,7 +162,7 @@ class WorkerNodeTaskInstance:
     @property
     def command_returncode(self) -> int:
         """Returns the exit code of the command that was run."""
-        if hasattr(self, "_proc_returncode"):
+        if not hasattr(self, "_proc_returncode"):
             raise AttributeError(
                 "Cannot access command_returncode until run() has been called"
             )
@@ -171,7 +171,7 @@ class WorkerNodeTaskInstance:
     @property
     def command_stdout(self) -> str:
         """Returns the last 10k characters of the commands stdout."""
-        if hasattr(self, "_proc_stdout"):
+        if not hasattr(self, "_proc_stdout"):
             raise AttributeError(
                 "Cannot access command_stdout until run() has been called"
             )
@@ -180,7 +180,7 @@ class WorkerNodeTaskInstance:
     @property
     def command_stderr(self) -> str:
         """Returns the last 10k characters of the commands stderr."""
-        if hasattr(self, "_proc_stderr"):
+        if not hasattr(self, "_proc_stderr"):
             raise AttributeError(
                 "Cannot access command_stderr until run() has been called"
             )
@@ -519,17 +519,17 @@ class WorkerNodeTaskInstance:
                     # otherwise violent death
                     process.kill()
                     await process.wait()
+
                 if process.returncode is None:
                     raise RuntimeError(
-                        "process.returncode is None after awaiting shutdown"
+                        "process.returncode is None after awaiting process shutdown"
                     ) from e
                 else:
                     returncode = process.returncode
-                raise
 
+                raise
             else:
                 returncode = heartbeat_task.result()
-
             finally:
                 self.set_command_output(
                     returncode=returncode,
