@@ -286,6 +286,7 @@ class DistributorService:
                     array_length=len(task_instance_batch.task_instances),
                 )
             )
+            task_instance_batch.set_distributor_ids(distributor_id_map)
 
         except NotImplementedError:
             # create DistributorCommands to submit the launch if array isn't implemented
@@ -312,7 +313,7 @@ class DistributorService:
             )
             # Log the distributor IDs
             log_distributor_ids_command = DistributorCommand(
-                task_instance_batch.log_distributor_ids, distributor_id_map
+                task_instance_batch.log_distributor_ids
             )
 
             distributor_commands.append(launch_command)

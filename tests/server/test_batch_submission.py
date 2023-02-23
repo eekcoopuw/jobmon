@@ -87,12 +87,9 @@ def test_array_launch_transition(web_server_in_memory):
     resp = app.post(
         "/array/1/log_distributor_id",
         json={
-            "array_batch_num": 1,
-            "distributor_id_map": {
-                "0": "123_1",
-                "1": "123_2",
-                "2": "123_3",
-            },
+            ti1_id: "123_1",
+            ti2_id: "123_2",
+            ti3_id: "123_3",
         },
     )
     assert resp.status_code == 200
