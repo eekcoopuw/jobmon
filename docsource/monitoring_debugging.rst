@@ -8,7 +8,7 @@ The Jobmon GUI allows users to see the status of their workflows.
 In general any status qwery in the CLI is also available in the GUI
 and should be easier to find.
 
-The GUI is at: `<http://jobmon-gui.ihme.washington.edu>`_
+The GUI is at: `<https://jobmon-gui.ihme.washington.edu>`_
 
 .. _status-commands-label:
 

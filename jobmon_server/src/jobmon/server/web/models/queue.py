@@ -30,7 +30,7 @@ class Queue(Base):
 
 
 def add_queues(session: Session) -> None:
-    """Populate hte queue table in the database."""
+    """Populate the queue table in the database."""
     for cluster_name in ["dummy", "sequential", "multiprocess"]:
         cluster = (
             session.execute(select(Cluster).where(Cluster.name == cluster_name))

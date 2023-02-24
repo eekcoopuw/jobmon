@@ -140,7 +140,7 @@ function WorkflowDetails({ subpage }) {
         fetchData();
     }, [task_template_name]);
     useEffect(() => {
-        if (typeof params.workflowId !== 'undefined' && tt_id !== 'undefined' && tt_id != '') {
+        if (typeof params.workflowId !== 'undefined' && tt_id !== 'undefined' && tt_id !== '') {
             getAsyncErrorLogs(setErrorLogs, params.workflowId, setErrorLoading, tt_id)();
         }
     }, [tt_id]);
