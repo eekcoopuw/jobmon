@@ -488,7 +488,6 @@ class WorkerNodeTaskInstance:
         with open(self.stdout, "w") as stdout_steam, open(
             self.stderr, "w"
         ) as stderr_steam:
-
             try:
                 # keep typecheck happy
                 if process.stdout is None or process.stderr is None:
