@@ -47,7 +47,13 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "preinstall": "npx npm-force-resolutions"
+  },
+  "overrides": {
+    "got": "^12.1.0",
+    "glob-parent": "^6.0.1",
+    "@svgr/webpack": "$@svgr/webpack"
   },
   "eslintConfig": {
     "extends": [
@@ -70,6 +76,7 @@
   "devDependencies": {
     "@types/react-bootstrap-table-next": "^4.0.18",
     "@types/react-bootstrap-table2-paginator": "^2.1.2",
-    "nodemon": "^1.3.3"
+    "nodemon": "^1.3.3",
+    "@svgr/webpack": "^6.5.1"
   }
 }
