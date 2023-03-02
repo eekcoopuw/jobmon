@@ -132,7 +132,6 @@ class SequentialDistributor(ClusterDistributor):
 
         # run the job and log the exit code
         try:
-
             # run command
             cli = WorkerNodeCLI()
             args = cli.parse_args(command)

@@ -298,7 +298,6 @@ def test_limited_error_log(tool, db_engine):
 
 
 def test_worker_node_environment(client_env):
-
     cluster = Cluster.get_cluster("sequential")
     worker_node = cluster.get_worker_node()
     ti = WorkerNodeTaskInstance(cluster_interface=worker_node, task_instance_id=100)

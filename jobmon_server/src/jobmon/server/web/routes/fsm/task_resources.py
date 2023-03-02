@@ -24,18 +24,9 @@ def get_task_resources(task_resources_id: int) -> Any:
     session = SessionLocal()
     with session.begin():
         select_stmt = (
-            select(
-                TaskResources.requested_resources,
-                Queue.name
-            )
-            .join_from(
-                TaskResources,
-                Queue,
-                TaskResources.queue_id == Queue.id
-            )
-            .where(
-                TaskResources.id == task_resources_id
-            )
+            select(TaskResources.requested_resources, Queue.name)
+            .join_from(TaskResources, Queue, TaskResources.queue_id == Queue.id)
+            .where(TaskResources.id == task_resources_id)
         )
         requested_resources, queue_name = session.execute(select_stmt).fetchone()
         requested_resources = ast.literal_eval(requested_resources)
