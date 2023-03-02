@@ -5,7 +5,7 @@ import logging
 import signal
 import sys
 import time
-from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Set, Union
+from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Set, Tuple, Union
 
 from jobmon.core.cluster_protocol import ClusterDistributor
 from jobmon.core.configuration import JobmonConfig
@@ -64,6 +64,7 @@ class DistributorService:
 
         # indexing of task instance by associated id
         self._task_instances: Dict[int, DistributorTaskInstance] = {}
+        self._task_instance_batches: Dict[Tuple[int, int], TaskInstanceBatch] = {}
 
         # work queue
         self._distributor_commands: Iterator[DistributorCommand] = it.chain([])
@@ -245,26 +246,31 @@ class DistributorService:
 
         # construct batch. associations are made inside batch init
         for batch in result["task_instance_batches"]:
-            task_instance_batch_kwargs = SerializeTaskInstanceBatch.kwargs_from_wire(
-                batch
-            )
+            task_instance_batch_kwargs = SerializeTaskInstanceBatch.kwargs_from_wire(batch)
 
-            task_instance_batch = TaskInstanceBatch(
-                array_id=task_instance_batch_kwargs["array_id"],
-                array_name=task_instance_batch_kwargs["array_name"],
-                array_batch_num=task_instance_batch_kwargs["array_batch_num"],
-                task_resources_id=task_instance_batch_kwargs["task_resources_id"],
-                requester=self.requester,
-            )
+            array_id = task_instance_batch_kwargs["array_id"]
+            batch_number = task_instance_batch_kwargs["array_batch_num"]
+            try:
+                task_instance_batch = self._task_instance_batches[(array_id, batch_number)]
+            except KeyError:
+                task_instance_batch = TaskInstanceBatch(
+                    array_id=array_id,
+                    array_name=task_instance_batch_kwargs["array_name"],
+                    array_batch_num=batch_number,
+                    task_resources_id=task_instance_batch_kwargs["task_resources_id"],
+                    requester=self.requester,
+                )
+                self._task_instance_batches[(array_id, batch_number)] = task_instance_batch
 
             for task_instance_id in task_instance_batch_kwargs["task_instance_ids"]:
                 task_instance = self._task_instances[task_instance_id]
                 task_instance.status = TaskInstanceStatus.INSTANTIATED
                 task_instance_batch.add_task_instance(task_instance)
 
-    def launch_task_instance_batch(
-        self, task_instance_batch: TaskInstanceBatch
-    ) -> None:
+    def launch_task_instance_batch(self, task_instance_batch: TaskInstanceBatch) -> None:
+        self._task_instance_batches.pop(
+            (task_instance_batch.array_id, task_instance_batch.batch_number)
+        )
         # record batch info in db
         task_instance_batch.prepare_task_instance_batch_for_launch()
 
@@ -372,9 +378,7 @@ class DistributorService:
 
     def log_task_instance_report_by_date(self) -> None:
         """Log the heartbeat to show that the task instance is still alive."""
-        task_instances_launched = self._task_instance_status_map[
-            TaskInstanceStatus.LAUNCHED
-        ]
+        task_instances_launched = self._task_instance_status_map[TaskInstanceStatus.LAUNCHED]
         submitted_or_running = self.cluster_interface.get_submitted_or_running(
             [x.distributor_id for x in task_instances_launched]
         )
@@ -479,6 +483,7 @@ class DistributorService:
         queued_task_instances = list(
             self._task_instance_status_map[TaskInstanceStatus.QUEUED]
         )
+        queued_task_instances.sort()
         chunk_size = 500
         while queued_task_instances:
             ti_list = queued_task_instances[:chunk_size]
