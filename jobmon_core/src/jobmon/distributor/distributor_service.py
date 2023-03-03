@@ -5,7 +5,18 @@ import logging
 import signal
 import sys
 import time
-from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Set, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 from jobmon.core.cluster_protocol import ClusterDistributor
 from jobmon.core.configuration import JobmonConfig
@@ -64,6 +75,7 @@ class DistributorService:
 
         # indexing of task instance by associated id
         self._task_instances: Dict[int, DistributorTaskInstance] = {}
+        self._task_instance_batches: Dict[Tuple[int, int], TaskInstanceBatch] = {}
 
         # work queue
         self._distributor_commands: Iterator[DistributorCommand] = it.chain([])
@@ -249,13 +261,23 @@ class DistributorService:
                 batch
             )
 
-            task_instance_batch = TaskInstanceBatch(
-                array_id=task_instance_batch_kwargs["array_id"],
-                array_name=task_instance_batch_kwargs["array_name"],
-                array_batch_num=task_instance_batch_kwargs["array_batch_num"],
-                task_resources_id=task_instance_batch_kwargs["task_resources_id"],
-                requester=self.requester,
-            )
+            array_id = task_instance_batch_kwargs["array_id"]
+            batch_number = task_instance_batch_kwargs["array_batch_num"]
+            try:
+                task_instance_batch = self._task_instance_batches[
+                    (array_id, batch_number)
+                ]
+            except KeyError:
+                task_instance_batch = TaskInstanceBatch(
+                    array_id=array_id,
+                    array_name=task_instance_batch_kwargs["array_name"],
+                    array_batch_num=batch_number,
+                    task_resources_id=task_instance_batch_kwargs["task_resources_id"],
+                    requester=self.requester,
+                )
+                self._task_instance_batches[
+                    (array_id, batch_number)
+                ] = task_instance_batch
 
             for task_instance_id in task_instance_batch_kwargs["task_instance_ids"]:
                 task_instance = self._task_instances[task_instance_id]
@@ -265,6 +287,9 @@ class DistributorService:
     def launch_task_instance_batch(
         self, task_instance_batch: TaskInstanceBatch
     ) -> None:
+        self._task_instance_batches.pop(
+            (task_instance_batch.array_id, task_instance_batch.batch_number)
+        )
         # record batch info in db
         task_instance_batch.prepare_task_instance_batch_for_launch()
 
@@ -286,6 +311,7 @@ class DistributorService:
                     array_length=len(task_instance_batch.task_instances),
                 )
             )
+            task_instance_batch.set_distributor_ids(distributor_id_map)
 
         except NotImplementedError:
             # create DistributorCommands to submit the launch if array isn't implemented
@@ -312,7 +338,7 @@ class DistributorService:
             )
             # Log the distributor IDs
             log_distributor_ids_command = DistributorCommand(
-                task_instance_batch.log_distributor_ids, distributor_id_map
+                task_instance_batch.log_distributor_ids
             )
 
             distributor_commands.append(launch_command)
@@ -478,6 +504,7 @@ class DistributorService:
         queued_task_instances = list(
             self._task_instance_status_map[TaskInstanceStatus.QUEUED]
         )
+        queued_task_instances.sort()
         chunk_size = 500
         while queued_task_instances:
             ti_list = queued_task_instances[:chunk_size]
