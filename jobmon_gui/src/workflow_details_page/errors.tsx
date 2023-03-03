@@ -3,9 +3,11 @@ import moment from 'moment';
 import BootstrapTable from "react-bootstrap-table-next";
 import filterFactory, { textFilter } from 'react-bootstrap-table2-filter';
 import { sanitize } from 'dompurify';
+import { Form } from 'react-bootstrap';
 
 import '../jobmon_gui.css';
 import { convertDate, safe_rum_start_span, safe_rum_unit_end } from '../functions';
+import CustomModal from '../Modal';
 
 export default function Errors({ errorLogs, tt_name, loading, apm }) {
     const s: any = safe_rum_start_span(apm, "errors", "custom");
@@ -13,31 +15,48 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
     const [errorDetail, setErrorDetail] = useState({'error': '', 'error_time': '', 'task_id': '',
           'task_instance_err_id': '', 'task_instance_id': '', 'time_since': ''});
     const [helper, setHelper] = useState("");
+    const [showModal, setShowModal] = useState(false)
+    const [justRecentErrors, setRecentErrors] = useState(false)
 
+    //FIXME: time is in UTC but shows as if locally:
+    // an error happening now shows: in 8 hours
     function getTimeSince(date: string) {
         let date_obj = convertDate(date);
         const dateTimeAgo = moment(date_obj).fromNow();
         return dateTimeAgo;
     }
 
-    //error trim
-    function error_trim(s) {
-        var length = 40;
-        if (s.length > length){
-           var trimmed_s = s.substring(0, length) + "...";
-           return trimmed_s;
-        }else{
-           return s;
-        }
+    function handleToggle() {
+        setRecentErrors(!justRecentErrors)
     }
 
     function get_error_brief(errors) {
-        var r: any = [];
+        let r: any = [];
 
-        for (var i in errors) {
-            var e = errors[i];
-            var cell_display = "<div><p style='color:grey;text-align:right;font-size:8px'>".concat(getTimeSince(e.error_time)).concat("</p><p>").concat(error_trim(e.error)).concat("</p></div>");
-            r.push({"id": i, "brief": cell_display});
+        for (let i in errors) {
+        
+            let e = errors[i];
+            if (!justRecentErrors || (justRecentErrors && e.most_recent_attempt)){
+            
+            let date_display = `
+            <div class="error-time">
+            <span>${e.error_time}</span>
+            <span class="error-time-since">${getTimeSince(e.error_time)}</span>
+            </div>
+            `;
+            let error_display = `
+            <div class="error-log">${e.error.trim().split("\n").slice(-1)}</div>
+            `;
+            
+            r.push({
+                "id": e.task_instance_err_id,
+                "task_id": e.task_id,
+                "task_instance_id": e.task_instance_id,
+                "brief": error_display,
+                "date": date_display,
+                "time": e.error_time
+            })
+            }
         }
         return r;
     }
@@ -52,7 +71,25 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
         {
             dataField: "id",
             text: "Error Index",
-            hidden: true
+            hidden: true,
+            sort: true
+        },
+        {
+            dataField: "task_id",
+            text: "Task ID",
+            headerStyle: { width: "10%" },
+            sort: true
+        },
+        {
+            dataField: "task_instance_id",
+            text: "Task Instance ID",
+            headerStyle: { width: "15%" },
+            sort: true
+        },
+        {
+            dataField: "date", text: "Error Date",
+            formatter: htmlFormatter,
+            sort: true
         },
 
         {
@@ -61,45 +98,22 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
             filter: textFilter(),
             formatter: htmlFormatter,
             headerEvents: {
-                onMouseEnter: (e, column, columnIndex) => {
+                onMouseEnter: () => {
                     setHelper("The list of task instance error logs with filter. Click to view the error detail.");
                 },
-                onMouseLeave: (e, column, columnIndex) => {
+                onMouseLeave: () => {
                     setHelper("");
                 }
             },
             events: {
-                onMouseEnter: (e, column, columnIndex, row, rowIndex) => {
-                    setHelper("Task Instance ID: ".concat(errorLogs[rowIndex].task_instance_id));
-                },
-                onMouseLeave: (e, column, columnIndex, row, rowIndex) => {
-                    setHelper("");
+                onClick: (e, column, columnIndex, row, rowIndex) => {
+                    console.log(rowIndex);  
+                    setShowModal(true)
+                    setErrorDetail(errorLogs[rowIndex]);
                 }
             }
         }
     ];
-
-    //label click event
-    function error_clicked(d) {
-        let e = {'error': '', 'error_time': '', 'task_id': '', 'task_instance_err_id': '', 'task_instance_id': '', 'time_since': ''};
-        e.task_id = d.task_id;
-        e.task_instance_id = d.task_instance_id;
-        e.task_instance_err_id = d.task_instance_err_id;
-        e.error = d.error;
-
-        // calculate time from now
-        let error_date_obj = convertDate(d.error_time);
-        e.error_time = error_date_obj.toLocaleString("en-US", { timeZone: "America/Los_Angeles", dateStyle: "full", timeStyle: "long" });
-        e.time_since = getTimeSince(d.error_time);
-
-        setErrorDetail(e);
-    }
-
-    const tableRowEvents = {
-       onClick: (e, row, rowIndex) => {
-         setErrorDetail(errorLogs[rowIndex]);
-       },
-    }
 
     //hook
     useEffect(() => {
@@ -109,13 +123,34 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
         setErrorDetail(temp);
     }, [errorLogs]);
 
+
+
     // logic: when task template name selected, show a loading spinner; when loading finished and there is no error, show a no error message; when loading finished and there are errors, show error logs
     return(
         <div>
-            <div className="div_floatleft">
+            <div>
                 <span className="span-helper"><i>{helper}</i></span>
                 <br/>
                 {errorLogs.length !== 0 && loading === false &&
+                    <>
+                    <div className="d-flex pt-4">
+                        <p className=''>Show only most recent task instances</p>
+                        <div className='px-4' onClick={handleToggle}>
+                            {
+                            //"toggle-switch " + recentErrorsToggle ? "active" : ""
+                        }
+                            <div className={"toggle-switch " + (justRecentErrors ? "active": "")}>
+                            <div/>
+                                {
+                                //    "toggle-slider " + recentErrorsToggle ? "active" : ""
+                                }
+                                <span className={"toggle-slider " + (justRecentErrors ? "active" : "")}
+                                ></span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <hr />
                   <BootstrapTable
                                 keyField="id"
                                 bootstrap4
@@ -124,40 +159,33 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
                                 data={ error_brief }
                                 columns={ columns }
                                 filter={ filterFactory() }
-                                rowEvents={ tableRowEvents }
                                 selectRow={{
                                     mode: "radio",
                                     hideSelectColumn: true,
                                     clickToSelect: true,
                                     bgColor: "#848884",
-                                  }}
-
+                                }}
                             />
+                </>
                 }
 
             </div>
 
-            <div className="div_floatright_align_left">
-                 {errorDetail.task_id !== "" && loading === false &&
-                     <div className="div-error">
+            <CustomModal
+                className = "error-log-modal"
+                headerContent={
+                    <h5> Task ID {errorDetail.task_id} - Error log</h5>
+                }
+                bodyContent={
+                    <p>
+                        {errorDetail.error}
+                    </p>
+                }
+                showModal={showModal}
+                setShowModal={setShowModal}
+            />
 
-                             Task ID: {errorDetail.task_id}
-                             <br/>
-                             Task Instance ID: {errorDetail.task_instance_id}
-                             <br/>
-                             Error Time: {errorDetail.error_time}
-                             <br/>
-                             <br/>
-                             Error Log:
-                             <div className="div-break-word">
-                                 {errorDetail.error}
-                             </div>
-
-                     </div>
-                 }
-
-            </div>
-
+            
             {errorLogs.length === 0 && tt_name !== "" && loading === false &&
                     <div>
                         <br/>

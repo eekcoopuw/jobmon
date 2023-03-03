@@ -540,11 +540,7 @@ def get_tt_error_log_viz(tt_id: int, wf_id: int) -> Any:
     errors_most_recent_df = (
         errors_df.lazy()
         .groupby("task_id")
-        .agg(
-            [
-                pl.all().sort_by("task_instance_id").last(),
-            ]
-        )
+        .agg([pl.col("task_instance_id").max()])
         .with_columns(pl.lit(True).alias("most_recent_attempt"))
         .collect()
     )

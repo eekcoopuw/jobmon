@@ -412,3 +412,85 @@
 .ti-popover-body {
     max-width: 1000px;
 }
+
+#tt_search .error-log {
+   cursor: pointer;
+   white-space: nowrap;
+   overflow: hidden;
+   text-overflow: ellipsis;
+   height: 40px;
+}
+
+#tt_search .error-time .error-time-since {
+   color:grey;
+   text-align:right;
+   float:right;
+   font-size: 8px;
+}
+
+body .error-log-modal .modal-dialog {
+   max-width: 96%;
+}
+
+.error-log-modal .modal-dialog pre {
+   font-size: 11px;
+}
+
+.toggle-switch {
+   position: relative;
+   display: inline-block;
+   width: 45px;
+   height: 25px;
+}
+
+/* Hide default HTML checkbox */
+.toggle-switch input {
+   opacity: 0;
+   width: 0;
+   height: 0;
+}
+
+/* The slider */
+.toggle-slider {
+   position: absolute;
+   cursor: pointer;
+   top: 0;
+   left: 0;
+   right: 0;
+   bottom: 0;
+   background-color: #ccc;
+   -webkit-transition: .4s;
+   transition: .4s;
+   border-radius: 34px;
+}
+
+.toggle-slider::before {
+   position: absolute;
+   content: "";
+   height: 90%;
+   width: 49%;
+   left: 1%;
+   bottom: 5%;
+   background-color: white;
+   -webkit-transition: .4s;
+   transition: .4s;
+   border-radius: 50%;
+}
+
+/* input:checked + .slider {
+   background-color: #2196F3;
+}
+
+input:focus + .slider {
+   box-shadow: 0 0 1px #2196F3;
+} */
+
+.toggle-slider.active {
+   background-color: #2196F3;
+}
+
+.toggle-slider.active::before {
+   -webkit-transform: translateX(100%);
+   -ms-transform: translateX(100%);
+   transform: translateX(100%);
+}
