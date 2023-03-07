@@ -47,7 +47,7 @@ function TaskDetails() {
     const [ti_details, setTIDetails] = useState([])
     const [upstream_tasks, setUpstreamTasks] = useState([])
     const [downtream_tasks, setDownstreamTasks] = useState([])
-    const [task_status, setTaskStatus] = useState([])
+    const [task_status, setTaskStatus] = useState("")
     const [workflow_id, setWorkflowId] = useState([])
 
 
@@ -57,6 +57,17 @@ function TaskDetails() {
         getTaskDependencies(setUpstreamTasks, setDownstreamTasks, taskId)();
         getTaskDetails(setTaskStatus, setWorkflowId, taskId)();
     }, [taskId]);
+
+    // Update task status and table every 60 seconds if task is not in terminal state
+        useEffect(() => {
+        const interval = setInterval(() => {
+            if (task_status !== "D" && task_status !== "F" ) {
+                getTaskDetails(setTaskStatus, setWorkflowId, taskId)();
+                getTIDetails(setTIDetails, taskId)();
+            }
+        }, 60000);
+        return () => clearInterval(interval);
+    }, [taskId, task_status]);
 
     return (
         <div>

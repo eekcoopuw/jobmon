@@ -3,7 +3,6 @@ import moment from 'moment';
 import BootstrapTable from "react-bootstrap-table-next";
 import filterFactory, { textFilter } from 'react-bootstrap-table2-filter';
 import { sanitize } from 'dompurify';
-import { Form } from 'react-bootstrap';
 
 import '../jobmon_gui.css';
 import { convertDate, safe_rum_start_span, safe_rum_unit_end } from '../functions';
