@@ -213,7 +213,7 @@ def task_status(
     if json:
         return res["task_instance_status"]
     else:
-        return pd.read_json(res["task_instance_status"])
+        return pd.read_json(res["task_instance_status"], dtype=False)
 
 
 def concurrency_limit(
