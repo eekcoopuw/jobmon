@@ -3,6 +3,8 @@ import moment from 'moment';
 import BootstrapTable from "react-bootstrap-table-next";
 import filterFactory, { textFilter } from 'react-bootstrap-table2-filter';
 import { sanitize } from 'dompurify';
+import paginationFactory from "react-bootstrap-table2-paginator";
+import 'react-bootstrap-table2-paginator/dist/react-bootstrap-table2-paginator.min.css';
 
 import '../jobmon_gui.css';
 import { convertDate, safe_rum_start_span, safe_rum_unit_end } from '../functions';
@@ -150,6 +152,7 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
                     </div>
                     
                     <hr />
+                  
                   <BootstrapTable
                                 keyField="id"
                                 bootstrap4
@@ -158,6 +161,7 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
                                 data={ error_brief }
                                 columns={ columns }
                                 filter={ filterFactory() }
+                                pagination={error_brief.length === 0 ? undefined : paginationFactory({ sizePerPage: 10 })}
                                 selectRow={{
                                     mode: "radio",
                                     hideSelectColumn: true,
