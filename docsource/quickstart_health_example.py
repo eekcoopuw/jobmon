@@ -56,15 +56,14 @@ data_prep_template = tool.get_task_template(
         "cores": 1,
         "memory": "1G",
         "runtime": "1m",
-        "stdout": f"/ihme/scratch/users/{user}",
-        "stderr": f"/ihme/scratch/users/{user}",
-        "project": "proj_scicomp",
-        "constraints": "archive"  # To request a J-drive access node, although this is only as an example
+        "stdout": "/tmp",
+        "stderr": "/tmp",
+        "project": "my_slurm_account",
     },
     template_name="quickstart_data_prep_template",
     default_cluster_name="slurm",
     command_template="python "
-                     "/mnt/team/scicomp/pub/docs/training_scripts/quickstart/data_prep.py "
+                     "/code_dir/docsource/quickstart_tasks/data_prep.py "
                      "--location_set_id {location_set_id} "
                      "--root_data_dir {root_data_dir} "
                      "--log_level {log_level}",
@@ -79,14 +78,14 @@ parallel_by_location_template = tool.get_task_template(
         "cores": 2,
         "memory": "1G",
         "runtime": "10m",
-        "stdout": f"/ihme/scratch/users/{user}",
-        "stderr": f"/ihme/scratch/users/{user}",
-        "project": "proj_scicomp"
+        "stdout": "/tmp",
+        "stderr": "/tmp",
+        "project": "my_slurm_account"
     },
     template_name="quickstart_location_template",
     default_cluster_name="slurm",
     command_template="python "
-                     "/mnt/team/scicomp/pub/docs/training_scripts/quickstart/one_location.py "
+                     "/code_dir/docsource/quickstart_tasks/one_location.py "
                      "--location_id {location_id} "
                      "--root_data_dir {root_data_dir} "
                      "--log_level {log_level} ",
@@ -101,13 +100,13 @@ summarization_template = tool.get_task_template(
         "cores": 2,
         "memory": "1G",
         "runtime": "10m",
-        "stdout": f"/ihme/scratch/users/{user}",
-        "stderr": f"/ihme/scratch/users/{user}",
-        "project": "proj_scicomp"
+        "stdout": "/tmp",
+        "stderr": "/tmp",
+        "project": "my_slurm_account"
     },
     template_name="quickstart_summarization_template",
     default_cluster_name="slurm",
-    command_template="python /mnt/team/scicomp/pub/docs/training_scripts/quickstart/summarization.py "
+    command_template="python /code_dir/docsource/quickstart_tasks/summarization.py "
                      "--root_data_dir {root_data_dir} "
                      "--log_level {log_level}",
     node_args=[],
@@ -119,7 +118,7 @@ summarization_template = tool.get_task_template(
 # Create tasks
 location_set_id = 5
 location_set = list(range(location_set_id))
-root_data_dir = f"/ihme/scratch/users/{user}/quickstart/data"
+root_data_dir = f"/home/{user}/quickstart/data"
 
 data_prep_task = data_prep_template.create_task(
     name="data_prep_task",
