@@ -1,6 +1,4 @@
 """ClusterType table in the database."""
-import json
-
 from sqlalchemy import Column, Integer, String
 from sqlalchemy.orm import relationship, Session
 
@@ -23,31 +21,8 @@ class ClusterType(Base):
 def add_cluster_types(session: Session) -> None:
     """Populate the cluster_type table in the database."""
     cluster_types = [
-        ClusterType(
-            name="dummy",
-            logfile_templates=json.dumps({}),
-        ),
-        ClusterType(
-            name="sequential",
-            logfile_templates=json.dumps(
-                {
-                    "job": {
-                        "stdout": "{root}/{name}.o{distributor_id}",
-                        "stderr": "{root}/{name}.e{distributor_id}",
-                    },
-                }
-            ),
-        ),
-        ClusterType(
-            name="multiprocess",
-            logfile_templates=json.dumps(
-                {
-                    "array": {
-                        "stdout": "{root}/{name}.o{distributor_id}",
-                        "stderr": "{root}/{name}.e{distributor_id}",
-                    },
-                }
-            ),
-        ),
+        ClusterType(name="dummy"),
+        ClusterType(name="sequential"),
+        ClusterType(name="multiprocess"),
     ]
     session.add_all(cluster_types)

@@ -115,27 +115,51 @@ class SerializeTaskInstance:
     @staticmethod
     def to_wire_worker_node(
         task_instance_id: int,
-        command: str,
         status: str,
+        workflow_run_id: int,
+        task_id: int,
+        name: str,
+        command: str,
+        workflow_id: int,
+        stdout_dir: str,
+        stderr_dir: str,
     ) -> tuple:
         """Submit the above args for an DistributorTaskInstance object to the database."""
         return (
             task_instance_id,
-            command,
             status,
+            workflow_run_id,
+            task_id,
+            name,
+            command,
+            workflow_id,
+            stdout_dir,
+            stderr_dir,
         )
 
     @staticmethod
     def kwargs_from_wire_worker_node(wire_tuple: tuple) -> dict:
         """Retrieve the DistributorTaskInstance information from the database."""
         task_instance_id = int(wire_tuple[0])
-        command = wire_tuple[1]
-        status = wire_tuple[2]
+        status = wire_tuple[1]
+        workflow_run_id = int(wire_tuple[2])
+        task_id = int(wire_tuple[3])
+        name = wire_tuple[4]
+        command = wire_tuple[5]
+        workflow_id = int(wire_tuple[6])
+        stdout_dir = wire_tuple[7]
+        stderr_dir = wire_tuple[8]
 
         return {
             "task_instance_id": task_instance_id,
-            "command": command,
             "status": status,
+            "workflow_run_id": workflow_run_id,
+            "task_id": task_id,
+            "name": name,
+            "command": command,
+            "workflow_id": workflow_id,
+            "stdout_dir": stdout_dir,
+            "stderr_dir": stderr_dir,
         }
 
 

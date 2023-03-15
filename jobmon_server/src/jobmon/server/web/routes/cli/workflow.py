@@ -5,7 +5,7 @@ from typing import Any, Dict, Optional
 from flask import jsonify, request
 from flask_cors import cross_origin
 import pandas as pd
-from sqlalchemy import func, select, update
+from sqlalchemy import func, select, text, update
 import structlog
 
 from jobmon.core.constants import TaskStatus as TStatus
@@ -255,6 +255,7 @@ def get_workflow_status() -> Any:
                 sql = (
                     (select(WorkflowRun.workflow_id).where(*query_filter))
                     .distinct()
+                    .order_by(WorkflowRun.workflow_id.desc())
                     .limit(limit)
                 )
                 rows = session.execute(sql).all()
@@ -384,10 +385,19 @@ def get_workflow_status() -> Any:
 @blueprint.route("/workflow_status_viz", methods=["GET"])
 def get_workflow_status_viz() -> Any:
     """Get the status of the workflows for GUI."""
+    session = SessionLocal()
     wf_ids = request.args.getlist("workflow_ids[]")
     # return DS
     return_dic: Dict[int, Any] = dict()
     for wf_id in wf_ids:
+        with session.begin():
+            sql = select(
+                func.min(Task.num_attempts).label("min"),
+                func.max(Task.num_attempts).label("max"),
+                func.avg(Task.num_attempts).label("mean"),
+            ).where(Task.workflow_id == wf_id)
+            attempts = session.execute(sql).all()
+
         return_dic[int(wf_id)] = {
             "id": int(wf_id),
             "tasks": 0,
@@ -397,19 +407,23 @@ def get_workflow_status_viz() -> Any:
             "DONE": 0,
             "FATAL": 0,
             "MAXC": 0,
+            "num_attempts_avg": float(attempts[0]["mean"]),
+            "num_attempts_min": int(attempts[0]["min"]),
+            "num_attempts_max": int(attempts[0]["max"]),
         }
 
-    session = SessionLocal()
     with session.begin():
         query_filter = [Task.workflow_id.in_(wf_ids), Task.workflow_id == Workflow.id]
         sql = select(
             Task.workflow_id, Task.status, Workflow.max_concurrently_running
         ).where(*query_filter)
         rows = session.execute(sql).all()
+
     for row in rows:
         return_dic[row[0]]["tasks"] += 1
         return_dic[row[0]][_cli_label_mapping[row[1]]] += 1
         return_dic[row[0]]["MAXC"] = row[2]
+
     resp = jsonify(return_dic)
     resp.status_code = 200
     return resp
@@ -430,88 +444,80 @@ def workflows_by_user_form() -> Any:
     wf_name = arguments.get("wf_name")
     wf_args = arguments.get("wf_args")
     date_submitted = arguments.get("date_submitted")
-    if user is None and tool is None:
-        limit = 1000
-    else:
-        limit = None
-
-    filter_criteria = []
-    if user:
-        filter_criteria.append(WorkflowRun.user == user)
-    if tool:
-        filter_criteria.append(Tool.name == tool)
-    if wf_name:
-        filter_criteria.append(Workflow.name == wf_name)
-    if wf_args:
-        filter_criteria.append(Workflow.workflow_args == wf_args)
-    if date_submitted:
-        filter_criteria.append(Workflow.created_date >= date_submitted)
+    status = arguments.get("status")
 
     session = SessionLocal()
     with session.begin():
-        # Get latest WFR ID associated with each Workflow for all Workflows associated with a
-        # user.
-        subquery = (
-            (
-                select(
-                    WorkflowRun.workflow_id,
-                    func.max(WorkflowRun.status_date).label("MaxStatusDate"),
-                )
-            )
-            .group_by(WorkflowRun.workflow_id)
-            .subquery()
+        where_clauses = []
+        substitution_dict = {}
+        if user:
+            where_clauses.append("workflow_run.user = :user")
+            substitution_dict["user"] = user
+        if tool:
+            where_clauses.append("tool.name = :tool")
+            substitution_dict["tool"] = tool
+        if wf_name:
+            where_clauses.append("workflow.name = :wf_name")
+            substitution_dict["wf_name"] = wf_name
+        if wf_args:
+            where_clauses.append("workflow.workflow_args = :wf_args")
+            substitution_dict["wf_args"] = wf_args
+        if date_submitted:
+            where_clauses.append("workflow.created_date >= :date_submitted")
+            substitution_dict["date_submitted"] = date_submitted
+        if status:
+            where_clauses.append("workflow.status = :status")
+            substitution_dict["status"] = status
+        inner_where_clause = " AND ".join(where_clauses)
+        query = text(
+            f"""
+            SELECT
+                workflow.id,
+                workflow.name,
+                workflow.created_date,
+                workflow.status_date,
+                workflow.workflow_args,
+                count(distinct workflow_run.id) as num_attempts,
+                workflow_status.label,
+                tool.name
+            FROM
+                workflow
+                JOIN (
+                    SELECT
+                        distinct queue_id,
+                        workflow_id
+                    FROM
+                        task
+                        JOIN task_resources on task_resources.id = task.task_resources_id
+                    WHERE
+                        task.workflow_id IN (
+                            SELECT
+                                workflow_id
+                            FROM
+                                workflow
+                                JOIN tool_version on workflow.tool_version_id = tool_version.id
+                                JOIN tool on tool.id = tool_version.tool_id
+                                JOIN workflow_run on workflow.id = workflow_run.workflow_id
+                            WHERE
+                                {inner_where_clause}
+                        )
+                    GROUP BY
+                        workflow_id
+                ) workflow_queue on workflow.id = workflow_queue.workflow_id
+                JOIN queue on queue.id = workflow_queue.queue_id
+                JOIN workflow_run on workflow.id = workflow_run.workflow_id
+                JOIN tool_version on workflow.tool_version_id = tool_version.id
+                JOIN tool on tool.id = tool_version.tool_id
+                JOIN workflow_status on workflow.status = workflow_status.id
+            WHERE
+                cluster_id != 1
+            GROUP BY
+                workflow.id
+            ORDER BY
+                workflow.id DESC
+    """
         )
-
-        query = (
-            select(WorkflowRun.id)
-            .join(
-                subquery,
-                WorkflowRun.workflow_id == subquery.c.workflow_id,
-                WorkflowRun.status_date == subquery.c.MaxStatusDate,
-            )
-            .join(
-                Workflow,
-                WorkflowRun.workflow_id == Workflow.id,
-            )
-            .join(
-                ToolVersion,
-                Workflow.tool_version_id == ToolVersion.id,
-            )
-            .join(
-                Tool,
-                ToolVersion.tool_id == Tool.id,
-            )
-            .where(*filter_criteria)
-            .limit(limit)
-        )
-
-        rows = session.execute(query).all()
-        wfr_ids = [int(row[0]) for row in rows]
-
-        # Get information for each wfr_id (including count of wfrs associated with workflow).
-        sql = (
-            select(
-                Workflow.id,
-                Workflow.name,
-                Workflow.created_date,
-                Workflow.status_date,
-                Workflow.workflow_args,
-                func.count(),
-                WorkflowStatus.label,
-                Tool.name,
-            )
-            .where(
-                WorkflowRun.id.in_(wfr_ids),
-                WorkflowRun.workflow_id == Workflow.id,
-                Workflow.tool_version_id == ToolVersion.id,
-                ToolVersion.tool_id == Tool.id,
-                Workflow.status == WorkflowStatus.id,
-            )
-            .group_by(WorkflowRun.workflow_id)
-            .order_by(WorkflowRun.id.desc())
-        )
-
-        rows2 = session.execute(sql).all()
+        rows = session.execute(query, substitution_dict).all()
 
     column_names = (
         "wf_id",
@@ -528,7 +534,7 @@ def workflows_by_user_form() -> Any:
     initial_status_counts = {
         label_mapping: 0 for label_mapping in set(_cli_label_mapping.values())
     }
-    result = [dict(zip(column_names, row), **initial_status_counts) for row in rows2]
+    result = [dict(zip(column_names, row), **initial_status_counts) for row in rows]
 
     res = jsonify(workflows=result)
     res.return_code = StatusCodes.OK

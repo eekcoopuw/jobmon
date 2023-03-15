@@ -62,4 +62,4 @@ upcoming trainings.
 Jobmon GUI
 ##########
 You can view all your workflows, monitor their progress, and dive into the details
-of their tasks using the `Jobmon GUI <http://jobmon-gui.ihme.washington.edu>`_.
+of their tasks using the `Jobmon GUI <https://jobmon-gui.ihme.washington.edu>`_.

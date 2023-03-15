@@ -17,52 +17,12 @@ from jobmon.server.web.models.array import Array
 from jobmon.server.web.models.task import Task
 from jobmon.server.web.models.task_instance import TaskInstance
 from jobmon.server.web.models.task_instance_error_log import TaskInstanceErrorLog
-from jobmon.server.web.models.workflow_run import WorkflowRun
 from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.routes.fsm import blueprint
-from jobmon.server.web.routes.fsm._common import _get_logfile_template
 from jobmon.server.web.server_side_exception import ServerError
 
 
 logger = structlog.get_logger(__name__)
-
-
-@blueprint.route(
-    "/task_instance/<task_instance_id>/logfile_template/<template_type>",
-    methods=["POST"],
-)
-def get_logfile_template(task_instance_id: int, template_type: str) -> Any:
-    """Get the logfile location for a task instance.
-
-    Args:
-        task_instance_id: id of the task_instance
-        template_type: submission type of the task instance. job, array, both
-    """
-    structlog.contextvars.bind_contextvars(
-        task_instance_id=task_instance_id, template_type=template_type
-    )
-
-    session = SessionLocal()
-    with session.begin():
-        select_stmt = (
-            select(TaskInstance.task_resources_id, Task.name)
-            .join_from(TaskInstance, Task, TaskInstance.task_id == Task.id)
-            .where(TaskInstance.id == task_instance_id)
-        )
-        task_resources_id, task_name = session.execute(select_stmt).fetchone()
-        requested_resources, _ = _get_logfile_template(
-            task_resources_id, template_type, session
-        )
-
-    log_types = ["stderr", "stdout"]
-    logpaths = {}
-    for log_type in log_types:
-        if log_type in requested_resources:
-            logpaths[log_type] = requested_resources[log_type][template_type]
-
-    resp = jsonify(logpaths=logpaths, task_name=task_name)
-    resp.status_code = StatusCodes.OK
-    return resp
 
 
 @blueprint.route("/task_instance/<task_instance_id>/log_running", methods=["POST"])
@@ -85,8 +45,6 @@ def log_running(task_instance_id: int) -> Any:
         if data.get("nodename", None) is not None:
             task_instance.nodename = data["nodename"]
         task_instance.process_group_id = data["process_group_id"]
-        task_instance.stdout = data["stdout"]
-        task_instance.stderr = data["stderr"]
         try:
             task_instance.transition(constants.TaskInstanceStatus.RUNNING)
             task_instance.report_by_date = add_time(data["next_report_increment"])
@@ -123,12 +81,13 @@ def log_ti_report_by(task_instance_id: int) -> Any:
 
     session = SessionLocal()
     with session.begin():
-        next_report_increment = data["next_report_increment"]
+        vals = {"report_by_date": add_time(data["next_report_increment"])}
+        for optional_val in ["distributor_id", "stderr", "stdout"]:
+            val = data.get(optional_val, None)
+            if data is not None:
+                vals[optional_val] = val
+
         update_stmt = update(TaskInstance).where(TaskInstance.id == task_instance_id)
-        vals = {"report_by_date": add_time(next_report_increment)}
-        distributor_id = data.get("distributor_id", None)
-        if distributor_id is not None:
-            vals["distributor_id"] = distributor_id
         session.execute(update_stmt.values(**vals))
         session.flush()
 
@@ -194,10 +153,19 @@ def log_done(task_instance_id: int) -> Any:
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
 
-        if data.get("distributor_id", None) is not None:
-            task_instance.distributor_id = data["distributor_id"]
-        if data.get("nodename", None) is not None:
-            task_instance.nodename = data["nodename"]
+        optional_vals = [
+            "distributor_id",
+            "stdout_log",
+            "stderr_log",
+            "nodename",
+            "stdout",
+            "stderr",
+        ]
+        for optional_val in optional_vals:
+            val = data.get(optional_val, None)
+            if val is not None:
+                setattr(task_instance, optional_val, val)
+
         try:
             task_instance.transition(constants.TaskInstanceStatus.DONE)
         except InvalidStateTransition as e:
@@ -224,10 +192,6 @@ def log_error_worker_node(task_instance_id: int) -> Any:
     """
     structlog.contextvars.bind_contextvars(task_instance_id=task_instance_id)
     data = cast(Dict, request.get_json())
-    error_state = data["error_state"]
-    error_msg = data["error_message"].encode("latin1", "replace").decode("utf-8")
-    distributor_id = data.get("distributor_id", None)
-    nodename = data.get("nodename", None)
     logger.info(f"Log ERROR for TI:{task_instance_id}.")
 
     session = SessionLocal()
@@ -235,14 +199,26 @@ def log_error_worker_node(task_instance_id: int) -> Any:
         select_stmt = select(TaskInstance).where(TaskInstance.id == task_instance_id)
         task_instance = session.execute(select_stmt).scalars().one()
 
-        if nodename is not None:
-            task_instance.nodename = nodename
-        if distributor_id is not None:
-            task_instance.distributor_id = distributor_id
+        optional_vals = [
+            "distributor_id",
+            "stdout_log",
+            "stderr_log",
+            "nodename",
+            "stdout",
+            "stderr",
+        ]
+        for optional_val in optional_vals:
+            val = data.get(optional_val, None)
+            if data is not None:
+                setattr(task_instance, optional_val, val)
+
+        # add error log
+        error_state = data["error_state"]
+        error_description = data["error_description"]
         try:
             task_instance.transition(error_state)
             error = TaskInstanceErrorLog(
-                task_instance_id=task_instance.id, description=error_msg
+                task_instance_id=task_instance.id, description=error_description
             )
             session.add(error)
         except InvalidStateTransition as e:
@@ -299,22 +275,14 @@ def get_array_task_instance_id(array_id: int, batch_num: int, step_id: int) -> A
 
     session = SessionLocal()
     with session.begin():
-        select_stmt = select(
-            TaskInstance.id, WorkflowRun.workflow_id, TaskInstance.task_id
-        ).where(
+        select_stmt = select(TaskInstance.id).where(
             TaskInstance.array_id == array_id,
             TaskInstance.array_batch_num == batch_num,
             TaskInstance.array_step_id == step_id,
-            TaskInstance.workflow_run_id == WorkflowRun.id,
         )
-        task_instance = session.execute(select_stmt).all()
+        task_instance_id = session.execute(select_stmt).scalars().one()
 
-        # Unpack first element, should always only have one item
-        task_instance_id, workflow_id, task_id = task_instance[0]
-
-    resp = jsonify(
-        task_instance_id=task_instance_id, workflow_id=workflow_id, task_id=task_id
-    )
+    resp = jsonify(task_instance_id=task_instance_id)
     resp.status_code = StatusCodes.OK
     return resp
 

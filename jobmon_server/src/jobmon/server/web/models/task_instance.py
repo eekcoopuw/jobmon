@@ -1,7 +1,8 @@
 """Task Instance Database Table."""
+import json
 from typing import Tuple
 
-from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String
+from sqlalchemy import Column, DateTime, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import structlog
@@ -40,8 +41,17 @@ class TaskInstance(Base):
 
     def to_wire_as_worker_node_task_instance(self) -> Tuple:
         """Serialize task instance object."""
+        requested_resources = json.loads(self.task_resources.requested_resources)
         return SerializeTaskInstance.to_wire_worker_node(
-            self.id, self.task.command, self.status
+            self.id,
+            self.status,
+            self.workflow_run_id,
+            self.task.id,
+            self.task.name,
+            self.task.command,
+            self.task.workflow_id,
+            requested_resources.get("stdout"),
+            requested_resources.get("stderr"),
         )
 
     id = Column(Integer, primary_key=True)
@@ -65,6 +75,8 @@ class TaskInstance(Base):
     io = Column(String(50))
     stdout = Column(String(2048))
     stderr = Column(String(2048))
+    stdout_log = Column(Text)
+    stderr_log = Column(Text)
 
     # status/state
     status = Column(

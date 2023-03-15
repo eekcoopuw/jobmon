@@ -5,8 +5,10 @@ import Popover from 'react-bootstrap/Popover';
 
 import './jobmon_gui.css';
 
-export default function JobmonProgressBar({tasks, pending, scheduled, running, done, fatal, maxc, placement, style="striped"}) {
+export default function JobmonProgressBar({tasks, pending, scheduled, running, done, fatal, num_attempts_avg, num_attempts_min, num_attempts_max, maxc, placement, style="striped"}) {
+    num_attempts_avg = parseFloat(num_attempts_avg).toFixed(1);
     // style can be striped or animated; others will be treated as default
+    // FIXME: reduce code duplication through better use of variables with flow control
     if (style === "striped") {
         return (
             <OverlayTrigger
@@ -14,9 +16,43 @@ export default function JobmonProgressBar({tasks, pending, scheduled, running, d
                             trigger={["hover", "focus"]}
                             overlay={(
                                 <Popover id="task_count">
-                                    Total: {tasks}; Pending: {pending}; Scheduled: {scheduled}; Running: {running}; Done: {done}; Fatal: {fatal}
-                                    <br /><br />
-                                    Concurrency Limit: {maxc}
+                                    <table id="tt-tasks">
+                                        <tr>
+                                            <th className="scheduled">Scheduled:</th>
+                                            <td>{scheduled}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="pending"> Pending:</th>
+                                            <td>{pending}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="running">Running:</th>
+                                            <td>{running}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="done">Done:</th>
+                                            <td>{done}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="fatal">Fatal:</th>
+                                            <td>{fatal}</td>
+                                        </tr>
+                                        <tr>
+                                            <th> Total:</th>
+                                            <td>{tasks}</td>
+                                        </tr>
+                                    </table>
+                                    <hr />
+                                    <table id="tt-stats">
+                                        <tr>
+                                            <th># Attempts:</th>
+                                            <td>{num_attempts_avg} ({num_attempts_min} - {num_attempts_max})</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Concurrency Limit:</th>
+                                            <td>{maxc.toLocaleString()}</td>
+                                        </tr>
+                                    </table>
                                 </Popover>
                             )}
                         >
@@ -38,9 +74,43 @@ export default function JobmonProgressBar({tasks, pending, scheduled, running, d
                             trigger={["hover", "focus"]}
                             overlay={(
                                 <Popover id="task_count">
-                                    Total: {tasks}; Pending: {pending}; Scheduled: {scheduled}; Running: {running}; Done: {done}; Fatal: {fatal}
-                                    <br /><br />
-                                    Concurrency Limit: {maxc}
+                                    <table id="tt-tasks">
+                                        <tr>
+                                            <th className="scheduled">Scheduled:</th>
+                                            <td>{scheduled}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="pending"> Pending:</th>
+                                            <td>{pending}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="running">Running:</th>
+                                            <td>{running}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="done">Done:</th>
+                                            <td>{done}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="fatal">Fatal:</th>
+                                            <td>{fatal}</td>
+                                        </tr>
+                                        <tr>
+                                            <th> Total:</th>
+                                            <td>{tasks}</td>
+                                        </tr>
+                                    </table>
+                                    <hr />
+                                    <table id="tt-stats">
+                                        <tr>
+                                            <th># Attempts:</th>
+                                            <td>{num_attempts_avg} ({num_attempts_min} - {num_attempts_max})</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Concurrency Limit:</th>
+                                            <td>{maxc.toLocaleString()}</td>
+                                        </tr>
+                                    </table>
                                 </Popover>
                             )}
                         >
@@ -61,10 +131,44 @@ export default function JobmonProgressBar({tasks, pending, scheduled, running, d
                             placement={placement}
                             trigger={["hover", "focus"]}
                             overlay={(
-                                <Popover id="task_count">
-                                    Total: {tasks}; Pending: {pending}; Scheduled: {scheduled}; Running: {running}; Done: {done}; Fatal: {fatal}
-                                    <br /><br />
-                                    Concurrency Limit: {maxc}
+                                <Popover id="task-count">
+                                    <table id="tt-tasks">
+                                        <tr>
+                                            <th className="scheduled">Scheduled:</th>
+                                            <td>{scheduled}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="pending"> Pending:</th>
+                                            <td>{pending}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="running">Running:</th>
+                                            <td>{running}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="done">Done:</th>
+                                            <td>{done}</td>
+                                        </tr>
+                                        <tr>
+                                            <th className="fatal">Fatal:</th>
+                                            <td>{fatal}</td>
+                                        </tr>
+                                        <tr>
+                                            <th> Total:</th>
+                                            <td>{tasks}</td>
+                                        </tr>
+                                    </table>
+                                    <hr />
+                                    <table id="tt-stats">
+                                        <tr>
+                                            <th># Attempts:</th>
+                                            <td>{num_attempts_avg} ({num_attempts_min} - {num_attempts_max})</td>
+                                        </tr>
+                                        <tr>
+                                            <th>Concurrency Limit:</th>
+                                            <td>{maxc.toLocaleString()}</td>
+                                        </tr>
+                                    </table>
                                 </Popover>
                             )}
                         >

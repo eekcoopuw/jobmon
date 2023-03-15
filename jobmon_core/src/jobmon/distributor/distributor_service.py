@@ -5,7 +5,18 @@ import logging
 import signal
 import sys
 import time
-from typing import Any, Callable, Dict, Generator, Iterator, List, Optional, Set, Union
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    Generator,
+    Iterator,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Union,
+)
 
 from jobmon.core.cluster_protocol import ClusterDistributor
 from jobmon.core.configuration import JobmonConfig
@@ -64,6 +75,7 @@ class DistributorService:
 
         # indexing of task instance by associated id
         self._task_instances: Dict[int, DistributorTaskInstance] = {}
+        self._task_instance_batches: Dict[Tuple[int, int], TaskInstanceBatch] = {}
 
         # work queue
         self._distributor_commands: Iterator[DistributorCommand] = it.chain([])
@@ -174,7 +186,9 @@ class DistributorService:
 
         except DistributorInterruptedError:
             logger.info("Interrupt received!")
-
+        except Exception as e:
+            logger.exception(e)
+            raise
         finally:
             # stop distributor
             self.cluster_interface.stop()
@@ -247,13 +261,23 @@ class DistributorService:
                 batch
             )
 
-            task_instance_batch = TaskInstanceBatch(
-                array_id=task_instance_batch_kwargs["array_id"],
-                array_name=task_instance_batch_kwargs["array_name"],
-                array_batch_num=task_instance_batch_kwargs["array_batch_num"],
-                task_resources_id=task_instance_batch_kwargs["task_resources_id"],
-                requester=self.requester,
-            )
+            array_id = task_instance_batch_kwargs["array_id"]
+            batch_number = task_instance_batch_kwargs["array_batch_num"]
+            try:
+                task_instance_batch = self._task_instance_batches[
+                    (array_id, batch_number)
+                ]
+            except KeyError:
+                task_instance_batch = TaskInstanceBatch(
+                    array_id=array_id,
+                    array_name=task_instance_batch_kwargs["array_name"],
+                    array_batch_num=batch_number,
+                    task_resources_id=task_instance_batch_kwargs["task_resources_id"],
+                    requester=self.requester,
+                )
+                self._task_instance_batches[
+                    (array_id, batch_number)
+                ] = task_instance_batch
 
             for task_instance_id in task_instance_batch_kwargs["task_instance_ids"]:
                 task_instance = self._task_instances[task_instance_id]
@@ -263,6 +287,9 @@ class DistributorService:
     def launch_task_instance_batch(
         self, task_instance_batch: TaskInstanceBatch
     ) -> None:
+        self._task_instance_batches.pop(
+            (task_instance_batch.array_id, task_instance_batch.batch_number)
+        )
         # record batch info in db
         task_instance_batch.prepare_task_instance_batch_for_launch()
 
@@ -280,11 +307,11 @@ class DistributorService:
                 self.cluster_interface.submit_array_to_batch_distributor(
                     command=command,
                     name=task_instance_batch.submission_name,
-                    logfile_name=task_instance_batch.logfile_name,
                     requested_resources=task_instance_batch.requested_resources,
                     array_length=len(task_instance_batch.task_instances),
                 )
             )
+            task_instance_batch.set_distributor_ids(distributor_id_map)
 
         except NotImplementedError:
             # create DistributorCommands to submit the launch if array isn't implemented
@@ -297,7 +324,7 @@ class DistributorService:
 
         except Exception as e:
             # if other error, transition to No ID status
-            logger.error(str(e))
+            logger.exception(e)
             for task_instance in task_instance_batch.task_instances:
                 distributor_command = DistributorCommand(
                     task_instance.transition_to_no_distributor_id, no_id_err_msg=str(e)
@@ -311,7 +338,7 @@ class DistributorService:
             )
             # Log the distributor IDs
             log_distributor_ids_command = DistributorCommand(
-                task_instance_batch.log_distributor_ids, distributor_id_map
+                task_instance_batch.log_distributor_ids
             )
 
             distributor_commands.append(launch_command)
@@ -341,21 +368,19 @@ class DistributorService:
 
         # Submit to batch distributor
         try:
-            resp = self.cluster_interface.submit_to_batch_distributor(
+            distributor_id = self.cluster_interface.submit_to_batch_distributor(
                 command=command,
                 name=task_instance.submission_name,
-                logfile_name=task_instance.logfile_name,
                 requested_resources=requested_resources,
             )
-            distributor_id, output_path, error_path = resp  # unpack response tuple
         except Exception as e:
-            logger.error(str(e))
+            logger.exception(e)
             task_instance.transition_to_no_distributor_id(no_id_err_msg=str(e))
 
         else:
             # move from register queue to launch queue
             task_instance.transition_to_launched(
-                distributor_id, self._next_report_increment, output_path, error_path
+                distributor_id, self._next_report_increment
             )
 
     def triage_error(self, task_instance: DistributorTaskInstance) -> None:
@@ -375,7 +400,6 @@ class DistributorService:
         task_instances_launched = self._task_instance_status_map[
             TaskInstanceStatus.LAUNCHED
         ]
-
         submitted_or_running = self.cluster_interface.get_submitted_or_running(
             [x.distributor_id for x in task_instances_launched]
         )
@@ -480,6 +504,7 @@ class DistributorService:
         queued_task_instances = list(
             self._task_instance_status_map[TaskInstanceStatus.QUEUED]
         )
+        queued_task_instances.sort()
         chunk_size = 500
         while queued_task_instances:
             ti_list = queued_task_instances[:chunk_size]

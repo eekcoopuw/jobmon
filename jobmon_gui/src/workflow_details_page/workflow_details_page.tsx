@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import '../jobmon_gui.css';
-import { useParams, Link, Outlet, useLocation } from 'react-router-dom';
+import { useParams, Link, Outlet } from 'react-router-dom';
 import { useForm } from "react-hook-form";
 import axios from 'axios';
 import DropdownButton from 'react-bootstrap/DropdownButton';
 import Dropdown from 'react-bootstrap/Dropdown';
+import Breadcrumb from 'react-bootstrap/Breadcrumb';
 import { OverlayTrigger } from "react-bootstrap";
 import Popover from 'react-bootstrap/Popover';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
@@ -41,6 +42,7 @@ function getWorkflowAttributes(wf_id: string, setWFTool, setWFName, setWFArgs, s
     };
     return fetchData
 }
+
 function getAsyncTTdetail(setTTDict, wf_id: string, setTTLoaded) {
     const url = process.env.REACT_APP_BASE_URL + "/workflow_tt_status_viz/" + wf_id;
     const fetchData = async () => {
@@ -76,7 +78,10 @@ function WorkflowDetails({ subpage }) {
     const [task_template_version_id, setTaskTemplateVersionId] = useState('');
     const [usage_info, setUsageInfo] = useState([]);
     const [tasks, setTasks] = useState([]);
-    const [wfDict, setWFDict] = useState({ 'tasks': 0, 'PENDING': 0, 'SCHEDULED': 0, 'RUNNING': 0, 'DONE': 0, 'FATAL': 0, 'MAXC': 0 });
+    const [wfDict, setWFDict] = useState({
+        'tasks': 0, 'PENDING': 0, 'SCHEDULED': 0, 'RUNNING': 0, 'DONE': 0, 'FATAL': 0,
+        'num_attempts_avg': 0, 'num_attempts_min': 0, 'num_attempts_max': 0, 'MAXC': 0
+    });
     const [ttDict, setTTDict] = useState([]);
     const [errorLogs, setErrorLogs] = useState([]);
     const [error_loading, setErrorLoading] = useState(false);
@@ -135,7 +140,7 @@ function WorkflowDetails({ subpage }) {
         fetchData();
     }, [task_template_name]);
     useEffect(() => {
-        if (typeof params.workflowId !== 'undefined' && tt_id !== 'undefined' && tt_id != '') {
+        if (typeof params.workflowId !== 'undefined' && tt_id !== 'undefined' && tt_id !== '') {
             getAsyncErrorLogs(setErrorLogs, params.workflowId, setErrorLoading, tt_id)();
         }
     }, [tt_id]);
@@ -171,14 +176,18 @@ function WorkflowDetails({ subpage }) {
     });
     //TaskTemplate link click function
     function clickTaskTemplate(name, tt_id, tt_version_id) {
-        setTaskTemplateName(name)
+        setTaskTemplateName(name);
         setTTID(tt_id);
-        setTaskTemplateVersionId(tt_version_id)
+        setTaskTemplateVersionId(tt_version_id);
     }
 
     //********************html page*************************************
     return (
         <div>
+            <Breadcrumb>
+                <Breadcrumb.Item><Link to="/">Home</Link></Breadcrumb.Item>
+                <Breadcrumb.Item active>Workflow ID {workflowId} </Breadcrumb.Item>
+            </Breadcrumb>
             <div style={{ display: "flex" }}>
                 <header className="App-header">
                     <p>Workflow ID: {workflowId} </p>
@@ -196,7 +205,19 @@ function WorkflowDetails({ subpage }) {
                 </div>
             </div>
             <div id="wf_progress" className="div-level-2">
-                <JobmonProgressBar tasks={wfDict.tasks} pending={wfDict.PENDING} scheduled={wfDict.SCHEDULED} running={wfDict.RUNNING} done={wfDict.DONE} fatal={wfDict.FATAL} maxc={wfDict.MAXC} placement="bottom" />
+                <JobmonProgressBar
+                    tasks={wfDict.tasks}
+                    pending={wfDict.PENDING}
+                    scheduled={wfDict.SCHEDULED}
+                    running={wfDict.RUNNING}
+                    done={wfDict.DONE}
+                    fatal={wfDict.FATAL}
+                    num_attempts_avg={wfDict.num_attempts_avg}
+                    num_attempts_min={wfDict.num_attempts_min}
+                    num_attempts_max={wfDict.num_attempts_max}
+                    maxc={wfDict.MAXC}
+                    placement="bottom"
+                />
                 <hr className="hr-1" />
             </div>
 
@@ -213,7 +234,7 @@ function WorkflowDetails({ subpage }) {
                                 </Popover>
                             )}
                         >
-                        <span><FontAwesomeIcon icon={faLightbulb}  /></span>
+                            <span><FontAwesomeIcon icon={faLightbulb} /></span>
                         </OverlayTrigger>
                     </p>
                     {tt_id === "" &&
@@ -231,16 +252,34 @@ function WorkflowDetails({ subpage }) {
                     <ul>
                         {
                             ttDict.map(d => (
-                                <div className="div-level-3">
+                                <li
+                                    className={`tt-container ${tt_id === d["id"] ? "selected" : ""}`}
+                                    id={d["id"]}
+                                    onClick={() => clickTaskTemplate(d["name"], d["id"], d["task_template_version_id"])}
+                                >
                                     <div className="div_floatleft">
-                                        <p className="p-underline"><li id={d["id"]} value={d["name"]} onClick={() => clickTaskTemplate(d["name"], d["id"], d["task_template_version_id"])}>{d["name"]}</li></p>
+                                        <span className="tt-name">{d["name"]}</span>
                                     </div>
                                     <div className="div_floatright">
-                                        <JobmonProgressBar id={d["id"]} tasks={d["tasks"]} pending={d["PENDING"]} scheduled={d["SCHEDULED"]} running={d["RUNNING"]} done={d["DONE"]} fatal={d["FATAL"]} maxc={d["MAXC"]} placement="left" style="none" />
+                                        <JobmonProgressBar
+                                            id={d["id"]}
+                                            tasks={d["tasks"]}
+                                            pending={d["PENDING"]}
+                                            scheduled={d["SCHEDULED"]}
+                                            running={d["RUNNING"]}
+                                            done={d["DONE"]}
+                                            fatal={d["FATAL"]}
+                                            num_attempts_avg={d["num_attempts_avg"]}
+                                            num_attempts_min={d["num_attempts_min"]}
+                                            num_attempts_max={d["num_attempts_max"]}
+                                            maxc={d["MAXC"]}
+                                            placement="left"
+                                            style="none"
+                                        />
                                     </div>
                                     <br />
                                     <hr className="hr-dot" />
-                                </div>
+                                </li>
                             ))
                         }
                     </ul>
@@ -253,10 +292,10 @@ function WorkflowDetails({ subpage }) {
             <div id="tt_search" className="div-level-2">
                 <hr className="hr-2" />
                 <div className="div-full">
-                <ul className="nav nav-tabs">
+                    <ul className="nav nav-tabs">
                         <li className="nav-item">
                             <Link
-                                className="nav-link"
+                                className={`nav-link ${subpage === "tasks" ? "active" : ""}`}
                                 aria-current="page"
                                 to={`/workflow/${workflowId}/tasks`}
                                 replace={true}>
@@ -265,7 +304,7 @@ function WorkflowDetails({ subpage }) {
                         </li>
                         <li className="nav-item">
                             <Link
-                                className="nav-link"
+                                className={`nav-link ${subpage === "usage" ? "active" : ""}`}
                                 to={`/workflow/${workflowId}/usage`}
                                 replace={true}>
                                 Resource Usage
@@ -273,7 +312,7 @@ function WorkflowDetails({ subpage }) {
                         </li>
                         <li className="nav-item">
                             <Link
-                                className="nav-link"
+                                className={`nav-link ${subpage === "errors" ? "active" : ""}`}
                                 to={`/workflow/${workflowId}/errors`}
                                 replace={true}>
                                 Errors
@@ -283,9 +322,9 @@ function WorkflowDetails({ subpage }) {
                     <Outlet />
                 </div>
 
-                {(subpage === "tasks") && <Tasks tasks={tasks} onSubmit={onSubmit} register= {register} loading={task_loading} apm={apm}/>}
-                {(subpage === "usage") && <Usage taskTemplateName={task_template_name} taskTemplateVersionId={task_template_version_id} usageInfo={usage_info} apm={apm}/>}
-                {(subpage === "errors") && <Errors errorLogs={errorLogs} tt_name={task_template_name} loading={error_loading} apm={apm}/>}
+                {(subpage === "tasks") && <Tasks tasks={tasks} onSubmit={onSubmit} register={register} loading={task_loading} apm={apm} />}
+                {(subpage === "usage") && <Usage taskTemplateName={task_template_name} taskTemplateVersionId={task_template_version_id} usageInfo={usage_info} apm={apm} />}
+                {(subpage === "errors") && <Errors errorLogs={errorLogs} tt_name={task_template_name} loading={error_loading} apm={apm} />}
 
             </div>
 

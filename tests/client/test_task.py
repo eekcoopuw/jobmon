@@ -216,7 +216,7 @@ def test_get_errors(db_engine, tool):
     app_route = f"/task_instance/{ti_id}/log_error_worker_node"
     return_code, _ = workflow1.requester.send_request(
         app_route=app_route,
-        message={"error_state": "F", "error_message": "bla bla bla"},
+        message={"error_state": "F", "error_description": "bla bla bla"},
         request_type="post",
     )
     assert return_code == 200

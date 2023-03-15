@@ -109,9 +109,8 @@ class DummyDistributor(ClusterDistributor):
         self,
         command: str,
         name: str,
-        logfile_name: str,
         requested_resources: Dict[str, Any],
-    ) -> Tuple[str, Optional[str], Optional[str]]:
+    ) -> str:
         """Run a fake execution of the task.
 
         In a real executor, this is where submission to the cluster would happen (e.g. sbatch
@@ -129,13 +128,14 @@ class DummyDistributor(ClusterDistributor):
         worker_node_factory = WorkerNodeFactory(cluster_name=args.cluster_name)
         # Do not do ANY logging at all
         worker_node_task_instance = worker_node_factory.get_job_task_instance(
-            task_instance_id=args.task_instance_id, initialize_logfiles=False
+            task_instance_id=args.task_instance_id
         )
         # Log running, log done, and exit
         worker_node_task_instance.log_running()
+        worker_node_task_instance.set_command_output(0, "", "")
         worker_node_task_instance.log_done()
 
-        return str(distributor_id), None, None
+        return str(distributor_id)
 
     def get_remote_exit_info(self, distributor_id: str) -> Tuple[str, str]:
         """Get the exit info about the task instance once it is done running."""
@@ -167,6 +167,9 @@ class DummyWorkerNode(ClusterWorkerNode):
     def get_usage_stats() -> Dict:
         """Usage information specific to the exector."""
         return {}
+
+    def initialize_logfile(self, log_type: str, log_dir: str, name: str) -> str:
+        return "/dev/null"
 
 
 def get_cluster_queue_class() -> Type[ClusterQueue]:

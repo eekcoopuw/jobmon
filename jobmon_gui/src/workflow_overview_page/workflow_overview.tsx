@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useForm } from "react-hook-form";
-import { useSearchParams, useNavigate} from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import Button from 'react-bootstrap/Button';
 import Form from 'react-bootstrap/Form';
 import Row from 'react-bootstrap/Row';
@@ -22,6 +22,7 @@ function App() {
   const [wf_name, setWFName] = useState('');
   const [wf_args, setWFArgs] = useState('');
   const [date_submitted, setDateSubmitted] = useState('');
+  const [status, setStatus] = useState('');
   const [workflows, setWorkflows] = useState([]);
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
@@ -36,6 +37,7 @@ function App() {
     let url_wf_name = searchParams.get("wf_name");
     let url_wf_args = searchParams.get("wf_args");
     let url_date_submitted = searchParams.get("date_submitted");
+    let url_status = searchParams.get("status");
     if (url_user !== null && url_user !== "" && url_user !== undefined) {
       setUser(url_user);
     }
@@ -50,6 +52,9 @@ function App() {
     }
     if (url_date_submitted !== null && url_date_submitted !== "" && url_date_submitted !== undefined) {
       setDateSubmitted(url_date_submitted)
+    }
+    if (url_status !== null && url_status !== "" && url_status !== undefined) {
+      setStatus(url_status)
     }
   }, []);
 
@@ -68,6 +73,7 @@ function App() {
     params.append("wf_name", wf_name)
     params.append("wf_args", wf_args)
     params.append("date_submitted", date_submitted)
+    params.append("status", status)
     const request = {
       params: params,
     };
@@ -82,19 +88,20 @@ function App() {
     };
     fetchData();
     safe_rum_unit_end(rum_s1);
-  }, [user, tool, wf_name, wf_args, date_submitted]);
+  }, [user, tool, wf_name, wf_args, date_submitted, status]);
 
 
   //*******************event handling****************************
   // user form
   const { register, handleSubmit } = useForm();
   const onSubmit = handleSubmit((d) => {
-    navigate('/?user=' + d["user_input"] + "&tool=" + d["tool_input"] + "&wf_name=" + d["wf_name_input"] + "&wf_args=" + d["wf_args_input"] + "&date_submitted=" + d["date_submitted_input"]);
+    navigate('/?user=' + d["user_input"] + "&tool=" + d["tool_input"] + "&wf_name=" + d["wf_name_input"] + "&wf_args=" + d["wf_args_input"] + "&date_submitted=" + d["date_submitted_input"] + "&status=" + d["status"]);
     setUser(d["user_input"]);
     setTool(d["tool_input"])
     setWFName(d["wf_name_input"])
     setWFArgs(d["wf_args_input"])
     setDateSubmitted(d["date_submitted_input"])
+    setStatus(d["status"])
   });
 
   //********************html page*************************************
@@ -110,39 +117,56 @@ function App() {
       <div className="div-level-2">
         <form>
           <Row className="mb-3">
-            <Form.Group as={Col} controlId="formGridEmail">
+            <Form.Group as={Col} controlId="username">
               <Form.Label>Username</Form.Label>
-              <Form.Control type="text" placeholder="Username" defaultValue={user} {...register("user_input")}/>
+              <Form.Control type="text" placeholder="Username" defaultValue={user} {...register("user_input")} />
             </Form.Group>
 
-            <Form.Group as={Col} controlId="formGridPassword">
+            <Form.Group as={Col} controlId="tool">
               <Form.Label>Tool</Form.Label>
-              <Form.Control type="text" placeholder="Tool" defaultValue={tool} {...register("tool_input")}/>
+              <Form.Control type="text" placeholder="Tool" defaultValue={tool} {...register("tool_input")} />
             </Form.Group>
 
-            <Form.Group as={Col} controlId="formGridPassword">
+            <Form.Group as={Col} controlId="workflowName">
               <Form.Label>Workflow Name</Form.Label>
-              <Form.Control type="text" placeholder="Workflow Name" defaultValue={wf_name} {...register("wf_name_input")}/>
+              <Form.Control type="text" placeholder="Workflow Name" defaultValue={wf_name} {...register("wf_name_input")} />
             </Form.Group>
           </Row>
 
           <Row className="mb-3">
-            <Form.Group as={Col} controlId="formGridEmail">
+            <Form.Group as={Col} controlId="workflowArgs">
               <Form.Label>Workflow Args</Form.Label>
-              <Form.Control type="text" placeholder="Workflow Args" defaultValue={wf_args} {...register("wf_args_input")}/>
+              <Form.Control type="text" placeholder="Workflow Args" defaultValue={wf_args} {...register("wf_args_input")} />
             </Form.Group>
 
-            <Form.Group as={Col} controlId="formGridPassword">
+            <Form.Group as={Col} controlId="dateSubmitted">
               <Form.Label>Date Workflow Was Submitted - On or After Date</Form.Label>
-              <Form.Control type="date" defaultValue={date_submitted} {...register("date_submitted_input")}/>
+              <Form.Control type="date" defaultValue={date_submitted} {...register("date_submitted_input")} />
+            </Form.Group>
+
+            <Form.Group as={Col} controlId="status">
+              <Form.Label>Workflow Status</Form.Label>
+              <Form.Control as="select" defaultValue={undefined} {...register("status")} >
+                <option>{undefined}</option>
+                <option value="A">Aborted</option>
+                <option value="D">Done</option>
+                <option value="F">Failed</option>
+                <option value="G">Registering</option>
+                <option value="H">Halted</option>
+                <option value="I">Instantiating</option>
+                <option value="O">Launched</option>
+                <option value="Q">Queued</option>
+                <option value="R">Running</option>
+              </Form.Control>
             </Form.Group>
           </Row>
-          <Button variant="primary" type="submit" className="btn btn-dark"  onClick={onSubmit}>
+
+          <Button variant="primary" type="submit" className="btn btn-dark" onClick={onSubmit}>
             Submit
           </Button>
         </form>
       </div>
-      <hr/>
+      <hr />
       <div id="wftable" className="div-level-2">
 
         <JobmonWFTable allData={workflows} />

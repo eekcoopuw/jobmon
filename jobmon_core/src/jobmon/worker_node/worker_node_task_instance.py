@@ -1,18 +1,14 @@
 """The Task Instance Object once it has been submitted to run on a worker node."""
-from functools import partial
-from io import TextIOBase
+
+import asyncio
 import logging
 import logging.config
 import os
-from pathlib import Path
-from queue import Queue
 import signal
 import socket
-import subprocess
 import sys
-from threading import Thread
-from time import sleep, time
-from typing import Dict, Optional, Union
+from time import time
+from typing import Dict, Optional, TextIO
 
 from jobmon.core.cluster_protocol import ClusterWorkerNode
 from jobmon.core.configuration import JobmonConfig
@@ -31,10 +27,6 @@ class WorkerNodeTaskInstance:
         self,
         cluster_interface: ClusterWorkerNode,
         task_instance_id: int,
-        workflow_id: Optional[int] = None,
-        task_id: Optional[int] = None,
-        stdout: Optional[Path] = None,
-        stderr: Optional[Path] = None,
         task_instance_heartbeat_interval: Optional[int] = None,
         heartbeat_report_by_buffer: Optional[float] = None,
         command_interrupt_timeout: Optional[int] = None,
@@ -47,10 +39,6 @@ class WorkerNodeTaskInstance:
         Args:
             cluster_interface: interface that gathers executor info in the execution_wrapper.
             task_instance_id: the id of the TaskInstance that is reporting back.
-            workflow_id: the id of the Workflow.
-            task_id: the id of the Task.
-            stdout: path to stdout.
-            stderr: path to stderr.
             task_instance_heartbeat_interval: how ofter to log a report by with the db
             heartbeat_report_by_buffer: multiplier for report by date in case we miss a few.
             command_interrupt_timeout: the amount of time to wait for the child process to
@@ -59,10 +47,6 @@ class WorkerNodeTaskInstance:
         """
         # identity attributes
         self._task_instance_id = task_instance_id
-        self._workflow_id = workflow_id
-        self._task_id = task_id
-        self.stdout = stdout
-        self.stderr = stderr
 
         # service API
         if requester is None:
@@ -96,6 +80,13 @@ class WorkerNodeTaskInstance:
         else:
             self._command_interrupt_timeout = command_interrupt_timeout
 
+        # attrs set by log running
+        self._status: Optional[str] = None
+        self._command: Optional[str] = None
+        self._command_add_env: Optional[Dict[str, str]] = None
+        self._stdout: Optional[str] = None
+        self._stderr: Optional[str] = None
+
         # set last heartbeat
         self.last_heartbeat_time = time()
 
@@ -109,7 +100,6 @@ class WorkerNodeTaskInstance:
     @property
     def distributor_id(self) -> Optional[str]:
         """Executor id given from the executor it is being run on."""
-        logger.debug("distributor_id: " + str(self._distributor_id))
         return self._distributor_id
 
     @property
@@ -129,35 +119,71 @@ class WorkerNodeTaskInstance:
     @property
     def status(self) -> str:
         """Returns the last known status of the task instance."""
-        if not hasattr(self, "_status"):
+        if self._status is None:
             raise AttributeError(
-                "Cannot access status until log_running has been called."
+                "Cannot access status until log_running() has been called."
             )
         return self._status
 
     @property
+    def stdout(self) -> str:
+        if self._stdout is None:
+            raise AttributeError(
+                "Cannot access stdout until log_running() has been called."
+            )
+        return self._stdout
+
+    @property
+    def stderr(self) -> str:
+        if self._stderr is None:
+            raise AttributeError(
+                "Cannot access stderr until log_running() has been called."
+            )
+        return self._stderr
+
+    @property
     def command(self) -> str:
         """Returns the command this task instance will run."""
-        if not hasattr(self, "_command"):
+        if self._command is None:
             raise AttributeError(
-                "Cannot access command until log_running has been called."
+                "Cannot access command until log_running() has been called."
             )
         return self._command
 
     @property
-    def command_return_code(self) -> int:
-        """Returns the exit code of the command that was run."""
-        if not hasattr(self, "_proc"):
+    def command_add_env(self) -> Dict[str, str]:
+        """Returns the command this task instance will run."""
+        if self._command_add_env is None:
             raise AttributeError(
-                "Cannot access command_return_code until command has run."
+                "Cannot access command_add_env until log_running() has been called."
             )
-        return self._proc.returncode
+        return self._command_add_env
 
     @property
-    def proc_stderr(self) -> str:
-        """Returns the final 10k characters of the stderr from the command."""
-        if not hasattr(self, "_proc"):
-            raise AttributeError("Cannot access stderr until command has run.")
+    def command_returncode(self) -> int:
+        """Returns the exit code of the command that was run."""
+        if not hasattr(self, "_proc_returncode"):
+            raise AttributeError(
+                "Cannot access command_returncode until run() has been called"
+            )
+        return self._proc_returncode
+
+    @property
+    def command_stdout(self) -> str:
+        """Returns the last 10k characters of the commands stdout."""
+        if not hasattr(self, "_proc_stdout"):
+            raise AttributeError(
+                "Cannot access command_stdout until run() has been called"
+            )
+        return self._proc_stdout
+
+    @property
+    def command_stderr(self) -> str:
+        """Returns the last 10k characters of the commands stderr."""
+        if not hasattr(self, "_proc_stderr"):
+            raise AttributeError(
+                "Cannot access command_stderr until run() has been called"
+            )
         return self._proc_stderr
 
     def configure_logging(self) -> None:
@@ -195,14 +221,15 @@ class WorkerNodeTaskInstance:
     def log_done(self) -> None:
         """Tell the JobStateManager that this task_instance is done."""
         logger.info(f"Logging done for task_instance {self.task_instance_id}")
-        message = {"nodename": self.nodename}
-        if self.distributor_id is not None:
-            message["distributor_id"] = str(self.distributor_id)
-        else:
-            logger.debug(
-                "No distributor id was found in the job submission env (e.g. sbatch, "
-                "qsub) at this time"
-            )
+
+        message = {
+            "stdout": self.stdout,
+            "stderr": self.stderr,
+            "stdout_log": self.command_stdout,
+            "stderr_log": self.command_stderr,
+            "nodename": self.nodename,
+            "distributor_id": self.distributor_id,
+        }
 
         app_route = f"/task_instance/{self.task_instance_id}/log_done"
         return_code, response = self.requester.send_request(
@@ -223,19 +250,20 @@ class WorkerNodeTaskInstance:
                 f"to {TaskInstanceStatus.DONE} status. Current status is {self.status}."
             )
 
-    def log_error(self, error_state: str, msg: str) -> None:
+    def log_error(self, error_state: str, description: str) -> None:
         """Tell the JobStateManager that this task_instance has errored."""
         logger.info(f"Logging error for task_instance {self.task_instance_id}")
 
         message = {
-            "error_message": msg,
             "error_state": error_state,
+            "error_description": description,
+            "stdout_log": self.command_stdout,
+            "stderr_log": self.command_stderr,
+            "stdout": self.stdout,
+            "stderr": self.stderr,
             "nodename": self.nodename,
+            "distributor_id": self.distributor_id,
         }
-        if self.distributor_id is not None:
-            message["distributor_id"] = str(self.distributor_id)
-        else:
-            logger.debug("No distributor_id was found in the sbatch env at this time")
 
         app_route = f"/task_instance/{self.task_instance_id}/log_error_worker_node"
         return_code, response = self.requester.send_request(
@@ -270,8 +298,6 @@ class WorkerNodeTaskInstance:
                 self._task_instance_heartbeat_interval
                 * self._heartbeat_report_by_buffer
             ),
-            "stdout": str(self.stdout) if self.stdout is not None else None,
-            "stderr": str(self.stderr) if self.stderr is not None else None,
         }
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)
@@ -297,11 +323,19 @@ class WorkerNodeTaskInstance:
         kwargs = SerializeTaskInstance.kwargs_from_wire_worker_node(
             response["task_instance"]
         )
-        self._task_instance_id = kwargs["task_instance_id"]
-        self._status = kwargs["status"]
-        self._command = kwargs["command"]
+        self._status = kwargs.pop("status")
+        self._command = kwargs.pop("command")
+        task_name = kwargs.pop("name")
+        self._stdout = self.cluster_interface.initialize_logfile(
+            "stdout", kwargs.pop("stdout_dir"), task_name
+        )
+        self._stderr = self.cluster_interface.initialize_logfile(
+            "stderr", kwargs.pop("stderr_dir"), task_name
+        )
+        self._command_add_env = {
+            f"JOBMON_{k.upper()}": str(v) for k, v in kwargs.items()
+        }
         self.last_heartbeat_time = time()
-
         if self.status != TaskInstanceStatus.RUNNING:
             raise TransitionError(
                 f"TaskInstance {self.task_instance_id} failed because it could not transition "
@@ -315,7 +349,9 @@ class WorkerNodeTaskInstance:
             "next_report_increment": (
                 self._task_instance_heartbeat_interval
                 * self._heartbeat_report_by_buffer
-            )
+            ),
+            "stdout": self.stdout,
+            "stderr": self.stderr,
         }
         if self.distributor_id is not None:
             message["distributor_id"] = str(self.distributor_id)
@@ -349,42 +385,14 @@ class WorkerNodeTaskInstance:
 
         Could be in any language, anything that can execute on linux. Similar to a stub or a
         container set ENV variables in case tasks need to access them.
+
         """
         # If it logs running and is not able to transition it raises TransitionError
         self.log_running()
 
         try:
-            # Add task instance, workflow id, and task id attributes into the environment.
-            self.set_environment()
-            self._proc = subprocess.Popen(
-                self.command,
-                env=os.environ.copy(),
-                stderr=subprocess.PIPE,
-                stdout=sys.stdout,
-                shell=True,
-                universal_newlines=True,
-            )
-
-            # open thread for reading stderr eagerly otherwise process will deadlock if the
-            # pipe fills up
-            self._proc_stderr = ""
-            self._err_q: Queue = Queue()  # queues for returning stderr to main thread
-            err_thread = Thread(
-                target=enqueue_stderr, args=(self._proc.stderr, self._err_q)
-            )
-            err_thread.daemon = True  # thread dies with the program
-            err_thread.start()
-
-            is_done = False
-            while not is_done:
-                # process any commands that we can in the time allotted
-                time_till_next_heartbeat = self._task_instance_heartbeat_interval - (
-                    time() - self.last_heartbeat_time
-                )
-                is_done = self._poll_subprocess(timeout=time_till_next_heartbeat)
-
-                # log report
-                self.log_report_by()
+            # run the command in a subprocess
+            asyncio.run(self._run_cmd())
 
         # some other deployment unit transitioned task instance out of R state
         except TransitionError as e:
@@ -394,31 +402,14 @@ class WorkerNodeTaskInstance:
             )
             logger.error(msg)
 
-            # cleanup process
-            is_done = self._poll_subprocess(timeout=0)
-            if not is_done:
-                # interrupt command
-                self._proc.send_signal(signal.SIGINT)
-
-                # if it doesn't die of natural causes raise TimeoutExpired
-                try:
-                    self._proc.wait(timeout=self._command_interrupt_timeout)
-                except subprocess.TimeoutExpired:
-                    self._proc.kill()
-                    self._proc.wait(timeout=self._command_interrupt_timeout)
-
-                self._collect_stderr()
-                logger.info(f"Collected stderr after termination: {self.proc_stderr}")
-
             # log an error with db if we are in K state
             if self.status == TaskInstanceStatus.KILL_SELF:
                 msg = (
-                    f"Command: {self.command} got KILL_SELF signal. Collected stderr after "
-                    f"interrupt.\n{self.proc_stderr}"
+                    f"Command: '{self.command}' got KILL_SELF event. Process shut down with "
+                    f"exit code: '{self.command_returncode}'"
                 )
-                error_state = TaskInstanceStatus.ERROR_FATAL
-
-                self.log_error(error_state, msg)
+                logger.error(msg)
+                self.log_error(TaskInstanceStatus.ERROR_FATAL, msg)
 
             # otherwise raise the error cause we are in trouble
             else:
@@ -426,78 +417,121 @@ class WorkerNodeTaskInstance:
 
         # normal happy path
         else:
-            if self.command_return_code == ReturnCodes.OK:
+            if self.command_returncode == ReturnCodes.OK:
                 logger.info(f"Command: {self.command}. Finished Successfully.")
                 self.log_done()
             else:
                 logger.info(
-                    f"Command: {self.command}\n Failed with stderr:\n {self.proc_stderr}"
+                    f"Command: {self.command} exited with signal {self.command_returncode}"
                 )
                 error_state, msg = self.cluster_interface.get_exit_info(
-                    self.command_return_code, self.proc_stderr
+                    self.command_returncode, self.command_stderr
                 )
                 self.log_error(error_state, msg)
 
-    def set_environment(self) -> None:
-        """Add task instance id, task id, and workflow id to the environment."""
-        os.environ["JOBMON_TASK_INSTANCE_ID"] = str(self.task_instance_id)
-        if self._task_id:
-            os.environ["JOBMON_TASK_ID"] = str(self._task_id)
-        if self._workflow_id:
-            os.environ["JOBMON_WORKFLOW_ID"] = str(self._workflow_id)
+    def set_command_output(self, returncode: int, stdout: str, stderr: str) -> None:
+        self._proc_returncode = returncode
+        self._proc_stdout = stdout
+        self._proc_stderr = stderr
 
-    def _poll_subprocess(self, timeout: Union[int, float] = -1) -> bool:
-        """Poll subprocess until it is finished or timeout is reached.
+    @staticmethod
+    async def _communicate(
+        async_stream: asyncio.StreamReader,
+        output_stream: TextIO,
+        poll_interval: float = 1.0,
+    ) -> str:
+        mem_buffer = ""
+        while not async_stream.at_eof():
+            output_block = await async_stream.read(100)
+            output_block_str = output_block.decode()
+            output_stream.write(output_block_str)
+            output_stream.flush()
+            mem_buffer += output_block_str
+            mem_buffer = mem_buffer[-10000:]
+        return mem_buffer
 
-        Args:
-            timeout: time until we stop processing. -1 means process till no more work
-
-        Returns: true if the  subprocess has exited
-        """
-        # this way we always process at least 1 command
-        loop_start = time()
-
-        ret_code = self._proc.poll()
-        keep_polling = ret_code is None
+    async def _process_poller(self, process: asyncio.subprocess.Process) -> int:
+        keep_polling = True
         while keep_polling:
-            sleep(0.5)
+            time_till_next_heartbeat = self._task_instance_heartbeat_interval - (
+                time() - self.last_heartbeat_time
+            )
+            try:
+                await asyncio.wait_for(process.wait(), timeout=time_till_next_heartbeat)
+                keep_polling = False
+            except asyncio.TimeoutError:
+                self.log_report_by()
 
-            # keep polling if we have time and no exit code
-            ret_code = self._proc.poll()
-            timeout_exceeded = (time() - loop_start) > timeout and not timeout == -1
-            keep_polling = not timeout_exceeded and ret_code is None
+        # keep typecheck happy
+        returncode = process.returncode
+        if returncode is None:
+            raise AttributeError(
+                "process finished polling but does not a a return code."
+            )
 
-            self._collect_stderr()
+        return returncode
 
-        return ret_code is not None
+    async def _run_cmd(self) -> None:
+        # construct shell invironment
+        env = os.environ.copy()
+        env.update(self.command_add_env)
 
-    def _collect_stderr(self) -> None:
-        # pull stderr off queue and clip at 10k to avoid mysql has gone away errors
-        # when posting long messages and keep memory low
-        while not self._err_q.empty():
-            self._proc_stderr += self._err_q.get()
-        if len(self._proc_stderr) >= 10000:
-            self._proc_stderr = self._proc_stderr[-10000:]
+        # start the subprocess
+        process = await asyncio.create_subprocess_shell(
+            self.command,
+            env=env,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
 
+        # open the error and output streams
+        with open(self.stdout, "w") as stdout_steam, open(
+            self.stderr, "w"
+        ) as stderr_steam:
+            try:
+                # keep typecheck happy
+                if process.stdout is None or process.stderr is None:
+                    raise AttributeError(
+                        f"async process {process} had None type for stdout or stderr. Must be "
+                        "type StreamReader"
+                    )
 
-def enqueue_stderr(stderr: TextIOBase, queue: Queue) -> None:
-    """Eagerly print 100 byte blocks to stderr so pipe doesn't fill up and deadlock.
+                # create poller tasks for IO
+                stdout_task = asyncio.Task(
+                    self._communicate(process.stdout, stdout_steam)
+                )
+                stderr_task = asyncio.Task(
+                    self._communicate(process.stderr, stderr_steam)
+                )
 
-    Also collect blocks for reporting to db by putting them in a queue to main thread.
+                # create heartbeat loop
+                heartbeat_task = asyncio.Task(self._process_poller(process))
+                await asyncio.gather(stdout_task, stderr_task, heartbeat_task)
+            except Exception as e:
+                try:
+                    # attempt a graceful shutdown
+                    process.send_signal(signal.SIGINT)
+                    await asyncio.wait_for(
+                        process.wait(), timeout=self._command_interrupt_timeout
+                    )
+                except asyncio.TimeoutError:
+                    # otherwise violent death
+                    process.kill()
+                    await process.wait()
 
-    Args:
-        stderr: stderr pipe
-        queue: queue to communicate between listener thread and main thread
-    """
-    # read 100 bytes at a time so the pipe never deadlocks even if someone
-    # tries to print a dataframe into stderr
-    logger.debug("enqueue_stderr")
-    block_reader = partial(stderr.read, 100)
-    for new_block in iter(block_reader, ""):
-        # push the block we just read to stderr and onto the queue that's
-        # communicating w/ the main thread
-        sys.stderr.write(new_block)
-        queue.put(new_block)
+                if process.returncode is None:
+                    raise RuntimeError(
+                        "process.returncode is None after awaiting process shutdown"
+                    ) from e
+                else:
+                    returncode = process.returncode
 
-    # cleanup
-    stderr.close()
+                raise
+            else:
+                returncode = heartbeat_task.result()
+            finally:
+                self.set_command_output(
+                    returncode=returncode,
+                    stdout=stdout_task.result(),
+                    stderr=stderr_task.result(),
+                )

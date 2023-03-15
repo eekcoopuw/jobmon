@@ -12,7 +12,7 @@ classifiers = [
     "Programming Language :: Python :: 3.7",
 ]
 dependencies = [
-    'jobmon_core',
+    'jobmon_core>=3.2.1',
     'flask',
     'flask_cors',
     'elastic-apm[flask]',
@@ -21,7 +21,8 @@ dependencies = [
     'sqlalchemy_utils',
     'structlog',
     'scipy',
-    'pandas'
+    'pandas',
+    'polars',
 ]
 dynamic = ["version"]
 

@@ -1,28 +1,16 @@
 import React, { useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import BootstrapTable from "react-bootstrap-table-next";
 import paginationFactory from "react-bootstrap-table2-paginator";
 import ToolkitProvider, { CSVExport } from 'react-bootstrap-table2-toolkit/dist/react-bootstrap-table2-toolkit';
-import filterFactory, { textFilter, dateFilter, numberFilter } from 'react-bootstrap-table2-filter';
+import filterFactory, { textFilter, numberFilter } from 'react-bootstrap-table2-filter';
 import 'react-bootstrap-table2-filter/dist/react-bootstrap-table2-filter.min.css';
 import 'react-bootstrap-table2-toolkit/dist/react-bootstrap-table2-toolkit.min.css';
 
 import { convertDate, convertDatePST } from '../functions'
 import '../jobmon_gui.css';
 
-interface TaskData {
-    task_id: number
-    task_name: string
-    task_status: string
-    task_command: string
-    task_num_attempts: number
-    task_max_attempts: number
-    task_status_date: string
-}
-
 export default function TaskTable({ taskData, loading }) {
-    let params = useParams();
-
     const { ExportCSVButton } = CSVExport;
     const [helper, setHelper] = useState("");
 

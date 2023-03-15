@@ -488,7 +488,7 @@ def get_downstream_tasks() -> Any:
     return resp
 
 
-@blueprint.route("/task/get_task_details_viz/<task_id>", methods=["GET"])
+@blueprint.route("/task/get_ti_details_viz/<task_id>", methods=["GET"])
 def get_task_details(task_id: int) -> Any:
     """Get information about TaskInstances associated with specific Task ID."""
     session = SessionLocal()
@@ -496,7 +496,7 @@ def get_task_details(task_id: int) -> Any:
         query = (
             select(
                 TaskInstance.id,
-                TaskInstance.status,
+                TaskInstanceStatus.label,
                 TaskInstance.stdout,
                 TaskInstance.stderr,
                 TaskInstance.distributor_id,
@@ -510,6 +510,7 @@ def get_task_details(task_id: int) -> Any:
             )
             .where(
                 TaskInstance.task_id == task_id,
+                TaskInstance.status == TaskInstanceStatus.id,
             )
         )
         rows = session.execute(query).all()
@@ -529,18 +530,24 @@ def get_task_details(task_id: int) -> Any:
     return resp
 
 
-@blueprint.route("/task/get_task_status_viz/<task_id>", methods=["GET"])
-def get_task_status_viz(task_id: int) -> Any:
+@blueprint.route("/task/get_task_details_viz/<task_id>", methods=["GET"])
+def get_task_details_viz(task_id: int) -> Any:
     """Get status of Task from Task ID."""
     session = SessionLocal()
     with session.begin():
         query = select(
             Task.status,
+            Task.workflow_id,
         ).where(
             Task.id == task_id,
         )
-        result = session.execute(query).one()[0]
+        rows = session.execute(query).all()
 
-    resp = jsonify({"task_status": result})
+    column_names = (
+        "task_status",
+        "workflow_id",
+    )
+    result = [dict(zip(column_names, row)) for row in rows]
+    resp = jsonify(task_details=result)
     resp.status_code = 200
     return resp

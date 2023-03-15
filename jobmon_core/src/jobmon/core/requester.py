@@ -119,12 +119,24 @@ class Requester(object):
         def is_5XX(result: Tuple[int, dict]) -> bool:
             """Return True if get_content result has 5XX status."""
             status = result[0]
+            content = str(result[1])
             is_bad = 499 < status < 600
             if is_bad:
-                logger.warning(
-                    f"Got HTTP status_code={status} from server. app_route: {app_route}."
-                    f" message: {message}"
-                )
+                if "2013, 'Lost connection to MySQL server during query'" in content:
+                    msg = (
+                        "A 'Lost connection to MySQL server' event occurred, "
+                        "for which a new db connection pool has been created "
+                        "(usually due to a routine db hot cutover operation)"
+                    )
+                    logger.warning(
+                        f"Got HTTP status_code={status} from server. app_route: {app_route}."
+                        f" message: {msg}"
+                    )
+                else:
+                    logger.warning(
+                        f"Got HTTP status_code={status} from server. app_route: {app_route}."
+                        f" message: {message}"
+                    )
             return is_bad
 
         def is_423(result: Tuple[int, dict]) -> bool:

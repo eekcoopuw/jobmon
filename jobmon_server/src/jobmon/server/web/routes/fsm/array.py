@@ -3,7 +3,7 @@ from http import HTTPStatus as StatusCodes
 from typing import Any, cast, Dict
 
 from flask import jsonify, request
-from sqlalchemy import bindparam, case, func, insert, literal_column, select, update
+from sqlalchemy import bindparam, func, insert, literal_column, select, update
 import structlog
 
 from jobmon.core.constants import TaskInstanceStatus
@@ -206,13 +206,10 @@ def transition_array_to_launched(array_id: int) -> Any:
 def log_array_distributor_id(array_id: int) -> Any:
     """Add distributor_id, stderr/stdout paths to the DB for all TIs in an array."""
     data = cast(Dict, request.get_json())
-    batch_num = data["array_batch_num"]
-    distributor_id_map = data["distributor_id_map"]
 
     # Create a list of dicts out of the distributor id map.
     params = [
-        {"step_id": key, "distributor_id": val[0], "stdout": val[1], "stderr": val[2]}
-        for key, val in distributor_id_map.items()
+        {"task_instance_id": key, "distributor_id": val} for key, val in data.items()
     ]
 
     session = SessionLocal()
@@ -224,37 +221,14 @@ def log_array_distributor_id(array_id: int) -> Any:
         update_stmt = (
             update(TaskInstance)
             .where(
-                TaskInstance.array_batch_num == batch_num,
                 TaskInstance.array_id == array_id,
-                TaskInstance.array_step_id == bindparam("step_id"),
+                TaskInstance.id == bindparam("task_instance_id"),
             )
-            .values(
-                distributor_id=bindparam("distributor_id"),
-                stdout=case(
-                    [TaskInstance.stdout.is_(None), bindparam("stdout")],
-                    [TaskInstance.stdout.is_not(None), TaskInstance.stdout],
-                ),
-                stderr=case(
-                    [TaskInstance.stderr.is_(None), bindparam("stderr")],
-                    [TaskInstance.stderr.is_not(None), TaskInstance.stderr],
-                ),
-            )
+            .values(distributor_id=bindparam("distributor_id"))
             .execution_options(synchronize_session=False)
         )
         session.connection().execute(update_stmt, params)
 
-        # Return the affected rows and their distributor ids
-        select_stmt = (
-            select(TaskInstance.id, TaskInstance.distributor_id)
-            .where(
-                TaskInstance.array_batch_num == batch_num,
-                TaskInstance.array_id == array_id,
-            )
-            .execution_options(synchronize_session=False)
-        )
-
-        res = session.execute(select_stmt).fetchall()
-
-    resp = jsonify(task_instance_map={ti.id: ti.distributor_id for ti in res})
+    resp = jsonify()
     resp.status_code = StatusCodes.OK
     return resp

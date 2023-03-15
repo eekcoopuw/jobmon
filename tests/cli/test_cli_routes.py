@@ -343,6 +343,9 @@ def test_get_workflow_status(db_engine, tool):
     wf.bind()
     wf._bind_tasks()
 
+    factory = WorkflowRunFactory(wf.workflow_id)
+    factory.create_workflow_run()
+
     app_route = f"/workflow_status"
     return_code, msg = wf.requester.send_request(
         app_route=app_route,
@@ -352,6 +355,23 @@ def test_get_workflow_status(db_engine, tool):
     assert return_code == 200
     result = pd.read_json(msg["workflows"])
     assert len(result) == 1
+
+    # Create a second workflow, check that ordering returns second one correctly
+    wf2 = t.create_workflow(name="fake_workflow_2")
+    wf2.add_task(t1)
+    wf2.bind()
+    wf2._bind_tasks()
+    factory2 = WorkflowRunFactory(wf2.workflow_id)
+    factory2.create_workflow_run()
+
+    _, msg2 = wf.requester.send_request(
+        app_route=app_route,
+        message={"user": getpass.getuser(), "limit": 1},
+        request_type="get",
+    )
+    result2 = pd.read_json(msg2["workflows"])
+    assert len(result2) == 1
+    assert result2.WF_ID[0] == wf2.workflow_id
 
 
 def test_get_task_status(db_engine, tool):
