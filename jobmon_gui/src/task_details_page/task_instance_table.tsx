@@ -15,6 +15,9 @@ export default function TaskInstanceTable({ taskInstanceData }) {
             dataField: "ti_id",
             text: "ID",
             sort: true,
+            formatter: (cell) => (
+                <div id={`${cell}`}>{cell}</div>
+              ) 
         },
         {
             dataField: "ti_status",
