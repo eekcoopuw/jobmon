@@ -1,7 +1,8 @@
 
 Getting Additional Help
 #######################
-Inside IHME
+
+*Inside IHME*
 
 The Scientific Computing team is always available to answer your questions or to consult on
 Jobmon.
@@ -24,6 +25,6 @@ TaskInstance error logs that you have.*
 
 Important announcements are on the slack channel #jobmon-announce
 
-Outside IHME
+*Outside IHME*
 
 Please use GitHub to communicate your issue.
