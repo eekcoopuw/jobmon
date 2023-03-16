@@ -82,7 +82,7 @@ to be retried four times and it will fail up until the fourth time.::
         task_args=[],
         op_args=[]
     )
-    output_file_name = f"/ihme/scratch/users/{user}/retry_output"
+    output_file_name = f"/home/{user}/retry_output"
     this_file = os.path.dirname(__file__)
     remote_sleep_and_write = os.path.abspath(
         os.path.expanduser(f"{this_file}/../tests/_scripts/remote_sleep_and_write.py")
@@ -329,7 +329,7 @@ For example ::
     def assign_resources(*args, **kwargs):
         """ Callable to be evaluated when the task is ready to be scheduled
         to run"""
-        fp = '/ihme/scratch/users/svcscicompci/tests/jobmon/resources.txt'
+        fp = f'/home/{user}/jobmon/resources.txt'
         with open(fp, "r") as file:
             resources = file.read()
             resource_dict = ast.literal_eval(resources)

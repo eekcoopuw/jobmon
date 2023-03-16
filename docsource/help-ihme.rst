@@ -1,6 +1,8 @@
 
 Getting Additional Help
 #######################
+Inside IHME
+
 The Scientific Computing team is always available to answer your questions or to consult on
 Jobmon.
 
@@ -21,3 +23,7 @@ problem. *Please include your Workflow id, the Jobmon version that you're using,
 TaskInstance error logs that you have.*
 
 Important announcements are on the slack channel #jobmon-announce
+
+Outside IHME
+
+Please use GitHub to communicate your issue.

@@ -155,8 +155,8 @@ for loc_id in location_set:
 workflow.bind()
 print("Workflow creation complete.")
 print(f"Running workflow with ID {workflow.workflow_id}.")
-print("For full information see the Jobmon GUI:")
-print(f"https://jobmon-gui.ihme.washington.edu/#/workflow/{workflow.workflow_id}/tasks")
+print("If you have a Jobmon GUI deployed, see the Jobmon GUI for full information:")
+print(f"https://jobmon-gui.mydomain.com/#/workflow/{workflow.workflow_id}/tasks")
 
 
 # run workflow
