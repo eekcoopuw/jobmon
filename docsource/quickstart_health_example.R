@@ -5,7 +5,7 @@ library(jobmonr)
 username <- Sys.getenv("USER")
 
 # Parameters for the workflow
-root_data_dir <- paste0("/ihme/scratch/users/", username, "/quickstart/data")
+root_data_dir <- paste0("/home/", username, "/quickstart/data")
 location_set_id <- as.integer(5)
 location_ids <- seq(from=0, to=location_set_id)
 
@@ -33,7 +33,7 @@ data_prep_template <- task_template(tool=my_tool,
                         template_name="quickstart_data_prep_template",
                         command_template=paste(
                           Sys.getenv("RETICULATE_PYTHON"),
-                            "/mnt/team/scicomp/pub/docs/training_scripts/quickstart/data_prep.py",
+                            "/code_dir/docsource/quickstart_tasks/data_prep.py",
                             "--location_set_id {location_set_id}",
                             "--root_data_dir {root_data_dir}",
                             "--log_level {log_level}",
@@ -56,7 +56,7 @@ parallel_by_location_template <- task_template(tool=my_tool,
                         template_name="quickstart_location_template",
                         command_template=paste(
                           Sys.getenv("RETICULATE_PYTHON"),
-                            "/mnt/team/scicomp/pub/docs/training_scripts/quickstart/one_location.py",
+                            "/code_dir/docsource/quickstart_tasks/one_location.py",
                             "--location_id {location_id}",
                             "--root_data_dir {root_data_dir}",
                             "--log_level {log_level}",
@@ -70,7 +70,7 @@ summarization_template <- task_template(tool=my_tool,
                         template_name="quickstart_summarization_template",
                         command_template=paste(
                           Sys.getenv("RETICULATE_PYTHON"),
-                            "/mnt/team/scicomp/pub/docs/training_scripts/quickstart/summarization.py",
+                            "/code_dir/docsource/quickstart_tasks/summarization.py",
                             "--root_data_dir {root_data_dir}",
                             "--log_level {log_level}",
                             sep=" "),
