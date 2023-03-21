@@ -106,7 +106,7 @@ function WorkflowDetails({ subpage }) {
             getAsyncTTdetail(setTTDict, params.workflowId, setTTLoaded)();
             safe_rum_add_label(rum_t, "wf_id", params.workflowId);
         }
-    }, []);
+    }, [params.workflowId]);
     // Update the progress bar every 60 seconds
     useEffect(() => {
         const interval = setInterval(() => {
@@ -119,7 +119,7 @@ function WorkflowDetails({ subpage }) {
             }
         }, 60000);
         return () => clearInterval(interval);
-    }, [wfDict]);
+    }, [wfDict, params.workflowId]);
 
     // Get information to populate the Tasks table
     useEffect(() => {
@@ -138,12 +138,12 @@ function WorkflowDetails({ subpage }) {
             setTaskLoading(false);
         };
         fetchData();
-    }, [task_template_name]);
+    }, [task_template_name, workflowId]);
     useEffect(() => {
         if (typeof params.workflowId !== 'undefined' && tt_id !== 'undefined' && tt_id !== '') {
             getAsyncErrorLogs(setErrorLogs, params.workflowId, setErrorLoading, tt_id)();
         }
-    }, [tt_id]);
+    }, [tt_id, params.workflowId]);
 
     // Get resource usage information
     useEffect(() => {
@@ -166,7 +166,7 @@ function WorkflowDetails({ subpage }) {
             setUsageInfo(usage);
         };
         fetchData();
-    }, [task_template_version_id]);
+    }, [task_template_version_id, workflowId]);
 
     //*******************event handling****************************
     // TaskTemplate name form

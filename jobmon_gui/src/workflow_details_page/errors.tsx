@@ -17,14 +17,14 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
 
     const [errorDetail, setErrorDetail] = useState({
         'error': '', 'error_time': '', 'task_id': '',
-        'task_instance_err_id': '', 'task_instance_id': '', 'time_since': ''
+        'task_instance_err_id': '', 'task_instance_id': '', 'time_since': '',
+        'task_instance_stderr_log': ''
     });
     const [helper, setHelper] = useState("");
     const [showModal, setShowModal] = useState(false)
     const [justRecentErrors, setRecentErrors] = useState(false)
 
-    //FIXME: time is in UTC but shows as if locally:
-    // an error happening now shows: in 8 hours
+
     function getTimeSince(date: string) {
         let date_obj = convertDate(date);
         const dateTimeAgo = moment(date_obj).fromNow();
@@ -133,7 +133,8 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
         // clean the error log detail display (right side) when task template changes
         let temp = {
             'error': '', 'error_time': '', 'task_id': '',
-            'task_instance_err_id': '', 'task_instance_id': '', 'time_since': ''
+            'task_instance_err_id': '', 'task_instance_id': '', 'time_since': '',
+            'task_instance_stderr_log': ''
         };
         setErrorDetail(temp);
     }, [errorLogs]);
@@ -188,7 +189,9 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
                 }
                 bodyContent={
                     <p>
-                        {errorDetail.error}
+                        {errorDetail.error}<br></br>
+                        <br></br>
+                        {errorDetail.task_instance_stderr_log}
                     </p>
                 }
                 showModal={showModal}

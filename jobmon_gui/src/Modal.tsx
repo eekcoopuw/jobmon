@@ -8,7 +8,7 @@ export default function CustomModal({headerContent, bodyContent, showModal, setS
 
     return (
         <Modal
-            size="lg"
+            size="xl"
             aria-labelledby="contained-modal-title-vcenter"
             centered
             show={showModal}

@@ -1,44 +1,114 @@
-import React from 'react';
+import React, { useState } from 'react';
 import "react-bootstrap-table-next/dist/react-bootstrap-table2.min.css"
-import BootstrapTable, { ColumnDescription } from "react-bootstrap-table-next";
+import BootstrapTable, { ColumnDescription }  from "react-bootstrap-table-next";
 import paginationFactory from "react-bootstrap-table2-paginator";
 import { OverlayTrigger } from "react-bootstrap";
 import Popover from 'react-bootstrap/Popover';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
 import { faLightbulb } from '@fortawesome/free-solid-svg-icons';
+import CustomModal from '../Modal';
+import { sanitize } from 'dompurify';
 
 
 export default function TaskInstanceTable({ taskInstanceData }) {
+    const [showStdoutModal, setShowStdoutModal] = useState(false)
+    const [showStderrModal, setShowStderrModal] = useState(false)
 
+    const [rowDetail, setRowDetail] = useState({
+        'ti_id': '', 'ti_status': '', 'ti_stdout': '',
+        'ti_stderr': '', 'ti_stdout_log': '', 'ti_stderr_log': '',
+        'ti_distributor_id': '', 'ti_nodename': '',
+    });
+
+    const htmlFormatter = cell => {
+        // add sanitize to prevent xss attack
+        return <div dangerouslySetInnerHTML={{ __html: sanitize(`${cell}`) }} />;
+    };
+
+    function get_data_brief(data) {
+        let r: any = [];
+
+        for (let i in data) {
+            let e = data[i];
+            let stderr_display = e.ti_stderr_log
+            let stdout_display = e.ti_stdout_log
+
+            // Currently not using. Leave in, in case we want to switch to showing logs in table when more users switch to 3.2.1
+            if (stderr_display  !== null && stderr_display  !== undefined) {
+                stderr_display = `
+                <div class="ti-logs">${e.ti_stderr_log.trim().split("\n").slice(-1)}</div>
+                `;
+            }
+            if (stdout_display !== null && stdout_display !== undefined) {
+                stdout_display = `
+                <div class="ti-logs">${e.ti_stdout_log.trim().split("\n").slice(-1)}</div>
+                `;
+            }
+            r.push({
+                "ti_id": e.ti_id,
+                "ti_status": e.ti_status,
+                "stderr_brief": stderr_display,
+                "stdout_brief": stdout_display,
+                "ti_stdout": e.ti_stdout,
+                "ti_stderr": e.ti_stderr,
+                "ti_distributor_id": e.ti_distributor_id,
+                "ti_nodename": e.ti_nodename,
+                "ti_stdout_log": e.ti_stdout_log,
+                "ti_stderr_log": e.ti_stderr_log
+            })
+
+        }
+        return r;
+    }
+
+
+    const data_brief = get_data_brief(taskInstanceData)
     const columns: Array<ColumnDescription> = [
         {
             dataField: "ti_id",
             text: "ID",
             sort: true,
+            headerStyle: { width: "10%" },
             formatter: (cell) => (
                 <div id={`${cell}`}>{cell}</div>
-              ) 
+            )
         },
         {
             dataField: "ti_status",
             text: "Status",
             sort: true,
-        },
-        {
-            dataField: "ti_stdout",
-            text: "Stdout Path",
-            sort: true,
-            style: { overflowWrap: 'break-word' },
+            headerStyle: { width: "10%" },
         },
         {
             dataField: "ti_stderr",
-            text: "Stderr Path",
-            sort: true,
+            text: "Standard Error",
+            formatter: htmlFormatter,
+            // @ts-ignore
+            events: {
+                onClick: (e: any, column: any, columnIndex: any, row: any, rowIndex: any) => {
+                    setShowStderrModal(true)
+                    setRowDetail(taskInstanceData[rowIndex])
+                }
+            },
+            style: { overflowWrap: 'break-word' },
+        },
+        {
+            dataField: "ti_stdout",
+            text: "Standard Out",
+            formatter: htmlFormatter,
+            // @ts-ignore
+            events: {
+                onClick: (e: any, column: any, columnIndex: any, row: any, rowIndex: any) => {
+                    setShowStdoutModal(true)
+                    setRowDetail(taskInstanceData[rowIndex])
+                }
+            },
             style: { overflowWrap: 'break-word' },
         },
         {
             dataField: "ti_distributor_id",
             text: "Distributor ID",
+            headerStyle: { width: "15%" },
             sort: true,
         },
         {
@@ -47,12 +117,6 @@ export default function TaskInstanceTable({ taskInstanceData }) {
             sort: true,
             style: { overflowWrap: 'break-word' },
         },
-        {
-            dataField: "ti_error_log_description",
-            text: "Error Log",
-            sort: true,
-            style: { overflowWrap: 'break-word' },
-        }
     ]
 
     // Create and return the React Bootstrap Table
@@ -90,12 +154,55 @@ export default function TaskInstanceTable({ taskInstanceData }) {
             </div>
             <BootstrapTable
                 keyField="ti_id"
-                data={taskInstanceData}
+                data={data_brief}
                 columns={columns}
                 bootstrap4
                 headerClasses="thead-dark"
                 striped
                 pagination={taskInstanceData.length === 0 ? undefined : paginationFactory({ sizePerPage: 10 })}
+                selectRow={{
+                    mode: "radio",
+                    hideSelectColumn: true,
+                    clickToSelect: true,
+                    bgColor: "#848884",
+                }}
+            />
+
+            <CustomModal
+                className="task_instance_modal"
+                headerContent={
+                    <h5> Standard Out</h5>
+                }
+                bodyContent={
+                    <p>
+                        <b>Standard Out Path:</b> <br></br>
+                        {rowDetail.ti_stdout} <br></br>
+                        <br></br>
+                        <b>Standard Out Log:</b> <br></br>
+                        {rowDetail.ti_stdout_log}
+                    </p>
+                }
+                showModal={showStdoutModal}
+                setShowModal={setShowStdoutModal}
+            />
+
+            <CustomModal
+                className="task_instance_modal"
+                headerContent={
+                    <h5> Standard Error</h5>
+                }
+                bodyContent={
+                    <p>
+                        <b>Standard Error Path:</b> <br></br>
+                        {rowDetail.ti_stderr}<br></br>
+                        <br></br>
+                        <b>Standard Error Log:</b> <br></br>
+                        {rowDetail.ti_stderr_log}
+                    </p>
+                }
+                showModal={showStderrModal}
+                setShowModal={setShowStderrModal}
+
             />
         </div>
     );

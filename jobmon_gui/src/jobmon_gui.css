@@ -494,3 +494,11 @@ input:focus + .slider {
    -ms-transform: translateX(100%);
    transform: translateX(100%);
 }
+
+.ti-logs {
+    cursor: pointer;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    height: 40px;
+}
