@@ -9,7 +9,7 @@ import Breadcrumb from 'react-bootstrap/Breadcrumb';
 import { OverlayTrigger } from "react-bootstrap";
 import Popover from 'react-bootstrap/Popover';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faLightbulb } from '@fortawesome/free-solid-svg-icons';
+import { faCircle, faLightbulb } from '@fortawesome/free-solid-svg-icons';
 
 
 // @ts-ignore
@@ -121,6 +121,14 @@ function WorkflowDetails({ subpage }) {
         return () => clearInterval(interval);
     }, [wfDict, params.workflowId]);
 
+    const workflow_status_renders = {
+        "PENDING": (<div>< label className="label-middle" > <FontAwesomeIcon icon={faCircle} className="bar-pp" /> </label><label className="label-left">PENDING  </label></div >),
+        "SCHEDULED": (<div><label className="label-middle"><FontAwesomeIcon icon={faCircle} className="bar-ss" /> </label><label className="label-left">SCHEDULED  </label></div>),
+        "RUNNING": (<div>< label className="label-middle" > <FontAwesomeIcon icon={faCircle} className="bar-rr" /> </label><label className="label-left">RUNNING  </label></div >),
+        "FAILED": (<div>< label className="label-middle" > <FontAwesomeIcon icon={faCircle} className="bar-ff" /> </label><label className="label-left">FAILED  </label></div >),
+        "DONE": (<div>< label className="label-middle" > <FontAwesomeIcon icon={faCircle} className="bar-dd" /> </label><label className="label-left">PENDING  </label></div >)
+    }
+
     // Get information to populate the Tasks table
     useEffect(() => {
         if (task_template_name === null || task_template_name === "") {
@@ -134,6 +142,9 @@ function WorkflowDetails({ subpage }) {
                 { params: { tt_name: task_template_name } }
             );
             let tasks = result.data.tasks;
+            tasks.forEach((task) => {
+                task.task_status = workflow_status_renders[task.task_status]
+            })
             setTasks(tasks);
             setTaskLoading(false);
         };
@@ -188,7 +199,7 @@ function WorkflowDetails({ subpage }) {
                 <Breadcrumb.Item><Link to="/">Home</Link></Breadcrumb.Item>
                 <Breadcrumb.Item active>Workflow ID {workflowId} </Breadcrumb.Item>
             </Breadcrumb>
-            <div style={{ display: "flex" }}>
+            <div className='d-flex justify-content-start pt-3'>
                 <header className="App-header">
                     <p>Workflow ID: {workflowId} </p>
                 </header>
@@ -218,12 +229,11 @@ function WorkflowDetails({ subpage }) {
                     maxc={wfDict.MAXC}
                     placement="bottom"
                 />
-                <hr className="hr-1" />
             </div>
 
             <div id="tt_title" className="div-level-2">
-                <header className="header-1">
-                    <p>
+                <header className="header-1 d-flex align-items-center">
+                    <p className='mr-5'>
                         Task Templates&nbsp;
                         <OverlayTrigger
                             placement="right"
@@ -244,7 +254,6 @@ function WorkflowDetails({ subpage }) {
                     }
 
                 </header>
-                <hr className="hr-3" />
             </div>
 
             <div id="tt_progress" className="div-scroll">
@@ -292,7 +301,7 @@ function WorkflowDetails({ subpage }) {
             <div id="tt_search" className="div-level-2">
                 <hr className="hr-2" />
                 <div className="div-full">
-                    <ul className="nav nav-tabs">
+                    <ul className="nav nav-pills">
                         <li className="nav-item">
                             <Link
                                 className={`nav-link ${subpage === "tasks" ? "active" : ""}`}

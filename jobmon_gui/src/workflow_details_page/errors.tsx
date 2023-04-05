@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import moment from 'moment';
 import BootstrapTable from "react-bootstrap-table-next";
-import filterFactory, { textFilter } from 'react-bootstrap-table2-filter';
+import filterFactory, { textFilter, dateFilter } from 'react-bootstrap-table2-filter';
 import { sanitize } from 'dompurify';
 import paginationFactory from "react-bootstrap-table2-paginator";
 import 'react-bootstrap-table2-paginator/dist/react-bootstrap-table2-paginator.min.css';
@@ -45,8 +45,7 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
 
                 let date_display = `
             <div class="error-time">
-            <span>${convertDatePST(e.error_time)}</span>
-            <span class="error-time-since">${getTimeSince(e.error_time)}</span>
+            <span>${e.error_time}</span>
             </div>
             `;
                 let error_display = `
@@ -77,13 +76,11 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
             dataField: "id",
             text: "Error Index",
             hidden: true,
-            sort: true
         },
         {
             dataField: "task_id",
             text: "Task ID",
             headerStyle: { width: "10%" },
-            sort: true
         },
         {
             dataField: "task_instance_id",
@@ -102,12 +99,14 @@ export default function Errors({ errorLogs, tt_name, loading, apm }) {
             dataField: "date",
             text: "Error Date",
             formatter: htmlFormatter,
-            sort: true
+            headerStyle: { width: "20%" },
+            filter: dateFilter()
+
         },
 
         {
             dataField: "brief",
-            text: "",
+            text: "Error Log",
             filter: textFilter(),
             formatter: htmlFormatter,
             headerEvents: {

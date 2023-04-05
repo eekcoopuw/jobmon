@@ -5,10 +5,16 @@ import paginationFactory from "react-bootstrap-table2-paginator";
 import { OverlayTrigger } from "react-bootstrap";
 import Popover from 'react-bootstrap/Popover';
 import { FontAwesomeIcon } from '@fortawesome/react-fontawesome';
-import { faLightbulb } from '@fortawesome/free-solid-svg-icons';
+import { faCaretDown, faCaretUp, faLightbulb } from '@fortawesome/free-solid-svg-icons';
 import CustomModal from '../Modal';
 import { sanitize } from 'dompurify';
 
+const customCaret = (order, column) => {
+    if (!order) return (<span>&nbsp;&nbsp;<FontAwesomeIcon icon={faCaretUp} /></span>);
+    else if (order === 'asc') return (<span>&nbsp;&nbsp;<FontAwesomeIcon icon={faCaretUp} /></span>);
+    else if (order === 'desc') return (<span>&nbsp;&nbsp;<FontAwesomeIcon icon={faCaretDown} /></span>);
+    return null;
+}
 
 export default function TaskInstanceTable({ taskInstanceData }) {
     const [showStdoutModal, setShowStdoutModal] = useState(false)
@@ -68,6 +74,7 @@ export default function TaskInstanceTable({ taskInstanceData }) {
             dataField: "ti_id",
             text: "ID",
             sort: true,
+            sortCaret: customCaret,
             headerStyle: { width: "10%" },
             formatter: (cell) => (
                 <div id={`${cell}`}>{cell}</div>
@@ -77,6 +84,7 @@ export default function TaskInstanceTable({ taskInstanceData }) {
             dataField: "ti_status",
             text: "Status",
             sort: true,
+            sortCaret: customCaret,
             headerStyle: { width: "10%" },
         },
         {
@@ -90,6 +98,8 @@ export default function TaskInstanceTable({ taskInstanceData }) {
                     setRowDetail(taskInstanceData[rowIndex])
                 }
             },
+            sort: true,
+            sortCaret: customCaret,
             style: { overflowWrap: 'break-word' },
         },
         {
@@ -103,6 +113,8 @@ export default function TaskInstanceTable({ taskInstanceData }) {
                     setRowDetail(taskInstanceData[rowIndex])
                 }
             },
+            sort: true,
+            sortCaret: customCaret,
             style: { overflowWrap: 'break-word' },
         },
         {
@@ -110,13 +122,24 @@ export default function TaskInstanceTable({ taskInstanceData }) {
             text: "Distributor ID",
             headerStyle: { width: "15%" },
             sort: true,
+            sortCaret: customCaret,
         },
         {
             dataField: "ti_nodename",
             text: "Node Name",
             sort: true,
+            sortCaret: customCaret,
             style: { overflowWrap: 'break-word' },
         },
+        {
+            dataField: "ti_error_log_description",
+            text: "Error Log",
+            sort: true,
+            sortCaret: customCaret,
+            style: { overflowWrap: 'break-word' },
+            headerStyle: { width: "30%" },
+
+        }
     ]
 
     // Create and return the React Bootstrap Table
@@ -124,8 +147,8 @@ export default function TaskInstanceTable({ taskInstanceData }) {
         <div>
             <div style={{ display: "flex" }}>
                 <header className="header-1">
-                    <p>
-                        TaskInstances&nbsp;
+                    <p className='color-dark'>
+                        Task Instances&nbsp;
                         <OverlayTrigger
                             placement="right"
                             trigger={["hover", "focus"]}

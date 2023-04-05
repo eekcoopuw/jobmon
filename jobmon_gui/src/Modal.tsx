@@ -1,8 +1,8 @@
-import React from 'react'
+import React, {useState} from 'react'
 import { Modal, Button } from 'react-bootstrap';
 
 
-export default function CustomModal({headerContent, bodyContent, showModal, setShowModal, className=''}) {
+export default function CustomModal({headerContent, bodyContent, showModal, setShowModal, className = ''}) {
 
 
 
@@ -15,18 +15,18 @@ export default function CustomModal({headerContent, bodyContent, showModal, setS
             onHide={() => { setShowModal(false) }}
             className={className}
         >
-            <Modal.Header>
+            <Modal.Header className='bg-grey px-4 pt-4'>
                 <Modal.Title id="contained-modal-title-vcenter">
                     {headerContent}
                 </Modal.Title>
             </Modal.Header>
-            <Modal.Body>
+            <Modal.Body className='px-4'>
                 <pre>
                     {bodyContent}
                 </pre>
             </Modal.Body>
-            <Modal.Footer>
-                <Button variant="primary" onClick={() => { setShowModal(false) }}>
+            <Modal.Footer className='px-4'>
+                <Button variant="dark" onClick={() => { setShowModal(false) }}>
                     Close
                 </Button>
             </Modal.Footer>
