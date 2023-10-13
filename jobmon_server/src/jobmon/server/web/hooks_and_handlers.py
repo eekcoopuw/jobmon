@@ -3,12 +3,10 @@ from typing import Any, cast, Dict, Optional
 
 from elasticapm.contrib.flask import ElasticAPM
 from flask import Flask, jsonify, request
-from MySQLdb import OperationalError
 import structlog
 from werkzeug.exceptions import BadRequest
 
 
-from jobmon.server.web.routes import SessionLocal
 from jobmon.server.web.server_side_exception import InvalidUsage, ServerError
 
 
@@ -76,14 +74,6 @@ def add_hooks_and_handlers(app: Flask, apm: Optional[ElasticAPM] = None) -> Flas
         response.content_type = "application/json"
         response.status_code = error.status_code
         return response
-
-    # error handling
-    @app.errorhandler(OperationalError)
-    def handle_mysql_gone_away(error: OperationalError) -> Any:
-        if "2013, 'Lost connection to MySQL server during query'" in str(error):
-            engine = SessionLocal().get_bind()
-            # A new connection pool is created immediately after the old one has been disposed
-            engine.dispose()
 
     @app.before_request
     def add_requester_context() -> None:
