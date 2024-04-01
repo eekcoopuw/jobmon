@@ -1,4 +1,5 @@
 """Cluster objects define where a user wants their tasks run. e.g. UGE, Azure, Seq."""
+
 from __future__ import annotations
 
 import logging

@@ -1,4 +1,5 @@
 """The workflow run is an instance of a workflow."""
+
 from __future__ import annotations
 
 import getpass

@@ -1,4 +1,5 @@
 """Parse configuration options and set them to be used throughout the Jobmon Architecture."""
+
 import argparse
 import configparser
 import importlib

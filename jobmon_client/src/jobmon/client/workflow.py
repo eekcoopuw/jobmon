@@ -1,4 +1,5 @@
 """The overarching framework to create tasks and dependencies within."""
+
 from __future__ import annotations
 
 import hashlib

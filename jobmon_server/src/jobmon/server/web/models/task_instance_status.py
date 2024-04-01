@@ -1,4 +1,5 @@
 """Task Instance Status Table."""
+
 from sqlalchemy import Column, String
 from sqlalchemy.orm import Session
 

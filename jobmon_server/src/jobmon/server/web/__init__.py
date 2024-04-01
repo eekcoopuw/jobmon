@@ -1,4 +1,5 @@
 """Web API subpackage."""
+
 from sqlalchemy import orm
 
 from jobmon.server.web.log_config import configure_structlog

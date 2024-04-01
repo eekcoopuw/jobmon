@@ -275,9 +275,9 @@ class DistributorService:
                     task_resources_id=task_instance_batch_kwargs["task_resources_id"],
                     requester=self.requester,
                 )
-                self._task_instance_batches[
-                    (array_id, batch_number)
-                ] = task_instance_batch
+                self._task_instance_batches[(array_id, batch_number)] = (
+                    task_instance_batch
+                )
 
             for task_instance_id in task_instance_batch_kwargs["task_instance_ids"]:
                 task_instance = self._task_instances[task_instance_id]

@@ -1,4 +1,5 @@
 """Start up distributing process."""
+
 from typing import Optional
 
 from jobmon.core.cluster import Cluster

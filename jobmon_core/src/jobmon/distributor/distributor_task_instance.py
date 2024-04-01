@@ -1,4 +1,5 @@
 """Task Instance object from the distributor's perspective."""
+
 from __future__ import annotations
 
 import logging

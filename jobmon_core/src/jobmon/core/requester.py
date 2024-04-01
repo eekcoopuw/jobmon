@@ -1,4 +1,5 @@
 """Requester object to make HTTP requests to the Jobmon Flask services."""
+
 from __future__ import annotations
 
 import json

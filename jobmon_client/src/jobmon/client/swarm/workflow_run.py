@@ -1,4 +1,5 @@
 """Workflow Run is a distributor instance of a declared workflow."""
+
 from __future__ import annotations
 
 import ast

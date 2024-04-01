@@ -1,4 +1,5 @@
 """Workflow Database Table."""
+
 from typing import Tuple
 
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, String, Text, VARCHAR

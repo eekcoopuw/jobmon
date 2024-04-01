@@ -1,4 +1,5 @@
 """Add handlers to deal with server-side exceptions and logging."""
+
 from typing import Any, cast, Dict, Optional
 
 from elasticapm.contrib.flask import ElasticAPM
