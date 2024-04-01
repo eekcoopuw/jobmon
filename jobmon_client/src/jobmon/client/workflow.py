@@ -906,3 +906,7 @@ class Workflow(object):
             # Workflow not yet bound so no ID to add to repr
             repr_string += ")"
         return repr_string
+
+    def gui_link(self) -> str:
+        """A string that is likely to be a link to the Jobmon GUI page for this workflow."""
+        return f"https://jobmon-gui.ihme.washington.edu/#/workflow/{self.workflow_id}/"

@@ -682,3 +682,14 @@ def test_currency_limit(client_env, db_engine):
                         WHERE workflow_id={workflow4.workflow_id}"""
         r = session.execute(sql).fetchone()
         assert r[0] == MaxConcurrentlyRunning.MAXCONCURRENTLYRUNNING
+
+def test_gui_link(tool):
+    workflow = tool.create_workflow(name="test_gui_link")
+    workflow.bind()
+    
+    link = workflow.gui_link()
+
+    # Assert some properties that are reasonably likely to be robust
+    # as the function evolves.
+    assert str(workflow.workflow_id) in link
+    assert link.startswith('https://')

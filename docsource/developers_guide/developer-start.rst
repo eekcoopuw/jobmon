@@ -48,7 +48,7 @@ To run linting and type checking, run ``nox -s lint`` and ``nox -s typecheck`` r
 
 The linting check uses flake8 to check that the code conforms to pep8 formatting standards, with exceptions as defined
 in setup.cfg.
-Type checking uses mypy ensures that our code has the correct type hints and usages conforming to
+Type checking uses mypy to ensure that our code has the correct type hints and usages conforming to
 `PEP484 <https://www.python.org/dev/peps/pep-0484/>`_.
 Type hints catch errors earlier and makes the large codebase much easier to read.
 
